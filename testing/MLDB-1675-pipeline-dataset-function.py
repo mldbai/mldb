@@ -18,7 +18,7 @@ class DatasetFunctionTest(MldbUnitTest):
         ds.commit()
         
         ds = mldb.create_dataset({ "id": "dataset2", "type": "sparse.mutable" })
-        ds.record_row("row_a",[["x", "toy story", 0]])
+        ds.record_row("row_a",[["x", "toy story", 0],["y", "123456", 0]])
         ds.record_row("row_b",[["x", "terminator", 0]])
         ds.commit()
 
@@ -38,7 +38,6 @@ class DatasetFunctionTest(MldbUnitTest):
 
         self.assertEqual(res, expected)
 
-    @unittest.expectedFailure #not the expected rowname
     def test_transpose_subselect(self):
 
         res = mldb.put('/v1/functions/bop', {
@@ -48,28 +47,18 @@ class DatasetFunctionTest(MldbUnitTest):
             }
         })
 
-        mldb.log(res)
-
         res = mldb.query("select bop({k : 'x'})")
         mldb.log(res)
 
-        expected = [["_rowName", "bop().result"],["blah","x"]]
+        expected = [["_rowName", "bop({k : 'x'}).result"],["result","x"]]
 
         self.assertEqual(res, expected)
-
-    #joins executors dont support taking columns yet. Is there a way not to keep the whole transposed table in memory?
-    #one way or another we have to do the full join first to find all the rows
-    #then we either keep the rows or get them again
-    #except in the pipeline executor we dont have direct access to row, only iterative
-
-    #in a join dataset, a column belongs to one or the other...
-    #can we take all columns from one dataset, then the other?
-
-    #should we have a transpose-join-executor?
-
-    #if no subselect is inside the transpose, its probably better to use the old pipeline...
-    @unittest.expectedFailure  
+  
     def test_transpose_join(self):
+
+        res = mldb.query("select * from transpose(dataset1 as t1 JOIN dataset2 as t2 on t1.x = t2.x)");
+
+        mldb.log(res)
 
         res = mldb.put('/v1/functions/bop', {
             'type': 'sql.query',
@@ -78,12 +67,38 @@ class DatasetFunctionTest(MldbUnitTest):
             }
         })
 
-        mldb.log(res)
+        res = mldb.put('/v1/functions/bop2', {
+            'type': 'sql.query',
+            'params': {
+                'query': "select * from transpose(dataset1 as t1 JOIN dataset2 as t2 on t1.x = t2.x) offset 2"
+            }
+        })
 
         res = mldb.query("select bop()")
         mldb.log(res)
 
-        expected = [["_rowName", "bop().result"],["blah","x"]]
+        expected = [["_rowName","bop().[a]-[row_a]"],["result","toy story"]]
+
+        res = mldb.query("select bop2()")
+        mldb.log(res)
+
+        expected = [["_rowName","bop2().[a]-[row_a]"], ["result", "123456"]]
+
+        self.assertEqual(res, expected)
+
+    def test_transpose_transpose(self):
+
+        res = mldb.put('/v1/functions/bop', {
+            'type': 'sql.query',
+            'params': {
+                'query': "select * from transpose(transpose(dataset2))"
+            }
+        })
+
+        res = mldb.query("select bop()")
+        mldb.log(res)
+
+        expected = [["_rowName","bop().x"],["result","terminator"]]
 
         self.assertEqual(res, expected)
 

@@ -9,6 +9,7 @@
 
 #include "execution_pipeline.h"
 #include "join_utils.h"
+#include "mldb/jml/utils/compact_vector.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -325,6 +326,8 @@ struct JoinElement: public PipelineElement {
 
     std::shared_ptr<PipelineElement> leftImpl;
     std::shared_ptr<PipelineElement> rightImpl;
+    std::shared_ptr<PipelineElement> leftRaw;
+    std::shared_ptr<PipelineElement> rightRaw;
 
     struct Bound;
 
@@ -361,12 +364,23 @@ struct JoinElement: public PipelineElement {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
                          std::shared_ptr<ElementExecutor> left,
-                         std::shared_ptr<ElementExecutor> right);
+                         std::shared_ptr<ElementExecutor> right,
+                         std::shared_ptr<ElementExecutor> leftRaw,
+                         std::shared_ptr<ElementExecutor> rightRaw);
 
         const Bound * parent;
-        std::shared_ptr<ElementExecutor> root, left, right;
+        std::shared_ptr<ElementExecutor> root, left, right, leftRaw, rightRaw;
         
         std::shared_ptr<PipelineResults> l,r;
+
+        int side;
+
+         typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
+
+        SideRowIndex leftRowIndex;
+        SideRowIndex rightRowIndex;
+
+        bool doneYet/* = false*/;
 
         void takeMoreInput();
             
@@ -386,12 +400,16 @@ struct JoinElement: public PipelineElement {
         Bound(std::shared_ptr<BoundPipelineElement> root,
               std::shared_ptr<BoundPipelineElement> left,
               std::shared_ptr<BoundPipelineElement> right,
+              std::shared_ptr<BoundPipelineElement> leftRaw,
+              std::shared_ptr<BoundPipelineElement> rightRaw,
               AnnotatedJoinCondition condition,
               JoinQualification joinQualification);
 
         std::shared_ptr<BoundPipelineElement> root_;
         std::shared_ptr<BoundPipelineElement> left_;
         std::shared_ptr<BoundPipelineElement> right_;
+        std::shared_ptr<BoundPipelineElement> leftRaw_;
+        std::shared_ptr<BoundPipelineElement> rightRaw_;
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         BoundSqlExpression crossWhere_;
         AnnotatedJoinCondition condition_;
@@ -414,6 +432,7 @@ struct JoinElement: public PipelineElement {
             output context is the same as its input context.
         */
         virtual std::shared_ptr<PipelineExpressionScope> outputScope() const;
+       
     };
 
     std::shared_ptr<BoundPipelineElement>
@@ -846,6 +865,7 @@ struct DatasetFunctionElement : public PipelineElement {
     struct TransposeExecutor: public ElementExecutor {
         TransposeExecutor(std::shared_ptr<ElementExecutor> subpipeline);
         virtual std::shared_ptr<PipelineResults> take();
+        virtual std::shared_ptr<PipelineResults> takeColumn();
         virtual void restart();
 
         std::shared_ptr<ElementExecutor> subpipeline_;

@@ -15,7 +15,6 @@
 #include "table_expression_operations.h"
 #include <algorithm>
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/jml/utils/compact_vector.h"
 
 using namespace std;
 
@@ -954,6 +953,17 @@ JoinElement(std::shared_ptr<PipelineElement> root,
         ->from(right, boundRight, when, selectAll, rightCondition,
                condition.right.orderBy)
         ->select(rightEmbedding);
+
+    //for takeColumn
+    leftRaw= root
+        ->where(constantWhere)
+        ->from(left, boundLeft, when, selectAll, leftCondition,
+               condition.left.orderBy);
+
+    rightRaw = root
+        ->where(constantWhere)
+        ->from(right, boundRight, when, selectAll, rightCondition,
+               condition.right.orderBy);
 }
 
 std::shared_ptr<BoundPipelineElement>
@@ -963,6 +973,8 @@ bind() const
     return std::make_shared<Bound>(root->bind(),
                                    leftImpl->bind(),
                                     rightImpl->bind(),
+                                    leftRaw->bind(),
+                                    rightRaw->bind(),
                                    condition,
                                    joinQualification);
 }
@@ -1109,12 +1121,18 @@ JoinElement::EquiJoinExecutor::
 EquiJoinExecutor(const Bound * parent,
                  std::shared_ptr<ElementExecutor> root,
                  std::shared_ptr<ElementExecutor> left,
-                 std::shared_ptr<ElementExecutor> right)
+                 std::shared_ptr<ElementExecutor> right,
+                 std::shared_ptr<ElementExecutor> leftRaw,
+                 std::shared_ptr<ElementExecutor> rightRaw)
     : parent(parent),
       root(std::move(root)),
       left(std::move(left)),
-      right(std::move(right))
+      right(std::move(right)),
+      leftRaw(std::move(leftRaw)),
+      rightRaw(std::move(rightRaw))
 {
+    side = 0;
+    doneYet = false;
     l = this->left->take();
     r = this->right->take();
     takeMoreInput();
@@ -1342,26 +1360,14 @@ takeColumn()
     //Transpose of joins should be avoided.
     //We need to build the full row list and column index before we can proceed
 
-    typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
-
-    SideRowIndex leftRowIndex;
-    SideRowIndex rightRowIndex;
-
-    int side = 0;
-
-    bool doneYet = false;
-
     if (!doneYet) {
         while (1){
             auto res = take();
             if (!res)
                 break;
 
-            ssize_t columnsOffset = res->values.size() -1;
-            ssize_t rowNameOffset = columnsOffset -1;
+            //TODO: This will not work in so many cases. Use the scope
 
-            Utf8String rowNameUtf8 = res->values.at(rowNameOffset).toUtf8String();
-            RowName rowName = RowName::parse(rowNameUtf8);
 
             Utf8String leftNameUtf8 = "";
             if (!res->values.at(0).empty()) //TODO: Always 0?
@@ -1382,24 +1388,26 @@ takeColumn()
                 rightNameUtf8 = res->values.at(i).toUtf8String();
             RowName rightName = RowName::parse(rightNameUtf8);
 
-            //recordJoinRow(leftName, leftName, rightName, rightName);
+            RowName rowName = RowName::parse("[" + leftNameUtf8 + "]-[" + rightNameUtf8 + "]");
 
             leftRowIndex[leftName].push_back(rowName);
             rightRowIndex[rightName].push_back(rowName);
         }
+
+        doneYet = true;
     }
 
     std::shared_ptr<Datacratic::MLDB::PipelineResults> columnResult;
 
     SideRowIndex* index = &leftRowIndex;
     if (side == 0){
-        columnResult = this->left->takeColumn();
+        columnResult = this->leftRaw->takeColumn();
         if (!columnResult)
            ++side; 
     }
     if (side == 1){
         index = &rightRowIndex;
-        columnResult = this->right->takeColumn();
+        columnResult = this->rightRaw->takeColumn();
         if (!columnResult)
            ++side; 
     }
@@ -1409,16 +1417,8 @@ takeColumn()
 
     //For each row in the return column, filter out those that weren't joined
     ssize_t columnsOffset = columnResult->values.size() -1;
-   // ssize_t rowNameOffset = columnsOffset -1;
-
     const ExpressionValue& rows = columnResult->values[columnsOffset];
-
-    //typedef std::vector<std::tuple<Path, CellValue, Date> > RowValue;
-    //RowValue values;
-    //typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
     StructValue values;
-
-    //Date ts = rows.getEffectiveTimestamp();
 
     auto onRow = [&] (const PathElement & columnName, const ExpressionValue & val) {
         RowHash rowHash = RowName(columnName);
@@ -1426,10 +1426,12 @@ takeColumn()
         // Does this row appear in the output?  If not, nothing to
         // do with it
         auto it = index->find(rowHash);
-        if (it == index->end())
+        if (it == index->end()) {
             return true;
+        }
 
         //copy the value
+        //but we need the actual rowname
         if (it->second.size() == 1) {
             values.emplace_back(it->second[0][0], std::move(val));
         }
@@ -1444,7 +1446,6 @@ takeColumn()
     };
 
     rows.forEachColumn(onRow);
-
     columnResult->values[columnsOffset] = std::move(values);
 
     return columnResult;
@@ -1455,8 +1456,16 @@ JoinElement::EquiJoinExecutor::
 restart()
 {
     //cerr << "**** equijoin restart" << endl;
+    side = 0;
     left->restart();
     right->restart();
+    leftRaw->restart();
+    rightRaw->restart();
+
+    doneYet = false;
+    leftRowIndex.clear();
+    rightRowIndex.clear();
+
     l = left->take();
     r = right->take();
     takeMoreInput();
@@ -1471,11 +1480,15 @@ JoinElement::Bound::
 Bound(std::shared_ptr<BoundPipelineElement> root,
       std::shared_ptr<BoundPipelineElement> left,
       std::shared_ptr<BoundPipelineElement> right,
+      std::shared_ptr<BoundPipelineElement> leftRaw,
+      std::shared_ptr<BoundPipelineElement> rightRaw,
       AnnotatedJoinCondition condition,
       JoinQualification joinQualification)
     : root_(std::move(root)),
       left_(std::move(left)),
       right_(std::move(right)),
+      leftRaw_(std::move(leftRaw)),
+      rightRaw_(std::move(rightRaw)),
       outputScope_(createOutputScope()),
       crossWhere_(condition.crossWhere->bind(*outputScope_)),
       condition_(std::move(condition)),
@@ -1533,7 +1546,9 @@ start(const BoundParameters & getParam) const
             (this,
              root_->start(getParam),
              left_->start(getParam),
-             right_->start(getParam));
+             right_->start(getParam),
+             leftRaw_->start(getParam),
+             rightRaw_->start(getParam));
 
     default:
         throw HttpReturnException(400, "Can't execute that kind of join",
@@ -1649,8 +1664,6 @@ FromElement(std::shared_ptr<PipelineElement> root_,
 
     UnboundEntities unbound = from->getUnbound();
     //cerr << "unbound for from = " << jsonEncode(unbound) << endl;
-
-    cerr << from->getType() << endl;
 
     if (from->getType() == "join") {
         std::shared_ptr<JoinExpression> join
@@ -2555,6 +2568,13 @@ DatasetFunctionElement::TransposeExecutor::
 take()
 {
     return subpipeline_->takeColumn();
+}
+
+std::shared_ptr<PipelineResults> 
+DatasetFunctionElement::TransposeExecutor::
+takeColumn()
+{
+    return subpipeline_->take();
 }
 
 void
