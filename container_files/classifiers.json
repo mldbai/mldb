@@ -211,7 +211,7 @@
 
         "type": "naive_bayes",
         "feature_prop": "1",
-        'verbosity': 3
+        "verbosity": 3
     }
 }
 
