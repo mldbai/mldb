@@ -44,5 +44,18 @@ class SignFunctionTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT sign(NULL)")
         self.assertEqual(res[1][1], None)
 
+    def test_keep_date(self):
+        ds = mldb.create_dataset({
+            'id' : 'keep_date',
+            'type' : 'sparse.mutable'
+        })
+        ds.record_row('row1', [['colA', 12, 5]])
+        ds.commit()
+        res = mldb.get('/v1/query', q="SELECT sign(colA) AS a FROM keep_date")
+        self.assertFullResultEquals(res.json(), [{
+            'rowName' : 'row1',
+            'columns' : [['a', 1, "1970-01-01T00:00:05Z"]]
+        }])
+
 if __name__ == '__main__':
     mldb.run_tests()
