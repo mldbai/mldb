@@ -1473,13 +1473,15 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         }
 
         // 'LIKE' expression
-        if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
-            expect_whitespace(context);
+        if (currentPrecedence > 5) {
+            if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
+                expect_whitespace(context);
 
-            auto rhs = SqlExpression::parse(context, 10, allowUtf8);
+                auto rhs = SqlExpression::parse(context, 5, allowUtf8);
 
-            lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
-            lhs->surface = ML::trim(token.captured());
+                lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
+                lhs->surface = ML::trim(token.captured());
+            }
         }
 
         // Now look for an operator
@@ -1487,12 +1489,12 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         for (const Operator & op: operators) {
             if (op.unary)
                 continue;
-            if (op.precedence > currentPrecedence) {
+            if (op.precedence >= currentPrecedence) {
                 /* Will need to be bound outside our expression, since the precence is wrong. */
                 break;
             }
             if (matchOperator(context, op.token)) {
-                auto rhs = parse(context, op.precedence - 1, allowUtf8);
+                auto rhs = parse(context, op.precedence, allowUtf8);
                 lhs = op.handler(lhs, rhs, op.token);
                 lhs->surface = ML::trim(token.captured());
                 found = true;

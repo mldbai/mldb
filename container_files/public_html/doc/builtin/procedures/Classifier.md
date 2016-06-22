@@ -331,7 +331,7 @@ The default, overrideable `configurationFile` contains the following predefined 
 
         "type": "naive_bayes",
         "feature_prop": "1",
-        "verbosit"': 3
+        "verbosity": 3
     }
 }
 ```
