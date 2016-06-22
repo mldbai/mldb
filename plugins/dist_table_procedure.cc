@@ -1,10 +1,13 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-/** stats_table_procedure.cc
-    Francois Maillet, 2 septembre 2015
+/** dist_table_procedure.cc                                        -*- C++ -*-
+    Simon Lemieux, June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
-    Stats table procedure
+    distTable procedure
+
+    Note that this was mainly copied from stats_table_procedure.cc in a hurry.
+    This will probably be revisited.
 */
 
 #include "stats_table_procedure.h"
@@ -70,16 +73,16 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 /* STATS TABLE                                                               */
 /*****************************************************************************/
 
-StatsTable::
-StatsTable(const std::string & filename)
+DistTable::
+DistTable(const std::string & filename)
 {
     filter_istream stream(filename);
     ML::DB::Store_Reader store(stream);
     reconstitute(store);
 }
 
-const StatsTable::BucketCounts &
-StatsTable::
+const DistTable::BucketCounts &
+DistTable::
 increment(const CellValue & val, const vector<uint> & outcomes) {
     Utf8String key = val.toUtf8String();
     auto it = counts.find(key);
@@ -98,8 +101,8 @@ increment(const CellValue & val, const vector<uint> & outcomes) {
     return it->second;
 }
 
-const StatsTable::BucketCounts &
-StatsTable::
+const DistTable::BucketCounts &
+DistTable::
 getCounts(const CellValue & val) const
 {
     Utf8String key = val.toUtf8String();
@@ -111,7 +114,7 @@ getCounts(const CellValue & val) const
     return it->second;
 }
 
-void StatsTable::
+void DistTable::
 save(const std::string & filename) const
 {
     filter_ostream stream(filename);
@@ -119,7 +122,7 @@ save(const std::string & filename) const
     serialize(store);
 }
 
-void StatsTable::
+void DistTable::
 serialize(ML::DB::Store_Writer & store) const
 {
     int version = 2;
@@ -127,7 +130,7 @@ serialize(ML::DB::Store_Writer & store) const
           << version << colName << outcome_names << counts << zeroCounts;
 }
 
-void StatsTable::
+void DistTable::
 reconstitute(ML::DB::Store_Reader & store)
 {
     int version;
@@ -140,7 +143,7 @@ reconstitute(ML::DB::Store_Reader & store)
     }
     if(version!=REQUIRED_V) {
         throw HttpReturnException(400, ML::format(
-                    "invalid StatsTable version! exptected %d, got %d",
+                    "invalid DistTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
 
@@ -152,34 +155,34 @@ reconstitute(ML::DB::Store_Reader & store)
 /* STATS TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
+DEFINE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
 
-StatsTableProcedureConfigDescription::
-StatsTableProcedureConfigDescription()
+DistTableProcedureConfigDescription::
+DistTableProcedureConfigDescription()
 {
-    addField("trainingData", &StatsTableProcedureConfig::trainingData,
+    addField("trainingData", &DistTableProcedureConfig::trainingData,
              "SQL query to select the data on which the rolling operations will "
              "be performed.");
-    addField("outputDataset", &StatsTableProcedureConfig::output,
+    addField("outputDataset", &DistTableProcedureConfig::output,
              "Output dataset",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("outcomes", &StatsTableProcedureConfig::outcomes,
+    addField("outcomes", &DistTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be a boolean (0 or 1)");
-    addField("statsTableFileUrl", &StatsTableProcedureConfig::modelFileUrl,
+    addField("distTableFileUrl", &DistTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.st') should be saved. "
-             "This file can be loaded by the ![](%%doclink statsTable.getCounts function). "
+             "This file can be loaded by the ![](%%doclink distTable.getCounts function). "
              "This parameter is optional unless the `functionName` parameter is used.");
-    addField("functionName", &StatsTableProcedureConfig::functionName,
-             "If specified, an instance of the ![](%%doclink statsTable.getCounts function) "
+    addField("functionName", &DistTableProcedureConfig::functionName,
+             "If specified, an instance of the ![](%%doclink distTable.getCounts function) "
              "of this name will be created using the trained stats tables. Note that to use "
-             "this parameter, the `statsTableFileUrl` must also be provided.");
+             "this parameter, the `distTableFileUrl` must also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = chain(validateQuery(&StatsTableProcedureConfig::trainingData,
+    onPostValidate = chain(validateQuery(&DistTableProcedureConfig::trainingData,
                                          MustContainFrom()),
-                           validateFunction<StatsTableProcedureConfig>());
+                           validateFunction<DistTableProcedureConfig>());
 }
 
 
@@ -188,29 +191,29 @@ StatsTableProcedureConfigDescription()
 /* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
-StatsTableProcedure::
-StatsTableProcedure(MldbServer * owner,
+DistTableProcedure::
+DistTableProcedure(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    procConfig = config.params.convert<StatsTableProcedureConfig>();
+    procConfig = config.params.convert<DistTableProcedureConfig>();
 }
 
 Any
-StatsTableProcedure::
+DistTableProcedure::
 getStatus() const
 {
     return Any();
 }
 
 RunOutput
-StatsTableProcedure::
+DistTableProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
 
-    StatsTableProcedureConfig runProcConf =
+    DistTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
     SqlExpressionMldbScope context(server);
@@ -220,7 +223,7 @@ run(const ProcedureRunConfig & run,
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         outcome_names.push_back(lbl.first);
 
-    StatsTablesMap statsTables;
+    DistTablesMap distTables;
 
     {
         // Find only those variables used
@@ -229,7 +232,7 @@ run(const ProcedureRunConfig & run,
         auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
         for (auto & c: selectBound.info->getKnownColumns()) {
-            statsTables.insert(make_pair(c.columnName, StatsTable(c.columnName, outcome_names)));
+            distTables.insert(make_pair(c.columnName, DistTable(c.columnName, outcome_names)));
             cout << c.columnName << endl;
         }
     }
@@ -272,7 +275,7 @@ run(const ProcedureRunConfig & run,
             }
 
             std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
-            for(auto it = statsTables.begin(); it != statsTables.end(); it++) {
+            for(auto it = distTables.begin(); it != distTables.end(); it++) {
                 // is this col present for row?
                 auto col_ptr = column_idx.find(it->first);
                 if(col_ptr == column_idx.end()) {
@@ -281,7 +284,7 @@ run(const ProcedureRunConfig & run,
                 }
                 else {
                     const tuple<ColumnName, CellValue, Date> & col = row.columns[col_ptr->second];
-                    const StatsTable::BucketCounts & counts = it->second.increment(get<1>(col), encodedLabels);
+                    const DistTable::BucketCounts & counts = it->second.increment(get<1>(col), encodedLabels);
 
                     // *******
                     // column name caching
@@ -346,15 +349,15 @@ run(const ProcedureRunConfig & run,
     if(!runProcConf.modelFileUrl.empty()) {
         filter_ostream stream(runProcConf.modelFileUrl.toString());
         ML::DB::Store_Writer store(stream);
-        store << statsTables;
+        store << distTables;
     }
 
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
         cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
-        clsFuncPC.type = "statsTable.getCounts";
+        clsFuncPC.type = "distTable.getCounts";
         clsFuncPC.id = runProcConf.functionName;
-        clsFuncPC.params = StatsTableFunctionConfig(runProcConf.modelFileUrl);
+        clsFuncPC.params = DistTableFunctionConfig(runProcConf.modelFileUrl);
 
         createFunction(server, clsFuncPC, onProgress, true);
     }
@@ -370,37 +373,37 @@ run(const ProcedureRunConfig & run,
 /* STATS TABLE FUNCTION                                                      */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(StatsTableFunctionConfig);
+DEFINE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
-StatsTableFunctionConfigDescription::
-StatsTableFunctionConfigDescription()
+DistTableFunctionConfigDescription::
+DistTableFunctionConfigDescription()
 {
-    addField("statsTableFileUrl", &StatsTableFunctionConfig::modelFileUrl,
+    addField("distTableFileUrl", &DistTableFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
-             "This file is created by the ![](%%doclink statsTable.train procedure).");
+             "This file is created by the ![](%%doclink distTable.train procedure).");
 }
 
-StatsTableFunction::
-StatsTableFunction(MldbServer * owner,
+DistTableFunction::
+DistTableFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
 {
-    functionConfig = config.params.convert<StatsTableFunctionConfig>();
+    functionConfig = config.params.convert<DistTableFunctionConfig>();
 
     // Load saved stats tables
     filter_istream stream(functionConfig.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
-    store >> statsTables;
+    store >> distTables;
 }
 
-StatsTableFunction::
-~StatsTableFunction()
+DistTableFunction::
+~DistTableFunction()
 {
 }
 
 Any
-StatsTableFunction::
+DistTableFunction::
 getStatus() const
 {
     Json::Value result;
@@ -408,14 +411,14 @@ getStatus() const
 }
 
 Any
-StatsTableFunction::
+DistTableFunction::
 getDetails() const
 {
     return Any();
 }
 
 ExpressionValue
-StatsTableFunction::
+DistTableFunction::
 apply(const FunctionApplier & applier,
       const ExpressionValue & context) const
 {
@@ -432,8 +435,8 @@ apply(const FunctionApplier & applier,
                            const CellValue & val,
                            Date ts)
             {
-                auto st = statsTables.find(columnName);
-                if(st == statsTables.end())
+                auto st = distTables.find(columnName);
+                if(st == distTables.end())
                     return true;
 
                 auto counts = st->second.getCounts(val);
@@ -462,7 +465,7 @@ apply(const FunctionApplier & applier,
 }
 
 FunctionInfo
-StatsTableFunction::
+DistTableFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
@@ -484,52 +487,52 @@ getFunctionInfo() const
 /* STATS TABLE FUNCTION                                                      */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(StatsTableDerivedColumnsGeneratorProcedureConfig);
+DEFINE_STRUCTURE_DESCRIPTION(DistTableDerivedColumnsGeneratorProcedureConfig);
 
-StatsTableDerivedColumnsGeneratorProcedureConfigDescription::
-StatsTableDerivedColumnsGeneratorProcedureConfigDescription()
+DistTableDerivedColumnsGeneratorProcedureConfigDescription::
+DistTableDerivedColumnsGeneratorProcedureConfigDescription()
 {
     addParent<ProcedureConfig>();
-    addField("functionId", &StatsTableDerivedColumnsGeneratorProcedureConfig::functionId,
+    addField("functionId", &DistTableDerivedColumnsGeneratorProcedureConfig::functionId,
             "ID to use for the instance of the ![](%%doclink sql.expression function) that will be created");
-    addField("statsTableFileUrl", &StatsTableDerivedColumnsGeneratorProcedureConfig::modelFileUrl,
+    addField("distTableFileUrl", &DistTableDerivedColumnsGeneratorProcedureConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
-             "This file is created by the ![](%%doclink statsTable.train procedure).");
-    addField("expression", &StatsTableDerivedColumnsGeneratorProcedureConfig::expression,
+             "This file is created by the ![](%%doclink distTable.train procedure).");
+    addField("expression", &DistTableDerivedColumnsGeneratorProcedureConfig::expression,
              "Expression to be expanded");
 }
 
 
-StatsTableDerivedColumnsGeneratorProcedure::
-StatsTableDerivedColumnsGeneratorProcedure(MldbServer * owner,
+DistTableDerivedColumnsGeneratorProcedure::
+DistTableDerivedColumnsGeneratorProcedure(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    this->procConfig = config.params.convert<StatsTableDerivedColumnsGeneratorProcedureConfig>();
+    this->procConfig = config.params.convert<DistTableDerivedColumnsGeneratorProcedureConfig>();
 }
 
 Any
-StatsTableDerivedColumnsGeneratorProcedure::
+DistTableDerivedColumnsGeneratorProcedure::
 getStatus() const
 {
     return Any();
 }
 
 RunOutput
-StatsTableDerivedColumnsGeneratorProcedure::
+DistTableDerivedColumnsGeneratorProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-    StatsTableDerivedColumnsGeneratorProcedureConfig runProcConf =
+    DistTableDerivedColumnsGeneratorProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
     // Load saved stats tables
     filter_istream stream(runProcConf.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
 
-    StatsTablesMap statsTables;
-    store >> statsTables;
+    DistTablesMap distTables;
+    store >> distTables;
 
     /*******/
     // Expand the expression. this is painfully naive and slow for now
@@ -538,7 +541,7 @@ run(const ProcedureRunConfig & run,
 
 
     // mettre toutes les expression dans une liste
-    for(auto it=statsTables.begin(); it != statsTables.end(); it++) {
+    for(auto it=distTables.begin(); it != distTables.end(); it++) {
         stNames.emplace_back(it->first.toUtf8String().rawString());
         tempExpressions.emplace_back(runProcConf.expression);
     }
@@ -554,7 +557,7 @@ run(const ProcedureRunConfig & run,
         };
 
     do_replace("trial");
-    for(const string & outcomeName: statsTables.begin()->second.outcome_names) {
+    for(const string & outcomeName: distTables.begin()->second.outcome_names) {
         do_replace(outcomeName);
     }
 
@@ -594,40 +597,40 @@ run(const ProcedureRunConfig & run,
 /* BAG OF WORDS STATS TABLE PROCEDURE CONFIG                                 */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
+DEFINE_STRUCTURE_DESCRIPTION(BagOfWordsDistTableProcedureConfig);
 
-BagOfWordsStatsTableProcedureConfigDescription::
-BagOfWordsStatsTableProcedureConfigDescription()
+BagOfWordsDistTableProcedureConfigDescription::
+BagOfWordsDistTableProcedureConfigDescription()
 {
     Optional<PolyConfigT<Dataset> > optionalOutputDataset;
     optionalOutputDataset.emplace(PolyConfigT<Dataset>().
-                                  withType(BagOfWordsStatsTableProcedureConfig::defaultOutputDatasetType));
+                                  withType(BagOfWordsDistTableProcedureConfig::defaultOutputDatasetType));
 
-    addField("trainingData", &BagOfWordsStatsTableProcedureConfig::trainingData,
+    addField("trainingData", &BagOfWordsDistTableProcedureConfig::trainingData,
              "SQL query to select the data on which the rolling operations will be performed.");
-    addField("outcomes", &BagOfWordsStatsTableProcedureConfig::outcomes,
+    addField("outcomes", &BagOfWordsDistTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be a boolean (0 or 1)");
-    addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::modelFileUrl,
+    addField("distTableFileUrl", &BagOfWordsDistTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.st') should be saved. "
-             "This file can be loaded by the ![](%%doclink statsTable.bagOfWords.posneg function). "
+             "This file can be loaded by the ![](%%doclink distTable.bagOfWords.posneg function). "
              "This parameter is optional unless the `functionName` parameter is used.");
-    addField("outputDataset", &BagOfWordsStatsTableProcedureConfig::outputDataset,
+    addField("outputDataset", &BagOfWordsDistTableProcedureConfig::outputDataset,
              "Output dataset with the total counts for each word along with"
              " the cooccurrence count with each outcome.", optionalOutputDataset);
-    addField("functionName", &BagOfWordsStatsTableProcedureConfig::functionName,
-             "If specified, an instance of the ![](%%doclink statsTable.bagOfWords.posneg function) "
+    addField("functionName", &BagOfWordsDistTableProcedureConfig::functionName,
+             "If specified, an instance of the ![](%%doclink distTable.bagOfWords.posneg function) "
              "of this name will be created using the trained stats tables and that function type's "
-             "default parameters. Note that to use this parameter, the `statsTableFileUrl` must also "
+             "default parameters. Note that to use this parameter, the `distTableFileUrl` must also "
              "be provided.");
-    addField("functionOutcomeToUse", &BagOfWordsStatsTableProcedureConfig::functionOutcomeToUse,
+    addField("functionOutcomeToUse", &BagOfWordsDistTableProcedureConfig::functionOutcomeToUse,
             "When `functionName` is provided, an instance of the "
-            "![](%%doclink statsTable.bagOfWords.posneg function) with the outcome of this name will "
-            "be created. This parameter represents the `outcomeToUse` field of the ![](%%doclink statsTable.bagOfWords.posneg function).");
+            "![](%%doclink distTable.bagOfWords.posneg function) with the outcome of this name will "
+            "be created. This parameter represents the `outcomeToUse` field of the ![](%%doclink distTable.bagOfWords.posneg function).");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validateQuery(&BagOfWordsStatsTableProcedureConfig::trainingData,
+    onPostValidate = validateQuery(&BagOfWordsDistTableProcedureConfig::trainingData,
                                    MustContainFrom());
 }
 
@@ -635,29 +638,29 @@ BagOfWordsStatsTableProcedureConfigDescription()
 /* BOW STATS TABLE PROCEDURE                                                 */
 /*****************************************************************************/
 
-BagOfWordsStatsTableProcedure::
-BagOfWordsStatsTableProcedure(MldbServer * owner,
+BagOfWordsDistTableProcedure::
+BagOfWordsDistTableProcedure(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    procConfig = config.params.convert<BagOfWordsStatsTableProcedureConfig>();
+    procConfig = config.params.convert<BagOfWordsDistTableProcedureConfig>();
 }
 
 Any
-BagOfWordsStatsTableProcedure::
+BagOfWordsDistTableProcedure::
 getStatus() const
 {
     return Any();
 }
 
 RunOutput
-BagOfWordsStatsTableProcedure::
+BagOfWordsDistTableProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
 
-    BagOfWordsStatsTableProcedureConfig runProcConf =
+    BagOfWordsDistTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
     
     if(!runProcConf.functionName.empty() && runProcConf.functionOutcomeToUse.empty()) {
@@ -672,7 +675,7 @@ run(const ProcedureRunConfig & run,
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         outcome_names.push_back(lbl.first);
 
-    StatsTable statsTable(ColumnName("words"), outcome_names);
+    DistTable distTable(ColumnName("words"), outcome_names);
 
     auto onProgress2 = [&] (const Json::Value & progress)
         {
@@ -702,7 +705,7 @@ run(const ProcedureRunConfig & run,
             }
 
             for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
-                statsTable.increment(CellValue(get<0>(col).toUtf8String()), encodedLabels);
+                distTable.increment(CellValue(get<0>(col).toUtf8String()), encodedLabels);
             }
 
             return true;
@@ -729,18 +732,18 @@ run(const ProcedureRunConfig & run,
         Date date0;
         PolyConfigT<Dataset> outputDatasetConf = *runProcConf.outputDataset;
         if (outputDatasetConf.type.empty())
-            outputDatasetConf.type = BagOfWordsStatsTableProcedureConfig
+            outputDatasetConf.type = BagOfWordsDistTableProcedureConfig
                                      ::defaultOutputDatasetType;
         auto output = createDataset(server, outputDatasetConf, onProgress2,
                                     true /*overwrite*/);
 
-        uint64_t load_factor = std::ceil(statsTable.counts.load_factor());
+        uint64_t load_factor = std::ceil(distTable.counts.load_factor());
 
         vector<ColumnName> outcome_col_names;
-        outcome_col_names.reserve(statsTable.outcome_names.size());
-        for (int i=0; i < statsTable.outcome_names.size(); ++i)
+        outcome_col_names.reserve(distTable.outcome_names.size());
+        for (int i=0; i < distTable.outcome_names.size(); ++i)
             outcome_col_names
-                .emplace_back(PathElement("outcome") + statsTable.outcome_names[i]);
+                .emplace_back(PathElement("outcome") + distTable.outcome_names[i]);
 
         typedef std::vector<std::tuple<ColumnName, CellValue, Date>> Columns;
 
@@ -751,13 +754,13 @@ run(const ProcedureRunConfig & run,
             // for each bucket of the unordered_map in our chunk
             for (size_t i = i0; i < i1; ++i) {
                 // for each item in the bucket
-                for (auto it = statsTable.counts.begin(i);
-                        it != statsTable.counts.end(i); ++it) {
+                for (auto it = distTable.counts.begin(i);
+                        it != distTable.counts.end(i); ++it) {
                     Columns columns;
                     // number of trials
                     columns.emplace_back(PathElement("trials"), it->second.first, date0);
                     // coocurence with outcome for each outcome
-                    for (int i=0; i < statsTable.outcome_names.size(); ++i) {
+                    for (int i=0; i < distTable.outcome_names.size(); ++i) {
                         columns.emplace_back(
                             outcome_col_names[i],
                             it->second.second[i],
@@ -770,7 +773,7 @@ run(const ProcedureRunConfig & run,
             return true;
         };
 
-        parallelMapChunked(0, statsTable.counts.bucket_count(),
+        parallelMapChunked(0, distTable.counts.bucket_count(),
                            256 /* chunksize */, onBucketChunk);
         output->commit();
     }
@@ -780,16 +783,16 @@ run(const ProcedureRunConfig & run,
     if(!runProcConf.modelFileUrl.empty()) {
         filter_ostream stream(runProcConf.modelFileUrl.toString());
         ML::DB::Store_Writer store(stream);
-        store << statsTable;
+        store << distTable;
     }
     
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty() &&
             !runProcConf.functionOutcomeToUse.empty()) {
         cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
-        clsFuncPC.type = "statsTable.bagOfWords.posneg";
+        clsFuncPC.type = "distTable.bagOfWords.posneg";
         clsFuncPC.id = runProcConf.functionName;
-        clsFuncPC.params = StatsTablePosNegFunctionConfig(runProcConf.modelFileUrl,
+        clsFuncPC.params = DistTablePosNegFunctionConfig(runProcConf.modelFileUrl,
                                                           runProcConf.functionOutcomeToUse);
 
         createFunction(server, clsFuncPC, onProgress, true);
@@ -803,45 +806,45 @@ run(const ProcedureRunConfig & run,
 /* STATS TABLE POS NEG FUNCTION                                              */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);
+DEFINE_STRUCTURE_DESCRIPTION(DistTablePosNegFunctionConfig);
 
-StatsTablePosNegFunctionConfigDescription::
-StatsTablePosNegFunctionConfigDescription()
+DistTablePosNegFunctionConfigDescription::
+DistTablePosNegFunctionConfigDescription()
 {
-    addField("numPos", &StatsTablePosNegFunctionConfig::numPos,
+    addField("numPos", &DistTablePosNegFunctionConfig::numPos,
             "Number of top positive words to use", ssize_t(50));
-    addField("numNeg", &StatsTablePosNegFunctionConfig::numNeg,
+    addField("numNeg", &DistTablePosNegFunctionConfig::numNeg,
             "Number of top negative words to use", ssize_t(50));
-    addField("minTrials", &StatsTablePosNegFunctionConfig::minTrials,
+    addField("minTrials", &DistTablePosNegFunctionConfig::minTrials,
             "Minimum number of trials a word needs to have in order "
             "to be considered", ssize_t(50));
-    addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
+    addField("outcomeToUse", &DistTablePosNegFunctionConfig::outcomeToUse,
             "This must be one of the outcomes the stats "
             "table was trained with.");
-    addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::modelFileUrl,
+    addField("distTableFileUrl", &DistTablePosNegFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
-             "This file is created by the ![](%%doclink statsTable.bagOfWords.train procedure).");
+             "This file is created by the ![](%%doclink distTable.bagOfWords.train procedure).");
 }
 
-StatsTablePosNegFunction::
-StatsTablePosNegFunction(MldbServer * owner,
+DistTablePosNegFunction::
+DistTablePosNegFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
 {
-    functionConfig = config.params.convert<StatsTablePosNegFunctionConfig>();
+    functionConfig = config.params.convert<DistTablePosNegFunctionConfig>();
 
-    StatsTable statsTable;
+    DistTable distTable;
 
     // Load saved stats tables
     filter_istream stream(functionConfig.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
-    store >> statsTable;
+    store >> distTable;
 
     // find the index of the outcome we're requesting in the config
     int outcomeToUseIdx = -1;
-    for(int i=0; i<statsTable.outcome_names.size(); i++) {
-        if(statsTable.outcome_names[i] == functionConfig.outcomeToUse) {
+    for(int i=0; i<distTable.outcome_names.size(); i++) {
+        if(distTable.outcome_names[i] == functionConfig.outcomeToUse) {
             outcomeToUseIdx = i;
         }
     }
@@ -852,7 +855,7 @@ StatsTablePosNegFunction(MldbServer * owner,
 
     // sort all the keys by their p(outcome)
     vector<pair<Utf8String, float>> accum;
-    for(auto it = statsTable.counts.begin(); it!=statsTable.counts.end(); it++) {
+    for(auto it = distTable.counts.begin(); it!=distTable.counts.end(); it++) {
         const pair<int64_t, std::vector<int64_t>> & counts = it->second;
 
         if(counts.first < functionConfig.minTrials)
@@ -886,27 +889,27 @@ StatsTablePosNegFunction(MldbServer * owner,
     }
 }
 
-StatsTablePosNegFunction::
-~StatsTablePosNegFunction()
+DistTablePosNegFunction::
+~DistTablePosNegFunction()
 {
 }
 
 Any
-StatsTablePosNegFunction::
+DistTablePosNegFunction::
 getStatus() const
 {
     return Any();
 }
 
 Any
-StatsTablePosNegFunction::
+DistTablePosNegFunction::
 getDetails() const
 {
     return Any();
 }
 
 ExpressionValue
-StatsTablePosNegFunction::
+DistTablePosNegFunction::
 apply(const FunctionApplier & applier,
       const ExpressionValue & context) const
 {
@@ -942,14 +945,14 @@ apply(const FunctionApplier & applier,
     }
     else {
         cerr << jsonEncode(arg) << endl;
-        throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
+        throw HttpReturnException(400, "distTable.bagOfWords.posneg : expect 'keys' as a row");
     }
     
     return std::move(result);
 }
 
 FunctionInfo
-StatsTablePosNegFunction::
+DistTablePosNegFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
@@ -974,38 +977,38 @@ getFunctionInfo() const
 
 namespace {
 
-RegisterFunctionType<StatsTableFunction, StatsTableFunctionConfig>
+RegisterFunctionType<DistTableFunction, DistTableFunctionConfig>
 regClassifyFunction(builtinPackage(),
-                    "statsTable.getCounts",
+                    "distTable.getCounts",
                     "Get stats table counts for a row of keys",
-                    "functions/StatsTableGetCounts.md.html");
+                    "functions/DistTableGetCounts.md.html");
 
-RegisterProcedureType<StatsTableDerivedColumnsGeneratorProcedure,
-                      StatsTableDerivedColumnsGeneratorProcedureConfig>
+RegisterProcedureType<DistTableDerivedColumnsGeneratorProcedure,
+                      DistTableDerivedColumnsGeneratorProcedureConfig>
 regSTDerColGenProc(builtinPackage(),
                    "Generate an sql.expression function to be used to compute "
                    "derived statistics from a stats table",
-                   "procedures/StatsTableDerivedColumnsGeneratorProcedure.md.html",
+                   "procedures/DistTableDerivedColumnsGeneratorProcedure.md.html",
                    nullptr,
                    { MldbEntity::INTERNAL_ENTITY });
 
-RegisterProcedureType<StatsTableProcedure, StatsTableProcedureConfig>
+RegisterProcedureType<DistTableProcedure, DistTableProcedureConfig>
 regSTTrain(builtinPackage(),
            "Create statistical tables of trials against outcomes",
-           "procedures/StatsTableProcedure.md.html");
+           "procedures/DistTableProcedure.md.html");
 
 
-RegisterProcedureType<BagOfWordsStatsTableProcedure,
-                      BagOfWordsStatsTableProcedureConfig>
+RegisterProcedureType<BagOfWordsDistTableProcedure,
+                      BagOfWordsDistTableProcedureConfig>
 regPosNegTrain(builtinPackage(),
            "Create statistical tables of trials against outcomes for bag of words",
-           "procedures/BagOfWordsStatsTableProcedure.md.html");
+           "procedures/BagOfWordsDistTableProcedure.md.html");
 
-RegisterFunctionType<StatsTablePosNegFunction, StatsTablePosNegFunctionConfig>
+RegisterFunctionType<DistTablePosNegFunction, DistTablePosNegFunctionConfig>
 regPosNegFunction(builtinPackage(),
-                    "statsTable.bagOfWords.posneg",
+                    "distTable.bagOfWords.posneg",
                     "Get the pos/neg p(outcome)",
-                    "functions/BagOfWordsStatsTablePosNeg.md.html");
+                    "functions/BagOfWordsDistTablePosNeg.md.html");
 
 } // file scope
 

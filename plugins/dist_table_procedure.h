@@ -1,10 +1,13 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-/** stats_table_procedure.h                                                   -*- C++ -*-
-    Francois Maillet, 2 septembre 2015
+/** dist_table_procedure.h                                         -*- C++ -*-
+    Simon Lemieux, June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
-    StatsTable procedure
+    distTable procedure
+
+    Note that this was mainly copied from stats_table_procedure.h in a hurry.
+    This will probably be revisited.
 */
 
 #pragma once
@@ -28,16 +31,16 @@ namespace MLDB {
 /* STATS TABLE                                                               */
 /*****************************************************************************/
 
-struct StatsTable {
+struct DistTable {
 
-    StatsTable(const ColumnName & colName=ColumnName("ND"),
+    DistTable(const ColumnName & colName=ColumnName("ND"),
             const std::vector<std::string> & outcome_names = {})
         : colName(colName), outcome_names(outcome_names),
           zeroCounts(std::make_pair(0, std::vector<int64_t>(outcome_names.size())))
     {
     }
 
-    StatsTable(const std::string & filename);
+    DistTable(const std::string & filename);
 
     // .first : nb trial
     // .second : nb of occurence of each outcome
@@ -65,10 +68,10 @@ struct StatsTable {
 /* STATS TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
-struct StatsTableProcedureConfig : public ProcedureConfig {
-    static constexpr const char * name = "statsTable.train";
+struct DistTableProcedureConfig : public ProcedureConfig {
+    static constexpr const char * name = "distTable.train";
 
-    StatsTableProcedureConfig()
+    DistTableProcedureConfig()
     {
         output.withType("sparse.mutable");
     }
@@ -84,18 +87,18 @@ struct StatsTableProcedureConfig : public ProcedureConfig {
     Utf8String functionName;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
+DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
 
 
 /*****************************************************************************/
 /* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
-typedef std::map<ColumnName, StatsTable> StatsTablesMap;
+typedef std::map<ColumnName, DistTable> DistTablesMap;
 
-struct StatsTableProcedure: public Procedure {
+struct DistTableProcedure: public Procedure {
 
-    StatsTableProcedure(MldbServer * owner,
+    DistTableProcedure(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -104,7 +107,7 @@ struct StatsTableProcedure: public Procedure {
 
     virtual Any getStatus() const;
 
-    StatsTableProcedureConfig procConfig;
+    DistTableProcedureConfig procConfig;
 };
 
 
@@ -112,8 +115,8 @@ struct StatsTableProcedure: public Procedure {
 /* STATS TABLE FUNCTION                                                      */
 /*****************************************************************************/
 
-struct StatsTableFunctionConfig {
-    StatsTableFunctionConfig(const Url & modelFileUrl = Url())
+struct DistTableFunctionConfig {
+    DistTableFunctionConfig(const Url & modelFileUrl = Url())
         : modelFileUrl(modelFileUrl)
     {
     }
@@ -121,14 +124,14 @@ struct StatsTableFunctionConfig {
     Url modelFileUrl;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(StatsTableFunctionConfig);
+DECLARE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
-struct StatsTableFunction: public Function {
-    StatsTableFunction(MldbServer * owner,
+struct DistTableFunction: public Function {
+    DistTableFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
-    ~StatsTableFunction();
+    ~DistTableFunction();
 
     virtual Any getStatus() const;
 
@@ -140,9 +143,9 @@ struct StatsTableFunction: public Function {
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
 
-    StatsTableFunctionConfig functionConfig;
+    DistTableFunctionConfig functionConfig;
 
-    StatsTablesMap statsTables;
+    DistTablesMap distTables;
 };
 
 
@@ -150,10 +153,10 @@ struct StatsTableFunction: public Function {
 /* STATS TABLE DERIVED COLS FUNCTION                                         */
 /*****************************************************************************/
 
-struct StatsTableDerivedColumnsGeneratorProcedureConfig: public ProcedureConfig {
-    static constexpr const char * name = "experimental.statsTable.derivedColumnsGenerator";
+struct DistTableDerivedColumnsGeneratorProcedureConfig: public ProcedureConfig {
+    static constexpr const char * name = "experimental.distTable.derivedColumnsGenerator";
 
-    StatsTableDerivedColumnsGeneratorProcedureConfig(
+    DistTableDerivedColumnsGeneratorProcedureConfig(
             const Url & modelFileUrl = Url())
         : modelFileUrl(modelFileUrl)
     {
@@ -164,12 +167,12 @@ struct StatsTableDerivedColumnsGeneratorProcedureConfig: public ProcedureConfig 
     Url modelFileUrl;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(StatsTableDerivedColumnsGeneratorProcedureConfig);
+DECLARE_STRUCTURE_DESCRIPTION(DistTableDerivedColumnsGeneratorProcedureConfig);
 
 
-struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
+struct DistTableDerivedColumnsGeneratorProcedure: public Procedure {
 
-    StatsTableDerivedColumnsGeneratorProcedure(MldbServer * owner,
+    DistTableDerivedColumnsGeneratorProcedure(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -178,7 +181,7 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 
     virtual Any getStatus() const;
 
-    StatsTableDerivedColumnsGeneratorProcedureConfig procConfig;
+    DistTableDerivedColumnsGeneratorProcedureConfig procConfig;
 };
 
 
@@ -186,9 +189,9 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 /* BOW STATS TABLE PROCEDURE CONFIG                                          */
 /*****************************************************************************/
 
-struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
+struct BagOfWordsDistTableProcedureConfig : ProcedureConfig {
 
-    static constexpr const char * name = "statsTable.bagOfWords.train";
+    static constexpr const char * name = "distTable.bagOfWords.train";
 
     InputQuery trainingData;
 
@@ -205,16 +208,16 @@ struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
     static constexpr char const * defaultOutputDatasetType = "tabular";
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
+DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsDistTableProcedureConfig);
 
 
 /*****************************************************************************/
 /* BOW STATS TABLE PROCEDURE                                                 */
 /*****************************************************************************/
 
-struct BagOfWordsStatsTableProcedure: public Procedure {
+struct BagOfWordsDistTableProcedure: public Procedure {
 
-    BagOfWordsStatsTableProcedure(MldbServer * owner,
+    BagOfWordsDistTableProcedure(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -223,7 +226,7 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 
     virtual Any getStatus() const;
 
-    BagOfWordsStatsTableProcedureConfig procConfig;
+    BagOfWordsDistTableProcedureConfig procConfig;
 };
 
 
@@ -231,8 +234,8 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 /* STATS TABLE POS NEG FUNCTION                                              */
 /*****************************************************************************/
 
-struct StatsTablePosNegFunctionConfig {
-    StatsTablePosNegFunctionConfig(const Url & modelFileUrl = Url(),
+struct DistTablePosNegFunctionConfig {
+    DistTablePosNegFunctionConfig(const Url & modelFileUrl = Url(),
             const std::string & outcomeToUse = "") :
         numPos(50), numNeg(50), minTrials(50),
         outcomeToUse(outcomeToUse),
@@ -249,14 +252,14 @@ struct StatsTablePosNegFunctionConfig {
     Url modelFileUrl;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);
+DECLARE_STRUCTURE_DESCRIPTION(DistTablePosNegFunctionConfig);
 
-struct StatsTablePosNegFunction: public Function {
-    StatsTablePosNegFunction(MldbServer * owner,
+struct DistTablePosNegFunction: public Function {
+    DistTablePosNegFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
-    ~StatsTablePosNegFunction();
+    ~DistTablePosNegFunction();
 
     virtual Any getStatus() const;
 
@@ -268,7 +271,7 @@ struct StatsTablePosNegFunction: public Function {
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
 
-    StatsTablePosNegFunctionConfig functionConfig;
+    DistTablePosNegFunctionConfig functionConfig;
 
 
     std::map<Utf8String, float> p_outcomes;
