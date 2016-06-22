@@ -86,8 +86,8 @@ ImportTextConfigDescription::ImportTextConfigDescription()
              "run much slower. Only use if necessary. The `offset` parameter "
              "will not be reliable when this is activated.", false);
     addField("autoGenerateHeaders", &ImportTextConfig::autoGenerateHeaders,
-             "If true, the indexes of the columns will be used to name them.",
-             "This cannot be set to true if headers is defined."
+             "If true, the indexes of the columns will be used to name them."
+             "This cannot be set to true if headers is defined.",
              false);
 
     addParent<ProcedureConfig>();
