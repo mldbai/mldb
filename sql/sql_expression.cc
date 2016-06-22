@@ -337,7 +337,7 @@ ColumnGetter
 SqlBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " must override getColumn: wanted "
                               + columnName.toUtf8String());
 }
@@ -347,7 +347,7 @@ SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override getAllColumns: wanted "
                         + tableName);
 }
@@ -358,7 +358,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doCreateRowsWhereGenerator");
 }
 
@@ -366,7 +366,7 @@ ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doGetColumnFunction");
 }
 
@@ -374,7 +374,7 @@ ColumnGetter
 SqlBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support bound parameters ($1... or $name)");
 }
 
@@ -382,7 +382,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -390,7 +390,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -398,7 +398,7 @@ TableOperations
 SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting tables");
 }
 
@@ -1473,13 +1473,15 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         }
 
         // 'LIKE' expression
-        if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
-            expect_whitespace(context);
+        if (currentPrecedence > 5) {
+            if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
+                expect_whitespace(context);
 
-            auto rhs = SqlExpression::parse(context, 10, allowUtf8);
+                auto rhs = SqlExpression::parse(context, 5, allowUtf8);
 
-            lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
-            lhs->surface = ML::trim(token.captured());
+                lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
+                lhs->surface = ML::trim(token.captured());
+            }
         }
 
         // Now look for an operator
@@ -1487,12 +1489,12 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         for (const Operator & op: operators) {
             if (op.unary)
                 continue;
-            if (op.precedence > currentPrecedence) {
+            if (op.precedence >= currentPrecedence) {
                 /* Will need to be bound outside our expression, since the precence is wrong. */
                 break;
             }
             if (matchOperator(context, op.token)) {
-                auto rhs = parse(context, op.precedence - 1, allowUtf8);
+                auto rhs = parse(context, op.precedence, allowUtf8);
                 lhs = op.handler(lhs, rhs, op.token);
                 lhs->surface = ML::trim(token.captured());
                 found = true;

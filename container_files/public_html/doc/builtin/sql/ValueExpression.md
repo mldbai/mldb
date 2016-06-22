@@ -36,8 +36,8 @@ If the dataset has been aliased (e.g. `FROM dataset AS x`), you **must** use the
 The following standard SQL operators are supported by MLDB.  An
 operator with lower precedence binds tighter than one with a
 higher predecence, so for example `x + y * z` is the same as
-`x + (y * z)`.  Expressions at the same precendence level are 
-always are left associative, that is the expression
+`x + (y * z)`.  Expressions at the same precedence level are 
+always left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
   Operator  |  Type              | Precedence 
@@ -51,7 +51,8 @@ always are left associative, that is the expression
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
      `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
-     `AND` , `OR`     |  binary boolean    |          7 
+     `AND`    |  binary boolean    |          6 
+     `OR`     |  binary boolean    |          7 
 
 <!--
      ALL      unary unimp                 7  All true 
@@ -89,6 +90,7 @@ Note that the operators `+` and `*` are commutative in all cases.
 
 SQL `BETWEEN` expressions are a shorthand way of testing for an
 open interval.  The expression `x BETWEEN y AND z` is the same as `x >= y AND x <= z` except that the `x` expression will only be evaluated once.
+It has the same precedence as binary comparisons (`=` , `!=`, `>` , `<` , `>=` , `<=`).
 
 
 ### `CASE` expressions
@@ -199,7 +201,7 @@ in a set of values on the right hand side.  There are four ways to specify the s
 4.  As the values of a row expression (`x IN (VALUES OF expr)`)
 
 The first two are standard SQL; the second two are MLDB extensions and are
-made possible by MLDB's sparse data model.
+made possible by MLDB's sparse data model. It has the same precedence as the unary not (`NOT`).
 
 #### IN expression with sub-select
 
@@ -236,6 +238,8 @@ The `%` character will substitute for 0 or more characters. For example: `x LIKE
 The `_` character will substitute for a single character. For example: `x LIKE 'a_a'` will test if x is a string that has 3 characters that starts and ends with `a`.
 
 For more intricate patterns, you can use the `regex_match` function.
+
+This expression has the same precedence as the unary not (`NOT`).
 
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
@@ -379,7 +383,7 @@ With `{arrays: 'encode'}` the output will be:
 - `ln(x)`: returns the natural logarithm of x.
 - `ceil(x)`: returns the smaller integer not less than x.
 - `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
+- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
 - `isnan(x)`: return true if x is 'NaN' in the floating point representation.
