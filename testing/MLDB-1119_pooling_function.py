@@ -19,7 +19,7 @@ class Mldb1119(MldbUnitTest):
         }
 
         dataset = mldb.create_dataset(dataset_config)
-        now = datetime.datetime.now()
+        now = datetime.datetime.strptime('Jun 1 2005  1:33PM', '%b %d %Y %I:%M%p')
 
         dataset.record_row("allo", [["x", 0.2, now], ["y", 0, now]])
         dataset.record_row("mon",  [["x", 0.8, now], ["y", 0.95, now]])
@@ -107,6 +107,113 @@ class Mldb1119(MldbUnitTest):
             q="select poolz({words: {*}})[embedding] as word2vec from bag_o_words_nulls")
         mldb.log(res.json())
 
+        expected = [
+                    {
+                        "rowName": "doc4",
+                        "rowHash": "78a7b39b2df03a5a",
+                        "columns": [
+                            [
+                                "word2vec.0",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.1",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.2",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.3",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ]
+                        ]
+                    },
+                    {
+                        "rowName": "doc3",
+                        "rowHash": "444d1040f96aba43",
+                        "columns": [
+                            [
+                                "word2vec.0",
+                                0,
+                                "2005-06-01T13:33:00Z"
+                            ],
+                            [
+                                "word2vec.1",
+                                0,
+                                "2005-06-01T13:33:00Z"
+                            ],
+                            [
+                                "word2vec.2",
+                                0,
+                                "2005-06-01T13:33:00Z"
+                            ],
+                            [
+                                "word2vec.3",
+                                0,
+                                "2005-06-01T13:33:00Z"
+                            ]
+                        ]
+                    },
+                    {
+                        "rowName": "doc2",
+                        "rowHash": "dccd3de503928181",
+                        "columns": [
+                            [
+                                "word2vec.0",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.1",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.2",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.3",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ]
+                        ]
+                    },
+                    {
+                        "rowName": "doc1",
+                        "rowHash": "09b5629be003570f",
+                        "columns": [
+                            [
+                                "word2vec.0",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.1",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.2",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ],
+                            [
+                                "word2vec.3",
+                                0,
+                                "1970-01-01T00:00:00Z"
+                            ]
+                        ]
+                    }
+                ]
+        self.assertEqual(res.json(), expected)
 
 mldb.run_tests()
 
