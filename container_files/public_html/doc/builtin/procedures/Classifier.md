@@ -105,6 +105,12 @@ The different options for the `link_function` parameter are defined as follows:
 
 ![](%%jmlclassifier naive_bayes)
 
+Note that our version of the Naive Bayes Classifier only supports discrete
+features. Numerical-valued columns (types `NUMBER` and `INTEGER`) are accepted,
+but they will be discretized prior to training. To do so, we will simply split
+all the values in two, using the threshold that provides the best separation
+of classes. You can always do you own discretization, for instance using a
+`CASE` expression.
 
 
 ## Default `configurationFile`
@@ -318,8 +324,15 @@ The default, overrideable `configurationFile` contains the following predefined 
             "max_iter": 300,
             "trace_training_acc": "true"
         }
-    }
+    },
 
+    "naive_bayes": {
+        "_note": "Naive Bayes",
+
+        "type": "naive_bayes",
+        "feature_prop": "1",
+        "verbosit"': 3
+    }
 }
 ```
 

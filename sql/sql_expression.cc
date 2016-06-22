@@ -337,7 +337,7 @@ ColumnGetter
 SqlBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " must override getColumn: wanted "
                               + columnName.toUtf8String());
 }
@@ -347,7 +347,7 @@ SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override getAllColumns: wanted "
                         + tableName);
 }
@@ -358,7 +358,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doCreateRowsWhereGenerator");
 }
 
@@ -366,7 +366,7 @@ ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doGetColumnFunction");
 }
 
@@ -374,7 +374,7 @@ ColumnGetter
 SqlBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support bound parameters ($1... or $name)");
 }
 
@@ -382,7 +382,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -390,7 +390,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -398,7 +398,7 @@ TableOperations
 SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting tables");
 }
 

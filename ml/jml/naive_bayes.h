@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* naive_bayes.h                                                   -*- C++ -*-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Jeremy Barnes, 6 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
 
    Naïve Bayes classifier.
 */
 
-#ifndef __boosting__naive_bayes_h__
-#define __boosting__naive_bayes_h__
+#pragma once
+
 
 #include "mldb/ml/jml/classifier.h"
 #include "feature_set.h"
@@ -129,7 +128,3 @@ public:
 
 
 } // namespace ML
-
-
-
-#endif /* __boosting__stump_h__ */
