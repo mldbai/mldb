@@ -324,8 +324,15 @@ The default, overrideable `configurationFile` contains the following predefined 
             "max_iter": 300,
             "trace_training_acc": "true"
         }
-    }
+    },
 
+    "naive_bayes": {
+        "_note": "Naive Bayes",
+
+        "type": "naive_bayes",
+        "feature_prop": "1",
+        "verbosity": 3
+    }
 }
 ```
 
