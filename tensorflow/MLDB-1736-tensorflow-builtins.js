@@ -45,7 +45,7 @@ var ops = mldb.get("/v1/plugins/tensorflow/routes/ops");
 
 mldb.log(ops);
 
-var op = mldb.get("/v1/plugins/tensorflow/routes/ops/AdjustContrastv2");
+var op = mldb.get("/v1/plugins/tensorflow/routes/ops/EncodePng");
 
 mldb.log(op);
 

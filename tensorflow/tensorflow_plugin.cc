@@ -21,6 +21,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/rest/rest_request_binding.h"
+#include "mldb/server/static_content_macro.h"
 
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
@@ -1546,6 +1547,14 @@ struct TensorflowPlugin: public Plugin {
         }
 
         initRoutes();
+
+        tfOperationMacroHandle
+            = registerMacro("tfOperation",
+                            std::bind(&TensorflowPlugin::tfOperationMacro,
+                                      this,
+                                      std::placeholders::_1,
+                                      std::placeholders::_2,
+                                      std::placeholders::_3));
     }
 
     virtual Any getStatus() const
@@ -1553,6 +1562,213 @@ struct TensorflowPlugin: public Plugin {
         return Any();
     }
 
+    template<typename T>
+    void writeAttrListItem(MacroContext & context, const T & val)
+    {
+        using std::to_string;
+        context.writeHtml("<code>");
+        context.writeText(to_string(val));
+        context.writeHtml("</code>");
+    }
+
+    void writeAttrListItem(MacroContext & context, const std::string & val)
+    {
+        context.writeHtml("<code>");
+        context.writeText(val);
+        context.writeHtml("</code>");
+    }
+
+    void writeAttrListItem(MacroContext & context, const tensorflow::DataType & val)
+    {
+        context.writeHtml("<code>");
+        context.writeText(jsonEncode(val).asString());
+        context.writeHtml("</code>");
+    }
+
+    template<typename T>
+    void writeAttrListT(MacroContext & context,
+                       const ::google::protobuf::RepeatedField<T>& val)
+    {
+        context.writeHtml("<ul>");
+
+        for (auto & v: val) {
+            context.writeHtml("<li>");
+            writeAttrListItem(context, v);
+            context.writeHtml("</li>");
+        }
+
+        context.writeHtml("</ul>");
+    }
+
+    template<typename T>
+    void writeAttrListType(MacroContext & context,
+                           const ::google::protobuf::RepeatedField<T>& val)
+    {
+        context.writeHtml("<ul>");
+
+        for (auto & v: val) {
+            context.writeHtml("<li>");
+            writeAttrListItem(context, (tensorflow::DataType)v);
+            context.writeHtml("</li>");
+        }
+
+        context.writeHtml("</ul>");
+    }
+
+    template<typename T>
+    void writeAttrListT(MacroContext & context,
+                       const ::google::protobuf::RepeatedPtrField<T>& val)
+    {
+        context.writeHtml("<ul>");
+
+        for (auto & v: val) {
+            context.writeHtml("<li>");
+            writeAttrListItem(context, v);
+            context.writeHtml("</li>");
+        }
+
+        context.writeHtml("</ul>");
+    }
+
+    /** Documentation macro for TF operations */
+    void tfOperationMacro(MacroContext & context,
+                          const std::string & macroName,
+                          const Utf8String & op)
+    {
+        auto it = registeredOps.find(op);
+        if (it == registeredOps.end()) {
+            context.writeText("Couldn't find TensorFlow operation " + op);
+            return;
+        }
+
+        auto writeAttrList = [&] (const tensorflow::AttrValue_ListValue & val)
+            {
+                if (val.s_size()) {
+                    writeAttrListT(context, val.s());
+                }
+                if (val.i_size()) {
+                    writeAttrListT(context, val.i());
+                }
+                if (val.f_size()) {
+                    writeAttrListT(context, val.f());
+                }
+                if (val.b_size()) {
+                    writeAttrListT(context, val.b());
+                }
+                if (val.type_size()) {
+                    // Protobuf makes the DataType fields ints, so we need to coerce
+                    writeAttrListType(context, val.type());
+                }
+                if (val.shape_size()) {
+                    //writeAttrListT(context, val.shape());
+                }
+                if (val.tensor_size()) {
+                    //writeAttrListT(context, val.tensor());
+                }
+            };
+
+        try {
+            auto * opDef = it->second.op;
+            context.writeHtml("<h2>TensorFlow <code>");
+            context.writeText(op);
+            context.writeHtml("</code> Operation</h2>");
+            context.writeHtml("<h3>Description</h3>");
+            context.writeMarkdown(opDef->description());
+
+            if (opDef->attr_size()) {
+                context.writeHtml("<h3>Attributes</h3>");
+                context.writeHtml("<table><tr><th>Attribute</th><th>Type</th>"
+                                  "<th>Default</th><th>Constraints</th>"
+                                  "<th>Description</th></tr>");
+                for (auto & a: opDef->attr()) {
+                    context.writeHtml("<tr><td>");
+                    context.writeText(a.name());
+                    context.writeHtml("</td><td>");
+                    context.writeText(a.type());
+                    context.writeHtml("</td><td>");
+                    context.writeText(a.default_value().DebugString());
+                    context.writeHtml("</td><td>");
+                    if (a.has_allowed_values()) {
+                        context.writeHtml("<b>One of: </b>");
+                        writeAttrList(a.allowed_values().list());
+                    }
+                    if (a.has_minimum()) {
+                        context.writeHtml("<b>Minimum: </b>");
+                        context.writeText(to_string(a.minimum()));
+                    }
+                    context.writeHtml("</td><td>");
+                    context.writeMarkdown(a.description());
+                    context.writeHtml("</td></tr>");
+                    
+                }
+                context.writeHtml("</table>");
+            }
+
+            typedef ::google::protobuf::RepeatedPtrField< ::tensorflow::OpDef_ArgDef >
+                ArgDefList;
+
+            auto writeArgTable = [&] (const ArgDefList & list,
+                                      const std::string & title)
+            {
+                context.writeHtml("<h3>");
+                context.writeText(title);
+                context.writeHtml("</h3>");
+                context.writeHtml("<table><tr><th>Name</th><th>Type</th>"
+                                  "<th>Constraints</th><th>Description</th></tr>");
+                for (auto & a: list) {
+                    context.writeHtml("<tr><td>");
+                    // name
+                    context.writeHtml("<code>");
+                    context.writeText(a.name());
+                    context.writeHtml("</code>");
+                    context.writeHtml("</td><td>");
+                    // type
+                    if (a.type() != tensorflow::DT_INVALID) {
+                        context.writeText(jsonEncode(a.type()).asString());
+                    }
+                    if (!a.type_attr().empty()) {
+                        context.writeHtml("<b>attr: </b>");
+                        context.writeHtml("<code>");
+                        context.writeText(a.type_attr());
+                        context.writeHtml("</code>");
+                    }
+                    if (!a.type_list_attr().empty()) {
+                        context.writeHtml("<b>type list: </b>");
+                        context.writeHtml("<code>");
+                        context.writeText(a.type_list_attr());
+                        context.writeHtml("</code>");
+                    }
+
+                    context.writeHtml("</td><td>");
+
+                    // Constraints
+                    if (!a.number_attr().empty()) {
+                        context.writeHtml("<b>number: </b>");
+                        context.writeHtml("<code>");
+                        context.writeMarkdown(a.number_attr());
+                        context.writeHtml("</code>");
+                    }
+                    context.writeHtml("</td><td>");
+                    context.writeMarkdown(a.description());
+                    context.writeHtml("</td></tr>");
+                    
+                }
+                context.writeHtml("</table>");
+            };
+
+            if (opDef->input_arg_size()) {
+                writeArgTable(opDef->input_arg(), "Input Arguments");
+            }
+
+            if (opDef->output_arg_size()) {
+                writeArgTable(opDef->output_arg(), "Output Arguments");
+            }
+        } catch (const std::exception & exc) {
+            context.writeText("error running TensorFlow operation macro for '" + op + "' :" + exc.what());
+        }
+    }
+
+    /// Used to wrap an operation into an MLDB function
     ExternalFunction wrapOp(const std::string & op)
     {
         // Arguments:
@@ -1720,7 +1936,12 @@ struct TensorflowPlugin: public Plugin {
     /// Contains the handle to builtin functions registered by the plugin to cover
     /// all of the Tensorflow ops
     std::map<Utf8String, RegisteredOp> registeredOps;
+
+    /// Handle to the documentation macro we register
+    std::shared_ptr<void> tfOperationMacroHandle;
 };
+
+
 
 } // namespace MLDB
 } // namespace Datacratic
