@@ -3055,6 +3055,45 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerRemoveTableName(remove_table_name, "_remove_table_name");
 
+BoundFunction sign(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+    auto outputInfo
+        = std::make_shared<UnknownRowValueInfo>();
+    Date ts = Date::negativeInfinity();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                const auto val = args[0].getAtom();
+                if (val.empty()) {
+                    return ExpressionValue();
+                }
+                if (!val.isNumeric() || val.isNaN()) {
+                    return ExpressionValue(CellValue(std::nan("")), ts);
+                }
+                int sign = 0;
+                if (val.isUInt64()) {
+                    sign = getNumberSign(val.toUInt());
+                }
+                else if (val.isInt64()) {
+                    sign = getNumberSign(val.toInt());
+                }
+                else if (val.isDouble()) {
+                    sign = getNumberSign(val.toDouble());
+                }
+                else {
+                    throw ML::Exception(
+                        "sign support is unimplemented for value of type %s",
+                        to_string(val.type).c_str());
+                }
+                return ExpressionValue(CellValue(sign), ts);
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerSignFunction(sign, "sign");
+
 
 } // namespace Builtins
 } // namespace MLDB
