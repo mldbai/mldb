@@ -31,7 +31,7 @@ strongly correlated with the outcomes. The outcomes we want to track are whether
 on the ad and/or a purchase was then made on the advertiser's website.
 
 
-|  rowName   |  host  |  region  | click_on_ad | purchase_value |
+|  rowName   |  host  |  region  | click\_on\_ad | purchase_value |
 |----------|---|---|---|---|---|
 | br_1     | patate.com  | qc | 1 | 0 |
 | br_2     | carotte.net | on | 1 | 25 |
