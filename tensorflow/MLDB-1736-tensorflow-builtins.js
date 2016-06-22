@@ -41,4 +41,12 @@ var expected = [
 
 assertEqual(res, expected);
 
+var ops = mldb.get("/v1/plugins/tensorflow/routes/ops");
+
+mldb.log(ops);
+
+var op = mldb.get("/v1/plugins/tensorflow/routes/ops/AdjustContrastv2");
+
+mldb.log(op);
+
 "success"

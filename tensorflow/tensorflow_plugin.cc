@@ -20,6 +20,8 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/rest/rest_request_binding.h"
+
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
@@ -210,6 +212,44 @@ DEFINE_VALUE_DESCRIPTION_NS(AttrValue, AttrValueDescription);
 
 namespace Datacratic {
 namespace MLDB {
+
+static Json::Value protoToJson(const ::google::protobuf::Message & obj)
+{
+    using namespace google::protobuf;
+    using namespace google::protobuf::util;
+
+    std::string type_url = "/" + obj.GetDescriptor()->full_name();
+    std::string bin;
+    obj.SerializeToString(&bin);
+    std::string jstring;
+
+    std::string url_prefix;
+
+    TypeResolver* resolver
+        = NewTypeResolverForDescriptorPool
+        (url_prefix, DescriptorPool::generated_pool());
+        
+    //cerr << "resolver = " << resolver << endl;
+
+    JsonOptions options;
+    options.add_whitespace = true;
+
+    auto res = BinaryToJsonString(resolver,
+                                  type_url,
+                                  bin,
+                                  &jstring,
+                                  options);
+    
+
+    if (!res.ok()) {
+        throw HttpReturnException
+            (500, "Couldn't initialize tensorflow graph model: "
+             + res.error_message());
+    }
+
+    return Json::parse(jstring);
+
+}
 
 const Package & tensorflowPackage()
 {
@@ -1504,6 +1544,8 @@ struct TensorflowPlugin: public Plugin {
                 = registerFunction("tf_" + op.name(), wrapOp(op.name()));
             registeredOps[op.name()] = entry;
         }
+
+        initRoutes();
     }
 
     virtual Any getStatus() const
@@ -1609,12 +1651,64 @@ struct TensorflowPlugin: public Plugin {
             };
     }
 
+    RestRequestRouter router;
+
+    // List all of the known operations
+    std::vector<Utf8String> listOps() const
+    {
+        std::vector<Utf8String> result;
+        for (auto & o: registeredOps) {
+            result.push_back(o.first);
+        }
+        return result;
+    }
+
+    Json::Value getOpInfo(const Utf8String & op) const
+    {
+        auto it = registeredOps.find(op);
+        if (it == registeredOps.end()) {
+            throw HttpReturnException(404, "Operation '" + op
+                                      + "' not found in this version of TensorFlow");
+        }
+
+        Json::Value result;
+        result["info"] = protoToJson(*it->second.op);
+        return result;
+    }
+
+    // Initialize the routes
+    void initRoutes()
+    {
+        auto & ops = router.addSubRouter("/ops", "Tensorflow operations");
+        
+        addRouteSyncJsonReturn(ops, "", { "GET" },
+                               "Return a list of supported operations",
+                               "List of operation names",
+                               &TensorflowPlugin::listOps,
+                               this);
+        auto & op
+            = ops.addSubRouter(Rx("/([0-9a-zA-Z]*)", "/<OpName>"),
+                               "Information about an individual op");
+
+        // This is the 7th parameter:
+        // /v1=0 /plugins=1 /tensorflow=2 tensorflow=3 /routes=4 /ops=5 /<OpName>=6 <OpName>=7
+        RequestParam<Utf8String> opName(7, "<OpName>",
+                                        "Operation to operate on");
+        
+        addRouteSyncJsonReturn(op, "", { "GET" },
+                               "Return information about a Tensorflow operation",
+                               "JSON structure with information",
+                               &TensorflowPlugin::getOpInfo,
+                               this,
+                               opName);
+    }
+
     virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
                   const RestRequest & request,
                   RestRequestParsingContext & context) const
     {
-        return MR_NO;
+        return router.processRequest(connection, request, context);
     }
 
     struct RegisteredOp {
