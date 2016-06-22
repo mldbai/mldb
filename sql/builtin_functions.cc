@@ -3060,7 +3060,6 @@ BoundFunction sign(const std::vector<BoundSqlExpression> & args)
     checkArgsSize(args.size(), 1);
     auto outputInfo
         = std::make_shared<UnknownRowValueInfo>();
-    Date ts = Date::negativeInfinity();
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
@@ -3069,24 +3068,13 @@ BoundFunction sign(const std::vector<BoundSqlExpression> & args)
                     return ExpressionValue();
                 }
                 if (!val.isNumeric() || val.isNaN()) {
-                    return ExpressionValue(CellValue(std::nan("")), ts);
+                    return ExpressionValue(CellValue(std::nan("")),
+                                           args[0].getEffectiveTimestamp());
                 }
-                int sign = 0;
-                if (val.isUInt64()) {
-                    sign = getNumberSign(val.toUInt());
-                }
-                else if (val.isInt64()) {
-                    sign = getNumberSign(val.toInt());
-                }
-                else if (val.isDouble()) {
-                    sign = getNumberSign(val.toDouble());
-                }
-                else {
-                    throw ML::Exception(
-                        "sign support is unimplemented for value of type %s",
-                        to_string(val.type).c_str());
-                }
-                return ExpressionValue(CellValue(sign), ts);
+                double number = val.toDouble();
+                return ExpressionValue(
+                    CellValue(number > 0 ? 1 : number < 0 ? -1 : 0),
+                    args[0].getEffectiveTimestamp());
             },
             outputInfo
         };

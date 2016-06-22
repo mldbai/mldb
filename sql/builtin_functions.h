@@ -115,18 +115,6 @@ struct RegisterBuiltin {
     std::vector<std::shared_ptr<void> > handles;
 };
 
-
-template<typename T>
-static int getNumberSign(T number) {
-    if (number > 0) {
-        return 1;
-    }
-    if (number < 0) {
-        return -1;
-    }
-    return 0;
-};
-
 } // namespace Builtins
 } // namespace MLDB
 } // namespace Datacratic
