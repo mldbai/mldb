@@ -965,7 +965,7 @@ struct RegisterSftpHandler {
             info->ownerId = std::to_string(attr.uid);
             info->lastModified = Date::fromSecondsSinceEpoch(attr.mtime);
 
-            return UriHandler(buf.get(), connection, info);
+            return UriHandler(buf.get(), buf, info);
         }
         if (mode == ios::out) {
             std::shared_ptr<std::streambuf> buf
@@ -998,7 +998,7 @@ struct RegisterSftpHandler {
                 connection = it->second.connection;
             }
             else {
-                connection = getSftpConnForUri(resource);
+                //TODO rm connection = getSftpConnForUri(resource);
             }
             if (connection == nullptr) {
                 throw ML::Exception("unregistered sftp host " + host);
@@ -1007,7 +1007,7 @@ struct RegisterSftpHandler {
 
         ExcAssert(connection);
         return getSftpHandlerFromConn(
-            connection, resource.substr(7 + host.size()), mode, onException);
+            connection, resource.substr(host.size()), mode, onException);
     }
 
     RegisterSftpHandler()
@@ -1021,9 +1021,17 @@ std::shared_ptr<SftpConnection> getSftpConnectionForHost(const std::string & hos
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
     auto it = sftpHosts.find(hostname);
-    if (it == sftpHosts.end())
-        throw ML::Exception("unregistered sftp host " + hostname);
-    return it->second.connection;
+    if (it != sftpHosts.end()) {
+        return it->second.connection;
+    }
+    auto creds = getCredential("sftp", "sftp://" + hostname);
+
+    SftpHostInfo info;
+    info.sftpHost = hostname;
+    info.connection = std::make_shared<SftpConnection>();
+    info.connection->connectPasswordAuth(hostname, creds.id, creds.secret);
+    sftpHosts[hostname] = info;
+    return info.connection;
 }
 
 namespace {
@@ -1037,50 +1045,13 @@ string hostnameFromUri(const string & uri) {
     return uri.substr(7, pos - 7);
 };
 
-mutex connCacheMutex;
-map<string, weak_ptr<SftpConnection>> connCache;
-
-std::shared_ptr<SftpConnection> getSftpConnForUri(const std::string & uri)
-{
-    string host = hostnameFromUri(uri);
-    auto it = connCache.find(host);
-    if (it != connCache.end()) {
-        if (auto conn = it->second.lock()) {
-            return conn;
-        }
-        lock_guard<mutex> l(connCacheMutex);
-        if (auto conn = it->second.lock()) {
-            return conn;
-        }
-        auto conn = make_shared<SftpConnection>();
-        auto creds = getCredential("sftp", uri);
-        conn->connectPasswordAuth(hostnameFromUri(uri), creds.id, creds.secret);
-        it->second = conn;
-        return conn;
-    }
-
-    // Check again with a lock
-    lock_guard<mutex> l(connCacheMutex);
-    it = connCache.find(host);
-    if (it != connCache.end()) {
-        if (auto conn = it->second.lock()) {
-            return conn;
-        }
-    }
-    auto conn = make_shared<SftpConnection>();
-    auto creds = getCredential("sftp", uri);
-    conn->connectPasswordAuth(hostnameFromUri(uri), creds.id, creds.secret);
-    connCache[host] = conn;
-    return conn;
-};
-
 struct SftpUrlFsHandler : public UrlFsHandler {
 
     UriHandler getUriHandler(const Url & url) const
     {
         string urlStr = url.toString();
-        auto conn = getSftpConnForUri(urlStr);
         string host = hostnameFromUri(urlStr);
+        auto conn = getSftpConnectionForHost(host);
         const auto fooFct = [](){};
         return RegisterSftpHandler::getSftpHandlerFromConn(
             conn, urlStr.substr(7 + host.size()), ios::in, fooFct);
@@ -1106,16 +1077,16 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     void makeDirectory(const Url & url) const override
     {
         string urlStr = url.toString();
-        auto conn = getSftpConnForUri(urlStr);
         string host = hostnameFromUri(urlStr);
+        auto conn = getSftpConnectionForHost(host);
         conn->mkdir(urlStr.substr(7 + host.size()));
     }
 
     bool erase(const Url & url, bool throwException) const override
     {
         string urlStr = url.toString();
-        auto conn = getSftpConnForUri(urlStr);
         string host = hostnameFromUri(urlStr);
+        auto conn = getSftpConnectionForHost(host);
         int res = 0;
         try {
             res = conn->unlink(urlStr.substr(7 + host.size()));
@@ -1137,15 +1108,15 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     {
         ExcAssert(delimiter == "/");
         string url = prefix.toString();
-        auto conn = getSftpConnForUri(prefix.toString());
-        const string hostname = hostnameFromUri(url);
-        string path = url.substr(7 + hostname.size());
+        const string host = hostnameFromUri(url);
+        auto conn = getSftpConnectionForHost(host);
+        string path = url.substr(7 + host.size());
         auto dir = conn->getDirectory(path);
         dir.forEachFile([&] (string name, SftpConnection::Attributes attr) {
             // For help with masks see
             // https://github.com/libssh2/libssh2/blob/master/docs/libssh2_sftp_fstat_ex.3
             if (LIBSSH2_SFTP_S_ISREG (attr.permissions)) {
-                string currUri = "sftp://" + hostname + path + "/" + name;
+                string currUri = "sftp://" + host + path + "/" + name;
                 OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
                 {
                     if (!options.empty()) {
@@ -1164,7 +1135,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
                 if (name == ".." || name == ".") {
                     return;
                 }
-                string currUri = "sftp://" + hostname + path + "/" + name;
+                string currUri = "sftp://" + host + path + "/" + name;
                 if (onSubdir) {
                     onSubdir(currUri, 1);
                 }
