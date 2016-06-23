@@ -941,7 +941,6 @@ struct RegisterSftpHandler {
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
             throw ML::Exception("unable to find sftp host name in resource "
@@ -995,7 +994,6 @@ struct RegisterSftpHandler {
 
 std::shared_ptr<SftpConnection> getSftpConnectionForHost(const std::string & hostname)
 {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
     std::unique_lock<std::mutex> guard(sftpHostsLock);
     auto it = sftpHosts.find(hostname);
     if (it == sftpHosts.end())
@@ -1028,7 +1026,6 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     UriHandler getUriHandler(const Url & url) const
     {
         throw ML::Exception("Pas bon...");
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         std::map<string, string> options;
         const auto fooFct = [](){};
         return RegisterSftpHandler::getSftpHandler(
@@ -1037,14 +1034,12 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     FsObjectInfo getInfo(const Url & url) const override
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         const auto handler = getUriHandler(url);
         return std::move(*(handler.info.get()));
     }
 
     FsObjectInfo tryGetInfo(const Url & url) const override
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         try {
             const auto handler = getUriHandler(url);
             return std::move(*(handler.info.get()));
@@ -1056,14 +1051,12 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     void makeDirectory(const Url & url) const override
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         const auto handler = getUriHandler(url);
         throw ML::Exception("Unimplemented");
     }
 
     bool erase(const Url & url, bool throwException) const override
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         // See int unlink(const std::string & path);
         const auto handler = getUriHandler(url);
         throw ML::Exception("Unimplemented");
@@ -1081,62 +1074,39 @@ struct SftpUrlFsHandler : public UrlFsHandler {
         auto conn = getSftpConnForUri(prefix.toString());
         const string hostname = hostnameFromUri(url);
         string path = url.substr(7 + hostname.size());
-        cerr << "Path: " << path << endl;
         auto dir = conn->getDirectory(path);
         dir.forEachFile([&] (string name, SftpConnection::Attributes attr) {
-            if (name == ".." || name == ".") {
+            // For help with masks see
+            // https://github.com/libssh2/libssh2/blob/master/docs/libssh2_sftp_fstat_ex.3
+            if (LIBSSH2_SFTP_S_ISREG (attr.permissions)) {
+                string currUri = "sftp://" + hostname + path + "/" + name;
+                OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
+                {
+                    if (!options.empty()) {
+                        throw ML::Exception("Options not accepted by S3");
+                    }
+
+                    std::shared_ptr<std::istream> result(new filter_istream(currUri));
+                    auto info = getInfo(Url(currUri));
+
+                    return UriHandler(result->rdbuf(), result, info);
+                };
+                onObject(currUri, FsObjectInfo(), open, 1);
                 return;
             }
             if (LIBSSH2_SFTP_S_ISDIR (attr.permissions)) {
-                cerr << name << " is dir " << endl;
-            }
-            else {
-               cerr << name << " is not dir " << endl;
+                if (name == ".." || name == ".") {
+                    return;
+                }
+                string currUri = "sftp://" + hostname + path + "/" + name;
+                if (onSubdir) {
+                    onSubdir(currUri, 1);
+                }
+                return;
             }
 
         });
         return true;
-//         string bucket = prefix.host();
-//         auto api = getS3ApiForUri(prefix.toString());
-// 
-//         bool result = true;
-// 
-//         auto onObject2 = [&] (const std::string & prefix,
-//                               const std::string & objectName,
-//                               const S3Api::ObjectInfo & info,
-//                               int depth)
-//             {
-//                 std::string filename = "s3://" + bucket + "/" + prefix + objectName;
-//                 OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
-//                 {
-//                     if (!options.empty())
-//                         throw ML::Exception("Options not accepted by S3");
-// 
-//                     std::shared_ptr<std::istream> result(new filter_istream(filename));
-//                     auto into = getInfo(Url(filename));
-// 
-//                     return UriHandler(result->rdbuf(), result, info);
-//                 };
-// 
-//                 return onObject(filename, info, open, depth);
-//             };
-// 
-//         auto onSubdir2 = [&] (const std::string & prefix,
-//                               const std::string & dirName,
-//                               int depth)
-//             {
-//                 return onSubdir("s3://" + bucket + "/" + prefix + dirName,
-//                                 depth);
-//             };
-// 
-//         // Get rid of leading / on prefix
-//         string prefix2 = string(prefix.path(), 1);
-// 
-//         api->forEachObject(bucket, prefix2, onObject2,
-//                            onSubdir ? onSubdir2 : S3Api::OnSubdir(),
-//                            delimiter, 1, startAt);
-// 
-//         return result;
     }
 };
 
