@@ -1087,39 +1087,46 @@ struct SftpUrlFsHandler : public UrlFsHandler {
         string url = prefix.toString();
         const string host = hostnameFromUri(url);
         auto conn = getSftpConnectionForHost(host);
-        string path = url.substr(7 + host.size());
-        auto dir = conn->getDirectory(path);
-        dir.forEachFile([&] (string name, SftpConnection::Attributes attr) {
-            // For help with masks see
-            // https://github.com/libssh2/libssh2/blob/master/docs/libssh2_sftp_fstat_ex.3
-            if (LIBSSH2_SFTP_S_ISREG (attr.permissions)) {
-                string currUri = "sftp://" + host + path + "/" + name;
-                OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
-                {
-                    if (!options.empty()) {
-                        throw ML::Exception("Options not accepted by S3");
-                    }
 
-                    std::shared_ptr<std::istream> result(new filter_istream(currUri));
-                    auto info = getInfo(Url(currUri));
+        function<void(string, int)> processPath = [&] (string path, int depth) {
+            auto dir = conn->getDirectory(path);
+            dir.forEachFile([&] (string name, SftpConnection::Attributes attr) {
+                // For help with masks see
+                // https://github.com/libssh2/libssh2/blob/master/docs/libssh2_sftp_fstat_ex.3
+                if (LIBSSH2_SFTP_S_ISREG (attr.permissions)) {
+                    string currUri = "sftp://" + host + path + "/" + name;
+                    OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
+                    {
+                        if (!options.empty()) {
+                            throw ML::Exception("Options not accepted by S3");
+                        }
 
-                    return UriHandler(result->rdbuf(), result, info);
-                };
-                onObject(currUri, getInfo(Url(currUri)), open, 1);
-                return;
-            }
-            if (LIBSSH2_SFTP_S_ISDIR (attr.permissions)) {
-                if (name == ".." || name == ".") {
+                        std::shared_ptr<std::istream> result(
+                            new filter_istream(currUri));
+                        auto info = getInfo(Url(currUri));
+
+                        return UriHandler(result->rdbuf(), result, info);
+                    };
+                    onObject(currUri, getInfo(Url(currUri)), open, 1);
                     return;
                 }
-                string currUri = "sftp://" + host + path + "/" + name;
-                if (onSubdir) {
-                    onSubdir(currUri, 1);
+                if (LIBSSH2_SFTP_S_ISDIR (attr.permissions)) {
+                    if (name == ".." || name == ".") {
+                        return;
+                    }
+                    string currUri = "sftp://" + host + path + "/" + name;
+                    if (onSubdir && onSubdir(currUri, depth)) {
+                        processPath(path + "/" + name, depth + 1);
+                    }
+                    return;
                 }
-                return;
-            }
 
-        });
+            });
+        };
+
+        string path = url.substr(7 + host.size());
+        processPath(path, 0);
+
         return true;
     }
 };
