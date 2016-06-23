@@ -878,6 +878,15 @@ unlink(const string & path){
     return libssh2_sftp_unlink(sftp_session, path.c_str());
 }
 
+int
+SftpConnection::
+mkdir(const string & path) {
+    return libssh2_sftp_mkdir(sftp_session, path.c_str(),
+                              LIBSSH2_SFTP_S_IRWXU | LIBSSH2_SFTP_S_IRGRP |
+                              LIBSSH2_SFTP_S_IXGRP | LIBSSH2_SFTP_S_IROTH |
+                              LIBSSH2_SFTP_S_IXOTH);
+}
+
 namespace {
 
 struct SftpHostInfo {
@@ -935,6 +944,39 @@ void registerSftpHostPublicKey(const std::string & hostname,
 
 struct RegisterSftpHandler {
     static UriHandler
+    getSftpHandlerFromConn(std::shared_ptr<SftpConnection> connection,
+                           const string & resource,
+                           std::ios_base::open_mode mode,
+                           const OnUriHandlerException & onException)
+    {
+        if (mode == ios::in) {
+            std::shared_ptr<std::streambuf> buf
+                (connection->streamingDownloadStreambuf(resource)
+                 .release());
+
+            SftpConnection::Attributes attr;
+            if (!connection->getAttributes(resource, attr)) {
+                throw ML::Exception("Couldn't read attributes for sftp resource");
+            }
+
+            auto info = std::make_shared<FsObjectInfo>();
+            info->exists = true;
+            info->size = attr.filesize;
+            info->ownerId = std::to_string(attr.uid);
+            info->lastModified = Date::fromSecondsSinceEpoch(attr.mtime);
+
+            return UriHandler(buf.get(), connection, info);
+        }
+        if (mode == ios::out) {
+            std::shared_ptr<std::streambuf> buf
+                (connection->streamingUploadStreambuf(resource, onException)
+                 .release());
+            return UriHandler(buf.get(), buf);
+        }
+        throw ML::Exception("no way to create sftp handler for non in/out");
+    }
+
+    static UriHandler
     getSftpHandler(const std::string & scheme,
                    const std::string & resource,
                    std::ios_base::open_mode mode,
@@ -952,37 +994,20 @@ struct RegisterSftpHandler {
         {
             std::unique_lock<std::mutex> guard(sftpHostsLock);
             auto it = sftpHosts.find(host);
-            if (it == sftpHosts.end())
+            if (it != sftpHosts.end()) {
+                connection = it->second.connection;
+            }
+            else {
+                connection = getSftpConnForUri(resource);
+            }
+            if (connection == nullptr) {
                 throw ML::Exception("unregistered sftp host " + host);
-            connection = it->second.connection;
+            }
         }
 
         ExcAssert(connection);
-
-        if (mode == ios::in) {
-            std::shared_ptr<std::streambuf> buf
-                (connection->streamingDownloadStreambuf("sftp://" + resource)
-                 .release());
-
-            SftpConnection::Attributes attr;
-            if (!connection->getAttributes(resource, attr))
-                throw ML::Exception("Couldn't read attributes for sftp resource");
-
-            auto info = std::make_shared<FsObjectInfo>();
-            info->exists = true;
-            info->size = attr.filesize;
-            info->ownerId = std::to_string(attr.uid);
-            info->lastModified = Date::fromSecondsSinceEpoch(attr.mtime);
-
-            return UriHandler(buf.get(), buf, info);
-        }
-        else if (mode == ios::out) {
-            std::shared_ptr<std::streambuf> buf
-                (connection->streamingUploadStreambuf("sftp://" + resource, onException)
-                 .release());
-            return UriHandler(buf.get(), buf);
-        }
-        else throw ML::Exception("no way to create sftp handler for non in/out");
+        return getSftpHandlerFromConn(
+            connection, resource.substr(7 + host.size()), mode, onException);
     }
 
     RegisterSftpHandler()
@@ -1012,12 +1037,40 @@ string hostnameFromUri(const string & uri) {
     return uri.substr(7, pos - 7);
 };
 
+mutex connCacheMutex;
+map<string, weak_ptr<SftpConnection>> connCache;
+
 std::shared_ptr<SftpConnection> getSftpConnForUri(const std::string & uri)
 {
-    // Get the credentials
-    auto creds = getCredential("sftp", uri);
+    string host = hostnameFromUri(uri);
+    auto it = connCache.find(host);
+    if (it != connCache.end()) {
+        if (auto conn = it->second.lock()) {
+            return conn;
+        }
+        lock_guard<mutex> l(connCacheMutex);
+        if (auto conn = it->second.lock()) {
+            return conn;
+        }
+        auto conn = make_shared<SftpConnection>();
+        auto creds = getCredential("sftp", uri);
+        conn->connectPasswordAuth(hostnameFromUri(uri), creds.id, creds.secret);
+        it->second = conn;
+        return conn;
+    }
+
+    // Check again with a lock
+    lock_guard<mutex> l(connCacheMutex);
+    it = connCache.find(host);
+    if (it != connCache.end()) {
+        if (auto conn = it->second.lock()) {
+            return conn;
+        }
+    }
     auto conn = make_shared<SftpConnection>();
+    auto creds = getCredential("sftp", uri);
     conn->connectPasswordAuth(hostnameFromUri(uri), creds.id, creds.secret);
+    connCache[host] = conn;
     return conn;
 };
 
@@ -1025,11 +1078,12 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     UriHandler getUriHandler(const Url & url) const
     {
-        throw ML::Exception("Pas bon...");
-        std::map<string, string> options;
+        string urlStr = url.toString();
+        auto conn = getSftpConnForUri(urlStr);
+        string host = hostnameFromUri(urlStr);
         const auto fooFct = [](){};
-        return RegisterSftpHandler::getSftpHandler(
-            "", url.toString(), ios::in, options, fooFct);
+        return RegisterSftpHandler::getSftpHandlerFromConn(
+            conn, urlStr.substr(7 + host.size()), ios::in, fooFct);
     }
 
     FsObjectInfo getInfo(const Url & url) const override
@@ -1051,16 +1105,28 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     void makeDirectory(const Url & url) const override
     {
-        const auto handler = getUriHandler(url);
-        throw ML::Exception("Unimplemented");
+        string urlStr = url.toString();
+        auto conn = getSftpConnForUri(urlStr);
+        string host = hostnameFromUri(urlStr);
+        conn->mkdir(urlStr.substr(7 + host.size()));
     }
 
     bool erase(const Url & url, bool throwException) const override
     {
-        // See int unlink(const std::string & path);
-        const auto handler = getUriHandler(url);
-        throw ML::Exception("Unimplemented");
-        return true;
+        string urlStr = url.toString();
+        auto conn = getSftpConnForUri(urlStr);
+        string host = hostnameFromUri(urlStr);
+        int res = 0;
+        try {
+            res = conn->unlink(urlStr.substr(7 + host.size()));
+        }
+        catch (const Exception & e) {
+            if (throwException) {
+                throw;
+            }
+            res = -1;
+        }
+        return res == 0;
     }
 
     bool forEach(const Url & prefix,
@@ -1091,7 +1157,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
                     return UriHandler(result->rdbuf(), result, info);
                 };
-                onObject(currUri, FsObjectInfo(), open, 1);
+                onObject(currUri, getInfo(Url(currUri)), open, 1);
                 return;
             }
             if (LIBSSH2_SFTP_S_ISDIR (attr.permissions)) {
