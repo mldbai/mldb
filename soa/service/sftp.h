@@ -160,6 +160,7 @@ struct SftpConnection : public SshConnection {
     filter_istream streamingDownload(const std::string & path);
 
     int unlink(const std::string & path);
+    int mkdir(const std::string & path);
 
     void close();
 };
