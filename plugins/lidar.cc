@@ -1,14 +1,21 @@
+#include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/types/url.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/analytics.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/plugins/for_each_line.h"
+#include "mldb/arch/timers.h"
+#include <endian.h>
 #include <iostream>
-#include <png.h>
+
 
 using namespace std;
 
@@ -134,8 +141,8 @@ zrender(const SqlBindingScope & context,
     BoundTableExpression result;
     result.asName = alias;
     
-    auto options
-        = jsonDecode<ZRenderOptions>(optionsBound.constantValue().extractJson());
+    //auto options
+    //    = jsonDecode<ZRenderOptions>(optionsBound.constantValue().extractJson());
     
     //auto info = std::make_shared<EmbeddingValueInfo>({ options.w, options.h, 4 },
     //                                                 ST_UINT8);
@@ -203,12 +210,12 @@ struct CreateImageProcedure: public Procedure {
     {
         auto runProcConf = applyRunConfOverProcConf(svdConfig, run);
 
-        auto onProgress2 = [&] (const Json::Value & progress)
-            {
-                Json::Value value;
-                value["dataset"] = progress;
-                return onProgress(value);
-            };
+        //auto onProgress2 = [&] (const Json::Value & progress)
+        //    {
+        //        Json::Value value;
+        //        value["dataset"] = progress;
+        //        return onProgress(value);
+        //    };
 
         if (!runProcConf.imageUrl.empty()) {
             checkWritability(runProcConf.imageUrl.toString(), "imageUrl");
@@ -255,7 +262,7 @@ struct CreateImageProcedure: public Procedure {
 
                 //cerr << "x = " << x << " y = " << y << " z = " << z << endl;
 
-                size_t xi = x, yi = y;
+                int64_t xi = x, yi = y;
 
                 if (xi < 0 || xi > px || yi < 0 || yi > py /*|| z < 0*/) {
                     ++outside;
@@ -440,6 +447,500 @@ RegisterProcedureType<CreateImageProcedure, CreateImageConfig>
 regSvd(builtinPackage(),
        "Create an image out of a projected value",
        "");
+
+
+/*****************************************************************************/
+/* LAS FILE IMPORTER                                                         */
+/*****************************************************************************/
+
+struct ImportLasConfig: public ProcedureConfig {
+    static constexpr const char * name = "lidar.import.las";
+    ImportLasConfig()
+    {
+        outputDataset.withType("tabular");
+    }
+
+    /// The URL of the LAS file we're importing
+    Url dataFileUrl;
+
+    /// The output dataset.  Rows will be dumped into here via insertRows.
+    PolyConfigT<Dataset> outputDataset;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ImportLasConfig);
+
+DEFINE_STRUCTURE_DESCRIPTION(ImportLasConfig);
+
+ImportLasConfigDescription::
+ImportLasConfigDescription()
+{
+    addParent<ProcedureConfig>();
+
+    addField("dataFileUrl", &ImportLasConfig::dataFileUrl,
+             "");
+    addField("outputDataset", &ImportLasConfig::outputDataset,
+             "Dataset to record the data into.",
+             PolyConfigT<Dataset>().withType("tabular"));
+}
+
+inline uint8_t host_to_be(uint8_t v)
+{
+    return v;
+}
+
+inline uint8_t be_to_host(uint8_t v)
+{
+    return v;
+}
+
+inline uint16_t host_to_be(uint16_t v)
+{
+    return htobe16(v);
+}
+
+inline uint16_t be_to_host(uint16_t v)
+{
+    return be16toh(v);
+}
+
+inline uint32_t host_to_be(uint32_t v)
+{
+    return htobe32(v);
+}
+
+inline uint32_t be_to_host(uint32_t v)
+{
+    return be32toh(v);
+}
+
+inline uint64_t host_to_be(uint64_t v)
+{
+    return htobe64(v);
+}
+
+inline uint64_t be_to_host(uint64_t v)
+{
+    return be64toh(v);
+}
+
+inline uint8_t host_to_le(uint8_t v)
+{
+    return v;
+}
+
+inline uint8_t le_to_host(uint8_t v)
+{
+    return v;
+}
+
+inline uint16_t host_to_le(uint16_t v)
+{
+    return htole16(v);
+}
+
+inline uint16_t le_to_host(uint16_t v)
+{
+    return le16toh(v);
+}
+
+inline uint32_t host_to_le(uint32_t v)
+{
+    return htole32(v);
+}
+
+inline uint32_t le_to_host(uint32_t v)
+{
+    return le32toh(v);
+}
+
+inline uint64_t host_to_le(uint64_t v)
+{
+    return htole64(v);
+}
+
+inline uint64_t le_to_host(uint64_t v)
+{
+    return le64toh(v);
+}
+
+template<typename Base>
+struct BigEndian {
+    Base val;
+
+    operator Base () const
+    {
+        return be_to_host(val);
+    }
+
+    BigEndian & operator = (Base val)
+    {
+        this->val = host_to_be(val);
+        return *this;
+    }
+};
+
+template<typename Base>
+struct LittleEndian {
+    Base val;
+
+    operator Base () const
+    {
+        return le_to_host(val);
+    }
+
+    LittleEndian & operator = (Base val)
+    {
+        this->val = host_to_le(val);
+        return *this;
+    }
+};
+
+typedef LittleEndian<uint16_t> uint16_le;
+typedef LittleEndian<uint32_t> uint32_le;
+typedef LittleEndian<uint64_t> uint64_le;
+
+struct LasHeader {
+    char signature[4];  // File Signature (“LASF”) char[4] 4 bytes *
+    uint16_t sourceId;     // File Source ID unsigned short 2 bytes *
+    uint16_t encoding;     // Global Encoding unsigned short 2 bytes *
+    char guid[16];         // Project ID - GUID data 1 unsigned long 4 bytes
+    //                        Project ID - GUID data 2 unsigned short 2 byte
+    //                        Project ID - GUID data 3 unsigned short 2 byte
+    //                        Project ID - GUID data 4 unsigned char[8] 8 bytes
+    uint8_t versionMajor;  // Version Major unsigned char 1 byte *
+    uint8_t versionMinor;  // Version Minor unsigned char 1 byte *
+    char systemIdentifier[32]; // System Identifier char[32] 32 bytes *
+    char softwareIdentifier[32];  // Generating Software char[32] 32 bytes *
+    uint16_le fileCreationDayOfYear;  // File Creation Day of Year unsigned short 2 bytes *
+    uint16_le fileCreationYear;       // File Creation Year unsigned short 2 bytes *
+    uint16_le headerSize;             // Header Size unsigned short 2 bytes *
+    uint32_le pointDataOffset;        // Offset to point data unsigned long 4 bytes *
+    uint32_le numVariableLengthRecords; // Number of Variable Length Records unsigned long 4 bytes *
+    uint8_t pointDataFormat;           // Point Data Record Format unsigned char 1 byte *
+    uint16_le pointDataRecordLength;   // Point Data Record Length unsigned short 2 bytes *
+    uint32_le legacyNumberOfPoints;    // Legacy Number of point records unsigned long 4 bytes *
+    uint32_le legacyNumberOfPointsByReturn[5];  // Legacy Number of points by return unsigned long [5] 20 bytes *
+    double xScaleFactor;  // X scale factor double 8 bytes *
+    double yScaleFactor;  // Y scale factor double 8 bytes *
+    double zScaleFactor;  // Z scale factor double 8 bytes *
+    double xOffset;       // X offset double 8 bytes *
+    double yOffset;       // Y offset double 8 bytes *
+    double zOffset;       // Z offset double 8 bytes *
+    double maxX;          // Max X double 8 bytes *
+    double minX;          // Min X double 8 bytes *
+    double maxY;          // Max Y double 8 bytes *
+    double minY;          // Min Y double 8 bytes *
+    double maxZ;          // Max Z double 8 bytes *
+    double minZ;          // Min Z double 8 bytes *
+    uint64_le packetDataoffset;  // Start of Waveform Data Packet Record Unsigned long long 8 bytes *
+    uint64_le extendedVariableLengthOffset;  // Start of first Extended Variable Length Record unsigned long long 8 bytes *
+    uint32_le numExtendedVariableLengthRecords;  // Number of Extended Variable Length Records unsigned long 4 bytes *
+    uint64_le numPointRecords;           // Number of point records unsigned long long 8 bytes *
+    uint64_le numPointRecordsByReturn[15];  // Number of points by return unsigned long long [15] 120 bytes     
+
+    uint64_t numberOfPoints() const
+    {
+        if (legacyNumberOfPoints)
+            return legacyNumberOfPoints;
+        else return numPointRecords;
+    }
+} JML_PACKED;
+
+struct LasPointRecordV0 {
+    uint32_le x;  // X long 4 bytes *
+    uint32_le y;  // Y long 4 bytes *
+    uint32_le z;  // Z long 4 bytes *
+    uint16_le intensity;  // Intensity unsigned short 2 bytes
+    uint8_t   returnNumber:3;  // Return Number 3 bits (bits 0 – 2) 3 bits *
+    uint8_t   numberOfReturns: 3;  // Number of Returns (given pulse) 3 bits (bits 3 – 5) 3 bits *
+    uint8_t scanDirection:1;  // Scan Direction Flag 1 bit (bit 6) 1 bit *
+    uint8_t edgeOfFlight:1;   // Edge of Flight Line 1 bit (bit 7) 1 bit *
+    uint8_t classification;   // Classification unsigned char 1 byte *
+    uint8_t scanAngle;      // Scan Angle Rank (-90 to +90) – Left side char 1 byte *
+    uint8_t userData;       // User Data unsigned char 1 byte
+    uint16_le pointSourceId;  // Point Source ID unsigned short 2 bytes *
+} JML_PACKED;
+
+struct LasPointRecordV3: public LasPointRecordV0 {
+    double gpsTime;
+    uint16_le r, g, b;
+} JML_PACKED;
+
+static_assert(sizeof(LasPointRecordV0) == 20, "LasPointRecordV0 size is wrong");
+static_assert(sizeof(LasPointRecordV3) == 34, "LasPointRecordV0 size is wrong");
+
+struct ImportLasProcedure: public Procedure {
+
+    ImportLasProcedure(MldbServer * owner,
+                       PolyConfig config,
+                       const std::function<bool (const Json::Value &)> & onProgress)
+        : Procedure(owner)
+    {
+        this->config = config.params.convert<ImportLasConfig>();
+    }
+
+    ImportLasConfig config;
+
+    virtual Any getStatus() const
+    {
+        return Any();
+    }
+
+    virtual RunOutput
+    run(const ProcedureRunConfig & run,
+        const std::function<bool (const Json::Value &)> & onProgress) const
+    {
+        auto runProcConf = applyRunConfOverProcConf(config, run);
+
+        string filename = config.dataFileUrl.toString();
+
+        // Ask for a memory mappable stream if possible
+        Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
+
+        LasHeader header;
+        stream.read((char *)&header, sizeof(header));
+
+        cerr << "version "
+             << (int)header.versionMajor << "."
+             << (int)header.versionMinor << endl;
+        cerr << header.systemIdentifier << " " << header.softwareIdentifier << endl;
+        cerr << "header.legacyNumberOfPoints = " << header.legacyNumberOfPoints << endl;
+        cerr << "header.legacyNumberOfPointsByReturn[0] = " << header.legacyNumberOfPointsByReturn[0] << endl;
+        cerr << "header.numPointRecords = " << header.numPointRecords << endl;
+        cerr << "contains " << header.numberOfPoints() << " points at "
+             << header.pointDataRecordLength << " bytes each" << endl;
+        cerr << "in format " << (int)header.pointDataFormat << endl;
+
+        cerr << "fileCreationYear " << header.fileCreationYear << endl;
+        cerr << "fileCreationDayOfYear " << header.fileCreationDayOfYear << endl;
+        cerr << "scale " << header.xScaleFactor << " " << header.yScaleFactor
+             << " " << header.zScaleFactor << endl;
+        //auto onProgress2 = [&] (const Json::Value & progress)
+        //    {
+        //        Json::Value value;
+        //        value["dataset"] = progress;
+        //        return onProgress(value);
+        //    };
+
+        std::shared_ptr<Dataset> dataset
+            = createDataset(server, config.outputDataset, onProgress,
+                            true /*overwrite*/);
+
+        Dataset::MultiChunkRecorder recorder
+            = dataset->getChunkRecorder();
+
+        struct ThreadAccum {
+            /// Recorder object for this thread that the dataset gives us
+            /// to record into the dataset.
+            std::unique_ptr<Recorder> threadRecorder;
+
+            /// Special function to allow rapid insertion of fixed set of
+            /// atom valued columns.  Only for isIdentitySelect.
+            std::function<void (RowName rowName,
+                                Date timestamp,
+                                CellValue * vals,
+                                size_t numVals,
+                                std::vector<std::pair<ColumnName, CellValue> > extra)>
+            specializedRecorder;
+
+        };
+
+        PerThreadAccumulator<ThreadAccum> accum;
+
+        vector<ColumnName> inputColumnNames;
+        for (Utf8String n: { "x", "y", "z", "r", "g", "b" }) {
+            inputColumnNames.push_back(PathElement(n));
+        }
+
+        size_t blockSize = 65536;
+
+        ML::Timer timer;
+
+        std::atomic<int64_t> recordsDone(0);
+
+        auto doTiming = [&] ()
+            {
+                double wall = timer.elapsed_wall();
+                cerr << "done " << recordsDone << " in " << wall
+                     << "s at " << recordsDone / wall * 0.000001 << "M records/second on "
+                     << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+            };
+
+        auto onChunk = [&] (const char * chunkStart,
+                            size_t chunkLength,
+                            int64_t chunkNumber)
+            {
+                auto & threadAccum = accum.get();
+                threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
+                auto specializedRecorder
+                    = threadAccum.threadRecorder->specializeRecordTabular(inputColumnNames);
+                size_t firstElement = chunkNumber * blockSize;
+                size_t lastElement = std::min(firstElement + blockSize,
+                                              header.numberOfPoints());
+                size_t numPoints = lastElement - firstElement;
+
+                std::vector<CellValue> values(inputColumnNames.size());
+
+                for (size_t i = 0;  i < numPoints;  ++i) {
+                    const auto * record
+                        = reinterpret_cast<const LasPointRecordV3 *>
+                        (chunkStart + i * header.pointDataRecordLength);
+
+                    values[0] = (uint32_t)record->x;
+                    values[1] = (uint32_t)record->y;
+                    values[2] = (uint32_t)record->z;
+                    values[3] = (uint32_t)record->r;
+                    values[4] = (uint32_t)record->g;
+                    values[5] = (uint32_t)record->b;
+
+                    Date ts = Date::fromSecondsSinceEpoch(record->gpsTime);
+
+                    RowName rowName(i + firstElement);
+
+                    specializedRecorder(std::move(rowName),
+                                        ts, values.data(),
+                                        values.size(), {});
+                }
+
+                threadAccum.threadRecorder->finishedChunk();
+
+                recordsDone += numPoints;
+
+                doTiming();
+
+                return true;
+            };
+        
+        // Skip to the actual data before we import it
+        stream.seekg(header.pointDataOffset, std::ios::beg);
+        
+        forEachChunk(stream, onChunk, blockSize * header.pointDataRecordLength,
+                     -1 /* max chunks */, numCpus() /* max parallelism */);
+        
+        recorder.commit();
+
+        doTiming();
+        
+#if 0
+        auto onLine = [&] (const char * line,
+                           size_t length,
+                           int chunkNum,
+                           int64_t lineNum)
+        {
+            int64_t actualLineNum = lineNum + lineOffset;
+#if 1
+            uint64_t linesDone = totalLinesProcessed.fetch_add(1);
+
+            if (linesDone && linesDone % 1000000 == 0) {
+                double wall = timer.elapsed_wall();
+                cerr << "done " << linesDone << " in " << wall
+                     << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
+                     << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+            }
+#endif
+
+            // Values that come in from the CSV file
+            // TODO: clang doesn't like a variable length array
+            // here.  Find another way to allocate it on the
+            // stack.
+            vector<CellValue> values(inputColumnNames.size());
+
+            const char * lineStart = line;
+
+            const size_t numInputColumn = inputColumnNames.size();
+
+            const char * errorMsg
+                    = parseFixedWidthCsvRow(line, length, &values[0],
+                                            numInputColumn,
+                                            separator, quote, encoding,
+                                            replaceInvalidCharactersWith,
+                                            isTextLine,
+                                            hasQuoteChar);
+
+                if (errorMsg) {
+                    if(config.allowMultiLines) {
+                        // check if we hit an error meaning we probably
+                        // have a multiline error
+                        if(errorMsg == unclosedQuoteError ||
+                           errorMsg == notEnoughColsError) {
+                            return false;
+                        }
+                    }
+
+                    return handleError(errorMsg, actualLineNum,
+                                           line - lineStart + 1,
+                                           string(line, length));
+                }
+
+            auto row = scope.bindRow(&values[0], ts, actualLineNum,
+                                         0 /* todo: chunk ofs */);
+
+            // If it doesn't match the where, don't add it
+            if (!isWhereTrue) {
+                ExpressionValue storage;
+                if (!whereBound(row, storage, GET_ALL).isTrue())
+                    return true;
+            }
+
+            // Get the timestamp for the row
+            Date rowTs = ts;
+            ExpressionValue tsStorage;
+            rowTs = timestampBound(row, tsStorage, GET_ALL)
+                    .coerceToTimestamp().toTimestamp();
+
+            ExpressionValue nameStorage;
+            RowName rowName(namedBound(row, nameStorage, GET_ALL)
+                                .toUtf8String());
+
+            //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
+
+            auto & threadAccum = accum.get();
+
+            if (isIdentitySelect) {
+                // If it's a select *, we don't really need to run the
+                // select clause.  We simply go for it.
+                threadAccum.specializedRecorder(std::move(rowName),
+                                                rowTs, values.data(),
+                                                values.size(), {});
+            }
+            else {
+                // TODO: optimization for
+                // SELECT * excluding (...)
+
+                ExpressionValue selectStorage;
+                const ExpressionValue & selectOutput
+                        = selectBound(row, selectStorage, GET_ALL);
+
+                if (&selectOutput == &selectStorage) {
+                    // We can destructively work with it
+                    threadAccum.threadRecorder
+                        ->recordRowExprDestructive(std::move(rowName),
+                                                   std::move(selectStorage));
+                    }
+                    else {
+                        // We don't own the output; we will need to copy
+                        // it.
+                        threadAccum.threadRecorder
+                            ->recordRowExpr(std::move(rowName),
+                                            selectOutput);
+                }
+            }
+
+            return true;
+        };
+#endif
+
+
+
+        RunOutput result;
+        return result;
+    }
+};
+
+RegisterProcedureType<ImportLasProcedure, ImportLasConfig>
+regImportLas(builtinPackage(),
+             "Create an image out of a projected value",
+             "");
 
 } // namespace MLDB
 } // namespace Datacratic
