@@ -476,4 +476,76 @@ void forEachLineBlock(std::istream & stream,
     }
 }
 
+/*****************************************************************************/
+/* FOR EACH CHUNK                                                            */
+/*****************************************************************************/
+
+void forEachChunk(std::istream & stream,
+                        std::function<bool (const char * chunk,
+                                            size_t chunkLength,
+                                            int64_t chunkNumber)> onChunk,
+                        size_t chunkLength,
+                        int64_t maxChunks,
+                        int maxParallelism)
+{
+    std::atomic<int> chunkNumber(0);
+
+    ThreadPool tp(maxParallelism);
+
+    std::atomic<int> stop(false);
+    std::atomic<int> hasExc(false);
+    std::exception_ptr exc;
+
+    std::function<void ()> doBlock = [&] ()
+        {
+            try {
+                std::shared_ptr<char> block(new char[chunkLength],
+                                            [] (char * c) { delete[] c; });
+
+                if (stop)
+                    return;
+                stream.read((char *)block.get(), chunkLength);
+
+                if (stop)
+                    return;
+                // Check how many bytes we actually read
+                size_t bytesRead = stream.gcount();
+                
+                if (bytesRead < chunkLength) {
+                    ExcAssert(!stream || stream.eof());
+                }
+
+                int myChunkNumber = chunkNumber++;
+
+                if (stream && !stream.eof() &&
+                    (maxChunks == -1 || chunkNumber < maxChunks)) {
+                    // Ready for another chunk
+                    // After this, there could be a concurrent thread in this
+                    // lambda
+                    tp.add(doBlock);
+                }
+
+                if (!onChunk(block.get(), bytesRead, myChunkNumber)) {
+                    // We decided to stop.  We should probably stop everything
+                    // else, too.
+                    stop = true;
+                    return;
+                }
+            } JML_CATCH_ALL {
+                if (hasExc.fetch_add(1) == 0) {
+                    exc = std::current_exception();
+                }
+            }
+        };
+    
+    tp.add(doBlock);
+    tp.waitForAll();
+
+    // If there was an exception, rethrow it rather than returning
+    // cleanly
+    if (hasExc) {
+        std::rethrow_exception(exc);
+    }
+}
+
 } // namespace Datacratic
