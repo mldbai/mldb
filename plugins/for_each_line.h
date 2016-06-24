@@ -116,5 +116,22 @@ void forEachLineBlock(std::istream & stream,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock
                           = nullptr);
 
+/** Run the given lambda over fixed size chunks read from the stream, in parallel
+    as much as possible.  If there is a smaller chunk at the end (EOF is obtained),
+    then the smaller chunk will be returned by itself.
+
+    If any of the lambdas return false, then the process will be stopped once
+    all previous lambdas have finished executing.
+
+    If any throw an exception, then the exception will be rethrown once all
+    concurrent lambdas have finished executing.
+*/
+void forEachChunk(std::istream & stream,
+                  std::function<bool (const char * chunk,
+                                      size_t chunkLength,
+                                      int64_t chunkNumber)> onChunk,
+                  size_t chunkLength,
+                  int64_t maxChunks,
+                  int maxParallelism);
     
 } // namespace Datacratic
