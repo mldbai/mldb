@@ -273,7 +273,8 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                 if (c == '\"') {
                     if (exceptions) {
                         throw HttpReturnException
-                            (400, "invalid char in PathElement '" + Utf8String(start, e)
+                            (400, "invalid char in PathElement '"
+                             + Utf8String(p, e)
                              + "'.  Quotes must be doubled.");
                     }
                     else {
@@ -283,7 +284,8 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                 else {
                     if (exceptions) {
                         throw HttpReturnException
-                            (400, "invalid char in PathElement '" + Utf8String(start, e)
+                            (400, "invalid char in PathElement '"
+                             + Utf8String(p, e)
                              + "'.  Special characters must be quoted and "
                              "nulls are not accepted.");
                     }

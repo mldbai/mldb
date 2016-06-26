@@ -228,6 +228,12 @@ doGetFunction(const Utf8String & tableName,
 
     if (functionName == "rightRowName")
         throw HttpReturnException(400, "Function 'rightRowName' is not available outside of a join");
+
+    if (functionName == "leftRowPath")
+        throw HttpReturnException(400, "Function 'leftRowPath' is not available outside of a join");
+
+    if (functionName == "rightRowPath")
+        throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
     
     return {nullptr, nullptr};
 }

@@ -21,7 +21,8 @@ var expected = [
          [ "y.column", "x", "-Inf" ],
          [ "y.value", 1, "-Inf" ]
       ],
-      "rowName" : "[result]-[0]"
+       "rowHash" : "77a5d17e0b01f7cb",
+       "rowName" : "[result]-[0]"
    }
 ];
 
@@ -39,7 +40,8 @@ var expected = [
          [ "z.column", "z", "-Inf" ],
          [ "z.value", 2, "-Inf" ]
       ],
-      "rowName" : "[result]-[[0]-[0]]"
+       "rowHash" : "85d725ebd1df94a2",
+       "rowName" : "[result]-[[0]-[0]]"
    }
 ];
 
