@@ -123,7 +123,6 @@ struct TabularDatasetChunk {
 private:
     std::vector<RowName> rowNames;
     std::vector<uint64_t> integerRowNames;
-
 public:
     std::shared_ptr<FrozenColumn> timestamps;
 
