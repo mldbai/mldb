@@ -538,7 +538,9 @@ toIndex() const
     const char * p = data();
     const char * e = p + dataLength();
     if (e == p)
-        return false;
+        return -1;
+    if (*p == '0' && dataLength() != 1)
+        return -1;
     for (; p != e;  ++p) {
         if (!isdigit(*p))
             return -1;
@@ -982,6 +984,25 @@ toUtf8String() const
         result += at(i).toEscapedUtf8String(); 
         first = false;
     }
+    return result;
+}
+
+ssize_t
+Path::
+toIndex() const
+{
+    if (length_ != 1 || digits(0) != PathElement::DIGITS_ONLY)
+        return -1;
+    return at(0).toIndex();
+}
+
+size_t
+Path::
+requireIndex() const
+{
+    ssize_t result = toIndex();
+    if (result == -1)
+        throw HttpReturnException(400, "Path was not an index");
     return result;
 }
 
