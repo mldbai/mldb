@@ -683,7 +683,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         std::tie(chunkNumber, rowNumber) = decodeToken(token);
 
         try {
-            return chunks.at(chunkNumber).getRowName(rowNumber);
+            return chunks.at(chunkNumber).getRowName(rowNumber, storage);
         } catch (...) {
             static std::mutex bugMutex;
             std::unique_lock<std::mutex> guard(bugMutex);
