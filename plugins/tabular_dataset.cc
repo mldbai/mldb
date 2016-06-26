@@ -85,7 +85,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     */
     struct TabularDataStoreRowStream : public RowStream {
 
-        TabularDataStoreRowStream(TabularDataStore * store) : store(store)
+        TabularDataStoreRowStream(TabularDataStore * store)
+            : store(store)
         {
         }
 
@@ -99,33 +100,37 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             size_t sum = 0;
             chunkiter = store->chunks.begin();
             while (chunkiter != store->chunks.end()
-                   && start > sum + chunkiter->rowNames.size())  {
-                sum += chunkiter->rowNames.size();
+                   && start > sum + chunkiter->rowCount())  {
+                sum += chunkiter->rowCount();
                 ++chunkiter;
             }
 
             if (chunkiter != store->chunks.end()) {
-                rowiter = chunkiter->rowNames.begin() + (start - sum);
+                rowIndex = (start - sum);
+                rowCount = chunkiter->rowCount();
             }
         }
 
         virtual RowName next() override
         {
-            ExcAssert(rowiter != chunkiter->rowNames.end());
-            RowName row = *rowiter;
+            RowName storage;
+            const RowName & row = rowName(storage);
             advance();
-            return row;
+            if (&storage == &row)
+                return std::move(storage);
+            else return row;
         }
 
         virtual const RowName & rowName(RowName & storage) const override
         {
-            ExcAssert(rowiter != chunkiter->rowNames.end());
-            return *rowiter;
+            ExcAssert(rowIndex < rowCount);
+            return chunkiter->getRowName(rowIndex, storage);
         }
     
         virtual RowHash rowHash() const override
         {
-            return *rowiter;
+            RowName storage;
+            return rowName(storage);
         }
 
         virtual std::shared_ptr<const void> rowToken() const override
@@ -135,29 +140,29 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             // 2.  A row number within the chunk
 
             uint64_t chunkNum = chunkiter - store->chunks.begin();
-            uint64_t rowInChunk = rowiter - chunkiter->rowNames.begin();
+            uint64_t rowInChunk = rowIndex;
 
             return createToken(chunkNum, rowInChunk);
         }
 
         virtual void advance() override
         {
-            ExcAssert(rowiter != chunkiter->rowNames.end());
-            rowiter++;
-            if (rowiter == chunkiter->rowNames.end())
-            {
+            ExcAssert(rowIndex < rowCount);
+            rowIndex++;
+            if (rowIndex == rowCount) {
                 ++chunkiter;
-                if (chunkiter != store->chunks.end())
-                {
-                    rowiter = chunkiter->rowNames.begin();
-                    ExcAssert(rowiter != chunkiter->rowNames.end());
+                if (chunkiter != store->chunks.end()) {
+                    rowIndex = 0;
+                    rowCount = chunkiter->rowCount();
+                    ExcAssertGreater(rowCount, 0);
                 }
             }
         }
 
         TabularDataStore* store;
         std::vector<TabularDatasetChunk>::const_iterator chunkiter;
-        std::vector<RowName>::const_iterator rowiter;
+        size_t rowIndex;   ///< Number of row within this chunk
+        size_t rowCount;   ///< Total number of rows within this chunk
     };
 
     int64_t rowCount;
@@ -440,14 +445,18 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
         std::vector<RowName> result;
         result.reserve(rowCount);
+        ExcAssert(start == 0);
+        ExcAssert(limit == -1);
 
         size_t n = 0;
         for (auto & c: chunks) {
-            if (n++ < start)
+            if ((n += c.rowCount()) < start)
                 continue;
             if (limit != -1 && n > start + limit)
                 break;
-            result.insert(result.end(), c.rowNames.begin(), c.rowNames.end());
+            for (size_t i = 0;  i < c.rowCount();  ++i) {
+                result.emplace_back(c.getRowName(i));
+            }
         }
 
         return result;
@@ -457,14 +466,19 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
         std::vector<RowHash> result;
+        result.reserve(rowCount);
+        ExcAssert(start == 0);
+        ExcAssert(limit == -1);
 
         size_t n = 0;
-        for (auto & i: rowIndex) {
-            if (n++ < start)
+        for (auto & c: chunks) {
+            if ((n += c.rowCount()) < start)
                 continue;
             if (limit != -1 && n > start + limit)
                 break;
-            result.emplace_back(i.first);
+            for (size_t i = 0;  i < c.rowCount();  ++i) {
+                result.emplace_back(c.getRowName(i));
+            }
         }
 
         return result;
@@ -539,7 +553,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         std::tie(chunkNumber, rowNumber) = decodeToken(token);
 
         try {
-            return chunks.at(chunkNumber).rowNames.at(rowNumber);
+            return chunks.at(chunkNumber).getRowName(rowNumber, storage);
         } catch (...) {
             static std::mutex bugMutex;
             std::unique_lock<std::mutex> guard(bugMutex);
@@ -548,7 +562,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             cerr << "rowNumber = " << rowNumber << endl;
             cerr << "chunks.size() = " << chunks.size() << endl;
             cerr << "rowNames.size() = "
-                 << chunks.at(chunkNumber).rowNames.size() << endl;
+                 << chunks.at(chunkNumber).rowCount() << endl;
             throw;
         }
     }
@@ -605,7 +619,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         std::vector<const void *> handles;
         handles.reserve(rowIndex.size());
         for (size_t i = 0;  i < chunks.size();  ++i) {
-            for (size_t j = 0;  j < chunks[i].rowNames.size();  ++j) {
+            for (size_t j = 0;  j < chunks[i].rowCount();  ++j) {
                 handles.emplace_back(encodeToken(i, j));
             }
         }
@@ -620,7 +634,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             throw HttpReturnException(400, "Row not found in tabular dataset");
         }
 
-        return chunks.at(it->second.first).rowNames[it->second.second];
+        return chunks.at(it->second.first).getRowName(it->second.second);
     }
 
     virtual ColumnName getColumnName(ColumnHash column) const override

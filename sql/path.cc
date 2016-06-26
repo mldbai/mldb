@@ -1003,6 +1003,25 @@ toUtf8String() const
     return result;
 }
 
+ssize_t
+Path::
+toIndex() const
+{
+    if (length_ != 1 || digits(0) != PathElement::DIGITS_ONLY)
+        return -1;
+    return at(0).toIndex();
+}
+
+size_t
+Path::
+requireIndex() const
+{
+    ssize_t result = toIndex();
+    if (result == -1)
+        throw HttpReturnException(400, "Path was not an index");
+    return result;
+}
+
 std::pair<Path, bool>
 Path::
 parseImpl(const char * str, size_t len, bool exceptions)
