@@ -161,7 +161,7 @@ public:
 
         storage = ExpressionValue(std::move(cell),
                                   timestamps->get(rowIndex)
-                                  .toTimestamp());
+                                  .mustCoerceToTimestamp());
         return &storage;
     }
 
