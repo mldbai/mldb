@@ -956,16 +956,14 @@ struct RegisterSftpHandler {
                                 + resource);
         string connStr(resource, 0, pos);
 
-        shared_ptr<SftpConnection> connection =
-            getSftpConnectionFromConnStr(connStr);
-        ExcAssert(connection);
+        auto & connection = getSftpConnectionFromConnStr(connStr);
         string path = resource.substr(connStr.size());
         if (mode == ios::in) {
             std::shared_ptr<std::streambuf> buf
-                (connection->streamingDownloadStreambuf(path).release());
+                (connection.streamingDownloadStreambuf(path).release());
 
             SftpConnection::Attributes attr;
-            if (!connection->getAttributes(path, attr)) {
+            if (!connection.getAttributes(path, attr)) {
                 throw ML::Exception("Couldn't read attributes for sftp "
                                     "resource");
             }
@@ -980,7 +978,7 @@ struct RegisterSftpHandler {
         }
         if (mode == ios::out) {
             std::shared_ptr<std::streambuf> buf
-                (connection->streamingUploadStreambuf(path, onException)
+                (connection.streamingUploadStreambuf(path, onException)
                  .release());
             return UriHandler(buf.get(), buf);
         }
@@ -994,13 +992,12 @@ struct RegisterSftpHandler {
 
 } registerSftpHandler;
 
-std::shared_ptr<SftpConnection> getSftpConnectionFromConnStr(
-    const std::string & connStr)
+SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr)
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
     auto it = sftpHosts.find(connStr);
     if (it != sftpHosts.end()) {
-        return it->second.connection;
+        return *it->second.connection.get();
     }
     auto creds = getCredential("sftp", "sftp://" + connStr);
 
@@ -1022,7 +1019,7 @@ std::shared_ptr<SftpConnection> getSftpConnectionFromConnStr(
     info.connection = std::make_shared<SftpConnection>();
     info.connection->connectPasswordAuth(host, creds.id, creds.secret, port);
     sftpHosts[connStr] = info;
-    return info.connection;
+    return *info.connection.get();
 }
 
 namespace {
@@ -1069,18 +1066,18 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     {
         string urlStr = url.toString();
         string connStr = connStrFromUri(urlStr);
-        auto conn = getSftpConnectionFromConnStr(connStr);
-        conn->mkdir(urlStr.substr(7 + connStr.size()));
+        auto & conn = getSftpConnectionFromConnStr(connStr);
+        conn.mkdir(urlStr.substr(7 + connStr.size()));
     }
 
     bool erase(const Url & url, bool throwException) const override
     {
         string urlStr = url.toString();
         string connStr = connStrFromUri(urlStr);
-        auto conn = getSftpConnectionFromConnStr(connStr);
+        auto & conn = getSftpConnectionFromConnStr(connStr);
         int res = 0;
         try {
-            res = conn->unlink(urlStr.substr(7 + connStr.size()));
+            res = conn.unlink(urlStr.substr(7 + connStr.size()));
         }
         catch (const Exception & e) {
             if (throwException) {
@@ -1100,10 +1097,10 @@ struct SftpUrlFsHandler : public UrlFsHandler {
         ExcAssert(delimiter == "/");
         string url = prefix.toString();
         const string connStr = connStrFromUri(url);
-        auto conn = getSftpConnectionFromConnStr(connStr);
+        auto & conn = getSftpConnectionFromConnStr(connStr);
 
         function<void(string, int)> processPath = [&] (string path, int depth) {
-            auto dir = conn->getDirectory(path);
+            auto dir = conn.getDirectory(path);
             dir.forEachFile([&] (string name, SftpConnection::Attributes attr) {
                 // For help with masks see
                 // https://github.com/libssh2/libssh2/blob/master/docs/libssh2_sftp_fstat_ex.3
