@@ -164,6 +164,8 @@ struct SftpConnection : public SshConnection {
     int mkdir(const std::string & path);
 
     void close();
+
+    SftpConnection operator = (const SftpConnection & other) = delete;
 };
 
 
