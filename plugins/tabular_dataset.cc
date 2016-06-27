@@ -755,7 +755,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 handles.emplace_back(encodeToken(i, j));
             }
         }
-        
+
         return { std::move(handles), nullptr };
     }
 
