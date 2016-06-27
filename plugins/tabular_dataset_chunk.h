@@ -102,6 +102,16 @@ struct TabularDatasetChunk {
         }
     }
 
+    RowName getRowName(size_t index) const
+    {
+        return rowNames.at(index);
+    }
+
+    const RowName & getRowName(size_t index, RowName & storage) const
+    {
+        return rowNames.at(index);
+    }
+
     std::vector<std::shared_ptr<FrozenColumn> > columns;
     std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
     std::vector<RowName> rowNames;
