@@ -792,8 +792,24 @@ struct ImportLasProcedure: public Procedure {
                     values[3] = (uint32_t)record->r;
                     values[4] = (uint32_t)record->g;
                     values[5] = (uint32_t)record->b;
+                    
+                    Date ts;
+#if 0
+                    if (header.encoding & 1) {
+                        cerr << "standard GPS time" << endl;
+                    }
+                    else {
+                        cerr << "GPS week time" << endl;
+                        static const Date origin(1980, 1, 6);
+                        ts = origin.plusSeconds(record->gpsTime * 0.000001);
+                    }
 
-                    Date ts = Date::fromSecondsSinceEpoch(record->gpsTime);
+                    //Date ts = Date::fromSecondsSinceEpoch(record->gpsTime * 0.001);
+                    if (chunkNumber == 0) {
+                        cerr << "record->gpsTime = " << CellValue(record->gpsTime) << " now " << CellValue(Date::now().secondsSinceEpoch()) << endl;
+                        cerr << "ts = " << ts << endl;
+                    }
+#endif
 
                     RowName rowName(i + firstElement);
 
@@ -819,6 +835,8 @@ struct ImportLasProcedure: public Procedure {
         
         recorder.commit();
 
+        dataset->commit();
+        
         doTiming();
         
 #if 0
