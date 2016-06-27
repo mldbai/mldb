@@ -3059,7 +3059,7 @@ BoundFunction sign(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
     auto outputInfo
-        = std::make_shared<UnknownRowValueInfo>();
+        = std::make_shared<NumericValueInfo>();
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
