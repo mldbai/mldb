@@ -90,6 +90,8 @@ This is the recommended way to use MLDB on Linux or Private Clouds, as well as i
     
 You can get MLDB as a Docker image and run it as a Docker container. If you've never heard of or installed Docker, check out these [Docker](https://docs.docker.com/installation/) installation instructions</a> for various platforms.
 
+*Note: We recommend using the latest stable version of Docker. Docker versions below 1.0 are not supported.*
+
 **Step 1 - Launch an MLBD container with a mapped directory**
     
 *Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/installation/ubuntulinux/#create-a-docker-group) for more information regarding running containers from regular user accounts.*

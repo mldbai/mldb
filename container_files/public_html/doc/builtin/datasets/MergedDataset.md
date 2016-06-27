@@ -22,3 +22,4 @@ SELECT * FROM ds1 OUTER JOIN ds2 ON ds1.rowName() = ds2.rowName()
 
 * The ![](%%doclink transposed dataset) is another dataset transformation
 * The ![](%%doclink transform procedure) can be used to modify a dataset ready for merging
+

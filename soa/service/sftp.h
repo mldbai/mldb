@@ -86,6 +86,7 @@ struct SftpConnection : public SshConnection {
     LIBSSH2_SFTP *sftp_session;
 
     SftpConnection();
+    SftpConnection(const SftpConnection & other) = delete;
 
     ~SftpConnection();
 
@@ -124,11 +125,11 @@ struct SftpConnection : public SshConnection {
     struct Directory {
         std::string path;
         LIBSSH2_SFTP_HANDLE *handle;
-        SftpConnection * owner;
+        const SftpConnection * owner;
         
         Directory(const std::string & path,
                   LIBSSH2_SFTP_HANDLE * handle,
-                  SftpConnection * owner);
+                  const SftpConnection * owner);
 
         ~Directory();
 
@@ -139,7 +140,7 @@ struct SftpConnection : public SshConnection {
         void forEachFile(const OnFile & onFile) const;
     };
 
-    Directory getDirectory(const std::string & path);
+    Directory getDirectory(const std::string & path) const;
 
     File openFile(const std::string & path);
 
@@ -151,17 +152,20 @@ struct SftpConnection : public SshConnection {
     
     std::unique_ptr<std::streambuf>
     streamingUploadStreambuf(const std::string & path,
-                             const OnUriHandlerException & onException);
+                             const OnUriHandlerException & onException) const;
 
     std::unique_ptr<std::streambuf>
-    streamingDownloadStreambuf(const std::string & path);
+    streamingDownloadStreambuf(const std::string & path) const;
 
-    filter_ostream streamingUpload(const std::string & path);
-    filter_istream streamingDownload(const std::string & path);
+    filter_ostream streamingUpload(const std::string & path) const;
+    filter_istream streamingDownload(const std::string & path) const;
 
-    int unlink(const std::string & path);
+    int unlink(const std::string & path) const;
+    int mkdir(const std::string & path) const;
 
     void close();
+
+    SftpConnection operator = (const SftpConnection & other) = delete;
 };
 
 
@@ -189,7 +193,6 @@ void registerSftpHostPublicKey(const std::string & hostname,
                                const std::string & privateKeyFile,
                                const std::string & port = "ssh");
 
-std::shared_ptr<SftpConnection> getSftpConnectionForHost(const std::string
-                                                         & hostname);
+const SftpConnection & getSftpConnectionForHost(const std::string & hostname);
 
 } // namespace Datacratic
