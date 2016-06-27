@@ -12,6 +12,7 @@ exec /sbin/setuser _mldb /usr/local/bin/uwsgi \
     --die-on-term \
     --processes 8 \
     --logto=/var/log/validator_api/validator_api.log \
+    --disable-logging \
     --chdir=/opt/bin \
     --wsgi-file=/opt/bin/validator_api.wsgi \
     --pythonpath=/opt/lib/python2.7 \
