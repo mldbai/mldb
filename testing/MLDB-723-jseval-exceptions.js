@@ -76,4 +76,12 @@ plugin.log(res2);
 assertEqual(res2.responseCode, 400);
 assertContains(res2.json.error, "Exception running");
 
+//MLDB-1714
+var res3 = mldb.get("/v1/datasets/test/query",
+                    { select: "jseval('return 3;')" });
+
+assertContains(res3.json.error, "jseval expected at least 2 arguments");
+
+plugin.log(res3);
+
 "success"

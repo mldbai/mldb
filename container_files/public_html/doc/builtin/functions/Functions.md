@@ -1,9 +1,11 @@
 # Intro to Functions
 
-Functions are named, reusable programs used to implement streaming computations which can accept input values and return output values. Functions are used to:
+User-defined Functions are named, reusable programs used to implement streaming computations which can accept input values and return output values. Functions are used to:
 
 * Encapsulate [SQL expressions](../sql/Sql.md)
 * Apply machine learning models parameterized by the output of a training Procedure
+
+Functions can be created directly via a [REST API call](../functions/FunctionConfig.md) or by passing a `functionName` argument to most training [Procedures](../procedures/Procedures.md).
 
 ## Input and Output Values
 

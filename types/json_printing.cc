@@ -72,6 +72,27 @@ static constexpr size_t MAX_STACK_CHARS = 16384;
 
 } // file scope
 
+bool isJsonValid(char c)
+{
+    if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
+        return true;
+    else {
+        switch (c) {
+            case '\t':
+            case '\n':
+            case '\r':
+            case '\f':
+            case '\b':
+            case '/':
+            case '\\':
+            case '\"':
+                return true;
+            default:
+                return false;
+        }
+    }
+}
+
 std::string
 jsonEscape(const std::string & str)
 {

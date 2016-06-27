@@ -126,12 +126,47 @@ class ImportJsonTest(unittest.TestCase):
                 "runOnCreation" : True,
             }
         }
-        mldb.put("/v1/procedures/csv_proc", csv_conf) 
+        mldb.put("/v1/procedures/csv_proc", csv_conf)
 
         res = mldb.get(
             "/v1/query",
             q="select parse_json(lineText, {arrays: 'encode'}) as * from imported_json")
         self.do_asserts("", res.json())
+
+    def test_mldb_1729_output_dataset_string_def(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": "my_json_dataset_1",
+                "runOnCreation": True
+            }
+        })
+
+        res = mldb.get("/v1/query",
+                       q="SELECT * FROM my_json_dataset_1 ORDER BY rowName()")
+        self.do_asserts("", res.json())
+
+    def test_mldb_1729_output_dataset_string_def_params(self):
+        """
+        Make sure the defaults don't overwrite the given config.
+        """
+        conf = {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "my_json_dataset_2",
+                    'params' : {
+                        'unknownColumns' : 'error'
+                    }
+                },
+                "runOnCreation": True
+            }
+        }
+
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            mldb.post("/v1/procedures", conf)
 
 if __name__ == '__main__':
     mldb.run_tests()

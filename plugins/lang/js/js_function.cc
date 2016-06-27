@@ -210,6 +210,9 @@ BoundFunction bindJsEval(const Utf8String & name,
                          const std::vector<BoundSqlExpression> & args,
                          const SqlBindingScope & context)
 {
+    if (args.size() < 2)
+        throw HttpReturnException(400, "jseval expected at least 2 arguments, got " + to_string(args.size()));
+
     // 1.  Get the constant source value
     Utf8String scriptSource = args[0].constantValue().toUtf8String();
 

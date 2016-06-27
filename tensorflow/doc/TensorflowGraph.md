@@ -1,4 +1,4 @@
-# Tensorflow Graph Function (Experimental)
+# Tensorflow Graph Function
 
 The Tensorflow Graph function creates a function which, when called,
 will apply a Tensorflow graph to the given inputs.
@@ -112,6 +112,10 @@ and return these results:
 ]
 ```
 
+## Examples
+
+* The ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) notebook
+* The ![](%%nblink _demos/Transfer Learning with Tensorflow) demo notebook
 
 ## See also
 

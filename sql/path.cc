@@ -241,6 +241,15 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                     result += '\"';
                     ++ufirst;  // skip the second quote
                 }
+                else if (c == 0) {
+                    if (exceptions) {
+                        throw HttpReturnException
+                            (400, "Paths cannot contain null characters");
+                    }
+                    else {
+                        return { PathElement(), false };
+                    }
+                }
                 else {
                     result += c;
                 }
@@ -275,7 +284,8 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                     if (exceptions) {
                         throw HttpReturnException
                             (400, "invalid char in PathElement '" + Utf8String(start, e)
-                             + "'.  Special characters must be quoted.");
+                             + "'.  Special characters must be quoted and "
+                             "nulls are not accepted.");
                     }
                     else {
                         return { PathElement(), false };
@@ -447,17 +457,45 @@ toEscapedUtf8String() const
 
     const char * d = data();
     size_t l = dataLength();
+    const char * e = d + l;
 
-    auto isSimpleChar = [] (int c) -> bool
+    auto isSimpleChar = [] (unsigned char c) -> bool
         {
-            return c != '\"' && c != '.';
+            return c >= ' ' && c != '\"' && c != '.';
         };
 
     bool isSimple = l == 0 || isSimpleChar(d[0]);
+    bool isUtf8 = false;
     for (size_t i = 0;  i < l && isSimple;  ++i) {
+        if (d[i] & 128) {
+            // high bit set; is UTF-8
+            isUtf8 = true;
+            break;
+        }
         if (!isSimpleChar(d[i]) && d[i] != '_')
             isSimple = false;
     }
+
+    if (isUtf8) {
+        auto isSimpleUtf8 = [] (uint32_t c) -> bool
+            {
+                return c >= ' ' && c != '\"' && c != '.';
+            };
+
+        // Simple character detection doesn't work with UTF-8
+        // Scan it UTF-8 character by UTF-8 character
+        isSimple = true;
+        utf8::iterator<const char *> ufirst(d, d, e);
+        utf8::iterator<const char *> ulast(e, d, e);
+
+        while (isSimple && ufirst != ulast) {
+            auto c = *ufirst++;
+            if (!isSimpleUtf8(c)) {
+                isSimple = false;
+            }
+        }
+    }
+
     if (isSimple)
         return toUtf8String();
     else {

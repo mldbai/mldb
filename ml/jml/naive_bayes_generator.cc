@@ -85,9 +85,7 @@ std::shared_ptr<Classifier_Impl>
 Naive_Bayes_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
-         const Training_Data & validation_set,
          const distribution<float> & training_ex_weights,
-         const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features, int) const
 {
     boost::timer timer;

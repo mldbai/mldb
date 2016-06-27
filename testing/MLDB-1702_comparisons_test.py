@@ -42,7 +42,6 @@ class Mldb1702ComparisonTest(MldbUnitTest):  # noqa
         self.assertEqual(rq('!=', 1), 0)
         self.assertEqual(rq('!=', 0), 1)
 
-    @unittest.expectedFailure
     def test_two_ones(self):
         rq = partial(self.run_query, 'b')
         self.assertEqual(rq('>', 1), 0)
@@ -59,7 +58,6 @@ class Mldb1702ComparisonTest(MldbUnitTest):  # noqa
         self.assertEqual(rq('!=', 1), 0)
         self.assertEqual(rq('!=', 0), 1)
 
-    @unittest.expectedFailure
     def test_two_zeroes(self):
         rq = partial(self.run_query, 'c')
         self.assertEqual(rq('>', 1), 0)
@@ -76,7 +74,6 @@ class Mldb1702ComparisonTest(MldbUnitTest):  # noqa
         self.assertEqual(rq('!=', 1), 1)
         self.assertEqual(rq('!=', 0), 0)
 
-    @unittest.expectedFailure
     def test_zero_to_one(self):
         rq = partial(self.run_query, 'd')
         self.assertEqual(rq('>', 1), 0)
@@ -93,7 +90,6 @@ class Mldb1702ComparisonTest(MldbUnitTest):  # noqa
         self.assertEqual(rq('!=', 1), 0)
         self.assertEqual(rq('!=', 0), 1)
 
-    @unittest.expectedFailure
     def test_one_to_zero(self):
         rq = partial(self.run_query, 'e')
         self.assertEqual(rq('>', 1), 0)

@@ -79,6 +79,16 @@ For more details, please refer to [Friedman, Hastie, Tibshirani, "Additive Logis
 
 ![](%%jmlclassifier glz)
 
+The different options for the `link_function` parameter are defined as follows:
+
+| Name | Link Function | Activation Function (inverse of the link function) |
+|---|:---:|:---:|
+| logit | $$g(x)=\ln \left( \frac{x}{1-x} \right) $$ | $$g^{-1}(x) = \frac{1}{1 + e^{-x}}$$ |
+| probit | $$g(x)=\Phi^{-1}(x)$$ <br><br> where \\(\Phi\\) is the normal distribution's CDF | $$g^{-1}(x) = \Phi (x)$$ |
+| comp\_log\_log | $$g(x)=\ln \left( - \ln \left( 1-x \right) \right)$$ | $$g^{-1}(x) = 1 - e^{-e^x}$$ |
+| linear | $$g(x)=x$$ | $$g^{-1}(x) = x$$ |
+| log | $$g(x)=\ln x$$ | $$g^{-1}(x) = e^x$$ |
+
 ### Bagging (type=bagging)
 
 ![](%%jmlclassifier bagging)
@@ -95,6 +105,12 @@ For more details, please refer to [Friedman, Hastie, Tibshirani, "Additive Logis
 
 ![](%%jmlclassifier naive_bayes)
 
+Note that our version of the Naive Bayes Classifier only supports discrete
+features. Numerical-valued columns (types `NUMBER` and `INTEGER`) are accepted,
+but they will be discretized prior to training. To do so, we will simply split
+all the values in two, using the threshold that provides the best separation
+of classes. You can always do you own discretization, for instance using a
+`CASE` expression.
 
 
 ## Default `configurationFile`
@@ -308,8 +324,15 @@ The default, overrideable `configurationFile` contains the following predefined 
             "max_iter": 300,
             "trace_training_acc": "true"
         }
-    }
+    },
 
+    "naive_bayes": {
+        "_note": "Naive Bayes",
+
+        "type": "naive_bayes",
+        "feature_prop": "1",
+        "verbosity": 3
+    }
 }
 ```
 

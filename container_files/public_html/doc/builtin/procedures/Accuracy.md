@@ -36,7 +36,8 @@ Here is a sample output:
       "pr": {
         "recall": 0.6712328767123288, 
         "precision": 0.8448275862068966, 
-        "f": 0.7480916030534351
+        "f": 0.7480916030534351,
+        "accuracy": 0.8196721311
       }, 
       "mcc": 0.6203113512927362, 
       "gain": 2.117855455833727, 
@@ -57,7 +58,8 @@ Here is a sample output:
       "pr": {
         "recall": 0.6712328767123288, 
         "precision": 0.8448275862068966, 
-        "f": 0.7480916030534351
+        "f": 0.7480916030534351,
+        "accuracy": 0.8196721311
       }, 
       "mcc": 0.6203113512927362, 
       "gain": 2.117855455833727, 
@@ -88,7 +90,7 @@ with the same score. The dataset will have the following columns:
 * `weight`: the row's assigned weight
 * classifier attributes if this row's score was used as a binary threshold:
   * `falseNegatives`, `trueNegatives`, `falsePositives`, `truePositives`
-  * `falsePositiveRate`, `truePositiveRate`, `precision`, `recall`
+  * `falsePositiveRate`, `truePositiveRate`, `precision`, `recall`, `accuracy`
 
 Note that rows with the same score get grouped together.
 
@@ -113,26 +115,30 @@ Here is a sample output:
                 "f": 0.8000000143051146,
                 "recall": 1.0,
                 "support": 2,
-                "precision": 0.6666666865348816
+                "precision": 0.6666666865348816,
+                "accuracy": 1.0
             },
             "1": {
                 "f": 0.0,
                 "recall": 0.0,
                 "support": 1,
-                "precision": 0.0
+                "precision": 0.0,
+                "accuracy": 0.0
             },
             "2": {
                 "f": 1.0,
                 "recall": 1.0,
                 "support": 2,
-                "precision": 1.0
+                "precision": 1.0,
+                "accuracy": 1.0
             }
         },
         "weightedStatistics": {
             "f": 0.7200000057220459,
             "recall": 0.8,
             "support": 5,
-            "precision": 0.6666666746139527
+            "precision": 0.6666666746139527,
+            "accuracy": 0.8
         },
         "confusionMatrix": [
             {"predicted": "0", "actual": "1", "count": 1},

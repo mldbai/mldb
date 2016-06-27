@@ -41,7 +41,10 @@ A single leading `-` in the string will reverse the direction of the interval, e
   used as row and column names.  For example, the value `3` inside
   `{ "x": [ 1, 2, 3 ] }` will be represented by the path `x.2`, ie the structure
   `x` with the 3rd (zero-based) element.  Paths are in some ways similar to
-  strings, but are internally structured as arrays of elements.
+  strings, but are internally structured as arrays of elements.  See the
+  [Intro to Datasets](../datasets/Datasets.md) documentation for more
+   information about names and paths.  A path may contain any UTF-8 or ASCII
+   characters, including control characters, apart from the null character `\0`.
 
 ## Data Point Timestamps
 

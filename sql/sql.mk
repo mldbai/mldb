@@ -22,7 +22,7 @@ SQL_EXPRESSION_SOURCES := \
 
 # Unfortunately the S2 library needs you to mess with the include path as its includes
 # aren't prefixed.
-$(eval $(call set_compile_option,cell_value.cc builtin_geo_functions.cc,$(S2_COMPILE_OPTIONS)))
+$(eval $(call set_compile_option,cell_value.cc builtin_geo_functions.cc,$(S2_COMPILE_OPTIONS) $(S2_WARNING_OPTIONS)))
 
 # NOTE: the SQL library should NOT depend on MLDB.  See the comment in testing/testing.mk
 $(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),types utils value_description any ml services_base json_diff siphash hash s2 edlib))

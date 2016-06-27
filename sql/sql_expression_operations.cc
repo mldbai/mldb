@@ -63,8 +63,8 @@ doComparison(const SqlExpression * expr,
             -> const ExpressionValue &
             {
                 ExpressionValue lstorage, rstorage;
-                const ExpressionValue & l = boundLhs(row, lstorage, filter);
-                const ExpressionValue & r = boundRhs(row, rstorage, filter);
+                const ExpressionValue & l = boundLhs(row, lstorage, GET_LATEST);
+                const ExpressionValue & r = boundRhs(row, rstorage, GET_LATEST);
                 // cerr << "left " << l << " " << "right " << r << endl;
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
@@ -2507,7 +2507,7 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue vstorage;
                     const ExpressionValue & v = boundExpr(row, vstorage, filter);
-                    
+
                     if (!v.empty()) {
                         for (auto & w: boundWhen) {
                             ExpressionValue wstorage;
@@ -2519,9 +2519,18 @@ bind(SqlBindingScope & scope) const
                         }
                     }
 
-                    if (elseExpr)
+                    if (elseExpr) {
                         return boundElse(row, storage, filter);
-                    else return storage = std::move(ExpressionValue());
+                    }
+
+                    if (boundWhen.size() > 0 && boundWhen[0].second.info->isRow()) {
+                        // No else defined, first when returned a row,
+                        // return an empty row as default else
+                        return storage = std::move(ExpressionValue(RowValue()));
+                    }
+
+                    // default else returns an empty value
+                    return storage = std::move(ExpressionValue());
                 },
                 this,
                 // TODO: infer the type
@@ -3096,6 +3105,10 @@ bind(SqlBindingScope & scope) const
 
             const ExpressionValue & value = boundLeft(rowScope, vstorage, filter);
 
+            if (value.empty()) {
+                return storage =
+                    std::move(ExpressionValue::null(Date::negativeInfinity()));
+            }
             if (!value.isString())
                 throw HttpReturnException(400, "LIKE expression expected its left "
                         "hand value to be a string, got " + value.getTypeAsString());
