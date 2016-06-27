@@ -207,7 +207,6 @@ class HorizontalTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
     def test_mldbfb_558_no_need_to_cast_ts_on_data(self):
         res = mldb.query("""
             SELECT horizontal_min({'a', 'b'})
@@ -220,14 +219,14 @@ class HorizontalTest(MldbUnitTest):
         self.assertEqual(res[1][1], 'b')
 
         res = mldb.query("""
-            SELECT horizontal_min({'2015-01-01T00:00:00Z',
-                                   '2016-01-01T00:00:00Z'})
+            SELECT horizontal_min({TIMESTAMP '2015-01-01T00:00:00Z',
+                                   TIMESTAMP '2016-01-01T00:00:00Z'})
         """)
         self.assertEqual(res[1][1], '2015-01-01T00:00:00Z')
 
         res = mldb.query("""
-            SELECT horizontal_max({CAST ('2015-01-01T00:00:00Z' AS TIMESTAMP),
-                                   CAST ('2016-01-01T00:00:00Z' AS TIMESTAMP)})
+            SELECT horizontal_max({TIMESTAMP '2015-01-01T00:00:00Z',
+                                   TIMESTAMP '2016-01-01T00:00:00Z'})
         """)
         self.assertEqual(res[1][1], '2016-01-01T00:00:00Z')
 
