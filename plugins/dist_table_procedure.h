@@ -20,23 +20,21 @@
 #include "sql/sql_expression.h"
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
+#include "mldb/types/string.h"
 
 namespace Datacratic {
 namespace MLDB {
 
 
-
-
 /*****************************************************************************/
-/* STATS TABLE                                                               */
+/* DIST TABLE                                                               */
 /*****************************************************************************/
 
 struct DistTable {
 
     DistTable(const ColumnName & colName=ColumnName("ND"),
-            const std::vector<std::string> & outcome_names = {})
-        : colName(colName), outcome_names(outcome_names),
-          zeroCounts(std::make_pair(0, std::vector<int64_t>(outcome_names.size())))
+            const std::vector<Utf8String> & outcome_names = {})
+        : colName(colName), outcome_names(outcome_names)
     {
     }
 
@@ -44,10 +42,21 @@ struct DistTable {
 
     // .first : nb trial
     // .second : nb of occurence of each outcome
-    typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
-    const BucketCounts & increment(const CellValue & val,
-                                   const std::vector<uint> & outcomes);
-    const BucketCounts & getCounts(const CellValue & val) const;
+    // typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
+
+    // const BucketCounts & increment(const CellValue & val,
+    //                                const std::vector<uint> & outcomes);
+    //
+    // Add the value of an outcome in our aggregations, for a given feature
+    void increment(const Utf8String & featureValue, uint outcome,
+                   double targetValue);
+
+    // returns : for each outcome a count and avg
+    // we use CellValue (and not double or int) so we can return NULL as well
+    typedef std::vector<std::tuple<CellValue, CellValue>> StatsOutcomes;
+    void getStats(
+        const Utf8String & featureValue, int outcome, bool & out_notNull,
+        std::tuple<uint64_t, double> & out_stats) const;
 
     void save(const std::string & filename) const;
     void serialize(ML::DB::Store_Writer & store) const;
@@ -55,17 +64,22 @@ struct DistTable {
 
     ColumnName colName;
 
-    std::vector<std::string> outcome_names;
-    std::unordered_map<Utf8String, BucketCounts> counts;
+    std::vector<Utf8String> outcome_names;
 
-    BucketCounts zeroCounts;
+    uint64_t getNbOutcomes() const { return outcome_names.size(); }
+    // std::unordered_map<Utf8String, BucketCounts> counts;
+    //
+    // key: name of one of the category for our column
+    // value: aggregation for each target coluumn
+    std::unordered_map<Utf8String,
+                       std::unordered_map<int, uint64_t>> counts;
+    std::unordered_map<Utf8String,
+                       std::unordered_map<int, double>> avgs;
 };
 
 
-
-
 /*****************************************************************************/
-/* STATS TABLE PROCEDURE CONFIG                                              */
+/* DIST TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
 struct DistTableProcedureConfig : public ProcedureConfig {
@@ -91,7 +105,7 @@ DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
 
 
 /*****************************************************************************/
-/* STATS TABLE PROCEDURE                                                     */
+/* DIST TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
 typedef std::map<ColumnName, DistTable> DistTablesMap;
@@ -110,9 +124,8 @@ struct DistTableProcedure: public Procedure {
     DistTableProcedureConfig procConfig;
 };
 
-
 /*****************************************************************************/
-/* STATS TABLE FUNCTION                                                      */
+/* DIST TABLE FUNCTION                                                      */
 /*****************************************************************************/
 
 struct DistTableFunctionConfig {
@@ -145,10 +158,10 @@ struct DistTableFunction: public Function {
 
     DistTableFunctionConfig functionConfig;
 
-    DistTablesMap distTables;
+    DistTablesMap distTablesMap;
 };
 
-
+#if 0
 /*****************************************************************************/
 /* STATS TABLE DERIVED COLS FUNCTION                                         */
 /*****************************************************************************/
@@ -185,49 +198,6 @@ struct DistTableDerivedColumnsGeneratorProcedure: public Procedure {
 };
 
 
-/*****************************************************************************/
-/* BOW STATS TABLE PROCEDURE CONFIG                                          */
-/*****************************************************************************/
-
-struct BagOfWordsDistTableProcedureConfig : ProcedureConfig {
-
-    static constexpr const char * name = "distTable.bagOfWords.train";
-
-    InputQuery trainingData;
-
-    /// The expression to generate the outcomes
-    std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
-
-    Url modelFileUrl;
-
-    Utf8String functionName;
-    std::string functionOutcomeToUse;
-
-    Optional<PolyConfigT<Dataset>> outputDataset;
-
-    static constexpr char const * defaultOutputDatasetType = "tabular";
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsDistTableProcedureConfig);
-
-
-/*****************************************************************************/
-/* BOW STATS TABLE PROCEDURE                                                 */
-/*****************************************************************************/
-
-struct BagOfWordsDistTableProcedure: public Procedure {
-
-    BagOfWordsDistTableProcedure(MldbServer * owner,
-                PolyConfig config,
-                const std::function<bool (const Json::Value &)> & onProgress);
-
-    virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const;
-
-    virtual Any getStatus() const;
-
-    BagOfWordsDistTableProcedureConfig procConfig;
-};
 
 
 /*****************************************************************************/
@@ -276,7 +246,7 @@ struct DistTablePosNegFunction: public Function {
 
     std::map<Utf8String, float> p_outcomes;
 };
-
+#endif
 
 
 
