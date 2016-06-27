@@ -9,6 +9,7 @@ MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
 * ![](%%nblink _tutorials/Querying Data Tutorial) 
 * ![](%%nblink _tutorials/SELECT Tutorial) 
 * ![](%%nblink _tutorials/Procedures and Functions Tutorial) 
+* ![](%%nblink _tutorials/Virtual Manipulation of Datasets Tutorial) 
 * ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) 
 
 ## Benchmarks
@@ -48,8 +49,11 @@ The ![](%%nblink _demos/Exploring Favourite Recipes) demo shows how to use MLDB 
 
 The ![](%%nblink _demos/Enron Spam Filtering) demo uses MLDB to show the perils of over-reliance on Area Under the Curve as a metric for evaluating classifiers.
 
-## Text Processing with Word2Vec
+## Natural Language Processing with Word2Vec
 
 The ![](%%nblink _demos/Mapping Election Press Releases) demo uses MLDB to visualize the relationships between texts with Word2Vec using the ![](%%doclink import.word2vec procedure).
 
+## Using SQL to explore the Panama Papers
+
+The ![](%%nblink _demos/Investigating the Panama Papers) demo shows off MLDB's SQL engine by exploring the raw data from the *Offshore Leaks Database*.
 
