@@ -882,9 +882,8 @@ int
 SftpConnection::
 mkdir(const string & path) {
     return libssh2_sftp_mkdir(sftp_session, path.c_str(),
-                              LIBSSH2_SFTP_S_IRWXU | LIBSSH2_SFTP_S_IRGRP |
-                              LIBSSH2_SFTP_S_IXGRP | LIBSSH2_SFTP_S_IROTH |
-                              LIBSSH2_SFTP_S_IXOTH);
+                              LIBSSH2_SFTP_S_IRWXU | LIBSSH2_SFTP_S_IRWXG |
+                              LIBSSH2_SFTP_S_IRWXO);
 }
 
 namespace {
