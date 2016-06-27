@@ -956,7 +956,7 @@ struct RegisterSftpHandler {
                                 + resource);
         string connStr(resource, 0, pos);
 
-        auto & connection = getSftpConnectionFromConnStr(connStr);
+        const auto & connection = getSftpConnectionFromConnStr(connStr);
         string path = resource.substr(connStr.size());
         if (mode == ios::in) {
             std::shared_ptr<std::streambuf> buf
@@ -992,7 +992,7 @@ struct RegisterSftpHandler {
 
 } registerSftpHandler;
 
-const SftpConnection & getSftpConnectionForHost(const std::string & connStr)
+const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr)
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
     auto it = sftpHosts.find(connStr);
@@ -1066,7 +1066,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     {
         string urlStr = url.toString();
         string connStr = connStrFromUri(urlStr);
-        auto & conn = getSftpConnectionFromConnStr(connStr);
+        const auto & conn = getSftpConnectionFromConnStr(connStr);
         conn.mkdir(urlStr.substr(7 + connStr.size()));
     }
 
@@ -1074,7 +1074,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     {
         string urlStr = url.toString();
         string connStr = connStrFromUri(urlStr);
-        auto & conn = getSftpConnectionFromConnStr(connStr);
+        const auto & conn = getSftpConnectionFromConnStr(connStr);
         int res = 0;
         try {
             res = conn.unlink(urlStr.substr(7 + connStr.size()));
@@ -1097,7 +1097,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
         ExcAssert(delimiter == "/");
         string url = prefix.toString();
         const string connStr = connStrFromUri(url);
-        auto & conn = getSftpConnectionFromConnStr(connStr);
+        const auto & conn = getSftpConnectionFromConnStr(connStr);
 
         function<void(string, int)> processPath = [&] (string path, int depth) {
             auto dir = conn.getDirectory(path);
