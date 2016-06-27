@@ -130,7 +130,7 @@ public:
 
         storage = ExpressionValue(std::move(cell),
                                   timestamps->get(rowIndex)
-                                  .toTimestamp());
+                                  .mustCoerceToTimestamp());
         return &storage;
     }
 
@@ -141,7 +141,7 @@ public:
         ExcAssertLess(index, rowCount());
         std::vector<std::tuple<ColumnName, CellValue, Date> > result;
         result.reserve(columns.size());
-        Date ts = timestamps->get(index).toTimestamp();
+        Date ts = timestamps->get(index).mustCoerceToTimestamp();
         for (size_t i = 0;  i < columns.size();  ++i) {
             CellValue val = columns[i]->get(index);
             if (val.empty())
@@ -166,7 +166,7 @@ public:
         ExcAssertLess(index, rowCount());
         std::vector<std::tuple<ColumnName, CellValue, Date> > result;
         result.reserve(columns.size());
-        Date ts = timestamps->get(index).toTimestamp();
+        Date ts = timestamps->get(index).mustCoerceToTimestamp();
         for (size_t i = 0;  i < columns.size();  ++i) {
             CellValue val = columns[i]->get(index);
             if (val.empty())
@@ -218,7 +218,7 @@ public:
                     for (unsigned i = 0;  i < rowCount();  ++i) {
                         rows.emplace_back(getRowName(i),
                                           CellValue(),
-                                          timestamps->get(i).toTimestamp());
+                                          timestamps->get(i).mustCoerceToTimestamp());
                     }
                 }
                 return;
@@ -231,7 +231,7 @@ public:
             if (dense || !val.empty()) {
                 rows.emplace_back(getRowName(i),
                                   std::move(val),
-                                  timestamps->get(i).toTimestamp());
+                                  timestamps->get(i).mustCoerceToTimestamp());
             }
         }
     }
@@ -378,7 +378,7 @@ struct MutableTabularDatasetChunk {
             // Still integer row names
             integerRowNames.emplace_back(intRowName);
         }
-        timestamps.add(numRows, ts);
+        timestamps.add(numRows, ts.secondsSinceEpoch());
 
         for (unsigned i = 0;  i < columns.size();  ++i) {
             columns[i].add(numRows, std::move(vals[i]));
