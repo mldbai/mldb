@@ -956,7 +956,7 @@ struct RegisterSftpHandler {
                                 + resource);
         string host(resource, 0, pos);
 
-        auto & connection = getSftpConnectionForHost(host);
+        const auto & connection = getSftpConnectionForHost(host);
         string path = resource.substr(host.size());
         if (mode == ios::in) {
             std::shared_ptr<std::streambuf> buf
@@ -1053,7 +1053,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     {
         string urlStr = url.toString();
         string host = hostnameFromUri(urlStr);
-        auto & conn = getSftpConnectionForHost(host);
+        const auto & conn = getSftpConnectionForHost(host);
         conn.mkdir(urlStr.substr(7 + host.size()));
     }
 
@@ -1061,7 +1061,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     {
         string urlStr = url.toString();
         string host = hostnameFromUri(urlStr);
-        auto & conn = getSftpConnectionForHost(host);
+        const auto & conn = getSftpConnectionForHost(host);
         int res = 0;
         try {
             res = conn.unlink(urlStr.substr(7 + host.size()));
@@ -1084,7 +1084,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
         ExcAssert(delimiter == "/");
         string url = prefix.toString();
         const string host = hostnameFromUri(url);
-        auto & conn = getSftpConnectionForHost(host);
+        const auto & conn = getSftpConnectionForHost(host);
 
         function<void(string, int)> processPath = [&] (string path, int depth) {
             auto dir = conn.getDirectory(path);
