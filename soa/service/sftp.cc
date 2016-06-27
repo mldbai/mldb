@@ -246,7 +246,7 @@ close()
 SftpConnection::Directory::
 Directory(const std::string & path,
           LIBSSH2_SFTP_HANDLE * handle,
-          SftpConnection * owner)
+          const SftpConnection * owner)
     : path(path), handle(handle), owner(owner)
 {
 }
@@ -471,7 +471,7 @@ connectPublicKeyAuth(const std::string & hostname,
 
 SftpConnection::Directory
 SftpConnection::
-getDirectory(const std::string & path)
+getDirectory(const std::string & path) const
 {
     LIBSSH2_SFTP_HANDLE * handle
         = libssh2_sftp_opendir(sftp_session, path.c_str());
@@ -592,7 +592,7 @@ uploadFile(const char * start,
 
 struct SftpStreamingDownloadSource {
 
-    SftpStreamingDownloadSource(SftpConnection * owner,
+    SftpStreamingDownloadSource(const SftpConnection * owner,
                                 std::string path)
     {
         impl.reset(new Impl());
@@ -685,7 +685,7 @@ struct SftpStreamingDownloadSource {
 
 struct SftpStreamingUploadSource {
 
-    SftpStreamingUploadSource(SftpConnection * owner,
+    SftpStreamingUploadSource(const SftpConnection * owner,
                               const std::string & path,
                               const OnUriHandlerException & excCallback)
     {
@@ -715,7 +715,7 @@ struct SftpStreamingUploadSource {
             stop();
         }
 
-        SftpConnection * owner;
+        const SftpConnection * owner;
         LIBSSH2_SFTP_HANDLE * handle;
         std::string path;
         OnUriHandlerException onException;
@@ -828,7 +828,7 @@ struct SftpStreamingUploadSource {
 
 filter_ostream
 SftpConnection::
-streamingUpload(const std::string & path)
+streamingUpload(const std::string & path) const
 {
     filter_ostream result;
     auto onException = [&] { result.notifyException(); };
@@ -841,7 +841,7 @@ streamingUpload(const std::string & path)
 std::unique_ptr<std::streambuf>
 SftpConnection::
 streamingUploadStreambuf(const std::string & path,
-                         const OnUriHandlerException & onException)
+                         const OnUriHandlerException & onException) const
 {
     std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<SftpStreamingUploadSource>
@@ -852,7 +852,7 @@ streamingUploadStreambuf(const std::string & path,
 
 filter_istream
 SftpConnection::
-streamingDownload(const std::string & path)
+streamingDownload(const std::string & path) const
 {
     filter_istream result;
     std::shared_ptr<std::streambuf> buf(streamingDownloadStreambuf(path).release());
@@ -863,7 +863,7 @@ streamingDownload(const std::string & path)
 
 std::unique_ptr<std::streambuf>
 SftpConnection::
-streamingDownloadStreambuf(const std::string & path)
+streamingDownloadStreambuf(const std::string & path) const
 {
     std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<SftpStreamingDownloadSource>
@@ -874,13 +874,13 @@ streamingDownloadStreambuf(const std::string & path)
 
 int
 SftpConnection::
-unlink(const string & path){
+unlink(const string & path) const {
     return libssh2_sftp_unlink(sftp_session, path.c_str());
 }
 
 int
 SftpConnection::
-mkdir(const string & path) {
+mkdir(const string & path) const {
     return libssh2_sftp_mkdir(sftp_session, path.c_str(),
                               LIBSSH2_SFTP_S_IRWXU | LIBSSH2_SFTP_S_IRWXG |
                               LIBSSH2_SFTP_S_IRWXO);
@@ -992,7 +992,7 @@ struct RegisterSftpHandler {
 
 } registerSftpHandler;
 
-SftpConnection & getSftpConnectionForHost(const std::string & hostname)
+const SftpConnection & getSftpConnectionForHost(const std::string & hostname)
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
     auto it = sftpHosts.find(hostname);
