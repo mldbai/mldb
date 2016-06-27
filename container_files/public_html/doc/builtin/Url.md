@@ -12,7 +12,7 @@ The following protocols are available for URLs:
   internet or a private intranet.
 - `s3://`: Refers to a file on Amazon's S3 service.  If the file is not public, then
   credentials must be added.
-- `sftp://` Refers to a file on an SFTP. Credentials must be added.
+- `sftp://` Refers to a file on an SFTP server. Credentials must be added.
 - `file://`: Refers to a file inside the MLDB container.  These resources are only
   accessible from the same container that created them.  A relative path (for example
   `file://filename.txt`) has two slashes after `file:`, and will create a file in the
