@@ -129,7 +129,7 @@ struct JsonScope : SqlExpressionMldbScope {
         GetAllColumnsOutput result;
         result.exec = exec;
         result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
-                                                     SCHEMA_CLOSED);
+                                                     SCHEMA_OPEN);
         return result;
     }
 
