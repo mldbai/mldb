@@ -275,7 +275,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
-        int numRows = whereGenerator.upperBound;
+        int64_t numRows = whereGenerator.rowStreamTotalRows;
         
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)numRows);
