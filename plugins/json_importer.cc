@@ -43,7 +43,8 @@ struct JSONImporterConfig : ProcedureConfig {
           offset(0),
           ignoreBadLines(false),
           select(SelectExpression::STAR),
-          where(SqlExpression::TRUE)
+          where(SqlExpression::TRUE),
+          named(SqlExpression::TRUE) // Trick to ease comparison
     {
         outputDataset.withType("tabular");
     }
@@ -56,6 +57,7 @@ struct JSONImporterConfig : ProcedureConfig {
     bool ignoreBadLines;
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
+    std::shared_ptr<SqlExpression> named;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JSONImporterConfig);
@@ -83,13 +85,19 @@ JSONImporterConfigDescription()
     addField("where", &JSONImporterConfig::where,
              "Which lines to use to create rows.",
              SqlExpression::TRUE);
+    addField("named", &JSONImporterConfig::named,
+             "Row name expression for output dataset. Note that each row "
+             "must have a unique name and that names cannot be objects.",
+             SqlExpression::parse("lineNumber()"));
 
     addParent<ProcedureConfig>();
 }
 
 struct JsonRowScope : SqlRowScope {
-    JsonRowScope(const ExpressionValue & expr) : expr(expr) {}
+    JsonRowScope(const ExpressionValue & expr, ssize_t lineNumber)
+        : expr(expr), lineNumber(lineNumber) {}
     const ExpressionValue & expr;
+    ssize_t lineNumber;
 };
 
 struct JsonScope : SqlExpressionMldbScope {
@@ -117,7 +125,7 @@ struct JsonScope : SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep)
+                    std::function<ColumnName (const ColumnName &)> keep) override
     {
         std::vector<KnownColumn> columnsWithInfo;
 
@@ -143,6 +151,27 @@ struct JsonScope : SqlExpressionMldbScope {
         result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
                                                      SCHEMA_OPEN);
         return result;
+    }
+
+    BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope) override
+    {
+        if (functionName == "lineNumber") {
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope)
+                {
+                    const auto & row = scope.as<JsonRowScope>();
+                    return ExpressionValue(row.lineNumber,
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<IntegerValueInfo>()
+            };
+        }
+        return SqlBindingScope::doGetFunction(tableName, functionName, args,
+                                              argScope);
     }
 
 };
@@ -252,10 +281,15 @@ struct JSONImporter: public Procedure {
 
         bool useSelect = config.select != SelectExpression::STAR;
         bool useWhere = config.where != SqlExpression::TRUE;
+
+        // using incorrect default value to ease check
+        bool useNamed = config.named != SqlExpression::TRUE;
+
         JsonScope jsonScope(server);
         ExpressionValue storage;
         const auto whereBound = config.where->bind(jsonScope);
         const auto selectBound = config.select.bind(jsonScope);
+        const auto namedBound = config.named->bind(jsonScope);
 
         auto onLine = [&] (const char * line,
                            size_t lineLength,
@@ -264,7 +298,7 @@ struct JSONImporter: public Procedure {
         {
             auto & threadAccum = accum.get();
 
-            int64_t actualLineNum = lineNumber + lineOffset;
+            ssize_t actualLineNum = lineNumber + lineOffset;
 
             // MLDB-1111 empty lines are treated as error
             if(lineLength == 0)
@@ -293,23 +327,35 @@ struct JSONImporter: public Procedure {
                 return handleError("extra characters at end of line", actualLineNum, "");
             }
 
-            if (useWhere || useSelect) {
-                JsonRowScope row(expr);
-                if (!whereBound(row, storage, GET_ALL).isTrue()) {
-                    return true;
+            unique_ptr<RowName> rowName;
+            if (useWhere || useSelect || useNamed) {
+                JsonRowScope row(expr, actualLineNum);
+                if (useWhere) {
+                    if (!whereBound(row, storage, GET_ALL).isTrue()) {
+                        return true;
+                    }
+                }
 
+                if (useNamed) {
+                    rowName = unique_ptr<RowName>(new RowName(
+                        namedBound(row, storage, GET_ALL).toUtf8String()));
                 }
 
                 if (useSelect) {
                     expr = selectBound(row, storage, GET_ALL);
                     storage = expr;
                 }
+
+            }
+
+            if (!useNamed) {
+                rowName = unique_ptr<RowName>(new RowName(actualLineNum));
             }
 
             recordedLines++;
 
-            RowName rowName(actualLineNum);
-            threadAccum.threadRecorder->recordRowExprDestructive(RowName(actualLineNum), std::move(expr));
+            threadAccum.threadRecorder->recordRowExprDestructive(
+                std::move(*rowName), std::move(expr));
 
             return true;
         };

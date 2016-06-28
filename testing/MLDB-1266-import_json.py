@@ -247,5 +247,65 @@ class ImportJsonTest(MldbUnitTest):  # noqa
             ['1', 1]
         ])
 
+    def test_named_base(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "test_named",
+                },
+                "runOnCreation": True,
+                'named' : 'colB',
+                'where' : 'colB IS NOT NULL'
+            }
+        })
+        res = mldb.query("""SELECT colB FROM test_named""")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colB'],
+            ['pwet pwet', 'pwet pwet'],
+            ['pwet pwet 2', 'pwet pwet 2'],
+            ['pwet pwet 3', 'pwet pwet 3']
+        ])
+
+    def test_named_on_object(self):
+        msg = 'Cannot convert value of type'
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.post("/v1/procedures", {
+                "type": "import.json",
+                "params": {
+                    "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                    "outputDataset": {
+                        'id' : "test_where_filtering_2",
+                    },
+                    "runOnCreation": True,
+                    'named' : 'colC',
+                    'where' : 'colC IS NOT NULL'
+                }
+            })
+
+    def test_named_line_number_fct(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "test_named_line_number_fct",
+                },
+                "runOnCreation": True,
+                'named' : 'lineNumber() - 1',
+            }
+        })
+        res = mldb.query("SELECT colA FROM test_named_line_number_fct")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA'],
+            ["0", 1],
+            ["1", 2],
+            ["2", 3],
+            ["3", None],
+            ["4", None],
+            ["5", None]
+        ])
+
 if __name__ == '__main__':
     mldb.run_tests()
