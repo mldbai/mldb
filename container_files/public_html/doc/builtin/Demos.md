@@ -1,15 +1,21 @@
 # Demos & Tutorials
 
-MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
+MLDB ships with some demo and tutorial [Notebooks](Notebooks.md). 
 
 ## How-to Tutorials
+
+### First steps with MLDB
 
 * ![](%%nblink _tutorials/Using pymldb Tutorial)
 * ![](%%nblink _tutorials/Loading Data Tutorial) 
 * ![](%%nblink _tutorials/Querying Data Tutorial) 
 * ![](%%nblink _tutorials/SELECT Tutorial) 
-* ![](%%nblink _tutorials/Procedures and Functions Tutorial) 
+* ![](%%nblink _tutorials/Procedures and Functions Tutorial)
+
+### Intermediate
+* ![](%%nblink _tutorials/Loading Data From An HTTP Server Tutorial)
 * ![](%%nblink _tutorials/Virtual Manipulation of Datasets Tutorial) 
+* ![](%%nblink _tutorials/Executing JavaScript Code Directly in SQL Queries Using the jseval Function Tutorial)
 * ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) 
 
 ## Benchmarks

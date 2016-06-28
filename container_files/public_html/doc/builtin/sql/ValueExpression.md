@@ -606,7 +606,7 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `temporal_latest(<row>)` returns the non-null value with the latest timestamp per cell.
   - `temporal_earliest(<row>)` returns the non-null value with the earliest timestamp per cell.
 
-## Evaluating a JS function from SQL (Experimental)
+## <a name="jseval"></a>Evaluating a JavaScript function from SQL
 
 The SQL function `jseval` allows for the inline definition of functions using Javascript. This function takes the following arguments:
 
@@ -665,4 +665,6 @@ return result;
 The `mldb` Javascript object is available from the function; this can notably used to
 log to the console to aid debugging. Documentation for this object can be found with the
 ![](%%doclink javascript plugin) documentation.
+
+You can also take a look at the ![](%%nblink _tutorials/Executing JavaScript Code Directly in SQL Queries Using the jseval Function Tutorial) for examples of how to use the `jseval` function.
 

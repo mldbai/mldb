@@ -24,6 +24,9 @@ The following protocols are available for URLs:
 
 A URL that is passed without a protocol will cause an error.
 
+For examples of how to use the above protocol handlers, take a look at the 
+![](%%nblink _tutorials/Loading Data Tutorial) and the ![](%%nblink _tutorials/Loading Data From An HTTP Server Tutorial).
+
 ## Compression support
 
 MLDB supports decompression of files using the gzip, bzip2, xz and lz4 algorithms.
@@ -197,3 +200,5 @@ The `extra` parameters that can be returned are:
 - `bandwidthToServiceMbps`: if this is set, then it indicates the available total
   bandwidth to the S3 service in mbps (default 20).  This influences the timeouts
   that are calculated on S3 requests.
+
+
