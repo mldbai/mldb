@@ -42,6 +42,7 @@ struct JSONImporterConfig : ProcedureConfig {
           limit(-1),
           offset(0),
           ignoreBadLines(false),
+          select(SelectExpression::STAR),
           where(SqlExpression::TRUE)
     {
         outputDataset.withType("tabular");
@@ -53,6 +54,7 @@ struct JSONImporterConfig : ProcedureConfig {
     int64_t limit;
     int64_t offset;
     bool ignoreBadLines;
+    SelectExpression select;
     std::shared_ptr<SqlExpression> where;
 };
 
@@ -75,6 +77,9 @@ JSONImporterConfigDescription()
     addField("ignoreBadLines", &JSONImporterConfig::ignoreBadLines,
              "If true, any line causing an error will be skipped. Any line "
              "with an invalid JSON object will cause an error.", false);
+    addField("select", &JSONImporterConfig::select,
+             "Which columns to use.",
+             SelectExpression::STAR);
     addField("where", &JSONImporterConfig::where,
              "Which lines to use to create rows.",
              SqlExpression::TRUE);
@@ -215,10 +220,12 @@ struct JSONImporter: public Procedure {
                 return true;
             };
 
+        bool useSelect = config.select != SelectExpression::STAR;
         bool useWhere = config.where != SqlExpression::TRUE;
         JsonScope jsonScope(server);
         ExpressionValue storage;
         const auto whereBound = config.where->bind(jsonScope);
+        const auto selectBound = config.select.bind(jsonScope);
 
         auto onLine = [&] (const char * line,
                            size_t lineLength,
@@ -251,12 +258,18 @@ struct JSONImporter: public Procedure {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
 
-            if (useWhere) {
+            if (useWhere || useSelect) {
                 JsonRowScope row(expr);
                 if (!whereBound(row, storage, GET_ALL).isTrue()) {
                     return true;
+
+                }
+
+                if (useSelect) {
+                    expr = selectBound(row, storage, GET_ALL);
                 }
             }
+
 
             skipJsonWhitespace(*parser.context);
             if (!parser.context->eof()) {

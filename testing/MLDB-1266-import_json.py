@@ -186,5 +186,29 @@ class ImportJsonTest(MldbUnitTest):  # noqa
             ['2', 2, 'pwet pwet 2']
         ])
 
+    def test_select(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "test_where_filtering",
+                },
+                "runOnCreation": True,
+                'select' : 'colA'
+            }
+        })
+        res = mldb.query("SELECT * FROM test_where_filtering")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA'],
+            ['1', 1],
+            ['2', 2],
+            ['3', 3],
+            ['4', None],
+            ['5', None],
+            ['6', None]
+        ])
+
+
 if __name__ == '__main__':
     mldb.run_tests()
