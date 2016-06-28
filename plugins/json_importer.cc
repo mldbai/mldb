@@ -83,29 +83,22 @@ JSONImporterConfigDescription()
 }
 
 struct JsonScope : SqlExpressionMldbScope {
-    vector<tuple<PathElement, ExpressionValue>> row;
-    JsonScope(MldbServer * server, ExpressionValue expr) :
-        SqlExpressionMldbScope(server), row(expr.getStructured()){}
+
+    const ExpressionValue & row;
+
+    JsonScope(MldbServer * server, const ExpressionValue & row) :
+        SqlExpressionMldbScope(server), row(row){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
                                 const ColumnName & columnName) override
     {
         ExcAssert(tableName.empty());
-        int index = row.size() - 1;
-        for (; index >= 0; --index) {
-            if (columnName == std::get<0>(row[index])) {
-                break;
-            }
-        }
+        auto col = row.getNestedColumn(columnName);
 
         return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
             {
-                if (index > -1) {
-                    return storage =
-                        std::move(ExpressionValue(std::get<1>(row[index])));
-                }
-                return storage = std::move(ExpressionValue());
+                return storage = std::move(col);
             },
             std::make_shared<AtomValueInfo>()
         };
