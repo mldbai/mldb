@@ -90,9 +90,7 @@ struct JsonScope : SqlExpressionMldbScope {
     ColumnGetter doGetColumn(const Utf8String & tableName,
                                 const ColumnName & columnName) override
     {
-        if (!tableName.empty()) {
-            throw HttpReturnException(400, "Unknown table name");
-        }
+        ExcAssert(tableName.empty());
         int index = row.size() - 1;
         for (; index >= 0; --index) {
             if (columnName == std::get<0>(row[index])) {
@@ -100,16 +98,17 @@ struct JsonScope : SqlExpressionMldbScope {
             }
         }
 
-        return {[=] (const SqlRowScope & scope,
-                        ExpressionValue & storage,
-                        const VariableFilter & filter) -> const ExpressionValue &
-                {
-                    if (index > -1) {
-                        return storage = std::move(ExpressionValue(std::get<1>(row[index])));
-                    }
-                    return storage = std::move(ExpressionValue()); //row.row[index], row.ts));
-                },
-                std::make_shared<AtomValueInfo>()};
+        return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+            {
+                if (index > -1) {
+                    return storage =
+                        std::move(ExpressionValue(std::get<1>(row[index])));
+                }
+                return storage = std::move(ExpressionValue());
+            },
+            std::make_shared<AtomValueInfo>()
+        };
     }
 };
 
