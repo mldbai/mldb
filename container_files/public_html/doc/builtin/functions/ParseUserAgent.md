@@ -6,7 +6,7 @@ It is a wrapper around the [BrowserScope](http://www.browserscope.org)'s user ag
 
 ## Configuration
 
-![](%%config function parse.useragent)
+![](%%config function http.useragent)
 
 ## Input and Output Values
 
