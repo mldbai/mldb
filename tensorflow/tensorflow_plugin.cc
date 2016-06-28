@@ -1083,8 +1083,8 @@ struct TensorflowGraphBase: public Function {
     {
         using namespace tensorflow;
 
-        cerr << "converting " << tensor.DebugString() << " to ExpressionValue"
-             << endl;
+        //cerr << "converting " << tensor.DebugString() << " to ExpressionValue"
+        //     << endl;
 
         switch (tensor.dtype()) {
         case DT_FLOAT:
