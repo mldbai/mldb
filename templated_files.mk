@@ -23,7 +23,6 @@ $(eval $(call mldb_install_templated_file,mldb/container_files/init/uwsgi_valida
 $(eval $(call mldb_install_templated_file,mldb/container_files/validator_api_config.json,$(ETC)/validator_api_config.json))
 $(eval $(call mldb_install_templated_file,mldb/container_files/publickey.pem,$(ETC)/publickey.pem))
 $(eval $(call mldb_install_templated_file,mldb/container_files/classifiers.json,$(BIN)/classifiers.json))
-$(eval $(call mldb_install_templated_file,mldb/ext/uap-core/regexes.yaml,$(BIN)/useragent-regexes.yaml))
 
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_logger_utils.py,$(ETC)/service/mldb_runner/log/mldb_logger_utils.py,555))
 
