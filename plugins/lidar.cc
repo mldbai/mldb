@@ -9,6 +9,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/server/column_scope.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/plugins/for_each_line.h"
@@ -100,6 +101,7 @@ void tracePixel();
 struct CreateImageConfig: public ProcedureConfig {
     InputQuery trainingData;
     Url imageUrl;
+    ssize_t limit;
     static constexpr const char * name = "lidar.image";
 };
 
@@ -116,6 +118,8 @@ CreateImageConfigDescription()
              "");
     addField("imageUrl", &CreateImageConfig::imageUrl,
              "");
+    addField("limit", &CreateImageConfig::limit,
+             "");
 }
 
 struct ZRenderOptions {
@@ -129,7 +133,6 @@ DEFINE_STRUCTURE_DESCRIPTION(ZRenderOptions);
 ZRenderOptionsDescription::
 ZRenderOptionsDescription()
 {
-    
 }
 
 BoundTableExpression
@@ -238,7 +241,7 @@ struct CreateImageProcedure: public Procedure {
             };
         };
 
-        size_t px = 2048;
+        size_t px = 4096;
         size_t py = 2048;
 
         std::unique_ptr<ZEntry []> pixels(new ZEntry[px * py]);
@@ -249,22 +252,54 @@ struct CreateImageProcedure: public Procedure {
             minY = INFINITY, maxY = -INFINITY,
             minZ = INFINITY, maxZ = -INFINITY;
 
+        // Surface normal of the camera
+        //ML::distribution<double> surfaceNormal{1, 1, 0};
+        //surfaceNormal.normalize();
+
+        // Theta is the isometric angle
+        // Theta = 0 means look entirely from the top down
+        // Theta = pi means look entirely along the y axis
+        // In between means isometric projection
+        float th = M_PI / 4;
+
+        // Rotation matrix for isometric projection
+        float rotation[3][3] = {
+            { 1, 0, 0},
+            { 0, cos(th), sin(th), },
+            { 0, sin(th), cos(th)  } };
+
+        // Rotate the given coordinate according to the rotation matrix
+        auto rotate = [&] (int i, float x, float y, float z) -> float
+            {
+                return
+                  rotation[i][0] * x
+                + rotation[i][1] * y
+                + rotation[i][2] * z;
+            };
+
         // Record a value in pixel coordinates
-        auto recordValue = [&] (double x, double y, double z,
+        auto recordValue = [&] (double x_, double y_, double z_,
                                 uint8_t r, uint8_t g, uint8_t b)
             {
+                double x = rotate(0, x_, y_, z_);
+                double y = rotate(1, x_, y_, z_);
+                double z = rotate(2, x_, y_, z_);
+
+#if 0
                 minX = std::min(minX, x);
                 maxX = std::max(maxX, x);
                 minY = std::min(minY, y);
                 maxY = std::max(maxY, y);
                 minZ = std::min(minZ, z);
                 maxZ = std::max(maxZ, z);
+#endif
 
                 //cerr << "x = " << x << " y = " << y << " z = " << z << endl;
-
+                //cerr << "r = " << r << " g = " << g << " b = " << b << endl;
+                
                 int64_t xi = x, yi = y;
 
-                if (xi < 0 || xi > px || yi < 0 || yi > py /*|| z < 0*/) {
+                if (xi < 0 || xi >= px || yi < 0 || yi >= py /*|| z < 0*/) {
                     ++outside;
                     return;
                 }
@@ -306,7 +341,8 @@ struct CreateImageProcedure: public Procedure {
         // run the query
         cerr << "running query" << endl;
 
-        auto doRow = [&] (double x, double y, double z, uint8_t r, uint8_t g, uint8_t b)
+        auto doRow = [&] (double x, double y, double z,
+                          uint8_t r, uint8_t g, uint8_t b)
             {
 #if 0
                 double x, y, z;
@@ -349,7 +385,53 @@ struct CreateImageProcedure: public Procedure {
                 return true;
             };
 
-        queryFromStatement(onResult, *runProcConf.trainingData.stm, scope);
+        vector<PathElement> columnNames = { "x", "y", "z", "r", "g", "b" };
+        
+        BoundTableExpression table
+            = runProcConf.trainingData.stm->from->bind(scope);
+
+        ML::Timer timer;
+
+        ColumnScope colScope(server, table.dataset);
+        vector<BoundSqlExpression> bound;
+        for (auto & c: columnNames) {
+            auto expr = std::make_shared<ReadColumnExpression>(c);
+            bound.emplace_back(expr->bind(colScope));
+        }
+        
+        
+
+        auto onVal = [&] (size_t rowNum, double * vals)
+            {
+#if 1
+                recordValue(vals[0] * 0.001 + 1000,
+                            vals[1] * 0.001 + 1000,
+                            vals[2] * 0.001,
+                            vals[3], vals[4], vals[5]);
+#else
+                recordValue(vals[0] * 0.001 + 1000,
+                            (vals[2] * -0.001) + 500,
+                            vals[1] * 0.001 + 500,
+                            vals[3], vals[4], vals[5]);
+#endif
+                return true;
+            };
+
+
+        colScope.runIncrementalDouble(bound, onVal);
+        
+#if 0
+        auto onColumn = [&] (int columnNum)
+            {
+                auto column = table.dataset->getColumnIndex()->getColumn(columnNames[columnNum]);
+            };
+
+        parallelMap(0, 1 /*columnNames.size()*/, onColumn);
+#endif
+
+        cerr << "got all columns in " << timer.elapsed() << endl;
+
+        //queryFromStatement(onResult, *runProcConf.trainingData.stm, scope);
 
         //parallelMap(0, rows.size(), doRow);
 
@@ -456,6 +538,7 @@ regSvd(builtinPackage(),
 struct ImportLasConfig: public ProcedureConfig {
     static constexpr const char * name = "lidar.import.las";
     ImportLasConfig()
+        : limit(-1)
     {
         outputDataset.withType("tabular");
     }
@@ -465,6 +548,9 @@ struct ImportLasConfig: public ProcedureConfig {
 
     /// The output dataset.  Rows will be dumped into here via insertRows.
     PolyConfigT<Dataset> outputDataset;
+
+    /// Limit to the number of points to import
+    int64_t limit;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ImportLasConfig);
@@ -481,6 +567,9 @@ ImportLasConfigDescription()
     addField("outputDataset", &ImportLasConfig::outputDataset,
              "Dataset to record the data into.",
              PolyConfigT<Dataset>().withType("tabular"));
+    addField("limit", &ImportLasConfig::limit,
+             "Limit to the number of fields to import",
+             (int64_t)-1);
 }
 
 inline uint8_t host_to_be(uint8_t v)
@@ -528,7 +617,17 @@ inline uint8_t host_to_le(uint8_t v)
     return v;
 }
 
+inline int8_t host_to_le(int8_t v)
+{
+    return v;
+}
+
 inline uint8_t le_to_host(uint8_t v)
+{
+    return v;
+}
+
+inline int8_t le_to_host(int8_t v)
 {
     return v;
 }
@@ -543,6 +642,16 @@ inline uint16_t le_to_host(uint16_t v)
     return le16toh(v);
 }
 
+inline int16_t host_to_le(int16_t v)
+{
+    return htole16(v);
+}
+
+inline int16_t le_to_host(int16_t v)
+{
+    return le16toh(v);
+}
+
 inline uint32_t host_to_le(uint32_t v)
 {
     return htole32(v);
@@ -553,12 +662,32 @@ inline uint32_t le_to_host(uint32_t v)
     return le32toh(v);
 }
 
+inline int32_t host_to_le(int32_t v)
+{
+    return htole32(v);
+}
+
+inline int32_t le_to_host(int32_t v)
+{
+    return le32toh(v);
+}
+
 inline uint64_t host_to_le(uint64_t v)
 {
     return htole64(v);
 }
 
 inline uint64_t le_to_host(uint64_t v)
+{
+    return le64toh(v);
+}
+
+inline int64_t host_to_le(int64_t v)
+{
+    return htole64(v);
+}
+
+inline int64_t le_to_host(int64_t v)
 {
     return le64toh(v);
 }
@@ -596,8 +725,11 @@ struct LittleEndian {
 };
 
 typedef LittleEndian<uint16_t> uint16_le;
+typedef LittleEndian<int16_t> int16_le;
 typedef LittleEndian<uint32_t> uint32_le;
+typedef LittleEndian<int32_t> int32_le;
 typedef LittleEndian<uint64_t> uint64_le;
+typedef LittleEndian<int64_t> int64_le;
 
 struct LasHeader {
     char signature[4];  // File Signature (“LASF”) char[4] 4 bytes *
@@ -647,9 +779,9 @@ struct LasHeader {
 } JML_PACKED;
 
 struct LasPointRecordV0 {
-    uint32_le x;  // X long 4 bytes *
-    uint32_le y;  // Y long 4 bytes *
-    uint32_le z;  // Z long 4 bytes *
+    int32_le x;  // X long 4 bytes *
+    int32_le y;  // Y long 4 bytes *
+    int32_le z;  // Z long 4 bytes *
     uint16_le intensity;  // Intensity unsigned short 2 bytes
     uint8_t   returnNumber:3;  // Return Number 3 bits (bits 0 – 2) 3 bits *
     uint8_t   numberOfReturns: 3;  // Number of Returns (given pulse) 3 bits (bits 3 – 5) 3 bits *
@@ -667,7 +799,7 @@ struct LasPointRecordV3: public LasPointRecordV0 {
 } JML_PACKED;
 
 static_assert(sizeof(LasPointRecordV0) == 20, "LasPointRecordV0 size is wrong");
-static_assert(sizeof(LasPointRecordV3) == 34, "LasPointRecordV0 size is wrong");
+static_assert(sizeof(LasPointRecordV3) == 34, "LasPointRecordV3 size is wrong");
 
 struct ImportLasProcedure: public Procedure {
 
@@ -692,7 +824,7 @@ struct ImportLasProcedure: public Procedure {
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
 
-        string filename = config.dataFileUrl.toString();
+        string filename = Url::decodeUri(config.dataFileUrl.toUtf8String()).rawString();
 
         // Ask for a memory mappable stream if possible
         Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
@@ -729,24 +861,6 @@ struct ImportLasProcedure: public Procedure {
         Dataset::MultiChunkRecorder recorder
             = dataset->getChunkRecorder();
 
-        struct ThreadAccum {
-            /// Recorder object for this thread that the dataset gives us
-            /// to record into the dataset.
-            std::unique_ptr<Recorder> threadRecorder;
-
-            /// Special function to allow rapid insertion of fixed set of
-            /// atom valued columns.  Only for isIdentitySelect.
-            std::function<void (RowName rowName,
-                                Date timestamp,
-                                CellValue * vals,
-                                size_t numVals,
-                                std::vector<std::pair<ColumnName, CellValue> > extra)>
-            specializedRecorder;
-
-        };
-
-        PerThreadAccumulator<ThreadAccum> accum;
-
         vector<ColumnName> inputColumnNames;
         for (Utf8String n: { "x", "y", "z", "r", "g", "b" }) {
             inputColumnNames.push_back(PathElement(n));
@@ -770,13 +884,21 @@ struct ImportLasProcedure: public Procedure {
                             size_t chunkLength,
                             int64_t chunkNumber)
             {
-                auto & threadAccum = accum.get();
-                threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
+                auto threadRecorder = recorder.newChunk(chunkNumber);
                 auto specializedRecorder
-                    = threadAccum.threadRecorder->specializeRecordTabular(inputColumnNames);
+                    = threadRecorder->specializeRecordTabular(inputColumnNames);
+
                 size_t firstElement = chunkNumber * blockSize;
+                if (config.limit != -1 && firstElement > config.limit)
+                    return true;
+                
                 size_t lastElement = std::min(firstElement + blockSize,
                                               header.numberOfPoints());
+                bool lastChunk = false;
+                if (config.limit != -1) {
+                    lastElement = std::min<size_t>(lastElement, config.limit);
+                    lastChunk = (lastElement == config.limit);
+                }
                 size_t numPoints = lastElement - firstElement;
 
                 std::vector<CellValue> values(inputColumnNames.size());
@@ -786,9 +908,9 @@ struct ImportLasProcedure: public Procedure {
                         = reinterpret_cast<const LasPointRecordV3 *>
                         (chunkStart + i * header.pointDataRecordLength);
 
-                    values[0] = (uint32_t)record->x;
-                    values[1] = (uint32_t)record->y;
-                    values[2] = (uint32_t)record->z;
+                    values[0] = (int32_t)record->x;
+                    values[1] = (int32_t)record->y;
+                    values[2] = (int32_t)record->z;
                     values[3] = (uint32_t)record->r;
                     values[4] = (uint32_t)record->g;
                     values[5] = (uint32_t)record->b;
@@ -818,13 +940,13 @@ struct ImportLasProcedure: public Procedure {
                                         values.size(), {});
                 }
 
-                threadAccum.threadRecorder->finishedChunk();
-
+                threadRecorder->finishedChunk();
+                
                 recordsDone += numPoints;
 
                 doTiming();
 
-                return true;
+                return true;  //!lastChunk;
             };
         
         // Skip to the actual data before we import it
@@ -875,20 +997,20 @@ struct ImportLasProcedure: public Procedure {
                                             isTextLine,
                                             hasQuoteChar);
 
-                if (errorMsg) {
-                    if(config.allowMultiLines) {
-                        // check if we hit an error meaning we probably
-                        // have a multiline error
-                        if(errorMsg == unclosedQuoteError ||
-                           errorMsg == notEnoughColsError) {
-                            return false;
-                        }
+            if (errorMsg) {
+                if(config.allowMultiLines) {
+                    // check if we hit an error meaning we probably
+                    // have a multiline error
+                    if(errorMsg == unclosedQuoteError ||
+                       errorMsg == notEnoughColsError) {
+                        return false;
                     }
-
-                    return handleError(errorMsg, actualLineNum,
-                                           line - lineStart + 1,
-                                           string(line, length));
                 }
+
+                return handleError(errorMsg, actualLineNum,
+                                   line - lineStart + 1,
+                                   string(line, length));
+            }
 
             auto row = scope.bindRow(&values[0], ts, actualLineNum,
                                          0 /* todo: chunk ofs */);
