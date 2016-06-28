@@ -8,6 +8,7 @@
 #include "column_types.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/sql/expression_value.h"
+#include "mldb/types/structure_description.h"
 
 
 namespace Datacratic {
@@ -18,6 +19,37 @@ namespace MLDB {
 /* COLUMN TYPES                                                              */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(ColumnTypes);
+
+ColumnTypesDescription::
+ColumnTypesDescription()
+{
+    addField("numNulls", &ColumnTypes::numNulls,
+             "Number of null values in the column");
+    addField("numZeros", &ColumnTypes::numZeros,
+             "Number of zero values in the column");
+    addField("numIntegers", &ColumnTypes::numIntegers,
+             "Number of 64 bit integral values in the column");
+    addField("minNegativeInteger", &ColumnTypes::minNegativeInteger,
+             "Minimum negative integer value in the column",
+             std::numeric_limits<int64_t>::max());
+    addField("maxNegativeInteger", &ColumnTypes::maxNegativeInteger,
+             "Maximum negative integer value in the column", (int64_t)0);
+    addField("minPositiveInteger", &ColumnTypes::minPositiveInteger,
+             "Minimum positive integer value in the column",
+             std::numeric_limits<uint64_t>::max());
+    addField("maxPositiveInteger", &ColumnTypes::maxPositiveInteger,
+             "Maximum positive integer value in the column", (uint64_t)0);
+    addField("numReals", &ColumnTypes::numReals,
+             "Number of real-valued (non-64 bit integral) values in the column");
+    addField("numStrings", &ColumnTypes::numStrings,
+             "Number of string values in the column");
+    addField("numBlobs", &ColumnTypes::numBlobs,
+             "Number of blob values in the column");
+    addField("numOther", &ColumnTypes::numOther,
+             "Number of other typed values in the column");
+}
+
 /** This is an accumulator that keeps statistics on the types of values that
     a column could have.  It's useful for knowing how to treat a column in
     an algorithm.
@@ -25,8 +57,11 @@ namespace MLDB {
 
 ColumnTypes::   
 ColumnTypes()
-    : numNulls(0), numIntegers(0),
-      minNegativeInteger(0), maxPositiveInteger(0),
+    : numNulls(0), numZeros(0), numIntegers(0),
+      minNegativeInteger(std::numeric_limits<int64_t>::max()),
+      maxNegativeInteger(0),
+      minPositiveInteger(std::numeric_limits<uint64_t>::max()),
+      maxPositiveInteger(0),
       numReals(0), numStrings(0), numBlobs(0),
       numOther(0)
 {
@@ -46,10 +81,16 @@ update(const CellValue & val)
     case CellValue::INTEGER:
         numIntegers += 1;
         if (val.isUInt64()) {
-            maxPositiveInteger = std::max(maxPositiveInteger, val.toUInt());
+            uint64_t i = val.toUInt();
+            numZeros += (i == 0);
+            minPositiveInteger = std::min(minPositiveInteger, i);
+            maxPositiveInteger = std::max(maxPositiveInteger, i);
         }
         else {
-            minNegativeInteger = std::min(minNegativeInteger, val.toInt());
+            int64_t i = val.toInt();
+            numZeros += (i == 0);
+            minNegativeInteger = std::min(minNegativeInteger, i);
+            maxNegativeInteger = std::max(maxNegativeInteger, i);
         }
         break;
     case CellValue::ASCII_STRING:
