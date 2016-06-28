@@ -322,6 +322,12 @@ struct EmbeddingDataset::Itl
             return repr->rows[index++].rowName;
         }
 
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            auto repr = source->committed();     
+            return repr->rows[index].rowName;
+        }
+
         size_t index;
         const EmbeddingDataset::Itl* source;
     };

@@ -153,6 +153,15 @@ struct SparseMatrixDataset::Itl
             uint64_t i = internalStream->next();
             return source->getRowNameTrans(RowHash(i), *trans);
         }
+        
+        virtual void advance() {
+            internalStream->next();
+        }
+
+        virtual const RowName & rowName(RowName & storage) const {
+            uint64_t i = internalStream->current();
+            return source->getRowNameTrans(RowHash(i), *trans);
+        }
 
         std::shared_ptr<MatrixReadTransaction::Stream> internalStream;
         std::shared_ptr<ReadTransaction> trans;
@@ -1113,6 +1122,11 @@ struct MutableBaseData {
                 return value;
             }
 
+            virtual uint64_t current() const
+            {
+                return subIter->first;
+            }
+
             std::vector<std::shared_ptr<const RowsEntry> >::const_iterator entriesIter;
             RowsEntry::const_iterator subIter;
             const MutableBaseData::Rows* source;
@@ -1413,6 +1427,11 @@ struct MutableReadTransaction: public MatrixReadTransaction {
         virtual uint64_t next()
         {
             return innerStream.next();
+        }
+
+        virtual uint64_t current() const
+        {
+            return innerStream.current();
         }
 
         MutableBaseData::Rows::Stream innerStream;
