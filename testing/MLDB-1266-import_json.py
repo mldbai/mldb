@@ -209,6 +209,43 @@ class ImportJsonTest(MldbUnitTest):  # noqa
             ['6', None]
         ])
 
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "test_where_filtering_2",
+                },
+                "runOnCreation": True,
+                'select' : '* EXCLUDING (colA)'
+            }
+        })
+        res = mldb.query("""SELECT * FROM test_where_filtering_2
+                            WHERE rowName()='1'
+                         """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colB'],
+            ['1', 'pwet pwet']
+        ])
+
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "test_where_filtering_3",
+                },
+                "runOnCreation": True,
+                'select' : 'colA AS wololo'
+            }
+        })
+        res = mldb.query("""SELECT * FROM test_where_filtering_3
+                            WHERE rowName()='1'
+                         """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'wololo'],
+            ['1', 1]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()

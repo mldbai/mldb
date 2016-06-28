@@ -123,8 +123,20 @@ struct JsonScope : SqlExpressionMldbScope {
 
         auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
         {
+            StructValue result;
             const auto & row = scope.as<JsonRowScope>();
-            return row.expr;
+
+            const auto onCol = [&] (const PathElement & columnName,
+                                    const ExpressionValue & val)
+            {
+                const auto & newColName = keep(columnName);
+                if (!newColName.empty()) {
+                    result.emplace_back(newColName.front(), val);
+                }
+                return true;
+            };
+            row.expr.forEachColumnDestructive(onCol);
+            return result;
         };
         GetAllColumnsOutput result;
         result.exec = exec;
@@ -276,6 +288,11 @@ struct JSONImporter: public Procedure {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
 
+            skipJsonWhitespace(*parser.context);
+            if (!parser.context->eof()) {
+                return handleError("extra characters at end of line", actualLineNum, "");
+            }
+
             if (useWhere || useSelect) {
                 JsonRowScope row(expr);
                 if (!whereBound(row, storage, GET_ALL).isTrue()) {
@@ -285,13 +302,8 @@ struct JSONImporter: public Procedure {
 
                 if (useSelect) {
                     expr = selectBound(row, storage, GET_ALL);
+                    storage = expr;
                 }
-            }
-
-
-            skipJsonWhitespace(*parser.context);
-            if (!parser.context->eof()) {
-                return handleError("extra characters at end of line", actualLineNum, "");
             }
 
             recordedLines++;
