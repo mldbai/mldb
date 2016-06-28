@@ -99,7 +99,12 @@ struct JsonScope : SqlExpressionMldbScope {
                      const VariableFilter & filter) -> const ExpressionValue &
             {
                 const auto & row = scope.as<JsonRowScope>();
-                return storage = std::move(row.expr.getNestedColumn(columnName));
+                const ExpressionValue * res =
+                    row.expr.tryGetNestedColumn(columnName, storage, filter);
+                if (res) {
+                    return *res;
+                }
+                return storage = ExpressionValue();
             },
             std::make_shared<AtomValueInfo>()
         };
@@ -210,6 +215,7 @@ struct JSONImporter: public Procedure {
                 return true;
             };
 
+        bool useWhere = config.where != SqlExpression::TRUE;
         JsonScope jsonScope(server);
         ExpressionValue storage;
         const auto whereBound = config.where->bind(jsonScope);
@@ -245,9 +251,11 @@ struct JSONImporter: public Procedure {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
 
-            JsonRowScope row(expr);
-            if (!whereBound(row, storage, GET_ALL).isTrue()) {
-                return true;
+            if (useWhere) {
+                JsonRowScope row(expr);
+                if (!whereBound(row, storage, GET_ALL).isTrue()) {
+                    return true;
+                }
             }
 
             skipJsonWhitespace(*parser.context);
