@@ -1,6 +1,6 @@
 # Parse User-Agent Function
 
-A function of this types parses a [user agent string](https://en.wikipedia.org/wiki/User_agent) into its components.
+Functions of this type parse a [user agent string](https://en.wikipedia.org/wiki/User_agent) into its components.
 
 It is a wrapper around the [BrowserScope](http://www.browserscope.org)'s user agent string parser.
 
