@@ -104,24 +104,6 @@ struct TabularDatasetChunk {
         }
     }
 
-    /// Return an owned version of the rowname
-    RowName getRowName(size_t index) const
-    {
-        if (rowNames.empty()) {
-            return PathElement(integerRowNames.at(index));
-        }
-        else return rowNames.at(index);
-    }
-
-    /// Return a reference to the rowName, stored in storage if it's a temp
-    const RowName & getRowName(size_t index, RowName & storage) const
-    {
-        if (rowNames.empty()) {
-            return storage = PathElement(integerRowNames.at(index));
-        }
-        else return rowNames.at(index);
-    }
-
     const FrozenColumn *
     maybeGetColumn(size_t columnIndex, const Path & columnName) const
     {

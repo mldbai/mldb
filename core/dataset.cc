@@ -181,7 +181,7 @@ extractNumbers(size_t numValues,
         output[i] = tmpOutput[i].toDouble();
     }
 }
-    
+
 
 /*****************************************************************************/
 /* DATASET                                                                   */
