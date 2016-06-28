@@ -111,6 +111,44 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             }
         }
 
+        /// Parallelize chunk by chunk, which allows for natural
+        /// boundaries.
+        virtual std::vector<std::shared_ptr<RowStream> >
+        parallelize(int64_t rowStreamTotalRows,
+                    ssize_t approxNumberOfChildStreams,
+                    std::vector<size_t> * streamOffsets) const override
+        {
+            // Always do the number of chunks
+            std::vector<std::shared_ptr<RowStream> > streams;
+            if (streamOffsets)
+                streamOffsets->clear();
+
+            ssize_t startAt = 0;
+            for (auto it = store->chunks.begin();  it != store->chunks.end();
+                 ++it) {
+                if (streamOffsets)
+                    streamOffsets->push_back(startAt);
+                startAt += it->rowCount();
+
+                auto stream = std::make_shared<TabularDataStoreRowStream>(store);
+                stream->chunkiter = it;
+                stream->rowIndex = 0;
+                stream->rowCount = it->rowCount();
+
+                streams.emplace_back(stream);
+            }
+
+            if (streamOffsets)
+                streamOffsets->push_back(startAt);
+
+            ExcAssertEqual(startAt, rowStreamTotalRows);
+
+            //cerr << "returned " << streams.size() << " streams with offsets "
+            //     << jsonEncode(*streamOffsets) << endl;
+
+            return streams;
+        }
+
         virtual RowName next() override
         {
             RowName storage;
@@ -155,6 +193,57 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     rowIndex = 0;
                     rowCount = chunkiter->rowCount();
                     ExcAssertGreater(rowCount, 0);
+                }
+            }
+        }
+
+        virtual void
+        extractNumbers(size_t numValues,
+                       const std::vector<ColumnName> & columnNames,
+                       double * output) override
+        {
+            // 1.  Index each of the columns
+            size_t n = 0;
+            std::vector<int> columnIndexes;
+            columnIndexes.reserve(columnNames.size());
+            for (auto & c: columnNames) {
+                auto it = store->columnIndex.find(c.newHash());
+                if (it == store->columnIndex.end()) {
+                    columnIndexes.emplace_back(-1);
+                }
+                else {
+                    columnIndexes.emplace_back(it->second);
+                }
+            }
+
+            // 2.  Go through chunk by chunk
+            while (n < numValues) {
+                // 1.  Find the columns for the current chunk
+                std::vector<const FrozenColumn *> columns;
+                columns.reserve(columnNames.size());
+                for (size_t i = 0;  i < columnNames.size();  ++i) {
+                    columns.push_back
+                        (chunkiter->maybeGetColumn(columnIndexes[i],
+                                                   columnNames[i]));
+                    if (!columns.back())
+                        throw HttpReturnException(400,
+                                                  "Couldn't find column " + columnNames[i].toUtf8String());
+                }
+
+                // 2.  Go through the rows and get the values
+                for (; rowIndex < rowCount && n < numValues;) {
+                    for (size_t i = 0;  i < columnNames.size();  ++i) {
+                        output[n * columnNames.size() + i]
+                            = columns[i]->get(rowIndex).toDouble();
+                    }
+                    
+                    ++n;
+
+                    if (rowIndex == rowCount - 1) {
+                        advance();
+                        break;  // new chunk, so new columns
+                    }
+                    advance();
                 }
             }
         }
