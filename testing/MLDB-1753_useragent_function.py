@@ -10,7 +10,7 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         mldb.put("/v1/functions/useragent", {
-                "type": "parse.useragent",
+                "type": "http.useragent",
                 "params": {
                         "regexFile": "mldb/ext/uap-core/regexes.yaml"
                     }

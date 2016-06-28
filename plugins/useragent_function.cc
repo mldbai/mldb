@@ -102,7 +102,7 @@ call(UserAgentParserArgs input) const
 
 static RegisterFunctionType<ParseUserAgentFunction, ParseUserAgentFunctionConfig>
 regParseUserAgentFunction(builtinPackage(),
-                          "parse.useragent",
+                          "http.useragent",
                           "Parse user agent strings into their components",
                           "functions/ParseUserAgent.md.html",
                           nullptr,
