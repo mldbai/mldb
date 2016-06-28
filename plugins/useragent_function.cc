@@ -104,10 +104,7 @@ static RegisterFunctionType<ParseUserAgentFunction, ParseUserAgentFunctionConfig
 regParseUserAgentFunction(builtinPackage(),
                           "http.useragent",
                           "Parse user agent strings into their components",
-                          "functions/ParseUserAgent.md.html",
-                          nullptr,
-                          { MldbEntity::INTERNAL_ENTITY });
-
+                          "functions/ParseUserAgent.md.html");
 
 } // namespace MLDB
 } // namespace Datacratic
