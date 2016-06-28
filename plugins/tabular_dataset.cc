@@ -364,7 +364,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     }
 
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
-    static constexpr size_t ROW_INDEX_SHARDS=128;
+    static constexpr size_t ROW_INDEX_SHARDS=32;
     ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex
         [ROW_INDEX_SHARDS];
     std::string filename;
