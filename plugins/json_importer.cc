@@ -115,6 +115,24 @@ struct JsonScope : SqlExpressionMldbScope {
         };
     }
 
+    GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep)
+    {
+        std::vector<KnownColumn> columnsWithInfo;
+
+        auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
+        {
+            const auto & row = scope.as<JsonRowScope>();
+            return row.expr;
+        };
+        GetAllColumnsOutput result;
+        result.exec = exec;
+        result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
+                                                     SCHEMA_CLOSED);
+        return result;
+    }
+
 };
 
 struct JSONImporter: public Procedure {
