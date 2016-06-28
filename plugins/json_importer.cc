@@ -82,27 +82,29 @@ JSONImporterConfigDescription()
     addParent<ProcedureConfig>();
 }
 
+struct JsonRowScope : SqlRowScope {
+    JsonRowScope(const ExpressionValue & expr) : expr(expr) {}
+    const ExpressionValue & expr;
+};
+
 struct JsonScope : SqlExpressionMldbScope {
 
-    const ExpressionValue & row;
 
-    JsonScope(MldbServer * server, const ExpressionValue & row) :
-        SqlExpressionMldbScope(server), row(row){}
+    JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
                                 const ColumnName & columnName) override
     {
-        ExcAssert(tableName.empty());
-        auto col = row.getNestedColumn(columnName);
-
         return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
             {
-                return storage = std::move(col);
+                const auto & row = scope.as<JsonRowScope>();
+                return storage = std::move(row.expr.getNestedColumn(columnName));
             },
             std::make_shared<AtomValueInfo>()
         };
     }
+
 };
 
 struct JSONImporter: public Procedure {
@@ -208,9 +210,9 @@ struct JSONImporter: public Procedure {
                 return true;
             };
 
-        bool useWhere = config.where != SqlExpression::TRUE;
+        JsonScope jsonScope(server);
         ExpressionValue storage;
-        SqlRowScope row;
+        const auto whereBound = config.where->bind(jsonScope);
 
         auto onLine = [&] (const char * line,
                            size_t lineLength,
@@ -243,12 +245,9 @@ struct JSONImporter: public Procedure {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
 
-            if (useWhere) {
-                JsonScope jsonScope(server, expr);
-                auto whereBound = config.where->bind(jsonScope);
-                if (!whereBound(row, storage, GET_ALL).isTrue()) {
-                    return true;
-                }
+            JsonRowScope row(expr);
+            if (!whereBound(row, storage, GET_ALL).isTrue()) {
+                return true;
             }
 
             skipJsonWhitespace(*parser.context);
