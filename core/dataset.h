@@ -235,9 +235,29 @@ struct RowStream {
     {
     }
 
-    /* Clone the stream with just enough information to use the initAt 
-       clones streams should be un-initialized                        */
+    /** Clone the stream with just enough information to use the initAt 
+        clones streams should be un-initialized                        */
     virtual std::shared_ptr<RowStream> clone() const = 0;
+
+    /// Constant for an automatic number of child streams (whatever
+    /// makes sense to the implementation).
+    static constexpr ssize_t AUTO = -1;
+
+    /** Parallelize the given stream into about n sub-streams, each of
+        which can be run in parallel.
+        
+        Default implementation will use a combination of clone() and
+        initAt(), but specialization will help greatly.
+
+        If streamOffsets is non-null, it will be filled in with the
+        starting offset of each of the chunks.  It will contain one
+        more entry than the number of streams returned, with the last
+        entry being the total number of rows.
+    */
+    virtual std::vector<std::shared_ptr<RowStream> >
+    parallelize(int64_t rowStreamTotalRows,
+                ssize_t approxNumberOfChildStreams = AUTO,
+                std::vector<size_t> * streamOffsets = nullptr) const;
 
     /* set where the stream should start*/
     virtual void initAt(size_t start) = 0;
@@ -250,6 +270,20 @@ struct RowStream {
 
     virtual void advance();
 
+    virtual void advanceBy(size_t n);
+
+    // NOTE: this advances the stream too
+    virtual void
+    extractColumns(size_t numValues,
+                   const std::vector<ColumnName> & columnNames,
+                   CellValue * output);
+    
+    // NOTE: this advances the stream too
+    virtual void
+    extractNumbers(size_t numValues,
+                   const std::vector<ColumnName> & columnNames,
+                   double * output);
+    
 protected:
     /* Return the current RowName and move the stream forward 
        for performance, this method shall NOT do bound checking 
