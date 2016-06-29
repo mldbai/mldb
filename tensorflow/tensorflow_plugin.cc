@@ -328,7 +328,7 @@ struct TensorflowGraphBase: public Function {
                     attr.second.set_b(false);
                 }
             }
-            //for (auto & input: node.input()) {
+            //for (const auto & input: node.input()) {
             //    cerr << "input " << input << endl;
             //}
         }
@@ -360,7 +360,7 @@ struct TensorflowGraphBase: public Function {
         set<string> hardcodedCpu = {
             "ExpandDims", "ResizeBilinear" /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
 
-        for (auto & d: devices) {
+        for (const auto & d: devices) {
             std::string deviceName = d->name();
             bool isCpuDevice = deviceName.find("/cpu:") != std::string::npos;
 
@@ -371,7 +371,7 @@ struct TensorflowGraphBase: public Function {
             for (auto & node: *graph->mutable_node()) {
                 if (nodesWithoutDevices.count(node.name())) {
                     bool isCpu = false;
-                    for (auto & c: hardcodedCpu) {
+                    for (const auto & c: hardcodedCpu) {
                         if (node.name().find(c) == 0)
                             isCpu = true;
                     }
@@ -485,7 +485,7 @@ struct TensorflowGraphBase: public Function {
         {
             // Go through all of the layers of the graph and index
             // them by node name
-            for (auto & node: graph.node()) {
+            for (const auto & node: graph.node()) {
                 graphNodes[node.name()] = &node;
             }            
         }
@@ -569,7 +569,7 @@ struct TensorflowGraphBase: public Function {
             std::vector<KnownColumn> columns;
             std::vector<std::pair<PathElement, int> > indexes;
 
-            for (auto & n: graphNodes) {
+            for (const auto & n: graphNodes) {
                 ColumnName kept = keep(PathElement(n.first));
                 if (kept.empty())
                     continue;
@@ -598,7 +598,7 @@ struct TensorflowGraphBase: public Function {
                     auto & scope = scope_.as<RowScope>();
                     StructValue result;
                     result.reserve(indexes.size());
-                    for (auto & i: indexes) {
+                    for (const auto & i: indexes) {
                         result.emplace_back(i.first,
                                             tensorToValue(scope.graphOutput.at(i.second),
                                                           scope.ts));
@@ -660,7 +660,7 @@ struct TensorflowGraphBase: public Function {
 
             Date outputTs = owner->modelTs;
 
-            for (auto & inputColumn: boundInputs.info->getKnownColumns()) {
+            for (const auto & inputColumn: boundInputs.info->getKnownColumns()) {
                 std::string nodeName = inputColumn.columnName.toUtf8String().rawString();
                 ExpressionValue field = in.getColumn(nodeName);
                 
@@ -672,7 +672,7 @@ struct TensorflowGraphBase: public Function {
             }
 
             vector<std::string> outputLayers;
-            for (auto & l: graphScope.outputLayers) {
+            for (const auto & l: graphScope.outputLayers) {
                 outputLayers.emplace_back(l.rawString());
             }
 
@@ -859,8 +859,8 @@ struct TensorflowGraphBase: public Function {
             }
         }
 
-        cerr << "val = " << jsonEncode(val) << endl;
-        cerr << "type = " << type << endl;
+        //cerr << "val = " << jsonEncode(val) << endl;
+        //cerr << "type = " << type << endl;
         throw HttpReturnException(500, "Unable to cast value to typed tensor");
     }
     
@@ -933,7 +933,7 @@ struct TensorflowGraphBase: public Function {
     getTensorFor(const std::string & layer,
                  const ExpressionValue & val) const
     {
-        for (auto & node: graph->node()) {
+        for (const auto & node: graph->node()) {
             if (node.name() == layer) {
                 auto it = node.attr().find("value");
                 if (it != node.attr().end()) {
@@ -968,11 +968,11 @@ struct TensorflowGraphBase: public Function {
                 cerr << "found node " << layer << endl;
                 cerr << "op = " << node.op() << endl;
                 cerr << "dtype = " << node.attr().find("dtype")->second.DebugString() << endl;
-                for (auto & attr: node.attr()) {
+                for (const const auto & attr: node.attr()) {
                     cerr << "attr " << attr.first << " " << attr.second.DebugString()
                          << endl;
                 }
-                for (auto & input: node.input()) {
+                for (const const auto & input: node.input()) {
                     cerr << "input " << input << endl;
                 }
 #endif
@@ -1220,14 +1220,14 @@ struct TensorflowGraphBase: public Function {
 
         std::map<std::pair<std::string, std::string>, NodeStats> nodeStats;
 
-        for (auto & d: stats.dev_stats()) {
-            for (auto & n: d.node_stats()) {
+        for (const auto & d: stats.dev_stats()) {
+            for (const auto & n: d.node_stats()) {
                 earliest = std::min<uint64_t>(earliest, n.scheduled_micros());
             }
         }
 
-        for (auto & d: stats.dev_stats()) {
-            for (auto & n: d.node_stats()) {
+        for (const auto & d: stats.dev_stats()) {
+            for (const auto & n: d.node_stats()) {
                 NodeStats stats;
                 stats.sched = n.scheduled_micros() - earliest;
                 stats.wait  = n.all_start_micros() - n.scheduled_micros();
@@ -1256,7 +1256,7 @@ struct TensorflowGraphBase: public Function {
         cerr << "-------------------------------------" << endl;
 
         int i = 0;
-        for (auto & st: sortedStats) {
+        for (const auto & st: sortedStats) {
             if (i++ % 50 == 0)
                 cerr << "device    \tkernel                                            \tsched\twait\tpre\trun\tpost" << endl;
                     cerr << ML::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
@@ -1369,7 +1369,7 @@ struct TensorflowOp: public TensorflowGraphBase {
         std::unique_ptr<tensorflow::GraphDef>
             graph(new tensorflow::GraphDef());
 
-        for (auto & input: op->input_arg()) {
+        for (const auto & input: op->input_arg()) {
             tensorflow::NodeDef * inode = graph->add_node();
             cerr << "input arg " << input.name() << endl;
             inode->set_name(input.name());
@@ -1386,12 +1386,12 @@ struct TensorflowOp: public TensorflowGraphBase {
 
         auto * nattr = node->mutable_attr();
 
-        for (auto & attr: functionConfig.attr) {
+        for (const auto & attr: functionConfig.attr) {
             (*nattr)[attr.first.rawString()] = attr.second;
         }
 
         // Create a node for each input
-        for (auto & input: op->input_arg()) {
+        for (const auto & input: op->input_arg()) {
             node->add_input(input.name());
         }
         
@@ -1591,7 +1591,7 @@ struct TensorflowPlugin: public Plugin {
     {
         context.writeHtml("<ul>");
 
-        for (auto & v: val) {
+        for (const auto & v: val) {
             context.writeHtml("<li>");
             writeAttrListItem(context, v);
             context.writeHtml("</li>");
@@ -1606,7 +1606,7 @@ struct TensorflowPlugin: public Plugin {
     {
         context.writeHtml("<ul>");
 
-        for (auto & v: val) {
+        for (const auto & v: val) {
             context.writeHtml("<li>");
             writeAttrListItem(context, (tensorflow::DataType)v);
             context.writeHtml("</li>");
@@ -1621,7 +1621,7 @@ struct TensorflowPlugin: public Plugin {
     {
         context.writeHtml("<ul>");
 
-        for (auto & v: val) {
+        for (const auto & v: val) {
             context.writeHtml("<li>");
             writeAttrListItem(context, v);
             context.writeHtml("</li>");
@@ -1680,7 +1680,7 @@ struct TensorflowPlugin: public Plugin {
                 context.writeHtml("<table><tr><th>Attribute</th><th>Type</th>"
                                   "<th>Default</th><th>Constraints</th>"
                                   "<th>Description</th></tr>");
-                for (auto & a: opDef->attr()) {
+                for (const auto & a: opDef->attr()) {
                     context.writeHtml("<tr><td>");
                     context.writeText(a.name());
                     context.writeHtml("</td><td>");
@@ -1715,7 +1715,7 @@ struct TensorflowPlugin: public Plugin {
                 context.writeHtml("</h3>");
                 context.writeHtml("<table><tr><th>Name</th><th>Type</th>"
                                   "<th>Constraints</th><th>Description</th></tr>");
-                for (auto & a: list) {
+                for (const auto & a: list) {
                     context.writeHtml("<tr><td>");
                     // name
                     context.writeHtml("<code>");
@@ -1791,7 +1791,7 @@ struct TensorflowPlugin: public Plugin {
                 config.attr = jsonDecode<decltype(config.attr)>
                     (args[1].constantValue().extractJson());
 
-                for (auto & input: opDef->input_arg()) {
+                for (const auto & input: opDef->input_arg()) {
                     config.inputs.clauses.emplace_back
                         (SqlRowExpression::parse(input.name()));
                 }
@@ -1873,7 +1873,7 @@ struct TensorflowPlugin: public Plugin {
     std::vector<Utf8String> listOps() const
     {
         std::vector<Utf8String> result;
-        for (auto & o: registeredOps) {
+        for (const auto & o: registeredOps) {
             result.push_back(o.first);
         }
         return result;
