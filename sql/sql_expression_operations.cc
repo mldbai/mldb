@@ -10,6 +10,7 @@
 #include <boost/algorithm/string.hpp>
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/compact_vector_description.h"
 #include "table_expression_operations.h"
 #include <unordered_set>
 #include "mldb/server/dataset_context.h"
@@ -1712,6 +1713,12 @@ getChildren() const
     return result;
 }
 
+bool
+SelectWithinExpression::
+isConstant() const
+{
+    return select->isConstant();
+}
 
 /*****************************************************************************/
 /* EMBEDDING EXPRESSION                                                      */
@@ -1747,7 +1754,7 @@ bind(SqlBindingScope & scope) const
     }
 
     vector<BoundSqlExpression> boundClauses;
-    vector<size_t> knownDims = {clauses.size()};
+    DimsVector knownDims = {clauses.size()};
 
     std::vector<std::shared_ptr<ExpressionValueInfo> > clauseInfo;
 
@@ -1775,9 +1782,12 @@ bind(SqlBindingScope & scope) const
                 cells.reserve(boundClauses.size());
 
                 for (auto & c: boundClauses) {
-                    ExpressionValue v = c(scope, filter);
+                    ExpressionValue storage2;
+                    const ExpressionValue & v = c(scope, storage2, filter);
                     ts.setMax(v.getEffectiveTimestamp());
-                    cells.emplace_back(v.stealAtom());
+                    if (&v == &storage2)
+                        cells.emplace_back(storage2.stealAtom());
+                    else cells.emplace_back(v.getAtom());
                 }
 
                 ExpressionValue result(std::move(cells), ts);
@@ -1785,7 +1795,9 @@ bind(SqlBindingScope & scope) const
             }
             else {
 
-                std::vector<size_t> dims = { boundClauses.size() };
+                std::vector<CellValue> cells;
+
+                DimsVector dims { boundClauses.size() };
 
                 for (unsigned i = 0;  i < boundClauses.size();  ++i) {
                     auto & c = boundClauses[i];

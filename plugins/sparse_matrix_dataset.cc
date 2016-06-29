@@ -9,7 +9,7 @@
 
 #include "sparse_matrix_dataset.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/types/compact_vector_value_description.h"
+#include "mldb/types/compact_vector_description.h"
 #include "mldb/types/map_description.h"
 #include "sparse_matrix.h"
 #include "mldb/sql/sql_expression.h"
@@ -904,7 +904,7 @@ struct MutableBaseData {
     {
     }
 
-    typedef std::unordered_map<uint64_t, ML::compact_vector<BaseEntry, 1> > RowsEntry;
+    typedef std::unordered_map<uint64_t, compact_vector<BaseEntry, 1> > RowsEntry;
 
     struct Rows {
         Rows()

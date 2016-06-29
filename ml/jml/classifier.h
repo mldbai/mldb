@@ -16,7 +16,7 @@
 #include "training_data.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/arch/demangle.h"
-//#include "mldb/jml/utils/compact_vector.h"
+//#include "mldb/utils/compact_vector.h"
 #include <map>
 #include <boost/any.hpp>
 #include <boost/multi_array.hpp>

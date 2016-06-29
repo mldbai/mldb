@@ -9,7 +9,7 @@
 #include "tabular_dataset_column.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
 #include <mutex>
@@ -277,7 +277,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     }
 
     std::shared_ptr<const uint32_t> storage;
-    ML::compact_vector<CellValue, 0> table;
+    compact_vector<CellValue, 0> table;
     uint8_t rowNumBits;
     uint8_t indexBits;
     uint32_t numEntries;

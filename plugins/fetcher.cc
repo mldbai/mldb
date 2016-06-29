@@ -68,9 +68,10 @@ DEFINE_STRUCTURE_DESCRIPTION(FetcherOutput);
 
 FetcherOutputDescription::FetcherOutputDescription()
 {
-    addField("content", &FetcherOutput::content,
-             "Binary blob containing the contents of the fetched version of "
-             "the URL.  Will be null if there was an error.");
+    addFieldDesc("content", &FetcherOutput::content,
+                 "Binary blob containing the contents of the fetched version of "
+                 "the URL.  Will be null if there was an error.",
+                 makeExpressionValueDescription(std::make_shared<BlobValueInfo>()));
     addField("error", &FetcherOutput::error,
              "Row containing the structured error message obtained when "
              "attempting to read the URL.  Will be null if the fetch was "

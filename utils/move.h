@@ -1,14 +1,14 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-// Copied from boost; under the Boost license
+// Copied from boost; under the Boost license and copyright
+// Compatible with non-commercial and commercial 
 
-#ifndef __jml__utils__move_h__
-#define __jml__utils__move_h__
+#pragma once
 
 #include <iterator>
 #include <algorithm>
 
-namespace ML {
+namespace Datacratic {
 
 template<typename I, typename F>
 F uninitialized_move(I first, I last, F result)
@@ -43,7 +43,4 @@ template<typename I, typename F>
    return first;
 }
 
-} // namespace ML
-
-
-#endif
+} // namespace Datacratic

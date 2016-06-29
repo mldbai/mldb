@@ -20,7 +20,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 
 using namespace std;
 
@@ -57,7 +57,7 @@ struct JoinedDataset::Itl
         RowHash rowHash;   ///< Row hash of joined row
         RowName rowName;   ///< Name of joined row
         RowName leftName, rightName;  ///< Names of joined rows from input datasets
-        //ML::compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
+        //compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
     };
 
     enum JoinSide {
@@ -99,7 +99,7 @@ struct JoinedDataset::Itl
 
     /// Index of a row hash for a left or right dataset to a list of
     /// rows it's part of in the output.
-    typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
+    typedef std::map<RowHash, compact_vector<RowName, 1> > SideRowIndex;
 
     /// Left row hash to list of row hashes it's present in for colummn index
     SideRowIndex leftRowIndex;

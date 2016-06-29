@@ -12,7 +12,7 @@
 
 
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/arch/arch.h"
@@ -28,6 +28,7 @@
 
 
 using namespace std;
+using namespace Datacratic;
 using namespace ML;
 
 using boost::unit_test_framework::test_suite;
