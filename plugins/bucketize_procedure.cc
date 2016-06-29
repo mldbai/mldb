@@ -20,6 +20,7 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/utils/log.h"
 #include "progress.h"
 #include <memory>
 
