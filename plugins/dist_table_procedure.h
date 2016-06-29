@@ -40,23 +40,14 @@ struct DistTable {
 
     DistTable(const std::string & filename);
 
-    // .first : nb trial
-    // .second : nb of occurence of each outcome
-    // typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
-
-    // const BucketCounts & increment(const CellValue & val,
-    //                                const std::vector<uint> & outcomes);
-    //
     // Add the value of an outcome in our aggregations, for a given feature
     void increment(const Utf8String & featureValue, uint outcome,
                    double targetValue);
 
-    // returns : for each outcome a count and avg
-    // we use CellValue (and not double or int) so we can return NULL as well
-    typedef std::vector<std::tuple<CellValue, CellValue>> StatsOutcomes;
-    void getStats(
-        const Utf8String & featureValue, int outcome, bool & out_notNull,
-        std::tuple<uint64_t, double> & out_stats) const;
+    // returns the stats (count, avg, std, min, max) for a given featureValue
+    // and outcome
+    std::tuple<uint64_t, double, double, double, double> getStats(
+        const Utf8String & featureValue, int outcome) const;
 
     void save(const std::string & filename) const;
     void serialize(ML::DB::Store_Writer & store) const;
@@ -67,14 +58,24 @@ struct DistTable {
     std::vector<Utf8String> outcome_names;
 
     uint64_t getNbOutcomes() const { return outcome_names.size(); }
-    // std::unordered_map<Utf8String, BucketCounts> counts;
-    //
-    // key: name of one of the category for our column
-    // value: aggregation for each target coluumn
+
+    // key: name of one of the values for our column
+    // value: aggregation for each outcome. The map allows for NULL in one 
+    // outcome while NOT NULL in another
     std::unordered_map<Utf8String,
                        std::unordered_map<int, uint64_t>> counts;
     std::unordered_map<Utf8String,
                        std::unordered_map<int, double>> avgs;
+    // unbiased vars assuming we are on a sample and not the whole population
+    std::unordered_map<Utf8String,
+                       std::unordered_map<int, double>> vars;
+    // this is only a helper for calculating the var
+    std::unordered_map<Utf8String,
+                       std::unordered_map<int, double>> M2s;
+    std::unordered_map<Utf8String,
+                       std::unordered_map<int, double>> mins;
+    std::unordered_map<Utf8String,
+                       std::unordered_map<int, double>> maxs;
 };
 
 
@@ -160,95 +161,6 @@ struct DistTableFunction: public Function {
 
     DistTablesMap distTablesMap;
 };
-
-#if 0
-/*****************************************************************************/
-/* STATS TABLE DERIVED COLS FUNCTION                                         */
-/*****************************************************************************/
-
-struct DistTableDerivedColumnsGeneratorProcedureConfig: public ProcedureConfig {
-    static constexpr const char * name = "experimental.distTable.derivedColumnsGenerator";
-
-    DistTableDerivedColumnsGeneratorProcedureConfig(
-            const Url & modelFileUrl = Url())
-        : modelFileUrl(modelFileUrl)
-    {
-    }
-
-    std::string functionId;
-    std::string expression;
-    Url modelFileUrl;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(DistTableDerivedColumnsGeneratorProcedureConfig);
-
-
-struct DistTableDerivedColumnsGeneratorProcedure: public Procedure {
-
-    DistTableDerivedColumnsGeneratorProcedure(MldbServer * owner,
-                PolyConfig config,
-                const std::function<bool (const Json::Value &)> & onProgress);
-
-    virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const;
-
-    virtual Any getStatus() const;
-
-    DistTableDerivedColumnsGeneratorProcedureConfig procConfig;
-};
-
-
-
-
-/*****************************************************************************/
-/* STATS TABLE POS NEG FUNCTION                                              */
-/*****************************************************************************/
-
-struct DistTablePosNegFunctionConfig {
-    DistTablePosNegFunctionConfig(const Url & modelFileUrl = Url(),
-            const std::string & outcomeToUse = "") :
-        numPos(50), numNeg(50), minTrials(50),
-        outcomeToUse(outcomeToUse),
-        modelFileUrl(modelFileUrl)
-    {
-    }
-
-    ssize_t numPos;
-    ssize_t numNeg;
-    ssize_t minTrials;
-
-    std::string outcomeToUse;
-
-    Url modelFileUrl;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(DistTablePosNegFunctionConfig);
-
-struct DistTablePosNegFunction: public Function {
-    DistTablePosNegFunction(MldbServer * owner,
-                  PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress);
-
-    ~DistTablePosNegFunction();
-
-    virtual Any getStatus() const;
-
-    virtual Any getDetails() const;
-
-    virtual ExpressionValue apply(const FunctionApplier & applier,
-                              const ExpressionValue & context) const;
-
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
-
-    DistTablePosNegFunctionConfig functionConfig;
-
-
-    std::map<Utf8String, float> p_outcomes;
-};
-#endif
-
-
 
 } // namespace MLDB
 } // namespace Datacratic
