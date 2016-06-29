@@ -42,6 +42,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/static_content_macro.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
