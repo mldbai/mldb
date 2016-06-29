@@ -21,6 +21,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/server/dataset_context.h"
 
 using namespace std;
 
@@ -40,7 +41,8 @@ struct JSONImporterConfig : ProcedureConfig {
     JSONImporterConfig() :
           limit(-1),
           offset(0),
-          ignoreBadLines(false)
+          ignoreBadLines(false),
+          where(SqlExpression::TRUE)
     {
         outputDataset.withType("tabular");
     }
@@ -51,6 +53,7 @@ struct JSONImporterConfig : ProcedureConfig {
     int64_t limit;
     int64_t offset;
     bool ignoreBadLines;
+    std::shared_ptr<SqlExpression> where;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JSONImporterConfig);
@@ -68,14 +71,46 @@ JSONImporterConfigDescription()
     addField("limit", &JSONImporterConfig::limit,
              "Maximum number of lines to process");
     addField("offset", &JSONImporterConfig::offset,
-            "Skip the first n lines.", int64_t(0));
+             "Skip the first n lines.", int64_t(0));
     addField("ignoreBadLines", &JSONImporterConfig::ignoreBadLines,
              "If true, any line causing an error will be skipped. Any line "
              "with an invalid JSON object will cause an error.", false);
+    addField("where", &JSONImporterConfig::where,
+             "Which lines to use to create rows.",
+             SqlExpression::TRUE);
 
     addParent<ProcedureConfig>();
 }
 
+struct JsonRowScope : SqlRowScope {
+    JsonRowScope(const ExpressionValue & expr) : expr(expr) {}
+    const ExpressionValue & expr;
+};
+
+struct JsonScope : SqlExpressionMldbScope {
+
+
+    JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
+
+    ColumnGetter doGetColumn(const Utf8String & tableName,
+                                const ColumnName & columnName) override
+    {
+        return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+            {
+                const auto & row = scope.as<JsonRowScope>();
+                const ExpressionValue * res =
+                    row.expr.tryGetNestedColumn(columnName, storage, filter);
+                if (res) {
+                    return *res;
+                }
+                return storage = ExpressionValue();
+            },
+            std::make_shared<AtomValueInfo>()
+        };
+    }
+
+};
 
 struct JSONImporter: public Procedure {
 
@@ -180,6 +215,11 @@ struct JSONImporter: public Procedure {
                 return true;
             };
 
+        bool useWhere = config.where != SqlExpression::TRUE;
+        JsonScope jsonScope(server);
+        ExpressionValue storage;
+        const auto whereBound = config.where->bind(jsonScope);
+
         auto onLine = [&] (const char * line,
                            size_t lineLength,
                            int64_t blockNumber,
@@ -209,6 +249,13 @@ struct JSONImporter: public Procedure {
                 expr = ExpressionValue::parseJson(parser, timestamp, arrays);
             } catch (const std::exception & exc) {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
+            }
+
+            if (useWhere) {
+                JsonRowScope row(expr);
+                if (!whereBound(row, storage, GET_ALL).isTrue()) {
+                    return true;
+                }
             }
 
             skipJsonWhitespace(*parser.context);

@@ -9,6 +9,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/utils/compact_vector.h"
 #include <vector>
 #include <cstring>
 
@@ -538,11 +539,12 @@ struct PathBuilder {
     PathBuilder();
     PathBuilder & add(PathElement && element);
     PathBuilder & add(const PathElement & element);
+    PathBuilder & add(const char * utf8Start, size_t charLength);
     PathBuilder & addRange(const Path & path, size_t first, size_t last);
     Path extract();
 
 private:
-    std::vector<uint32_t> indexes;
+    compact_vector<uint32_t, 8> indexes;
     InternedString<244, char> bytes;
     uint32_t digits_;
 };
@@ -831,6 +833,14 @@ struct Path {
 
     size_t memusage() const;
 
+    /// Return the range of bytes for the given element
+    std::pair<const char *, size_t>
+    getStringView(size_t el) const
+    {
+        size_t o0 = offset(el), o1 = offset(el + 1);
+        return { data() + o0, o1 - o0 };
+    }
+
 private:
     friend class PathBuilder;
     bool equalElement(size_t el, const Path & other, size_t otherEl) const;
@@ -848,7 +858,7 @@ private:
     }
 
     /// Return the byte offsets of the begin and end of this element
-    inline size_t offset(size_t el) const
+    JML_ALWAYS_INLINE size_t offset(size_t el) const
     {
         //ExcAssertLessEqual(el, length_);
         if (JML_LIKELY(!externalOfs())) {
@@ -870,14 +880,6 @@ private:
             (el < 16)
             ? (digits_ >> (2 * el)) & 3  // for the first 16, read directly
             : PathElement::SOME_DIGITS;  // for the rest, assume the worst
-    }
-
-    /// Return the range of bytes for the given element
-    std::pair<const char *, size_t>
-    getStringView(size_t el) const
-    {
-        size_t o0 = offset(el), o1 = offset(el + 1);
-        return { data() + o0, o1 - o0 };
     }
 
     /** Internal parsing method.  Will attempt to parse the given range

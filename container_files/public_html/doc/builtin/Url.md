@@ -12,6 +12,9 @@ The following protocols are available for URLs:
   internet or a private intranet.
 - `s3://`: Refers to a file on Amazon's S3 service.  If the file is not public, then
   credentials must be added.
+- `sftp://` Refers to a file on an SFTP server. Credentials must be added. If a custom port is used,
+  it must simply be part of the url. (For example, `sftp://host.com:1234/`.) The same is true
+  for the credentials location parameter. (To continue with the same example, `host.com:12345`.)
 - `file://`: Refers to a file inside the MLDB container.  These resources are only
   accessible from the same container that created them.  A relative path (for example
   `file://filename.txt`) has two slashes after `file:`, and will create a file in the
@@ -20,6 +23,9 @@ The following protocols are available for URLs:
    directory of the MLDB container (for example, `file:///mldb_data/filename.txt`).
 
 A URL that is passed without a protocol will cause an error.
+
+For examples of how to use the above protocol handlers, take a look at the 
+![](%%nblink _tutorials/Loading Data Tutorial) and the ![](%%nblink _tutorials/Loading Data From An HTTP Server Tutorial).
 
 ## Compression support
 
@@ -194,3 +200,5 @@ The `extra` parameters that can be returned are:
 - `bandwidthToServiceMbps`: if this is set, then it indicates the available total
   bandwidth to the S3 service in mbps (default 20).  This influences the timeouts
   that are calculated on S3 requests.
+
+

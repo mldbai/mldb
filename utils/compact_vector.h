@@ -18,7 +18,7 @@
 #include <vector>
 #include "mldb/arch/exception.h"
 #include "mldb/compiler/compiler.h"
-#include "mldb/jml/utils/move.h"
+#include "mldb/utils/move.h"
 #include <ostream>
 #include <iterator>
 #include <algorithm>
@@ -26,7 +26,7 @@
 #include <initializer_list>
 #include <stdint.h>
 
-namespace ML {
+namespace Datacratic {
 
 template<typename Data,
          size_t Internal_ = 0,
@@ -279,7 +279,7 @@ public:
     void pop_back()
     {
         if (Safe && empty())
-            throw Exception("popping back empty compact vector");
+            throw ML::Exception("popping back empty compact vector");
 
 #if 0 // save space when making smaller
         if (size_ == Internal + 1) {
@@ -346,9 +346,9 @@ public:
     {
         if (Safe) {
             if (first > last)
-                throw Exception("compact_vector::erase(): last before first");
+                throw ML::Exception("compact_vector::erase(): last before first");
             if (first < begin() || last > end())
-                throw Exception("compact_vector::erase(): iterators not ours");
+                throw ML::Exception("compact_vector::erase(): iterators not ours");
         }
 
         int firstindex = first - begin();
@@ -469,7 +469,7 @@ private:
     void check_index(size_type index) const
     {
         if (index >= size_)
-            throw Exception("compact_vector: index out of range");
+            throw ML::Exception("compact_vector: index out of range");
     }
 
     void init(size_t to_alloc)
@@ -477,7 +477,7 @@ private:
         clear();
 
         if (to_alloc > max_size())
-            throw Exception("compact_vector can't grow that big");
+            throw ML::Exception("compact_vector can't grow that big");
         
         if (to_alloc > Internal) {
             is_internal_ = false;
@@ -497,7 +497,7 @@ private:
         // Copy the objects across into the uninitialized memory
         for (; first != last;  ++first, ++p, ++size_) {
             if (Safe && size_ > to_alloc)
-                throw Exception("compact_vector: internal logic error in init()");
+                throw ML::Exception("compact_vector: internal logic error in init()");
             new (p) Data(*first);
         }
     }
@@ -513,7 +513,7 @@ private:
         // Move the objects across into the uninitialized memory
         for (; first != last;  ++first, ++p, ++size_) {
             if (Safe && size_ > to_alloc)
-                throw Exception("compact_vector: internal logic error in init()");
+                throw ML::Exception("compact_vector: internal logic error in init()");
             new (p) Data(std::move_if_noexcept(*first));
         }
     }
@@ -533,7 +533,7 @@ private:
         int index = pos - begin();
 
         if (Safe && (index < 0 || index > size_))
-            throw Exception("compact_vector insert: invalid index");
+            throw ML::Exception("compact_vector insert: invalid index");
 
         using namespace std;
         bool debug JML_UNUSED = false;
@@ -659,4 +659,4 @@ void make_vector_set(compact_vector<D, I, S, Sf, P, A> & vec)
     vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-} // namespace ML
+} // namespace Datacratic

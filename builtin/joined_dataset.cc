@@ -20,7 +20,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 
 using namespace std;
 
@@ -57,7 +57,7 @@ struct JoinedDataset::Itl
         RowHash rowHash;   ///< Row hash of joined row
         RowName rowName;   ///< Name of joined row
         RowName leftName, rightName;  ///< Names of joined rows from input datasets
-        //ML::compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
+        //compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
     };
 
     enum JoinSide {
@@ -99,7 +99,7 @@ struct JoinedDataset::Itl
 
     /// Index of a row hash for a left or right dataset to a list of
     /// rows it's part of in the output.
-    typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
+    typedef std::map<RowHash, compact_vector<RowName, 1> > SideRowIndex;
 
     /// Left row hash to list of row hashes it's present in for colummn index
     SideRowIndex leftRowIndex;
@@ -239,16 +239,9 @@ struct JoinedDataset::Itl
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool {
 
                 ssize_t numValues = res->values.size();
-
-                Utf8String leftNameUtf8 = "";
-                if (!res->values.at(numValues-2).empty())
-                    leftNameUtf8 = res->values.at(numValues-2).toUtf8String();
-                RowName leftName = RowName::parse(leftNameUtf8);
-
-                Utf8String rightNameUtf8 = "";
-                if (!res->values.at(numValues-1).empty())
-                    rightNameUtf8 = res->values.at(numValues-1).toUtf8String();
-                RowName rightName = RowName::parse(rightNameUtf8);
+                
+                RowName leftName = res->values.at(numValues-2).coerceToPath();
+                RowName rightName = res->values.at(numValues-1).coerceToPath();
 
                 recordJoinRow(leftName, leftName, rightName, rightName);
                 
@@ -263,8 +256,8 @@ struct JoinedDataset::Itl
 
             PipelineElement::root(scope)
                 ->join(leftExpr, left, rightExpr, right, on, qualification)
-                ->select(SqlExpression::parse("leftRowName()"))
-                ->select(SqlExpression::parse("rightRowName()"))
+                ->select(SqlExpression::parse("leftRowPath()"))
+                ->select(SqlExpression::parse("rightRowPath()"))
                 ->bind()
                 ->start(getParam)
                 ->takeAll(gotElement);
@@ -335,6 +328,20 @@ struct JoinedDataset::Itl
 
             rowName = std::move(RowName(left + "[" + rightName.toUtf8String() + "]"));
         }
+
+#if 0
+        cerr << "rowName = " << rowName << endl;
+        cerr << "leftName = " << leftName << endl;
+        cerr << "rightName = " << rightName << endl;
+        if (!leftName.empty()) {
+            if (!leftDataset->getMatrixView()->knownRow(leftName)) {
+                cerr << "known names are " << jsonEncodeStr(leftDataset->getMatrixView()->getRowNames()) << endl;
+            }
+            ExcAssert(leftDataset->getMatrixView()->knownRow(leftName));
+        }
+        if (!rightName.empty())
+            ExcAssert(rightDataset->getMatrixView()->knownRow(rightName));
+#endif
 
         RowHash rowHash(rowName);
 

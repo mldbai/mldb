@@ -4,7 +4,6 @@
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
-import unittest
 from functools import partial
 
 if False:
@@ -12,7 +11,7 @@ if False:
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-class ImportJsonTest(unittest.TestCase):
+class ImportJsonTest(MldbUnitTest):  # noqa
 
     def assert_val(self, res, rowName, colName, value):
         for row in res:
@@ -167,6 +166,25 @@ class ImportJsonTest(unittest.TestCase):
 
         with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.post("/v1/procedures", conf)
+
+    def test_where_filtering(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "test_where_filtering",
+                },
+                "runOnCreation": True,
+                'where' : 'colA IN (1, 2)'
+            }
+        })
+        res = mldb.query("SELECT * FROM test_where_filtering")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA', 'colB'],
+            ['1', 1, 'pwet pwet'],
+            ['2', 2, 'pwet pwet 2']
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()

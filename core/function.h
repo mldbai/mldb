@@ -176,7 +176,6 @@ struct Function: public MldbEntity {
                   const RestRequest & request,
                   RestRequestParsingContext & context) const;
 
-protected:
     /** Used by the FunctionApplier to actually apply the function.  It allows
         access to the information put in the applier by the bind()
         method.

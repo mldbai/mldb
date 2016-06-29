@@ -20,6 +20,7 @@ $(eval $(call mldb_install_directory,mldb/container_files/public_html/resources,
 
 $(eval $(call install_file,mldb/container_files/init/mldb_logger.py,$(ETC)/service/mldb_runner/log/run,555,mldb))
 $(eval $(call install_file,mldb/container_files/init/mldb_finish.py,$(ETC)/service/mldb_runner/finish,555,mldb))
+$(eval $(call install_file,mldb/ext/uap-core/regexes.yaml,$(BIN)/useragent-regexes.yaml,644,mldb))
 $(eval $(call install_file,mldb/container_files/bashrc,$(ETC)/bash.bashrc,555,mldb))
 
 mldb: \

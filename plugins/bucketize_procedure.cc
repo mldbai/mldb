@@ -20,6 +20,7 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/utils/log.h"
 #include "progress.h"
 #include <memory>
 
@@ -154,9 +155,13 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 
+    mutex progressMutex;
     auto onProgress2 = [&](const Json::Value & progress) {
         auto itProgress = jsonDecode<IterationProgress>(progress);
-        iterationStep->value = itProgress.percent;
+        lock_guard<mutex> lock(progressMutex);
+        if (iterationStep->value > itProgress.percent) {
+            iterationStep->value = itProgress.percent;
+        }
         return onProgress(jsonEncode(bucketizeProgress));
     };
 
@@ -184,7 +189,6 @@ run(const ProcedureRunConfig & run,
 
     auto bucketizeStep = iterationStep->nextStep(1);
     atomic<ssize_t> rowIndex(0);
-    mutex progressMutex;
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
         rowValue.emplace_back(ColumnName("bucket"),

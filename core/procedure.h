@@ -12,7 +12,6 @@
 #include "mldb/rest/rest_entity.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/utils/log.h"
 #include <set>
 #include <iostream>
 #include <typeinfo>
