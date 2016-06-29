@@ -713,41 +713,23 @@ doGetFunction(const Utf8String & functionName,
     }
 
     if (functionName == "leftRowName") {
-        auto leftRowName
-            = left->doGetFunction("rowName", args, leftFieldOffset(fieldOffset), argScope);
-        return leftRowName;
-
-        auto exec = [=] (const std::vector<ExpressionValue> & args,
-                         const SqlRowScope & context)
-            -> ExpressionValue
-            {
-                return leftRowName(args, context);
-            };
-
-        return { exec, leftRowName.resultInfo };
+        return left->doGetFunction("rowName", args,
+                                   leftFieldOffset(fieldOffset), argScope);
     }
 
     if (functionName == "leftRowPath") {
-        auto leftRowPath
-            = left->doGetFunction("rowPath", args, leftFieldOffset(fieldOffset), argScope);
-        return leftRowPath;
-        return { leftRowPath.exec, leftRowPath.resultInfo };
+        return left->doGetFunction("rowPath", args,
+                                     leftFieldOffset(fieldOffset), argScope);
     }
 
     if (functionName == "rightRowName") {
-        auto rightRowName
-            = right->doGetFunction("rowName", args, rightFieldOffset(fieldOffset), argScope);
-        return rightRowName;
-
-        return { rightRowName.exec, rightRowName.resultInfo };
+        return right->doGetFunction("rowName", args,
+                                    rightFieldOffset(fieldOffset), argScope);
     }
 
     if (functionName == "rightRowPath") {
-        auto rightRowPath
-            = right->doGetFunction("rowPath", args, rightFieldOffset(fieldOffset), argScope);
-        return rightRowPath;
-
-        return { rightRowPath.exec, rightRowPath.resultInfo };
+        return right->doGetFunction("rowPath", args,
+                                    rightFieldOffset(fieldOffset), argScope);
     }
 
     // For now, don't allow joins to override functions

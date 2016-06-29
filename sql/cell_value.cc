@@ -49,9 +49,14 @@ CellValue(const Path & path)
             type = ST_SHORT_PATH;
         }
         else {
+            // NOTE: once the malloc has succeeded, the rest is
+            // noexcept.
             void * mem = malloc(sizeof(StringRepr) + strLength);
-            longString = new (mem) StringRepr;
-            std::copy(p, p + strLength, longString->repr);
+            if (!mem)
+                throw std::bad_alloc();
+
+            longString = new (mem) StringRepr;  // placement new noexcept
+            std::copy(p, p + strLength, longString->repr); // copy char noexcept
             type = ST_LONG_PATH;
         }
 

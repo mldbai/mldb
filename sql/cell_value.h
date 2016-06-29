@@ -447,7 +447,7 @@ private:
     };
 
     struct StringRepr {
-        StringRepr()
+        StringRepr() noexcept
             : hash(0), ref(0)
         {
         }

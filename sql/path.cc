@@ -22,6 +22,12 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+namespace {
+// If ever we allow the first offset of a path to be non-zero (eg, to tail
+// a long path via sharing) we should remove this.
+constexpr bool PATH_OFFSET_ZERO_IS_ALWAYS_ZERO = true;
+} // file scope
+
 
 /*****************************************************************************/
 /* COMPARISON FUNCTIONS                                                      */
@@ -1341,8 +1347,9 @@ operator == (const Path & other) const
     //if (digits_ != other.digits_)
     //    return false;
 
-    // Short circuit (currently offset(0) is always 0, so always taken).
-    if (/*offset(0) == 0 && other.offset(0) == 0*/ true) {
+    // Short circuit (currently offset(0) is always 0, so always taken.
+    if (PATH_OFFSET_ZERO_IS_ALWAYS_ZERO
+        || (offset(0) == 0 && other.offset(0) == 0)) {
         for (size_t i = 1;  i <= length_;  ++i) {
             if (offset(i) != other.offset(i)) {
                 return false;
@@ -1350,9 +1357,10 @@ operator == (const Path & other) const
         }
         if (bytes_.size() != other.bytes_.size())
             return false;
-        return std::memcmp(bytes_.data(), other.bytes_.data(), bytes_.size()) == 0;
+        return std::memcmp(bytes_.data(), other.bytes_.data(), bytes_.size())
+            == 0;
     }
-
+    
     return compare(other) == 0;
 }
 
