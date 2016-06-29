@@ -239,16 +239,9 @@ struct JoinedDataset::Itl
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool {
 
                 ssize_t numValues = res->values.size();
-
-                Utf8String leftNameUtf8 = "";
-                if (!res->values.at(numValues-2).empty())
-                    leftNameUtf8 = res->values.at(numValues-2).toUtf8String();
-                RowName leftName = RowName::parse(leftNameUtf8);
-
-                Utf8String rightNameUtf8 = "";
-                if (!res->values.at(numValues-1).empty())
-                    rightNameUtf8 = res->values.at(numValues-1).toUtf8String();
-                RowName rightName = RowName::parse(rightNameUtf8);
+                
+                RowName leftName = res->values.at(numValues-2).coerceToPath();
+                RowName rightName = res->values.at(numValues-1).coerceToPath();
 
                 recordJoinRow(leftName, leftName, rightName, rightName);
                 
@@ -263,8 +256,8 @@ struct JoinedDataset::Itl
 
             PipelineElement::root(scope)
                 ->join(leftExpr, left, rightExpr, right, on, qualification)
-                ->select(SqlExpression::parse("leftRowName()"))
-                ->select(SqlExpression::parse("rightRowName()"))
+                ->select(SqlExpression::parse("leftRowPath()"))
+                ->select(SqlExpression::parse("rightRowPath()"))
                 ->bind()
                 ->start(getParam)
                 ->takeAll(gotElement);
@@ -335,6 +328,20 @@ struct JoinedDataset::Itl
 
             rowName = std::move(RowName(left + "[" + rightName.toUtf8String() + "]"));
         }
+
+#if 0
+        cerr << "rowName = " << rowName << endl;
+        cerr << "leftName = " << leftName << endl;
+        cerr << "rightName = " << rightName << endl;
+        if (!leftName.empty()) {
+            if (!leftDataset->getMatrixView()->knownRow(leftName)) {
+                cerr << "known names are " << jsonEncodeStr(leftDataset->getMatrixView()->getRowNames()) << endl;
+            }
+            ExcAssert(leftDataset->getMatrixView()->knownRow(leftName));
+        }
+        if (!rightName.empty())
+            ExcAssert(rightDataset->getMatrixView()->knownRow(rightName));
+#endif
 
         RowHash rowHash(rowName);
 

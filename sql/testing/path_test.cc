@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE(test_coord_parsing)
         BOOST_CHECK_EQUAL(coord.toUtf8String(), "x");
     }
 
-    for (auto c: { "x", "x.y", "\"", "\"\"", "\"x.y\"", ".", "..", "...", "\".\"" }) {
+    for (auto c: { "x", "x.y", "\"", "\"\"", "\"x.y\"", ".", "..", "...", "\".\"",  "[\"d5\",1]" }) {
         //cerr << "doing " << c << endl;
         PathElement coord(c);
         //cerr << "c = " << coord.toEscapedUtf8String() << endl;
