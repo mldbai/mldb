@@ -131,8 +131,9 @@ struct JsonScope : SqlExpressionMldbScope {
 
         auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
         {
-            StructValue result;
             const auto & row = scope.as<JsonRowScope>();
+            StructValue result;
+            result.reserve(row.expr.getStructured().size());
 
             const auto onCol = [&] (const PathElement & columnName,
                                     const ExpressionValue & val)
@@ -144,6 +145,7 @@ struct JsonScope : SqlExpressionMldbScope {
                 return true;
             };
             row.expr.forEachColumnDestructive(onCol);
+            result.shrink_to_fit();
             return result;
         };
         GetAllColumnsOutput result;
@@ -298,7 +300,7 @@ struct JSONImporter: public Procedure {
         {
             auto & threadAccum = accum.get();
 
-            ssize_t actualLineNum = lineNumber + lineOffset;
+            uint64_t actualLineNum = lineNumber + lineOffset;
 
             // MLDB-1111 empty lines are treated as error
             if(lineLength == 0)
@@ -327,7 +329,7 @@ struct JSONImporter: public Procedure {
                 return handleError("extra characters at end of line", actualLineNum, "");
             }
 
-            unique_ptr<RowName> rowName;
+            RowName rowName(actualLineNum);
             if (useWhere || useSelect || useNamed) {
                 JsonRowScope row(expr, actualLineNum);
                 if (useWhere) {
@@ -337,8 +339,8 @@ struct JSONImporter: public Procedure {
                 }
 
                 if (useNamed) {
-                    rowName = unique_ptr<RowName>(new RowName(
-                        namedBound(row, storage, GET_ALL).toUtf8String()));
+                    rowName = RowName(
+                        namedBound(row, storage, GET_ALL).toUtf8String());
                 }
 
                 if (useSelect) {
@@ -348,14 +350,10 @@ struct JSONImporter: public Procedure {
 
             }
 
-            if (!useNamed) {
-                rowName = unique_ptr<RowName>(new RowName(actualLineNum));
-            }
-
             recordedLines++;
 
             threadAccum.threadRecorder->recordRowExprDestructive(
-                std::move(*rowName), std::move(expr));
+                std::move(rowName), std::move(expr));
 
             return true;
         };
