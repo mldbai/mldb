@@ -629,7 +629,7 @@ hasRowFunctions() const
         || funcs.find("rowHash") != funcs.end()
         || funcs.find("rowPath") != funcs.end()
         || funcs.find("leftRowHash") != funcs.end()
-        || funcs.find("rightRowHash") != funcs.end()
+        || funcs.find("rightRowHash") != funcs.end();
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(UnboundEntities);
