@@ -312,14 +312,14 @@ run(const ProcedureRunConfig & run,
                 const ColumnName & featureColumnName = it->first;
                 DistTable & distTable = it->second;
 
-                // make sure the column is there (not NULL) because if the
-                // column is NULL, it won't make sense in the output dataset
-                // anyway
+                // It seems that all the columns from the select will always
+                // be here, even if NULL. If that is not the case, we will need
+                // to treat this case separately and return (0,nan, nan, nan,
+                // nan, nan) as statistics.
                 auto col_ptr = column_idx.find(featureColumnName);
                 if (col_ptr == column_idx.end()) {
-                    continue;
+                    ExcAssert(false);
                 }
-
 
                 const tuple<ColumnName, CellValue, Date> & col =
                     row.columns[col_ptr->second];
