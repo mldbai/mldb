@@ -86,7 +86,7 @@ void
 DistTableStats::increment(double value)
 {
     // special case if first value
-    if (count == 0) {
+    if (JML_UNLIKELY(count == 0)) {
         count = 1;
         avg = min = max = value;
         M2 = 0.;

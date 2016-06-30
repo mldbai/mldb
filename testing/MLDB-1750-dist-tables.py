@@ -34,8 +34,9 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
         mldb.post('/v1/datasets/bid_req/commit')
 
     def test_it(self):
-        dt_file = 'file:///' + tempfile.NamedTemporaryFile(
-            prefix=os.getcwd() + '/build/x86_64/tmp').name
+        _dt_file = tempfile.NamedTemporaryFile(
+            prefix=os.getcwd() + '/build/x86_64/tmp')
+        dt_file = 'file:///' + _dt_file.name
 
         # call the distTable.train procedure
         mldb.post('/v1/procedures', {
