@@ -9,17 +9,17 @@
 
 #pragma once
 
-#include "compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 #include "mldb/jml/db/persistent_fwd.h"
 
-namespace ML {
+namespace Datacratic {
 
 template<typename D, size_t I, typename Sz, bool Sf, typename P, class A>
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store,
-             const ML::compact_vector<D, I, Sz, Sf, P, A> & v)
+             const compact_vector<D, I, Sz, Sf, P, A> & v)
 {
-    DB::serialize_compact_size(store, v.size());
+    ML::DB::serialize_compact_size(store, v.size());
     for (unsigned i = 0;  i < v.size();  ++i)
         store << v[i];
     return store;
@@ -28,7 +28,7 @@ operator << (ML::DB::Store_Writer & store,
 template<typename D, size_t I, typename Sz, bool Sf, typename P, class A>
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store,
-             ML::compact_vector<D, I, Sz, Sf, P, A> & v)
+             compact_vector<D, I, Sz, Sf, P, A> & v)
 {
     unsigned long long sz = reconstitute_compact_size(store);
     v.resize(sz);

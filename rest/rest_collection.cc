@@ -734,7 +734,7 @@ Utf8String
 BackgroundTaskBase::
 getState() const
 {
-    switch (state) {
+    switch (state.load()) {
     case State::_cancelled:
         return L"cancelled";
     case State::_error:

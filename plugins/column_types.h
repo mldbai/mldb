@@ -9,6 +9,7 @@
 #pragma once
 
 #include <memory>
+#include "mldb/types/value_description_fwd.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -36,16 +37,41 @@ struct ColumnTypes {
     getExpressionValueInfo() const;
 
     uint64_t numNulls;
-
+    uint64_t numZeros;
+    
     uint64_t numIntegers;
     int64_t minNegativeInteger;
+    int64_t maxNegativeInteger;
+    uint64_t minPositiveInteger;
     uint64_t maxPositiveInteger;
+
+    bool hasPositiveIntegers() const
+    {
+        return numIntegers && maxPositiveInteger >= minPositiveInteger;
+    }
+
+    bool hasNegativeIntegers() const
+    {
+        return numIntegers && maxNegativeInteger >= minNegativeInteger;
+    }
+
+    bool onlyIntegers() const
+    {
+        return numNulls == 0 && onlyIntegersAndNulls();
+    }
+
+    bool onlyIntegersAndNulls() const
+    {
+        return numReals == 0 && numStrings == 0 && numBlobs == 0 && numOther == 0;
+    }
 
     uint64_t numReals;
     uint64_t numStrings;
     uint64_t numBlobs;
     uint64_t numOther;  // timestamps, intervals
 };
+
+DECLARE_STRUCTURE_DESCRIPTION(ColumnTypes);
 
 } // namespace MLDB
 } // namespace Datacratic

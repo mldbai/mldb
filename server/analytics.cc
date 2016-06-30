@@ -369,8 +369,9 @@ queryFromStatement(SelectStatement & stm,
 
             MatrixNamedRow row;
             // Second last element is the row name
-            row.rowName = RowName(output->values.at(output->values.size() - 2).toUtf8String());
-
+            row.rowName = output->values.at(output->values.size() - 2)
+                .coerceToPath(); 
+            row.rowHash = row.rowName;
             output->values.back().mergeToRowDestructive(row.columns);
             rows.emplace_back(std::move(row));
         }
@@ -401,7 +402,9 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
              "value", rowNameEV);
     }
 
-    if (name.empty())
+    static const Path empty{""};
+
+    if (name.empty() || name.compare(empty) == 0)
         throw HttpReturnException(400, "Can't create a row with a null or empty name.");
     return name;
 }

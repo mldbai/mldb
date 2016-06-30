@@ -1934,6 +1934,10 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
+                if (args[0].empty()) {
+                    return ExpressionValue::null(Date::negativeInfinity());
+                }
+
                 Date ts = args[0].getEffectiveTimestamp();
 
                 Utf8String text = args[0].toUtf8String();
@@ -3050,6 +3054,33 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerRemoveTableName(remove_table_name, "_remove_table_name");
+
+BoundFunction sign(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+    auto outputInfo
+        = std::make_shared<NumericValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                const auto val = args[0].getAtom();
+                if (val.empty()) {
+                    return ExpressionValue();
+                }
+                if (!val.isNumeric() || val.isNaN()) {
+                    return ExpressionValue(CellValue(std::nan("")),
+                                           args[0].getEffectiveTimestamp());
+                }
+                double number = val.toDouble();
+                return ExpressionValue(
+                    CellValue(number > 0 ? 1 : number < 0 ? -1 : 0),
+                    args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerSignFunction(sign, "sign");
 
 
 } // namespace Builtins

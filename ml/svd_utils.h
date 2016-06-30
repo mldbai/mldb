@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
@@ -87,13 +87,13 @@ struct SvdColumnEntry {
         {
         }
 
-        ML::compact_vector<uint32_t, 3> rows;
-        ML::compact_vector<uint32_t, 3> counts;  // May be empty if they are all         
+        compact_vector<uint32_t, 3> rows;
+        compact_vector<uint32_t, 3> counts;  // May be empty if they are all         
         // This representaton has:
         // 1 entry: high bits
         // 1 entry: number of values with those bits
         // n entries: low bits for those values
-        ML::compact_vector<uint16_t, 4, uint32_t, false> compressedRows;
+        compact_vector<uint16_t, 4, uint32_t, false> compressedRows;
 
         uint64_t bitmap;
 

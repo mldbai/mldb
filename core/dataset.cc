@@ -1364,11 +1364,12 @@ generateRowsWhere(const SqlBindingScope & scope,
                                             return true;
                                         };
                                     
-                                    
-                                    if (keys)
-                                        evaluatedSet.forEachColumn(onKey);
-                                    else evaluatedSet.forEachColumn(onValue);
-                                    
+                                    if (!evaluatedSet.empty()) {
+                                        if (keys)
+                                            evaluatedSet.forEachColumn(onKey);
+                                        else evaluatedSet.forEachColumn(onValue);
+                                    }
+
                                     return { std::move(filtered), Any() };
                                 },
                                 fexpr->functionName + " in "
@@ -1586,7 +1587,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                     "Scan table keeping all rows",
                     GenerateRowsWhereFunction::UNFILTERED_TABLESCAN};
 
-            wheregen.upperBound = this->getMatrixView()->getRowCount();
+            wheregen.rowStreamTotalRows = this->getMatrixView()->getRowCount();
             wheregen.rowStream = this->getRowStream();
 
             return wheregen;

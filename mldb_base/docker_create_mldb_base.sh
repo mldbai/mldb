@@ -96,7 +96,8 @@ apt-get install -y \
     libarchive13 \
     unzip \
     unrar-free \
-    libstdc++6
+    libstdc++6 \
+    libyaml-cpp0.5
 
 #######################
 # Python dependencies #

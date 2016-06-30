@@ -19,3 +19,9 @@
 [submodule "ext/s2-geometry-library"]
 	path = ext/s2-geometry-library
 	url = https://github.com/mldbai/s2-geometry-library.git
+[submodule "ext/uap-cpp"]
+	path = ext/uap-cpp
+	url = https://github.com/mldbai/uap-cpp.git
+[submodule "ext/uap-core"]
+	path = ext/uap-core
+	url = https://github.com/mldbai/uap-core.git
