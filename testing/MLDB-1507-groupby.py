@@ -3,8 +3,8 @@
 # 2016-04-07
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
-import unittest
-
+if False:
+    mldb_wrapper = None
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class Mldb1507Test(MldbUnitTest):  # noqa
@@ -78,7 +78,6 @@ class Mldb1507Test(MldbUnitTest):  # noqa
                     mldb.query("select %s from %s %s" % (q, "titanic_sparse", g)),
                 )
 
-    @unittest.expectedFailure
     def test_groupby_select_star(self):
         ds = mldb.create_dataset({
             'id' : 'test_groupby_select_star',
@@ -87,7 +86,9 @@ class Mldb1507Test(MldbUnitTest):  # noqa
         ds.record_row('row1', [['colA', 1, 0]])
         ds.commit()
 
-        mldb.query("SELECT * FROM test_groupby_select_star GROUP BY colA")
+        msg = "Wildcard cannot be used with GROUP BY"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.query("SELECT * FROM test_groupby_select_star GROUP BY colA")
 
 
 mldb.run_tests()
