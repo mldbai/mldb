@@ -1,7 +1,8 @@
 # Dist Table Get Stats Function
 
-Functions of this type do a lookup in a statistical table trained with the ![](%%doclink distTable.train procedure) and returns 
-the stats (coui for each of the keys provided as input.
+Functions of this type do a lookup in a statistical table trained using the
+![](%%doclink distTable.train procedure) and return the statistics (count, avg, std, min, max)
+for each of the features provided as input.
 
 ## Configuration
 
@@ -14,8 +15,8 @@ Functions of this type have a single input value named `features` which is a row
 Functions of this type have a single output value named `stats` which is also a row. 
 The row will contain a column for each outcome/feature/statistic combination.
 
-For exemple, if we take the same exemple as in the ![](%%doclink distTable.train procedure),
-the returned row using `host='patate.com'` and `region='on'` would look like this:
+For example, if we take the same example as in the ![](%%doclink distTable.train procedure),
+the returned row, using for instance `host='patate.com'` and `region='on'` as features, would look like this:
 
 | rowName | stats.price.host.count | stats.price.host.avg | stats.price.host.std | ... | stats.price.region.std | stats.price.region.min | stats.price.region.max |
 |--|--|--|--|--|--|--|--|
