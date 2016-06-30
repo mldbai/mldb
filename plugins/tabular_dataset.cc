@@ -54,49 +54,66 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     */
     struct TabularDataStoreRowStream : public RowStream {
 
-        TabularDataStoreRowStream(TabularDataStore * store) : store(store)
+        TabularDataStoreRowStream(TabularDataStore * store)
+            : store(store)
         {
         }
 
-        virtual std::shared_ptr<RowStream> clone() const
+        virtual std::shared_ptr<RowStream> clone() const override
         {
             return std::make_shared<TabularDataStoreRowStream>(store);
         }
 
-        virtual void initAt(size_t start)
+        virtual void initAt(size_t start) override
         {
             size_t sum = 0;
             chunkiter = store->chunks.begin();
             while (chunkiter != store->chunks.end()
-                   && start > sum + chunkiter->rowNames.size())  {
-                sum += chunkiter->rowNames.size();
+                   && start > sum + chunkiter->rowCount())  {
+                sum += chunkiter->rowCount();
                 ++chunkiter;
             }
 
             if (chunkiter != store->chunks.end()) {
-                rowiter = chunkiter->rowNames.begin() + (start - sum);
+                rowIndex = (start - sum);
+                rowCount = chunkiter->rowCount();
             }
         }
 
-        virtual RowName next()
+        virtual const RowName & rowName(RowName & storage) const
         {
-            ExcAssert(rowiter != chunkiter->rowNames.end());
-            RowName row = *rowiter++;
-            if (rowiter == chunkiter->rowNames.end())
-            {
+            ExcAssert(rowIndex < rowCount);
+            return chunkiter->getRowName(rowIndex, storage);
+        }
+
+        virtual RowName next() override
+        {
+            RowName storage;
+            const RowName & row = rowName(storage);
+            advance();
+            if (&storage == &row)
+                return std::move(storage);
+            else return row;
+        }
+
+        virtual void advance()
+        {
+            ExcAssert(rowIndex < rowCount);
+            rowIndex++;
+            if (rowIndex == rowCount) {
                 ++chunkiter;
-                if (chunkiter != store->chunks.end())
-                {
-                    rowiter = chunkiter->rowNames.begin();
-                    ExcAssert(rowiter != chunkiter->rowNames.end());
+                if (chunkiter != store->chunks.end()) {
+                    rowIndex = 0;
+                    rowCount = chunkiter->rowCount();
+                    ExcAssertGreater(rowCount, 0);
                 }
             }
-            return row;
         }
 
         TabularDataStore* store;
         std::vector<TabularDatasetChunk>::const_iterator chunkiter;
-        std::vector<RowName>::const_iterator rowiter;
+        size_t rowIndex;   ///< Number of row within this chunk
+        size_t rowCount;   ///< Total number of rows within this chunk
     };
 
     int64_t rowCount;
@@ -467,6 +484,22 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
+    virtual ExpressionValue getRowExpr(const RowName & rowName) const
+    {
+        RowHash rowHash(rowName);
+        int shard = getRowShard(rowHash);
+        auto it = rowIndex[shard].find(rowHash);
+        if (it == rowIndex[shard].end()) {
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset: "
+                 + rowName.toUtf8String(),
+                 "rowName", rowName);
+        }
+
+        return chunks.at(it->second.first)
+            .getRowExpr(it->second.second, fixedColumns);
+    }
+
     virtual RowName getRowName(const RowHash & rowHash) const override
     {
         int shard = getRowShard(rowHash);
@@ -475,7 +508,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             throw HttpReturnException(400, "Row not found in tabular dataset");
         }
 
-        return chunks.at(it->second.first).rowNames[it->second.second];
+        return chunks.at(it->second.first).getRowName(it->second.second);
     }
 
     virtual ColumnName getColumnName(ColumnHash column) const override
