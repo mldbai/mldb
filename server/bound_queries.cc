@@ -1450,7 +1450,7 @@ execute(RowProcessor processor,
     std::vector<GroupByMapType> accum(numBuckets);
 
     for (const auto & c: select.clauses) {
-        if (typeid(*c.get()) == typeid(WildcardExpression)) {
+        if (c->isWildcard()) {
             throw HttpReturnException(
                 400, "Wildcard cannot be used with GROUP BY");
         }
