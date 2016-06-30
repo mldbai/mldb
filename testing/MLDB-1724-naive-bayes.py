@@ -42,7 +42,7 @@ female 5.75 150 9""")
                  in row.iteritems()])
         ds.commit()
 
-    def test_naive_bayes(self):
+    def _do_test(self, mode):
         mldb.post('/v1/procedures', {
             'type': 'classifier.train',
             'params': {
@@ -51,7 +51,7 @@ female 5.75 150 9""")
                            gender = 'male' as label
                     FROM data
                     """,
-                'mode': 'boolean',
+                'mode': mode,
                 'algorithm': 'naive_bayes',
                 'configuration': {
                     'naive_bayes': {
@@ -64,9 +64,6 @@ female 5.75 150 9""")
                         "max_depth": 8,
                         "verbosity": 3,
                         "update_alg": "prob"
-                    },
-                    'glz': {
-                        'type': 'glz'
                     }
                 },
                 'modelFileUrl': 'file://model.cls.gz',
@@ -88,5 +85,11 @@ female 5.75 150 9""")
             print prediction
             self.assertLess(prediction - target, .01)
 
+
+    def test_naive_bayes(self):
+        self._do_test("boolean")
+
+    def test_categorical(self):
+        self._do_test("categorical")
 
 mldb.run_tests()
