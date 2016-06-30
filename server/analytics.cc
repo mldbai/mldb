@@ -302,7 +302,7 @@ std::vector<MatrixNamedRow>
 queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
 {
     for (const auto & c: stm.select.clauses) {
-        if (typeid(*c.get()) == typeid(WildcardExpression)) {
+        if (c->isWildcard()) {
             throw HttpReturnException(
                 400, "Wildcard usage requires a FROM statement");
         }
