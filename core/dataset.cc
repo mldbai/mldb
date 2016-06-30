@@ -1618,8 +1618,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     UnboundEntities unbound = where.getUnbound();
 
     // Look for a free variable
-    bool needsColumns = unbound.hasUnboundVariables() ||
-        unbound.funcs.find("columnCount") != unbound.funcs.end();
+    bool needsColumns = unbound.needsRow();
 
 
     //cerr << "needsColumns for " << where.print() << " returned "

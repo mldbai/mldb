@@ -620,6 +620,13 @@ hasUnboundVariables() const
     return false;
 }
 
+bool
+UnboundEntities::
+hasRowFunctions() const
+{
+    return funcs.find("columnCount") != funcs.end();
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(UnboundEntities);
 
 UnboundEntitiesDescription::
