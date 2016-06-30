@@ -620,6 +620,18 @@ hasUnboundVariables() const
     return false;
 }
 
+bool
+UnboundEntities::
+hasRowFunctions() const
+{
+    // False coupling to improve. See MLDB-1769
+    return funcs.find("columnCount") != funcs.end()
+        || funcs.find("rowHash") != funcs.end()
+        || funcs.find("rowPath") != funcs.end()
+        || funcs.find("leftRowHash") != funcs.end()
+        || funcs.find("rightRowHash") != funcs.end()
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(UnboundEntities);
 
 UnboundEntitiesDescription::
@@ -3852,7 +3864,6 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-    
     return std::move(statement);
 }
 

@@ -1043,7 +1043,7 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
 {
     TestBindingContext context;
     {
-        auto statement = SelectStatement::parse("SELECT *");
+        auto statement = SelectStatement::parse("SELECT * FROM ds");
         BOOST_CHECK_EQUAL(statement.select.clauses.size(), 1);
     }
 
