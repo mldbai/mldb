@@ -6,7 +6,7 @@ the outcomes, for each values of the feature columns.
 
 The feature columns are assumed to be string-valued, and the outcome numeric-valued (type `INTEGER` or `NUMBER`). 
 
-This procedure can be viewed as a ![](%%doclink statsTable.bagOfWords.train procedure) where the
+This procedure can be viewed as a ![](%%doclink statsTable.train procedure) where the
 labels are numbers instead of booleans.
 
 You can optionally specity an output dataset that will contain the computed rolling statistics for each feature column / outcome
@@ -44,7 +44,7 @@ Assume this partial configuration:
 }
 ```
 
-Here is an excerpt of the statistics table (as saved in `statsTableFileUrl`)
+Here is an excerpt of the statistics table (as saved in `distTableFileUrl`)
 
 | outcome | column | value | stat | stat_value |
 |--|--|--|--|--|

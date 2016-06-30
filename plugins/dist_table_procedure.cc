@@ -170,7 +170,7 @@ reconstitute(ML::DB::Store_Reader & store)
     std::string name;
     store >> name >> version;
     if (name != "MLDB Dist Table Binary") {
-        throw HttpReturnException(400, "File does not appear to be a stats "
+        throw HttpReturnException(400, "File does not appear to be a dist "
                                   "table model");
     }
     if(version!=REQUIRED_V) {
@@ -208,7 +208,7 @@ DistTableProcedureConfigDescription()
              "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &DistTableProcedureConfig::functionName,
              "If specified, an instance of the ![](%%doclink distTable.getStats function) "
-             "of this name will be created using the trained stats tables. Note that to use "
+             "of this name will be created using the trained dist tables. Note that to use "
              "this parameter, the `distTableFileUrl` must also be provided.");
     addParent<ProcedureConfig>();
 
@@ -279,11 +279,6 @@ run(const ProcedureRunConfig & run,
     int num_req = 0;
     Date start = Date::now();
 
-    // columns cache
-    // key: feature column name
-    // values: in order, column name for 
-    map<ColumnName, vector<ColumnName>> colCache;
-
     const int nbOutcomes = runProcConf.outcomes.size();
 
     auto processor = [&] (NamedRowValue & row_,
@@ -291,7 +286,7 @@ run(const ProcedureRunConfig & run,
         {
             MatrixNamedRow row = row_.flattenDestructive();
 
-            if(num_req++ % 5000 == 0) {
+            if (num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 onProgress(progress);
@@ -306,14 +301,14 @@ run(const ProcedureRunConfig & run,
             }
 
             map<ColumnName, size_t> column_idx;
-            for(int i=0; i<row.columns.size(); i++) {
+            for (int i=0; i<row.columns.size(); i++) {
                 column_idx.insert(make_pair(get<0>(row.columns[i]), i));
             }
 
             std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
 
             // for each of our feature column (or distribution table)
-            for(auto it = distTablesMap.begin(); it != distTablesMap.end(); it++) {
+            for (auto it = distTablesMap.begin(); it != distTablesMap.end(); it++) {
                 const ColumnName & featureColumnName = it->first;
                 DistTable & distTable = it->second;
 
@@ -321,14 +316,16 @@ run(const ProcedureRunConfig & run,
                 // column is NULL, it won't make sense in the output dataset
                 // anyway
                 auto col_ptr = column_idx.find(featureColumnName);
-                if(col_ptr == column_idx.end())
+                if (col_ptr == column_idx.end()) {
                     continue;
+                }
+
 
                 const tuple<ColumnName, CellValue, Date> & col =
                     row.columns[col_ptr->second];
 
-                Utf8String featureValue = get<1>(col).toString();
-
+                const Utf8String & featureValue = get<1>(col).toString();
+                const Date & ts = get<2>(col); 
 
                 // note current dist tables for output dataset
                 // TODO we compute the column names everytime, maybe we should
@@ -340,27 +337,27 @@ run(const ProcedureRunConfig & run,
                         PathElement(outcome_names[i]) + featureColumnName
                             + "count",
                         CellValue(stats[i].count),
-                        Date::negativeInfinity());
+                        ts);
                     output_cols.emplace_back(
                         PathElement(outcome_names[i]) + featureColumnName
                             + "avg",
                         CellValue(stats[i].avg),
-                        Date::negativeInfinity());
+                        ts);
                     output_cols.emplace_back(
                         PathElement(outcome_names[i]) + featureColumnName
                             + "std",
                         CellValue(stats[i].getStd()),
-                        Date::negativeInfinity());
+                        ts);
                     output_cols.emplace_back(
                         PathElement(outcome_names[i]) + featureColumnName
                             + "min",
                         CellValue(stats[i].min),
-                        Date::negativeInfinity());
+                        ts);
                     output_cols.emplace_back(
                         PathElement(outcome_names[i]) + featureColumnName
                             + "max",
                         CellValue(stats[i].max),
-                        Date::negativeInfinity());
+                        ts);
                 }
 
                 // increment stats tables with current row
@@ -471,8 +468,9 @@ apply(const FunctionApplier & applier,
     ExpressionValue arg = context.getColumn("features");
 
     if(!arg.isRow())
-        throw HttpReturnException(400, "wrong input type to stats table",
+        throw HttpReturnException(400, "wrong input type to dist table",
                                   "input", arg);
+
 
     RowValue rtnRow;
     // TODO should we cache column names
@@ -491,7 +489,7 @@ apply(const FunctionApplier & applier,
         const DistTable & distTable = st->second;
 
         const auto & stats = distTable.getStats(val.toString());
-        for (int i=0; i < distTable.getNbOutcomes(); ++i) {
+        for (int i=0; i < distTable.outcome_names.size(); ++i) {
 
             rtnRow.emplace_back(
                 PathElement(distTable.outcome_names[i]) + columnName

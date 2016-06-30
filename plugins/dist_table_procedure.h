@@ -76,8 +76,6 @@ struct DistTable {
 
     std::vector<Utf8String> outcome_names;
 
-    uint64_t getNbOutcomes() const { return outcome_names.size(); }
-
     // key: name of one of the values for our column
     // value: aggregated stats for each outcome.
     std::unordered_map<Utf8String, std::vector<DistTableStats>> stats;
