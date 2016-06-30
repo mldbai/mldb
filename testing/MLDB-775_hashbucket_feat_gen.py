@@ -73,15 +73,13 @@ class Mldb775(MldbUnitTest):
         # make sure the values returned by both functions are not equal
         colIndexes = { colName: colId for colId, colName in enumerate(rez[0]) }
         for line in rez[1:]:
-            identical = False
             for i in xrange(4):
                 colA = "a.hashColumn%d" % i
                 colB = "b.hashColumn%d" % i
                 if line[colIndexes[colA]] != line[colIndexes[colB]]:
-                    identical = False
                     break
-
-            self.assertFalse(identical)
+            else:
+                raise Exception("identical")
 
 
 mldb.run_tests()
