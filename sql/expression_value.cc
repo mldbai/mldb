@@ -3973,55 +3973,71 @@ void
 ExpressionValue::
 initStructured(Structured value) noexcept
 {
-    // Do we need sorting, etc?
-    bool needsSorting = true;  // TODO: detect this; it will make things much faster
+    // Do we need sorting, or to collapse duplicate keys into one?
+    bool needsSorting = false;  // TODO: detect this; it will make things much faster
+    bool duplicates = false;
 
-    if (needsSorting) {
-        // Deduplicate...
+    for (size_t i = 1;  i < value.size() && !needsSorting;  ++i) {
+        int cmp = std::get<0>(value[i - 1]).compare(std::get<0>(value[i]));
+        if (cmp == 0)
+            duplicates = true;
+        else if (cmp > 0)
+            needsSorting = true;
+    }
 
+    if (needsSorting || duplicates) {
         // Sort by row name then value
-        std::sort(value.begin(), value.end());
-
-        Structured newValue;
-        newValue.reserve(value.size());
-
-        // Remove dups
-        for (ssize_t i = 0;  i < value.size();  /* no inc */) {
-            // Find the end of the range of dups
-            ssize_t j = i + 1;
-            for (; j < value.size() && std::get<0>(value[i]) == std::get<0>(value[j]);
-                 ++j);
-
-            if (i == 0 && j == value.size()) {
-                const PathElement & key = std::get<0>(value[i]);
-
-                if (key.empty()) {
-                    // All have the same key.  We have one single element as a
-                    // superposition.  If we continue, we'll get into an infinite
-                    // loop.
-                    value.swap(newValue);  // it will be swapped back...
-                    break;
-                }
-            }
-
-            // Just a single value.  We don't need to wrap it up in a
-            // superposition.
-            if (j == i + 1) {
-                newValue.emplace_back(std::move(value[i]));
-                i = j;
-            }
-            else {
-                std::vector<ExpressionValue> vals;
-                vals.reserve(j - i);
-                for (; i < j;  ++i) {
-                    vals.emplace_back(std::move(std::get<1>(value[i])));
-                }
-                newValue.emplace_back(std::get<0>(value[i - 1]),
-                                      superpose(std::move(vals)));
+        if (needsSorting) {
+            std::sort(value.begin(), value.end());
+            for (size_t i = 1;  i < value.size() && !duplicates;  ++i) {
+                if (std::get<0>(value[i - 1]) == std::get<0>(value[i]))
+                    duplicates = true;
             }
         }
 
-        value.swap(newValue);
+        // Deduplicate if necessary
+        if (duplicates) {
+            Structured newValue;
+            newValue.reserve(value.size());
+
+            // Remove dups
+            for (ssize_t i = 0;  i < value.size();  /* no inc */) {
+                // Find the end of the range of dups
+                ssize_t j = i + 1;
+                for (; j < value.size() && std::get<0>(value[i]) == std::get<0>(value[j]);
+                     ++j);
+
+                if (i == 0 && j == value.size()) {
+                    const PathElement & key = std::get<0>(value[i]);
+
+                    if (key.empty()) {
+                        // All have the same key.  We have one single element as a
+                        // superposition.  If we continue, we'll get into an infinite
+                        // loop.
+                        value.swap(newValue);  // it will be swapped back...
+                        break;
+                    }
+                }
+
+                // Just a single value.  We don't need to wrap it up in a
+                // superposition.
+                if (j == i + 1) {
+                    newValue.emplace_back(std::move(value[i]));
+                    i = j;
+                }
+                else {
+                    std::vector<ExpressionValue> vals;
+                    vals.reserve(j - i);
+                    for (; i < j;  ++i) {
+                        vals.emplace_back(std::move(std::get<1>(value[i])));
+                    }
+                    newValue.emplace_back(std::get<0>(value[i - 1]),
+                                          superpose(std::move(vals)));
+                }
+            }
+
+            value.swap(newValue);
+        }
     }
 
     initStructured(std::make_shared<Structured>(std::move(value)));
