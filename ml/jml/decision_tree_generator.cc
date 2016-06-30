@@ -1253,13 +1253,10 @@ train_recursive_regression(Thread_Context & context,
     trainer.test_all_and_sort(features, data, model.predicted(), weights2,
                               in_class, accum);
     
-    //cerr << " decision tree training: best is "
-    //     << feature_space()->print(feature)
-    //     << " at value " << split_val << endl;
     //cerr << "z = " << accum.best_z << endl;
     //cerr << "w = " << endl << accum.best_w.print() << endl;
 
-    if (accum.best_z == 0.0) {
+    if (accum.best_z == 0.0 || accum.best_feature == MISSING_FEATURE) {
         Tree::Leaf * result = tree.new_leaf();
         *result = leaf;
         return result;

@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* separation_stats.h                                              -*- C++ -*-
    Jeremy Barnes, 13 June 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Stats for classifier separation.
 */
 
-#ifndef __ml__separation_stats_h__
-#define __ml__separation_stats_h__
-
+#pragma once
 
 #include "mldb/jml/utils/less.h"
 #include "mldb/jml/math/xdiv.h"
@@ -32,18 +30,21 @@ typedef std::array<std::array<double, 2>, 2> Array2D;
 struct BinaryStats {
    
     BinaryStats()
-        : counts{{{0.0, 0.0}, {0.0, 0.0}}},
-          unweighted_counts{{{0.0, 0.0}, {0.0, 0.0}}},
+        : counts{{{{0.0, 0.0}}, {{0.0, 0.0}}}},
+        unweighted_counts{{{{0.0, 0.0}}, {{0.0, 0.0}}}},
           threshold(0)
     {
     }
 
     BinaryStats(const BinaryStats & other, float threshold,
                 boost::any key = boost::any())
+        : counts(other.counts), unweighted_counts(other.unweighted_counts),
+          /*
         : counts{{{ other.counts[0][0], other.counts[0][1]},
                   { other.counts[1][0], other.counts[1][1]}}},
           unweighted_counts{{{ other.unweighted_counts[0][0], other.unweighted_counts[0][1]},
                              { other.unweighted_counts[1][0], other.unweighted_counts[1][1]}}},
+          */
         threshold(threshold),
         key(std::move(key))
     {
@@ -63,6 +64,12 @@ struct BinaryStats {
     double excludedPopulation(bool weighted=true) const
     {
         return falseNegatives(weighted) + trueNegatives(weighted);
+    }
+
+    double accuracy() const
+    {
+        return ML::xdiv(truePositives() + trueNegatives(),
+                        totalPositives() + totalNegatives());
     }
 
     double precision() const
@@ -260,6 +267,3 @@ struct ScoredStats {
 };
 
 } // namespace Datacratic
-
-#endif /* __ml__separation_stats_h__ */
-

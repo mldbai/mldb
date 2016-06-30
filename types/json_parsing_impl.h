@@ -8,7 +8,7 @@
 #pragma once
 
 #include "json_parsing.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 
 namespace Datacratic {
 
@@ -20,7 +20,7 @@ namespace Datacratic {
     are currently parsing.
 */
 
-struct JsonPath: public ML::compact_vector<JsonPathEntry, 8> {
+struct JsonPath: public compact_vector<JsonPathEntry, 8> {
     JsonPath();
 
     /// Print the path out as a dotted series of elements

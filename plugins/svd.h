@@ -24,8 +24,10 @@ struct SelectExpression;
 struct SqlExpression;
 
 struct SvdConfig : ProcedureConfig {
+    static constexpr char const * name = "svd.train";
+
     SvdConfig()
-        : outputColumn("svd"),
+        : outputColumn("embedding"),
           numSingularValues(100),
           numDenseBasisVectors(1000)
     {
@@ -37,7 +39,7 @@ struct SvdConfig : ProcedureConfig {
     static constexpr char const * defaultOutputDatasetType = "embedding";
 
     Url modelFileUrl;
-    std::string outputColumn;
+    PathElement outputColumn;
     int numSingularValues;
     int numDenseBasisVectors;
     Utf8String functionName;
@@ -102,7 +104,7 @@ struct SvdBasis {
     doLeftSingularVector(const std::vector<Tuple> & row,
                          int maxValues,
                          bool acceptUnknownValues) const;
-    
+
     /** Check the validity of the data structure after loading. */
     void validate();
 };
@@ -145,9 +147,15 @@ struct SvdProcedure: public Procedure {
    - What about x nearest neighbours, etc?
 */
 
+
+/*****************************************************************************/
+/* SVD EMBED ROW                                                             */
+/*****************************************************************************/
+
 struct SvdEmbedConfig {
     SvdEmbedConfig(const Url & modelFileUrl = Url())
-        : modelFileUrl(modelFileUrl), maxSingularValues(-1),
+        : modelFileUrl(modelFileUrl),
+          maxSingularValues(-1),
           acceptUnknownValues(false)
     {
     }
@@ -158,11 +166,6 @@ struct SvdEmbedConfig {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SvdEmbedConfig);
-
-
-/*****************************************************************************/
-/* SVD EMBED ROW                                                             */
-/*****************************************************************************/
 
 struct SvdInput {
     ExpressionValue row;  // is a row valued object

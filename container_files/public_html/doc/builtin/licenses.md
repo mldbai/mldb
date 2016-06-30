@@ -7,6 +7,4 @@ The **MLDB Enterprise Edition** is a pre-built binary distribution of MLDB which
 1. the free [MLDB End User License Agreement, Non-Commercial Software License version 1.0](/resources/MLDB_License.pdf). 
 2. a license permitting commercial use, which can be purchased from Datacratic by <a href="http://datacratic.com/site/contact-us" target="_blank">contacting our sales team</a>.
 
-When you run the MLDB Enterprise Edition for the first time, you will be prompted for a license code to activate the software. 
-
-You can **get a Free Trial license code emailed to you** instantly by [filling out this form](http://mldb.ai/licensing.html) wherein you accept the terms of the non-commercial license above.
+When you run the MLDB Enterprise Edition for the first time, you will be prompted for a license key to activate the software. You can create your Free Trial license key instantly by signing up to [MLDB.ai](https://mldb.ai/#license_management) and filling out the request form.

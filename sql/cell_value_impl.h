@@ -22,12 +22,14 @@ typedef HashWrapper<4> CellValueHash;
 /* CELL VALUE                                                                */
 /*****************************************************************************/
 
+#if 0
 CellValue::
 CellValue() noexcept
     : bits1(0), bits2(0), flags(0)
 {
 
 }
+#endif
 
 CellValue::
 CellValue(unsigned long long intValue) noexcept
@@ -134,6 +136,12 @@ isBlobType(StorageType type)
     return type == ST_SHORT_BLOB || type == ST_LONG_BLOB;
 }
 
+bool
+CellValue::
+isPathType(StorageType type)
+{
+    return type == ST_SHORT_PATH || type == ST_LONG_PATH;
+}
 
 } // namespace MLDB
 } // namespace Datacratic

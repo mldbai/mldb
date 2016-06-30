@@ -21,6 +21,7 @@ namespace MLDB {
 
 typedef HashWrapper<4> CellValueHash;
 struct PathElement;
+struct Path;
 
 /*****************************************************************************/
 /* STRING CHARACTERISTICS                                                    */
@@ -44,7 +45,10 @@ enum StringCharacteristics {
 
 struct CellValue {
 
-    CellValue() noexcept;
+    JML_ALWAYS_INLINE CellValue() noexcept
+        : bits1(0), bits2(0), flags(0)
+    {
+    }
     //CellValue(bool boolValue)
     //{
     //    initInt(boolValue);
@@ -90,11 +94,14 @@ struct CellValue {
     CellValue(Date timestampstatic) noexcept;
     
     CellValue(const CellValue & other);
-    CellValue(CellValue && other) noexcept
+    JML_ALWAYS_INLINE CellValue(CellValue && other) noexcept
         : bits1(other.bits1), bits2(other.bits2), flags(other.flags)
     {
         other.type = ST_EMPTY;
     }
+
+    /** Construct from a path. */
+    CellValue(const Path & path);
     
     /** Construct an interval CellValue.  Note that months and days have
         a limit of 16 bits, and that only one of months, days and seconds
@@ -124,7 +131,7 @@ struct CellValue {
         return *this;
     }
 
-    CellValue & operator = (CellValue && other) noexcept
+    JML_ALWAYS_INLINE CellValue & operator = (CellValue && other) noexcept
     {
         CellValue newMe(std::move(other));
         swap(newMe);
@@ -132,14 +139,14 @@ struct CellValue {
 
     }
     
-    void swap(CellValue & other) noexcept
+    JML_ALWAYS_INLINE void swap(CellValue & other) noexcept
     {
         auto t1 = flags;  flags = other.flags;  other.flags = t1;
         auto t2 = bits1;  bits1 = other.bits1;  other.bits1 = t2;
         auto t3 = bits2;  bits2 = other.bits2;  other.bits2 = t3;
     }
     
-    ~CellValue()
+    JML_ALWAYS_INLINE ~CellValue()
     {
         if (type == ST_ASCII_LONG_STRING || type == ST_UTF8_LONG_STRING
             || type == ST_LONG_BLOB)
@@ -240,6 +247,7 @@ struct CellValue {
         TIMESTAMP,
         TIMEINTERVAL,
         BLOB,
+        PATH,
         NUM_CELL_TYPES
     };
 
@@ -282,6 +290,11 @@ struct CellValue {
         return cellType() == BLOB;
     }
 
+    bool isPath() const
+    {
+        return cellType() == PATH;
+    }
+
     bool isNaN() const
     {
         CellType t = cellType();
@@ -317,6 +330,7 @@ struct CellValue {
     CellValue coerceToTimestamp() const;
     CellValue coerceToBlob() const;
     PathElement coerceToPathElement() const;
+    Path coerceToPath() const;
     
     /** This is always the SIPhash of the toString() representation.
         Only for blobs, which have no toString(), is it calculated
@@ -430,11 +444,13 @@ private:
         ST_TIMESTAMP,
         ST_TIMEINTERVAL,
         ST_SHORT_BLOB,
-        ST_LONG_BLOB
+        ST_LONG_BLOB,
+        ST_SHORT_PATH,
+        ST_LONG_PATH
     };
 
     struct StringRepr {
-        StringRepr()
+        StringRepr() noexcept
             : hash(0), ref(0)
         {
         }
@@ -472,7 +488,8 @@ private:
         };
         struct {
             uint32_t strType:4;
-            uint32_t strLength:28;
+            uint32_t strFlags:4;
+            uint32_t strLength:24;
         };
         struct {
             uint32_t floatType:4;
@@ -483,6 +500,7 @@ private:
 
     static bool isStringType(StorageType type);
     static bool isBlobType(StorageType type);
+    static bool isPathType(StorageType type);
 } __attribute__((__packed__)) ;
 
 inline void swap(CellValue & val1, CellValue & val2)

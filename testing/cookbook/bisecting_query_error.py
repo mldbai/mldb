@@ -17,13 +17,13 @@ class Bisect(object):
 
         self.limit = self._middle
 
-    def _update__middle(self):
+    def _update_middle(self):
         self._middle = (self._end - self._left) / 2 + self._left
         self.limit = self._middle - self._left
 
     def good(self):
         self._left = self._middle
-        self._update__middle()
+        self._update_middle()
         if self.limit == 0:
             mldb.log(self)
             raise Exception("Over")

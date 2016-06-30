@@ -1,9 +1,7 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 #
 # pytanic_plugin_test.py
 # Francois Maillet, 2015-03-26
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 #
 # Test the pytanic plugin example
 
@@ -11,10 +9,10 @@ import json
 
 
 pythonScript = {
-"type": "python",
-"params": {
-    "address": "git://github.com/datacratic/mldb-pytanic-plugin"
-}
+    "type": "python",
+    "params": {
+        "address": "git://github.com/datacratic/mldb-pytanic-plugin"
+    }
 }
 resp = mldb.perform("PUT", "/v1/plugins/pytanic", [], pythonScript)
 

@@ -23,7 +23,7 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* ROW EXPRESSION MLDB CONTEXT                                               */
+/* SQL EXPRESSION MLDB SCOPE                                                 */
 /*****************************************************************************/
 
 SqlExpressionMldbScope::
@@ -193,6 +193,7 @@ doGetColumn(const Utf8String & tableName,
             std::make_shared<AtomValueInfo>()};
 }
 
+
 BoundFunction
 SqlExpressionDatasetScope::
 doGetFunction(const Utf8String & tableName,
@@ -218,6 +219,18 @@ doGetFunction(const Utf8String & tableName,
                 };
     }
 
+    if (functionName == "rowPath") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+                {
+                    auto & row = context.as<RowScope>();
+                    return ExpressionValue(CellValue(row.row.rowName),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<PathValueInfo>()
+                };
+    }
+
     if (functionName == "rowHash") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
@@ -229,6 +242,15 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<Uint64ValueInfo>()
                 };
     }
+
+    // Look for a derived function.  We do it here so that it's only done
+    // if the function can't be found higher up.
+    auto fnderived
+        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
+                                    *this, "row");
+
+    if (fnderived)
+        return fnderived;
 
     /* columnCount function: return number of columns with explicit values set
        in the current row.
@@ -290,9 +312,18 @@ doGetAllColumns(const Utf8String & tableName,
     auto filterColumnName = [&] (const ColumnName & inputColumnName)
         -> ColumnName
     {
-        if (!tableName.empty() && !childaliases.empty()
-            && !inputColumnName.startsWith(tableName)) {
-            return ColumnName();
+        if (!tableName.empty() && !childaliases.empty()) {
+            // We're in a join.  The columns will all be prefixed with their
+            // child table name, but we don't want to use that.
+            // eg, in x inner join y, we will have variables like
+            // x.a and y.b, but when we select them we want them to be
+            // like a and b.
+            if (!inputColumnName.startsWith(tableName)) {
+                return ColumnName();
+            }
+            // Otherwise, check if we need it
+            ColumnName result = keep(inputColumnName);
+            return std::move(result);
         }
 
         return keep(inputColumnName);
@@ -336,24 +367,25 @@ doGetAllColumns(const Utf8String & tableName,
         columnsWithInfo[i].columnName = std::move(outputName);
     }
 
-    std::function<ExpressionValue (const SqlRowScope &)> exec;
+    std::function<ExpressionValue (const SqlRowScope &,  const VariableFilter &)> exec;
 
     if (allWereKept && noneWereRenamed) {
         // We can pass right through; we have a select *
 
-        exec = [=] (const SqlRowScope & context) -> ExpressionValue
+        exec = [=] (const SqlRowScope & context, const VariableFilter & filter) -> ExpressionValue
             {
                 auto & row = context.as<RowScope>();
 
                 // TODO: if one day we are able to prove that this is
                 // the only expression that touches the row, we could
                 // move it into place
-                return row.row.columns;
+                ExpressionValue val(row.row.columns);
+                return val.getFilteredDestructive(filter);
             };
     }
     else {
         // Some are excluded or renamed; we need to go one by one
-        exec = [=] (const SqlRowScope & context)
+        exec = [=] (const SqlRowScope & context, const VariableFilter & filter)
             {
                 auto & row = context.as<RowScope>();
 
@@ -368,7 +400,8 @@ doGetAllColumns(const Utf8String & tableName,
                     result.emplace_back(it->second, std::get<1>(c), std::get<2>(c));
                 }
 
-                return std::move(result);
+                ExpressionValue val(std::move(result));
+                return  val.getFilteredDestructive(filter);
             };
 
     }

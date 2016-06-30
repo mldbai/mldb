@@ -22,7 +22,7 @@ template<typename T, typename Enable = void>
 struct JsonCodec {
     static T decode(const Json::Value & val)
     {
-        return jsonDecode(val, (T *)0);
+        return jsonDecode<T>(val);
     }
 
     static Json::Value encode(const T & val)

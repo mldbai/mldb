@@ -135,7 +135,7 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    void execute(RowProcessor processor,  
+    void execute(RowProcessor processor,
             ssize_t offset, ssize_t limit,
             std::function<bool (const Json::Value &)> onProgress);
 
@@ -159,6 +159,9 @@ struct BoundGroupByQuery {
 
     // Having Expression to resolve
     const SqlExpression& having;
+
+    // groupby Expression to resolve
+    const OrderByExpression & orderBy;
 
     SelectExpression subSelectExpr;
 

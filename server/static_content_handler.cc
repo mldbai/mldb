@@ -141,11 +141,11 @@ int handleLink(hoedown_buffer *ob,
 }
 
 std::string renderMarkdown(const char * buf, size_t len,
-                           MacroData & macroData)
+                           const MacroData & macroData)
 {
     auto renderer = hoedown_html_renderer_new(HOEDOWN_HTML_USE_XHTML,
                                               0 /* data.toc_level */,
-                                              &macroData);                
+                                              (void *)&macroData);                
     Scope_Exit(hoedown_html_renderer_free(renderer));
 
     renderer->normal_text = handleNormalText;
@@ -172,7 +172,7 @@ std::string renderMarkdown(const char * buf, size_t len,
     return result;
 }
 
-std::string renderMarkdown(const std::string & str, MacroData & macroData)
+std::string renderMarkdown(const std::string & str, const MacroData & macroData)
 {
     return renderMarkdown(str.c_str(), str.length(), macroData);
 }
@@ -211,7 +211,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                     if (filenameToLoad.find("file://") == 0)
                         filenameToLoad = string(filenameToLoad, 7);
 
-                    cerr << "Loading file " << filename << " as " << filenameToLoad << endl;
+                    //cerr << "Loading file " << filename << " as " << filenameToLoad << endl;
                     ML::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
@@ -251,7 +251,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 if (filenameToLoad.find("file://") == 0)
                     filenameToLoad = string(filenameToLoad, 7);
 
-                cerr << "Loading file " << markdownFile << " as " << filenameToLoad << endl;
+                //cerr << "Loading file " << markdownFile << " as " << filenameToLoad << endl;
 
                 ML::File_Read_Buffer buf(filenameToLoad);
 

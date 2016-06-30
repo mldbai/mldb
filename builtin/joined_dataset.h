@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** joined_dataset.h                                               -*- C++ -*-
     Jeremy Barnes, 27 July 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Dataset that is the joined product of multiple underlying datasets.
 */
@@ -42,9 +41,16 @@ struct JoinedDataset: public Dataset {
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
     
-    /** Constructor used internally when creating a tree of joined datasets */
-    JoinedDataset(MldbServer * owner,
-                  JoinedDatasetConfig config);
+    /** Constructor used internally when creating a tree of joined datasets
+        where some are already bound.
+    */
+    JoinedDataset(SqlBindingScope & scope,
+                  std::shared_ptr<TableExpression> leftExpr,
+                  BoundTableExpression left,
+                  std::shared_ptr<TableExpression> rightExpr,
+                  BoundTableExpression right,
+                  std::shared_ptr<SqlExpression> on,
+                  JoinQualification qualification);
 
     virtual ~JoinedDataset();
 
@@ -56,9 +62,15 @@ struct JoinedDataset: public Dataset {
 
     virtual void getChildAliases(std::vector<Utf8String>&) const;
 
-    virtual BoundFunction overrideFunction(const Utf8String & tableName, const Utf8String & functionName, SqlBindingScope & context) const;
+    virtual BoundFunction
+    overrideFunction(const Utf8String & tableName,
+                     const Utf8String & functionName,
+                     SqlBindingScope & scope) const;
 
-    virtual RowName getOriginalRowName(const Utf8String& tableName, const RowName & name) const;
+    virtual RowName getOriginalRowName(const Utf8String& tableName,
+                                       const RowName & name) const;
+
+    virtual int getChainedJoinDepth() const;
 
 private:
     JoinedDatasetConfig datasetConfig;

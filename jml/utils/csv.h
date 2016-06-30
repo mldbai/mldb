@@ -1,14 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* csv.h                                                           -*- C++ -*-
    Jeremy Barnes, 5 April 2010
-   Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2010 Datacratic. All rights reserved.
 
    Comma Separated Value parsing code.
 */
 
-#ifndef __utils__csv_h__
-#define __utils__csv_h__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -16,6 +13,23 @@
 namespace ML {
 
 struct Parse_Context;
+
+
+/**
+ * Exception used to signal that a line ended inside a quote.
+ * It can be used to append the next available line in a file, if
+ * one is available, since there is possibly an end of line
+ * character in the actual string we're trying to parse
+ **/
+struct FileFinishInsideQuote : public std::exception {
+public:
+    FileFinishInsideQuote(const char *msg) : msg(msg) {};
+    const char *what() const throw() { return msg; };
+private:
+    const char* msg;
+};
+
+
 
 /** Expect a CSV field from the given parse context.  Another will be set
     to true if there is still another field in the CSV row. */
@@ -34,5 +48,3 @@ std::string csv_escape(const std::string & s);
 
 } // namespace ML
 
-
-#endif /* __utils__csv_h__ */

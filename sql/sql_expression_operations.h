@@ -109,6 +109,13 @@ struct BooleanOperatorExpression: public SqlExpression {
     std::string op;
 };
 
+/** Read a column from a dataset.  This corresponds
+    to an expression `x` where `x` is a column name in a dataset.
+    This expression is further wrapped into SqlRowExpressions
+    to form the SELECT clauses.  For example, the expression
+    `x AS y` is parsed as a NamedColumnExpression with surface
+    `x AS y` containing a ReadColumnExpression with surface `x`.
+*/
 struct ReadColumnExpression: public SqlExpression {
     ReadColumnExpression(ColumnName columnName);
 
@@ -193,6 +200,8 @@ struct SelectWithinExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+
+    virtual bool isConstant() const;
 
     std::shared_ptr<SqlRowExpression> select;
 };
@@ -431,13 +440,20 @@ struct WildcardExpression: public SqlRowExpression {
     wildcards() const;
 
     virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
+
+    virtual bool isWildcard() const {return true; }
 };
 
-/** Represents "SELECT expression" */
-struct ComputedColumn: public SqlRowExpression {
-    ComputedColumn(ColumnName alias,
+/** Represents x AS y, y : x, x AS * or x that appears in a SELECT expression" */
+struct NamedColumnExpression: public SqlRowExpression {
+    NamedColumnExpression(ColumnName alias,
                    std::shared_ptr<SqlExpression>);
 
+    /** This value must be understood as follows:
+        - the alias is set to the value of y in expression x AS y
+        - it is empty in the case of x AS *
+        - it contains the surface of x otherwise
+    */
     ColumnName alias;  ///< Name of variable alias
     std::shared_ptr<SqlExpression> expression;
 
@@ -459,6 +475,11 @@ struct ComputedColumn: public SqlRowExpression {
         return alias.toUtf8String();
     }
 
+    virtual bool isConstant() const
+    {
+        return expression->isConstant();
+    }
+
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 };
 
@@ -476,23 +497,28 @@ struct FunctionCallExpression: public SqlRowExpression {
     Utf8String functionName;
     std::vector<std::shared_ptr<SqlExpression> > args;
 
-    virtual BoundSqlExpression bind(SqlBindingScope & context) const;
+    virtual BoundSqlExpression bind(SqlBindingScope & context) const override;
 
-    virtual Utf8String print() const;
+    virtual Utf8String print() const override;
 
     virtual std::shared_ptr<SqlExpression>
-    transform(const TransformArgs & transformArgs) const;
+    transform(const TransformArgs & transformArgs) const override;
 
-    virtual std::string getType() const;
-    virtual Utf8String getOperation() const;
-    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; } // TODO: not always
+    virtual std::string getType() const override;
+    virtual Utf8String getOperation() const override;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
+    virtual bool isConstant() const override { return false; } // TODO: not always
 
     virtual std::map<ScopedName, UnboundVariable>
     variableNames() const override;
 
     virtual std::map<ScopedName, UnboundFunction>
     functionNames() const override;
+
+    virtual bool isAggregator() const override
+    {
+        return !!tryLookupAggregator(functionName);
+    }
 
 private:
 
@@ -512,17 +538,17 @@ struct ExtractExpression: public SqlRowExpression {
     std::shared_ptr<SqlExpression> from;
     std::shared_ptr<SqlExpression> extract;
 
-    virtual BoundSqlExpression bind(SqlBindingScope & context) const;
+    virtual BoundSqlExpression bind(SqlBindingScope & context) const override;
 
-    virtual Utf8String print() const;
+    virtual Utf8String print() const override;
 
     virtual std::shared_ptr<SqlExpression>
-    transform(const TransformArgs & transformArgs) const;
+    transform(const TransformArgs & transformArgs) const override;
 
-    virtual std::string getType() const;
-    virtual Utf8String getOperation() const;
-    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; } // TODO: not always
+    virtual std::string getType() const override;
+    virtual Utf8String getOperation() const override;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
+    virtual bool isConstant() const override { return false; } // TODO: not always
 
     virtual std::map<ScopedName, UnboundVariable>
     variableNames() const override;

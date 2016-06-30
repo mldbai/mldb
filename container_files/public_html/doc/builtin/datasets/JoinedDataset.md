@@ -21,3 +21,5 @@ Currently, the join condition has the following restrictions:
 
 * The ![](%%doclink merged dataset) is equivalent to joining two datasets on the left hand row name being equal to the right hand row name.
 * The ![](%%doclink transposed dataset) is another dataset transformation
+* The ![](%%nblink _demos/Investigating the Panama Papers) demo
+

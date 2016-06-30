@@ -20,7 +20,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 
 using namespace std;
 
@@ -57,7 +57,7 @@ struct JoinedDataset::Itl
         RowHash rowHash;   ///< Row hash of joined row
         RowName rowName;   ///< Name of joined row
         RowName leftName, rightName;  ///< Names of joined rows from input datasets
-        //ML::compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
+        //compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
     };
 
     enum JoinSide {
@@ -99,7 +99,7 @@ struct JoinedDataset::Itl
 
     /// Index of a row hash for a left or right dataset to a list of
     /// rows it's part of in the output.
-    typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
+    typedef std::map<RowHash, compact_vector<RowName, 1> > SideRowIndex;
 
     /// Left row hash to list of row hashes it's present in for colummn index
     SideRowIndex leftRowIndex;
@@ -119,15 +119,14 @@ struct JoinedDataset::Itl
     /// Mapping from the table column hash to output column name
     std::unordered_map<ColumnHash, ColumnName> leftColumns, rightColumns;
 
-    /// Datasets that were actually joined.  There will be a maximum of 31
-    /// of them, as any more will be sub-joined
-    std::vector<std::shared_ptr<Dataset> > datasets;
+    /// Structure used to implement operations from each table
+    TableOperations leftOps, rightOps;
 
-    /// Matrix view.  Length is the same as that of datasets.
-    std::vector<std::shared_ptr<MatrixView> > matrices;
+    /// Datasets on the left and right side
+    std::shared_ptr<Dataset> leftDataset, rightDataset;
 
     // is the dataset on the left a join too?
-    bool isChainedJoin;
+    int chainedJoinDepth;
 
     /// Names of tables, so that we can correctly identify where each
     /// column came from.
@@ -135,54 +134,91 @@ struct JoinedDataset::Itl
     Utf8String childAliases[JOIN_SIDE_MAX]; //Alias of the (direct) joined tables left and right
     std::vector<Utf8String> tableNames; //sub tables from both side + direct childs left and right
 
-    Itl(MldbServer * server, JoinedDatasetConfig joinConfig)
+    Itl(SqlBindingScope & scope,
+        std::shared_ptr<TableExpression> leftExpr,
+        BoundTableExpression left,
+        std::shared_ptr<TableExpression> rightExpr,
+        BoundTableExpression right,
+        std::shared_ptr<SqlExpression> on,
+        JoinQualification qualification)
     {
-        SqlExpressionMldbScope context(server);
-
-        // Create a context to get our datasets from
-        SqlExpressionMldbScope mldbContext(server);
-
-        // Obtain our datasets
-        BoundTableExpression left = joinConfig.left->bind(mldbContext);
-        BoundTableExpression right = joinConfig.right->bind(mldbContext);
-
         bool debug = false;
 
-        std::set<Utf8String> leftTables = joinConfig.left->getTableNames();
-        std::set<Utf8String> rightTables = joinConfig.right->getTableNames();
+        // vector to set
+        auto v2s = [] (std::vector<Utf8String> vec)
+            {
+                return std::set<Utf8String>(std::make_move_iterator(vec.begin()),
+                                            std::make_move_iterator(vec.end()));
+            };
 
-        isChainedJoin = dynamic_cast<JoinedDataset*>(left.dataset.get()) != nullptr;
-        
-        datasets.emplace_back(left.dataset);
-        datasets.emplace_back(right.dataset);
+        std::set<Utf8String> leftTables = v2s(left.table.getChildAliases());
+        std::set<Utf8String> rightTables = v2s(right.table.getChildAliases());
 
-        matrices.emplace_back(left.dataset->getMatrixView());
-        matrices.emplace_back(right.dataset->getMatrixView());
+        JoinedDataset* left_joined_dataset = dynamic_cast<JoinedDataset*>(left.dataset.get());
+
+        chainedJoinDepth = left_joined_dataset != nullptr ? left_joined_dataset->getChainedJoinDepth() + 1 : 0;
+
+        if (!left.dataset) {
+            throw HttpReturnException
+                (400, "A materialized join must be between materialized "
+                 "datasets on both the left and the right side.  In practice, "
+                 "this means it must be a subselect, a transpose, a join or a "
+                 "dataset.  The dataset "
+                 "expression on the left side of the join ('"
+                 + leftExpr->surface
+                 + "') is not materialized.  You can make it so by using the "
+                 "transform procedure to record the output of the query into a "
+                 "dataset, and then using this dataset in the join");
+        }
+
+        if (!right.dataset) {
+            throw HttpReturnException
+                (400, "A materialized join must be between materialized "
+                 "datasets on both the left and the right side.  In practice, "
+                 "this means it must be a subselect, a transpose, a join or a "
+                 "dataset.  The dataset "
+                 "expression on the right side of the join ('"
+                 + rightExpr->surface
+                 + "') is not materialized.  You can make it so by using the "
+                 "transform procedure to record the output of the query into a "
+                 "dataset, and then using this dataset in the join");
+        }
+
+        leftOps = left.table;
+        rightOps = right.table;
+
+        leftDataset = left.dataset;
+        rightDataset = right.dataset;
 
         childAliases[JOIN_SIDE_LEFT] = left.asName;
         childAliases[JOIN_SIDE_RIGHT] = right.asName;
 
         tableNames = {left.asName, right.asName};
 
-        left.dataset->getChildAliases(tableNames);
-        right.dataset->getChildAliases(tableNames);
+        auto addAliases = [&] (std::vector<Utf8String> aliases)
+            {
+                tableNames.insert(tableNames.end(),
+                                  std::make_move_iterator(aliases.begin()),
+                                  std::make_move_iterator(aliases.end()));
+            };
 
-        left.dataset->getChildAliases(sideChildNames[JOIN_SIDE_LEFT]);
-        right.dataset->getChildAliases(sideChildNames[JOIN_SIDE_RIGHT]);
+        addAliases(leftOps.getChildAliases());
+        addAliases(rightOps.getChildAliases());
+
+        sideChildNames[JOIN_SIDE_LEFT]  = leftOps.getChildAliases();
+        sideChildNames[JOIN_SIDE_RIGHT] = rightOps.getChildAliases();
       
-        AnnotatedJoinCondition condition(joinConfig.left, joinConfig.right,
-                                         joinConfig.on, 
+        AnnotatedJoinCondition condition(leftExpr, rightExpr, on, 
                                          nullptr, //where
+                                         qualification,
                                          debug);
 
         if (debug)
             cerr << "Analyzed join condition: " << jsonEncode(condition) << endl;
 
         // Run the constant expression
-        auto boundConstant = condition.constantWhere->bind(context);
-        SqlRowScope scope;
-        ExpressionValue storage;
-        if (!boundConstant(scope, storage, GET_LATEST).isTrue())
+        ExpressionValue k = condition.constantWhere->constantValue();
+        if (!k.isTrue())
             return;
 
         if (!condition.crossWhere || condition.crossWhere->isConstant()) {
@@ -193,29 +229,24 @@ struct JoinedDataset::Itl
             
             // We can use a fast path, since we have simple non-filtered
             // equijoin
-            makeJoinConstantWhere(condition, context, left, right,
-                                  joinConfig.qualification);            
+            makeJoinConstantWhere(condition, scope, left, right,
+                                  qualification);            
 
         } else {
+
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
-            auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool
-                {
-                    //cerr << "got rows complex " << res->values.size() << endl;
-                    Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
-                    size_t i = 2;
-                    for (; i+ 2 < res->values.size(); i+=2)
-                    {
-                        leftNameUtf8 += "-" + res->values.at(i).toUtf8String();
-                    }                        
+            auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool {
 
-                    RowName leftName(leftNameUtf8);
-                    RowName rightName(res->values.at(i).toUtf8String());
+                ssize_t numValues = res->values.size();
+                
+                RowName leftName = res->values.at(numValues-2).coerceToPath();
+                RowName rightName = res->values.at(numValues-1).coerceToPath();
 
-                    recordJoinRow(leftName, leftName, rightName, rightName);
-
-                    return true;
-                };
+                recordJoinRow(leftName, leftName, rightName, rightName);
+                
+                return true;
+            };
             
             auto getParam = [&] (const Utf8String & paramName)
                 -> ExpressionValue
@@ -223,15 +254,17 @@ struct JoinedDataset::Itl
                     throw HttpReturnException(400, "No parameters bound in");
                 };
 
-            PipelineElement::root(context)
-                ->join(joinConfig.left, joinConfig.right, joinConfig.on, joinConfig.qualification)
+            PipelineElement::root(scope)
+                ->join(leftExpr, left, rightExpr, right, on, qualification)
+                ->select(SqlExpression::parse("leftRowPath()"))
+                ->select(SqlExpression::parse("rightRowPath()"))
                 ->bind()
                 ->start(getParam)
                 ->takeAll(gotElement);
         }
 
         // Finally, the column indexes
-        for (auto & c: left.dataset->getColumnNames()) {
+        for (auto & c: leftDataset->getColumnNames()) {
             ColumnName newColumnName;
             if (!left.asName.empty())
                 newColumnName = ColumnName(left.asName) + c;
@@ -249,7 +282,7 @@ struct JoinedDataset::Itl
         }
 
         // Finally, the column indexes
-        for (auto & c: right.dataset->getColumnNames()) {
+        for (auto & c: rightDataset->getColumnNames()) {
             ColumnName newColumnName;
 
             if (!right.asName.empty())
@@ -281,10 +314,34 @@ struct JoinedDataset::Itl
         bool debug = false;
         RowName rowName;
 
-        if (isChainedJoin && !leftName.empty())
+        if (chainedJoinDepth > 0 && !leftName.empty()) {
             rowName = std::move(RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]"));
-        else
+        }
+        else if (chainedJoinDepth == 0) {
             rowName = std::move(RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]"));
+        }
+        else {
+            Utf8String left;
+            for (int i = 0; i <= chainedJoinDepth; ++i) {
+                left += "[]-";
+            }
+
+            rowName = std::move(RowName(left + "[" + rightName.toUtf8String() + "]"));
+        }
+
+#if 0
+        cerr << "rowName = " << rowName << endl;
+        cerr << "leftName = " << leftName << endl;
+        cerr << "rightName = " << rightName << endl;
+        if (!leftName.empty()) {
+            if (!leftDataset->getMatrixView()->knownRow(leftName)) {
+                cerr << "known names are " << jsonEncodeStr(leftDataset->getMatrixView()->getRowNames()) << endl;
+            }
+            ExcAssert(leftDataset->getMatrixView()->knownRow(leftName));
+        }
+        if (!rightName.empty())
+            ExcAssert(rightDataset->getMatrixView()->knownRow(rightName));
+#endif
 
         RowHash rowHash(rowName);
 
@@ -296,7 +353,9 @@ struct JoinedDataset::Itl
 
         if (debug)
             cerr << "added entry number " << rows.size()
-                 << "named " << "("<< rowName <<")"
+                 << " named " << "("<< rowName <<")"
+                 << " from left (" << leftName <<")"
+                 << " and right (" << rightName <<")"
                  << endl;
 
         rows.emplace_back(std::move(entry));
@@ -308,7 +367,7 @@ struct JoinedDataset::Itl
 
     //Easiest case with constant Where
     void makeJoinConstantWhere(AnnotatedJoinCondition& condition,
-                               SqlExpressionMldbScope& context,
+                               SqlBindingScope& scope,
                                BoundTableExpression& left,
                                BoundTableExpression& right,
                                JoinQualification qualification)
@@ -347,17 +406,17 @@ struct JoinedDataset::Itl
 
                 auto embedding = std::make_shared<EmbeddingLiteralExpression>
                     (clauses);
-                auto rowExpression = std::make_shared<ComputedColumn>
+                auto rowExpression = std::make_shared<NamedColumnExpression>
                     (PathElement("var"), embedding);
 
                 SelectExpression queryExpression;
                 queryExpression.clauses.push_back(rowExpression);
 
                 auto generator = dataset.queryBasic
-                (context, queryExpression, side.when, *sideCondition, side.orderBy,
+                (scope, queryExpression, side.when, *sideCondition, side.orderBy,
                  0, -1);
 
-                // Because we know that our outer context is an
+                // Because we know that our outer scope is an
                 // SqlExpressionMldbScope, we know that it takes an
                 // empty rowScope with nothing that depends on the current
                 // row.
@@ -419,6 +478,7 @@ struct JoinedDataset::Itl
 
         leftRows = runSide(condition.left, *left.dataset, outerLeft,
                            recordOuterLeft);
+
         rightRows = runSide(condition.right, *right.dataset, outerRight,
                             recordOuterRight);
 
@@ -473,6 +533,7 @@ struct JoinedDataset::Itl
                 ++it2;
             }
             else {
+
                 ExcAssertEqual(val1, val2);
 
                 // We got a match on the join condition.  So now
@@ -508,14 +569,14 @@ struct JoinedDataset::Itl
                 else if (qualification != JOIN_INNER) {
                     for (auto it1a = it1; it1a < erng1 && outerLeft;  ++it1a) {
                         // For LEFT and FULL joins
-                        recordJoinRow(std::get<1>(*it1), std::get<2>(*it1),
+                        recordJoinRow(std::get<1>(*it1a), std::get<2>(*it1a),
                                       RowName(), RowHash());
                     }
                     
                     for (auto it2a = it2; it2a < erng2 && outerRight;  ++it2a) {
                         // For RIGHT and FULL joins
-                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2),
-                                      std::get<2>(*it2));
+                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2a),
+                                      std::get<2>(*it2a));
                     }
                 }
 
@@ -590,32 +651,35 @@ struct JoinedDataset::Itl
         result.rowName = rowName;
         result.rowHash = rowName;
 
-        MatrixNamedRow leftRow, rightRow;
-
-        if (!row.leftName.empty())
-            leftRow = matrices[0]->getRow(row.leftName);
-
-        if (!row.rightName.empty())
-            rightRow = matrices[1]->getRow(row.rightName);
-        
-        /// This function copies columns from a sub-row to the result of
-        /// the function.
-        auto copyColumns = [&] (const MatrixNamedRow & row,
-                                const std::unordered_map<ColumnHash, ColumnName> & mapping)
+        auto doRow = [&] (const Dataset & dataset,
+                          const RowName & rowName,
+                          const std::unordered_map<ColumnHash, ColumnName> & mapping)
             {
-                for (auto & c: row.columns) {
-                    ColumnHash colHash = std::get<0>(c);
-                    auto it = mapping.find(colHash);
-                    if (it == mapping.end())
-                        continue;
-                    result.columns.emplace_back(it->second,
-                                                std::move(std::get<1>(c)),
-                                                std::get<2>(c));
-                }
-            };
+                ExpressionValue rowValue;
+                if (!rowName.empty())
+                    rowValue = dataset.getRowExpr(rowName);
 
-        copyColumns(leftRow, leftColumns);
-        copyColumns(rightRow, rightColumns);
+                auto onAtom = [&] (RowName & rowName,
+                                   CellValue & val,
+                                   Date ts)
+                {
+                    ColumnHash colHash = rowName;
+                    auto it = mapping.find(colHash);
+
+                    if (it != mapping.end()) {
+
+                        result.columns.emplace_back(it->second,
+                                                    std::move(val),
+                                                    ts);
+                    }
+                    return true;
+                };
+                
+                rowValue.forEachAtomDestructive(onAtom);
+            };                          
+
+        doRow(*leftDataset, row.leftName, leftColumns);
+        doRow(*rightDataset, row.rightName, rightColumns);
 
         return result;
 
@@ -679,7 +743,8 @@ struct JoinedDataset::Itl
                 MatrixColumn result;
 
                 // First, get the column
-                MatrixColumn column = std::move(dataset.getColumnIndex()->getColumn(columnName));
+                MatrixColumn column
+                    = dataset.getColumnIndex()->getColumn(columnName);
 
                 // Now for each row, find which index it's in
                 for (auto & r: column.rows) {
@@ -712,10 +777,10 @@ struct JoinedDataset::Itl
 
         if (it->second.bitmap == 1) {
             // on the left
-            result = doGetColumn(*datasets[0], leftRowIndex, it->second.childColumnName);
+            result = doGetColumn(*leftDataset, leftRowIndex, it->second.childColumnName);
         }
         else {
-            result = doGetColumn(*datasets[1], rightRowIndex, it->second.childColumnName);
+            result = doGetColumn(*rightDataset, rightRowIndex, it->second.childColumnName);
         }
 
         result.columnHash = result.columnName = it->second.columnName;
@@ -749,20 +814,23 @@ struct JoinedDataset::Itl
     //Query the original row name down the tree of joined datasets on that side
     //The alternative would be to store a variable-size list of <alias,rowName> tuples for each row entry
     RowName
-    getSubRowNameFromChildTable(const Utf8String& tableName, const RowName & name, JoinSide side) const
+    getSubRowNameFromChildTable(const Utf8String& tableName,
+                                const RowName & name, JoinSide side) const
     {
         ExcAssert(side < JOIN_SIDE_MAX);
         RowHash rowHash(name);
         auto iter = rowIndex.find(rowHash);
         if (iter == rowIndex.end())
             return RowName();
+   
 
         int64_t index = iter->second;
         const RowEntry& entry = rows[index];
 
         RowName subRowName = JOIN_SIDE_LEFT == side ? entry.leftName : entry.rightName;
 
-        return datasets[side]->getOriginalRowName(tableName, subRowName);
+        return (JOIN_SIDE_LEFT == side ? *leftDataset : *rightDataset)
+            .getOriginalRowName(tableName, subRowName);
     }
 
     //As getSubRowNameFromChildTable, but we dont know which side, or whether is a direct child or not.
@@ -821,16 +889,37 @@ JoinedDataset(MldbServer * owner,
     : Dataset(owner)
 {
     auto joinConfig = config.params.convert<JoinedDatasetConfig>();
+
+    SqlExpressionMldbScope scope(owner);
+
+    // Create a scope to get our datasets from
+    SqlExpressionMldbScope mldbScope(server);
+
+    // Obtain our datasets
+    BoundTableExpression left = joinConfig.left->bind(mldbScope);
+    BoundTableExpression right = joinConfig.right->bind(mldbScope);
     
-    itl.reset(new Itl(server, joinConfig));
+    
+    itl.reset(new Itl(scope,
+                      joinConfig.left, std::move(left),
+                      joinConfig.right, std::move(right),
+                      joinConfig.on, joinConfig.qualification));
 }
 
 JoinedDataset::
-JoinedDataset(MldbServer * owner,
-              JoinedDatasetConfig config)
-    : Dataset(owner)
+JoinedDataset(SqlBindingScope & scope,
+              std::shared_ptr<TableExpression> leftExpr,
+              BoundTableExpression left,
+              std::shared_ptr<TableExpression> rightExpr,
+              BoundTableExpression right,
+              std::shared_ptr<SqlExpression> on,
+              JoinQualification qualification)
+    : Dataset(scope.getMldbServer())
 {
-    itl.reset(new Itl(server, config));
+    itl.reset(new Itl(scope,
+                      leftExpr, std::move(left),
+                      rightExpr, std::move(right),
+                      on, qualification));
 }
 
 JoinedDataset::
@@ -877,7 +966,7 @@ BoundFunction
 JoinedDataset::
 overrideFunction(const Utf8String & tableName,
                  const Utf8String & functionName,
-                 SqlBindingScope & context) const
+                 SqlBindingScope & scope) const
 {
     //cerr << "JoinedDataset function name: " << functionName << " from table: " << tableName << endl;
     if (functionName == "rowName") {
@@ -897,9 +986,9 @@ overrideFunction(const Utf8String & tableName,
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
             return {[&, tableSide] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & context)
+                     const SqlRowScope & scope)
                 { 
-                    auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
                     return ExpressionValue(itl->getSubRowName(row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -914,9 +1003,9 @@ overrideFunction(const Utf8String & tableName,
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
             return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & context)
+                     const SqlRowScope & scope)
                 {
-                    auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
                     return ExpressionValue(itl->getSubRowNameFromChildTable(tableName, row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -928,7 +1017,29 @@ overrideFunction(const Utf8String & tableName,
         const Utf8String newFunctionName("rowName");
         Utf8String newTableName = functionName;
         newTableName.removeSuffix(".rowName");
-        return overrideFunction(newTableName, newFunctionName, context);
+        return overrideFunction(newTableName, newFunctionName, scope);
+    }
+    if (functionName == "leftRowName") {
+        return {[&] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    RowHash rowHash(row.row.rowName);
+                    return ExpressionValue(itl->rows[itl->rowIndex[rowHash]].leftName, Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()
+            };
+    }
+    else if (functionName == "rightRowName") {
+      return {[&] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    RowHash rowHash(row.row.rowName);
+                    return ExpressionValue(itl->rows[itl->rowIndex[rowHash]].rightName, Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()
+            };
     }
 
     return BoundFunction();
@@ -941,6 +1052,13 @@ getOriginalRowName(const Utf8String& tableName, const RowName & name) const
     return itl->getOriginalRowName(tableName, name);
 }
 
+int
+JoinedDataset::
+getChainedJoinDepth() const
+{
+    return itl->chainedJoinDepth;
+}
+
 
 static RegisterDatasetType<JoinedDataset, JoinedDatasetConfig> 
 regJoined(builtinPackage(),
@@ -950,11 +1068,26 @@ regJoined(builtinPackage(),
           nullptr,
           {MldbEntity::INTERNAL_ENTITY});
 
-extern std::shared_ptr<Dataset> (*createJoinedDatasetFn) (MldbServer *, const JoinedDatasetConfig &);
+extern std::shared_ptr<Dataset>
+(*createJoinedDatasetFn) (SqlBindingScope &,
+                          std::shared_ptr<TableExpression>,
+                          BoundTableExpression,
+                          std::shared_ptr<TableExpression>,
+                          BoundTableExpression,
+                          std::shared_ptr<SqlExpression>,
+                          JoinQualification);
 
-std::shared_ptr<Dataset> createJoinedDataset(MldbServer * server, const JoinedDatasetConfig & config)
+std::shared_ptr<Dataset>
+createJoinedDataset(SqlBindingScope & scope,
+                    std::shared_ptr<TableExpression> left,
+                    BoundTableExpression boundLeft,
+                    std::shared_ptr<TableExpression> right,
+                    BoundTableExpression boundRight,
+                    std::shared_ptr<SqlExpression> on,
+                    JoinQualification q)
 {
-    return std::make_shared<JoinedDataset>(server, config);
+    return std::make_shared<JoinedDataset>
+        (scope, left, boundLeft, right, boundRight, on, q);
 }
 
 namespace {

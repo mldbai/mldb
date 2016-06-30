@@ -14,6 +14,8 @@
 namespace Datacratic {
 namespace MLDB {
 
+struct BoundTableExpression;
+
 
 /*****************************************************************************/
 /* PIPELINE RESULTS                                                          */
@@ -141,6 +143,8 @@ struct PipelineExpressionScope:
     virtual ColumnName
     doResolveTableName(const ColumnName & fullColumnName,
                        Utf8String &tableName) const;
+
+    std::vector<Utf8String> getTableNames() const;
 
     bool inLexicalScope() const
     {
@@ -319,12 +323,38 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
          WhenExpression when,
          SelectExpression select = SelectExpression::STAR,
          std::shared_ptr<SqlExpression> where = SqlExpression::TRUE,
+         OrderByExpression orderBy = OrderByExpression(),
+         GetParamInfo getParamInfo = nullptr);
+
+    /** Add a from expression which has already been bound into the
+        immediate outer scope.
+    */
+    std::shared_ptr<PipelineElement>
+    from(std::shared_ptr<TableExpression> from,
+         BoundTableExpression boundFrom,
+         WhenExpression when,
+         SelectExpression select = SelectExpression::STAR,
+         std::shared_ptr<SqlExpression> where = SqlExpression::TRUE,
          OrderByExpression orderBy = OrderByExpression());
 
     /** Add a join to the pipeline. */
     std::shared_ptr<PipelineElement>
     join(std::shared_ptr<TableExpression> left,
          std::shared_ptr<TableExpression> right,
+         std::shared_ptr<SqlExpression> on,
+         JoinQualification joinQualification,
+         SelectExpression select = SelectExpression(),
+         std::shared_ptr<SqlExpression> where = SqlExpression::TRUE,
+         OrderByExpression orderBy = OrderByExpression());
+    
+    /** Add a join to the pipeline that is pre-bound into the immediate outer
+        scope.
+    */
+    std::shared_ptr<PipelineElement>
+    join(std::shared_ptr<TableExpression> left,
+         BoundTableExpression boundLeft,
+         std::shared_ptr<TableExpression> right,
+         BoundTableExpression boundRight,
          std::shared_ptr<SqlExpression> on,
          JoinQualification joinQualification,
          SelectExpression select = SelectExpression(),
@@ -355,6 +385,9 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
     std::shared_ptr<PipelineElement>
     select(std::shared_ptr<SqlExpression> select);
 
+    // return a pipeline that will execute the specified statement
+    std::shared_ptr<PipelineElement>
+    statement(SelectStatement& statement, GetParamInfo getParamInfo);
 };
 
 } // namespace MLDB

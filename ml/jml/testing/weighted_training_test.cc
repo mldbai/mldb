@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
     filestream.close();
     filestream.open(configname);
 
-    filestream << "glz {type=glz;\nverbosity=3;\nnormalize = true;\nridge_regression = true;\n}" << endl;
+    filestream << "glz {type=glz;\nverbosity=3;\nnormalize = true;\nregularization = l2;\n}" << endl;
 
     filestream.close(); 
 
@@ -71,15 +71,15 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
 
         // weights: LABEL, ExampleId
         // ignore: ExampleId
-        string cmd1 = "build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
+        string cmd1 = "build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
 
         // weights: LABEL, WEIGHT, ExampleId
         // ignore: ExampleId, WEIGHT
-        string cmd2 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId -z WEIGHT";
+        string cmd2 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId -z WEIGHT";
 
         // weights: LABEL, WEIGHT
         // ignore: ExampleId, WEIGHT
-        string cmd3 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname3 + " glz.verbosity=10  -W LABEL/F,WEIGHT/V -z ExampleId -z WEIGHT";
+        string cmd3 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname3 + " glz.verbosity=10  -W LABEL/F,WEIGHT/V -z ExampleId -z WEIGHT";
 
 
         cout << cmd1 << endl;

@@ -54,8 +54,13 @@ BOOST_AUTO_TEST_CASE (test_threads_disappearing_jobs_run)
     BOOST_CHECK_EQUAL(jobsRun, 1000);
 }
 
+//Failing depending on availability of cores...
 BOOST_AUTO_TEST_CASE (thread_pool_idle_cpu_usage)
 {
+    static const char * env_name = getenv("MLDB_NO_TIMING_TESTS");
+    if (env_name)
+        return;
+
     ThreadPool threadPool(32);
     // let it start up and settle down
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -100,8 +105,13 @@ BOOST_AUTO_TEST_CASE (thread_pool_startup_shutdown_zero_threads)
     BOOST_CHECK_EQUAL(threadPool.jobsRunning(), 0);
 }
 
+//Failing depending on availability of cores...
 BOOST_AUTO_TEST_CASE (thread_pool_no_busy_looping)
 {
+    static const char * env_name = getenv("MLDB_NO_TIMING_TESTS");
+    if (env_name)
+        return;
+
     ThreadPool threadPool(10);
     BOOST_CHECK_EQUAL(threadPool.jobsSubmitted(), 0);
     std::atomic<int> finished(0);

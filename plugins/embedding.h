@@ -91,17 +91,19 @@ private:
 
 
 /*****************************************************************************/
-/* nearest.neighbors FUNCTION                                                */
+/* NEAREST NEIGHBORS FUNCTION                                                */
 /*****************************************************************************/
 
 struct NearestNeighborsFunctionConfig {
     NearestNeighborsFunctionConfig()
-        : defaultNumNeighbors(10), defaultMaxDistance(INFINITY)
+        : defaultNumNeighbors(10), defaultMaxDistance(INFINITY),
+          columnName()
     {
     }
 
     unsigned defaultNumNeighbors;
     double defaultMaxDistance;
+    ColumnName columnName;
     std::shared_ptr<TableExpression> dataset;
 };
 
@@ -118,6 +120,7 @@ DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsInput);
 
 struct NearestNeighborsOutput {
     ExpressionValue neighbors;
+    ExpressionValue distances;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsOutput);

@@ -9,9 +9,10 @@
 #include "tabular_dataset_column.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
+#include <mutex>
 
 using namespace std;
 
@@ -158,6 +159,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             writer.write(i.second, indexBits);
         }
 
+#if 0
         size_t mem = memusage();
         if (mem > 30000) {
             using namespace std;
@@ -171,6 +173,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
                 cerr << "  " << table[i] << endl;
             }
         }
+#endif
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -274,12 +277,252 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     }
 
     std::shared_ptr<const uint32_t> storage;
-    ML::compact_vector<CellValue, 0> table;
+    compact_vector<CellValue, 0> table;
     uint8_t rowNumBits;
     uint8_t indexBits;
     uint32_t numEntries;
     size_t firstEntry;
     ColumnTypes columnTypes;
+};
+
+/// Frozen column that stores each value as a signed 64 bit integer
+struct IntegerFrozenColumn: public FrozenColumn {
+
+    struct SizingInfo {
+        SizingInfo(const TabularDatasetColumn & column)
+            : bytesRequired(-1)
+        {
+            if (!column.columnTypes.onlyIntegersAndNulls())
+                return;  // can't use this column type
+            if (column.columnTypes.maxPositiveInteger
+                > (uint64_t)std::numeric_limits<int64_t>::max())
+                return;  // out of range
+
+            if (column.columnTypes.hasPositiveIntegers()
+                && column.columnTypes.hasNegativeIntegers()) {
+                range = column.columnTypes.maxPositiveInteger
+                    - column.columnTypes.minNegativeInteger;
+                offset = column.columnTypes.minNegativeInteger;
+            }
+            else if (column.columnTypes.hasPositiveIntegers()) {
+                range = column.columnTypes.maxPositiveInteger
+                    - column.columnTypes.minPositiveInteger;
+                offset = column.columnTypes.minPositiveInteger;
+            }
+            else if (column.columnTypes.hasNegativeIntegers()) {
+                range = column.columnTypes.maxNegativeInteger
+                    - column.columnTypes.minNegativeInteger;
+                offset = column.columnTypes.minNegativeInteger;
+            }
+            else {
+                // only nulls or empty column; we can store another way
+                return;
+            }
+
+            numEntries = column.maxRowNumber - column.minRowNumber + 1;
+            hasNulls = column.sparseIndexes.size() < numEntries;
+
+            // If we have too much range to represent nulls then we can't
+            // use this kind of column.
+            if (range == -1 && hasNulls)
+                return;
+                
+#if 0 // later on... we should look for a common multiple to reduce bits used
+   
+            // Check for common multiple
+            std::vector<int64_t> offsets;
+            offsets.reserve(column.indexedVals.size());
+            for (auto & v: column.indexedVals) {
+                if (!v.empty())
+                    offsets.emplace_back(v.toInt());
+            }
+
+            std::sort(offsets.begin(), offsets.end());
+        
+            // Find the multiple
+            for (size_t i = 0;  i < offsets.size() - 1;  ++i) {
+                offsets[i] = offsets[i + 1] - offsets[i];
+            }
+            if (!offsets.empty())
+                offsets.pop_back();
+
+            // Uniquify
+            std::sort(offsets.begin(), offsets.end());
+            offsets.erase(std::unique(offsets.begin(), offsets.end()),
+                          offsets.end());
+        
+            static std::mutex mutex;
+            std::unique_lock<std::mutex> guard(mutex);
+
+            cerr << "got " << offsets.size() << " unique offsets starting at "
+                 << offsets.front() << endl;
+
+            for (size_t i = 0;  i < 100 && i < offsets.size() - 1;  ++i) {
+                cerr << "  " << offsets[i];
+            }
+            cerr << endl;
+#endif
+            entryBits = ML::highest_bit(range + hasNulls) + 1;
+            numWords = (entryBits * numEntries + 63) / 64;
+            bytesRequired = sizeof(IntegerFrozenColumn) + numWords * 8;
+        }
+
+        operator ssize_t () const
+        {
+            return bytesRequired;
+        }
+
+        ssize_t bytesRequired;
+        uint64_t range;
+        int64_t offset;
+        size_t numEntries;
+        bool hasNulls;
+        size_t numWords;
+        int entryBits;
+    };
+    
+    IntegerFrozenColumn(TabularDatasetColumn & column)
+        : columnTypes(column.columnTypes)
+    {
+        SizingInfo info(column);
+        ExcAssertNotEqual(info.bytesRequired, -1);
+
+        firstEntry = column.minRowNumber;
+        numEntries = info.numEntries;
+
+        // Check it's really feasible
+        ExcAssert(column.columnTypes.onlyIntegersAndNulls());
+        ExcAssertLessEqual(column.columnTypes.maxPositiveInteger,
+                           (uint64_t)std::numeric_limits<int64_t>::max());
+
+        hasNulls = info.hasNulls;
+        entryBits = info.entryBits;
+        offset = info.offset;
+        uint64_t * data = new uint64_t[info.numWords];
+        storage = std::shared_ptr<uint64_t>(data, [] (uint64_t * p) { delete[] p; });
+
+        if (!hasNulls) {
+            // Contiguous rows
+            //cerr << "fill with contiguous" << endl;
+            ML::Bit_Writer<uint64_t> writer(data);
+            for (size_t i = 0;  i < column.sparseIndexes.size();  ++i) {
+                ExcAssertEqual(column.sparseIndexes[i].first, i);
+                int64_t val
+                    = column.indexedVals[column.sparseIndexes[i].second].toInt();
+                //cerr << "writing " << val << " - " << offset << " = "
+                //     << val - offset << " at " << i << endl;
+                writer.write(val - offset, entryBits);
+            }
+        }
+        else {
+            // Non-contiguous; leave gaps with a zero (null) value
+            std::fill(data, data + info.numWords, 0);
+            for (auto & r_i: column.sparseIndexes) {
+                int64_t val
+                    = column.indexedVals[r_i.second].toInt();
+                ML::Bit_Writer<uint64_t> writer(data);
+                writer.skip(r_i.first * entryBits);
+                writer.write(val - offset + 1, entryBits);
+            }
+        }
+
+#if 0
+        // Check that we got the right thing
+        for (auto & i: column.sparseIndexes) {
+            //cerr << "getting " << i.first << " with value "
+            //     << column.indexedVals.at(i.second) << endl;
+            ExcAssertEqual(get(i.first + firstEntry),
+                           column.indexedVals.at(i.second));
+        }
+#endif
+    }
+
+    virtual CellValue get(uint32_t rowIndex) const
+    {
+        CellValue result;
+        if (rowIndex < firstEntry)
+            return result;
+        rowIndex -= firstEntry;
+        if (rowIndex >= numEntries)
+            return result;
+        ExcAssertLess(rowIndex, numEntries);
+        ML::Bit_Extractor<uint64_t> bits(storage.get());
+        bits.advance(rowIndex * entryBits);
+        int64_t val = bits.extract<uint64_t>(entryBits);
+        if (hasNulls) {
+            if (val == 0)
+                return result;
+            else return result = val + offset - 1;
+        }
+        else {
+            //cerr << "got val " << val << " " << val + offset << endl;
+            return result = val + offset;
+        }
+    }
+
+    virtual size_t size() const
+    {
+        return numEntries;
+    }
+
+    virtual size_t memusage() const
+    {
+        size_t result
+            = sizeof(*this)
+            + (entryBits * numEntries + 63) / 8;
+
+        return result;
+    }
+
+    virtual bool
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    {
+        // Handle nulls first so we don't have to do them later
+        if (hasNulls && !fn(CellValue()))
+            return false;
+
+        std::vector<int64_t> allVals;
+        allVals.reserve(numEntries);
+
+        ML::Bit_Extractor<uint64_t> bits(storage.get());
+        
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            int64_t val = bits.extract<uint64_t>(entryBits);
+            if (val == 0 && hasNulls)
+                continue;
+            allVals.push_back(val);
+            bits.advance(entryBits);
+        }
+
+        std::sort(allVals.begin(), allVals.end());
+        auto endIt = std::unique(allVals.begin(), allVals.end());
+
+        for (auto it = allVals.begin();  it != endIt;  ++it) {
+            if (!fn(*it + offset - hasNulls))
+                return false;
+        }
+
+        return true;
+    }
+
+    std::shared_ptr<const uint64_t> storage;
+    uint32_t entryBits;
+    uint32_t numEntries;
+    uint64_t firstEntry;
+    int64_t offset;
+
+    bool hasNulls;
+    ColumnTypes columnTypes;
+
+    virtual ColumnTypes getColumnTypes() const
+    {
+        return columnTypes;
+    }
+
+    static ssize_t bytesRequired(const TabularDatasetColumn & column)
+    {
+        return SizingInfo(column);
+    }
 };
 
 std::shared_ptr<FrozenColumn>
@@ -288,6 +531,13 @@ freeze(TabularDatasetColumn & column)
 {
     size_t required1 = TableFrozenColumn::bytesRequired(column);
     size_t required2 = SparseTableFrozenColumn::bytesRequired(column);
+    size_t required3 = IntegerFrozenColumn::bytesRequired(column);
+
+    if (required3 < std::min(required1, required2)) {
+        return std::make_shared<IntegerFrozenColumn>(column);
+        //cerr << "integer requires " << required3 << " instead of "
+        //     << std::min(required1, required2) << endl;
+    }
 
     if (required1 <= required2)
         return std::make_shared<TableFrozenColumn>(column);

@@ -341,42 +341,8 @@ queryFromStatement(SelectStatement & stm,
         if (!params)
             params = [] (const Utf8String & param) -> ExpressionValue { throw HttpReturnException(500, "No query parameter " + param); };
 
+        std::shared_ptr<PipelineElement> pipeline = PipelineElement::root(scope)->statement(stm, getParamInfo);
 
-            
-
-        std::shared_ptr<PipelineElement> pipeline;
-
-        if (!stm.groupBy.empty()) {
-            // Create our pipeline
-
-            pipeline
-                = PipelineElement::root(scope)
-                ->params(getParamInfo)
-                ->from(stm.from, stm.when,
-                       SelectExpression::STAR, stm.where)
-                ->where(stm.where)
-                ->select(stm.groupBy)
-                ->sort(stm.groupBy)
-                ->partition(stm.groupBy.clauses.size())
-                ->where(stm.having)
-                ->select(stm.orderBy)
-                ->sort(stm.orderBy)
-                ->select(stm.rowName)  // second last element is rowName
-                ->select(stm.select);  // last element is select
-        }
-        else {
-            pipeline
-                = PipelineElement::root(scope)
-                ->params(getParamInfo)
-                ->from(stm.from, stm.when,
-                       SelectExpression::STAR, stm.where)
-                ->where(stm.where)
-                ->select(stm.orderBy)
-                ->sort(stm.orderBy)
-                ->select(stm.rowName)  // second last element is rowname
-                ->select(stm.select);  // last element is select
-        }
-        
         auto boundPipeline = pipeline->bind();
 
         auto executor = boundPipeline->start(params);
@@ -403,8 +369,9 @@ queryFromStatement(SelectStatement & stm,
 
             MatrixNamedRow row;
             // Second last element is the row name
-            row.rowName = RowName(output->values.at(output->values.size() - 2).toUtf8String());
-
+            row.rowName = output->values.at(output->values.size() - 2)
+                .coerceToPath(); 
+            row.rowHash = row.rowName;
             output->values.back().mergeToRowDestructive(row.columns);
             rows.emplace_back(std::move(row));
         }
@@ -419,23 +386,27 @@ queryFromStatement(SelectStatement & stm,
 
 RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 {
-    if (rowNameEV.empty())
+    if (rowNameEV.empty()) {
         throw HttpReturnException(400, "Can't create a row with a null or empty name.");
+    }
 
-    if (!rowNameEV.isAtom())
-        throw HttpReturnException(400, "NAMED expression must evaluate to a single value");
+    RowName name;
+    try {
+        name = rowNameEV.coerceToPath();
+    }
+    JML_CATCH_ALL {
+        rethrowHttpException
+            (400, "Unable to create a row name from the passed expression. "
+             "Row names must be either a simple atom, or a Path atom, or an "
+             "array of atoms.",
+             "value", rowNameEV);
+    }
 
-    Utf8String rowNameStr = rowNameEV.toUtf8String();
+    static const Path empty{""};
 
-    if (rowNameStr.empty())
-        throw HttpReturnException(400, "Can't create a row with an empty name");
-
-    auto rowName = RowName::parse(rowNameStr);
-
-    if (rowName.empty())
-        throw HttpReturnException(400, "Can't create a row with an empty name");
-
-    return std::move(rowName);
+    if (name.empty() || name.compare(empty) == 0)
+        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
+    return name;
 }
 
 } // namespace MLDB

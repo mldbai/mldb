@@ -292,7 +292,6 @@ struct AggregatorT {
     static std::shared_ptr<DenseRowState>
     denseRowInit(const std::vector<PathElement> & columnNames)
     {
-        ExcAssert(columnNames.size() > 0);
         return std::make_shared<DenseRowState>(columnNames);
     }
     
@@ -674,8 +673,10 @@ struct MinMaxAccum {
     Date ts;
 };
 
-static RegisterAggregatorT<MinMaxAccum<std::less<CellValue> > > registerMin("min");
-static RegisterAggregatorT<MinMaxAccum<std::greater<CellValue> > > registerMax("max");
+static RegisterAggregatorT<MinMaxAccum<std::less<CellValue> > >
+registerMin("min", "vertical_min");
+static RegisterAggregatorT<MinMaxAccum<std::greater<CellValue> > >
+registerMax("max", "vertical_max");
 
 struct CountAccum {
     static constexpr int nargs = 1;

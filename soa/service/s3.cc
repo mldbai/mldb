@@ -55,7 +55,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     {
         string bucket = url.host();
         auto api = getS3ApiForUri(url.toString());
-        auto bucketPath = S3Api::parseUri(url.original); 
+        auto bucketPath = S3Api::parseUri(url.original);
         return api->getObjectInfo(bucket, bucketPath.second);
     }
 
@@ -80,7 +80,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
             api->eraseObject(bucket, "/" + bucketPath.second);
             return true;
         }
-        else { 
+        else {
             return api->tryEraseObject(bucket, "/" + bucketPath.second);
         }
     }
@@ -175,7 +175,7 @@ s3EscapeResource(const std::string & str)
             result += c;
         else result += ML::format("%%%02X", c);
     }
-    
+
     return result;
 }
 
@@ -490,9 +490,9 @@ signature(const RequestParams & request) const
                                         request.resource, request.subResource,
                                         request.contentType, request.contentMd5,
                                         request.date, request.headers);
-    
+
     //cerr << "digest = " << digest << endl;
-    
+
     return signV2(digest, accessKey);
 }
 
@@ -711,7 +711,7 @@ S3Api::isMultiPartUploadInProgress(
     vector<MultiPartUploadPart> parts;
 
 
-    for (; upload; upload = upload->NextSiblingElement("Upload")) 
+    for (; upload; upload = upload->NextSiblingElement("Upload"))
     {
         XMLHandle uploadHandle(upload);
 
@@ -773,7 +773,7 @@ obtainMultiPartUpload(const std::string & bucket,
 
             if (key != outputPrefix)
                 continue;
-        
+
             // Already an upload in progress
             string uploadId = extract<string>(upload, "UploadId");
 
@@ -1185,7 +1185,7 @@ forEachObject(const std::string & bucket,
     // bool firstIter = true;
     do {
         //cerr << "Starting at " << marker << endl;
-        
+
         RestParams queryParams;
         if (prefix != "")
             queryParams.push_back({"prefix", prefix});
@@ -1457,7 +1457,7 @@ tryEraseObject(const std::string & bucket,
                const std::string & object)
 {
     Response response = erase(bucket, object);
-    
+
     if (response.code_ != 200) {
         return false;
     }
@@ -1665,7 +1665,7 @@ struct StreamingDownloadSource {
             numThreads = 3;
         if (impl->info.size > 256 * 1024 * 1024)
             numThreads = 5;
-        
+
         impl->start(numThreads);
     }
 
@@ -1759,7 +1759,7 @@ struct StreamingDownloadSource {
             for (int i = 0; i < numThreads; i++) {
                 threadQueues.emplace_back(2);
             }
-            
+
             /* ensure that the queues are ready before the threads are
                launched */
             std::atomic_thread_fence(std::memory_order_release);
@@ -1868,7 +1868,7 @@ struct StreamingDownloadSource {
                     auto partResult
                         = owner->get(bucket, "/" + object,
                                      S3Api::Range(start, chunkSize));
-                    
+
                     if (!(partResult.code_ == 200 || partResult.code_ == 206)) {
                         throw ML::Exception("http error "
                                             + to_string(partResult.code_)
@@ -2062,7 +2062,7 @@ struct StreamingUploadSource {
         };
 
         Chunk current;
-        
+
         RingBufferSWMR<Chunk> chunks;
 
         std::mutex etagsLock;
@@ -2085,7 +2085,7 @@ struct StreamingUploadSource {
             }
 
             uploadId = upload.id;
-            //cerr << "uploadId = " << uploadId << " with " << metadata.numThreads 
+            //cerr << "uploadId = " << uploadId << " with " << metadata.numThreads
             //<< "threads!!! " << endl;
 
             startDate = Date::now();
@@ -2223,6 +2223,9 @@ struct StreamingUploadSource {
                         exc = std::current_exception();
                         onException();
                     }
+                }
+                else {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }
             }
         }
@@ -2378,7 +2381,7 @@ static std::string getEnv(const char * varName)
 struct S3ExplicitCredentialProvider: public CredentialProvider {
 
     std::vector<std::string> buckets;
-    Credential cred;
+    StoredCredentials cred;
 
     S3ExplicitCredentialProvider()
     {
@@ -2403,35 +2406,23 @@ struct S3ExplicitCredentialProvider: public CredentialProvider {
               const std::string & protocol = "http",
               const std::string & serviceUri = "s3.amazonaws.com")
     {
-        cred.provider = provider;
-        cred.protocol = protocol;
-        cred.location = serviceUri;
-        cred.id = id;
-        cred.secret = secret;
-        cred.extra["bandwithToServiceMbps"] = bandwidthToServiceMbps;
+        cred.resourceType = "aws:s3";
+        cred.resource = "";
+        cred.credential.provider = provider;
+        cred.credential.protocol = protocol;
+        cred.credential.location = serviceUri;
+        cred.credential.id = id;
+        cred.credential.secret = secret;
+        cred.credential.extra["bandwithToServiceMbps"] = bandwidthToServiceMbps;
         this->buckets = buckets;
     }
 
-
-    virtual std::vector<std::string>
-    getResourceTypePrefixes() const
+    virtual std::vector<StoredCredentials>
+    getCredentialsOfType(const std::string & resourceType) const
     {
-        return { "aws:s3" };
-    }
-
-    virtual std::vector<Credential>
-    getSync(const std::string & resourceType,
-            const std::string & resource,
-            const CredentialContext & context,
-            Json::Value extraData) const
-    {
-        string bucket = S3Api::parseUri(resource).first;
-        if (!buckets.empty()
-            && (std::find(buckets.begin(), buckets.end(), bucket)
-                == buckets.end()))
-            return {};
-
-        return { cred };
+        if (resourceType == "aws:s3")
+            return { cred };
+        return {};
     }
 };
 
@@ -2560,7 +2551,7 @@ struct RegisterS3Handler {
                              << line << endl;
                         continue;
                     }
-                
+
                     fields.resize(7);
 
                     string version = fields[1];
@@ -2570,7 +2561,7 @@ struct RegisterS3Handler {
                              << line << endl;
                         continue;
                     }
-                
+
                     string keyId = fields[2];
                     string key = fields[3];
                     string bandwidth = fields[4];
@@ -2593,35 +2584,27 @@ struct RegisterS3Handler {
                     cred.location = serviceUri;
                     cred.extra["bandwidthToServiceMbps"] = bw;
 
-                    creds.push_back(cred);
+                    StoredCredentials storedCred;
+                    storedCred.resourceType = "aws:s3"; // only resource of that type is supported
+                    storedCred.resource = ""; // credentials for all AWS S3
+                    storedCred.credential = cred;
+                    creds.push_back(storedCred);
                 }
             }
         }
 
-        std::vector<Credential> creds;
+        std::vector<StoredCredentials> creds;
 
-        virtual std::vector<std::string>
-        getResourceTypePrefixes() const
+        virtual std::vector<StoredCredentials>
+        getCredentialsOfType(const std::string & resourceType) const
         {
-            return { "aws:s3" };
-        }
-
-        virtual std::vector<Credential>
-        getSync(const std::string & resourceType,
-                const std::string & resource,
-                const CredentialContext & context,
-                Json::Value extraData) const
-        {
-            if (disableCloudCredentials)
+            if (disableCloudCredentials || resourceType != "aws:s3")
                 return {};
             return creds;
         }
     };
 
     struct S3EnvironmentCredentialProvider: public S3ExplicitCredentialProvider {
-
-        std::vector<std::string> buckets;
-        Credential cred;
 
         S3EnvironmentCredentialProvider()
         {
@@ -2636,13 +2619,11 @@ struct RegisterS3Handler {
     {
         registerUriHandler("s3", getS3Handler);
         CredentialProvider::registerProvider
-            ("s3CloudCredentials",
-             std::make_shared<CloudCredentialProvider>());
+            (std::make_shared<CloudCredentialProvider>());
 
         if (getenv("S3_KEY_ID"))
             CredentialProvider::registerProvider
-                ("s3FromEnvironment",
-                 std::make_shared<S3EnvironmentCredentialProvider>());
+                (std::make_shared<S3EnvironmentCredentialProvider>());
     }
 
 } registerS3Handler;
@@ -2659,8 +2640,7 @@ void registerS3Bucket(const std::string & bucketName,
                       const std::string & serviceUri)
 {
     CredentialProvider::registerProvider
-        ("s3UserRegisteredBucket",
-         std::make_shared<S3ExplicitCredentialProvider>
+        (std::make_shared<S3ExplicitCredentialProvider>
          ("registerS3Bucket()", accessKeyId, accessKey,
           vector<string>({ bucketName }),
           bandwidthToServiceMbps, protocol, serviceUri));
@@ -2690,8 +2670,7 @@ void registerS3Buckets(const std::string & accessKeyId,
         cerr << "warning: no bucket names registered";
     } else {
         CredentialProvider::registerProvider
-            ("s3UserRegisteredBucket",
-             std::make_shared<S3ExplicitCredentialProvider>
+            (std::make_shared<S3ExplicitCredentialProvider>
              ("registerS3Buckets()", accessKeyId, accessKey,
               bucketNames, bandwidthToServiceMbps, protocol, serviceUri));
     }

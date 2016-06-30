@@ -6,15 +6,16 @@ define mldb_install_templated_directory
 $(eval $(call install_templated_directory,$(1),$(2),mldb,mldb/container_files/template_vars.mk,$(J2ENV)))
 endef
 
-$(eval $(call mldb_install_templated_directory,mldb/container_files/public_html,$(ALTROOT)/opt/local/))
+$(eval $(call mldb_install_templated_directory,mldb/container_files/public_html/nginx,$(ALTROOT)/opt/local/public_html))
 
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/05-mldb-id-mapping.sh,$(ETC)/my_init.d/05-mldb-id-mapping.sh,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_runner.sh,$(ETC)/service/mldb_runner/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/nginx_runner.sh,$(ETC)/service/nginx/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/mldb_nginx_site.conf,$(ETC)/nginx/sites-enabled/mldb))
 $(eval $(call mldb_install_templated_file,mldb/container_files/nginx.conf,$(ETC)/nginx/nginx.conf))
-$(eval $(call mldb_install_templated_file,mldb/container_files/init/credentialsd_runner.sh,$(ETC)/service/credentialsd/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/ipython_notebook_runner.sh,$(ETC)/service/ipython_notebook/run,555))
+$(eval $(call mldb_install_templated_file,mldb/container_files/run_notebooks.sh,$(ALTROOT)/$(IPYTHON_DIR)/run_notebooks.sh))
+$(eval $(call mldb_install_templated_file,mldb/container_files/nbconvert_cfg.py,$(ALTROOT)/$(IPYTHON_DIR)/nbconvert_cfg.py))
 $(eval $(call mldb_install_templated_file,mldb/container_files/ipython_extra_config.py,$(ALTROOT)/$(IPYTHON_DIR)/config/jupyter_notebook_config.py))
 $(eval $(call mldb_install_templated_file,mldb/container_files/ipython_custom.js,$(ALTROOT)/$(IPYTHON_DIR)/config/custom/custom.js))
 $(eval $(call mldb_install_templated_file,mldb/container_files/ipython_custom.css,$(ALTROOT)/$(IPYTHON_DIR)/config/custom/custom.css))

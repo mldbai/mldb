@@ -76,13 +76,13 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
             }
             else if (*context == '\n' || *context == '\r')
                 return result;
-            
+
         }
         result += *context++;
     }
 
     if (quoted)
-        throw Exception("file finished inside quote");
+        throw FileFinishInsideQuote("file finished inside quote");
 
     return std::move(result);
 }

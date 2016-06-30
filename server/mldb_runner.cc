@@ -11,9 +11,11 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/http/http_rest_proxy.h"
-#include "mldb/credentials/credentials_daemon.h"
+#include "mldb/server/credential_collection.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/config.h"
+#include "mldb/soa/credentials/credential_provider.h"
+#include "mldb/soa/credentials/credentials.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -44,43 +46,25 @@ struct CommandLineCredentialProvider: public CredentialProvider {
 
     CommandLineCredentialProvider(const std::vector<string> & credsStr)
     {
-        set<string> resourceTypeSet;
         for (auto & c: credsStr) {
             creds.emplace_back(jsonDecodeStr<StoredCredentials>(c));
-            resourceTypeSet.insert(creds.back().resourceType);
         }
-
-        resourceTypePrefixes.insert(resourceTypePrefixes.begin(),
-                                    resourceTypeSet.begin(),
-                                    resourceTypeSet.end());
     }
 
-    std::vector<std::string> resourceTypePrefixes;
     std::vector<StoredCredentials> creds;
 
-    virtual std::vector<std::string>
-    getResourceTypePrefixes() const
+    virtual std::vector<StoredCredentials>
+    getCredentialsOfType(const std::string & resourceType) const
     {
-        return resourceTypePrefixes;
-    }
+        vector<StoredCredentials> matchingCreds;
 
-    virtual std::vector<Credential>
-    getSync(const std::string & resourceType,
-            const std::string & resource,
-            const CredentialContext & context,
-            Json::Value extraData) const
-    {
-        vector<Credential> result;
-
-        for (auto & c: creds) {
-            if (resourceType != c.resourceType)
+        for (auto & cred: creds) {
+            if (resourceType != cred.resourceType)
                 continue;
-            if (resource.find(c.resource) != 0)
-                continue;
-            result.push_back(c.credential);
+            matchingCreds.push_back(cred);
         }
 
-        return result;
+        return matchingCreds;
     }
 };
 
@@ -115,7 +99,6 @@ int main(int argc, char ** argv)
     int peerPublishPort = -1;
     string peerPublishHost;
 #endif
-    string configurationPath; // path to the config store
     string configPath;  // path to the configuration file
     std::string staticAssetsPath = "mldb/container_files/public_html/resources";
     std::string staticDocPath = "mldb/container_files/public_html/doc";
@@ -127,9 +110,10 @@ int main(int argc, char ** argv)
     string scriptArgsUrl;
 
     // List of credentials to add.  Each should be in JSON format as a
-    // 
+    //
     vector<string> addCredentials;
     string addCredentialsFromUrl;
+    std::string credentialsPath;
 
     // List of directories to scan for plugins
     vector<string> pluginDirectory;
@@ -158,7 +142,7 @@ int main(int argc, char ** argv)
          "directory to serve documentation from")
         ("cache-dir", value(&cacheDir),
          "Cache directory to memory map large files and store downloads")
-        
+
 #if 0
         ("peer-listen-port,l",
          value(&peerListenPort)->default_value(peerListenPort),
@@ -173,14 +157,13 @@ int main(int argc, char ** argv)
          value(&peerPublishHost)->default_value(peerPublishHost),
          "host to publish for the outside world")
 #endif
-        ("configuration-path,C",
-         value(&configurationPath),
-         "Path that persistent configuration is stored to allow the service " 
-         "to stop and restart (file:// for filesystem or s3:// for S3 uri)")
-        ("config-path", 
+        ("config-path",
          value(&configPath),
          "Path to the mldb configuration.  This is optional. Configuration option "
          "in that file have acceptable default values.")
+        ("credentials-path,c", value(&credentialsPath),
+         "Path in which to store saved credentials and rules "
+         "(file:// for filesystem or s3:// for S3 uri)")
         ("hide-internal-entities",
          "Hide in the documentation entities that are not meant to be exposed")
         ("mute-final-output", bool_switch(&muteFinalOutput),
@@ -211,7 +194,7 @@ int main(int argc, char ** argv)
         ("plugin-directory", value(&pluginDirectory),
          "URL of directory to scan for plugins (can be added multiple times). "
          "Don't forget file://.");
-    
+
     options_description all_opt;
     all_opt
         .add(configuration_options)
@@ -219,7 +202,7 @@ int main(int argc, char ** argv)
         .add(plugin_options)
         .add_options()
         ("help", "print this message");
-   
+
     variables_map vm;
     // command line has precendence over config
     store(command_line_parser(argc, argv)
@@ -231,7 +214,7 @@ int main(int argc, char ** argv)
     notify(vm);
 
     auto cmdConfig = Config::createFromProgramOptions(vm);
-    
+
     if (vm.count("config-path")) {
         cerr << "reading configuration from file: '" << configPath << "'" << endl;
         auto parsed_options = parse_config_file<char>(configPath.c_str(), all_opt, true);
@@ -255,8 +238,7 @@ int main(int argc, char ** argv)
     if (!addCredentials.empty()) {
         try {
             CredentialProvider::registerProvider
-                ("mldbCommandLineCredentials",
-                 std::make_shared<CommandLineCredentialProvider>(addCredentials));
+                (std::make_shared<CommandLineCredentialProvider>(addCredentials));
         }
         catch (const HttpReturnException & exc) {
             cerr << "error reading credentials from command line: "
@@ -296,11 +278,10 @@ int main(int argc, char ** argv)
                 }
                 else throw ML::Exception("Couldn't understand credentials " + val.toString());
             }
-            
+
             if (!fileCredentials.empty()) {
                 CredentialProvider::registerProvider
-                    ("mldbCredentialsUrl",
-                     std::make_shared<CommandLineCredentialProvider>(fileCredentials));
+                    (std::make_shared<CommandLineCredentialProvider>(fileCredentials));
             }
         }
         catch (const HttpReturnException & exc) {
@@ -326,12 +307,11 @@ int main(int argc, char ** argv)
         }
     }
 
-
     bool enableAccessLog = vm.count("enable-access-log");
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
     MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog, httpBaseUrl);
-    bool initSuccess = server.init(configurationPath, staticAssetsPath,
+    bool initSuccess = server.init(credentialsPath, staticAssetsPath,
                                    staticDocPath, hideInternalEntities);
 
     // if the server initialization fails don't register plugins
@@ -347,7 +327,7 @@ int main(int argc, char ** argv)
             server.scanPlugins(d);
         }
     }
-    
+
     server.httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
     server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
     server.threadPool->ensureThreads(numThreads);
@@ -368,7 +348,7 @@ int main(int argc, char ** argv)
         else throw ML::Exception("Unsupported extension '" +extension+ "'");
 
         HttpRestProxy proxy(server.httpBoundAddress);
-        
+
         PluginResource config;
         if (runScript.find("://") == string::npos)
             config.address = "file://" + runScript;
@@ -408,7 +388,7 @@ int main(int argc, char ** argv)
 
         auto output = proxy.post("/v1/types/plugins/" + runner + "/routes/run",
                                  jsonEncode(config));
-        
+
         bool success = false;
 
         auto result = output.jsonBody();

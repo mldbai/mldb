@@ -20,6 +20,8 @@ namespace MLDB {
 
 
 struct MeltProcedureConfig : public ProcedureConfig {
+    static constexpr const char * name = "melt";
+
     MeltProcedureConfig() :
         keyColumnName("key"),
         valueColumnName("value")

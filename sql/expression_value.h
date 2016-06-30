@@ -14,6 +14,7 @@
 #include "mldb/types/date.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/utils/compact_vector.h"
 #include "cell_value.h"
 #include <cstdint>
 
@@ -72,6 +73,9 @@ enum JsonArrayHandling {
     ENCODE_ARRAYS ///< Arrays are encoded as one-hot or JSON literals
 };
 
+/** Vector of dimensions for an embedding. */
+typedef compact_vector<size_t, 4> DimsVector;
+
 /*****************************************************************************/
 /* STORAGE TYPE                                                              */
 /*****************************************************************************/
@@ -127,6 +131,7 @@ SPECIALIZE_STORAGE_TYPE(Utf8String,           ST_UTF8STRING);
 SPECIALIZE_STORAGE_TYPE(CellValue,            ST_ATOM);
 SPECIALIZE_STORAGE_TYPE(bool,                 ST_BOOL);
 SPECIALIZE_STORAGE_TYPE(Date,                 ST_TIMESTAMP);
+SPECIALIZE_STORAGE_TYPE(Path,                 ST_ATOM);
 
 /** Return the ExpressionValueInfo type for the given storage type. */
 std::shared_ptr<ExpressionValueInfo>
@@ -593,17 +598,17 @@ struct ExpressionValue {
     */
     ExpressionValue(std::vector<CellValue> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<float> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<double> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
     
     /** Construct from a generalized uniform embedding, which is stored as
         a contiguous (flat), column-major array (ie, standard c storage).
@@ -625,7 +630,7 @@ struct ExpressionValue {
     embedding(Date ts,
               std::shared_ptr<const void> data,
               StorageType storage,
-              std::vector<size_t> dims,
+              DimsVector dims,
               std::shared_ptr<const EmbeddingMetadata> md = nullptr);
 
     /** Create a single ExpressionValue that is the superposition of several
@@ -647,7 +652,7 @@ struct ExpressionValue {
     ExpressionValue(RowValue row) noexcept;
 
     // Construct from a set of named values as a row
-    ExpressionValue(std::vector<std::tuple<PathElement, ExpressionValue> > vals) noexcept;
+    ExpressionValue(StructValue vals) noexcept;
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -657,14 +662,43 @@ struct ExpressionValue {
               Date timestamp,
               JsonArrayHandling arrays = PARSE_ARRAYS);
 
-    ~ExpressionValue();
+    ~ExpressionValue()
+    {
+        if (type_ == Type::NONE)
+            return;
+        destroy();
+    }
+
     ExpressionValue(const ExpressionValue & other);
-    ExpressionValue(ExpressionValue && other) noexcept;
+
+    JML_ALWAYS_INLINE ExpressionValue(ExpressionValue && other) noexcept
+    {
+        // Dodgy as hell.  But none of them have self referential pointers, and so it
+        // works and with no possibility of an exception.
+        std::memcpy(this, &other, sizeof(ExpressionValue));
+        other.type_ = Type::NONE;
+    }
 
     ExpressionValue & operator = (const ExpressionValue & other);
-    ExpressionValue & operator = (ExpressionValue && other) noexcept;
 
-    void swap(ExpressionValue & other) noexcept;
+    JML_ALWAYS_INLINE ExpressionValue &
+    operator = (ExpressionValue && other) noexcept
+    {
+        ExpressionValue newMe(std::move(other));
+        swap(newMe);
+        return *this;
+    }
+
+    JML_ALWAYS_INLINE
+    void swap(ExpressionValue & other) noexcept
+    {
+        // Dodgy as hell.  But none of them have self referential pointers, and so it
+        // works and with no possibility of an exception.
+        std::swap(type_,    other.type_);
+        std::swap(storage_[0], other.storage_[0]);
+        std::swap(storage_[1], other.storage_[1]);
+        std::swap(ts_, other.ts_);
+    }
 
     double toDouble() const;
     int64_t toInt() const;
@@ -700,6 +734,8 @@ struct ExpressionValue {
     bool isAtom() const;
 
     bool isRow() const;
+
+    // isNull() -> use empty()
 
     /// Is this a superposition?  Meaning that there are multiple values
     /// superposed.
@@ -809,7 +845,7 @@ struct ExpressionValue {
     getEmbeddingCell(ssize_t knownLength = -1) const;
 
     /** Return the shape of the embedding. */
-    std::vector<size_t>
+    DimsVector
     getEmbeddingShape() const;
 
     /** Reshape the embedding into a new shape.  The total number of
@@ -817,7 +853,7 @@ struct ExpressionValue {
 
         This will throw an exception if the shape doesn't match.
     */
-    ExpressionValue reshape(std::vector<size_t> newShape) const;
+    ExpressionValue reshape(DimsVector newShape) const;
 
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
@@ -829,6 +865,13 @@ struct ExpressionValue {
     */
     ML::distribution<double, std::vector<double> >
     getEmbedding(const ColumnName * knownNames, size_t len) const;
+
+    /** Convert an embedding to an array of the given storage type.  The
+        elements will be filled in to the existing memory.  Throws an
+        exception if len is not correct to cover the exact amount of
+        memory required.
+    */
+    void convertEmbedding(void * buf, size_t len, StorageType bufType) const;
 
     /** Iterate over the child expression, with an ExpressionValue at each
         level.  Note that if isRow() is false, than this function will
@@ -1024,6 +1067,9 @@ private:
     template<typename Fn>
     bool forEachAtomDestructiveT(Fn && onColumn);
 
+    /** Destroy complex value, leaving an empty value. */
+    void destroy();
+
     enum class Type : uint8_t {
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
         ATOM,        ///< Expression is an atom (CellValue), including null
@@ -1074,6 +1120,18 @@ PREDECLARE_VALUE_DESCRIPTION(ExpressionValue);
 */
 std::shared_ptr<ValueDescriptionT<ExpressionValue> >
 getExpressionValueDescriptionNoTimestamp();
+
+/** Create an expression value description specialized to the given type.
+    This can be used to extract the specialized info for a type.
+*/
+std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
+makeExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info);
+
+/** Get the expression value description from this value description.  If
+    it's not an expression value, returns a null pointer.
+*/
+std::shared_ptr<ExpressionValueInfo>
+extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc);
 
 
 /*****************************************************************************/
@@ -1148,6 +1206,7 @@ extern template class ExpressionValueInfoT<CellValue>;
 extern template class ExpressionValueInfoT<std::string>;
 extern template class ExpressionValueInfoT<Utf8String>;
 extern template class ExpressionValueInfoT<std::vector<uint8_t> >;
+extern template class ExpressionValueInfoT<Path>;
 extern template class ExpressionValueInfoT<int64_t>;
 extern template class ExpressionValueInfoT<uint64_t>;
 extern template class ExpressionValueInfoT<char>;
@@ -1158,6 +1217,7 @@ extern template class ScalarExpressionValueInfoT<CellValue>;
 extern template class ScalarExpressionValueInfoT<std::string>;
 extern template class ScalarExpressionValueInfoT<Utf8String>;
 extern template class ScalarExpressionValueInfoT<std::vector<uint8_t> >;
+extern template class ScalarExpressionValueInfoT<Path>;
 extern template class ScalarExpressionValueInfoT<int64_t>;
 extern template class ScalarExpressionValueInfoT<uint64_t>;
 extern template class ScalarExpressionValueInfoT<char>;
@@ -1215,6 +1275,19 @@ struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<uint8_t> > {
     virtual std::string getScalarDescription() const
     {
         return "blob";
+    }
+};
+
+struct PathValueInfo: public ScalarExpressionValueInfoT<Path> {
+    /// Is the other value compatible with this info?
+    virtual bool isCompatible(const ExpressionValue & value) const
+    {
+        return value.isAtom() && value.getAtom().isPath();
+    }
+
+    virtual std::string getScalarDescription() const
+    {
+        return "path";
     }
 };
 
@@ -1339,14 +1412,14 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     RowValueInfo(const std::vector<KnownColumn> & columns,
                  SchemaCompleteness completeness = SCHEMA_CLOSED);
 
-    virtual bool isScalar() const;
+    virtual bool isScalar() const override;
 
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
 
     virtual void flatten(const ExpressionValue & value,
                          const std::function<void (const ColumnName & columnName,
                                                    const CellValue & value,
-                                                   Date timestamp)> & write) const;
+                                                   Date timestamp)> & write) const override;
 
     virtual std::shared_ptr<ExpressionValueInfo>
     getColumn(const PathElement & columnName) const override;
@@ -1354,28 +1427,28 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     virtual std::shared_ptr<ExpressionValueInfo> 
     findNestedColumn(const ColumnName& columnName) const override;
 
-    virtual std::vector<KnownColumn> getKnownColumns() const;
-    virtual SchemaCompleteness getSchemaCompleteness() const;
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
 
     std::vector<KnownColumn> columns;
     SchemaCompleteness completeness;
 
-    virtual bool isCompatible(const ExpressionValue & value) const
+    virtual bool isCompatible(const ExpressionValue & value) const override
     {
         return value.isRow();
     }
 
-    virtual bool isRow() const
+    virtual bool isRow() const override
     {
         return true;
     }
 
-    virtual bool couldBeRow() const
+    virtual bool couldBeRow() const override
     {
         return true;
     }
 
-    virtual bool couldBeScalar() const
+    virtual bool couldBeScalar() const override
     {
         return false;
     }
@@ -1422,20 +1495,20 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 
 /** These functions search the given row for the named value. */
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
-          const ColumnName & key,
+searchRow(const RowValue & columns,
+          const ColumnName & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const PathElement & key,
+searchRow(const StructValue & columns,
+          const PathElement & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const ColumnName & key,
+searchRow(const StructValue & columns,
+          const ColumnName & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 

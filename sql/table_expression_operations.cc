@@ -5,9 +5,9 @@
 */
 
 #include "table_expression_operations.h"
-#include "mldb/builtin/joined_dataset.h"
 #include "mldb/builtin/sub_dataset.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/sql/execution_pipeline.h"
 
 using namespace std;
 
@@ -23,6 +23,9 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
     BoundTableExpression result;
     result.dataset = dataset;
     result.asName = asName;
+
+    auto cols = dataset->getColumnIndex();
+    auto matrix = dataset->getMatrixView();
 
     // Allow us to query row information from the dataset
     result.table.getRowInfo = [=] () { return dataset->getRowInfo(); };
@@ -51,6 +54,13 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
                                        offset, limit);
         };
 
+    result.table.getChildAliases = [=] ()
+        {
+            std::vector<Utf8String> aliases;
+            dataset->getChildAliases(aliases);
+            return aliases;
+        };
+
     return result;
 }
 
@@ -59,7 +69,7 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
 /*****************************************************************************/
 
 NamedDatasetExpression::
-    NamedDatasetExpression(const Utf8String& asName) : asName(asName)
+NamedDatasetExpression(const Utf8String& asName) : asName(asName)
 {
 
 }
@@ -169,21 +179,133 @@ JoinExpression::
 
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
-std::shared_ptr<Dataset> (*createJoinedDatasetFn) (MldbServer *, const JoinedDatasetConfig &);
+std::shared_ptr<Dataset>
+(*createJoinedDatasetFn) (SqlBindingScope &,
+                          std::shared_ptr<TableExpression>,
+                          BoundTableExpression,
+                          std::shared_ptr<TableExpression>,
+                          BoundTableExpression,
+                          std::shared_ptr<SqlExpression>,
+                          JoinQualification);
 
 BoundTableExpression
 JoinExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    JoinedDatasetConfig config;
-    config.left = left;
-    config.right = right;
-    config.on = on;
+    BoundTableExpression boundLeft = left->bind(scope);
+    BoundTableExpression boundRight = right->bind(scope);
 
-    config.qualification = qualification;
-    auto ds = createJoinedDatasetFn(context.getMldbServer(), config);
+    if (boundLeft.dataset && boundRight.dataset) {
+        auto ds = createJoinedDatasetFn(scope,
+                                        left,
+                                        std::move(boundLeft),
+                                        right,
+                                        std::move(boundRight),
+                                        on, qualification);
+        return bindDataset(ds, Utf8String());
+    }
+    else {
+        if (boundLeft.asName.empty()
+            && boundLeft.table.getChildAliases().empty()) {
+            throw HttpReturnException
+                (400, "Tables in joins that don't have a natural name like a "
+                 "dataset name must have an AS expression (consider replacing '"
+                 + left->surface + "' with '" + left->surface + " AS lhs'");
+        }
 
-    return bindDataset(ds, Utf8String());
+        if (boundRight.asName.empty()
+            && boundRight.table.getChildAliases().empty()) {
+            throw HttpReturnException
+                (400, "Tables in joins that don't have a natural name like a "
+                 "dataset name must have an AS expression (consider replacing '"
+                 + right->surface + "' with '" + right->surface + " AS rhs'");
+        }
+
+        // Use the new executor for the join
+        auto pipeline = 
+            PipelineElement::root(scope)
+            ->join(left, std::move(boundLeft),
+                   right, std::move(boundRight),
+                   on, qualification, SelectExpression::STAR)
+            ->bind();
+   
+        BoundTableExpression result;
+
+        // Allow us to query row information from the dataset
+        result.table.getRowInfo = [=] () -> std::shared_ptr<RowValueInfo>
+            {
+                return ExpressionValueInfo::toRow(pipeline->outputScope()->outputInfo().back());
+            };
+    
+        // Allow the dataset to override functions
+        result.table.getFunction = [=] (SqlBindingScope & context,
+                                        const Utf8String & tableName,
+                                        const Utf8String & functionName,
+                                        const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)
+            -> BoundFunction 
+            {
+                return BoundFunction();
+            };
+
+        // Allow the dataset to run queries
+        result.table.runQuery = [=] (const SqlBindingScope & context,
+                                     const SelectExpression & select,
+                                     const WhenExpression & when,
+                                     const SqlExpression & where_,
+                                     const OrderByExpression & orderBy,
+                                     ssize_t offset,
+                                     ssize_t limit)
+            -> BasicRowGenerator
+            {
+                // Joins are detected in the outer query logic and intercepted.
+                // As a result, counter-intuitively, this function is currently
+                // never called.  The commented-out partial implementation is
+                // kept as a starting point for whenever we use the table
+                // operations for more than implementing joins, and we will need
+                // to use it.
+                throw HttpReturnException
+                (500, "Internal logic error: joins should not require runQuery");
+#if 0
+                // Copy the where expression
+                std::shared_ptr<SqlExpression> where = where_.shallowCopy();
+
+                auto getRowName
+                    = SqlExpression::parse("rowPath()")->bind(...);
+
+                auto exec = [=] (ssize_t numToGenerate,
+                                 SqlRowScope & rowScope,
+                                 const BoundParameters & params)
+                -> std::vector<NamedRowValue>
+                {
+                    std::vector<NamedRowValue> result;
+
+                    auto gotElement = [&] (std::shared_ptr<PipelineResults> & res)
+                        -> bool
+                    {
+                        auto rowName = ...;
+
+                        // extract the rowName and the row
+                        // ...
+                        return true;
+                    };
+
+                    pipeline->start(params)->takeAll(gotElement);
+                    
+                    return result;
+                };
+
+                BasicRowGenerator result(exec, "join generator on-demand");
+                return result;
+#endif
+            };
+
+        result.table.getChildAliases = [=] ()
+            {
+                return pipeline->outputScope()->getTableNames();
+            };
+
+        return result;
+    }
 }
 
 Utf8String
@@ -475,12 +597,8 @@ getUnbound() const
 {
     UnboundEntities result;
     for (auto & a: args) {
-        cerr << "getting unbound for arg " << a->print() << endl;
         result.merge(a->getUnbound());
     }
-
-    cerr << "unbound is " << jsonEncode(result) << endl;
-
     return result;
 }
 
@@ -612,13 +730,19 @@ bind(SqlBindingScope & context) const
                                          select, when, *where, orderBy,
                                          TupleExpression(),
                                          *SqlExpression::TRUE,
-                                         *SqlExpression::parse("rowName()"),
+                                         *SqlExpression::parse("rowPath()"),
                                          offset, limit, "" /* dataset alias */,
                                          false /* allow multithreading */);
             };
 
             BasicRowGenerator result(exec, "row table expression generator");
             return result;
+        };
+
+    result.table.getChildAliases = [=] ()
+        {
+            std::vector<Utf8String> aliases;
+            return aliases;
         };
 
     return result;

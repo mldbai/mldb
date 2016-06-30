@@ -80,10 +80,10 @@ TsneConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<TsneConfig,
-                              InputQuery,
-                              MustContainFrom,
-                              NoGroupByHaving>(&TsneConfig::trainingData, "tsne");
+    onPostValidate = chain(validateQuery(&TsneConfig::trainingData,
+                                         MustContainFrom(),
+                                         NoGroupByHaving()),
+                           validateFunction<TsneConfig>());
 }
 
 
@@ -105,7 +105,7 @@ struct TsneItl {
 
         stream.close();
     }
-    
+
     ML::TSNE_Params params;
     boost::multi_array<float, 2> inputPath;
     boost::multi_array<float, 2> outputPath;
@@ -305,12 +305,12 @@ run(const ProcedureRunConfig & run,
         = ML::tsneApproxFromCoords(coords, runProcConf.numOutputDimensions,
                                    itl->params, callback, &itl->vpTree,
                                    &itl->qtree);
-    
+
     ExcAssert(itl->qtree);
     ExcAssert(itl->vpTree);
 
     vector<ColumnName> names = { ColumnName("x"), ColumnName("y"), ColumnName("z") };
-    if (runProcConf.numOutputDimensions <= 3) 
+    if (runProcConf.numOutputDimensions <= 3)
         names.resize(runProcConf.numOutputDimensions);
     else {
         names.clear();
@@ -330,7 +330,7 @@ run(const ProcedureRunConfig & run,
     itl->outputColumnNamesShared
         .reset(new vector<ColumnName>(itl->outputColumnNames.begin(),
                                       itl->outputColumnNames.end()));
-    
+
     if (!runProcConf.modelFileUrl.empty()) {
         Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
         itl->save(runProcConf.modelFileUrl.toString());
@@ -354,7 +354,7 @@ run(const ProcedureRunConfig & run,
 
         output->commit();
     }
-    
+
     if(!runProcConf.functionName.empty()) {
         PolyConfig tsneFuncPC;
         tsneFuncPC.type = "tsne.embedRow";
@@ -428,7 +428,7 @@ call(TsneInput input) const
     auto embedding = itl->reembed(input);
 
     result.set("tsne", ExpressionValue(embedding, ts));
-    
+
     return result;
 #endif
 }
@@ -437,7 +437,6 @@ namespace {
 
 RegisterProcedureType<TsneProcedure, TsneConfig>
 regTsne(builtinPackage(),
-        "tsne.train",
         "Project a high dimensional space into a low-dimensional space suitable for visualization",
         "procedures/TsneProcedure.md.html");
 
@@ -454,4 +453,3 @@ regTsneEmbed(builtinPackage(),
 
 } // namespace MLDB
 } // namespace Datacratic
-

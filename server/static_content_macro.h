@@ -52,6 +52,7 @@ struct MacroContext: public MacroData {
 
     void writeHtml(const Utf8String & text);
     void writeText(const Utf8String & text);
+    void writeMarkdown(const Utf8String & markdown);
     void writeInternalLink(Utf8String url,
                            const Utf8String & anchorText,
                            bool followInternalRedirect);

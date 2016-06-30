@@ -24,15 +24,15 @@ struct TableLexicalScope: public LexicalScope {
         scope for the first of the two fields that a table row will add
         (the first is the rowName, the second is the actual row itself).
     */
-    TableLexicalScope(TableOperations table, Utf8String asName);
+    TableLexicalScope(std::shared_ptr<RowValueInfo> rowInfo, Utf8String asName);
 
-    TableOperations table;
+    std::shared_ptr<RowValueInfo> rowInfo;
     Utf8String asName;
 
     std::vector<KnownColumn> knownColumns;
     bool hasUnknownColumns;
 
-    static constexpr int ROW_NAME = 0;
+    static constexpr int ROW_PATH = 0;
     static constexpr int ROW_CONTENTS = 1;
 
     virtual ColumnGetter
@@ -125,6 +125,103 @@ struct GenerateRowsElement: public PipelineElement {
     std::shared_ptr<BoundPipelineElement> bind() const;
 };
 
+/*****************************************************************************/
+/* SUB SELECT LEXICAL SCOPE                                                  */
+/*****************************************************************************/
+
+/** Lexical scope for a sub select.  It allows for the output of the SELECT to be
+    used in wildcards (SELECT * from (SELECT 1 AS X))
+
+    It makes a bridge from a 'select' scope to a 'table scope.'
+
+    Output added are those of the select statement, 2 outputs if the statement has
+    no 'from' clause, 4 if it has one or more in cases of nested sub selects.
+*/
+
+struct SubSelectLexicalScope: public TableLexicalScope {
+
+    SubSelectLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<RowValueInfo> selectInfo, Utf8String asName_);
+
+    std::shared_ptr<PipelineExpressionScope> inner;
+    std::shared_ptr<ExpressionValueInfo> selectInfo;
+
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
+
+    virtual GetAllColumnsOutput
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOffset);
+
+    virtual std::set<Utf8String> tableNames() const;
+
+    virtual std::vector<std::shared_ptr<ExpressionValueInfo> >
+    outputAdded() const;
+};
+
+/*****************************************************************************/
+/* SUB SELECT EXECUTOR                                                       */
+/*****************************************************************************/
+
+struct SubSelectExecutor: public ElementExecutor {
+    SubSelectExecutor(std::shared_ptr<BoundPipelineElement> boundSelect,
+                      const BoundParameters & getParam);
+
+    std::shared_ptr<ElementExecutor> source;
+    BoundParameters params;
+    std::shared_ptr<ElementExecutor> pipeline;
+
+    virtual std::shared_ptr<PipelineResults> take();
+
+    virtual void restart();
+};
+
+
+/*****************************************************************************/
+/* SUB SELECT ELEMENT                                                        */
+/*****************************************************************************/
+
+/**
+    An element that evaluates an Select Statement as part of a From statement
+*/
+
+
+struct SubSelectElement: public PipelineElement {
+
+    SubSelectElement(std::shared_ptr<PipelineElement> root,
+                     SelectStatement& statement,
+                     OrderByExpression& orderBy,
+                     GetParamInfo getParamInfo,
+                     const Utf8String& asName);
+
+     struct Bound: public BoundPipelineElement {
+
+        std::shared_ptr<const SubSelectElement> parent;
+        std::shared_ptr<BoundPipelineElement> source_;
+        std::shared_ptr<PipelineExpressionScope> inputScope_;
+        std::shared_ptr<PipelineExpressionScope> outputScope_;
+
+        Bound(const SubSelectElement * parent,
+              std::shared_ptr<BoundPipelineElement> source);
+
+        std::shared_ptr<ElementExecutor>
+        start(const BoundParameters & getParam) const;
+
+        virtual std::shared_ptr<BoundPipelineElement>
+        boundSource() const;
+
+        virtual std::shared_ptr<PipelineExpressionScope>
+        outputScope() const;
+
+        std::shared_ptr<BoundPipelineElement> boundSelect;
+    };
+
+    std::shared_ptr<BoundPipelineElement>
+    bind() const;
+
+    std::shared_ptr<PipelineElement> root;
+    std::shared_ptr<PipelineElement> pipeline;
+    Utf8String asName;
+
+};
 
 /*****************************************************************************/
 /* JOIN LEXICAL SCOPE                                                        */
@@ -193,9 +290,12 @@ struct JoinLexicalScope: public LexicalScope {
 */
 
 struct JoinElement: public PipelineElement {
+    /** Constructor for when the element is pre-bound. */
     JoinElement(std::shared_ptr<PipelineElement> root,
                 std::shared_ptr<TableExpression> left,
+                BoundTableExpression boundLeft,
                 std::shared_ptr<TableExpression> right,
+                BoundTableExpression boundRight,
                 std::shared_ptr<SqlExpression> on,
                 JoinQualification joinQualification,
                 SelectExpression select,
@@ -204,7 +304,9 @@ struct JoinElement: public PipelineElement {
     
     std::shared_ptr<PipelineElement> root;
     std::shared_ptr<TableExpression> left;
+    BoundTableExpression boundLeft;
     std::shared_ptr<TableExpression> right;
+    BoundTableExpression boundRight;
     std::shared_ptr<SqlExpression> on;
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
@@ -217,6 +319,10 @@ struct JoinElement: public PipelineElement {
 
     struct Bound;
 
+    /** Execution runs over all left rows for each right row.  The complexity is
+        therefore O(left rows) * O(right rows).  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2`.
+    */
     struct CrossJoinExecutor: public ElementExecutor {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
@@ -233,6 +339,15 @@ struct JoinElement: public PipelineElement {
         void restart();
     };
 
+    /** Execution runs on left rows and right rows together.  This requires to
+        sort the value that will be compared (ie. the pivot).  The worse case
+        complexity is O(left rows) * O(right rows) when the pivot value is a
+        constant but in general the complexity should be closer to
+        O(max(left rows, right rows)) when the pivot do not have too many 
+        duplicated values.  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2 ON t1.id = t2.id`.  Here `id` is the pivot
+        and rows are sorted by id.
+    */
     struct EquiJoinExecutor: public ElementExecutor {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
@@ -342,15 +457,25 @@ struct RootElement: public PipelineElement {
 /** Element that generates rows according to the FROM clause. */
 
 struct FromElement: public PipelineElement {
+
+    /** Create the from clause, which will forward a query to the executor
+        of the given table.  The table may be pre-bound (if boundFrom is
+        filled in), or otherwise will be bound by this element (if a default
+        constructed, or empty,  BoundTableExpression is passed in to
+        boundFrom).
+    */
     FromElement(std::shared_ptr<PipelineElement> root_,
                 std::shared_ptr<TableExpression> from_,
+                BoundTableExpression boundFrom_,
                 WhenExpression when_,
                 SelectExpression select_ = SelectExpression::parse("*"),
-                std::shared_ptr<SqlExpression> where_ = SqlExpression::parse("true"),
-                OrderByExpression orderBy_ = OrderByExpression());
+                std::shared_ptr<SqlExpression> where_ = SqlExpression::TRUE,
+                OrderByExpression orderBy_ = OrderByExpression(),
+                GetParamInfo params_ = nullptr);
     
     std::shared_ptr<PipelineElement> root;
     std::shared_ptr<TableExpression> from;
+    BoundTableExpression boundFrom;
     SelectExpression select;
     WhenExpression when;
     std::shared_ptr<SqlExpression> where;
@@ -379,6 +504,7 @@ struct FilterWhereElement: public PipelineElement {
     struct Bound;
 
     struct Executor: public ElementExecutor {
+
         const Bound * parent_;
         std::shared_ptr<ElementExecutor> source_;
         PipelineExpressionScope * context_;

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MLDB Licensing</title>
+
+    <!-- Bootstrap -->
+    <link href="{{HTTP_BASE_URL}}/resources/css/bootstrap.min.css" rel="stylesheet">
+    <script src="{{HTTP_BASE_URL}}/resources/js/jquery-1.11.2.min.js"></script>
+  </head>
+  <style>
+    @import url(http://fonts.googleapis.com/css?family=Roboto:400,700|Roboto+Slab:400,700);
+    * { font-family: 'Roboto'; font-size: 14px; }
+    legend { font-family: 'Roboto Slab'; font-weight: bold; }
+    textarea { resize: none; }
+    .form-group { margin-bottom: 10px;}
+    .form-inline, .form-horizontal { display:block; }
+    fieldset {   
+      padding-bottom:20px;   
+      width:60%;    
+      line-height:1.6;    
+      margin: auto;    
+    }
+  </style>
+<body>
+<div class ="row">
+    <div class="col-lg-12 text-center"><img src="/resources/images/mldb_ipython_logo.png"/>
+    </div>
+</div>
+<br>
+<br>
+
+<form>
+<div class="form-horizontal  col-lg-10 col-lg-offset-1">
+<fieldset>
+  <legend>Please activate MLDB with a license key</legend>
+
+
+  <p style="font-size: 18px;">You can create a Free Trial license key instantly by <a href="https://mldb.ai/#license_management" target="_blank" style="font-size: 18px;">signing up to MLDB.ai</a> and filling out the request form.</p>
+<br />
+    <div id="requestsuccess" class="alert alert-success col-lg-12" role="alert" style="display: none;">Thanks! Please check your email for the license code and enter it below.</div>
+    <div id="validationfailure" class="alert alert-danger" role="alert" style="display: none;">Sorry, but there was a problem with the email address/license key combination, please check your input and try again.</div>
+
+  <div class="form-group">
+    <label class="col-lg-3 control-label" for="inputEmailActivation">Email address</label>
+    <div class="col-lg-7">
+     <input type="email" size="30" class="form-control" id="inputEmailActivation" placeholder="Email address">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="col-lg-3 control-label" for="inputActivationCode">License key</label>
+    <div class="col-lg-7">
+      <textarea class="form-control" id="inputActivationCode" style="height: 100px; font-family: Courier;"></textarea>
+      <p class="help-block with-errors">The license key must match the email address used to request it.</p>
+    </div>
+  </div>
+  <div class="form-group">
+    <div class="col-lg-offset-3 col-lg-7">
+    <button type="submit" class="btn btn-primary" id="confirmActivationButton">Activate MLDB Enterprise Edition</button>
+    </div>
+  </div>
+
+</fieldset>
+</div>
+</form>
+
+
+<script>
+
+
+$(document).ready(function(){
+    $("#requestActivationButton").click(function(e){
+        e.preventDefault();
+        var fail = false;
+        $("#requestfailure").hide();
+        $("#inputfailure").hide();
+        $("#requestsuccess").hide();
+        $("#validationfailure").hide();
+
+        if($("#inputUserName").val().trim().length ==0) {
+            $("#inputUserName").parent().parent().addClass("has-error");
+            fail = true;
+        }
+        else {
+            $("#inputUserName").parent().parent().removeClass("has-error");
+        }
+
+        if($("#inputRequestEmail").val().trim().length ==0 || !/(.+)@(.+){2,}\.(.+){2,}/.test($("#inputRequestEmail").val())) {
+            $("#inputRequestEmail").parent().parent().addClass("has-error");
+            fail = true;
+        }
+        else {
+            $("#inputRequestEmail").parent().parent().removeClass("has-error");
+        }
+
+        if(!$("#licenseCheckBox").is(':checked')) {
+            $("#licenseCheckBox").parent().parent().addClass("has-error");
+            fail = true;
+        }
+        else {
+            $("#licenseCheckBox").parent().parent().removeClass("has-error");
+        }
+
+        if(fail){
+          $("#inputfailure").show();
+          return;
+        }
+        
+        var activationData = {
+            username: $("#inputUserName").val(),
+            email: $("#inputRequestEmail").val(),
+            company:$("#inputRequestCompanyName").val(),
+            announcement:$("#mailingListCheckBox:checked").val()? "True":"False" 
+        };
+
+        $.ajax({type: "POST",
+            dataType: "json",
+            url: "https://activator.mldb.ai/api/activation_request",
+            data: JSON.stringify(activationData),
+            contentType: "application/json",
+            crossDomain : true,
+            success:function(){
+                $('#inputEmailActivation').val($("#inputRequestEmail").val()); 	        
+                $('#request_form').toggle();
+                $("#requestsuccess").show()
+	          },
+            error: function(){ $("#requestfailure").show(); }
+        });
+    });
+
+    $("#confirmActivationButton").click(function(e){
+        e.preventDefault();
+        $("#requestfailure").hide();
+        $("#inputfailure").hide();
+        $("#requestsuccess").hide();
+        $("#validationfailure").hide();
+
+        var activationData = {
+            email: $("#inputEmailActivation").val(),
+            activation_code: $("#inputActivationCode").val(),
+        };
+
+        $.ajax({type: "POST",
+            dataType: "json",
+            url: "{{HTTP_BASE_URL}}/verifier/activation_sign_in",
+            data: JSON.stringify(activationData),
+            contentType: "application/json",
+            success:function(){ window.location.href = '/'; },
+            error: function(){ $("#validationfailure").show() }
+        });
+    });
+
+
+
+
+});
+
+
+
+</script>
+
+</body>
+</html>
+

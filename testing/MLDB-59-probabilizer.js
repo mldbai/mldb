@@ -102,7 +102,7 @@ if (trainClassifier) {
         type: "classifier.train",
         params: {
             trainingData: { 
-                select: '{svd*} as features, adventuretime IS NOT NULL as label',
+                select: '{embedding*} as features, adventuretime IS NOT NULL as label',
                 where: "rowHash() % 4 = 1",
                 from : "reddit_embeddings"
             },
@@ -129,7 +129,7 @@ if (trainClassifier) {
                     type: "glz",
                     verbosity: 3,
                     normalize: true,
-                    ridge_regression: true
+                    regularization: 'l2'
                 }
             },
             algorithm: "glz",

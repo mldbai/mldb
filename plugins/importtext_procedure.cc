@@ -1,15 +1,13 @@
 /** importext_procedure.cc
     Mathieu Marquis Bolduc, February 12, 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
-
     This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-    
+
     Procedure that reads text files into an indexed dataset.
 */
 
 #include "importtext_procedure.h"
-#include "mldb/arch/timers.h" 
-#include "mldb/jml/utils/csv.h"    
+#include "mldb/arch/timers.h"
+#include "mldb/jml/utils/csv.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/base/parallel.h"
 #include "mldb/plugins/for_each_line.h"
@@ -21,14 +19,13 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/plugins/progress.h"
 
 
 using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
-
-static constexpr size_t ROWS_PER_CHUNK=65536;
 
 DEFINE_STRUCTURE_DESCRIPTION(ImportTextConfig);
 
@@ -58,6 +55,12 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addField("ignoreBadLines", &ImportTextConfig::ignoreBadLines,
              "If true, any line causing a parsing error will be skipped. "
              "Empty lines are considered bad lines.", false);
+    addField("structuredColumnNames", &ImportTextConfig::structuredColumnNames,
+             "If true, column names that look like 'x.y' will import like "
+             "`{ x: { y: ... } }` instead of `{ \"x.y\": ... }`, in other "
+             "words structure will be preserved.  The flip side is that quotes "
+             "will need to be doubled and any name that includes a period will "
+             "need to be quoted.  The default is to not preserve structure", false);
     addField("replaceInvalidCharactersWith",
              &ImportTextConfig::replaceInvalidCharactersWith,
              "If this is set, it should be a single Unicode character will be used "
@@ -77,8 +80,17 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addField("timestamp", &ImportTextConfig::timestamp,
              "Expression for row timestamp.",
              SqlExpression::parse("fileTimestamp()"));
+    addField("allowMultiLines", &ImportTextConfig::allowMultiLines,
+             "Allows columns with multi-line quoted strings. "
+             "This option disables many optimizations and makes the procedure "
+             "run much slower. Only use if necessary. The `offset` parameter "
+             "will not be reliable when this is activated.", false);
+    addField("autoGenerateHeaders", &ImportTextConfig::autoGenerateHeaders,
+             "If true, the indexes of the columns will be used to name them."
+             "This cannot be set to true if headers is defined.",
+             false);
 
-    addParent<ProcedureConfig>();    
+    addParent<ProcedureConfig>();
     onUnknownField = [] (ImportTextConfig * config,
                          JsonParsingContext & context)
         {
@@ -96,6 +108,14 @@ ImportTextConfigDescription::ImportTextConfigDescription()
                                   + " parsing import.text configuration");
             }
         };
+
+    onPostValidate = [] (ImportTextConfig * config,
+                         JsonParsingContext & context) {
+        if (!config->headers.empty() && config->autoGenerateHeaders) {
+            throw ML::Exception("autoGenerateHeaders cannot be true if "
+                                "headers is defined.");
+        }
+    };
 }
 
 
@@ -197,21 +217,32 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                                              COLUMN_IS_DENSE);
             }
         }
+
+        // Fill out the offset so we know where it is in the input
+        for (size_t i = 0;  i < columnsWithInfo.size();  ++i) {
+            columnsWithInfo[i].offset = i;
+        }
         
-        auto exec = [=] (const SqlRowScope & scope)
+        auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
             {
+                /* 
+                   The filter parameter here is not used since this context is
+                   only used when importing tabular data and there is no way to 
+                   specify a timestamp for this data.
+                */
+
                 auto & row = scope.as<RowScope>();
 
                 RowValue result;
 
                 for (unsigned i = 0;  i < columnNames.size();  ++i) {
-                    if (toKeep[i] != ColumnName())
+                    if (!toKeep[i].empty())
                         result.emplace_back(columnNames[i], row.row[i], row.ts);
                 }
 
                 return std::move(result);
             };
-        
+
         GetAllColumnsOutput result;
         result.exec = exec;
         result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
@@ -304,10 +335,30 @@ Encoding parseEncoding(const std::string & encodingStr)
     return encoding;
 }
 
+const char * findInvalidAscii(const char * start, size_t length, char*buf, char replaceInvalidCharactersWith) {
+
+    memcpy(buf, start, length);
+
+    char* p = buf;
+    char* end = buf+length;
+    while (p != end) {
+        if (!isJsonValid(*p))
+            *p = replaceInvalidCharactersWith;
+        ++p;
+    }
+
+    return buf;
+}
+
 } // file scope
 
+namespace {
+    const string unclosedQuoteError = "Unclosed quoted CSV value";
+    const string notEnoughColsError = "not enough columns in row";
+}
+
 /** Parse a single row of CSV into an array of CellValues.
-    
+
     Carefully designed to not perform any memory allocations in the
     common case.
 
@@ -358,9 +409,17 @@ parseFixedWidthCsvRow(const char * & line,
     auto finishString = [encoding,replaceInvalidCharactersWith]
         (const char * start, size_t len, bool eightBit)
         {
-            //cerr << "finishing string " << string(start, len) << " with eightBit " << eightBit << " and encoding " << encoding << endl;
+            //cerr << "finishing string " << string(start, len)
+            //     << " with eightBit " << eightBit
+            //     << " encoding " << encoding
+            //     << " replaceInvalidCharactersWith " << replaceInvalidCharactersWith << endl;
 
             if (!eightBit) {
+                char buf[len];
+                if (replaceInvalidCharactersWith >= 0) {
+                    ExcAssert(replaceInvalidCharactersWith < 256);
+                    start = findInvalidAscii(start, len, buf, (char)replaceInvalidCharactersWith);
+                }
                 return CellValue::parse(start, len, STRING_IS_VALID_ASCII);
             }
 
@@ -406,7 +465,7 @@ parseFixedWidthCsvRow(const char * & line,
             ++colNum;
             break;
         }
-        
+
         if (colNum >= numColumns)
             return "too many columns in row";
 
@@ -441,7 +500,7 @@ parseFixedWidthCsvRow(const char * & line,
                         buflen *= 2;
                     }
 
-                    
+
                     ExcAssertLess(len, buflen);
                     eightBit = eightBit || !isascii(c);
                     s[len++] = c;
@@ -477,7 +536,7 @@ parseFixedWidthCsvRow(const char * & line,
             }
 
             if (!ok)
-                errorMsg = "Unclosed quoted CSV value";
+                errorMsg = unclosedQuoteError.c_str();
 
             if (errorMsg)
                 break;
@@ -497,7 +556,7 @@ parseFixedWidthCsvRow(const char * & line,
             uint64_t num = isdigit(c) ? c - '0' : 0;
             int len = 1;
             bool isInt = true;
-            
+
             bool eightBit = false;
 
             for (; line < lineEnd;  ++line, ++len) {
@@ -507,7 +566,7 @@ parseFixedWidthCsvRow(const char * & line,
                     ++line;
                     break;
                 }
-                if (line - start >= 18) 
+                if (line - start >= 18)
                     isInt = false;  // too long; could lose precision
                 if (isInt && isdigit(c)) {
                     num = 10 * num + (c - '0');
@@ -521,7 +580,7 @@ parseFixedWidthCsvRow(const char * & line,
                 }
             }
 
-            if (isInt && sign == -1) 
+            if (isInt && sign == -1)
                 values[colNum++] = (int64_t)-num;
             else if (isInt)  // positive integer
                 values[colNum++] = num;
@@ -559,7 +618,7 @@ parseFixedWidthCsvRow(const char * & line,
     }
 
     if (colNum != numColumns)
-        return "not enough columns in row";
+        return notEnoughColsError.c_str();
 
     return errorMsg;
 }
@@ -587,7 +646,7 @@ struct ImportTextProcedureWorkInstance
 
     vector<ColumnName> knownColumnNames;
     ML::Lightweight_Hash<ColumnHash, int> columnIndex; //To check for duplicates column names
-    int64_t lineOffset;  
+    int64_t lineOffset;
     // Column names in the CSV file.  This is distinct from the
     // output column names that will be created once parsing has
     // happened.
@@ -611,13 +670,15 @@ struct ImportTextProcedureWorkInstance
     uint64_t numLineErrors;
 
     /*    Load a text file and filter according to the configuration  */
-    void loadText(const ImportTextConfig& config, std::shared_ptr<Dataset> dataset, MldbServer * server)
+    void loadText(const ImportTextConfig& config,
+                  std::shared_ptr<Dataset> dataset,
+                  MldbServer * server,
+                  const std::function<bool (const Json::Value &)> & onProgress)
     {
-
         string filename = config.dataFileUrl.toString();
-        
-    	// Ask for a memory mappable stream if possible
-    	Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
+
+        // Ask for a memory mappable stream if possible
+        Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
@@ -631,10 +692,10 @@ struct ImportTextProcedureWorkInstance
             throw HttpReturnException(400, "Separator string must have one character");
         }
         else if (config.quoter.length() > 0)
-	    {
-	        throw HttpReturnException(400, "Separator string must not be empty if we have a quoter string");
-	    }
-	    
+        {
+            throw HttpReturnException(400, "Separator string must not be empty if we have a quoter string");
+        }
+
         if (config.quoter.length() == 1) {
             quote = config.quoter[0];
             hasQuoteChar = true;
@@ -649,52 +710,101 @@ struct ImportTextProcedureWorkInstance
             if (config.replaceInvalidCharactersWith.length() != 1)
                 throw HttpReturnException(400, "replaceInvalidCharactersWith string must have one character");
             replaceInvalidCharactersWith = *config.replaceInvalidCharactersWith.begin();
-        }  
+        }
 
         encoding = parseEncoding(config.encoding);
 
-        if (isTextLine) {
 
+        if (isTextLine) {
             //MLDB-1312 optimize if there is no delimiter: only 1 column
             if (config.headers.empty()) {
-                inputColumnNames = { ColumnName("lineText") };
+                inputColumnNames = { ColumnName(config.autoGenerateHeaders ? 0 : "lineText") };
             }
-            else {
-                if (inputColumnNames.size() != 1)
-                    throw HttpReturnException(400, "Custom CSV header must have only one element if there is no delimiter");
+            else if (inputColumnNames.size() != 1) {
+                throw HttpReturnException(
+                    400,
+                    "Custom CSV header must have only one element if there is "
+                    "no delimiter");
             }
         }
-        else {  
+        else {
+            // Turn a string into a column name, depending upon how the plugin
+            // is configured.
+            auto parseColumnName = [&] (const Utf8String & str) -> ColumnName
+                {
+                    if (config.structuredColumnNames) {
+                        return ColumnName::parse(str);
+                    }
+                    else {
+                        return ColumnName(str);
+                    }
+                };
 
             if (config.headers.empty()) {
-                // Read header line
-                std::getline(stream, header);
-                lineOffset += 1;
-                ML::Parse_Context pcontext(filename, 
-                                           header.c_str(), header.length(), 1, 0);
-	            
-                vector<string> fields
-                    = ML::expect_csv_row(pcontext, -1, separator);
 
-                switch (encoding) {
-                case ASCII:
-                    for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName::parse(f));
-                    break;
-                case UTF8:
-                    for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String(f)));
-                    break;
-                case LATIN1:
-                    for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String::fromLatin1(f)));
-                    break;
-                };
+                vector<string> fields;
+
+                // Read header line
+                string prevHeader;
+                while(true) {
+                    std::getline(stream, header);
+
+                    if(!prevHeader.empty()) {
+                        prevHeader += ' ' + header;
+                        header.assign(std::move(prevHeader));
+                    }
+
+                    try {
+                        ML::Parse_Context pcontext(filename,
+                                               header.c_str(), header.length(), 1, 0);
+                        fields = ML::expect_csv_row(pcontext, -1, separator);
+                        break;
+                    }
+                    catch (ML::FileFinishInsideQuote & exp) {
+                        if(config.allowMultiLines) {
+                            prevHeader.assign(std::move(header));
+                            continue;
+                        }
+
+                        throw exp;
+                    }
+                }
+
+                if (config.autoGenerateHeaders) {
+                    stream.seekg(0);
+                    auto limit = fields.size();
+                    for (ssize_t i = 0; i < limit; ++i) {
+                        inputColumnNames.emplace_back(i);
+                    }
+                }
+                else {
+                    lineOffset += 1;
+                    switch (encoding) {
+                    case ASCII:
+                        for (const auto & f: fields)
+                            inputColumnNames.emplace_back(parseColumnName(f));
+                        break;
+                    case UTF8:
+                        for (const auto & f: fields)
+                            inputColumnNames.emplace_back(parseColumnName(Utf8String(f)));
+                        break;
+                    case LATIN1:
+                        for (const auto & f: fields)
+                            inputColumnNames.emplace_back(parseColumnName(Utf8String::fromLatin1(f)));
+                        break;
+                    };
+                }
             }
             else {
-                for (const auto & f: config.headers)
-                    inputColumnNames.emplace_back(ColumnName::parse(f));
-            }             
+                for (const auto & f: config.headers) {
+                    inputColumnNames.emplace_back(parseColumnName(f));
+                }
+            }
+
+            // MLDB-1649
+            // A trailing comma on the header row should be accepted
+            if (!inputColumnNames.empty() && inputColumnNames.back().empty())
+                inputColumnNames.pop_back();
         }
 
         // Early check for duplicate column names in input
@@ -711,7 +821,7 @@ struct ImportTextProcedureWorkInstance
         // select, where, named and timestamp parts of the expression.
         SqlCsvScope scope(server, inputColumnNames, ts,
                           Utf8String(config.dataFileUrl.toString()));
-	    
+
         selectBound = config.select.bind(scope);
         whereBound = config.where->bind(scope);
         namedBound = config.named->bind(scope);
@@ -722,10 +832,6 @@ struct ImportTextProcedureWorkInstance
         SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
         isIdentitySelect = config.select.isIdentitySelect(noContext);  
 
-        // Is the name the lineNumber()?  If so, we can save on
-        // calculating it
-        //cerr << "name = " << config.named->print() << endl;
-
         // Figure out our output column names from the bound
         // select clause
 
@@ -734,7 +840,7 @@ struct ImportTextProcedureWorkInstance
         }
 
         auto cols = selectBound.info->getKnownColumns();
-	    
+
         for (unsigned i = 0;  i < cols.size();  ++i) {
             const auto& col = cols[i];
             if (!col.valueInfo->isScalar())
@@ -749,7 +855,7 @@ struct ImportTextProcedureWorkInstance
             if (!columnIndex.insert(make_pair(ch, i)).second)
                 throw HttpReturnException(400, "Duplicate column name in select expression",
                                           "columnName", col.columnName);
-	        
+
             knownColumnNames.emplace_back(col.columnName);
         }
 
@@ -769,38 +875,44 @@ struct ImportTextProcedureWorkInstance
             getline(stream, line);
         }
 
-        loadTextData(dataset, stream, config, scope);
+        loadTextData(dataset, stream, config, scope, onProgress);
     }
 
     /*    Load, filter and format all lines and process them  */
-    void 
-    loadTextData(std::shared_ptr<Dataset> dataset, 
-                 std::istream& stream, 
+    void
+    loadTextData(std::shared_ptr<Dataset> dataset,
+                 std::istream& stream,
                  const ImportTextConfig& config,
-                 SqlCsvScope& scope)
-    {	
+                 SqlCsvScope& scope,
+                 const std::function<bool (const Json::Value &)> & onProgress)
+    {
+        Progress progress;
+        std::shared_ptr<Step> iterationStep = progress.steps({
+            make_pair("iterating", "lines"),
+        });
+
         // Do we have a "where true'?  In that case, we don't need to
         // call the SQL parser
         bool isWhereTrue = config.where->isConstantTrue();
-	    
+
         std::atomic<uint64_t> numSkipped(0);
         std::atomic<uint64_t> totalLinesProcessed(0);
 
         ML::Timer timer;
 
-        auto handleError = [&](const std::string & message, 
-                               int64_t lineNumber, 
-                               int64_t columnNumber, 
+        auto handleError = [&](const std::string & message,
+                               int64_t lineNumber,
+                               int64_t columnNumber,
                                const std::string& line) {
             if (config.ignoreBadLines) {
                 ++numSkipped;
                 return true;
             }
-	        
+
             throw HttpReturnException(400, "Error parsing CSV row: "
                                       + message,
                                       "lineNumber", lineNumber,
-                                      "columnNumber", columnNumber, 
+                                      "columnNumber", columnNumber,
                                       "line", line);
         };
 
@@ -849,95 +961,110 @@ struct ImportTextProcedureWorkInstance
                 return true;
             };
 
+        atomic<ssize_t> lineCount(0);
         auto onLine = [&] (const char * line,
                            size_t length,
                            int chunkNum,
                            int64_t lineNum)
-	    {
-	        int64_t actualLineNum = lineNum + lineOffset;
+        {
+            if (++lineCount % 1000 == 0) {
+                iterationStep->value = lineCount;
+                onProgress(jsonEncode(iterationStep));
+            }
+            int64_t actualLineNum = lineNum + lineOffset;
 #if 0
-	        uint64_t linesDone = totalLinesProcessed.fetch_add(1);
+            uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
-	        if (linesDone && linesDone % 1000000 == 0) {
-	            double wall = timer.elapsed_wall();
-	            cerr << "done " << linesDone << " in " << wall
-	                 << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
-	                 << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
-	        }
+            if (linesDone && linesDone % 1000000 == 0) {
+                double wall = timer.elapsed_wall();
+                cerr << "done " << linesDone << " in " << wall
+                     << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
+                     << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+            }
 #endif
-                
-                // MLDB-1111 empty lines are treated as error
-	        if (length == 0) 
-	            return handleError("empty line", actualLineNum, 0, "");
-	           
 
-	        // Values that come in from the CSV file
-	        // TODO: clang doesn't like a variable length array
-	        // here.  Find another way to allocate it on the
-	        // stack.
-	        vector<CellValue> values(inputColumnNames.size());
+            // MLDB-1111 empty lines are treated as error
+            if (length == 0)
+                return handleError("empty line", actualLineNum, 0, "");
 
-	        const char * lineStart = line;
 
-                const size_t numInputColumn = inputColumnNames.size();
+            // Values that come in from the CSV file
+            // TODO: clang doesn't like a variable length array
+            // here.  Find another way to allocate it on the
+            // stack.
+            vector<CellValue> values(inputColumnNames.size());
 
-	        const char * errorMsg
+            const char * lineStart = line;
+
+            const size_t numInputColumn = inputColumnNames.size();
+
+            const char * errorMsg
                     = parseFixedWidthCsvRow(line, length, &values[0],
                                             numInputColumn,
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith,
                                             isTextLine,
                                             hasQuoteChar);
-                
-                if (errorMsg)
-	            return handleError(errorMsg, actualLineNum,
-                                       line - lineStart + 1,
-                                       string(line, length));
 
-	        auto row = scope.bindRow(&values[0], ts, actualLineNum,
+                if (errorMsg) {
+                    if(config.allowMultiLines) {
+                        // check if we hit an error meaning we probably
+                        // have a multiline error
+                        if(errorMsg == unclosedQuoteError ||
+                           errorMsg == notEnoughColsError) {
+                            return false;
+                        }
+                    }
+
+                    return handleError(errorMsg, actualLineNum,
+                                           line - lineStart + 1,
+                                           string(line, length));
+                }
+
+            auto row = scope.bindRow(&values[0], ts, actualLineNum,
                                          0 /* todo: chunk ofs */);
 
-	        // If it doesn't match the where, don't add it 
-	        if (!isWhereTrue) {
-	            ExpressionValue storage;
-	            if (!whereBound(row, storage, GET_ALL).isTrue())
-	                return true;
-	        }
-	            
-	        // Get the timestamp for the row
-	        Date rowTs = ts;
-	        ExpressionValue tsStorage;
-	        rowTs = timestampBound(row, tsStorage, GET_ALL)
+            // If it doesn't match the where, don't add it
+            if (!isWhereTrue) {
+                ExpressionValue storage;
+                if (!whereBound(row, storage, GET_ALL).isTrue())
+                    return true;
+            }
+
+            // Get the timestamp for the row
+            Date rowTs = ts;
+            ExpressionValue tsStorage;
+            rowTs = timestampBound(row, tsStorage, GET_ALL)
                     .coerceToTimestamp().toTimestamp();
-	           
-	        ExpressionValue nameStorage;
-	        RowName rowName(namedBound(row, nameStorage, GET_ALL)
+
+            ExpressionValue nameStorage;
+            RowName rowName(namedBound(row, nameStorage, GET_ALL)
                                 .toUtf8String());
 
-                //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
+            //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 
-                auto & threadAccum = accum.get();
+            auto & threadAccum = accum.get();
 
-	        if (isIdentitySelect) {
-	            // If it's a select *, we don't really need to run the
-	            // select clause.  We simply go for it.
-                    threadAccum.specializedRecorder(std::move(rowName),
-                                                    rowTs, values.data(),
-                                                    values.size(), {});
-	        }
-	        else {
-	            // TODO: optimization for
-	            // SELECT * excluding (...)
+            if (isIdentitySelect) {
+                // If it's a select *, we don't really need to run the
+                // select clause.  We simply go for it.
+                threadAccum.specializedRecorder(std::move(rowName),
+                                                rowTs, values.data(),
+                                                values.size(), {});
+            }
+            else {
+                // TODO: optimization for
+                // SELECT * excluding (...)
 
-	            ExpressionValue selectStorage;
-	            const ExpressionValue & selectOutput
+                ExpressionValue selectStorage;
+                const ExpressionValue & selectOutput
                         = selectBound(row, selectStorage, GET_ALL);
 
-     	            if (&selectOutput == &selectStorage) {
-	                // We can destructively work with it
-                        threadAccum.threadRecorder
-                            ->recordRowExprDestructive(std::move(rowName),
-                                                       std::move(selectStorage));
+                if (&selectOutput == &selectStorage) {
+                    // We can destructively work with it
+                    threadAccum.threadRecorder
+                        ->recordRowExprDestructive(std::move(rowName),
+                                                   std::move(selectStorage));
                     }
                     else {
                         // We don't own the output; we will need to copy
@@ -945,15 +1072,52 @@ struct ImportTextProcedureWorkInstance
                         threadAccum.threadRecorder
                             ->recordRowExpr(std::move(rowName),
                                             selectOutput);
-	            }
-	        }
+                }
+            }
 
-	        return true;
-	    };
+            return true;
+        };
 
-        forEachLineBlock(stream, onLine, config.limit,
-                         32 /* parallelism */,
-                         startChunk, doneChunk);
+
+        if(!config.allowMultiLines) {
+            forEachLineBlock(stream, onLine, config.limit,
+                             32 /* parallelism */,
+                             startChunk, doneChunk);
+        }
+        else {
+            // very simplistic and not efficient way of doing multi-line. we send
+            // lines one by one to the 'onLine' function, and if
+            // we get an error that probably is caused by a multi-
+            // line string, we concat the current line with the next
+            // one and try again. 
+            startChunk(0, 0);
+
+            string line;
+            string t_line;
+            string prevLine;
+            int64_t lineNum = 0;
+            while(getline(stream, line)) {
+                // prepend previous line if we're tagging it along
+                if(!prevLine.empty()) {
+                    t_line.assign(std::move(line));
+                    line.assign(std::move(prevLine));
+                    line += ' ' + t_line;
+                }
+
+                if(!onLine(line.c_str(), line.size(),
+                           0 /* chunkNum */, lineNum)) {
+                    prevLine.assign(std::move(line));
+                } else {
+                    prevLine.erase();
+                    lineNum++;
+                }
+
+                if(config.limit > 0 && lineNum >= config.limit)
+                    break;
+            }
+
+            doneChunk(0, lineNum);
+        }
 
         //cerr << "processed " << totalLinesProcessed << " lines" << endl;
 
@@ -992,32 +1156,26 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(config, run);
 
-    auto onProgress2 = [&] (const Json::Value & progress) {
-        Json::Value value;
-        value["dataset"] = progress;
-        return onProgress(value);
-    };
-
     std::shared_ptr<Dataset> dataset
-        = createDataset(server, runProcConf.outputDataset, onProgress2,
+        = createDataset(server, runProcConf.outputDataset, onProgress,
                         true /*overwrite*/);
 
     ImportTextProcedureWorkInstance instance;
 
-    instance.loadText(config, dataset, server);
+    instance.loadText(config, dataset, server, onProgress);
 
     Json::Value status;
     status["numLineErrors"] = instance.numLineErrors;
 
     dataset->commit();
 
-    return Any(status);    
+    return Any(status);
 }
 
 namespace {
 
 RegisterProcedureType<ImportTextProcedure, ImportTextConfig>
-regImportText(builtinPackage(), "import.text",
+regImportText(builtinPackage(),
       "Import from a text file, line by line.",
       "procedures/importtextprocedure.md.html");
 

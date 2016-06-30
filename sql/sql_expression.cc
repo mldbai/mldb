@@ -117,10 +117,17 @@ ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
-    if (!metadata.isConstant)
-        throw HttpReturnException(400, "Attempt to extract constant from non-constant expression",
-                                  "surface", expr->surface,
-                                  "ast", expr->print());
+    return expr->constantValue();
+
+    if (!metadata.isConstant) {
+        throw HttpReturnException
+            (400, "Attempt to extract constant from non-constant expression.  "
+             "One of the elements of the expression requires a constant "
+             "value, for example the text of a regular expression, but was "
+             "actually a non-constant expression: '" + expr->surface + "'",
+             "surface", expr->surface,
+             "ast", expr->print());
+    }
 
     // This is only OK to do here because by setting isConstant in its metadata,
     // the expression is guaranteeing it will never access its context.
@@ -216,6 +223,18 @@ doGetFunction(const Utf8String & tableName,
     if (factory) {
         return factory(functionName, args, argScope);
     }
+
+    if (functionName == "leftRowName")
+        throw HttpReturnException(400, "Function 'leftRowName' is not available outside of a join");
+
+    if (functionName == "rightRowName")
+        throw HttpReturnException(400, "Function 'rightRowName' is not available outside of a join");
+
+    if (functionName == "leftRowPath")
+        throw HttpReturnException(400, "Function 'leftRowPath' is not available outside of a join");
+
+    if (functionName == "rightRowPath")
+        throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
     
     return {nullptr, nullptr};
 }
@@ -325,7 +344,7 @@ ColumnGetter
 SqlBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " must override getColumn: wanted "
                               + columnName.toUtf8String());
 }
@@ -335,7 +354,7 @@ SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override getAllColumns: wanted "
                         + tableName);
 }
@@ -346,7 +365,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doCreateRowsWhereGenerator");
 }
 
@@ -354,7 +373,7 @@ ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doGetColumnFunction");
 }
 
@@ -362,7 +381,7 @@ ColumnGetter
 SqlBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support bound parameters ($1... or $name)");
 }
 
@@ -370,7 +389,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -378,7 +397,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -386,7 +405,7 @@ TableOperations
 SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting tables");
 }
 
@@ -395,8 +414,8 @@ SqlBindingScope::
 doResolveTableName(const ColumnName & fullColumnName,
                    Utf8String &tableName) const
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-                              + " does not support resolving table names");
+    //default behaviour is there is no dataset so return the full column name
+    return fullColumnName;
 }
 
 MldbServer *
@@ -1415,7 +1434,8 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         bool negative = false;
         // IN and NOT IN precedence is the same as the NOT operator
         if (currentPrecedence > 5) {
-            if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN")) {
+            if ((negative = matchKeyword(context, "NOT IN")) ||
+                (!peekKeyword(context, "INNER") && matchKeyword(context, "IN"))) {
                 expect_whitespace(context);
 
                 context.expect_literal('(');
@@ -1434,14 +1454,14 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     lhs->surface = ML::trim(token.captured());
                 }
                 else if (matchKeyword(context, "KEYS OF")) {
-                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
                     lhs->surface = ML::trim(token.captured());                
                 }
                 else if (matchKeyword(context, "VALUES OF")) {
-                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
@@ -1460,13 +1480,15 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         }
 
         // 'LIKE' expression
-        if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
-            expect_whitespace(context);
+        if (currentPrecedence > 5) {
+            if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
+                expect_whitespace(context);
 
-            auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                auto rhs = SqlExpression::parse(context, 5, allowUtf8);
 
-            lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
-            lhs->surface = ML::trim(token.captured());
+                lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
+                lhs->surface = ML::trim(token.captured());
+            }
         }
 
         // Now look for an operator
@@ -1474,12 +1496,12 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         for (const Operator & op: operators) {
             if (op.unary)
                 continue;
-            if (op.precedence > currentPrecedence) {
+            if (op.precedence >= currentPrecedence) {
                 /* Will need to be bound outside our expression, since the precence is wrong. */
                 break;
             }
             if (matchOperator(context, op.token)) {
-                auto rhs = parse(context, op.precedence - 1, allowUtf8);
+                auto rhs = parse(context, op.precedence, allowUtf8);
                 lhs = op.handler(lhs, rhs, op.token);
                 lhs->surface = ML::trim(token.captured());
                 found = true;
@@ -1805,49 +1827,20 @@ unimp(std::shared_ptr<SqlExpression> lhs,
     throw HttpReturnException(400, "unimplemented operator " + op);
 }
 
+//Find aggregators for any class implementing getChildren.
+template <class T>
 std::vector<std::shared_ptr<SqlExpression> >
-SqlExpression::
-findAggregators(bool withGroupBy) const
+findAggregatorsT(const T* expression, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
-
     std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
+    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
     
-    auto isAggregator = [](std::shared_ptr<SqlExpression> expr) {
-        if (expr->getType() == "function") {
-            const FunctionCallExpression * function
-                = dynamic_cast<const FunctionCallExpression *>(expr.get());
-            if (function) {
-                Utf8String functionName = function->functionName;
-                return !!tryLookupAggregator(functionName);
-            }
-            else {
-                throw HttpReturnException
-                    (500, "Unexpected: could not cast FunctionCallExpression");
-            }
-        }
-        return false;
-    };
-
-    auto isWildcard = [](std::shared_ptr<SqlExpression> expr) {
-        if (expr->getType() == "selectWildcard") {
-            const WildcardExpression * wildcard = dynamic_cast<const WildcardExpression *>(expr.get());
-            if (wildcard) {
-                return true;
-            }
-            else {
-                throw HttpReturnException(500, "Unexpected: could not cast WildcardExpression");
-            }
-        }
-        return false;
-    };
-
      // collect aggregators
     for (auto iter = children.begin(); iter != children.end(); ++iter)
     {
         auto child = *iter;
-        if (isAggregator(child))
+        if (child->isAggregator())
             output.push_back(child);
         else {
             //we dont look for aggregators in aggregator - its not legal - this check above
@@ -1871,12 +1864,13 @@ findAggregators(bool withGroupBy) const
        - "SELECT sum({*}), temporal_earliest({*})" is not valid
        Other invalid SELECT expressions in presence of GROUP BY like referring to a variable
        not in the GROUP BY expression are detected later when binding these expressions.
+       We use the same logic for order by expressions.
     */
     std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
         for (IterType it = begin; it < end; ++it) {
-            if (!isAggregator(*it)) {
+            if (!(*it)->isAggregator()) {
                 auto children = (*it)->getChildren();
-                if (children.size() == 0  && isWildcard(*it)) {
+                if (children.size() == 0  && (*it)->isWildcard()) {
                     return false;
                 }
                 culprit.push_back((*it)->surface);
@@ -1889,7 +1883,7 @@ findAggregators(bool withGroupBy) const
     };
     
     bool wildcardInAggs = wildcardNestedInAggregator(children.begin(), children.end());
-    
+ 
     if (!wildcardInAggs && (output.size() != 0 || withGroupBy)) {
         throw HttpReturnException(400, (withGroupBy ?
                                         "Non-aggregator '" + culprit.front() + 
@@ -1901,6 +1895,12 @@ findAggregators(bool withGroupBy) const
     return std::move(output);
 }
 
+std::vector<std::shared_ptr<SqlExpression> >
+SqlExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<SqlExpression>(this, withGroupBy);
+}
 
 struct SqlExpressionDescription
     : public ValueDescriptionT<std::shared_ptr<SqlExpression> > {
@@ -2143,7 +2143,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
                 columnName = asName;
                 skip_whitespace(context);
                 expr = SqlExpression::parse(context, 10, allowUtf8);
-                auto result = std::make_shared<ComputedColumn>
+                auto result = std::make_shared<NamedColumnExpression>
                     (columnName, expr);
                 result->surface = capture.captured();
                 return result;
@@ -2272,7 +2272,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         else columnName = PathElement(expr->surface);
     }
 
-    auto result = std::make_shared<ComputedColumn>(columnName, expr);
+    auto result = std::make_shared<NamedColumnExpression>(columnName, expr);
 
     result->surface = capture.captured();
     return result;
@@ -2617,6 +2617,26 @@ getUnbound() const
     UnboundEntities result;
     for (const auto & c: clauses) {
         result.merge(c.first->getUnbound());
+    }
+
+    return result;
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+OrderByExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<OrderByExpression>(this, withGroupBy);
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+OrderByExpression::
+getChildren() const
+{
+    std::vector<std::shared_ptr<SqlExpression> > result;
+
+    for (auto & c: clauses) {
+        result.push_back(c.first);
     }
 
     return result;
@@ -3007,7 +3027,6 @@ bind(SqlBindingScope & context) const
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             StructValue result;
-
             for (auto & c: boundClauses) {
                 ExpressionValue v = c(context, filter);
                 v.mergeToRowDestructive(result);
@@ -3086,6 +3105,17 @@ isIdentitySelect(SqlExpressionDatasetScope & context) const
     // execution of some expressions.
     return clauses.size() == 1
         && clauses[0]->isIdentitySelect(context);
+}
+
+bool
+SelectExpression::
+isConstant() const
+{
+    for (auto & c: clauses) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
 }
 
 struct SelectExpressionDescription
@@ -3694,7 +3724,7 @@ SelectStatement() :
     when(WhenExpression::TRUE),
     where(SelectExpression::TRUE),
     having(SelectExpression::TRUE),
-    rowName(SqlExpression::parse("rowName()")),
+    rowName(SqlExpression::parse("rowPath()")),
     offset(0),
     limit(-1)
 {
@@ -3750,7 +3780,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        //default name is "rowName()" if there is a dataset and "result" if there is none
+        //default name is "rowPath()" if there is a dataset and "result" if there is none
         //we need to check if there is a FROM first.
         needDefaultRowName = true;
     }
@@ -3759,7 +3789,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         statement.from = TableExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
         if (needDefaultRowName)
-            statement.rowName = SqlExpression::parse("rowName()");
+            statement.rowName = SqlExpression::parse("rowPath()");
     }
     else {
         statement.from = std::make_shared<NoTable>();

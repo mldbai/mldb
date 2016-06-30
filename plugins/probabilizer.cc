@@ -3,7 +3,7 @@
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-    
+
     Implementation of an algorithm to transform an arbitrary score into a
     calibrated probability.
 */
@@ -36,7 +36,7 @@ using namespace ML;
 
 
 //#if (__GNUC__ < 4) || (__GNUC__ == 4 && __GNUC_MINOR__ <= 6)
-#define override 
+#define override
 //#endif
 
 namespace Datacratic {
@@ -73,10 +73,10 @@ ProbabilizerConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<ProbabilizerConfig, 
-                              InputQuery, 
-                              MustContainFrom,
-                              NoGroupByHaving>(&ProbabilizerConfig::trainingData, "probabilizer");
+    onPostValidate = chain(validateQuery(&ProbabilizerConfig::trainingData,
+                                         MustContainFrom(),
+                                         NoGroupByHaving()),
+                           validateFunction<ProbabilizerConfig>());
 }
 
 struct ProbabilizerRepr {
@@ -125,7 +125,7 @@ run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
     // 1.  Construct an applyFunctionToProcedure object
-    
+
     // 2.  Extend with our training function
 
     // 3.  Apply everything to construct the dataset
@@ -160,7 +160,7 @@ run(const ProcedureRunConfig & run,
 
     std::mutex fvsLock;
     std::vector<std::tuple<RowName, float, float, float> > fvs;
-    
+
     std::atomic<int> numRows(0);
 
     auto processor = [&] (NamedRowValue & row,
@@ -172,19 +172,19 @@ run(const ProcedureRunConfig & run,
             ++numRows;
 
             std::unique_lock<std::mutex> guard(fvsLock);
-            
+
             fvs.emplace_back(row.rowName, score, label, weight);
             return true;
         };
 
-    iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName, 
+    iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    extra, {processor,true/*processInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
-    
+
 
     int nx = numRows;
 
@@ -218,7 +218,7 @@ run(const ProcedureRunConfig & run,
                           outputs[0][i],
                           outputs[1][i],
                           correct[i]);
-        
+
     }
 #endif
 
@@ -240,7 +240,7 @@ run(const ProcedureRunConfig & run,
     ML::Ridge_Regressor regressor;
     ML::distribution<double> probParams
         = ML::run_irls(correct, outputs, weights, link, regressor);
-    
+
     cerr << "probParams = " << probParams << endl;
 
     // http://gking.harvard.edu/files/0s.pdf, section 4.2
@@ -385,7 +385,6 @@ namespace {
 
 static RegisterProcedureType<ProbabilizerProcedure, ProbabilizerConfig>
 regProbabilizer(builtinPackage(),
-                "probabilizer.train",
                 "Trains a model to calibrate a score into a probability",
                 "procedures/Probabilizer.md.html");
 

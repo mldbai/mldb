@@ -1,6 +1,6 @@
 # Function Application via REST
 
-All MLDB Functions are also automatically accessible as REST Endpoints, which can be used to apply machine learning models in a streaming/real-time process. Functions can be applied via a REST API call like `GET /v1/functions/<id>/application?input={<values>}`.
+All MLDB user-defined Functions (including machine learning models created by [Procedures](../procedures/Procedures.md)) are not only available within [SQL queries](../sql/ValueExpression.md.html#CallingFunctions) also automatically accessible as REST Endpoints, which can be used to apply machine learning models in a streaming/real-time process. Functions can be applied via a REST API call like `GET /v1/functions/<id>/application?input={<values>}`.
 
 Let's look at a hypothetical Function with id `example` whose type defined the following input and output values:
 

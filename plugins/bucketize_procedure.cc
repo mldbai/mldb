@@ -1,8 +1,6 @@
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
- * Copyright (c) 2015 Datacratic Inc. All rights reserved.
- *
  * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
 
@@ -22,6 +20,8 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/utils/log.h"
+#include "progress.h"
 #include <memory>
 
 using namespace std;
@@ -98,7 +98,7 @@ BucketizeProcedureConfigDescription()
             }
             last = range;
         }
-        MustContainFrom<InputQuery>()(cfg->inputData, "bucketize");
+        MustContainFrom()(cfg->inputData, BucketizeProcedureConfig::name);
     };
 }
 
@@ -117,6 +117,11 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
+    Progress bucketizeProgress;
+    std::shared_ptr<Step> iterationStep = bucketizeProgress.steps({
+        make_pair("iterating", "percentile"),
+        make_pair("bucketizing", "percentile")
+    });
 
     SqlExpressionMldbScope context(server);
 
@@ -150,6 +155,16 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 
+    mutex progressMutex;
+    auto onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        lock_guard<mutex> lock(progressMutex);
+        if (iterationStep->value > itProgress.percent) {
+            iterationStep->value = itProgress.percent;
+        }
+        return onProgress(jsonEncode(bucketizeProgress));
+    };
+
     BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
@@ -157,10 +172,11 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-        .execute({getSize, false/*processInParallel*/}, 
-                 runProcConf.inputData.stm->offset, 
-                 runProcConf.inputData.stm->limit, 
-                 onProgress);
+
+        .execute({getSize, false/*processInParallel*/},
+                 runProcConf.inputData.stm->offset,
+                 runProcConf.inputData.stm->limit,
+                 onProgress2);
 
     int64_t rowCount = orderedRowNames.size();
     logger->debug() << "Row count: " << rowCount;
@@ -169,17 +185,19 @@ run(const ProcedureRunConfig & run,
                                 nullptr, true /*overwrite*/);
 
     typedef tuple<ColumnName, CellValue, Date> Cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
+    PerThreadAccumulator<vector<pair<RowName, vector<Cell>>>> accum;
 
+    auto bucketizeStep = iterationStep->nextStep(1);
+    atomic<ssize_t> rowIndex(0);
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
         rowValue.emplace_back(ColumnName("bucket"),
                               mappedRange.first,
                               globalMaxOrderByTimestamp);
-        
 
-        auto applyFct = [&] (int64_t index)
-        {
+
+        auto applyFct = [&] (int64_t index) {
+            ++ rowIndex;
             auto & rows = accum.get();
             rows.reserve(1024);
             rows.emplace_back(orderedRowNames[index], rowValue);
@@ -188,13 +206,21 @@ run(const ProcedureRunConfig & run,
                 output->recordRows(rows);
                 rows.clear();
             }
+            if ((rowIndex.load() % 2048) == 0) {
+                float newVal = (float)(rowIndex.load()) / rowCount;
+                lock_guard<mutex> lock(progressMutex);
+                if (newVal > bucketizeStep->value) {
+                    bucketizeStep->value = newVal;
+                }
+                onProgress(jsonEncode(bucketizeProgress));
+            }
         };
         auto range = mappedRange.second;
 
         //Make sure that numerical issues dont let 100 percentile go out of bound
         int64_t lowerBound = range.second == 0 ? 0 : int64_t(range.first / 100 * rowCount);
         int64_t higherBound = range.second == 100 ? rowCount : int64_t(range.second / 100 * rowCount);
-        
+
         ExcAssert(higherBound <= rowCount);
 
         logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
@@ -204,7 +230,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<Cell> > > * rows)
+    accum.forEach([&] (vector<pair<RowName, vector<Cell>>> * rows)
     {
         output->recordRows(*rows);
     });
@@ -223,12 +249,11 @@ getStatus() const
 static RegisterProcedureType<BucketizeProcedure, BucketizeProcedureConfig>
 regBucketizeProcedure(
     builtinPackage(),
-    "bucketize",
     "Assign buckets based on percentile ranges over a sorted dataset",
     "procedures/BucketizeProcedure.md.html",
     nullptr /* static route */,
     { MldbEntity::INTERNAL_ENTITY });
- 
+
 
 } // namespace MLDB
 } // namespace Datacratic
