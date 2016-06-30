@@ -3859,16 +3859,6 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-
-    if (statement.from->getType() == "null") {
-        for (const auto & c: statement.select.clauses) {
-            if (typeid(*c.get()) == typeid(WildcardExpression)) {
-                throw ML::Exception(
-                    "Wildcard usage requires a FROM statement");
-            }
-        }
-    }
-
     return std::move(statement);
 }
 
