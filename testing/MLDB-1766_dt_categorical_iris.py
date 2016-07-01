@@ -65,7 +65,7 @@ class MLDB1766DtCategoricalIris(MldbUnitTest):  # noqa
 
         runResults = rez.json()["status"]["firstRun"]["status"]
 
-        self.assertLess(runResults["labelStatistics"]["Iris-virginica"]["recall"], 0.9)
+        self.assertLess(runResults["labelStatistics"]["Iris-virginica"]["recall"], 0.95)
 
 if __name__ == '__main__':
     mldb.run_tests()

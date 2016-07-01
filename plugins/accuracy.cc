@@ -326,18 +326,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
-
-                    auto label_it = confusion_matrix.find(label);
-                    // label is a new true label
-                    if(label_it == confusion_matrix.end()) {
-                        confusion_matrix.emplace(label,
-                                                 map<CellValue, uint>{{predicted, 1}});
-                    }
-                    // we already know about this true label
-                    else {
-                        label_it->second[label] += 1;
-                    }
-
+                    confusion_matrix[label][predicted] += 1;
                     real_sums[label] += 1;
                     predicted_sums[predicted] += 1;
                 }
