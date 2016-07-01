@@ -530,9 +530,26 @@ run(const ProcedureRunConfig & run,
 
     ML::Training_Data trainingSet(featureSpace);
 
-    ML::distribution<float> labelWeights[2];
-    labelWeights[0].resize(nx);
-    labelWeights[1].resize(nx);
+
+    unsigned num_weight_labels;
+    switch (runProcConf.mode) {
+    case CM_REGRESSION:
+        num_weight_labels = 1;
+        break;
+    case CM_BOOLEAN:
+        num_weight_labels = 2;
+        break;
+    case CM_CATEGORICAL:
+        num_weight_labels = labelMapping.size();
+        break;
+    default:
+        throw HttpReturnException(400, "Unknown classifier mode");
+    }
+
+    std::vector<ML::distribution<float>> labelWeights(num_weight_labels);
+    for(int i=0; i<num_weight_labels; i++) {
+        labelWeights[i].resize(nx);
+    }
 
     ML::distribution<float> exampleWeights(nx);
 
@@ -556,8 +573,12 @@ run(const ProcedureRunConfig & run,
 
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
 
-        labelWeights[0][i] = weight * !label;
-        labelWeights[1][i] = weight * label;
+        if(runProcConf.mode != CM_REGRESSION) {
+            for(int lbl=0; lbl<num_weight_labels; lbl++) {
+                labelWeights[lbl][i] = weight * (label == lbl);
+            }
+        }
+
         exampleWeights[i]  = weight;
     }
 
@@ -633,16 +654,17 @@ run(const ProcedureRunConfig & run,
         weights = exampleWeights;
     }
     else {
-        double factorTrue  = pow(labelWeights[1].total(), -equalizationFactor);
-        double factorFalse = pow(labelWeights[0].total(), -equalizationFactor);
+        ML::distribution<float> factor_accum(exampleWeights.size(), 0);
+        for(int lbl=0; lbl<num_weight_labels; lbl++) {
+            double factor = pow(labelWeights[lbl].total(), -equalizationFactor);
 
-        INFO_MSG(logger) << "factorTrue = " << factorTrue;
-        INFO_MSG(logger) << "factorFalse = " << factorFalse;
+            //INFO_MSG(logger) 
+            cerr << "factor for class " << lbl << " = " << factor << endl;
 
-        weights = exampleWeights
-            * (factorTrue  * labelWeights[true]
-            + factorFalse * labelWeights[false]);
+            factor_accum += factor * labelWeights[lbl];
+        }
 
+        weights = exampleWeights * factor_accum;
         weights.normalize();
     }
 
