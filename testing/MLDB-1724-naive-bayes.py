@@ -81,9 +81,14 @@ female 5.75 150 9""")
                 ]:
             prediction = mldb.get('/v1/query',
                 q="""SELECT classify({features: {%s}}) as *""" % feats,
-                format='aos').json()[0]['score']
-            print prediction
-            self.assertLess(prediction - target, .01)
+                format='aos').json();
+            mldb.log(prediction)
+            if 'scores.1' in prediction[0]:
+                score = prediction[0]['scores.1']
+            else:
+                score = prediction[0]['score']
+            print score
+            self.assertLess(score - target, .01)
 
 
     def test_naive_bayes(self):

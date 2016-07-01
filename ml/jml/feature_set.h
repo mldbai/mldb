@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* feature_set.h                                                   -*- C++ -*-
    Jeremy Barnes, 10 May 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    A feature set.
 */
@@ -366,8 +365,6 @@ public:
     virtual std::tuple<const Feature *, const float *, int, int, size_t>
     get_data(bool need_sorted = false) const
     {
-        ExcAssertGreater(features.size(), 0);
-
         if (need_sorted && !is_sorted) sort();
 
         return std::make_tuple
