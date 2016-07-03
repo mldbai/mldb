@@ -899,9 +899,10 @@ StatsTablePosNegFunction(MldbServer * owner,
     }
 
     // sort all the keys by their p(outcome)
-    vector<pair<Utf8String, std::array<uint64_t, 2>>> accum;
+    typedef pair<Utf8String, std::array<uint64_t, 2>> KeyAndCounts;
+    vector<KeyAndCounts> accum;
     for(auto it = statsTable.counts.begin(); it!=statsTable.counts.end(); it++) {
-        const pair<uint64_t, std::vector<uint64_t>> & counts = it->second;
+        const StatsTable::BucketCounts & counts = it->second;
 
         if(counts.first < functionConfig.minTrials)
             continue;
@@ -913,12 +914,11 @@ StatsTablePosNegFunction(MldbServer * owner,
     }
 
     if(accum.size() < functionConfig.numPos + functionConfig.numNeg) {
-        for(const auto & col : accum)
-            p_outcomes.insert(col);
+        for(auto & col : accum)
+            p_outcomes.insert(std::move(col));
     }
     else {
-        auto compareFunc = [](const pair<Utf8String, std::array<uint64_t, 2>> & a,
-                              const pair<Utf8String, std::array<uint64_t, 2>> & b)
+        auto compareFunc = [](const KeyAndCounts & a, const KeyAndCounts & b)
             {
                 float p_outcome_a = a.second[1] / double(a.second[0]);
                 float p_outcome_b = b.second[1] / double(b.second[0]);
@@ -927,13 +927,13 @@ StatsTablePosNegFunction(MldbServer * owner,
         std::sort(accum.begin(), accum.end(), compareFunc);
 
         for(int i=0; i<functionConfig.numPos; i++) {
-            auto & a = accum[i];
-            p_outcomes.insert(std::move(a)); //make_pair(a.first, a.second));
+            auto & elem = accum[i];
+            p_outcomes.insert(std::move(elem));
         }
 
         for(int i=0; i<functionConfig.numNeg; i++) {
-            auto & a = accum[accum.size() - 1 - i];
-            p_outcomes.insert(std::move(a)); //make_pair(a.first, a.second));
+            auto & elem = accum[accum.size() - 1 - i];
+            p_outcomes.insert(std::move(elem));
         }
     }
 }
