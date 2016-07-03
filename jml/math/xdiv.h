@@ -1,18 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/* xdiv.h                                                          -*- C++ -*-
-   Jeremy Barnes, 30 January 2005
-   Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
+/*  xdiv.h                                                          -*- C++ -*-
+    Jeremy Barnes, 30 January 2005
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    ---
 
    Our old friend the xdiv function.
 */
 
-#ifndef __math__xdiv_h__
-#define __math__xdiv_h__
+#pragma once
 
 #include "mldb/jml/utils/float_traits.h"
 #include "mldb/compiler/compiler.h"
@@ -40,5 +35,3 @@ X rudiv(X val, Y by)
 
 } // namespace ML
 
-
-#endif /* __math__xdiv_h__ */

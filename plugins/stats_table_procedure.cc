@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** stats_table_procedure.cc
     Francois Maillet, 2 septembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Stats table procedure
 */
@@ -28,7 +26,9 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/optional_description.h"
-
+#include "mldb/jml/math/xdiv.h"
+#include <thread>
+#include <time.h>
 
 using namespace std;
 
@@ -67,6 +67,40 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 
 
 /*****************************************************************************/
+/* NOISE INJECTOR                                                            */
+/*****************************************************************************/
+
+double 
+NoiseInjector::
+rand_uniform() const {
+    // http://stackoverflow.com/questions/21237905/how-do-i-generate-thread-safe-uniform-random-numbers
+    std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+
+    std::uniform_real_distribution<> dis(0, 1);
+    return dis(gen) - 0.5;
+}
+
+double
+NoiseInjector::
+sample_laplace() const {
+    // https://en.wikipedia.org/wiki/Laplace_distribution#Generating_random_variables_according_to_the_Laplace_distribution
+    double U = rand_uniform();
+    return mu - (b * sgn(U)) * log(1-2*abs(U));
+}
+
+uint64_t 
+NoiseInjector::
+add_noise(uint count, int64_t max) const {
+    double noisy_count = count + sample_laplace();
+    if(noisy_count < 0)   return 0;
+    if(noisy_count > max) return max;
+    return noisy_count;
+}
+
+
+
+/*****************************************************************************/
 /* STATS TABLE                                                               */
 /*****************************************************************************/
 
@@ -85,7 +119,7 @@ increment(const CellValue & val, const vector<uint> & outcomes) {
     auto it = counts.find(key);
     if(it == counts.end()) {
         auto rtn = counts.emplace(
-            key, std::move(make_pair(1, vector<int64_t>(outcomes.begin(),
+            key, std::move(make_pair(1, vector<uint64_t>(outcomes.begin(),
                                                         outcomes.end()))));
         // return inserted value
         return (*(rtn.first)).second;
@@ -370,11 +404,19 @@ run(const ProcedureRunConfig & run,
 /* STATS TABLE FUNCTION                                                      */
 /*****************************************************************************/
 
+static const std::string INJECT_NOISE_DOC_STR = 
+     "Inject laplacian noise to counts. This is useful when training "
+     "a classifier on the examples that were used to genereate the counts. "
+     "Without the addition of noise, there will be label leakage leading "
+     "to overfitting.";
+
 DEFINE_STRUCTURE_DESCRIPTION(StatsTableFunctionConfig);
 
 StatsTableFunctionConfigDescription::
 StatsTableFunctionConfigDescription()
 {
+    addField("injectNoise", &StatsTableFunctionConfig::injectNoise,
+            INJECT_NOISE_DOC_STR, false);
     addField("statsTableFileUrl", &StatsTableFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
              "This file is created by the ![](%%doclink statsTable.train procedure).");
@@ -432,21 +474,25 @@ apply(const FunctionApplier & applier,
                            const CellValue & val,
                            Date ts)
             {
-                auto st = statsTables.find(columnName);
+                const auto & st = statsTables.find(columnName);
                 if(st == statsTables.end())
                     return true;
 
-                auto counts = st->second.getCounts(val);
-
-                rtnRow.emplace_back(PathElement("trial") + columnName, counts.first, ts);
+                const auto & counts = st->second.getCounts(val);
+                uint64_t num_trials = functionConfig.injectNoise ? 
+                                            noise.add_noise(counts.first) :
+                                            counts.first;
+                rtnRow.emplace_back(PathElement("trial") + columnName, num_trials, ts);
 
                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
                     rtnRow.emplace_back(PathElement(st->second.outcome_names[lbl_idx])
                                         +columnName,
-                                        counts.second[lbl_idx],
+                                        functionConfig.injectNoise ?
+                                            noise.add_noise(counts.second[lbl_idx], num_trials) :
+                                            counts.second[lbl_idx],
                                         ts);
                 }
-                
+
                 return true;
             };
 
@@ -818,6 +864,8 @@ StatsTablePosNegFunctionConfigDescription()
     addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
             "This must be one of the outcomes the stats "
             "table was trained with.");
+    addField("injectNoise", &StatsTablePosNegFunctionConfig::injectNoise,
+            INJECT_NOISE_DOC_STR, false);
     addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
              "This file is created by the ![](%%doclink statsTable.bagOfWords.train procedure).");
@@ -851,15 +899,17 @@ StatsTablePosNegFunction(MldbServer * owner,
     }
 
     // sort all the keys by their p(outcome)
-    vector<pair<Utf8String, float>> accum;
+    vector<pair<Utf8String, std::array<uint64_t, 2>>> accum;
     for(auto it = statsTable.counts.begin(); it!=statsTable.counts.end(); it++) {
-        const pair<int64_t, std::vector<int64_t>> & counts = it->second;
+        const pair<uint64_t, std::vector<uint64_t>> & counts = it->second;
 
         if(counts.first < functionConfig.minTrials)
             continue;
 
-        float poutcome = counts.second[outcomeToUseIdx] / float(counts.first);
-        accum.push_back(make_pair(it->first, poutcome));
+        accum.emplace_back(
+            make_pair(it->first,
+                      std::array<uint64_t, 2>{counts.first,
+                                              counts.second[outcomeToUseIdx]}));
     }
 
     if(accum.size() < functionConfig.numPos + functionConfig.numNeg) {
@@ -867,21 +917,23 @@ StatsTablePosNegFunction(MldbServer * owner,
             p_outcomes.insert(col);
     }
     else {
-        auto compareFunc = [](const pair<Utf8String, float> & a,
-                           const pair<Utf8String, float> & b)
+        auto compareFunc = [](const pair<Utf8String, std::array<uint64_t, 2>> & a,
+                              const pair<Utf8String, std::array<uint64_t, 2>> & b)
             {
-                return a.second > b.second;
+                float p_outcome_a = a.second[1] / double(a.second[0]);
+                float p_outcome_b = b.second[1] / double(b.second[0]);
+                return p_outcome_a > p_outcome_b;
             };
         std::sort(accum.begin(), accum.end(), compareFunc);
 
         for(int i=0; i<functionConfig.numPos; i++) {
             auto & a = accum[i];
-            p_outcomes.insert(make_pair(a.first, a.second));
+            p_outcomes.insert(std::move(a)); //make_pair(a.first, a.second));
         }
 
         for(int i=0; i<functionConfig.numNeg; i++) {
             auto & a = accum[accum.size() - 1 - i];
-            p_outcomes.insert(make_pair(a.first, a.second));
+            p_outcomes.insert(std::move(a)); //make_pair(a.first, a.second));
         }
     }
 }
@@ -929,9 +981,18 @@ apply(const FunctionApplier & applier,
                     return true;
                 }
 
+                float poutcome;
+                if(functionConfig.injectNoise) {
+                    float num_imps = noise.add_noise(it->second[0]);
+                    poutcome = ML::xdiv(noise.add_noise(it->second[1], num_imps), num_imps);
+                }
+                else {
+                    poutcome = ML::xdiv(it->second[1], float(it->second[0]));
+                }
+
                 rtnRow.emplace_back(columnName
-                                    + PathElement(functionConfig.outcomeToUse),
-                                    it->second,
+                                        + PathElement(functionConfig.outcomeToUse),
+                                    poutcome,
                                     ts);
 
                 return true;

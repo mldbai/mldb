@@ -22,7 +22,31 @@ namespace Datacratic {
 namespace MLDB {
 
 
+/*****************************************************************************/
+/* NOISE INJECTOR                                                            */
+/*****************************************************************************/
 
+struct NoiseInjector {
+
+    NoiseInjector() : mu(0), b(3)
+    {
+    }
+
+    double rand_uniform() const;
+
+    double sample_laplace() const;
+
+    uint64_t add_noise(uint count,
+                       int64_t max=std::numeric_limits<int64_t>::max()) const;
+
+    // http://stackoverflow.com/a/4609795
+    template <typename T> int sgn(T val) const {
+        return (T(0) < val) - (val < T(0));
+    }
+
+    const double mu;
+    const double b;
+};
 
 /*****************************************************************************/
 /* STATS TABLE                                                               */
@@ -33,7 +57,7 @@ struct StatsTable {
     StatsTable(const ColumnName & colName=ColumnName("ND"),
             const std::vector<std::string> & outcome_names = {})
         : colName(colName), outcome_names(outcome_names),
-          zeroCounts(std::make_pair(0, std::vector<int64_t>(outcome_names.size())))
+          zeroCounts(std::make_pair(0, std::vector<uint64_t>(outcome_names.size())))
     {
     }
 
@@ -41,7 +65,7 @@ struct StatsTable {
 
     // .first : nb trial
     // .second : nb of occurence of each outcome
-    typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
+    typedef std::pair<uint64_t, std::vector<uint64_t>> BucketCounts;
     const BucketCounts & increment(const CellValue & val,
                                    const std::vector<uint> & outcomes);
     const BucketCounts & getCounts(const CellValue & val) const;
@@ -115,10 +139,11 @@ struct StatsTableProcedure: public Procedure {
 
 struct StatsTableFunctionConfig {
     StatsTableFunctionConfig(const Url & modelFileUrl = Url())
-        : modelFileUrl(modelFileUrl)
+        : injectNoise(false), modelFileUrl(modelFileUrl)
     {
     }
 
+    bool injectNoise;
     Url modelFileUrl;
 };
 
@@ -144,6 +169,8 @@ struct StatsTableFunction: public Function {
     StatsTableFunctionConfig functionConfig;
 
     StatsTablesMap statsTables;
+
+    NoiseInjector noise;
 };
 
 
@@ -237,6 +264,7 @@ struct StatsTablePosNegFunctionConfig {
             const std::string & outcomeToUse = "") :
         numPos(50), numNeg(50), minTrials(50),
         outcomeToUse(outcomeToUse),
+        injectNoise(false),
         modelFileUrl(modelFileUrl)
     {
     }
@@ -247,6 +275,7 @@ struct StatsTablePosNegFunctionConfig {
 
     std::string outcomeToUse;
 
+    bool injectNoise;
     Url modelFileUrl;
 };
 
@@ -271,11 +300,10 @@ struct StatsTablePosNegFunction: public Function {
 
     StatsTablePosNegFunctionConfig functionConfig;
 
+    NoiseInjector noise;
 
-    std::map<Utf8String, float> p_outcomes;
+    std::map<Utf8String, std::array<uint64_t, 2>> p_outcomes;
 };
-
-
 
 
 } // namespace MLDB
