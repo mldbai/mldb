@@ -3039,9 +3039,13 @@ bind(SqlBindingScope & context) const
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             StructValue result;
+            result.reserve(boundClauses.size());
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context, filter);
-                v.mergeToRowDestructive(result);
+                ExpressionValue storage;
+                const ExpressionValue & v = c(context, storage, filter);
+                if (&v == &storage)
+                    storage.mergeToRowDestructive(result);
+                else v.appendToRow(Path(), result);
             }
             
             return storage = std::move(ExpressionValue(std::move(result)));
