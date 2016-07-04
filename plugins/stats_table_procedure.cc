@@ -35,6 +35,7 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
@@ -64,7 +65,6 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
     coords = Path::parse(str);
     return store;
 }
-
 
 /*****************************************************************************/
 /* STATS TABLE                                                               */
@@ -107,7 +107,6 @@ getCounts(const CellValue & val) const
     if(it == counts.end()) {
         return zeroCounts;
     }
-
     return it->second;
 }
 
@@ -436,7 +435,7 @@ apply(const FunctionApplier & applier,
                 if(st == statsTables.end())
                     return true;
 
-                auto counts = st->second.getCounts(val);
+                const auto & counts = st->second.getCounts(val);
 
                 rtnRow.emplace_back(PathElement("trial") + columnName, counts.first, ts);
 
@@ -785,7 +784,6 @@ run(const ProcedureRunConfig & run,
     
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty() &&
             !runProcConf.functionOutcomeToUse.empty()) {
-        cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
         clsFuncPC.type = "statsTable.bagOfWords.posneg";
         clsFuncPC.id = runProcConf.functionName;
@@ -941,7 +939,6 @@ apply(const FunctionApplier & applier,
         result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        cerr << jsonEncode(arg) << endl;
         throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
     
