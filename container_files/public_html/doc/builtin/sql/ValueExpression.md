@@ -520,7 +520,7 @@ calculate
 
 ### <a name="httpfunctions"></a>Web data functions
 
-The following functions are use to extract and process web data.
+The following functions are used to extract and process web data.
 
 - `extract_domain(str, {removeSubdomain: false}` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
 
