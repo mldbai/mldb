@@ -887,15 +887,17 @@ apply(const FunctionApplier & applier_,
     std::shared_ptr<ML::Mutable_Feature_Set> fset;
     Date ts;
 
-    std::tie(dense, fset, ts) = getFeatureSet(context, true /* try to optimize */);
+    std::tie(dense, fset, ts)
+        = getFeatureSet(context, applier.optInfo /* try to optimize */);
 
     StructValue result;
     result.reserve(1);
 
     auto cat = itl->labelInfo.categorical();
-    if (!dense.empty()) {
+    if (!dense.empty() && applier.optInfo) {
         if (cat) {
-            auto scores = itl->classifier.impl->predict(dense, applier.optInfo);
+            ML::Label_Dist scores
+                = itl->classifier.impl->predict(dense, applier.optInfo);
             ExcAssertEqual(scores.size(), labelCount);
 
             vector<tuple<PathElement, ExpressionValue> > row;
@@ -908,12 +910,14 @@ apply(const FunctionApplier & applier_,
         }
         else if (itl->labelInfo.type() == ML::REAL) {
             ExcAssertEqual(labelCount, 1);
-            float score = itl->classifier.impl->predict(0, dense, applier.optInfo);
+            float score
+                = itl->classifier.impl->predict(0, dense, applier.optInfo);
             result.emplace_back("score", ExpressionValue(score, ts));
         }
         else {
             ExcAssertEqual(labelCount, 2);
-            float score = itl->classifier.impl->predict(1, dense, applier.optInfo);
+            float score
+                = itl->classifier.impl->predict(1, dense, applier.optInfo);
             result.emplace_back("score", ExpressionValue(score, ts));
         }
     }
