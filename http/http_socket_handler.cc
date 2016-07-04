@@ -149,6 +149,11 @@ send(std::string str,
         };
         requestWrite(str, onWritten);
     }
+    else {
+        if (action == NEXT_CLOSE || action == NEXT_RECYCLE) {
+            requestClose();
+        }
+    }
 }
 
 void
