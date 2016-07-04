@@ -1,4 +1,4 @@
-# Dist Table Procedure
+# Distribution Table Procedure
 
 For a combination of feature columns (the `training_data` parameter) and outcomes, this procedure
 will iteratively (over the rows) calculate different statistics (count, avg, std, min, max) on
@@ -9,7 +9,7 @@ The feature columns are assumed to be string-valued, and the outcome numeric-val
 This procedure can be viewed as a ![](%%doclink statsTable.train procedure) where the
 labels are numbers instead of booleans.
 
-You can optionally specity an output dataset that will contain the computed rolling statistics for each feature column / outcome
+You can optionally specify an output dataset that will contain the computed rolling statistics for each feature column / outcome
 combination. Since we are doing it iteratively, it means that the statistics for row `n` will only use the `n-1` preceding rows.
 
 The resulting statistical tables can be persisted using the `distTableFileUrl` parameter
@@ -24,7 +24,7 @@ and used later on to lookup counts using the ![](%%doclink distTable.getstats fu
 Let's assume a dataset made up of data from a real-time bidding online campaign. Each row
 represents a bid request and each column represents a field in the bid request. We're interested
 in tracking statistics on each outcome, given some feature columns. The outcome we will be
-interesed in here is the `purchase_value`, and the features will be the `host` and the `region`.
+interested in here is the `purchase_value`, and the features will be the `host` and the `region`.
 
 
 |  rowName   |  host  |  region  | click\_on\_ad | purchase_value |

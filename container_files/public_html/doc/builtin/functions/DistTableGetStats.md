@@ -1,4 +1,4 @@
-# Dist Table Get Stats Function
+# Distribution Table Get Statistics Function
 
 Functions of this type do a lookup in a statistical table trained using the
 ![](%%doclink distTable.train procedure) and return the statistics (count, avg, std, min, max)
