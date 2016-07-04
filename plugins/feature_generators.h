@@ -23,13 +23,19 @@ namespace MLDB {
 /* FeatureHasher FUNCTION                                                    */
 /*****************************************************************************/
 
+enum HashingMode {
+    COLUMNS,
+    COLUMNS_AND_VALUES
+};
+
 struct HashedColumnFeatureGeneratorConfig {
     HashedColumnFeatureGeneratorConfig(int numBits = 8)
-        : numBits(numBits)
+        : numBits(numBits), mode(COLUMNS)
     {
     }
 
     int numBits;
+    HashingMode mode;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(HashedColumnFeatureGeneratorConfig);
