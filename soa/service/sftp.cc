@@ -599,7 +599,8 @@ isAlive() const
                                         9,           // length of var name
                                         "1",         // value
                                         1);          // length of value
-    return res != LIBSSH2_ERROR_SOCKET_RECV;
+    return res != LIBSSH2_ERROR_SOCKET_RECV
+        && res != LIBSSH2_ERROR_SOCKET_DISCONNECT;
 }
 
 struct SftpStreamingDownloadSource {
