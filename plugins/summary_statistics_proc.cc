@@ -131,7 +131,8 @@ run(const ProcedureRunConfig & run,
         const int AVG_IDX = 0;
         const int MAX_IDX = 1;
         const int MIN_IDX = 2;
-        const int NUM_UNIQUE_IDX = 3;
+        const int NUM_NULL_IDX = 3;
+        const int NUM_UNIQUE_IDX = 4;
 
         auto onRow = [&] (NamedRowValue & row)
         {
@@ -141,12 +142,14 @@ run(const ProcedureRunConfig & run,
                 ExcAssert(std::get<0>(cols[AVG_IDX]).toUtf8String() == "avg");
                 ExcAssert(std::get<0>(cols[MAX_IDX]).toUtf8String() == "max");
                 ExcAssert(std::get<0>(cols[MIN_IDX]).toUtf8String() == "min");
+                ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
                 first = false;
             }
             stats.mean      = std::get<1>(cols[AVG_IDX]).toDouble();
             stats.max       = std::get<1>(cols[MAX_IDX]).toDouble();
             stats.min       = std::get<1>(cols[MIN_IDX]).toDouble();
+            stats.numNull   = std::get<1>(cols[NUM_NULL_IDX]).toInt();
             stats.numUnique = std::get<1>(cols[NUM_UNIQUE_IDX]).toInt();
             return true;
         };
@@ -156,11 +159,12 @@ run(const ProcedureRunConfig & run,
             const auto & name = c.toUtf8String();
             rowName = &name;
             auto select = SelectExpression::parse(
-                "count_distinct(\"" + name + "\") AS num_unique,"
-                "min(\"" + name + "\") AS min,"
-                "max(\"" + name + "\") AS max,"
-                "avg(\"" + name + "\") AS avg"
-                );
+                "count_distinct(\"" + name + "\") AS num_unique, "
+                "min(\"" + name + "\") AS min, "
+                "max(\"" + name + "\") AS max, "
+                "avg(\"" + name + "\") AS avg, "
+                "sum(\"" + name + "\" IS NULL) AS num_null"
+            );
             try {
                 std::vector<std::shared_ptr<SqlExpression>> aggregators =
                     select.findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
@@ -202,9 +206,14 @@ run(const ProcedureRunConfig & run,
         row.emplace_back(ColumnName("num_unique"), numStats.numUnique, now);
         row.emplace_back(ColumnName("min"), numStats.min, now);
         row.emplace_back(ColumnName("max"), numStats.max, now);
-        row.emplace_back(ColumnName("avg"), numStats.min, now);
+        row.emplace_back(ColumnName("mean"), numStats.min, now);
+        row.emplace_back(ColumnName("num_null"), numStats.numNull, now);
+
+        row.emplace_back(ColumnName("std"), numStats.std, now);
+        row.emplace_back(ColumnName("quartile1"), numStats.q1, now);
+        row.emplace_back(ColumnName("median"), numStats.median, now);
+        row.emplace_back(ColumnName("quartile3"), numStats.q3, now);
         output->recordRow(RowName(it.first), row);
-        //pair<RowName, vector<Cell>> row(it.first, Cell());
     }
     output->commit();
     return output->getStatus();
