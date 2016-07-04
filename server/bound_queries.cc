@@ -1449,6 +1449,13 @@ execute(RowProcessor processor,
     typedef std::map<RowKey, GroupMapValue> GroupByMapType;
     std::vector<GroupByMapType> accum(numBuckets);
 
+    for (const auto & c: select.clauses) {
+        if (c->isWildcard()) {
+            throw HttpReturnException(
+                400, "Wildcard cannot be used with GROUP BY");
+        }
+    }
+
     //bind the selectexpression, this will create the bound aggregators (which we wont use, ah!)
     auto boundSelect = select.bind(*groupContext);
 

@@ -768,6 +768,13 @@ struct UnboundEntities {
     /// this expression to run inside of?  It looks inside vars and tables
     /// to work it out.
     bool hasUnboundVariables() const;
+
+    /// Is there any function that will require a row context?
+    bool hasRowFunctions() const;
+
+    bool needsRow() const {
+        return hasUnboundVariables() || hasRowFunctions();
+    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(UnboundEntities);

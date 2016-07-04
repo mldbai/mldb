@@ -137,6 +137,7 @@ struct PathElement {
     bool operator == (const PathElement & other) const;
     bool operator != (const PathElement & other) const;
     bool operator <  (const PathElement & other) const;
+    bool operator <= (const PathElement & other) const;
 
     bool startsWith(const std::string & other) const;
     bool startsWith(const PathElement & other) const;
@@ -740,6 +741,28 @@ struct Path {
     Utf8String toSimpleName() const;
 
     Utf8String toUtf8String() const;
+
+    /** Returns if this is an index, that is a non-negative integer
+        (possibly with leading zeros) that can be converted into an
+        array index.
+    */
+    bool isIndex() const
+    {
+        return length_ == 1
+            && digits(0) == PathElement::DIGITS_ONLY
+            && at(0).isIndex();
+    }
+
+    /** Convert to an integer, and return it.  If isIndex() is false,
+        then this will return -1.
+    */
+    ssize_t toIndex() const;
+
+    /** Convert to an integer, and return it.  If isIndex() is false,
+        then this will throw an exception.
+    */
+    size_t requireIndex() const;
+
 
     Path operator + (const Path & other) const;
     Path operator + (Path && other) const;
