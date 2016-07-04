@@ -35,6 +35,7 @@ will return:
 
 ## See also
 
+* The other [Web data built-in functions](../sql/ValueExpression.md.html#httpfunctions)
 * [BrowserScope](http://www.browserscope.org) website
 * [uap-core](https://github.com/ua-parser/uap-core) project
 
