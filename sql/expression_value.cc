@@ -1717,7 +1717,7 @@ parseJson(JsonParsingContext & context,
                 std::string str;
                 StringJsonPrintingContext context(str);
                 columnValue.extractJson(context);
-                columnValue = ExpressionValue(str, timestamp);
+                columnValue = ExpressionValue(Utf8String(str), timestamp);
             }
         }
 
