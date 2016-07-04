@@ -19,8 +19,8 @@ For example, if we take the same example as in the ![](%%doclink distTable.train
 the returned row, using for instance `host='patate.com'` and `region='on'` as features, would look like this:
 
 | rowName | stats.price.host.count | stats.price.host.avg | stats.price.host.std | ... | stats.price.region.std | stats.price.region.min | stats.price.region.max |
-|--|--|--|--|--|--|--|--|
-| result | 2 | 2 | 1.4142 | ... | 1 | 1 | 3 |
+|---------|---|---|---|---|---|---|---|
+| result  | 2 | 2 | 1.4142 | ... | 1 | 1 | 3 |
 
 
 ## See also
