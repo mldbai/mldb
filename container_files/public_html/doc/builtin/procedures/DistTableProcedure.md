@@ -13,11 +13,11 @@ You can optionally specify an output dataset that will contain the computed roll
 combination. Since we are doing it iteratively, it means that the statistics for row `n` will only use the `n-1` preceding rows.
 
 The resulting statistical tables can be persisted using the `distTableFileUrl` parameter
-and used later on to lookup counts using the ![](%%doclink distTable.getstats function).
+and used later on to lookup counts using the ![](%%doclink experimental.distTable.getStats function).
 
 ## Configuration
 
-![](%%config procedure distTable.train)
+![](%%config procedure experimental.distTable.train)
 
 ## Example
 
@@ -77,4 +77,4 @@ are unbiased with regards to the new information provided by this bid request
 after it has been bid on.
 
 ## See also
-* The ![](%%doclink distTable.getStats function) does a lookup in stats tables for an input row.
+* The ![](%%doclink experimental.distTable.getStats function) does a lookup in stats tables for an input row.

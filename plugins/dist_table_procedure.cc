@@ -197,17 +197,17 @@ DistTableProcedureConfigDescription()
              "be performed.");
     addField("outputDataset", &DistTableProcedureConfig::output,
              "Output dataset",
-             PolyConfigT<Dataset>().withType("sparse.mutable"));
+             PolyConfigT<Dataset>().withType("tabular"));
     addField("outcomes", &DistTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be of type `INTEGER` or `NUMBER`");
     addField("distTableFileUrl", &DistTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.dt') should be saved. "
-             "This file can be loaded by the ![](%%doclink distTable.getStats function). "
+             "This file can be loaded by the ![](%%doclink experimental.distTable.getStats function). "
              "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &DistTableProcedureConfig::functionName,
-             "If specified, an instance of the ![](%%doclink distTable.getStats function) "
+             "If specified, an instance of the ![](%%doclink experimental.distTable.getStats function) "
              "of this name will be created using the trained dist tables. Note that to use "
              "this parameter, the `distTableFileUrl` must also be provided.");
     addParent<ProcedureConfig>();
@@ -397,7 +397,7 @@ run(const ProcedureRunConfig & run,
 
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
         PolyConfig clsFuncPC;
-        clsFuncPC.type = "distTable.getStats";
+        clsFuncPC.type = "experimental.distTable.getStats";
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = DistTableFunctionConfig(runProcConf.modelFileUrl);
 
@@ -421,7 +421,7 @@ DistTableFunctionConfigDescription()
 {
     addField("distTableFileUrl", &DistTableFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.dt') to load. "
-             "This file is created by the ![](%%doclink distTable.train procedure).");
+             "This file is created by the ![](%%doclink experimental.distTable.train procedure).");
 }
 
 DistTableFunction::
@@ -546,13 +546,17 @@ RegisterProcedureType<DistTableProcedure, DistTableProcedureConfig>
 regSTTrain(builtinPackage(),
            "Create a statistical table on a given set of outcomes, with"
            " respect to certain feature columns",
-           "procedures/DistTableProcedure.md.html");
+           "procedures/DistTableProcedure.md.html",
+           nullptr /* static route */,
+           { MldbEntity::INTERNAL_ENTITY });
 
 RegisterFunctionType<DistTableFunction, DistTableFunctionConfig>
 regClassifyFunction(builtinPackage(),
-                    "distTable.getStats",
+                    "experimental.distTable.getStats",
                     "Get statistics from the previously created statistical table for a row of features",
-                    "functions/DistTableGetStats.md.html");
+                    "functions/DistTableGetStats.md.html",
+                    nullptr /* static route */,
+                    { MldbEntity::INTERNAL_ENTITY });
 
 } // file scope
 

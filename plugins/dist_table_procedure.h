@@ -90,7 +90,7 @@ struct DistTable {
 /*****************************************************************************/
 
 struct DistTableProcedureConfig : public ProcedureConfig {
-    static constexpr const char * name = "distTable.train";
+    static constexpr const char * name = "experimental.distTable.train";
 
     DistTableProcedureConfig()
     {

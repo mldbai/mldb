@@ -40,7 +40,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
 
         # call the distTable.train procedure
         mldb.post('/v1/procedures', {
-            'type': 'distTable.train',
+            'type': 'experimental.distTable.train',
             'params': {
                 'trainingData': """ SELECT host, region
                                     FROM bid_req
@@ -120,7 +120,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
         # create a function and call it (one was already created but let's test
         # this anyway)
         mldb.put('/v1/functions/get_stats2', {
-            'type': 'distTable.getStats',
+            'type': 'experimental.distTable.getStats',
             'params': {
                 'distTableFileUrl': dt_file
             }
