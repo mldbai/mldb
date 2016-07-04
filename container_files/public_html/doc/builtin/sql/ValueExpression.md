@@ -547,7 +547,7 @@ The following standard SQL aggregation functions are supported. They may only be
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
 - `count_distinct` returns the number of unique, distinct non-null values in the group.
 
-The following useful non-standard aggregation functions is also supported:
+The following useful non-standard aggregation functions are also supported:
 
 - `latest`, `earliest` will return the values with the latest or earliest timestamp in the group
 - `pivot(columnName, value)` will accumulate a single row per group, with the
