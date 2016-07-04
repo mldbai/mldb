@@ -34,4 +34,5 @@ MLDB [Procedures](procedures/Procedures.md) are used to train models, which can 
 * The ![](%%doclink import.word2vec procedure) can import [Word2Vec](https://code.google.com/p/word2vec/) embeddings 
 * The ![](%%doclink tfidf.train procedure) can train [Term-Frequency/Inverse-Document-Frequency (TF-IDF) models](https://en.wikipedia.org/wiki/Tf%E2%80%93idf)
 * The ![](%%doclink statsTable.train procedure) can assemble tables of counts to assemble [count-based features](https://www.youtube.com/watch?v=b7OSggJUVPY)
+* The ![](%%doclink feature_hasher function) can be used to do [feature hashing](https://en.wikipedia.org/wiki/Feature_hashing), which is a way to vectorize features
 
