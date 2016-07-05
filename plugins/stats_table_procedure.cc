@@ -284,7 +284,7 @@ run(const ProcedureRunConfig & run,
     map<ColumnName, vector<ColumnName>> colCache;
 
     auto processor = [&] (NamedRowValue & row_,
-                           const std::vector<ExpressionValue> & extraVals)
+                          const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
@@ -353,7 +353,6 @@ run(const ProcedureRunConfig & run,
             }
 
             output->recordRow(ColumnName(row.rowName), output_cols);
-
             return true;
         };
 
@@ -404,7 +403,7 @@ run(const ProcedureRunConfig & run,
 /* STATS TABLE FUNCTION                                                      */
 /*****************************************************************************/
 
-static const std::string INJECT_NOISE_DOC_STR = 
+static const std::string INJECT_NOISE_DOC_STR =
      "Inject laplacian noise to counts. This is useful when training "
      "a classifier on the examples that were used to genereate the counts. "
      "Without the addition of noise, there will be label leakage leading "
