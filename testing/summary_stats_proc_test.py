@@ -42,7 +42,8 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         })
         res = mldb.query("SELECT * FROM output")
         self.assertTableResultEquals(res, [
-            ["_rowName", "data_type", "num_null", "num_unique", "max", "mean", "min"],
+            ["_rowName", "value_data_type", "value_num_null",
+             "value_num_unique", "value_max", "value_mean", "value_min"],
             ["colTxt", "categorical", 1, 2, None, None, None],
             ["colC", "number", 2, 1, 20, 20, 20],
             ["colB", "number", 2, 1, 2, 2, 2],

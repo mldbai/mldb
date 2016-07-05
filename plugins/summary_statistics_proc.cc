@@ -69,7 +69,7 @@ SummaryStatisticsProcedure(MldbServer * owner,
 
 typedef tuple<ColumnName, CellValue, Date> Cell;
 
-// Simple handlers to reduce the size of the code in the run function.
+// Simple handlers to enhance the lisibility of the run function.
 struct NumericRowHandler {
     NumericRowHandler() = delete;
     NumericRowHandler(BoundTableExpression & boundDataset,
@@ -98,6 +98,7 @@ struct NumericRowHandler {
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
+                // Checks on the first row if the expected order is correct
                 ExcAssert(std::get<0>(cols[AVG_IDX]).toUtf8String() == "avg");
                 ExcAssert(std::get<0>(cols[MAX_IDX]).toUtf8String() == "max");
                 ExcAssert(std::get<0>(cols[MIN_IDX]).toUtf8String() == "min");
@@ -106,12 +107,12 @@ struct NumericRowHandler {
                 first = false;
             }
             vector<Cell> toRecord;
-            toRecord.emplace_back(ColumnName("data_type"), "number", now);
-            toRecord.emplace_back(ColumnName("mean"), std::get<1>(cols[AVG_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("max"), std::get<1>(cols[MAX_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("min"), std::get<1>(cols[MIN_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("num_null"), std::get<1>(cols[NUM_NULL_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_data_type"), "number", now);
+            toRecord.emplace_back(ColumnName("value_mean"), std::get<1>(cols[AVG_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_max"), std::get<1>(cols[MAX_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_min"), std::get<1>(cols[MIN_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toDouble(), now);
             output->recordRow(RowName(name), toRecord);
             return true;
         };
@@ -168,14 +169,15 @@ struct CategoricalRowHandler {
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
+                // Checks on the first row if the expected order is correct
                 ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
                 first = false;
             }
             vector<Cell> toRecord;
-            toRecord.emplace_back(ColumnName("data_type"), "categorical", now);
-            toRecord.emplace_back(ColumnName("num_null"), std::get<1>(cols[NUM_NULL_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_data_type"), "categorical", now);
+            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toDouble(), now);
             output->recordRow(RowName(name), toRecord);
             return true;
         };
