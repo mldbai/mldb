@@ -107,7 +107,6 @@ struct NumericRowHandler {
                 ExcAssert(std::get<0>(cols[NUM_NOT_NULL_IDX]).toUtf8String() == "num_not_null");
                 ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
-                first = false;
             }
             vector<Cell> toRecord;
             toRecord.emplace_back(ColumnName("value_data_type"), "number", now);
@@ -159,13 +158,21 @@ struct NumericRowHandler {
                                                     numNotNull * 0.75};
         int idx = 0;
         int64_t count = 0;
+        pair<int64_t, double> mostFrequent(0, 0);
         auto onRow2 = [&] (NamedRowValue & row) {
-            // TODO check order
             const auto & cols = row.columns;
-            count += std::get<1>(cols[0]).toInt();
+            if (JML_UNLIKELY(first)) {
+                ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");
+                ExcAssert(std::get<0>(cols[1]).toUtf8String() == "_1");
+            }
+            int64_t currentCount = std::get<1>(cols[0]).toInt();
+            count += currentCount;
+            if (currentCount > mostFrequent.first) {
+                mostFrequent.first = currentCount;
+                mostFrequent.second = std::get<1>(cols[1]).toDouble();
+            }
             while (idx < NUM_QUARTILES && quartilesThreshold[idx] < count) {
-                auto val = std::get<1>(cols[1]);
-                quartiles[idx] = val.toDouble();
+                quartiles[idx] = std::get<1>(cols[1]).toDouble();
                 ++idx;
             }
             return true;
@@ -190,7 +197,11 @@ struct NumericRowHandler {
         toRecord.emplace_back(ColumnName("value_1st_quartile"), quartiles[0], now);
         toRecord.emplace_back(ColumnName("value_median"), quartiles[1], now);
         toRecord.emplace_back(ColumnName("value_3rd_quartile"), quartiles[2], now);
+        toRecord.emplace_back(
+            ColumnName("value_most_frequent_items." + to_string(mostFrequent.second)),
+                       mostFrequent.first, now);
         output->recordRow(RowName(name), toRecord);
+        first = false;
     }
 
 };
@@ -222,7 +233,6 @@ struct CategoricalRowHandler {
                 // Checks on the first row if the expected order is correct
                 ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
-                first = false;
             }
             vector<Cell> toRecord;
             toRecord.emplace_back(ColumnName("value_data_type"), "categorical", now);
@@ -254,20 +264,23 @@ struct CategoricalRowHandler {
                     -1, // limit
                     onProgress);
 
-        select = SelectExpression::parse("count(\"" + name + "\") AS c");
+        select = SelectExpression::parse("count(\"" + name + "\") AS _0, "
+                                         "\"" + name + "\" AS _1");
         auto groupBy = TupleExpression::parse("\"" + name + "\"");
-        auto orderBy = OrderByExpression::parse("c DESC");
+        auto orderBy = OrderByExpression::parse("_0 DESC");
 
         auto onRow2 = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
+            if (JML_UNLIKELY(first)) {
+                ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");
+                ExcAssert(std::get<0>(cols[1]).toUtf8String() == "_1");
+            }
             vector<Cell> toRecord;
-            auto rowName = row.rowName.toSimpleName();
             toRecord.emplace_back(
-                ColumnName("value_most_frequent_items." + rowName),
+                ColumnName("value_most_frequent_items." + std::get<1>(cols[1]).toString()),
                 std::get<1>(cols[0]).toInt(),
                 now);
-            // TODO confirm we really want it? Can create a ton of columns
-            //output->recordRow(RowName(name), toRecord);
+            output->recordRow(RowName(name), toRecord);
             return true;
         };
         BoundGroupByQuery(select,
@@ -284,6 +297,7 @@ struct CategoricalRowHandler {
                     0, // offset
                     1, // limit
                     onProgress);
+        first = false;
     }
 };
 
@@ -336,9 +350,9 @@ run(const ProcedureRunConfig & run,
         vector<Utf8String> numericalColumns;
         vector<Utf8String> categoricalColumns;
         NumericRowHandler nrh(boundDataset, runProcConf, output, now,
-                              onProgress2); // TODO onProgress2
+                              onProgress2);
         CategoricalRowHandler crh(boundDataset, runProcConf, output, now,
-                                  onProgress); // TODO onProgress2
+                                  onProgress);
         using std::placeholders::_1;
 
         SqlExpressionDatasetScope datasetContext(boundDataset);
@@ -351,7 +365,7 @@ run(const ProcedureRunConfig & run,
                 numericalColumns.emplace_back(c.toUtf8String());
             }
             catch (const ML::Exception & exc) {
-                // TODO ? catch ML::Exception is painful, not specific enough
+                // ML::Exception is hard to work with, not specific enough
                 crh.recordStatsForColumn(name);
                 categoricalColumns.emplace_back(c.toUtf8String());
             }

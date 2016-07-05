@@ -44,11 +44,20 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         self.assertTableResultEquals(res, [
             ["_rowName", "value_data_type", "value_num_null",
              "value_num_unique", "value_max", "value_mean", "value_min",
-             "value_1st_quartile", "value_median", "value_3rd_quartile"],
-            ["colTxt", "categorical", 1, 2, None, None, None, None, None, None],
-            ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20],
-            ["colB", "number", 2, 1, 2, 2, 2, 2, 2, 2],
-            ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10]
+             "value_1st_quartile", "value_median", "value_3rd_quartile",
+             '"value_most_frequent_items.banane"',
+             '"value_most_frequent_items.20"',
+             '"value_most_frequent_items.2"',
+             '"value_most_frequent_items.1"'],
+
+            ["colTxt", "categorical", 1, 2, None, None, None, None, None,
+             None, 1, None, None, None],
+
+            ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20, None, 1, None,
+             None],
+
+            ["colB", "number", 2, 1, 2, 2, 2, 2, 2, 2, None, None, 1, None],
+            ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2]
         ])
 
 if __name__ == '__main__':
