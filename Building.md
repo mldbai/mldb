@@ -273,6 +273,14 @@ You can then add `toolchain=clang` to compile with the clang compiler.
   whether to do extra type checking of row scopes.  Setting to 1 will
   do so, at the expense of slightly slower code.  It may be helpful in
   debugging of segmentation faults.
+* `MLDB_DEFAULT_PATH_OPTIMIZATION_LEVEL` controls how MLDB handles
+  optimized code-paths for specific situations.  When set to 'always'
+  (the default), optimized paths are always used when available.  This
+  leads to maximum speed.  When set to 'never', the base (unoptimized)
+  path is used.  When set to 'sometimes', the optimized path is taken
+  50% of the time.  This can be used when unit testing to ensure the
+  equivalence of optimized and non-optimized versions of code and thus
+  verify the correctness of the optimized versions.
 
 
 ## CUDA support
