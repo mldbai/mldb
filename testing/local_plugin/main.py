@@ -4,5 +4,7 @@ import mylib
 
 mldb.log("Running from a gist!")
 
+mldb.get("/v1/dataset")
+
 mldb.plugin.serve_documentation_folder("doc")
 
