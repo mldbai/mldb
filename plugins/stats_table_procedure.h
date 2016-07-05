@@ -74,7 +74,6 @@ struct StatsTable {
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 
-
     ColumnName colName;
 
     std::vector<std::string> outcome_names;

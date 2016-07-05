@@ -43,5 +43,58 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
             ]
         )
 
+    # MLDB-1772
+    def test_domain_parsing(self):
+        self.assertTableResultEquals(
+            mldb.query("""
+                select 
+                    extract_domain('http://www.datacratic.com/pwetpwet/houa.html') as c1,
+                    extract_domain('http://datacratic.com/pwetpwet/houa.html') as c2,
+                    extract_domain('http://data.datacratic.com/pwetpwet/houa.html') as c3,
+
+                    extract_domain('http://www.datacratic.com/pwetpwet/houa.html', {removeSubdomain:1}) as c1nosub,
+                    extract_domain('http://datacratic.com/pwetpwet/houa.html', {removeSubdomain:1}) as c2nosub,
+                    extract_domain('http://data.datacratic.com/pwetpwet/houa.html', {removeSubdomain:1}) as c3nosub
+            """),
+                [
+                    [
+                        "_rowName",
+                        "c1",
+                        "c1nosub",
+                        "c2",
+                        "c2nosub",
+                        "c3",
+                        "c3nosub"
+                    ],
+                    [
+                        "result",
+                        "www.datacratic.com",
+                        "datacratic.com",
+                        "datacratic.com",
+                        "datacratic.com",
+                        "data.datacratic.com",
+                        "datacratic.com"
+                    ]
+                ])
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                                  'Attempt to create a URL without a scheme'):
+                mldb.query("SELECT extract_domain('pwet.com') as c4")
+
+
+        self.assertTableResultEquals(
+            mldb.query("""
+                select extract_domain(patate) as domain,
+                       extract_domain(value) as domain2
+                from (
+                    select * from row_dataset({"domain": 'http://www.domain.com'})
+                )
+            """),
+                [
+                    ["_rowName", "domain", "domain2"],
+                    ["0", None, "www.domain.com"]
+                ])
+
+
 if __name__ == '__main__':
     mldb.run_tests()

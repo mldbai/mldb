@@ -1,9 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** feature_generators.cc
     Francois Maillet, 27 juillet 2015
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
-
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "feature_generators.h"
@@ -17,16 +14,32 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
-
+#include "utils/json_utils.h"
+#include "mldb/ext/siphash/csiphash.h"
+#include "mldb/ext/cityhash/src/city.h"
 
 using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
 
+constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+
+
 /*****************************************************************************/
 /* HASHED COLUMN FEAT GEN CONFIG                                             */
 /*****************************************************************************/
+
+DEFINE_ENUM_DESCRIPTION(HashingMode);
+
+HashingModeDescription::
+HashingModeDescription()
+{
+    addValue("columns",          COLUMNS, "Hash only the column names");
+    addValue("columnsAndValues", COLUMNS_AND_VALUES, "Hash the concatenation "
+                                                     "of the column names and "
+                                                     "the cell values");
+}
 
 DEFINE_STRUCTURE_DESCRIPTION(HashedColumnFeatureGeneratorConfig);
 
@@ -35,7 +48,10 @@ HashedColumnFeatureGeneratorConfigDescription()
 {
     addField("numBits", &HashedColumnFeatureGeneratorConfig::numBits,
              "Number of bits to use for the hash. The number of resulting "
-                "buckets will be 2^numBits.", 8);
+                "buckets will be $$2^{\\text{numBits}}$$.", 8);
+    addField("mode", &HashedColumnFeatureGeneratorConfig::mode,
+            "Hashing mode to use. Controls what gets hashed.",
+            COLUMNS);
 }
 
 /*****************************************************************************/
@@ -87,14 +103,24 @@ call(FeatureGeneratorInput input) const
     ML::Lightweight_Hash_Set<uint64_t> doneHashes;
 
     Date ts = Date::negativeInfinity();
-    // copied from the LAL repo
 
     auto onColumn = [&] (const PathElement & columnName,
                          const ExpressionValue & val)
     {
         ts.setMax(val.getEffectiveTimestamp());
-        
-        uint64_t hash = columnName.hash();
+
+        uint64_t hash;
+        if(functionConfig.mode == COLUMNS) {
+            hash = columnName.hash();
+        }
+        else if(functionConfig.mode == COLUMNS_AND_VALUES) {
+            Utf8String str(columnName.toUtf8String() + "::" + val.toUtf8String());
+            hash = ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
+        }
+        else {
+            throw ML::Exception("Unsupported hashing mode");
+        }
+
         if (!doneHashes.insert(hash).second)
             return true;
 
@@ -121,7 +147,7 @@ call(FeatureGeneratorInput input) const
         rowVal.push_back(make_tuple(ColumnName(ML::format("hashColumn%d", i)),
                                     CellValue(result[i]), ts));
     }
-    
+
     return {ExpressionValue(rowVal)};
 }
 
@@ -130,13 +156,13 @@ namespace {
 static RegisterFunctionType<HashedColumnFeatureGenerator,
                             HashedColumnFeatureGeneratorConfig>
 regHashedColFeatGenFunction(builtinPackage(),
-                            "experimental.feature_generator.hashed_column",
-                            "Generate hashed feature vector from the columns",
-                            "functions/FeatureGeneratorHashedColumn.md.html",
-                            nullptr /* static route */,
-                            { MldbEntity::INTERNAL_ENTITY });
+                            "feature_hasher",
+                            "Feature hashing feature generator",
+                            "functions/FeatureHashingFunction.md.html",
+                            nullptr /* static route */);
 
 } // file scope
 
 } // namespace MLDB
 } // namespace Datacratic
+

@@ -507,7 +507,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
-### Geographical functions
+### <a name="geofunctions"></a>Geographical functions
 
 The following functions operate on latitudes and longtitudes and can be used to
 calculate
@@ -517,6 +517,14 @@ calculate
   the Earth is a perfect sphere with a radius of 6371008.8 meters.  It will be
   accurate to within 0.3% anywhere on earth, apart from near the North or South
   Poles.
+
+### <a name="httpfunctions"></a>Web data functions
+
+The following functions are used to extract and process web data.
+
+- `extract_domain(str, {removeSubdomain: false}` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+
+See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
 
 ### <a name="importfunctions"></a>Data import functions
 
@@ -547,7 +555,7 @@ The following standard SQL aggregation functions are supported. They may only be
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
 - `count_distinct` returns the number of unique, distinct non-null values in the group.
 
-The following useful non-standard aggregation functions is also supported:
+The following useful non-standard aggregation functions are also supported:
 
 - `latest`, `earliest` will return the values with the latest or earliest timestamp in the group
 - `pivot(columnName, value)` will accumulate a single row per group, with the

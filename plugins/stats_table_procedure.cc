@@ -35,6 +35,7 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
@@ -64,7 +65,6 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
     coords = Path::parse(str);
     return store;
 }
-
 
 /*****************************************************************************/
 /* NOISE INJECTOR                                                            */
@@ -141,7 +141,6 @@ getCounts(const CellValue & val) const
     if(it == counts.end()) {
         return zeroCounts;
     }
-
     return it->second;
 }
 
@@ -482,7 +481,6 @@ apply(const FunctionApplier & applier,
                                             noise.add_noise(counts.first) :
                                             counts.first;
                 rtnRow.emplace_back(PathElement("trial") + columnName, num_trials, ts);
-
                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
                     rtnRow.emplace_back(PathElement(st->second.outcome_names[lbl_idx])
                                         +columnName,
@@ -830,7 +828,6 @@ run(const ProcedureRunConfig & run,
     
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty() &&
             !runProcConf.functionOutcomeToUse.empty()) {
-        cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
         clsFuncPC.type = "statsTable.bagOfWords.posneg";
         clsFuncPC.id = runProcConf.functionName;
@@ -1001,7 +998,6 @@ apply(const FunctionApplier & applier,
         result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        cerr << jsonEncode(arg) << endl;
         throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
     

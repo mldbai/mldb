@@ -1,16 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* classifier.h                                                    -*- C++ -*-
    Jeremy Barnes, 6 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
 
    Generic interface to a classifier.
 */
 
-#ifndef __boosting__classifier_h__
-#define __boosting__classifier_h__
-
+#pragma once
 
 #include "feature_set.h"
 #include "training_data.h"
@@ -797,8 +792,3 @@ DB::Store_Reader &
 operator >> (DB::Store_Reader & store, Classifier & classifier);
 
 } // namespace ML
-
-
-
-
-#endif /* __boosting__classifier_h__ */
