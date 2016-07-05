@@ -768,6 +768,13 @@ struct UnboundEntities {
     /// this expression to run inside of?  It looks inside vars and tables
     /// to work it out.
     bool hasUnboundVariables() const;
+
+    /// Is there any function that will require a row context?
+    bool hasRowFunctions() const;
+
+    bool needsRow() const {
+        return hasUnboundVariables() || hasRowFunctions();
+    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(UnboundEntities);
@@ -805,13 +812,19 @@ struct SqlRowScope {
                                      const std::type_info & typeFound)
         __attribute__((noreturn));
 
+    /** Static variable controlled by the MLDB_CHECK_ROW_SCOPE_TYPES
+        environment variable that decides whether we do extra checks
+        (which may be expensive) or not.
+    */
+    static bool checkRowScopeTypes;
+
     /** Assert that the type of this object is the one given, and return it
         as that type.
     */
     template<typename T>
     T & as()
     {
-        if (typeid(*this) == typeid(T))
+        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<T &>(*this);
 
         auto * cast = dynamic_cast<T *>(this);
@@ -827,7 +840,7 @@ struct SqlRowScope {
     template<typename T>
     const T & as() const
     {
-        if (typeid(*this) == typeid(T))
+        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<const T &>(*this);
 
         auto * cast = dynamic_cast<const T *>(this);

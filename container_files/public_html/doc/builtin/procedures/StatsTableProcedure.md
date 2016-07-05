@@ -42,7 +42,7 @@ Assume this partial configuration:
 
 ```javascript
 {
-    "select": "* EXCLUDING(click_on_ad, purchase_value)",
+    "trainingData": "* EXCLUDING(click_on_ad, purchase_value)",
     "outcomes": [
         ["click", "click_on_ad = 1"],
         ["purchase", "click_on_ad = 1 AND purchase_value > 0"]

@@ -44,6 +44,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	tsne.cc \
 	svm.cc \
 	stats_table_procedure.cc \
+	dist_table_procedure.cc \
 	tfidf.cc \
 	tokensplit.cc \
 	script_function.cc \

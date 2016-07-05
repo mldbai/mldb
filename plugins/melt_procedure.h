@@ -26,6 +26,7 @@ struct MeltProcedureConfig : public ProcedureConfig {
         keyColumnName("key"),
         valueColumnName("value")
     {
+        outputDataset.withType("tabular");
     }
 
     InputQuery inputData;

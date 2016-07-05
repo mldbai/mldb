@@ -15,6 +15,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/jml/utils/environment.h"
 #include "sql_expression_operations.h"
 #include "table_expression_operations.h"
 #include "interval.h"
@@ -620,6 +621,18 @@ hasUnboundVariables() const
     return false;
 }
 
+bool
+UnboundEntities::
+hasRowFunctions() const
+{
+    // False coupling to improve. See MLDB-1769
+    return funcs.find("columnCount") != funcs.end()
+        || funcs.find("rowHash") != funcs.end()
+        || funcs.find("rowPath") != funcs.end()
+        || funcs.find("leftRowHash") != funcs.end()
+        || funcs.find("rightRowHash") != funcs.end();
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(UnboundEntities);
 
 UnboundEntitiesDescription::
@@ -641,6 +654,25 @@ UnboundEntitiesDescription()
 /*****************************************************************************/
 /* SQL ROW SCOPE                                                             */
 /*****************************************************************************/
+
+// Environment variable that tells us whether we check the row scope types
+// or not, which may be more expensive.
+ML::Env_Option<bool> MLDB_CHECK_ROW_SCOPE_TYPES
+("MLDB_CHECK_ROW_SCOPE_TYPES", false);
+
+// Visible manifestation of that variable.  We statically initialize it here
+// so that it can still be accessed before shared library initialization.
+bool SqlRowScope::checkRowScopeTypes = false;
+
+namespace {
+// Initialize with the final value once the library loads
+struct InitializeCheckRowScopeTypes {
+    InitializeCheckRowScopeTypes()
+    {
+        SqlRowScope::checkRowScopeTypes = MLDB_CHECK_ROW_SCOPE_TYPES;
+    }
+};
+} // file scope
 
 void
 SqlRowScope::
@@ -3027,9 +3059,13 @@ bind(SqlBindingScope & context) const
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             StructValue result;
+            result.reserve(boundClauses.size());
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context, filter);
-                v.mergeToRowDestructive(result);
+                ExpressionValue storage;
+                const ExpressionValue & v = c(context, storage, filter);
+                if (&v == &storage)
+                    storage.mergeToRowDestructive(result);
+                else v.appendToRow(Path(), result);
             }
             
             return storage = std::move(ExpressionValue(std::move(result)));
@@ -3852,7 +3888,6 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-    
     return std::move(statement);
 }
 

@@ -58,7 +58,7 @@ MeltProcedureConfigDescription()
              "called `to_melt` to identify the columns to melt.");
     addField("outputDataset", &MeltProcedureConfig::outputDataset,
              "Configuration for output dataset",
-             PolyConfigT<Dataset>().withType("sparse.mutable"));
+             PolyConfigT<Dataset>().withType("tabular"));
     addField("keyColumnName", &MeltProcedureConfig::valueColumnName,
             "Column name for the key column", string("key"));
     addField("valueColumnName", &MeltProcedureConfig::valueColumnName,

@@ -8,6 +8,7 @@ SQL_EXPRESSION_SOURCES := \
 	binding_contexts.cc \
 	builtin_functions.cc \
 	builtin_geo_functions.cc \
+	builtin_http_functions.cc \
 	builtin_dataset_functions.cc \
 	builtin_aggregators.cc \
 	interval.cc \

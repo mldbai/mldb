@@ -589,6 +589,19 @@ uploadFile(const char * start,
     libssh2_sftp_close(handle);
 }
 
+bool
+SftpConnection::
+isAlive() const
+{
+    LIBSSH2_CHANNEL * channel = libssh2_sftp_get_channel(sftp_session);
+    int res = libssh2_channel_setenv_ex(channel,
+                                        "MLDB_PING", // var name
+                                        9,           // length of var name
+                                        "1",         // value
+                                        1);          // length of value
+    return res != LIBSSH2_ERROR_SOCKET_RECV
+        && res != LIBSSH2_ERROR_SOCKET_DISCONNECT;
+}
 
 struct SftpStreamingDownloadSource {
 
@@ -996,7 +1009,7 @@ const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr)
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
     auto it = sftpHosts.find(connStr);
-    if (it != sftpHosts.end()) {
+    if (it != sftpHosts.end() && it->second.connection.get()->isAlive()) {
         return *it->second.connection.get();
     }
     auto creds = getCredential("sftp", "sftp://" + connStr);

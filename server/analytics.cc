@@ -301,6 +301,12 @@ getEmbedding(const SelectStatement & stm,
 std::vector<MatrixNamedRow>
 queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
 {
+    for (const auto & c: stm.select.clauses) {
+        if (c->isWildcard()) {
+            throw HttpReturnException(
+                400, "Wildcard usage requires a FROM statement");
+        }
+    }
     auto boundSelect = stm.select.bind(scope);
     SqlRowScope context;
     ExpressionValue val = boundSelect(context, GET_ALL);

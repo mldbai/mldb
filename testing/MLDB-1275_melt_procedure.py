@@ -25,21 +25,22 @@ def assert_val(res, row_name, col_name, value):
 
 class MeltProcedureTest(MldbUnitTest):  # noqa
 
-    def test_it(self):
+    @classmethod
+    def setUpClass(cls):
         dataset_config = {
             'type'    : 'sparse.mutable',
             'id'      : "my_json_dataset"
         }
 
         dataset = mldb.create_dataset(dataset_config)
-        now = datetime.datetime.now()
 
         row1 = {
             "name": "bill",
             "age": 25,
-            "friends": [{"name": "mich", "age": 20}, {"name": "jean", "age": 18}]
+            "friends": [{"name": "mich", "age": 20},
+                        {"name": "jean", "age": 18}]
         }
-        dataset.record_row("row1" , [["data", json.dumps(row1), now]])
+        dataset.record_row("row1" , [["data", json.dumps(row1), 0]])
 
         row2 = {
             "name": "alexis",
@@ -48,19 +49,20 @@ class MeltProcedureTest(MldbUnitTest):  # noqa
                         {"name": "fit", "age": 18},
                         {"name": "foot", "region": "south"}]
         }
-        dataset.record_row("row2" , [["data", json.dumps(row2), now]])
+        dataset.record_row("row2" , [["data", json.dumps(row2), 0]])
 
         dataset.commit()
 
 
 
         res = mldb.get("/v1/query",
-                       q="SELECT parse_json(data, {arrays: 'encode'}) AS * NAMED rowPath()"
-                         "FROM my_json_dataset").json()
+                       q="SELECT parse_json(data, {arrays: 'encode'}) AS * NAMED rowPath() "
+                         "FROM my_json_dataset "
+                         "WHERE rowName()='row1'").json()
         assert_val(res, "row1", "age", 25)
         assert_val(res, "row1", "friends.1", "{\"age\":18,\"name\":\"jean\"}")
 
-
+    def run_it(self, output_type):
         conf = {
             "id": "melter",
             "type": "melt",
@@ -70,18 +72,46 @@ class MeltProcedureTest(MldbUnitTest):  # noqa
                                     {friends*} as to_melt
                                 FROM (select parse_json(data, {arrays: 'encode'}) as * from my_json_dataset)
                                 """,
-                "outputDataset": {"id": "melted_dataset", "type": "sparse.mutable" },
                 "runOnCreation": True
             }
         }
+        if output_type:
+            _id = 'melted_dataset_with_type'
+            _type = 'sparse.mutable'
+            conf['params']["outputDataset"] = {
+                "id": _id,
+                "type": _type
+            }
+        else:
+            _id = 'melted_dataset_wo_type'
+            _type = 'tabular'
+            conf['params']["outputDataset"] = _id
+
         mldb.put("/v1/procedures/melter", conf)
         res = mldb.get("/v1/query",
-                       q="""SELECT name, age, key, parse_json(value, {arrays: 'encode'}) AS friends
+                       q="""SELECT name, age, key, parse_json(value, {{arrays: 'encode'}}) AS friends
                             NAMED rowPath()
-                            FROM melted_dataset""").json()
-        assert_val(res, "row1.friends.1", "name", "bill")
-        assert_val(res, "row1.friends.1", "key", "friends.1")
-        assert_val(res, "row1.friends.1", "friends.age", 18)
+                            FROM {}
+                            WHERE rowName()='row1.friends.1'""".format(_id)).json()
+        self.assertFullResultEquals(res, [{
+            'rowName' : 'row1.friends.1',
+            'columns' : [
+                ['age', 25, '1970-01-01T00:00:00Z'],
+                ['friends.age', 18, '1970-01-01T00:00:00Z'],
+                ['friends.name', 'jean', '1970-01-01T00:00:00Z'],
+                ['key', 'friends.1', '1970-01-01T00:00:00Z'],
+                ['name', 'bill', '1970-01-01T00:00:00Z']
+            ]
+        }])
+
+        res = mldb.get('/v1/datasets/' + _id).json()
+        self.assertEqual(res['config']['type'], _type)
+
+    def test_with_output_type(self):
+        self.run_it(True)
+
+    def test_wo_output_type(self):
+        self.run_it(False)
 
 if __name__ == '__main__':
     mldb.run_tests()

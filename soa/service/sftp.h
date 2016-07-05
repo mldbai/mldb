@@ -166,6 +166,8 @@ struct SftpConnection : public SshConnection {
     void close();
 
     SftpConnection operator = (const SftpConnection & other) = delete;
+
+    bool isAlive() const;
 };
 
 
