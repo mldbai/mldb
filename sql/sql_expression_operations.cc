@@ -2277,8 +2277,8 @@ Utf8String
 FunctionCallExpression::
 print() const
 {
-    Utf8String result = "function(" + jsonEncodeStr(tableName)
-        + "," + jsonEncodeStr(functionName);
+    Utf8String result = "function(" + jsonEncodeUtf8(tableName)
+        + "," + jsonEncodeUtf8(functionName);
         
     for (auto & a : args) {
         result += "," + a->print();

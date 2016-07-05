@@ -593,12 +593,12 @@ template<typename T>
 Utf8String jsonEncodeUtf8(const T & obj)
 {
     static auto desc = getDefaultDescriptionSharedT<T>();
-    std::string result;
-    result.reserve(116);  /// try to force a 128 byte allocation
-    StringJsonPrintingContext context(result);
+    Utf8String result;
+    result.reserve(116); // try for a 128 byte allocation
+    Utf8StringJsonPrintingContext context(result);
     context.writeUtf8 = true;
     desc->printJson(&obj, context);
-    return Utf8String(std::move(result), false /* check */);
+    return result;
 }
 
 // jsonEncode implementation for any type which:
