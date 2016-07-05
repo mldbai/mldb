@@ -319,8 +319,12 @@ enum Encoding {
     LATIN1
 };
 
-Encoding parseEncoding(const std::string & encodingStr)
+Encoding parseEncoding(const std::string & encodingStr_)
 {
+    std::string encodingStr;
+    for (auto & c: encodingStr_)
+        encodingStr += tolower(c);
+
     Encoding encoding;
     if (encodingStr == "us-ascii" || encodingStr == "ascii") {
         encoding = ASCII;
@@ -330,7 +334,10 @@ Encoding parseEncoding(const std::string & encodingStr)
     }
     else if (encodingStr == "latin1" || encodingStr == "iso8859-1")
         encoding = LATIN1;
-    else throw HttpReturnException(400, "Unknown encoding for import.text parser",
+    else throw HttpReturnException(400, "Unknown encoding '" + encodingStr_
+                                   + "'for import.text parser: accepted are "
+                                   "'us-ascii', 'ascii', 'utf-8', 'utf8', "
+                                   "'latin1', 'iso8859-1'",
                                    "encoding", encodingStr);
     return encoding;
 }
