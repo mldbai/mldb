@@ -13,24 +13,21 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         pass
 
     def test_it(self):
-        mldb.put('/v1/datasets/ds', {'type' : 'sparse.mutable'})
-        mldb.post('/v1/datasets/ds/rows', {
-            'rowName' : 'row1',
-            'columns' : [
-                        ['colA', 1, 0],
-                        ['colB', 2, 0],
-                        ['colTxt', 'patate', 0]
-                    ]
-            })
-        print mldb.post('/v1/datasets/ds/rows', {
-            'rowName' : 'row2',
-            'columns' : [
-                        ['colA', 10, 0],
-                        ['colC', 20, 0],
-                        ['colTxt', 'banane', 0]
-                    ]
-            })
-        mldb.post('/v1/datasets/ds/commit')
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [
+            ['colA', 1, 0],
+            ['colB', 2, 0],
+            ['colTxt', 'patate', 0]
+        ])
+        ds.record_row('row2', [
+            ['colA', 10, 0],
+            ['colC', 20, 0],
+            ['colTxt', 'banane', 0]
+        ])
+        ds.record_row('row3', [
+            ['colA', 1, 1]
+        ])
+        ds.commit()
 
         mldb.post('/v1/procedures', {
             'type' : 'summary.statistics',
@@ -45,11 +42,11 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         })
         res = mldb.query("SELECT * FROM output")
         self.assertTableResultEquals(res, [
-            ["_rowName", "data_type", "max", "mean", "median", "min",
-             "num_null", "num_unique", "quartile1", "quartile3", "std"],
-            ["colC", "numerical", 20, 20, 0, 20, 1, 1, 0, 0, 0],
-            ["colB", "numerical", 2, 2, 0, 2, 1, 1, 0, 0, 0],
-            ["colA", "numerical", 10, 1, 0, 1, 0, 2, 0, 0, 0]
+            ["_rowName", "data_type", "num_null", "num_unique", "max", "mean", "min"],
+            ["colTxt", "categorical", 1, 2, None, None, None],
+            ["colC", "number", 2, 1, 20, 20, 20],
+            ["colB", "number", 2, 1, 2, 2, 2],
+            ["colA", "number", 0, 2, 10, 4, 1]
         ])
 
 if __name__ == '__main__':
