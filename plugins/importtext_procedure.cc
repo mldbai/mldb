@@ -727,11 +727,14 @@ struct ImportTextProcedureWorkInstance
             if (config.headers.empty()) {
                 inputColumnNames = { ColumnName(config.autoGenerateHeaders ? 0 : "lineText") };
             }
-            else if (inputColumnNames.size() != 1) {
+            else if (config.headers.size() != 1) {
                 throw HttpReturnException(
                     400,
-                    "Custom CSV header must have only one element if there is "
+                    "Custom CSV header must have exactly one element if there is "
                     "no delimiter");
+            }
+            else {
+                inputColumnNames = { ColumnName(config.headers[0]) };
             }
         }
         else {
