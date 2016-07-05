@@ -267,3 +267,9 @@ sudo apt-get install clang-3.5
 
 You can then add `toolchain=clang` to compile with the clang compiler.
 
+## Environment variables
+
+* `MLDB_CHECK_ROW_SCOPE_TYPES` is a boolean (default 0) that tells MLDB
+  whether to do extra type checking of row scopes.  Setting to 1 will
+  do so, at the expense of slightly slower code.  It may be helpful in
+  debugging of segmentation faults.
