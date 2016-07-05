@@ -43,11 +43,12 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT * FROM output")
         self.assertTableResultEquals(res, [
             ["_rowName", "value_data_type", "value_num_null",
-             "value_num_unique", "value_max", "value_mean", "value_min"],
-            ["colTxt", "categorical", 1, 2, None, None, None],
-            ["colC", "number", 2, 1, 20, 20, 20],
-            ["colB", "number", 2, 1, 2, 2, 2],
-            ["colA", "number", 0, 2, 10, 4, 1]
+             "value_num_unique", "value_max", "value_mean", "value_min",
+             "value_1st_quartile", "value_median", "value_3rd_quartile"],
+            ["colTxt", "categorical", 1, 2, None, None, None, None, None, None],
+            ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20],
+            ["colB", "number", 2, 1, 2, 2, 2, 2, 2, 2],
+            ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10]
         ])
 
 if __name__ == '__main__':

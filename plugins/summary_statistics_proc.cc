@@ -83,18 +83,20 @@ struct NumericRowHandler {
     const int AVG_IDX = 0;
     const int MAX_IDX = 1;
     const int MIN_IDX = 2;
-    const int NUM_NULL_IDX = 3;
-    const int NUM_UNIQUE_IDX = 4;
+    const int NUM_NOT_NULL_IDX = 3;
+    const int NUM_NULL_IDX = 4;
+    const int NUM_UNIQUE_IDX = 5;
 
     bool first;
     BoundTableExpression & boundDataset;
     SummaryStatisticsProcedureConfig & config;
     shared_ptr<Dataset> output;
     Date now;
-    const std::function<bool (const Json::Value &)> & onProgress;
+    std::function<bool (const Json::Value &)> onProgress;
 
     // Throws if the column is not numeric
     void recordStatsForColumn(const Utf8String & name) {
+        int64_t numNotNull = 0;
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
@@ -102,6 +104,7 @@ struct NumericRowHandler {
                 ExcAssert(std::get<0>(cols[AVG_IDX]).toUtf8String() == "avg");
                 ExcAssert(std::get<0>(cols[MAX_IDX]).toUtf8String() == "max");
                 ExcAssert(std::get<0>(cols[MIN_IDX]).toUtf8String() == "min");
+                ExcAssert(std::get<0>(cols[NUM_NOT_NULL_IDX]).toUtf8String() == "num_not_null");
                 ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
                 first = false;
@@ -111,9 +114,10 @@ struct NumericRowHandler {
             toRecord.emplace_back(ColumnName("value_mean"), std::get<1>(cols[AVG_IDX]).toDouble(), now);
             toRecord.emplace_back(ColumnName("value_max"), std::get<1>(cols[MAX_IDX]).toDouble(), now);
             toRecord.emplace_back(ColumnName("value_min"), std::get<1>(cols[MIN_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
+            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
             output->recordRow(RowName(name), toRecord);
+            numNotNull = std::get<1>(cols[NUM_NOT_NULL_IDX]).toInt();
             return true;
         };
 
@@ -122,7 +126,8 @@ struct NumericRowHandler {
             "min(\"" + name + "\") AS min, "
             "max(\"" + name + "\") AS max, "
             "avg(\"" + name + "\") AS avg, "
-            "sum(\"" + name + "\" IS NULL) AS num_null"
+            "sum(\"" + name + "\" IS NULL) AS num_null, "
+            "sum(\"" + name + "\" IS NOT NULL) AS num_not_null"
         );
         vector<shared_ptr<SqlExpression>> aggregators =
             select.findAggregators(!config.inputData.stm->groupBy.clauses.empty());
@@ -141,6 +146,51 @@ struct NumericRowHandler {
                     0, // offset
                     -1, // limit
                     onProgress);
+
+        select = SelectExpression::parse("count(\"" + name + "\") AS _0, "
+                                         "\"" + name + "\" AS _1");
+        auto groupBy = TupleExpression::parse("\"" + name + "\"");
+        auto orderBy = OrderByExpression::parse("\"" + name + "\"");
+        auto where = SqlExpression::parse("\"" + name + "\" IS NOT NULL");
+        const int NUM_QUARTILES = 3;
+        double quartiles[NUM_QUARTILES];
+        double quartilesThreshold[NUM_QUARTILES] = {numNotNull * 0.25,
+                                                    numNotNull * 0.5,
+                                                    numNotNull * 0.75};
+        int idx = 0;
+        int64_t count = 0;
+        auto onRow2 = [&] (NamedRowValue & row) {
+            // TODO check order
+            const auto & cols = row.columns;
+            count += std::get<1>(cols[0]).toInt();
+            while (idx < NUM_QUARTILES && quartilesThreshold[idx] < count) {
+                auto val = std::get<1>(cols[1]);
+                quartiles[idx] = val.toDouble();
+                ++idx;
+            }
+            return true;
+        };
+        BoundGroupByQuery(select,
+                        *boundDataset.dataset,
+                        boundDataset.asName,
+                        config.inputData.stm->when,
+                        *where,
+                        groupBy,
+                        aggregators,
+                        *config.inputData.stm->having,
+                        *config.inputData.stm->rowName,
+                        orderBy)
+            .execute({onRow2, false /*processInParallel*/},
+                    0, // offset
+                    -1, // limit
+                    onProgress);
+        ExcAssert(count == numNotNull);
+        ExcAssert(idx == NUM_QUARTILES);
+        vector<Cell> toRecord;
+        toRecord.emplace_back(ColumnName("value_1st_quartile"), quartiles[0], now);
+        toRecord.emplace_back(ColumnName("value_median"), quartiles[1], now);
+        toRecord.emplace_back(ColumnName("value_3rd_quartile"), quartiles[2], now);
+        output->recordRow(RowName(name), toRecord);
     }
 
 };
@@ -163,7 +213,7 @@ struct CategoricalRowHandler {
     SummaryStatisticsProcedureConfig & config;
     shared_ptr<Dataset> output;
     Date now;
-    const std::function<bool (const Json::Value &)> & onProgress;
+    std::function<bool (const Json::Value &)> onProgress;
 
     void recordStatsForColumn(const Utf8String & name) {
         auto onRow = [&] (NamedRowValue & row) {
@@ -176,8 +226,8 @@ struct CategoricalRowHandler {
             }
             vector<Cell> toRecord;
             toRecord.emplace_back(ColumnName("value_data_type"), "categorical", now);
-            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toDouble(), now);
+            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
+            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
             output->recordRow(RowName(name), toRecord);
             return true;
         };
@@ -202,6 +252,37 @@ struct CategoricalRowHandler {
             .execute({onRow, false /*processInParallel*/},
                     0, // offset
                     -1, // limit
+                    onProgress);
+
+        select = SelectExpression::parse("count(\"" + name + "\") AS c");
+        auto groupBy = TupleExpression::parse("\"" + name + "\"");
+        auto orderBy = OrderByExpression::parse("c DESC");
+
+        auto onRow2 = [&] (NamedRowValue & row) {
+            const auto & cols = row.columns;
+            vector<Cell> toRecord;
+            auto rowName = row.rowName.toSimpleName();
+            toRecord.emplace_back(
+                ColumnName("value_most_frequent_items." + rowName),
+                std::get<1>(cols[0]).toInt(),
+                now);
+            // TODO confirm we really want it? Can create a ton of columns
+            //output->recordRow(RowName(name), toRecord);
+            return true;
+        };
+        BoundGroupByQuery(select,
+                        *boundDataset.dataset,
+                        boundDataset.asName,
+                        config.inputData.stm->when,
+                        *config.inputData.stm->where,
+                        groupBy,
+                        aggregators,
+                        *config.inputData.stm->having,
+                        *config.inputData.stm->rowName,
+                        orderBy)
+            .execute({onRow2, false /*processInParallel*/},
+                    0, // offset
+                    1, // limit
                     onProgress);
     }
 };
@@ -237,14 +318,12 @@ run(const ProcedureRunConfig & run,
                          *runProcConf.inputData.stm->where,
                          runProcConf.inputData.stm->orderBy,
                          calc);
-    mutex progressMutex;
+    int num = 0;
+    float denum = 0;
     auto onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
-        lock_guard<mutex> lock(progressMutex);
-        if (iterationStep->value > itProgress.percent) {
-            iterationStep->value = itProgress.percent;
-        }
-        return onProgress(jsonEncode(bucketizeProgress));
+        Json::Value v;
+        v["percent"] = num / denum;
+        return onProgress(progress);
     };
 
     Date now = Date::now();
@@ -257,13 +336,15 @@ run(const ProcedureRunConfig & run,
         vector<Utf8String> numericalColumns;
         vector<Utf8String> categoricalColumns;
         NumericRowHandler nrh(boundDataset, runProcConf, output, now,
-                              onProgress); // TODO onProgress2
+                              onProgress2); // TODO onProgress2
         CategoricalRowHandler crh(boundDataset, runProcConf, output, now,
                                   onProgress); // TODO onProgress2
         using std::placeholders::_1;
 
         SqlExpressionDatasetScope datasetContext(boundDataset);
+        denum = bsq.getSelectOutputInfo()->allColumnNames().size() / 100.0;
         for (const auto & c: bsq.getSelectOutputInfo()->allColumnNames()) {
+            ++ num;
             const auto & name = c.toUtf8String();
             try {
                 nrh.recordStatsForColumn(name);
