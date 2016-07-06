@@ -15,7 +15,7 @@
 
 #include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/arch/wakeup_fd.h"
-#include "mldb/soa/service/async_event_source.h"
+#include "mldb/io/async_event_source.h"
 
 
 namespace Datacratic {

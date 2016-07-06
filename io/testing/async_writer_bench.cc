@@ -15,8 +15,8 @@
 #include <chrono>
 #include <thread>
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/soa/service/message_loop.h"
-#include "mldb/soa/service/async_writer_source.h"
+#include "mldb/io/message_loop.h"
+#include "mldb/io/async_writer_source.h"
 #include "mldb/soa/utils/print_utils.h"
 
 using namespace std;

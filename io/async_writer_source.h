@@ -13,8 +13,8 @@
 #include <string>
 #include <vector>
 
-#include "mldb/soa/service/epoll_loop.h"
-#include "mldb/soa/service/typed_message_channel.h"
+#include "mldb/io/epoll_loop.h"
+#include "mldb/io/typed_message_channel.h"
 
 
 namespace Datacratic {

@@ -11,8 +11,8 @@
 #include <thread>
 #include "mldb/jml/utils/testing/watchdog.h"
 
-#include "mldb/soa/service/typed_message_channel.h"
-#include "mldb/soa/service/message_loop.h"
+#include "mldb/io/typed_message_channel.h"
+#include "mldb/io/message_loop.h"
 
 using namespace std;
 using namespace Datacratic;

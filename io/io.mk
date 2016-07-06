@@ -11,7 +11,14 @@ LIBIO_SOURCES := \
 	event_loop_impl.cc \
 	tcp_acceptor_impl.cc \
 	tcp_socket_handler_impl.cc \
+	epoller.cc \
+	epoll_loop.cc \
+	message_loop.cc \
+	async_event_source.cc \
+	async_writer_source.cc \
 
-LIBIO_LINK :=
+LIBIO_LINK := logging jsoncpp utils
 
 $(eval $(call library,io,$(LIBIO_SOURCES),$(LIBIO_LINK)))
+
+$(eval $(call include_sub_make,io_testing,testing,io_testing.mk))

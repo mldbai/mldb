@@ -12,8 +12,8 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/soa/service/message_loop.h"
-#include "mldb/soa/service/typed_message_channel.h"
+#include "mldb/io/message_loop.h"
+#include "mldb/io/typed_message_channel.h"
 #include <sys/socket.h>
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/exception_handler.h"

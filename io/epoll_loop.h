@@ -21,7 +21,7 @@
 #include <map>
 #include <mutex>
 
-#include "mldb/soa/service/async_event_source.h"
+#include "mldb/io/async_event_source.h"
 
 
 namespace Datacratic {

@@ -11,7 +11,7 @@
 #define __endpoint__epoller_h__
 
 #include <functional>
-#include "mldb/soa/service/async_event_source.h"
+#include "mldb/io/async_event_source.h"
 
 struct epoll_event;
 

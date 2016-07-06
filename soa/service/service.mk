@@ -28,12 +28,7 @@ $(eval $(call program,runner_helper,runner_common arch))
 
 
 LIBSERVICES_SOURCES := \
-	epoller.cc \
-	epoll_loop.cc \
 	event_service.cc \
-	message_loop.cc \
-	async_event_source.cc \
-	async_writer_source.cc \
 	sink.cc \
 	xml_helpers.cc \
 	runner.cc \

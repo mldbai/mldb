@@ -6,7 +6,7 @@
 
 */
 
-#include "mldb/soa/service/epoller.h"
+#include "mldb/io/epoller.h"
 
 #include <sys/epoll.h>
 #include <poll.h>
