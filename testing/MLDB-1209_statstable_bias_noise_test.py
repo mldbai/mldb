@@ -44,10 +44,8 @@ class MLDB1209StatstableBiasNoiseTest(MldbUnitTest):  # noqa
                                            ["label", click, now]])
 
         dataset.commit()
-
-
-    def test_it(self):
-        mldb.log("start training")
+        
+        # train stats tables
         mldb.put("/v1/procedures/train_st", {
             "type": "statsTable.train",
             "params": {
@@ -57,11 +55,76 @@ class MLDB1209StatstableBiasNoiseTest(MldbUnitTest):  # noqa
                 "runOnCreation": True
             }
         })
-        mldb.log("done training")
+
+
+    def test_it(self):
+
+        mldb.put("/v1/functions/getRawCounts", {
+            "type": "statsTable.getCounts",
+            "params": {
+                "statsTableFileUrl": "file:///tmp/mldb-1209.st",
+                "injectNoise": False
+            }
+        })
+        
+        mldb.put("/v1/functions/getNoisyCounts", {
+            "type": "statsTable.getCounts",
+            "params": {
+                "statsTableFileUrl": "file:///tmp/mldb-1209.st",
+                "injectNoise": True
+            }
+        })
 
         mldb.log(mldb.query("""
-                select sum(label), count(*) from bid_requests
-            """))
+        select 
+            cnts.counts.label.host / cnts.counts.trial.host as ctr_host,
+            cnts.counts.label.region / cnts.counts.trial.region as ctr_region
+        from (
+            select getRawCounts({keys: {*}}) as cnts from bid_requests limit 5
+        )
+        
+        """))
+
+
+        mldb.put("/v1/procedures/transf", {
+            "type": "transform",
+            "params": {
+                "inputData": """
+                    select 
+            cnts.counts.label.host / cnts.counts.trial.host as ctr_host,
+            cnts.counts.label.region / cnts.counts.trial.region as ctr_region,
+            label
+                from (
+
+                        select
+                            getRawCounts({keys: {*}}) as cnts, label
+                            from bid_requests
+                    )
+                """,
+                "outputDataset": "training_raw",
+                "runOnCreation": True
+            }
+        })
+
+
+        rez = mldb.put("/v1/procedures/train_raw", {
+            "type": "classifier.experiment",
+            "params": {
+                "experimentName": "train_raw",
+                "inputData": """
+                    select {ctr*} as features,
+                            label
+                    from training_raw
+                """,
+                "kfold": 3,
+                "algorithm": "bglz",
+                "configurationFile": "file://mldb/container_files/classifiers.json",
+                "modelFileUrlPattern": "file:///tmp/mldb-1209.cls",
+                "runOnCreation": True
+            }
+        })
+
+        mldb.log(rez)
 
 if __name__ == '__main__':
     mldb.run_tests()
