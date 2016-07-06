@@ -20,7 +20,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/date.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 
 #include "message_loop.h"
 

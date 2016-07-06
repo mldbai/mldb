@@ -7,7 +7,7 @@
    Basic logs
 */
 
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb/base/exc_check.h"
 
 #include <iostream>

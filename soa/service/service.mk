@@ -39,7 +39,7 @@ LIBSERVICES_SOURCES := \
 	runner.cc \
 
 
-LIBSERVICES_LINK := http opstats curl boost_regex arch utils jsoncpp types tinyxml2 boost_system value_description credentials runner_common boost_filesystem cityhash any services_base watch
+LIBSERVICES_LINK := logging opstats curl boost_regex arch utils jsoncpp types tinyxml2 boost_system value_description credentials runner_common boost_filesystem cityhash any watch
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 $(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))

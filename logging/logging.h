@@ -11,7 +11,7 @@
 
    For example:
 
-     #include "mldb/http/logs.h"
+     #include "mldb/logging/logging.h"
 
      int main() {
        Logging::Category warnings("warnings");

@@ -18,7 +18,7 @@
 #include "epoller.h"
 #include "async_event_source.h"
 #include "typed_message_channel.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 
 namespace Datacratic {
 

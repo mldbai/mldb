@@ -10,7 +10,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 
 #include <boost/test/unit_test.hpp>
 

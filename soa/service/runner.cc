@@ -27,7 +27,7 @@
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/file_functions.h"
 
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "message_loop.h"
 #include "sink.h"
 
