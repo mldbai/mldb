@@ -1787,6 +1787,10 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
             {
                 ExcAssert(args.size() > 0 && args.size() < 3);
                 auto & val = args[0];
+
+                if(val.empty())
+                    return ExpressionValue::null(val.getEffectiveTimestamp());
+
                 Utf8String str = val.toUtf8String();
 
                 JsonArrayHandling encode = PARSE_ARRAYS;
@@ -1805,10 +1809,6 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                 StreamingJsonParsingContext parser(str.rawString(),
                                                    str.rawData(),
                                                    str.rawLength());
-
-                if (!parser.isObject())
-                    throw HttpReturnException(400, "JSON passed to parse_json must be an object",
-                                              "json", str);
 
                 return ExpressionValue::
                     parseJson(parser, val.getEffectiveTimestamp(),

@@ -40,6 +40,57 @@ class MldbFb573(MldbUnitTest):
                 ]
             ]
         )
+    
+    def test_types(self):
+        self.assertTableResultEquals(
+            mldb.query("""
+                select parse_json('[{"a": 5}, {"b": 2}]') as *
+            """),
+            [["_rowName", "0.a", "1.b"],
+             ["result",5,2]]
+        )
+
+        self.assertTableResultEquals(
+            mldb.query("""
+                select parse_json('\"hola\"') as rez
+            """),
+            [["_rowName","rez"],
+             ["result","hola"]]
+        )
+ 
+        self.assertTableResultEquals(
+            mldb.query("""
+                select parse_json(5) as rez
+            """),
+            [["_rowName","rez"],
+            ["result",5]]
+        )
+ 
+        self.assertTableResultEquals(
+            mldb.query("""
+                select parse_json('{}') as *
+            """),
+            [["_rowName"],["result"]]
+        )
+ 
+        self.assertTableResultEquals(
+            mldb.query("""
+                select parse_json('[]') as *
+            """),
+            [["_rowName"],["result"]]
+        )
+
+        self.assertTableResultEquals(
+            mldb.query("""
+                select parse_json(y) as nullz
+                from (
+                    row_dataset({x: 1})
+                )
+                """),
+            [["_rowName","nullz"],
+            ["0",None]]
+        )
+
 
 mldb.run_tests()
 
