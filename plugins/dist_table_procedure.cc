@@ -526,7 +526,7 @@ getFunctionInfo() const
     std::vector<KnownColumn> inputColumns, outputColumns;
     inputColumns.emplace_back(PathElement("features"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(PathElement("counts"), std::make_shared<UnknownRowValueInfo>(),
+    outputColumns.emplace_back(PathElement("stats"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
