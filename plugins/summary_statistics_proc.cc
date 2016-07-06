@@ -94,10 +94,17 @@ struct NumericRowHandler {
     Date now;
     std::function<bool (const Json::Value &)> onProgress;
 
-    // Throws if the column is not numeric
-    void recordStatsForColumn(const Utf8String & name) {
+    // Returns false if the column failed to be treated as numeric
+    bool recordStatsForColumn(const Utf8String & name) {
+
         int64_t numNotNull = 0;
+        bool failedProcessingQuery = true;
+
         auto onRow = [&] (NamedRowValue & row) {
+
+            // if we reach this point, the query was processed successfully
+            failedProcessingQuery = false;
+
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
                 // Checks on the first row if the expected order is correct
@@ -107,7 +114,9 @@ struct NumericRowHandler {
                 ExcAssert(std::get<0>(cols[NUM_NOT_NULL_IDX]).toUtf8String() == "num_not_null");
                 ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
+
             }
+
             vector<Cell> toRecord;
             toRecord.emplace_back(ColumnName("value_data_type"), "number", now);
             toRecord.emplace_back(ColumnName("value_mean"), std::get<1>(cols[AVG_IDX]).toDouble(), now);
@@ -117,40 +126,51 @@ struct NumericRowHandler {
             toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
             output->recordRow(RowName(name), toRecord);
             numNotNull = std::get<1>(cols[NUM_NOT_NULL_IDX]).toInt();
+
             return true;
         };
 
         auto select = SelectExpression::parse(
-            "count_distinct(\"" + name + "\") AS num_unique, "
-            "min(\"" + name + "\") AS min, "
-            "max(\"" + name + "\") AS max, "
-            "avg(\"" + name + "\") AS avg, "
-            "sum(\"" + name + "\" IS NULL) AS num_null, "
-            "sum(\"" + name + "\" IS NOT NULL) AS num_not_null"
+            "count_distinct(" + name + ") AS num_unique, "
+            "min(" + name + ") AS min, "
+            "max(" + name + ") AS max, "
+            "avg(" + name + ") AS avg, "
+            "sum(" + name + " IS NULL) AS num_null, "
+            "sum(" + name + " IS NOT NULL) AS num_not_null"
         );
         vector<shared_ptr<SqlExpression>> aggregators =
             select.findAggregators(!config.inputData.stm->groupBy.clauses.empty());
 
-        BoundGroupByQuery(select,
-                        *boundDataset.dataset,
-                        boundDataset.asName,
-                        config.inputData.stm->when,
-                        *config.inputData.stm->where,
-                        config.inputData.stm->groupBy,
-                        aggregators,
-                        *config.inputData.stm->having,
-                        *config.inputData.stm->rowName,
-                        config.inputData.stm->orderBy)
-            .execute({onRow, false /*processInParallel*/},
-                    0, // offset
-                    -1, // limit
-                    onProgress);
+        try {
+            // The first query is used to determine whether it's numeric or
+            // not, hence the special try/catch/failedProcessingQuery handling.
+            BoundGroupByQuery(select,
+                              *boundDataset.dataset,
+                              boundDataset.asName,
+                              config.inputData.stm->when,
+                              *config.inputData.stm->where,
+                              config.inputData.stm->groupBy,
+                              aggregators,
+                              *config.inputData.stm->having,
+                              *config.inputData.stm->rowName,
+                              config.inputData.stm->orderBy)
+                .execute({onRow, false /*processInParallel*/},
+                         0, // offset
+                         -1, // limit
+                         onProgress);
+        }
+        catch (const ML::Exception & exc) {
+            if (failedProcessingQuery) {
+                return false;
+            }
+            throw;
+        }
 
-        select = SelectExpression::parse("count(\"" + name + "\") AS _0, "
-                                         "\"" + name + "\" AS _1");
-        auto groupBy = TupleExpression::parse("\"" + name + "\"");
-        auto orderBy = OrderByExpression::parse("\"" + name + "\"");
-        auto where = SqlExpression::parse("\"" + name + "\" IS NOT NULL");
+        select = SelectExpression::parse("count(" + name + ") AS _0, "
+                                         + name + " AS _1");
+        auto groupBy = TupleExpression::parse(name);
+        auto orderBy = OrderByExpression::parse(name);
+        auto where = SqlExpression::parse(name + " IS NOT NULL");
         const int NUM_QUARTILES = 3;
         double quartiles[NUM_QUARTILES];
         double quartilesThreshold[NUM_QUARTILES] = {numNotNull * 0.25,
@@ -164,6 +184,7 @@ struct NumericRowHandler {
             if (JML_UNLIKELY(first)) {
                 ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");
                 ExcAssert(std::get<0>(cols[1]).toUtf8String() == "_1");
+                first = false;
             }
             int64_t currentCount = std::get<1>(cols[0]).toInt();
             count += currentCount;
@@ -201,7 +222,7 @@ struct NumericRowHandler {
             ColumnName("value_most_frequent_items." + to_string(mostFrequent.second)),
                        mostFrequent.first, now);
         output->recordRow(RowName(name), toRecord);
-        first = false;
+        return true;
     }
 
 };
@@ -243,8 +264,8 @@ struct CategoricalRowHandler {
         };
 
         auto select = SelectExpression::parse(
-            "count_distinct(\"" + name + "\") AS num_unique, "
-            "sum(\"" + name + "\" IS NULL) AS num_null"
+            "count_distinct(" + name + ") AS num_unique, "
+            "sum(" + name + " IS NULL) AS num_null"
         );
         vector<shared_ptr<SqlExpression>> aggregators =
             select.findAggregators(!config.inputData.stm->groupBy.clauses.empty());
@@ -264,9 +285,9 @@ struct CategoricalRowHandler {
                     -1, // limit
                     onProgress);
 
-        select = SelectExpression::parse("count(\"" + name + "\") AS _0, "
-                                         "\"" + name + "\" AS _1");
-        auto groupBy = TupleExpression::parse("\"" + name + "\"");
+        select = SelectExpression::parse("count(" + name + ") AS _0, "
+                                         + name + " AS _1");
+        auto groupBy = TupleExpression::parse(name);
         auto orderBy = OrderByExpression::parse("_0 DESC");
 
         auto onRow2 = [&] (NamedRowValue & row) {
@@ -347,8 +368,6 @@ run(const ProcedureRunConfig & run,
     if (runProcConf.inputData.stm->select.clauses.size() == 1
         && runProcConf.inputData.stm->select.clauses[0]->isWildcard())
     {
-        vector<Utf8String> numericalColumns;
-        vector<Utf8String> categoricalColumns;
         NumericRowHandler nrh(boundDataset, runProcConf, output, now,
                               onProgress2);
         CategoricalRowHandler crh(boundDataset, runProcConf, output, now,
@@ -360,14 +379,8 @@ run(const ProcedureRunConfig & run,
         for (const auto & c: bsq.getSelectOutputInfo()->allColumnNames()) {
             ++ num;
             const auto & name = c.toUtf8String();
-            try {
-                nrh.recordStatsForColumn(name);
-                numericalColumns.emplace_back(c.toUtf8String());
-            }
-            catch (const ML::Exception & exc) {
-                // ML::Exception is hard to work with, not specific enough
+            if (!nrh.recordStatsForColumn(name)) {
                 crh.recordStatsForColumn(name);
-                categoricalColumns.emplace_back(c.toUtf8String());
             }
         }
     }
