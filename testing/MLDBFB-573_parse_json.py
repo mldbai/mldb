@@ -69,6 +69,14 @@ class MldbFb573(MldbUnitTest):
 
         self.assertTableResultEquals(
             mldb.query("""
+                select parse_json('[{"a": 5}, {"b": 2}]', {arrays: 'encode'}) as *
+            """),
+            [["_rowName","0","1"],
+             ["result","{\"a\":5}","{\"b\":2}"]]
+        )
+
+        self.assertTableResultEquals(
+            mldb.query("""
                 select parse_json('\"hola\"') as rez
             """),
             [["_rowName","rez"],
