@@ -12,7 +12,7 @@
 #include <boost/asio.hpp>
 #include "mldb/watch/watch_impl.h"
 #include "mldb/types/structure_description.h"
-#include "mldb/http/event_loop_impl.h"
+#include "mldb/io/event_loop_impl.h"
 #include <thread>
 
 

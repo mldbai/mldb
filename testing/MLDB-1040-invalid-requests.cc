@@ -13,7 +13,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/http/tcp_acceptor.h"
+#include "mldb/io/tcp_acceptor.h"
 #include "mldb/server/mldb_server.h"
 
 

@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <boost/asio/ip/tcp.hpp>
-#include "mldb/http/tcp_acceptor.h"
+#include "mldb/io/tcp_acceptor.h"
 
 
 namespace Datacratic {

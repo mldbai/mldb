@@ -8,7 +8,7 @@
 #pragma once
 
 #include "mldb/http/http_socket_handler.h"
-#include "mldb/http/port_range_service.h"
+#include "mldb/io/port_range_service.h"
 #include "mldb/utils/log_fwd.h"
 #include <atomic>
 #include <memory>

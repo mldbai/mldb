@@ -7,9 +7,9 @@
 
 #include "boost/system/error_code.hpp"
 #include "boost/asio/error.hpp"
-#include "http_socket_handler.h"
-#include "tcp_socket.h"
 #include "mldb/arch/exception.h"
+#include "mldb/io/tcp_socket.h"
+#include "http_socket_handler.h"
 
 using namespace std;
 using namespace Datacratic;

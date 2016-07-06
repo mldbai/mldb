@@ -10,7 +10,7 @@
 
 #include <string>
 #include <boost/asio/ip/tcp.hpp>
-#include "mldb/http/tcp_socket_handler.h"
+#include "mldb/io/tcp_socket_handler.h"
 
 
 namespace Datacratic {

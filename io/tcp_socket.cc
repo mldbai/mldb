@@ -6,8 +6,8 @@
 */
 
 
-#include "mldb/http/tcp_socket_impl.h"
-#include "mldb/http/tcp_socket.h"
+#include "mldb/io/tcp_socket_impl.h"
+#include "mldb/io/tcp_socket.h"
 
 
 using namespace Datacratic;

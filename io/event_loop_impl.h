@@ -8,7 +8,7 @@
 #pragma once
 
 #include <boost/asio/io_service.hpp>
-#include "mldb/http/event_loop.h"
+#include "mldb/io/event_loop.h"
 
 
 namespace Datacratic {

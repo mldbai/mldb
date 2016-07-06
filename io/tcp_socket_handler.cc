@@ -5,7 +5,7 @@
    Copyright (c) 2015 Datacratic.  All rights reserved.
 */
 
-#include "mldb/http/tcp_socket_handler_impl.h"
+#include "mldb/io/tcp_socket_handler_impl.h"
 #include "tcp_acceptor.h"
 #include "tcp_socket_handler.h"
 #include "tcp_socket.h"

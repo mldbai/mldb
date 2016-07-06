@@ -9,7 +9,7 @@
 #include <boost/asio.hpp>
 #include "asio_timer.h"
 #include "mldb/watch/watch_impl.h"
-#include "mldb/http/event_loop_impl.h"
+#include "mldb/io/event_loop_impl.h"
 #include <thread>
 #include "mldb/arch/backtrace.h"
 #include "mldb/types/basic_value_descriptions.h"

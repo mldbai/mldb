@@ -8,7 +8,7 @@
 #include <memory>
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
-#include "mldb/http/tcp_socket.h"
+#include "mldb/io/tcp_socket.h"
 #include "tcp_socket_impl.h"
 #include "tcp_socket_handler_impl.h"
 

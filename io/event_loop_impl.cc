@@ -5,7 +5,7 @@
    Copyright (c) 2015 Datacratic.  All rights reserved.
 */
 
-#include "mldb/http/event_loop.h"
+#include "mldb/io/event_loop.h"
 #include "event_loop_impl.h"
 
 using namespace std;

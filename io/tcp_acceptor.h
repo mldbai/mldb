@@ -12,7 +12,7 @@
 #include <mutex>
 #include <set>
 #include <string>
-#include "mldb/http/tcp_socket.h"
+#include "mldb/io/tcp_socket.h"
 
 
 namespace Datacratic {
