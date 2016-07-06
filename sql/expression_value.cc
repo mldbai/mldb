@@ -1714,10 +1714,10 @@ parseJson(JsonParsingContext & context,
             // JSON encode them
             for (auto & v: out) {
                 ExpressionValue & columnValue = std::get<1>(v);
-                std::string str;
-                StringJsonPrintingContext context(str);
+                Utf8String str;
+                Utf8StringJsonPrintingContext context(str);
                 columnValue.extractJson(context);
-                columnValue = ExpressionValue(str, timestamp);
+                columnValue = ExpressionValue(std::move(str), timestamp);
             }
         }
 
