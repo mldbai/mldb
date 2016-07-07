@@ -242,6 +242,20 @@ size_t Utf8String::length() const
     return std::distance(begin(), end());
 }
 
+void
+Utf8String::
+reserve(size_t capacity)
+{
+    data_.reserve(capacity);
+}
+
+size_t
+Utf8String::
+capacity() const
+{
+    return data_.capacity();
+}
+
 Utf8String::const_iterator
 Utf8String::
 find(int c) const

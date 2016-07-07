@@ -1714,10 +1714,10 @@ parseJson(JsonParsingContext & context,
             // JSON encode them
             for (auto & v: out) {
                 ExpressionValue & columnValue = std::get<1>(v);
-                std::string str;
-                StringJsonPrintingContext context(str);
+                Utf8String str;
+                Utf8StringJsonPrintingContext context(str);
                 columnValue.extractJson(context);
-                columnValue = ExpressionValue(str, timestamp);
+                columnValue = ExpressionValue(std::move(str), timestamp);
             }
         }
 
@@ -1786,7 +1786,7 @@ ExpressionValue(RowValue row) noexcept
             size_t numUnique = 0;
 
             for (auto it = first;  it != last;  ++it) {
-                ExcAssert(std::get<0>(*it).size() > level);
+                ExcAssertGreater(std::get<0>(*it).size(), level);
                 
                 if (std::get<0>(*it).size() == level + 1) {
                     // This is a final value, and so gets its own value
