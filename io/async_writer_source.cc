@@ -13,12 +13,22 @@
 #include <unistd.h>
 
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/file_functions.h"
 
 #include "async_writer_source.h"
 
 using namespace std;
 using namespace Datacratic;
+
+
+namespace {
+
+inline bool isFileFlagSet(int fd, int flag)
+{
+    int oldFlags = fcntl(fd, F_GETFL, 0);
+    return ((oldFlags & flag) == flag);
+}
+
+} // file scope
 
 
 AsyncWriterSource::
@@ -62,7 +72,7 @@ setFd(int newFd)
     if (fd_ != -1) {
         throw ML::Exception("fd already set: %d", fd_);
     }
-    if (!ML::is_file_flag_set(newFd, O_NONBLOCK)) {
+    if (!isFileFlagSet(newFd, O_NONBLOCK)) {
         throw ML::Exception("file decriptor is blocking");
     }
 

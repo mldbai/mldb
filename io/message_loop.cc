@@ -17,7 +17,6 @@
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/futex.h"
 #include "mldb/arch/backtrace.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/date.h"
 #include "mldb/logging/logging.h"
@@ -25,6 +24,17 @@
 #include "message_loop.h"
 
 using namespace std;
+
+
+namespace {
+
+struct Dont_Delete {
+    template<class X> void operator () (const X & x) const
+    {
+    }
+};
+
+} // file scope
 
 
 namespace Datacratic {
@@ -144,10 +154,10 @@ shutdown()
 
 bool
 MessageLoop::
-addSource(const std::string & name,
-          AsyncEventSource & source, int priority)
+addSource(const std::string & name, AsyncEventSource & source, int priority)
 {
-    return addSource(name, ML::make_unowned_std_sp(source), priority);
+    std::shared_ptr<AsyncEventSource> unownedPtr(&source, Dont_Delete());
+    return addSource(name, unownedPtr, priority);
 }
 
 bool
@@ -194,7 +204,8 @@ removeSource(AsyncEventSource * source)
     // we just make it a nop.
     if (shutdown_) return true;
 
-    SourceEntry entry("", ML::make_unowned_std_sp(*source), 0);
+    std::shared_ptr<AsyncEventSource> unownedPtr(source, Dont_Delete());
+    SourceEntry entry("", unownedPtr, 0);
     SourceAction newAction(SourceAction::REMOVE, move(entry));
     return sourceActions_.push_back(move(newAction));
 }
