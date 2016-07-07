@@ -2056,7 +2056,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             as = SqlExpression::parse(context, 10, allowUtf8);
             // As eats whitespace
         }
-        else as = SqlExpression::parse("columnName()");
+        else as = SqlExpression::parse("columnPath()");
         
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
