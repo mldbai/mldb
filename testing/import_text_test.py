@@ -115,6 +115,39 @@ class ImportTextTest(MldbUnitTest):
                 }
             })
 
+    def test_rowHash(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                'outputDataset' : "titanic_hashed",
+                "where": "rowHash() % 3 = 0",
+                'runOnCreation' : True,
+            }
+        })
+        
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                'outputDataset' : "titanic_no_hashed",
+                'runOnCreation' : True,
+            }
+        })
+
+
+
+        self.assertTableResultEquals(
+            mldb.query("select count(*) from titanic_hashed"),
+            [["_rowName","count(*)"],
+             ["[]",279]]
+        )
+        
+        self.assertTableResultEquals(
+            mldb.query("select count(*) from titanic_no_hashed"),
+            [["_rowName","count(*)"],
+             ["[]",891]]
+        )
 
 
 if __name__ == '__main__':
