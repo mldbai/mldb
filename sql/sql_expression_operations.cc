@@ -3766,7 +3766,7 @@ bind(SqlBindingScope & scope) const
         if (!keep)
             continue;
 
-        Utf8String newColName = boundAs(thisScope, GET_LATEST).toUtf8String();
+        ColumnName newColName = boundAs(thisScope, GET_LATEST).coerceToPath();
 
         vector<ExpressionValue> orderBy;
         for (auto & c: boundOrderBy) {
