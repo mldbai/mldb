@@ -9,7 +9,7 @@ LIBCOMMAND_EXPRESSION_SOURCES := \
 	command_expression.cc \
 
 
-LIBCOMMAND_EXPRESSION_LINK := services value_description arch utils json_diff
+LIBCOMMAND_EXPRESSION_LINK := runner value_description arch utils json_diff
 
 $(eval $(call library,command_expression,$(LIBCOMMAND_EXPRESSION_SOURCES),$(LIBCOMMAND_EXPRESSION_LINK)))
 

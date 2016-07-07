@@ -17,7 +17,7 @@ LIBIO_SOURCES := \
 	async_event_source.cc \
 	async_writer_source.cc \
 
-LIBIO_LINK := logging jsoncpp
+LIBIO_LINK := logging watch jsoncpp
 
 $(eval $(call library,io,$(LIBIO_SOURCES),$(LIBIO_LINK)))
 

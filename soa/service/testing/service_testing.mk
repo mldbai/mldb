@@ -6,10 +6,10 @@ $(eval $(call test,aws_test,cloud,boost))
 $(eval $(call test,statsd_connector_test,opstats,boost  manual))
 
 $(eval $(call program,runner_test_helper,utils))
-$(eval $(call test,runner_test,services,boost))
-$(eval $(call test,runner_stress_test,services,boost manual))
+$(eval $(call test,runner_test,runner,boost))
+$(eval $(call test,runner_stress_test,runner,boost manual))
 $(TESTS)/runner_test $(TESTS)/runner_stress_test: $(BIN)/runner_test_helper
-$(eval $(call test,sink_test,services,boost))
+$(eval $(call test,sink_test,runner utils,boost))
 
 $(eval $(call test,sns_mock_test,cloud services,boost))
 
