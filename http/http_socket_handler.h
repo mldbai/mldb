@@ -10,7 +10,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/http/http_header.h"
 #include "mldb/http/http_parsers.h"
-#include "mldb/io/tcp_socket_handler.h"
+#include "mldb/http/tcp_socket_handler.h"
 
 
 namespace Datacratic {

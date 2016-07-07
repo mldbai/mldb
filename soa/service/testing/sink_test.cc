@@ -16,7 +16,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/jml/utils/file_functions.h"
 
-#include "mldb/io/message_loop.h"
+#include "mldb/soa/service/message_loop.h"
 #include "mldb/soa/service/sink.h"
 
 #include "signals.h"

@@ -22,7 +22,7 @@
 #include "mldb/types/date.h"
 #include "mldb/types/value_description_fwd.h"
 
-#include "mldb/io/epoll_loop.h"
+#include "epoll_loop.h"
 #include "runner_common.h"
 #include "sink.h"
 

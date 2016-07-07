@@ -17,57 +17,66 @@ LIBOPSTATS_LINK := \
 $(eval $(call library,opstats,$(LIBOPSTATS_SOURCES),$(LIBOPSTATS_LINK)))
 
 
-# Runner Common
 
-LIBRUNNERCOMMON_SOURCES := \
+LIBDATACRATIC_RUNNERCOMMON_SOURCES := \
 	runner_common.cc
 
-LIBRUNNERCOMMON_LINK :=
+LIBDATACRATIC_RUNNERCOMMON_LINK :=
 
-$(eval $(call library,runner_common,$(LIBRUNNERCOMMON_SOURCES),$(LIBRUNNERCOMMON_LINK)))
+$(eval $(call library,runner_common,$(LIBDATACRATIC_RUNNERCOMMON_SOURCES),$(LIBDATACRATIC_RUNNERCOMMON_LINK)))
 $(eval $(call program,runner_helper,runner_common arch))
 
 
-# Runner
-
-LIBRUNNER_SOURCES := \
-	sink.cc \
-	runner.cc
-
-LIBRUNNER_LINK := runner_common io_base value_description logging utils
-
-$(eval $(call library,runner,$(LIBRUNNER_SOURCES),$(LIBRUNNER_LINK)))
-
-$(LIB)/librunner.so: $(BIN)/runner_helper
-
-
-# Services
-
 LIBSERVICES_SOURCES := \
+	epoller.cc \
+	epoll_loop.cc \
 	event_service.cc \
+	message_loop.cc \
+	async_event_source.cc \
+	async_writer_source.cc \
+	sink.cc \
+	xml_helpers.cc \
+	runner.cc \
 
-LIBSERVICES_LINK := opstats
+
+LIBSERVICES_LINK := http opstats curl boost_regex arch utils jsoncpp types tinyxml2 boost_system value_description credentials runner_common boost_filesystem cityhash any services_base watch
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 $(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
 
+# gcc 4.7
+$(eval $(call set_compile_option,aws.cc,-fpermissive))
 
-# AWS
+$(LIB)/libservices.so: $(BIN)/runner_helper
 
-LIBAWS_SOURCES := \
-	xml_helpers.cc \
+
+
+LIBCLOUD_SOURCES := \
+	sftp.cc \
 	s3.cc \
 	sns.cc \
 	aws.cc \
 	sqs.cc \
+	archive.cc \
+	docker.cc
 
 #	hdfs.cc
 
-LIBAWS_LINK := credentials hash crypto++ tinyxml2
+LIBCLOUD_LINK := utils arch types value_description tinyxml2 services crypto++ ssh2 boost_filesystem archive hash #hdfs3
 
 
-$(eval $(call library,aws,$(LIBAWS_SOURCES),$(LIBAWS_LINK)))
+$(eval $(call library,cloud,$(LIBCLOUD_SOURCES),$(LIBCLOUD_LINK)))
 
-$(eval $(call program,sns_send,aws boost_program_options utils))
+
+
+$(eval $(call program,s3_transfer_cmd,cloud boost_program_options boost_filesystem utils))
+$(eval $(call program,s3tee,cloud boost_program_options utils))
+$(eval $(call program,s3cp,cloud boost_program_options utils))
+$(eval $(call program,s3_multipart_cmd,cloud boost_program_options utils))
+$(eval $(call program,s3cat,cloud boost_program_options utils))
+$(eval $(call program,sns_send,cloud boost_program_options utils))
+
+SERVICEDUMP_LINK = services boost_program_options
+
 
 $(eval $(call include_sub_make,service_testing,testing,service_testing.mk))

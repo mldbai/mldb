@@ -7,9 +7,9 @@
 */
 
 #include "asio_peer_server.h"
-#include "mldb/io/asio_thread_pool.h"
-#include "mldb/io/asio_timer.h"
-#include "mldb/io/event_loop_impl.h"
+#include "mldb/http/asio_thread_pool.h"
+#include "mldb/http/asio_timer.h"
+#include "mldb/http/event_loop_impl.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "asio_peer_connection.h"
 

@@ -9,7 +9,7 @@
 #pragma once
 
 #include "mldb/soa/service/runner.h"
-#include "mldb/io/message_loop.h"
+#include "mldb/soa/service/message_loop.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/rest/etcd_client.h"
 #include <chrono>

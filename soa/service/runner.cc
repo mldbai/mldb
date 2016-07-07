@@ -26,14 +26,16 @@
 #include "mldb/arch/timers.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/logging/logging.h"
-#include "mldb/io/message_loop.h"
+
+#include "mldb/http/logs.h"
+#include "message_loop.h"
+#include "sink.h"
+
+#include "runner.h"
+
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/ext/jsoncpp/json.h"
-
-#include "sink.h"
-#include "runner.h"
 
 #include <future>
 

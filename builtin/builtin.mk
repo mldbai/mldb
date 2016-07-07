@@ -8,7 +8,7 @@ LIBMLDB_BUILTIN_SOURCES:= \
 	filtered_dataset.cc \
 	sampled_dataset.cc \
 
-LIBMLDB_BUILTIN_LINK:= mldb_core runner
+LIBMLDB_BUILTIN_LINK:= mldb_core
 
 
 $(eval $(call library,mldb_builtin,$(LIBMLDB_BUILTIN_SOURCES),$(LIBMLDB_BUILTIN_LINK)))

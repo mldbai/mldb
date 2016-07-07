@@ -10,8 +10,8 @@
 #include "asio_peer_connection.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
-#include "mldb/io/asio_thread_pool.h"
-#include "mldb/io/asio_timer.h"
+#include "mldb/http/asio_thread_pool.h"
+#include "mldb/http/asio_timer.h"
 #include "mldb/watch/watch_impl.h"
 #include "asio_peer_server.h"
 #include <boost/asio.hpp>

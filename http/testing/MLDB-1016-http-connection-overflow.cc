@@ -20,11 +20,11 @@
 #include "mldb/arch/exception_handler.h"
 #include "mldb/jml/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"
-#include "mldb/io/asio_thread_pool.h"
-#include "mldb/io/event_loop.h"
-#include "mldb/io/port_range_service.h"
-#include "mldb/io/tcp_acceptor.h"
-#include "mldb/io/tcp_socket_handler.h"
+#include "mldb/http/asio_thread_pool.h"
+#include "mldb/http/event_loop.h"
+#include "mldb/http/port_range_service.h"
+#include "mldb/http/tcp_acceptor.h"
+#include "mldb/http/tcp_socket_handler.h"
 
 using namespace std;
 using namespace ML;

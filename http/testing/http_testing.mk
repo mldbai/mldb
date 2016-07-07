@@ -6,6 +6,8 @@ $(eval $(call test,http_parsers_test,http,boost valgrind))
 $(eval $(call test,tcp_acceptor_test+http,http,boost))
 $(eval $(call test,tcp_acceptor_threaded_test+http,http,boost))
 $(eval $(call program,http_service_bench,boost_program_options http))
+$(eval $(call test,logs_test,http,boost))
+
 
 
 # The following tests needs to be adapted to the new network code:

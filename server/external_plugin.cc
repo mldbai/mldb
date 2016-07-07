@@ -10,7 +10,7 @@
 #include "mldb/server/external_plugin.h"
 #include "mldb/server/script_output.h"
 #include "mldb/soa/service/runner.h"
-#include "mldb/io/message_loop.h"
+#include "mldb/soa/service/message_loop.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/rest/poly_collection_impl.h"

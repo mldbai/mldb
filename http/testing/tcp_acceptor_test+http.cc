@@ -16,13 +16,13 @@
 #include <boost/asio.hpp>
 #include "base/exc_assert.h"
 
-#include "mldb/io/asio_thread_pool.h"
-#include "mldb/io/event_loop.h"
-#include "mldb/io/event_loop_impl.h"
+#include "mldb/http/asio_thread_pool.h"
+#include "mldb/http/event_loop.h"
+#include "mldb/http/event_loop_impl.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/http/http_socket_handler.h"
-#include "mldb/io/port_range_service.h"
-#include "mldb/io/tcp_acceptor.h"
+#include "mldb/http/port_range_service.h"
+#include "mldb/http/tcp_acceptor.h"
 
 
 using namespace std;

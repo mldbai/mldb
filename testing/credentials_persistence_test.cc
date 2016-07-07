@@ -12,7 +12,7 @@
 #include "mldb/server/credential_collection.h"
 #include "mldb/rest/collection_config_store.h"
 #include "mldb/soa/service/runner.h"
-#include "mldb/io/message_loop.h"
+#include "mldb/soa/service/message_loop.h"
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/http/http_rest_proxy.h"
