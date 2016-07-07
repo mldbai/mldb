@@ -1780,10 +1780,6 @@ ExpressionValue(RowValue row) noexcept
                        RowValue::iterator last,
                        size_t level)
         {
-            cerr << "doing level " << level << " from "
-            << first - row.begin() << " to " << last - row.begin()
-            << endl;
-
             Structured rowOut;
             
             // Count how many unique keys there are?
