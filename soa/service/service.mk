@@ -34,7 +34,7 @@ LIBRUNNER_SOURCES := \
 	sink.cc \
 	runner.cc
 
-LIBRUNNER_LINK := runner_common io value_description logging utils
+LIBRUNNER_LINK := runner_common io_base value_description logging utils
 
 $(eval $(call library,runner,$(LIBRUNNER_SOURCES),$(LIBRUNNER_LINK)))
 

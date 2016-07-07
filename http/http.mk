@@ -9,7 +9,7 @@ LIBHTTP_SOURCES := \
 	curl_wrapper.cc \
 
 
-LIBHTTP_LINK := curl io arch jsoncpp types boost_system value_description boost_filesystem cityhash watch
+LIBHTTP_LINK := curl io_base arch jsoncpp types boost_system value_description boost_filesystem cityhash watch
 
 $(eval $(call library,http,$(LIBHTTP_SOURCES),$(LIBHTTP_LINK)))
 

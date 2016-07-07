@@ -19,6 +19,6 @@ LIBIO_SOURCES := \
 
 LIBIO_LINK := logging watch jsoncpp
 
-$(eval $(call library,io,$(LIBIO_SOURCES),$(LIBIO_LINK)))
+$(eval $(call library,io_base,$(LIBIO_SOURCES),$(LIBIO_LINK)))
 
 $(eval $(call include_sub_make,io_testing,testing,io_testing.mk))

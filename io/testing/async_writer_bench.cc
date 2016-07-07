@@ -14,13 +14,23 @@
 
 #include <chrono>
 #include <thread>
-#include "mldb/jml/utils/file_functions.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/io/async_writer_source.h"
 #include "mldb/soa/utils/print_utils.h"
 
 using namespace std;
 using namespace Datacratic;
+
+
+namespace {
+
+void setFileFlag(int fd, int newFlag)
+{
+    int oldFlags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, oldFlags | newFlag);
+}
+
+} // file scope
 
 
 struct WriterSource : public AsyncWriterSource {
@@ -106,13 +116,13 @@ pair<int, int> makeTcpSocketPair()
     if (connect(writer, (const struct sockaddr *) &addr, addrLen) == -1) {
         throw ML::Exception(errno, "connect");
     }
-    ML::set_file_flag(writer, O_NONBLOCK);
+    setFileFlag(writer, O_NONBLOCK);
 
     int reader = accept(listener, (struct sockaddr *) &addr, &addrLen);
     if (reader == -1) {
         throw ML::Exception(errno, "accept");
     }
-    ML::set_file_flag(reader, O_NONBLOCK);
+    setFileFlag(reader, O_NONBLOCK);
 
     close(listener);
 
