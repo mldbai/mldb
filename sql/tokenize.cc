@@ -74,7 +74,7 @@ struct NGramer {
 char32_t expectUtf8Char(ML::Parse_Context & context)
 {
     if (!context)
-        context.exception("Expected UTF-8 character");
+        context.exception("Expected UTF-8 character but got EOF instead");
 
     unsigned char c = *context;
 
