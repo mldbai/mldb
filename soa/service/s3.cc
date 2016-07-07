@@ -1817,6 +1817,8 @@ struct RegisterS3CredProvider {
 
     RegisterS3CredProvider()
     {
+        CredentialProvider::registerProvider
+            (std::make_shared<CloudCredentialProvider>());
         if (getenv("S3_KEY_ID"))
             CredentialProvider::registerProvider
                 (std::make_shared<S3EnvironmentCredentialProvider>());
