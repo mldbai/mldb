@@ -397,4 +397,4 @@ $(eval $(call mldb_unit_test,MLDB-1750-dist-tables.py))
 $(eval $(call mldb_unit_test,MLDB-1766_dt_categorical_iris.py))
 $(eval $(call mldb_unit_test,MLDB-1502-import-text-column-name-confusion.js))
 $(eval $(call mldb_unit_test,MLDB-1779-select-column-expr-pathnames.js))
-
+$(eval $(call mldb_unit_test,MLDB-1781-path-flattening.js))

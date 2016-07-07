@@ -1780,13 +1780,17 @@ ExpressionValue(RowValue row) noexcept
                        RowValue::iterator last,
                        size_t level)
         {
+            cerr << "doing level " << level << " from "
+            << first - row.begin() << " to " << last - row.begin()
+            << endl;
+
             Structured rowOut;
             
             // Count how many unique keys there are?
             size_t numUnique = 0;
 
             for (auto it = first;  it != last;  ++it) {
-                ExcAssert(std::get<0>(*it).size() > level);
+                ExcAssertGreater(std::get<0>(*it).size(), level);
                 
                 if (std::get<0>(*it).size() == level + 1) {
                     // This is a final value, and so gets its own value
