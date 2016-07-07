@@ -3,16 +3,14 @@
 # Francois-Michel L Heureux, 2016-07-04
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
-
+if False:
+    mldb_wrapper = None
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class SummaryStatsProcTest(MldbUnitTest):  # noqa
 
     @classmethod
     def setUpClass(cls):
-        pass
-
-    def test_it(self):
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
         ds.record_row('row1', [
             ['colA', 1, 0],
@@ -29,6 +27,7 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         ])
         ds.commit()
 
+    def test_it(self):
         mldb.post('/v1/procedures', {
             'type' : 'summary.statistics',
             'params' : {
@@ -85,8 +84,60 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
              "value_data_type", "value_max", "value_mean", "value_median",
              "value_min", '"value_most_frequent_items.1"', "value_num_null",
              "value_num_unique"],
-            ['"""col.a"""', 1, 1, "number", 1, 1, 1, 1, 1, 0, 1]
+            ['"col.a"', 1, 1, "number", 1, 1, 1, 1, 1, 0, 1]
         ])
+
+    def test_unexisting_col(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'summary.statistics',
+            'params' : {
+                'runOnCreation' : True,
+                'inputData' : 'SELECT unexisting FROM ds',
+                'outputDataset' : {
+                    'id' : 'output_unexisting_col_ds',
+                    'type' : 'sparse.mutable'
+                }
+            }
+        })
+
+        res = mldb.query("SELECT * FROM output_unexisting_col_ds")
+        self.assertTableResultEquals(res, [
+            ["_rowName", "value_data_type",
+             "\"value_most_frequent_items.NULL\"", "value_num_null",
+             "value_num_unique"],
+
+            ["unexisting", "categorical", 0, 3, 0]
+        ])
+
+    def test_invalid_select(self):
+        def run_proc(input_data):
+            mldb.post('/v1/procedures', {
+                'type' : 'summary.statistics',
+                'params' : {
+                    'runOnCreation' : True,
+                    'inputData' : input_data,
+                    'outputDataset' : {
+                        'id' : 'error',
+                        'type' : 'sparse.mutable'
+                    }
+                }
+            })
+        msg = "is not a supported SELECT value expression for " \
+              "summary.statistics"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            run_proc('SELECT coco AS * FROM ds')
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            run_proc('SELECT {a:1, b:2} FROM ds')
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            run_proc('SELECT colA + 1 FROM ds')
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            run_proc('SELECT {*} FROM ds')
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            run_proc('SELECT *, * FROM ds')
 
 if __name__ == '__main__':
     mldb.run_tests()

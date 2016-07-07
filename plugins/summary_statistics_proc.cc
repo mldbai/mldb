@@ -32,7 +32,7 @@ namespace Datacratic {
 namespace MLDB {
 
 SummaryStatisticsProcedureConfig::
-SummaryStatisticsProcedureConfig()
+SummaryStatisticsProcedureConfig() : gotWildcard(false)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -54,7 +54,39 @@ SummaryStatisticsProcedureConfigDescription()
     onPostValidate = [&] (SummaryStatisticsProcedureConfig * cfg,
                           JsonParsingContext & context)
     {
+        auto logger = MLDB::getMldbLog("SummaryStatisticsProcedure");
         MustContainFrom()(cfg->inputData, SummaryStatisticsProcedureConfig::name);
+        for (const auto & clause: cfg->inputData.stm->select.clauses) {
+            if (clause->isWildcard()) {
+                cfg->gotWildcard = true;
+                continue;
+            }
+            auto expr = dynamic_cast<NamedColumnExpression *>(clause.get());
+            if (expr == nullptr) {
+                logger->debug() << "Failed to cast " << clause->surface;
+                throw ML::Exception("%s is not a supported SELECT value "
+                                    "expression for summary.statistics",
+                                    clause->surface.rawData());
+            }
+            if (expr->alias.empty()) {
+                logger->debug() << "Empty alias " << clause->surface;
+                throw ML::Exception("%s is not a supported SELECT value "
+                                    "expression for summary.statistics",
+                                    clause->surface.rawData());
+            }
+            try {
+                SelectExpression::parse(
+                    "sum(" + expr->getChildren()[0]->surface + ") AS "
+                    + expr->alias.toSimpleName());
+            }
+            catch (const ML::Exception & exc) {
+                logger->debug() << "Failed to parse within sum "
+                                << clause->surface;
+                throw ML::Exception("%s is not a supported SELECT value "
+                                    "expression for summary.statistics",
+                                    clause->surface.rawData());
+            }
+        }
     };
 }
 
@@ -95,15 +127,14 @@ struct NumericRowHandler {
     std::function<bool (const Json::Value &)> onProgress;
 
     // Returns false if the column failed to be treated as numeric
-    bool recordStatsForColumn(const Utf8String & name) {
+    bool recordStatsForColumn(const Utf8String & name, const Path & rowName) {
 
         int64_t numNotNull = 0;
-        bool failedProcessingQuery = true;
+        bool isNumeric = false;
 
         auto onRow = [&] (NamedRowValue & row) {
 
-            // if we reach this point, the query was processed successfully
-            failedProcessingQuery = false;
+            // If the data is categorical, we don't even reach this point
 
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
@@ -118,13 +149,19 @@ struct NumericRowHandler {
             }
 
             vector<Cell> toRecord;
-            toRecord.emplace_back(ColumnName("value_data_type"), "number", now);
+            if (!std::get<1>(cols[MAX_IDX]).isNumber()) {
+                // If the column is empty, we reach this point (max is null)
+                auto theThing = std::get<1>(cols[MAX_IDX]);
+                return false;
+            }
+            isNumeric = true;
             toRecord.emplace_back(ColumnName("value_mean"), std::get<1>(cols[AVG_IDX]).toDouble(), now);
             toRecord.emplace_back(ColumnName("value_max"), std::get<1>(cols[MAX_IDX]).toDouble(), now);
             toRecord.emplace_back(ColumnName("value_min"), std::get<1>(cols[MIN_IDX]).toDouble(), now);
             toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
             toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
-            output->recordRow(RowName(name), toRecord);
+            toRecord.emplace_back(ColumnName("value_data_type"), "number", now);
+            output->recordRow(rowName, toRecord);
             numNotNull = std::get<1>(cols[NUM_NOT_NULL_IDX]).toInt();
 
             return true;
@@ -160,10 +197,15 @@ struct NumericRowHandler {
                          onProgress);
         }
         catch (const ML::Exception & exc) {
-            if (failedProcessingQuery) {
+            if (!isNumeric) {
+                // Categorical, the query donesn't work
                 return false;
             }
             throw;
+        }
+        if (!isNumeric) {
+            // empty col
+            return false;
         }
 
         select = SelectExpression::parse("count(" + name + ") AS _0, "
@@ -221,7 +263,7 @@ struct NumericRowHandler {
         toRecord.emplace_back(
             ColumnName("value_most_frequent_items." + to_string(mostFrequent.second)),
                        mostFrequent.first, now);
-        output->recordRow(RowName(name), toRecord);
+        output->recordRow(rowName, toRecord);
         return true;
     }
 
@@ -247,7 +289,7 @@ struct CategoricalRowHandler {
     Date now;
     std::function<bool (const Json::Value &)> onProgress;
 
-    void recordStatsForColumn(const Utf8String & name) {
+    void recordStatsForColumn(const Utf8String & name, const Path & rowName) {
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
@@ -259,7 +301,7 @@ struct CategoricalRowHandler {
             toRecord.emplace_back(ColumnName("value_data_type"), "categorical", now);
             toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
             toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
-            output->recordRow(RowName(name), toRecord);
+            output->recordRow(rowName, toRecord);
             return true;
         };
 
@@ -297,11 +339,19 @@ struct CategoricalRowHandler {
                 ExcAssert(std::get<0>(cols[1]).toUtf8String() == "_1");
             }
             vector<Cell> toRecord;
-            toRecord.emplace_back(
-                ColumnName("value_most_frequent_items." + std::get<1>(cols[1]).toString()),
-                std::get<1>(cols[0]).toInt(),
-                now);
-            output->recordRow(RowName(name), toRecord);
+            if (std::get<1>(cols[1]).empty()) {
+                toRecord.emplace_back(
+                    ColumnName("value_most_frequent_items.NULL"),
+                    std::get<1>(cols[0]).toInt(),
+                    now);
+            }
+            else {
+                toRecord.emplace_back(
+                    ColumnName("value_most_frequent_items." + std::get<1>(cols[1]).toString()),
+                    std::get<1>(cols[0]).toInt(),
+                    now);
+            }
+            output->recordRow(rowName, toRecord);
             return true;
         };
         BoundGroupByQuery(select,
@@ -346,15 +396,18 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    BoundSelectQuery bsq(runProcConf.inputData.stm->select,
-                         *boundDataset.dataset,
-                         boundDataset.asName,
-                         runProcConf.inputData.stm->when,
-                         *runProcConf.inputData.stm->where,
-                         runProcConf.inputData.stm->orderBy,
-                         calc);
     int num = 0;
     float denum = 0;
+    {
+        BoundSelectQuery bsq(runProcConf.inputData.stm->select,
+                             *boundDataset.dataset,
+                             boundDataset.asName,
+                             runProcConf.inputData.stm->when,
+                             *runProcConf.inputData.stm->where,
+                             runProcConf.inputData.stm->orderBy,
+                             calc);
+        denum = bsq.getSelectOutputInfo()->allColumnNames().size();
+    }
     auto onProgress2 = [&](const Json::Value & progress) {
         Json::Value v;
         v["percent"] = num / denum;
@@ -365,28 +418,41 @@ run(const ProcedureRunConfig & run,
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    if (runProcConf.inputData.stm->select.clauses.size() == 1
-        && runProcConf.inputData.stm->select.clauses[0]->isWildcard())
-    {
-        NumericRowHandler nrh(boundDataset, runProcConf, output, now,
-                              onProgress2);
-        CategoricalRowHandler crh(boundDataset, runProcConf, output, now,
-                                  onProgress);
-        using std::placeholders::_1;
 
-        SqlExpressionDatasetScope datasetContext(boundDataset);
-        denum = bsq.getSelectOutputInfo()->allColumnNames().size() / 100.0;
-        for (const auto & c: bsq.getSelectOutputInfo()->allColumnNames()) {
-            ++ num;
-            const auto & name = c.toUtf8String();
-            if (!nrh.recordStatsForColumn(name)) {
-                crh.recordStatsForColumn(name);
-            }
+    NumericRowHandler nrh(boundDataset, runProcConf, output, now, onProgress2);
+    CategoricalRowHandler crh(boundDataset, runProcConf, output, now,
+                                onProgress);
+    auto record = [&] (const Utf8String & expr, const Path & alias) {
+        const Utf8String name = "\"" + expr + "\"";
+        if (!nrh.recordStatsForColumn(name, alias)) {
+            crh.recordStatsForColumn(name, alias);
         }
+    };
+
+    for (const auto & clause: procedureConfig.inputData.stm->select.clauses) {
+        Utf8String surface;
+        Utf8String alias;
+        if (clause->isWildcard()) {
+            BoundSelectQuery bsq(SelectExpression::parse("*"),
+                                *boundDataset.dataset,
+                                boundDataset.asName,
+                                runProcConf.inputData.stm->when,
+                                *runProcConf.inputData.stm->where,
+                                runProcConf.inputData.stm->orderBy,
+                                calc);
+            for (const auto & colName: bsq.getSelectOutputInfo()->allColumnNames()) {
+                ++ num;
+                record(colName.toSimpleName(), colName);
+            }
+            continue;
+        }
+        ++ num;
+        // static_cast -> validated already from onPostValidate
+        auto expr = static_cast<NamedColumnExpression *>(clause.get());
+        record(expr->getChildren()[0]->surface, expr->alias);
     }
-    else {
-        throw ML::Exception("Unimplemented for non wildcard select");
-    }
+
+    cerr << "final ------>" << num << "/" << denum << endl;
 
     output->commit();
     return output->getStatus();

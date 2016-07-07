@@ -2,8 +2,9 @@
  * summary_statistics_proc.h
  * Mich, 2016-06-30
  * Copyright (c) 2016 Datacratic Inc. All rights reserved.
-
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ *
+ * Generates column statistics based on an input query. The statistics are
+ * computed from a sequence of mldb sql queries.
  **/
 
 #pragma once
@@ -23,6 +24,7 @@ struct SummaryStatisticsProcedureConfig : ProcedureConfig {
     InputQuery inputData;
     PolyConfigT<Dataset> outputDataset;
     std::map<std::string, std::pair<float, float>> percentileBuckets;
+    bool gotWildcard;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SummaryStatisticsProcedureConfig);
