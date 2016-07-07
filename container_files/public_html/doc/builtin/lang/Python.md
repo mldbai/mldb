@@ -65,7 +65,7 @@ There are two functions that allow access to the virtual filesystem of MLDB:
 ### `mldb.plugin` object (available to plugins)
 
 * `mldb.plugin.args` contains the value of the `args` key in the JSON payload of the HTTP request
-* `mldb.plugin.serve_static_folder(route, dir)` serve up static content under `dir` on the given plugin route `GET /v1/plugins/<id>/route`.
+* `mldb.plugin.serve_static_folder(route, dir)` serve up static content under `dir` on the given plugin route `GET /v1/plugins/<id>/routes/<route>`.
 * `mldb.plugin.serve_documentation_folder(dir)` serve up documentation under `dir` on the plugin's documentation route (`GET /v1/plugins/<id>/doc`).  This will render files with a `.md` extension as HTML.See the [Documentation Serving](../DocumentationServing.md) page for more details.
 * `mldb.plugin.rest_params`: object available within `routes.py` which represents an HTTP REST call. It has the following fields and methods:
     * `verb`, `remaining`, `rest_params`: route and query-string details such that for `GET /v1/plugins/X/routes/hello?who=you`

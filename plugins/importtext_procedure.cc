@@ -140,6 +140,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
         Date ts;
         int64_t lineNumber;
         int64_t lineOffset;
+        const RowName * rowName;
     };
 
     SqlCsvScope(MldbServer * server,
@@ -265,7 +266,21 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(row.lineNumber, fileTimestamp);
                     },
                     std::make_shared<IntegerValueInfo>()
-                        };
+                };
+        }
+        else if (functionName == "rowHash") {
+            lineNumberUsed = true;
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope)
+                    {
+                        auto & row = scope.as<RowScope>();
+                        if(!row.rowName) {
+                            throw ML::Exception("rowHash() not available in this scope");
+                        }
+                        return ExpressionValue(row.rowName->hash(), fileTimestamp);
+                    },
+                    std::make_shared<IntegerValueInfo>()
+                };
         }
         else if (functionName == "fileTimestamp") {
             return {[=] (const std::vector<ExpressionValue> & args,
@@ -274,7 +289,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(fileTimestamp, fileTimestamp);
                     },
                     std::make_shared<TimestampValueInfo>()
-                        };
+                };
         }
         else if (functionName == "dataFileUrl") {
             return {[=] (const std::vector<ExpressionValue> & args,
@@ -283,7 +298,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(dataFileUrl, fileTimestamp);
                     },
                     std::make_shared<Utf8StringValueInfo>()
-                        };
+                };
         }
         else if (functionName == "lineOffset") {
             return {[=] (const std::vector<ExpressionValue> & args,
@@ -293,7 +308,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(row.lineOffset, fileTimestamp);
                     },
                     std::make_shared<IntegerValueInfo>()
-                        };
+                };
         }
         return SqlBindingScope::doGetFunction(tableName, functionName, args,
                                               argScope);
@@ -1034,6 +1049,11 @@ struct ImportTextProcedureWorkInstance
             auto row = scope.bindRow(&values[0], ts, actualLineNum,
                                          0 /* todo: chunk ofs */);
 
+            ExpressionValue nameStorage;
+            RowName rowName(namedBound(row, nameStorage, GET_ALL)
+                                .toUtf8String());
+            row.rowName = &rowName;
+
             // If it doesn't match the where, don't add it
             if (!isWhereTrue) {
                 ExpressionValue storage;
@@ -1046,10 +1066,6 @@ struct ImportTextProcedureWorkInstance
             ExpressionValue tsStorage;
             rowTs = timestampBound(row, tsStorage, GET_ALL)
                     .coerceToTimestamp().toTimestamp();
-
-            ExpressionValue nameStorage;
-            RowName rowName(namedBound(row, nameStorage, GET_ALL)
-                                .toUtf8String());
 
             //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 

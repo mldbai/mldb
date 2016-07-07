@@ -168,6 +168,12 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             ]
         )
 
+        # unpack the stats
+        mldb.query("""
+            SELECT get_stats({features: {host: 'patate.com'}})[stats] AS *
+        """)
+
+
 
 if __name__ == '__main__':
     mldb.run_tests()

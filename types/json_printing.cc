@@ -814,6 +814,18 @@ writeBool(bool b)
 
 
 /*****************************************************************************/
+/* UTF8 STRING JSON PRINTING CONTEXT                                         */
+/*****************************************************************************/
+
+Utf8StringJsonPrintingContext::
+Utf8StringJsonPrintingContext(Utf8String & str)
+    : StringJsonPrintingContext(const_cast<std::string &>(str.rawString())),
+      str(str)
+{
+}
+
+
+/*****************************************************************************/
 /* STRUCTURED JSON PRINTING CONTEXT                                          */
 /*****************************************************************************/
 

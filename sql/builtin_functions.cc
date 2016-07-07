@@ -1787,6 +1787,10 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
             {
                 ExcAssert(args.size() > 0 && args.size() < 3);
                 auto & val = args[0];
+
+                if(val.empty())
+                    return ExpressionValue::null(val.getEffectiveTimestamp());
+                
                 Utf8String str = val.toUtf8String();
 
                 JsonArrayHandling encode = PARSE_ARRAYS;
