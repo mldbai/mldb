@@ -121,7 +121,7 @@ struct RegisterBuiltinUnaryScalar {
                           const CellValue & val,
                           Date ts)
             {
-                output.emplace_back(std::move(columnName),
+                output.emplace_back(prefix + std::move(columnName),
                                     fn(val),
                                     ts);
                 return true;
@@ -386,7 +386,7 @@ struct RegisterBuiltinBinaryScalar {
                           const CellValue & val,
                           Date ts)
             {
-                output.emplace_back(std::move(columnName),
+                output.emplace_back(prefix + std::move(columnName),
                                     fn(v1, val),
                                     std::max(lts, ts));
                 return true;
@@ -411,7 +411,7 @@ struct RegisterBuiltinBinaryScalar {
                           const CellValue & val,
                           Date ts)
             {
-                output.emplace_back(std::move(columnName),
+                output.emplace_back(prefix + std::move(columnName),
                                     fn(val, v2),
                                     std::max(rts, ts));
                 return true;

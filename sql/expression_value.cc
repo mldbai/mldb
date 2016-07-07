@@ -1786,7 +1786,7 @@ ExpressionValue(RowValue row) noexcept
             size_t numUnique = 0;
 
             for (auto it = first;  it != last;  ++it) {
-                ExcAssert(std::get<0>(*it).size() > level);
+                ExcAssertGreater(std::get<0>(*it).size(), level);
                 
                 if (std::get<0>(*it).size() == level + 1) {
                     // This is a final value, and so gets its own value
