@@ -13,7 +13,7 @@ LIBCOMMAND_EXPRESSION_LINK := runner value_description arch utils json_diff
 
 $(eval $(call library,command_expression,$(LIBCOMMAND_EXPRESSION_SOURCES),$(LIBCOMMAND_EXPRESSION_LINK)))
 
-$(eval $(call program,json_format,command_expression cloud boost_program_options))
+$(eval $(call program,json_format,command_expression vfs_handlers boost_program_options))
 
 $(eval $(call include_sub_make,testing))
 

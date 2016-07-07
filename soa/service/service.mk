@@ -51,31 +51,23 @@ LIBSERVICES_LINK := opstats
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 $(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
 
-LIBCLOUD_SOURCES := \
+
+# AWS
+
+LIBAWS_SOURCES := \
 	xml_helpers.cc \
-	sftp.cc \
 	s3.cc \
 	sns.cc \
 	aws.cc \
 	sqs.cc \
-	archive.cc \
-	docker.cc
 
 #	hdfs.cc
 
-LIBCLOUD_LINK := credentials utils arch types value_description tinyxml2 crypto++ ssh2 boost_filesystem archive hash #hdfs3
+LIBAWS_LINK := credentials hash crypto++ tinyxml2
 
 
-$(eval $(call library,cloud,$(LIBCLOUD_SOURCES),$(LIBCLOUD_LINK)))
+$(eval $(call library,aws,$(LIBAWS_SOURCES),$(LIBAWS_LINK)))
 
-# gcc 4.7
-$(eval $(call set_compile_option,aws.cc,-fpermissive))
-
-$(eval $(call program,s3_transfer_cmd,cloud boost_program_options boost_filesystem utils))
-$(eval $(call program,s3tee,cloud boost_program_options utils))
-$(eval $(call program,s3cp,cloud boost_program_options utils))
-$(eval $(call program,s3_multipart_cmd,cloud boost_program_options utils))
-$(eval $(call program,s3cat,cloud boost_program_options utils))
-$(eval $(call program,sns_send,cloud boost_program_options utils))
+$(eval $(call program,sns_send,aws boost_program_options utils))
 
 $(eval $(call include_sub_make,service_testing,testing,service_testing.mk))

@@ -9,7 +9,7 @@
 
 #include <mutex>
 #include <boost/iostreams/stream_buffer.hpp>
-#include "mldb/soa/service/sftp.h"
+#include "mldb/vfs_handlers/sftp.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>

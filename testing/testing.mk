@@ -52,7 +52,7 @@ $(eval $(call test,MLDB-204-circular-references-initialization,mldb,boost))
 $(eval $(call test,MLDB-267-delete-while-loading,mldb,boost))
 $(eval $(call test,mldb_crash_multiple_py_routes,mldb,boost manual))  #manual - intermittent - MLDB-787
 $(eval $(call test,mldb_determinism_test,mldb,boost))
-$(eval $(call test,credentials_persistence_test,mldb cloud,boost))
+$(eval $(call test,credentials_persistence_test,mldb vfs_handlers,boost))
 $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
 $(eval $(call test,MLDB-1559-transform-method,mldb,boost))
 $(eval $(call test,mldb-1525-rowname-generator-explain,mldb,boost))
