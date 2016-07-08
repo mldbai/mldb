@@ -41,13 +41,12 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         })
         res = mldb.query("SELECT * FROM output")
         self.assertTableResultEquals(res, [
-            ["_rowName", "value_data_type", "value_num_null",
-             "value_num_unique", "value_max", "value_mean", "value_min",
-             "value_1st_quartile", "value_median", "value_3rd_quartile",
-             '"value_most_frequent_items.banane"',
-             '"value_most_frequent_items.20"',
-             '"value_most_frequent_items.2"',
-             '"value_most_frequent_items.1"'],
+            ["_rowName", "value.data_type", "value.num_null",
+             "value.num_unique", "value.max", "value.avg", "value.min",
+             "value.1st_quartile", "value.median", "value.3rd_quartile",
+             "value.most_frequent_items.banane",
+             "value.most_frequent_items.20", "value.most_frequent_items.2",
+             "value.most_frequent_items.1"],
 
             ["colTxt", "categorical", 1, 2, None, None, None, None, None,
              None, 1, None, None, None],
@@ -80,10 +79,10 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         })
         res = mldb.query("SELECT * FROM output_dotted_col_ds")
         self.assertTableResultEquals(res, [
-            ["_rowName", "value_1st_quartile", "value_3rd_quartile",
-             "value_data_type", "value_max", "value_mean", "value_median",
-             "value_min", '"value_most_frequent_items.1"', "value_num_null",
-             "value_num_unique"],
+            ["_rowName", "value.1st_quartile", "value.3rd_quartile",
+             "value.data_type", "value.max", "value.avg", "value.median",
+             "value.min", "value.most_frequent_items.1", "value.num_null",
+             "value.num_unique"],
             ['"col.a"', 1, 1, "number", 1, 1, 1, 1, 1, 0, 1]
         ])
 
@@ -102,9 +101,9 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
 
         res = mldb.query("SELECT * FROM output_unexisting_col_ds")
         self.assertTableResultEquals(res, [
-            ["_rowName", "value_data_type",
-             "\"value_most_frequent_items.NULL\"", "value_num_null",
-             "value_num_unique"],
+            ["_rowName", "value.data_type",
+             "value.most_frequent_items.NULL", "value.num_null",
+             "value.num_unique"],
 
             ["unexisting", "categorical", 0, 3, 0]
         ])

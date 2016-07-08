@@ -131,7 +131,7 @@ struct NumericRowHandler {
 
         int64_t numNotNull = 0;
         bool isNumeric = false;
-
+        ColumnName value("value");
         auto onRow = [&] (NamedRowValue & row) {
 
             // If the data is categorical, we don't even reach this point
@@ -155,12 +155,12 @@ struct NumericRowHandler {
                 return false;
             }
             isNumeric = true;
-            toRecord.emplace_back(ColumnName("value_mean"), std::get<1>(cols[AVG_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("value_max"), std::get<1>(cols[MAX_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("value_min"), std::get<1>(cols[MIN_IDX]).toDouble(), now);
-            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
-            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
-            toRecord.emplace_back(ColumnName("value_data_type"), "number", now);
+            toRecord.emplace_back(value + "avg", std::get<1>(cols[AVG_IDX]).toDouble(), now);
+            toRecord.emplace_back(value + "max", std::get<1>(cols[MAX_IDX]).toDouble(), now);
+            toRecord.emplace_back(value + "min", std::get<1>(cols[MIN_IDX]).toDouble(), now);
+            toRecord.emplace_back(value + "num_null", std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
+            toRecord.emplace_back(value + "num_unique", std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
+            toRecord.emplace_back(value + "data_type", "number", now);
             output->recordRow(rowName, toRecord);
             numNotNull = std::get<1>(cols[NUM_NOT_NULL_IDX]).toInt();
 
@@ -257,12 +257,12 @@ struct NumericRowHandler {
         ExcAssert(count == numNotNull);
         ExcAssert(idx == NUM_QUARTILES);
         vector<Cell> toRecord;
-        toRecord.emplace_back(ColumnName("value_1st_quartile"), quartiles[0], now);
-        toRecord.emplace_back(ColumnName("value_median"), quartiles[1], now);
-        toRecord.emplace_back(ColumnName("value_3rd_quartile"), quartiles[2], now);
+        toRecord.emplace_back(value + "1st_quartile", quartiles[0], now);
+        toRecord.emplace_back(value + "median", quartiles[1], now);
+        toRecord.emplace_back(value + "3rd_quartile", quartiles[2], now);
         toRecord.emplace_back(
-            ColumnName("value_most_frequent_items." + to_string(mostFrequent.second)),
-                       mostFrequent.first, now);
+            value + "most_frequent_items" + to_string(mostFrequent.second),
+            mostFrequent.first, now);
         output->recordRow(rowName, toRecord);
         return true;
     }
@@ -290,6 +290,7 @@ struct CategoricalRowHandler {
     std::function<bool (const Json::Value &)> onProgress;
 
     void recordStatsForColumn(const Utf8String & name, const Path & rowName) {
+        ColumnName value("value");
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
@@ -298,9 +299,9 @@ struct CategoricalRowHandler {
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
             }
             vector<Cell> toRecord;
-            toRecord.emplace_back(ColumnName("value_data_type"), "categorical", now);
-            toRecord.emplace_back(ColumnName("value_num_null"), std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
-            toRecord.emplace_back(ColumnName("value_num_unique"), std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
+            toRecord.emplace_back(value + "data_type", "categorical", now);
+            toRecord.emplace_back(value + "num_null", std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
+            toRecord.emplace_back(value + "num_unique", std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
             output->recordRow(rowName, toRecord);
             return true;
         };
@@ -341,13 +342,16 @@ struct CategoricalRowHandler {
             vector<Cell> toRecord;
             if (std::get<1>(cols[1]).empty()) {
                 toRecord.emplace_back(
-                    ColumnName("value_most_frequent_items.NULL"),
+                    // don't merge most_frequent_items with NULL,
+                    // the + calls Path::operator + here
+                    // (not string::operator +)
+                    value + "most_frequent_items" + "NULL",
                     std::get<1>(cols[0]).toInt(),
                     now);
             }
             else {
                 toRecord.emplace_back(
-                    ColumnName("value_most_frequent_items." + std::get<1>(cols[1]).toString()),
+                    value + "most_frequent_items" + std::get<1>(cols[1]).toString(),
                     std::get<1>(cols[0]).toInt(),
                     now);
             }
