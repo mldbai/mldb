@@ -3090,9 +3090,12 @@ BoundFunction hash(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                    return ExpressionValue(
-                        args[0].hash(),
-                        args[0].getEffectiveTimestamp());
+                if (args[0].isAtom() && args[0].getAtom().empty()) {
+                    return ExpressionValue();
+                }
+                return ExpressionValue(
+                    args[0].hash(),
+                    args[0].getEffectiveTimestamp());
             },
             outputInfo
         };
