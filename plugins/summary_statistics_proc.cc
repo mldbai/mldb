@@ -43,7 +43,13 @@ SummaryStatisticsProcedureConfigDescription::
 SummaryStatisticsProcedureConfigDescription()
 {
     addField("inputData", &SummaryStatisticsProcedureConfig::inputData,
-             "An SQL statement to select the input data.");
+             "An SQL statement to select the input data. The query must not "
+             "contain GROUP BY or HAVING clauses and, unlike most select "
+             "expressions, this one can only select whole columns, not "
+             "expressions involving columns. So X will work, but not X + 1. "
+             "If you need derived values in the query, create a dataset with "
+             "the derived columns as a previous step and use a query on that "
+             "dataset instead.");
     addField("outputDataset", &SummaryStatisticsProcedureConfig::outputDataset,
              "Output dataset configuration. This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
@@ -55,7 +61,10 @@ SummaryStatisticsProcedureConfigDescription()
                           JsonParsingContext & context)
     {
         auto logger = MLDB::getMldbLog("SummaryStatisticsProcedure");
+        //logger->set_level(spdlog::level::debug);
         MustContainFrom()(cfg->inputData, SummaryStatisticsProcedureConfig::name);
+        NoGroupByHaving()(cfg->inputData, SummaryStatisticsProcedureConfig::name);
+
         for (const auto & clause: cfg->inputData.stm->select.clauses) {
             if (clause->isWildcard()) {
                 cfg->gotWildcard = true;
