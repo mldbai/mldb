@@ -3080,7 +3080,7 @@ BoundFunction sign(const std::vector<BoundSqlExpression> & args)
         };
 }
 
-static RegisterBuiltin registerTryFunction(functionTry, "try");
+static RegisterBuiltin registerSignFunction(sign, "sign");
 
 BoundFunction hash(const std::vector<BoundSqlExpression> & args)
 {
