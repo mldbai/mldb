@@ -25,17 +25,23 @@ class MldbFb573(MldbUnitTest):
                 "runOnCreation": True
             }
         })
+    
+    def test_ignore_errors(self):
+        self.assertTableResultEquals(
+                mldb.query("select parse_json('{\"asdf:', {arrays: 'parse', ignoreErrors:1}) as * from sample"),
+            [[ "_rowName", "__parse_json_error__"],
+             ["a", True]])
 
     def test_null_input(self):
         self.assertTableResultEquals(
-            mldb.query("select parse_json(y, {arrays: string}) as pwet from sample"),
+            mldb.query("select parse_json(y, {arrays: 'parse'}) as pwet from sample"),
             [[ "_rowName", "pwet"],
              ["a", None]])
 
     def test_null_arrays(self):
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
             'got: NULL'):
-            mldb.query("SELECT parse_json(x, {arrays: string}) from sample")
+            mldb.query("SELECT parse_json(x, {arrays: parse}) from sample")
         
     def test_parse_empty_list(self):
         self.assertTableResultEquals(
