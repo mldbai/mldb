@@ -136,8 +136,5 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             run_proc('SELECT {*} FROM ds')
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
-            run_proc('SELECT *, * FROM ds')
-
 if __name__ == '__main__':
     mldb.run_tests()
