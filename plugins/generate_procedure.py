@@ -3,6 +3,8 @@
 # Mich, 2016-07-07
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
+# Create a procedure file skeleton .cc, .h, .html.md and create the entry in
+# the makefile.
 
 import argparse
 import subprocess
@@ -158,8 +160,7 @@ struct {cc_proc_name}Procedure: public Procedure {{
 }} // namespace Datacratic
 """
 
-template_doc ="""
-# {human_proc_title} Procedure
+template_doc ="""# {human_proc_title} Procedure
 
 /**DESCRIPTION GOES HERE**/
 
