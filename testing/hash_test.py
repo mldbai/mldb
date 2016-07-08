@@ -21,6 +21,15 @@ class HashTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT hash(NULL)")
         self.assertEqual(res[1][1], None)
 
+    def test_with_ts(self):
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['a', 1, 0], ['b', 1, 1]])
+        ds.commit()
+
+        # different timestamp yields same hash
+        res = mldb.query("SELECT hash(a) = hash(b) FROM ds")
+        self.assertEqual(res[1][1], None)
+
 
 if __name__ == '__main__':
     mldb.run_tests()
