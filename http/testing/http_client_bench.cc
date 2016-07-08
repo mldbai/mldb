@@ -18,6 +18,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/types/date.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/libc_value_descriptions.h"
 #include "mldb/soa/utils/print_utils.h"
 #include "mldb/soa/service/runner.h"
 #include "mldb/io/asio_thread_pool.h"
