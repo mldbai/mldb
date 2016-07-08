@@ -10,16 +10,16 @@ class HashTest(MldbUnitTest):  # noqa
 
     def test_it(self):
         res = mldb.query("SELECT hash(1)")
-        mldb.log(res)
+        self.assertEqual(res[1][1], 10234557827792954321)
 
         res = mldb.query("SELECT hash('1')")
-        mldb.log(res)
+        self.assertEqual(res[1][1], 8353419265319147257)
 
         res = mldb.query("SELECT hash({a: 12, b: 'coco'})")
-        mldb.log(res)
+        self.assertEqual(res[1][1], 11927858061408965740)
 
         res = mldb.query("SELECT hash(NULL)")
-        mldb.log(res)
+        self.assertEqual(res[1][1], None)
 
 
 if __name__ == '__main__':
