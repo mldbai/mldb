@@ -74,11 +74,17 @@ char * jsonEscapeCore(const char * str, size_t strLen, char * p, char * end)
                     *p++ = '0';
                     *p++ = hexDigit((c >> 4) & 15);
                     *p++ = hexDigit((c >> 0) & 15);
+                    break;
                 }
-                for (auto & c: string(str, str + strLen))
-                    cerr << "char " << (int)c << " " << c << endl;
-                throw ML::Exception("Invalid character in JSON string %d: %s", (int)c,
-                                    str);
+                else if (c == 0) {
+                    throw ML::Exception("JSON strings cannot contain null characters");
+                }
+                else {
+                    for (auto & c: string(str, str + strLen))
+                        cerr << "char " << (int)c << " " << c << endl;
+                    throw ML::Exception("Invalid character in JSON string %d: %s", (int)c,
+                                        str);
+                }
             }
         }
     }
@@ -90,25 +96,9 @@ static constexpr size_t MAX_STACK_CHARS = 16384;
 
 } // file scope
 
-bool isJsonValid(char c)
+bool isJsonValidAscii(char c)
 {
-    if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
-        return true;
-    else {
-        switch (c) {
-            case '\t':
-            case '\n':
-            case '\r':
-            case '\f':
-            case '\b':
-            case '/':
-            case '\\':
-            case '\"':
-                return true;
-            default:
-                return false;
-        }
-    }
+    return (c > 0 && c < 127);
 }
 
 std::string
@@ -259,6 +249,8 @@ writeStringUtf8(const Utf8String & s)
             stream << (char)c;
         else {
             switch (c) {
+            case '\0':
+                throw ML::Exception("JSON strings may not contain embedded nulls");
             case '\t': stream << "\\t";  break;
             case '\n': stream << "\\n";  break;
             case '\r': stream << "\\r";  break;
@@ -298,6 +290,8 @@ writeStringUtf8(const char * p, size_t len)
             stream << (char)c;
         else {
             switch (c) {
+            case '\0':
+                throw ML::Exception("JSON strings may not contain embedded nulls");
             case '\t': stream << "\\t";  break;
             case '\n': stream << "\\n";  break;
             case '\r': stream << "\\r";  break;
