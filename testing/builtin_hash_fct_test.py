@@ -1,5 +1,5 @@
 #
-# hash_test.py
+# builtin_hash_fct_test.py
 # Francois-Michel L Heureux, 2016-07-08
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
@@ -29,7 +29,7 @@ class HashTest(MldbUnitTest):  # noqa
         ds.record_row('row1', [['a', 1, 0], ['b', 1, 1]])
         ds.commit()
 
-        # different timestamp yields same hash
+        # different timestamps yield same hash
         res = mldb.query("SELECT hash(a) = hash(b) FROM ds")
         self.assertEqual(res[1][1], 1)
 
