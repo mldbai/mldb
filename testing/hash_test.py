@@ -28,7 +28,7 @@ class HashTest(MldbUnitTest):  # noqa
 
         # different timestamp yields same hash
         res = mldb.query("SELECT hash(a) = hash(b) FROM ds")
-        self.assertEqual(res[1][1], None)
+        self.assertEqual(res[1][1], 1)
 
 
 if __name__ == '__main__':
