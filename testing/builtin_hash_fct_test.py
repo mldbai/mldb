@@ -6,7 +6,7 @@
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
-class HashTest(MldbUnitTest):  # noqa
+class BuiltinHashFctTest(MldbUnitTest):  # noqa
 
     def test_it(self):
         res = mldb.query("SELECT hash(1)")
