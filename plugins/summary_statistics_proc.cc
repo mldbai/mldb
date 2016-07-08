@@ -452,8 +452,6 @@ run(const ProcedureRunConfig & run,
         record(expr->getChildren()[0]->surface, expr->alias);
     }
 
-    cerr << "final ------>" << num << "/" << denum << endl;
-
     output->commit();
     return output->getStatus();
 }
