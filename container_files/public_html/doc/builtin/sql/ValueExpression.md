@@ -302,6 +302,8 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 These functions are always available when processing rows from a dataset, and
 will change values on each row under consideration. See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
 
+<a name="rowHash"></a>
+
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
 - `rowPath()` is the structured path to the row under consideration.
@@ -338,6 +340,7 @@ will change values on each row under consideration. See the [Intro to Datasets](
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
+- `hash(expr)` return the hash of the value in `expr`. See also [`rowHash()`](#rowHash).
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
