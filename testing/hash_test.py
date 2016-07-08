@@ -15,6 +15,9 @@ class HashTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT hash('1')")
         self.assertEqual(res[1][1], 8353419265319147257)
 
+        res = mldb.query("SELECT hash('abc')")
+        self.assertEqual(res[1][1], 14660875798276730904)
+
         res = mldb.query("SELECT hash({a: 12, b: 'coco'})")
         self.assertEqual(res[1][1], 11927858061408965740)
 
