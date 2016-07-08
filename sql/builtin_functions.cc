@@ -1838,6 +1838,10 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                                                        str.rawData(),
                                                        str.rawLength());
 
+                    if (!parser.isObject() && !parser.isArray())
+                        throw HttpReturnException(400, "JSON passed to parse_json must be an object",     
+                                                     "json", str);
+
                     return ExpressionValue::
                         parseJson(parser, val.getEffectiveTimestamp(),
                                   encode);

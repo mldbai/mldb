@@ -25,12 +25,32 @@ class MldbFb573(MldbUnitTest):
                 "runOnCreation": True
             }
         })
+        
+        
+        ds = mldb.create_dataset({ "id": "sample_with_corrupt", "type": "sparse.mutable" })
+        ds.record_row("a",[["x", '{"artist": "champion jack dupree with ts mcphee", "patate": 5}', 0]])
+        ds.record_row("b",[["x", '{"artist": "', 0]])
+        ds.commit()
     
     def test_ignore_errors(self):
-        self.assertTableResultEquals(
-                mldb.query("select parse_json('{\"asdf:', {arrays: 'parse', ignoreErrors:1}) as * from sample"),
-            [[ "_rowName", "__parse_json_error__"],
-             ["a", True]])
+        for arrays in ["parse", "encode"]:
+            self.assertTableResultEquals(
+                    mldb.query("select parse_json('{\"asdf:', {arrays: '%s', ignoreErrors:1}) as * from sample" % arrays),
+                [[ "_rowName", "__parse_json_error__"],
+                 ["a", True]])
+
+    def test_ignore_errors_in_melt(self):
+        mldb.log(mldb.query("""
+
+            select artist
+                        FROM (
+                            SELECT parse_json(x, {arrays: 'encode', ignoreErrors:1}) AS *
+                            FROM sample_with_corrupt
+                        )
+                        where patate = 5
+
+
+        """))
 
     def test_null_input(self):
         self.assertTableResultEquals(
