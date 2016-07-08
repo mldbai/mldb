@@ -198,7 +198,7 @@ struct NumericRowHandler {
         }
         catch (const ML::Exception & exc) {
             if (!isNumeric) {
-                // Categorical, the query donesn't work
+                // Categorical, the query doesn't work
                 return false;
             }
             throw;
