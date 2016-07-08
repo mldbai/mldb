@@ -10,10 +10,10 @@
 
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/date.h"
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/event_loop.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/event_loop.h"
 #include "mldb/rest/http_rest_endpoint.h"
-#include "mldb/http/port_range_service.h"
+#include "mldb/io/port_range_service.h"
 #include "mldb/rest/rest_connection.h"
 #include "mldb/rest/rest_request.h"
 #include "mldb/utils/log_fwd.h"

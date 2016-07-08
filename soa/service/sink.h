@@ -13,8 +13,8 @@
 #include <string>
 #include <vector>
 
-#include "async_event_source.h"
-#include "async_writer_source.h"
+#include "mldb/io/async_event_source.h"
+#include "mldb/io/async_writer_source.h"
 
 
 namespace Datacratic {

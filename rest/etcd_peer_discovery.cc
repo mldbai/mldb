@@ -9,7 +9,7 @@
 #include "etcd_peer_discovery.h"
 #include "mldb/arch/futex.h"
 #include "mldb/jml/utils/info.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb/watch/watch_impl.h"
 #include "mldb/jml/utils/string_functions.h"
 #include <chrono>
