@@ -210,26 +210,19 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             }
         })
 
+
         self.assertTableResultEquals(
             mldb.query("select * from bid_req_features_few_stats where rowName() = 'row4'"),
-            [
-                [
-                    "_rowName",
-                    "price.host.last",
-                    "price.host.min",
-                    "price.region.last",
-                    "price.region.min"
-                ],
-                [
-                    "row4",
-                    7,
-                    3,
-                    9,
-                    9
-                ]
+            [["_rowName", "price.host.last", "price.host.min", "price.region.last", "price.region.min"],
+             ["row4",      7,                  3,               9,                   9]
             ])
 
-        
+        self.assertTableResultEquals(
+            mldb.query("select get_stats({features: {host, region}})[stats] as * from bid_req where rowName() = 'row4'"),
+            [["_rowName", "price.host.last", "price.host.min", "price.region.last", "price.region.min"],
+             ["row4",      11,                3,                11,                  9]
+            ])
+
         # create a function  with different stats
         mldb.put('/v1/functions/get_stats_non_default', {
             'type': 'experimental.distTable.getStats',

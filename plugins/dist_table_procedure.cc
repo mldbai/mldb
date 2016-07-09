@@ -64,27 +64,19 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 }
 
 /*****************************************************************************/
-/* DIST TABLE STATS ENUM                                                     */
-/*****************************************************************************/
-
-const std::string DistTableStatsNames[] = {
-    "count", "avg", "std", "min", "max", "last"
-};
-
-/*****************************************************************************/
-/* DIST TABLE                                                               */
+/* DIST TABLE                                                                */
 /*****************************************************************************/
 
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const DistTableStats & s)
 {
-    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max;
+    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max << s.last;
 }
 
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, DistTableStats & s)
 {
-    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max;
+    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max >> s.last;
     return store;
 }
 
@@ -107,7 +99,7 @@ increment(double value)
 
         if (count >= 2) // otherwise unbiased variance doesn't make sense
             var = M2 / (count - 1);
-        
+
         min = std::min(min, value);
         max = std::max(max, value);
     }
@@ -278,6 +270,12 @@ run(const ProcedureRunConfig & run,
     DistTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
+
+    // build a cache of the names for quick access
+    std::string dtStatsNames[DT_NUM_STATISTICS];
+    for(int i=0; i<DT_NUM_STATISTICS; i++)
+        dtStatsNames[(DISTTABLE_STATISTICS)i] = print((DISTTABLE_STATISTICS)i);
+
     // configure active statistics
     if(runProcConf.statistics.size() == 0)
         runProcConf.statistics = { "count", "avg", "std", "min", "max" };
@@ -367,8 +365,8 @@ run(const ProcedureRunConfig & run,
                 const tuple<ColumnName, CellValue, Date> & col =
                     row.columns[col_ptr->second];
 
-                const Utf8String & featureValue = get<1>(col).toString();
-                const Date & ts = get<2>(col); 
+                const Utf8String & featureValue = get<1>(col).toUtf8String();
+                const Date & ts = get<2>(col);
 
                 // note current dist tables for output dataset
                 // TODO we compute the column names everytime, maybe we should
@@ -379,7 +377,7 @@ run(const ProcedureRunConfig & run,
                     for(DISTTABLE_STATISTICS sid : activeStats) {
                         output_cols.emplace_back(
                             PathElement(outcome_names[i]) + featureColumnName
-                                + DistTableStatsNames[sid],
+                                + dtStatsNames[sid],
                             CellValue(stats[i].getStat(sid)),
                             ts);
                     }
@@ -438,7 +436,7 @@ run(const ProcedureRunConfig & run,
 
 
 /*****************************************************************************/
-/* DIST TABLE FUNCTION                                                      */
+/* DIST TABLE FUNCTION                                                       */
 /*****************************************************************************/
 DEFINE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
@@ -466,6 +464,10 @@ DistTableFunction(MldbServer * owner,
     filter_istream stream(functionConfig.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
     store >> distTablesMap;
+
+    // build a cache of the names for quick access
+    for(int i=0; i<DT_NUM_STATISTICS; i++)
+        dtStatsNames[(DISTTABLE_STATISTICS)i] = print((DISTTABLE_STATISTICS)i);
 
     // configure active statistics
     if(functionConfig.statistics.size() == 0)
@@ -513,9 +515,9 @@ apply(const FunctionApplier & applier,
     RowValue rtnRow;
     // TODO should we cache column names
     auto onAtom = [&] (const ColumnName & columnName,
-                        const ColumnName & prefix,
-                        const CellValue & val,
-                        Date ts)
+                       const ColumnName & prefix,
+                       const CellValue & val,
+                       Date ts)
     {
         auto st = distTablesMap.find(columnName);
         if (st == distTablesMap.end())
@@ -525,13 +527,12 @@ apply(const FunctionApplier & applier,
             return true;
 
         const DistTable & distTable = st->second;
-
-        const auto & stats = distTable.getStats(val.toString());
+        const auto & stats = distTable.getStats(val.toUtf8String());
         for (int i=0; i < distTable.outcome_names.size(); ++i) {
             for(DISTTABLE_STATISTICS sid : activeStats) {
                 rtnRow.emplace_back(
                     PathElement(distTable.outcome_names[i]) + columnName
-                                + DistTableStatsNames[sid],
+                                + dtStatsNames[sid],
                     stats[i].getStat(sid),
                     ts);
             }
@@ -557,10 +558,10 @@ getFunctionInfo() const
                               COLUMN_IS_DENSE, 0);
     outputColumns.emplace_back(PathElement("stats"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
-    
+
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
+
     return result;
 }
 

@@ -34,8 +34,6 @@ enum DISTTABLE_STATISTICS {
     DT_NUM_STATISTICS
 };
 
-extern const std::string DistTableStatsNames[];
-
 inline DISTTABLE_STATISTICS parseDistTableStatistic(const Utf8String & st)
 {
     if(st == "avg")   return DT_AVG;
@@ -45,6 +43,20 @@ inline DISTTABLE_STATISTICS parseDistTableStatistic(const Utf8String & st)
     if(st == "last")  return DT_LAST;
     if(st == "count") return DT_COUNT;
     throw ML::Exception("Unknown distribution table statistic");
+}
+
+inline std::string print(DISTTABLE_STATISTICS stat)
+{
+    switch(stat) {
+        case DT_COUNT:  return "count";
+        case DT_AVG:    return "avg";
+        case DT_STD:    return "std";
+        case DT_MIN:    return "min";
+        case DT_MAX:    return "max";
+        case DT_LAST:   return "last";
+        default:
+            throw ML::Exception("Unknown DistTable_Stat");
+    }
 }
 
 
@@ -197,6 +209,8 @@ struct DistTableFunction: public Function {
 
     DistTableFunctionConfig functionConfig;
 
+    std::string dtStatsNames[DT_NUM_STATISTICS];
+    
     std::vector<DISTTABLE_STATISTICS> activeStats;
     DistTablesMap distTablesMap;
 };
