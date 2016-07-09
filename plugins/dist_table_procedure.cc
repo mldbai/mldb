@@ -379,7 +379,6 @@ run(const ProcedureRunConfig & run,
             if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
                 // there is only a single table
                 DistTable & distTable = distTablesMap.begin()->second;
-
                 for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
                     distTable.increment(get<0>(col).toUtf8String(), targets);
                 }
@@ -528,8 +527,10 @@ DistTableFunction(MldbServer * owner,
         throw ML::Exception("Wrong DistTable map version");
 
     store >> i_mode;
-    if((DistTableMode)i_mode != DT_MODE_FIXED_COLUMNS)
-        throw ML::Exception("Can only load fixedColumns dist tables with this function");
+    mode = (DistTableMode)i_mode;
+
+    if(mode != DT_MODE_BAG_OF_WORDS && mode != DT_MODE_FIXED_COLUMNS)
+        throw ML::Exception("Unsupported DistTable mode");
 
     store >>distTablesMap;
 
@@ -582,10 +583,11 @@ apply(const FunctionApplier & applier,
 
     RowValue rtnRow;
     // TODO should we cache column names
-    auto onAtom = [&] (const ColumnName & columnName,
-                       const ColumnName & prefix,
-                       const CellValue & val,
-                       Date ts)
+    auto onAtomFixedColumns = 
+        [&] (const ColumnName & columnName,
+             const ColumnName & prefix,
+             const CellValue & val,
+             Date ts)
     {
         auto st = distTablesMap.find(columnName);
         if (st == distTablesMap.end())
@@ -609,7 +611,40 @@ apply(const FunctionApplier & applier,
         return true;
     };
 
-    arg.forEachAtom(onAtom);
+    auto onAtomBow = 
+        [&] (const ColumnName & columnName,
+             const ColumnName & prefix,
+             const CellValue & val,
+             Date ts)
+    {
+        if (val.empty())
+            return true;
+
+        const DistTable & distTable = distTablesMap.begin()->second;
+        const auto & stats = distTable.getStats(columnName.toUtf8String());
+        for (int i=0; i < distTable.outcome_names.size(); ++i) {
+            for(DISTTABLE_STATISTICS sid : activeStats) {
+                rtnRow.emplace_back(
+                    PathElement(distTable.outcome_names[i]) + columnName
+                                + dtStatsNames[sid],
+                    stats[i].getStat(sid),
+                    ts);
+            }
+        }
+
+        return true;
+    };
+
+
+    switch(mode) {
+        case DT_MODE_FIXED_COLUMNS:
+            arg.forEachAtom(onAtomFixedColumns);
+            break;
+        case DT_MODE_BAG_OF_WORDS:
+            arg.forEachAtom(onAtomBow);
+            break;
+    }
+
     result.emplace_back("stats", ExpressionValue(std::move(rtnRow)));
 
     return std::move(result);

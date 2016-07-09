@@ -216,9 +216,10 @@ struct DistTableFunction: public Function {
     virtual FunctionInfo getFunctionInfo() const;
 
     DistTableFunctionConfig functionConfig;
+    DistTableMode mode;
 
     std::string dtStatsNames[DT_NUM_STATISTICS];
-    
+
     std::vector<DISTTABLE_STATISTICS> activeStats;
     DistTablesMap distTablesMap;
 };
