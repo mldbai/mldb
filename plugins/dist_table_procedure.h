@@ -129,16 +129,22 @@ struct DistTable {
 /* DIST TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
+enum DistTableMode {
+    DT_MODE_BAG_OF_WORDS,
+    DT_MODE_FIXED_COLUMNS
+};
+
 struct DistTableProcedureConfig : public ProcedureConfig {
     static constexpr const char * name = "experimental.distTable.train";
 
-    DistTableProcedureConfig()
+    DistTableProcedureConfig() : mode(DT_MODE_FIXED_COLUMNS)
     {
-        output.withType("tabular");
     }
 
     InputQuery trainingData;
-    PolyConfigT<Dataset> output;
+
+    Optional<PolyConfigT<Dataset> > output;
+    static constexpr char const * defaultOutputDatasetType = "tabular";
 
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
@@ -146,8 +152,10 @@ struct DistTableProcedureConfig : public ProcedureConfig {
     Url modelFileUrl;
 
     Utf8String functionName;
-    
+
     std::vector<Utf8String> statistics;
+
+    DistTableMode mode;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
