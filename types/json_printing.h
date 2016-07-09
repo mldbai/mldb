@@ -26,7 +26,7 @@ void jsonEscape(const std::string & str, std::ostream & out);
 
 void jsonEscape(const std::string & str, std::string & out);
 
-bool isJsonValid(char c);
+bool isJsonValidAscii(char c);
 
 /*****************************************************************************/
 /* JSON PRINTING CONTEXT                                                     */
