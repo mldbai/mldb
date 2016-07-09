@@ -18,7 +18,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             ('patate.com', 'canada', 1,  2,    0),
             ('poil.com',   'canada', 3,  4,    1),
             ('poil.com',   None,     7,  8,    2),
-            ('patate.com', 'usa',    9,  10,    3),
+            ('patate.com', 'usa',    9,  10,   3),
             ('poil.com',   'usa',    11, 10,   4),
         ]
 
@@ -173,6 +173,91 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             SELECT get_stats({features: {host: 'patate.com'}})[stats] AS *
         """)
 
+    def test_unknown_stats(self):
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                'Unknown distribution table statistic'):
+            mldb.post('/v1/procedures', {
+                'type': 'experimental.distTable.train',
+                'params': {
+                    'trainingData': """ SELECT host, region
+                                        FROM bid_req
+                                        ORDER BY order_
+                                    """,
+                    'outputDataset': 'bid_req_features_few_stats',
+                    'outcomes': [['price', 'price']],
+                    'distTableFileUrl': "file://tmp/mldb-1750_non_default_stats.dt",
+                    'functionName': 'get_stats',
+                    'statistics': ['patate'],
+                    'runOnCreation': True
+                }
+            })
+
+    def test_non_default_stats(self):
+        # call the distTable.train procedure
+        mldb.post('/v1/procedures', {
+            'type': 'experimental.distTable.train',
+            'params': {
+                'trainingData': """ SELECT host, region
+                                    FROM bid_req
+                                    ORDER BY order_
+                                """,
+                'outputDataset': 'bid_req_features_few_stats',
+                'outcomes': [['price', 'price']],
+                'distTableFileUrl': "file://tmp/mldb-1750_non_default_stats.dt",
+                'functionName': 'get_stats',
+                'statistics': ['last', 'min'],
+                'runOnCreation': True
+            }
+        })
+
+
+        self.assertTableResultEquals(
+            mldb.query("select * from bid_req_features_few_stats where rowName() = 'row4'"),
+            [["_rowName", "price.host.last", "price.host.min", "price.region.last", "price.region.min"],
+             ["row4",      7,                  3,               9,                   9]
+            ])
+
+        self.assertTableResultEquals(
+            mldb.query("select get_stats({features: {host, region}})[stats] as * from bid_req where rowName() = 'row4'"),
+            [["_rowName", "price.host.last", "price.host.min", "price.region.last", "price.region.min"],
+             ["row4",      11,                3,                11,                  9]
+            ])
+
+        # create a function  with different stats
+        mldb.put('/v1/functions/get_stats_non_default', {
+            'type': 'experimental.distTable.getStats',
+            'params': {
+                'distTableFileUrl': "file://tmp/mldb-1750_non_default_stats.dt",
+                'statistics': ['max']
+            }
+        })
+        
+        self.assertTableResultEquals(
+            mldb.query("""
+                SELECT get_stats_non_default({features: {host: 'prout', region: 'usa'}}) AS *
+            """),
+            [
+                [
+                    "_rowName",
+                    "stats.price.host.max",
+                    "stats.price.region.max"
+                ],
+                [
+                    "result",
+                    "NaN",
+                    11
+                ]
+            ])
+        
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                'Unknown distribution table statistic'):
+            mldb.put('/v1/functions/get_stats_non_default2', {
+                'type': 'experimental.distTable.getStats',
+                'params': {
+                    'distTableFileUrl': "file://tmp/mldb-1750_non_default_stats.dt",
+                    'statistics': ['pwel']
+                }
+            })
 
 
 if __name__ == '__main__':
