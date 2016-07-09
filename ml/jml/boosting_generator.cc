@@ -382,6 +382,12 @@ train_iteration(Thread_Context & context,
                 float & Z,
                 Optimization_Info & opt_info) const
 {
+    for (size_t i = 0;  i < weights.shape()[0];  ++i) {
+        for (size_t j = 0;  j < weights.shape()[1];  ++j) {
+            ExcAssert(isfinite(weights[i][j]));
+        }
+    }
+
     bool bin_sym = convert_bin_sym(weights, data, predicted, features);
 
     /* Make sure we have some features. */

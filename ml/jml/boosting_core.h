@@ -1,16 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* boosting_core.h                                                 -*- C++ -*-
    Jeremy Barnes, 4 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    This is the core of the boosting library.  It contains the functions
    needed to do the updating and reweighting.
 */
 
-#ifndef __boosting__boosting_core_h__
-#define __boosting__boosting_core_h__
+#pragma once
 
 
 #include "mldb/compiler/compiler.h"
@@ -19,6 +16,7 @@
 #include "training_index.h"
 #include "evaluation.h"
 #include "stump_predict.h"
+#include <cmath>
 
 namespace ML {
 
@@ -121,7 +119,15 @@ struct Binsym_Updater {
                        int corr,
                        WeightIt weight_begin, int advance) const
     {
-        *weight_begin = fn(0, corr, (*pred_it) * cl_weight, *weight_begin);
+        auto prev = *weight_begin;
+        ExcAssert(std::isfinite(prev));
+        ExcAssert(std::isfinite(cl_weight));
+        ExcAssert(std::isfinite(*pred_it));
+        *weight_begin = fn(0, corr, (*pred_it) * cl_weight, prev);
+        ExcAssert(std::isfinite(*weight_begin));
+
+        // As the total, we return double the weight as we implicitly are doing
+        // the same thing over both the true and the false prediction.
         return *weight_begin * 2.0;
     }
 }; 
@@ -172,10 +178,17 @@ struct Normal_Updater {
                        WeightIt weight_begin, int advance) const
     {
         float total = 0.0;
+
+        using namespace std;
+        cerr << "updater advance = " << advance << endl;
         
         if (advance) {
             for (unsigned l = 0;  l < nl;  ++l) {
-                *weight_begin = fn(l, corr, pred_it[l], *weight_begin);
+                auto prev = *weight_begin;
+                *weight_begin = fn(l, corr, pred_it[l], prev);
+                if (!std::isfinite(*weight_begin)) {
+                    ExcAssert(false);
+                }
                 total += *weight_begin;
                 weight_begin += advance;
             }
@@ -657,7 +670,3 @@ struct Update_Scores {
 };
 
 } // namespace ML
-
-
-
-#endif /* __boosting__boosting_core_h__ */

@@ -1281,24 +1281,69 @@ train_recursive_regression(Thread_Context & context,
     //cerr << " totals: true " << total_true << " false " << total_false
     //     << " missing " << total_missing << endl;
 
+    size_t numCategories = (total_true > 0) + (total_false > 0) + (total_missing > 0);
+
+    // If everything is true, or everything is false, or everything is missing
+    // then we can't train anything
+    if (numCategories < 2) {
+        Tree::Leaf * result = tree.new_leaf();
+        *result = leaf;
+        return result;
+    }
+
+
     Tree::Node * node = tree.new_node();
     node->split = accum.split();
-    node->z = accum.z();    node->examples = total_weight;
+    node->z = accum.z();
+    node->examples = total_weight;
     node->examples = total_weight;
     node->pred = leaf.pred;
 
-    node->child_true
-        = train_recursive_regression(context, data, weights, features,
-                                     class_true, depth + 1, max_depth,
-                                     tree);
-    node->child_false
-        = train_recursive_regression(context, data, weights, features,
-                                     class_false, depth + 1, max_depth,
-                                     tree); 
-    node->child_missing
-        = train_recursive_regression(context, data, weights, features,
-                                     class_missing, depth + 1, max_depth,
-                                     tree);
+    if (total_true > 0 && total_false > 0) {
+        node->child_true
+            = train_recursive_regression(context, data, weights, features,
+                                         class_true, depth + 1, max_depth,
+                                         tree);
+        node->child_false
+            = train_recursive_regression(context, data, weights, features,
+                                         class_false, depth + 1, max_depth,
+                                         tree);
+        if (total_missing > 0) {
+            node->child_missing
+                = train_recursive_regression(context, data, weights, features,
+                                             class_missing, depth + 1, max_depth,
+                                             tree);
+        }
+        else {
+            auto leaf2 = tree.new_leaf();
+            *leaf2 = leaf; 
+            node->child_missing = leaf2;
+        }
+    }
+    else {
+        ExcAssert(total_missing > 0);
+        ExcAssert(total_true + total_false > 0);
+
+        node->child_missing
+            = train_recursive_regression(context, data, weights, features,
+                                         class_missing, depth + 1, max_depth,
+                                         tree);
+        
+        if (total_true > 0) {
+            node->child_true
+                = train_recursive_regression(context, data, weights, features,
+                                             class_true, depth + 1, max_depth,
+                                             tree);
+            node->child_false = node->child_true;
+        }
+        else {
+            node->child_false
+                = train_recursive_regression(context, data, weights, features,
+                                             class_false, depth + 1, max_depth,
+                                             tree);
+            node->child_true = node->child_false;
+        }
+    }
     
     return node;
 }
