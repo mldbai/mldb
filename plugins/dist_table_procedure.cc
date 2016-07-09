@@ -210,8 +210,10 @@ DEFINE_ENUM_DESCRIPTION(DistTableMode);
 DistTableModeDescription::
 DistTableModeDescription()
 {
-    addValue("bagOfWords",   DT_MODE_BAG_OF_WORDS, "");
-    addValue("fixedColumns", DT_MODE_FIXED_COLUMNS, "");
+    addValue("bagOfWords",   DT_MODE_BAG_OF_WORDS, "This mode will use the names of "
+        "the columns as the keys to the distribution tables.");
+    addValue("fixedColumns", DT_MODE_FIXED_COLUMNS, "This mode will use the value "
+        "of the cells as the keys to the distrubtion tables.");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
@@ -238,8 +240,8 @@ DistTableProcedureConfigDescription()
              "List of statistics to track for each outcome.", defaultStats);
 
     addField("mode", &DistTableProcedureConfig::mode,
-            "Distribution table model. TODO",
-            DT_MODE_FIXED_COLUMNS);
+            "Distribution table mode. This must match the type of data to use: fixed "
+            "columns or bag of words.", DT_MODE_FIXED_COLUMNS);
 
     addField("distTableFileUrl", &DistTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.dt') should be saved. "
