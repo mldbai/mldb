@@ -22,13 +22,17 @@ unpackJson(RowValue & row,
            const Json::Value & val,
            const Date & ts);
 
-inline void checkArgsSize(size_t number, size_t expected)
+inline void checkArgsSize(size_t number, size_t expected,
+                          std::string fctName="")
 {
     if (number != expected) {
+        if (!fctName.empty()) {
+            fctName = "function " + fctName + " ";
+        }
         if (expected != 1)
-            throw HttpReturnException(400, "expected " + to_string(expected) + " arguments, got " + to_string(number));
+            throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " arguments, got " + to_string(number));
         else
-            throw HttpReturnException(400, "expected " + to_string(expected) + " argument, got " + to_string(number));
+            throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " argument, got " + to_string(number));
     }
 }
 
