@@ -364,7 +364,7 @@ const char * findInvalidAscii(const char * start, size_t length, char*buf, char 
     char* p = buf;
     char* end = buf+length;
     while (p != end) {
-        if (!isJsonValid(*p))
+        if (!isJsonValidAscii(*p))
             *p = replaceInvalidCharactersWith;
         ++p;
     }

@@ -345,6 +345,7 @@ $(eval $(call mldb_unit_test,MLDBFB-506-stats-tbl-sql-expr.py))
 $(eval $(call mldb_unit_test,MLDB-1594-aggregator-empty-row.py))
 $(eval $(call mldb_unit_test,MLDB-1707-no-context-resolve-table.py))
 $(eval $(call mldb_unit_test,MLDB-1706-horizontal.py))
+$(eval $(call mldb_unit_test,MLDB-1603-nonprintable-chars-json.js))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
@@ -398,3 +399,4 @@ $(eval $(call mldb_unit_test,MLDB-1750-dist-tables.py))
 $(eval $(call mldb_unit_test,MLDB-1502-import-text-column-name-confusion.js))
 $(eval $(call mldb_unit_test,MLDB-1779-select-column-expr-pathnames.js))
 $(eval $(call mldb_unit_test,MLDB-1781-path-flattening.js))
+$(eval $(call mldb_unit_test,builtin_hash_fct_test.py))

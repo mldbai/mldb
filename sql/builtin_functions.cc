@@ -3082,6 +3082,28 @@ BoundFunction sign(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerSignFunction(sign, "sign");
 
+BoundFunction hash(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+    auto outputInfo
+        = std::make_shared<NumericValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (args[0].empty()) {
+                    return ExpressionValue::null(
+                        args[0].getEffectiveTimestamp());
+                }
+                return ExpressionValue(
+                    args[0].hash(),
+                    args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerHashFunction(hash, "hash");
+
 
 } // namespace Builtins
 } // namespace MLDB
