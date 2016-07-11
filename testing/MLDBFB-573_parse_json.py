@@ -25,18 +25,26 @@ class MldbFb573(MldbUnitTest):
                 "runOnCreation": True
             }
         })
+        
+        
+    def test_ignore_errors(self):
+        for arrays in ["parse", "encode"]:
+            self.assertTableResultEquals(
+                    mldb.query("select parse_json('{\"asdf:', {arrays: '%s', ignoreErrors:1}) as * from sample" % arrays),
+                [[ "_rowName", "__parse_json_error__"],
+                 ["a", True]])
 
     def test_null_input(self):
         self.assertTableResultEquals(
-            mldb.query("select parse_json(y, {arrays: string}) as pwet from sample"),
+            mldb.query("select parse_json(y, {arrays: 'parse'}) as pwet from sample"),
             [[ "_rowName", "pwet"],
              ["a", None]])
 
     def test_null_arrays(self):
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
             'got: NULL'):
-            mldb.query("SELECT parse_json(x, {arrays: string}) from sample")
-        
+            mldb.query("SELECT parse_json(x, {arrays: parse}) from sample")
+
     def test_parse_empty_list(self):
         self.assertTableResultEquals(
             mldb.query("SELECT parse_json(x, {arrays: 'encode'}) from sample"),
@@ -77,22 +85,6 @@ class MldbFb573(MldbUnitTest):
 
         self.assertTableResultEquals(
             mldb.query("""
-                select parse_json('\"hola\"') as rez
-            """),
-            [["_rowName","rez"],
-             ["result","hola"]]
-        )
- 
-        self.assertTableResultEquals(
-            mldb.query("""
-                select parse_json(5) as rez
-            """),
-            [["_rowName","rez"],
-            ["result",5]]
-        )
- 
-        self.assertTableResultEquals(
-            mldb.query("""
                 select parse_json('{}') as *
             """),
             [["_rowName"],["result"]]
@@ -116,6 +108,12 @@ class MldbFb573(MldbUnitTest):
             ["0",None]]
         )
 
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must be an object'):
+            mldb.query("select parse_json('\"hola\"') as rez")
+ 
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must be an object'):
+            mldb.query("select parse_json(5) as rez")
+ 
 
     def test_utf8_parse(self):
         mldb.log(mldb.query("""

@@ -302,6 +302,8 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 These functions are always available when processing rows from a dataset, and
 will change values on each row under consideration. See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
 
+<a name="rowHash"></a>
+
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
 - `rowPath()` is the structured path to the row under consideration.
@@ -338,6 +340,7 @@ will change values on each row under consideration. See the [Intro to Datasets](
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
+- `hash(expr)` return the hash of the value in `expr`. See also [`rowHash()`](#rowHash).
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
@@ -348,8 +351,9 @@ will change values on each row under consideration. See the [Intro to Datasets](
   there is ambiguity in the expression (for example, the same key with multiple
   values), then one of the values of the key will be chosen to represent the value
   of the key.
-- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse'})` returns a row with the JSON decoding of the
-  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
+- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse', ignoreErrors: false})` returns a row with the JSON decoding of the
+  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. If the `ignoreErrors` option is set to `true`, the function will return NULL for strings that do not parse
+  as valid JSON. It will throw an exception otherwise.
 
   Here are examples with the following JSON string:
 

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <boost/asio/ip/tcp.hpp>
 #include "mldb/io/tcp_socket_handler.h"
@@ -64,6 +65,7 @@ private:
     typedef std::function<void(const boost::system::error_code & ec,
                                size_t bufferSize)> OnReadSome;
     OnReadSome onReadSome_;
+    std::atomic<bool> closed_;
 };
 
 } // namespace Datacratic

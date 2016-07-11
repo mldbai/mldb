@@ -5,6 +5,7 @@ LIBIO_SOURCES := \
 	asio_timer.cc \
 	port_range_service.cc \
 	event_loop.cc \
+	legacy_event_loop.cc \
 	tcp_acceptor.cc \
 	tcp_socket_handler.cc \
 	tcp_socket.cc \

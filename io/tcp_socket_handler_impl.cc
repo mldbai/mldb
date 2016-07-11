@@ -25,11 +25,14 @@ TcpSocketHandlerImpl::
 TcpSocketHandlerImpl(TcpSocketHandler & handler, TcpSocket && socket)
     : handler_(handler), socket_(std::move(socket.impl().socket)),
       recvBufferSize_(262144),
-      recvBuffer_(new char[recvBufferSize_])
+      recvBuffer_(new char[recvBufferSize_]),
+      closed_(false)
 {
     onReadSome_ = [&] (const system::error_code & ec, size_t bufferSize) {
         if (ec) {
-            handler_.onReceiveError(ec, bufferSize);
+            if (!(closed_ && ec == boost::asio::error::operation_aborted)) {
+                handler_.onReceiveError(ec, bufferSize);
+            }
         }
         else {
             handler_.onReceivedData(recvBuffer_.get(), bufferSize);
@@ -47,6 +50,7 @@ TcpSocketHandlerImpl::
 close()
 {
     socket_.close();
+    closed_ = true;
 }
 
 void
