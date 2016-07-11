@@ -306,11 +306,11 @@ will change values on each row under consideration. See the [Intro to Datasets](
 - `rowName()`: returns the name the current row 
 - `rowPath()` is the structured path to the row under consideration.
 - `rowPathElement(n)` is the nth element of the `rowPath()` of the row
-  under consideration.  If n is less than zero, it will be a distance from the
-  end (for example, -1 is the last element).  For a rowName of `x.y.2`, then
-  `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
-  `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
-  be `2`. 
+   under consideration.  Negative indexing is supported, meaning that if n is less than zero, 
+   it will be a distance from the end (for example, -1 is the last element, -2 is the second to last). 
+   For a rowName of `x.y.2`, then `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` 
+   and `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will be `2`. If n is 
+   bigger than the number of elements in the row path, NULL will be returned.
 - `columnCount()`: returns the number of columns with explicit values set in the current row
 - `leftRowName()` and `rightRowName()`: in the context of a join, returns the name of the row that was joined on the left or right side respectively.
 
