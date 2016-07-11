@@ -22,7 +22,7 @@ namespace MLDB {
 namespace Builtins {
 
 typedef BoundAggregator (&BuiltinAggregator) (const std::vector<BoundSqlExpression> &,
-                                              string name);
+                                              const string & name);
 
 struct RegisterAggregator {
     template<typename... Names>
@@ -60,20 +60,20 @@ struct AggregatorT {
         registration functionality.
     */
     static BoundAggregator entry(const std::vector<BoundSqlExpression> & args,
-                                 string name="")
+                                 const string & name)
     {
         // These take the number of arguments given in the State class
         checkArgsSize(args.size(), State::nargs, name);
         ExcAssert(args[0].info);
 
         if (args[0].info->isRow()) {
-            return enterRow(args);
+            return enterRow(args, name);
         }
         else if (args[0].info->isScalar()) {
-            return enterScalar(args);
+            return enterScalar(args, name);
         }
         else {
-            return enterAmbiguous(args);
+            return enterAmbiguous(args, name);
         }
     }
 
@@ -109,7 +109,7 @@ struct AggregatorT {
         This does a normal SQL aggregation.
     */
     static BoundAggregator enterScalar(const std::vector<BoundSqlExpression> & args,
-                                       string name="")
+                                       const string & name)
     {
         return { scalarInit, scalarProcess, scalarExtract, scalarMerge, State::info(args) };
     }
@@ -323,7 +323,7 @@ struct AggregatorT {
         row.  This does an aggregation per column in the row.
     */
     static BoundAggregator
-    enterRow(const std::vector<BoundSqlExpression> & args, string name="")
+    enterRow(const std::vector<BoundSqlExpression> & args, const string & name)
     {
         // Analyzes the input arguments for a row, and figures out:
         // a) what kind of output will be produced
@@ -448,7 +448,7 @@ struct AggregatorT {
         will be determined on the first row aggregated
     */
     static BoundAggregator enterAmbiguous(const std::vector<BoundSqlExpression> & args,
-                                          string name="")
+                                          const string & name)
     {
         return { ambiguousStateInit, ambiguousProcess, ambiguousExtract, ambiguousMerge, std::make_shared<AnyValueInfo>() };
     }
@@ -776,7 +776,7 @@ struct LikelihoodRatioAccum {
 };
 
 BoundAggregator lr(const std::vector<BoundSqlExpression> & args,
-                   string name="")
+                   const string & name)
 {
     auto init = [] () -> std::shared_ptr<void>
         {
@@ -864,7 +864,7 @@ struct PivotAccum {
 };
 
 BoundAggregator pivot(const std::vector<BoundSqlExpression> & args,
-                      string name="")
+                      const string & name)
 {
     auto init = [] () -> std::shared_ptr<void>
         {
