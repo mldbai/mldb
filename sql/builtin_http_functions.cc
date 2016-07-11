@@ -57,10 +57,11 @@ BoundFunction extract_domain(const std::vector<BoundSqlExpression> & args)
                     }
                 }
 
-                if(args[0].getAtom().empty())
-                    return ExpressionValue();
+                auto & val = args[0];
+                if(val.empty())
+                    return ExpressionValue::null(val.getEffectiveTimestamp());
 
-                Url url(args[0].getAtom().toUtf8String());
+                Url url(val.getAtom().toUtf8String());
 
                 string return_host = url.host();
                 if(removeSubdomain && !url.hostIsIpAddress()) {

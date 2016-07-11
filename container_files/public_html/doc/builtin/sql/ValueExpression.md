@@ -351,8 +351,9 @@ will change values on each row under consideration. See the [Intro to Datasets](
   there is ambiguity in the expression (for example, the same key with multiple
   values), then one of the values of the key will be chosen to represent the value
   of the key.
-- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse'})` returns a row with the JSON decoding of the
-  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
+- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse', ignoreErrors: false})` returns a row with the JSON decoding of the
+  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. If the `ignoreErrors` option is set to `true`, the function will return NULL for strings that do not parse
+  as valid JSON. It will throw an exception otherwise.
 
   Here are examples with the following JSON string:
 
