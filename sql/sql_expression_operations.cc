@@ -2240,34 +2240,34 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     std::vector<BoundSqlExpression>& boundArgs,
                     BoundFunction& fn) const
 {
-    bool isAggregate = tryLookupAggregator(functionName) != nullptr;	
+    bool isAggregate = tryLookupAggregator(functionName) != nullptr;
 
     if (isAggregate) {
-        return {[=] (const SqlRowScope & row,		
+        return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &		
-                {		
-                    std::vector<ExpressionValue> evaluatedArgs;		
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    std::vector<ExpressionValue> evaluatedArgs;
                     // ??? BAD SMELL
-                    //Don't evaluate the args for aggregator		
-                    evaluatedArgs.resize(boundArgs.size());		
-                    return storage = std::move(fn(evaluatedArgs, row));		
-                },		
-                this,		
-                fn.resultInfo};		
-    }		
-    else {		
-        return {[=] (const SqlRowScope & row,		
+                    //Don't evaluate the args for aggregator
+                    evaluatedArgs.resize(boundArgs.size());
+                    return storage = std::move(fn(evaluatedArgs, row));
+                },
+                this,
+                fn.resultInfo};
+    }
+    else {
+        return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &		
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     std::vector<ExpressionValue> evaluatedArgs;
                     evaluatedArgs.reserve(boundArgs.size());
-                    for (auto & a: boundArgs)		
+                    for (auto & a: boundArgs)
                         evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
-                    
-                    return storage = std::move(fn(evaluatedArgs, row));		
-                },		         
+
+                    return storage = std::move(fn(evaluatedArgs, row));
+                },
                 this,
                 fn.resultInfo};
     }
