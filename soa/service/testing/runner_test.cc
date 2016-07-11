@@ -26,7 +26,7 @@
 #include "mldb/soa/service/runner.h"
 #include "mldb/soa/service/sink.h"
 #include "mldb/types/date.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/libc_value_descriptions.h"
 #include "mldb/ext/jsoncpp/json.h"
 
 #include <iostream>

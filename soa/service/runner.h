@@ -26,11 +26,6 @@
 #include "runner_common.h"
 #include "sink.h"
 
-/* value descriptions for "timeval" and "rusage" */
-
-DECLARE_STRUCTURE_DESCRIPTION(timeval);
-DECLARE_STRUCTURE_DESCRIPTION(rusage);
-
 
 namespace Datacratic {
 
