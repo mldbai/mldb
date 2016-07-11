@@ -538,6 +538,7 @@ struct ExpressionValue {
     ExpressionValue();
     ExpressionValue(std::nullptr_t, Date ts);
     static ExpressionValue null(Date ts);
+    static ExpressionValue exception(Utf8String message, Date ts);
 
     /// Initialize as integer
     ExpressionValue(char intValue, Date ts) { initInt(intValue, ts); }
@@ -742,6 +743,8 @@ struct ExpressionValue {
     bool isSuperposition() const;
 
     bool isEmbedding() const;
+
+    bool isException() const;
 
     std::string toString() const;
 
@@ -1075,7 +1078,8 @@ private:
         ATOM,        ///< Expression is an atom (CellValue), including null
         STRUCTURED,  ///< Expression is a structured, ie a destructured complex type with independent timestamps
         EMBEDDING,    ///< Uniform typed n-dimensional array of atoms
-        SUPERPOSITION ///< Multiple values of the same thing
+        SUPERPOSITION,///< Multiple values of the same thing
+        EXCEPTION     ///< Technically an ATOM with a string, used for the special try builtin fct
     };
 
     Type type_;
