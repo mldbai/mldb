@@ -480,9 +480,7 @@ static RegisterProcedureType<SummaryStatisticsProcedure, SummaryStatisticsProced
 regSummaryStatisticsProcedure(
     builtinPackage(),
     "Creates a dataset with summary statistics for each columns of an input dataset",
-    "procedures/SummaryStatisticsProcedure.md.html",
-    nullptr /* static route */,
-    { MldbEntity::INTERNAL_ENTITY });
+    "procedures/SummaryStatisticsProcedure.md.html");
 
 
 } // namespace MLDB
