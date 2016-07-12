@@ -273,3 +273,73 @@ You can then add `toolchain=clang` to compile with the clang compiler.
   whether to do extra type checking of row scopes.  Setting to 1 will
   do so, at the expense of slightly slower code.  It may be helpful in
   debugging of segmentation faults.
+
+
+## CUDA support
+
+In order to run on a Nvidia GPU, CUDA needs to be enabled and the CUDA
+drivers set up on the machine.
+
+### Machine setup
+
+See here: [http://www.r-tutor.com/gpu-computing/cuda-installation/cuda7.5-ubuntu]
+The machine needs to have the Nvidia CUDA packages installed on the
+machine.
+
+Note that the machine may need to be restarted before the GPUs will be
+usable.
+
+```
+sudo apt-get install linux-image-generic linux-headers-generic
+wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-repo-ubuntu1404_7.5-18_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu1404_7.5-18_amd64.deb
+sudo apt-get update
+sudo apt-get install cuda
+nvidia-smi -q | head  // should print Driver Version: 352.68
+```
+
+You will also need cudnn version 5.5 in order to run most models on
+GPUS.  To get this you first need to sign up at the Nvidia page
+here: [https://developer.nvidia.com/accelerated-computing-developer].
+
+Once the registration is done, you can download the two deb files
+for cudnn:
+
+```
+31899464 libcudnn5_5.1.3-1+cuda7.5_amd64.deb
+28456606 libcudnn5-dev_5.1.3-1+cuda7.5_amd64.deb
+```
+
+and install them as follows:
+
+```
+sudo dpkg -i libcudnn5_5.1.3-1+cuda7.5_amd64.deb libcudnn5-dev_5.1.3-1+cuda7.5_amd64.deb
+```
+
+Note that since cudnn can't be distributed with MLDB, it will need to
+be installed inside the MLDB container (but only the first deb file)
+so that it can be found at runtime by MLDB.
+
+### Hardware compatibility
+
+Note that MLDB requires cards with shader model > 3.0 in order to run
+on CUDA.  You can identify the shader model of your card using the
+command
+
+```
+nvidia-smi -q
+```
+
+### Enabling CUDA in the build
+
+The following should be added to `local.mk`:
+
+```
+WITH_CUDA:=1
+```
+
+Or the following to the Make command-line:
+
+```
+make ... WITH_CUDA=1
+```
