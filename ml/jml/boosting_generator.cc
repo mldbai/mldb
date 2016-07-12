@@ -408,64 +408,108 @@ train_iteration(Thread_Context & context,
     double total = 0.0;
     
     size_t nl = weights.shape()[1];
-    
-    if (cost_function == CF_EXPONENTIAL) {
-        typedef Boosting_Loss Loss;
-        if (bin_sym) {
-            if (true /* use parallel */) {
+    bool isRegression = (nl == 1);
+
+    if (!isRegression) {
+        if (cost_function == CF_EXPONENTIAL) {
+            typedef Boosting_Loss Loss;
+
+            if (bin_sym) {
+                if (true /* use parallel */) {
+                    typedef Binsym_Updater<Loss> Updater;
+                    typedef Update_Weights_Parallel<Updater> Update;
+                    Update update;
+                
+                    update(*weak_classifier, opt_info, 1.0, weights, data, total);
+                }
+                else {
+                    typedef Binsym_Updater<Loss> Updater;
+                    typedef Update_Weights<Updater> Update;
+                    Update update;
+                
+                    total = update(*weak_classifier, opt_info, 1.0, weights, data);
+                }
+            }
+            else {
+                typedef Normal_Updater<Loss> Updater;
+                typedef Update_Weights_Parallel<Updater> Update;
+                Updater updater(nl);
+                Update update(updater);
+
+                update(*weak_classifier, opt_info, 1.0, weights, data, total);
+
+                //for (size_t x = 0;  x < weights.shape()[0];  ++x) {
+                //    cerr << "example " << x << " has weight " << weights[x][0]
+                //         << endl;
+                //}
+            }
+        }
+        else if (cost_function == CF_LOGISTIC) {
+            throw Exception("Boosting_Generator::train_iteration(): "
+                            "what is Z for logistic loss?");
+#if 0
+            typedef Logistic_Loss Loss;
+            Loss loss(Z);
+
+            if (bin_sym) {
                 typedef Binsym_Updater<Loss> Updater;
                 typedef Update_Weights_Parallel<Updater> Update;
-                Update update;
-                
+                Updater updater(loss);
+                Update update(updater);
+
                 update(*weak_classifier, opt_info, 1.0, weights, data, total);
             }
             else {
-                typedef Binsym_Updater<Loss> Updater;
-                typedef Update_Weights<Updater> Update;
-                Update update;
+                //PROFILE_FUNCTION(t_update);
+                typedef Normal_Updater<Loss> Updater;
+                typedef Update_Weights_Parallel<Updater> Update;
+                Updater updater(nl, loss);
+                Update update(updater);
+
+                update(*weak_classifier, opt_info, 1.0, weights, data, total);
+            }
+#endif
+        }
+        else throw Exception("Boosting_Generator::train_iteration: "
+                             "unknown cost function");
+    }
+    else {
+        if (cost_function == CF_EXPONENTIAL) {
+            typedef Boosting_Regression_Loss Loss;
+
+            if (bin_sym) {
+                if (true /* use parallel */) {
+                    typedef Binsym_Updater<Loss> Updater;
+                    typedef Update_Weights_Parallel<Updater> Update;
+                    Update update;
                 
-                total = update(*weak_classifier, opt_info, 1.0, weights, data);
+                    update(*weak_classifier, opt_info, 1.0, weights, data, total);
+                }
+                else {
+                    typedef Binsym_Updater<Loss> Updater;
+                    typedef Update_Weights<Updater> Update;
+                    Update update;
+                
+                    total = update(*weak_classifier, opt_info, 1.0, weights, data);
+                }
+            }
+            else {
+                typedef Normal_Updater<Loss> Updater;
+                typedef Update_Weights_Parallel<Updater> Update;
+                Updater updater(nl);
+                Update update(updater);
+
+                update(*weak_classifier, opt_info, 1.0, weights, data, total);
+                
+                //for (size_t x = 0;  x < weights.shape()[0];  ++x) {
+                //    cerr << "example " << x << " has weight " << weights[x][0]
+                //         << endl;
+                //}
             }
         }
-        else {
-            typedef Normal_Updater<Loss> Updater;
-            typedef Update_Weights_Parallel<Updater> Update;
-            Updater updater(nl);
-            Update update(updater);
-
-            update(*weak_classifier, opt_info, 1.0, weights, data, total);
-        }
     }
-    else if (cost_function == CF_LOGISTIC) {
-        throw Exception("Boosting_Generator::train_iteration(): "
-                        "what is Z for logistic loss?");
-#if 0
-        typedef Logistic_Loss Loss;
-        Loss loss(Z);
 
-        if (bin_sym) {
-            typedef Binsym_Updater<Loss> Updater;
-            typedef Update_Weights_Parallel<Updater> Update;
-            Updater updater(loss);
-            Update update(updater);
-
-            update(*weak_classifier, opt_info, 1.0, weights, data, total);
-        }
-        else {
-            //PROFILE_FUNCTION(t_update);
-            typedef Normal_Updater<Loss> Updater;
-            typedef Update_Weights_Parallel<Updater> Update;
-            Updater updater(nl, loss);
-            Update update(updater);
-
-            update(*weak_classifier, opt_info, 1.0, weights, data, total);
-        }
-#endif
-    }
-    else throw Exception("Boosting_Generator::train_iteration: "
-                         "unknown cost function");
-
-    //cerr << "total = " << total << " Z = " << Z << endl;
+    cerr << "total = " << total << " Z = " << Z << endl;
 
     if (Z == 0.0) Z = total;
 

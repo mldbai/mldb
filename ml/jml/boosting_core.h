@@ -36,7 +36,25 @@ struct Boosting_Loss {
         int correct = (corr == label);
         pred -= 2.0 * pred * correct;
         //*((int *)&pred) ^= (correct << 31);  // flip sign bit if correct
-        return current * exp(pred);
+        return current * std::exp(pred);
+    }
+};
+
+/** The regression boosting loss function.  It is exponential in the margin. */
+struct Boosting_Regression_Loss {
+    JML_ALWAYS_INLINE
+    float operator () (int label, Label corr, float pred, float current) const
+    {
+        using namespace std;
+        float loss = fabs(corr.value() - pred);
+        float result = current * std::exp(loss / 10.0);
+        if (!isfinite(result)) {
+            cerr << "regression loss: label " << label << " corr " << corr.value()
+                 << " pred " << pred << " current " << current << " margin "
+                 << loss << " output " << result << endl;
+            ExcAssert(false);
+        }
+        return result;
     }
 };
 
@@ -179,9 +197,6 @@ struct Normal_Updater {
     {
         float total = 0.0;
 
-        using namespace std;
-        cerr << "updater advance = " << advance << endl;
-        
         if (advance) {
             for (unsigned l = 0;  l < nl;  ++l) {
                 auto prev = *weight_begin;
