@@ -12,9 +12,11 @@ import datetime
 import os
 from string import capwords
 
+
 def load_template(name):
     f = open('templates/' + name + '.txt', 'rt')
     return f.read()
+
 
 def get_proc_from_args():
     parser = argparse.ArgumentParser(description=
@@ -47,6 +49,7 @@ def update_makefile(filename):
     f = open(mk_file, 'wt')
     f.write(new_makefile)
     f.close()
+
 
 def do_it():
     template_cc = load_template('procedure.cc')
