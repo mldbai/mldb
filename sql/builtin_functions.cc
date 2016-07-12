@@ -693,7 +693,7 @@ typedef double (*DoubleBinaryFunction)(double, double);
 ExpressionValue binaryFunction(const std::vector<ExpressionValue> & args,
                                DoubleBinaryFunction func)
 {
-    ExcAssertEqual(args.size(), 2);
+    checkArgsSize(args.size(), 2);
     const auto v1 = args[0];
     const auto v2 = args[1];
     return ExpressionValue(func(v1.toDouble(), v2.toDouble()), calcTs(v1, v2));
@@ -827,7 +827,7 @@ BoundFunction cardinality(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 double v = args[0].toDouble();
                 return ExpressionValue(std::sqrt(v),
                                        args[0].getEffectiveTimestamp());
@@ -848,7 +848,7 @@ BoundFunction binomial_ub_80(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 ExcAssert(args[0].isInteger());
                 int64_t trials = args[0].toInt();
                 int64_t successes = args[1].toInt();
@@ -864,7 +864,7 @@ BoundFunction binomial_lb_80(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 ExcAssert(args[0].isInteger());
                 ExcAssert(args[1].isInteger());
                 int64_t trials = args[0].toInt();
@@ -889,7 +889,7 @@ BoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 if (!args[0].isString()) {
                     return args[0];
                 }
@@ -977,7 +977,7 @@ struct ApplyRegexReplace: public RegexHelper {
                                   const SqlRowScope & scope,
                                   const boost::u32regex & regex) const
     {
-        ExcAssertEqual(args.size(), 3);
+        checkArgsSize(args.size(), 3);
 
         if (args[0].empty() || args[1].empty() || args[2].empty())
             return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
@@ -1020,7 +1020,7 @@ struct ApplyRegexMatch: public RegexHelper {
     {
         // TODO: should be able to pass utf-8 string directly in
 
-        ExcAssertEqual(args.size(), 2);
+        checkArgsSize(args.size(), 2);
 
         if (args[0].empty() || args[1].empty())
             return ExpressionValue::null(calcTs(args[0], args[1]));
@@ -1056,7 +1056,7 @@ struct ApplyRegexSearch: public RegexHelper {
     {
         // TODO: should be able to pass utf-8 string directly in
 
-        ExcAssertEqual(args.size(), 2);
+        checkArgsSize(args.size(), 2);
 
         if (args[0].empty() || args[1].empty())
             return ExpressionValue::null(calcTs(args[0], args[1]));
@@ -1090,7 +1090,7 @@ BoundFunction earliest_timestamp(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 auto val = args[0];
                 return ExpressionValue(val.getMinTimestamp(),
                                        val.getEffectiveTimestamp());
@@ -1110,7 +1110,7 @@ BoundFunction latest_timestamp(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return ExpressionValue(args[0].getMaxTimestamp(),
                                        args[0].getEffectiveTimestamp());
             },
@@ -1125,7 +1125,7 @@ BoundFunction distinct_timestamps(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
 
                 std::set<CellValue> results;
 
@@ -1154,11 +1154,11 @@ static RegisterBuiltin register_distinct_timestamps(distinct_timestamps, "distin
 BoundFunction toTimestamp(const std::vector<BoundSqlExpression> & args)
 {
     // Return a timestamp coerced from the expression
-    checkArgsSize(args.size(), 1);
+    checkArgsSize(args.size(), 1, "to_timestamp");
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return ExpressionValue(args[0].coerceToTimestamp(),
                                        args[0].getEffectiveTimestamp());
             },
@@ -1175,7 +1175,7 @@ BoundFunction at(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 ExpressionValue result = args[0];
                 result.setEffectiveTimestamp(args[1].coerceToTimestamp().toTimestamp());
                 return result;
@@ -1193,7 +1193,7 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 0);
+                checkArgsSize(args.size(), 0);
                 ExpressionValue result(Date::now(), Date::negativeInfinity());
                 return result;
             },
@@ -1204,10 +1204,11 @@ static RegisterBuiltin registerNow(now, "now");
 
 BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
+    checkArgsSize(args.size(), 1);
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return args[0];
             },
             args[0].info,
@@ -1221,7 +1222,7 @@ BoundFunction temporal_latest(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return args[0];
             },
             args[0].info,
@@ -1245,7 +1246,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
     auto apply = [=] (const std::vector<ExpressionValue> & args,
                       const SqlRowScope & scope) -> ExpressionValue
         {
-            ExcAssertEqual(args.size(), 1);
+            checkArgsSize(args.size(), 1);
 
             const ExpressionValue & val = args[0];
 
@@ -1658,7 +1659,7 @@ void normalize(ML::distribution<double>& val, double p)
      // Get the current row as an embedding, and return a normalized version
      // of it.
 
-     checkArgsSize(args.size(), 2);
+    checkArgsSize(args.size(), 2);
 
      // TODO: improve performance by getting the embedding directly
 
@@ -1869,7 +1870,7 @@ BoundFunction print_json(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 auto & val = args[0];
                 std::string str;
                 StringJsonPrintingContext context(str);
@@ -1891,7 +1892,7 @@ BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 auto val = args.at(0);
                 Utf8String str = val.toUtf8String();
                 Date ts = val.getEffectiveTimestamp();
@@ -2384,7 +2385,7 @@ struct RegisterVectorOp {
         // Get the current row as an embedding, and return a normalized version
         // of it.
 
-        ExcAssertEqual(args.size(), 2);
+        checkArgsSize(args.size(), 2);
 
         //cerr << "vector_diff arg 0 = " << jsonEncode(args[0]) << endl;
         //cerr << "vector_diff arg 1 = " << jsonEncode(args[1]) << endl;
@@ -2408,7 +2409,7 @@ struct RegisterVectorOp {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
-                    ExcAssertEqual(args.size(), 2);
+                    checkArgsSize(args.size(), 2);
                     ML::distribution<double> embedding1, embedding2;
                     std::shared_ptr<const void> token;
                     Date ts;
@@ -2518,7 +2519,7 @@ BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
 
                 Utf8String str = args[0].toUtf8String();
                 return ExpressionValue(base64Encode(str.rawData(),
@@ -2540,7 +2541,7 @@ BoundFunction base64_decode(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 CellValue blob = args[0].coerceToBlob();
                 return ExpressionValue(base64Decode((const char *)blob.blobData(),
                                                     blob.blobLength()),
@@ -2554,8 +2555,7 @@ static RegisterBuiltin registerBase64Decode(base64_decode, "base64_decode");
 
 BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 2)
-        throw HttpReturnException(400, "extract_column function takes 2 arguments");
+    checkArgsSize(args.size(), 2);
 
     // TODO: there is a better implementation if the field name is
     // a constant expression
@@ -2563,7 +2563,7 @@ BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 auto val1 = args[0];
                 auto val2 = args[1];
                 Utf8String fieldName = val1.toUtf8String();
@@ -2582,13 +2582,12 @@ BoundFunction lower(const std::vector<BoundSqlExpression> & args)
 {
     // Return an expression but with the timestamp modified to something else
 
-    if (args.size() != 1)
-        throw HttpReturnException(400, "lower function takes 1 argument");
+    checkArgsSize(args.size(), 1);
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(args[0].getAtom().toUtf8String().toLower(),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -2603,13 +2602,12 @@ BoundFunction upper(const std::vector<BoundSqlExpression> & args)
 {
     // Return an expression but with the timestamp modified to something else
 
-    if (args.size() != 1)
-        throw HttpReturnException(400, "upper function takes 1 argument");
+    checkArgsSize(args.size(), 1);
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(args[0].getAtom().toUtf8String().toUpper(),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -2622,13 +2620,11 @@ static RegisterBuiltin registerUpper(upper, "upper");
 
 BoundFunction length(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 1)
-        throw HttpReturnException(400, "length function takes a single argument");
-
+    checkArgsSize(args.size(), 1);
      return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
              {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 //if(!args[0].isString())
                     //throw ML::Exception("The parameter passed to the length "
                             //"function must be a string");
@@ -2645,15 +2641,14 @@ static RegisterBuiltin registerLength(length, "length");
 
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 2)
-        throw HttpReturnException(400, "levenshtein_distance function takes 2 arguments");
+    checkArgsSize(args.size(), 2);
 
      return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
              {
                 using namespace Edlib;
 
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 if(!args[0].isString() || !args[1].isString())
                     throw ML::Exception("The parameters passed to the levenshtein_distance "
                             "function must be strings");
@@ -2770,7 +2765,7 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
-                    ExcAssertEqual(args.size(), 1);
+                    checkArgsSize(args.size(), 1);
                     size_t len = args[0].rowLength();
                     return args[0].reshape({len});
                 },
@@ -2786,7 +2781,7 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
-                    ExcAssertEqual(args.size(), 1);
+                    checkArgsSize(args.size(), 1);
 
                     // If this is an embedding (but couldn't be proved statically),
                     // then do it the simple and efficient way
@@ -2843,7 +2838,7 @@ BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return result;
             },
             outputInfo
@@ -2872,7 +2867,7 @@ BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return result;
             },
             outputInfo
@@ -2947,7 +2942,7 @@ BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
                         return true;
                     } ;
 
-                    ExcAssertEqual(args.size(), 3);
+                    checkArgsSize(args.size(), 3);
                     args[0].forEachColumn(exec);
 
                     return ExpressionValue(vals);
@@ -2968,7 +2963,7 @@ BoundFunction parse_path(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
 
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(CellValue(Path::parse(args[0].getAtom().toUtf8String())),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -2988,7 +2983,7 @@ BoundFunction stringify_path(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
 
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(args[0].coerceToPath().toUtf8String(),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -3007,7 +3002,7 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 size_t el = args[1].getAtom().toUInt();
                 ExpressionValue result(CellValue(args[0].coerceToPath().at(el)),
                                        calcTs(args[0], args[1]));
@@ -3037,7 +3032,7 @@ BoundFunction analyze_join(const std::vector<BoundSqlExpression> & args)
     // - A string with the right table expression
     // - A string with the on condition
     // - A string with the external where condition
-    checkArgsSize(args.size(), 4);
+    checkArgsSize(args.size(), 4, "_analyse_join");
 
     auto outputInfo
         = std::make_shared<UnknownRowValueInfo>();
@@ -3045,7 +3040,7 @@ BoundFunction analyze_join(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 4);
+                checkArgsSize(args.size(), 4);
                 std::shared_ptr<TableExpression> left
                     = TableExpression::parse(args[0].getAtom().toUtf8String());
                 std::shared_ptr<TableExpression> right
@@ -3074,7 +3069,7 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
     // - An expression to be analyzed (string)
     // - A table name to be removed
     // - A set of aliases
-    checkArgsSize(args.size(), 2);
+    checkArgsSize(args.size(), 2, "_remove_table_name");
 
     auto outputInfo
         = std::make_shared<UnknownRowValueInfo>();
@@ -3082,7 +3077,7 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 std::shared_ptr<SqlExpression> expr
                     = SqlExpression::parse(args[0].getAtom().toUtf8String());
                 Utf8String tableName = args[1].getAtom().toUtf8String();
