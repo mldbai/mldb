@@ -138,7 +138,8 @@ run(const ProcedureRunConfig & run,
         };
 
     if (!runProcConf.modelFileUrl.empty()) {
-        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+        checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                         "modelFileUrl");
     }
 
     SqlExpressionMldbScope context(server);
@@ -185,8 +186,9 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-            em.save(runProcConf.modelFileUrl.toString());
+            Datacratic::makeUriDirectory(
+                runProcConf.modelFileUrl.toDecodedString());
+            em.save(runProcConf.modelFileUrl.toDecodedString());
             saved = true;
         }
         catch (const std::exception & exc) {
@@ -309,7 +311,7 @@ struct EMFunction::Impl {
     std::vector<ColumnName> columnNames;
 
     Impl(const Url & modelFileUrl) {
-        em.load(modelFileUrl.toString());
+        em.load(modelFileUrl.toDecodedString());
         for (auto & c: em.columnNames)
             this->columnNames.push_back(PathElement(c));
     }

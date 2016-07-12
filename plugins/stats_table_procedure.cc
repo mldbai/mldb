@@ -343,7 +343,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTables;
     }
@@ -777,7 +777,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTable;
     }

@@ -136,7 +136,8 @@ run(const ProcedureRunConfig & run,
          throw ML::Exception("modelFileUrl is not valid");
     }
 
-    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                     "modelFileUrl");
 
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
@@ -315,7 +316,8 @@ run(const ProcedureRunConfig & run,
 
     bool saved = true;
     try {
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+        Datacratic::makeUriDirectory(
+            runProcConf.modelFileUrl.toDecodedString());
         classifier.save(runProcConf.modelFileUrl.toString());
     }
     catch (const std::exception & exc) {

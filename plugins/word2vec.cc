@@ -76,7 +76,8 @@ struct Word2VecImporter: public Procedure {
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
-        auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
+        auto info = getUriObjectInfo(
+            runProcConf.dataFileUrl.toDecodedString());
 
         filter_istream stream(runProcConf.dataFileUrl);
 

@@ -845,7 +845,7 @@ struct ImportTextProcedureWorkInstance
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
         SqlCsvScope scope(server, inputColumnNames, ts,
-                          Utf8String(config.dataFileUrl.toString()));
+                          Utf8String(config.dataFileUrl.toDecodedString()));
 
         selectBound = config.select.bind(scope);
         whereBound = config.where->bind(scope);

@@ -161,7 +161,7 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
 
     virtual FsObjectInfo tryGetInfo(const Url & url) const
     {
-        Utf8String archiveSource(url.toString());
+        Utf8String archiveSource(url.toDecodedString());
         if (!archiveSource.removePrefix("archive+"))
             throw ML::Exception("archive URI '" + url.toString() + "' doesn't start with 'archive+' when getting object info");
 

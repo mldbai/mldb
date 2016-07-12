@@ -263,7 +263,7 @@ run(const ProcedureRunConfig & run,
     repr.params = probParams;
 
     if (!runProcConf.modelFileUrl.toString().empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         stream << jsonEncode(repr);
         stream.close();
 

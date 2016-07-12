@@ -34,7 +34,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     virtual FsObjectInfo getInfo(const Url & url) const
     {
         string bucket = url.host();
-        auto api = getS3ApiForUri(url.toString());
+        auto api = getS3ApiForUri(url.toDecodedString());
         auto bucketPath = S3Api::parseUri(url.original);
         return api->getObjectInfo(bucket, bucketPath.second);
     }
@@ -42,7 +42,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     virtual FsObjectInfo tryGetInfo(const Url & url) const
     {
         string bucket = url.host();
-        auto api = getS3ApiForUri(url.toString());
+        auto api = getS3ApiForUri(url.toDecodedString());
         auto bucketPath = S3Api::parseUri(url.original);
         return api->tryGetObjectInfo(bucket, bucketPath.second);
     }
@@ -54,7 +54,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     virtual bool erase(const Url & url, bool throwException) const
     {
         string bucket = url.host();
-        auto api = getS3ApiForUri(url.toString());
+        auto api = getS3ApiForUri(url.toDecodedString());
         auto bucketPath = S3Api::parseUri(url.original);
         if (throwException) {
             api->eraseObject(bucket, "/" + bucketPath.second);

@@ -244,7 +244,8 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
     };
 
-    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                     "modelFileUrl");
 
     SqlExpressionMldbScope context(server);
 
@@ -404,7 +405,7 @@ SVMFunction(MldbServer * owner,
     auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_b.svm");
     try {
-        filter_istream in(functionConfig.modelFileUrl.toString());
+        filter_istream in(functionConfig.modelFileUrl);
         std::string firstLine;
         std::getline(in, firstLine);
         Json::Value md = Json::parse(firstLine);
