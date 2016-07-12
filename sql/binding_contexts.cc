@@ -589,15 +589,13 @@ getDatasetDerivedFunction(const Utf8String & tableName,
                     ExpressionValue rowPath = rowPathFn(args, context);
                     Path asPath = rowPath.coerceToPath();
                     int64_t firstElement = args[0].getAtom().toInt();
+
                     if (firstElement < 0)
                         firstElement = asPath.size() + firstElement;
-                    if (firstElement < 0 || firstElement >= asPath.size()) {
-                        throw HttpReturnException
-                            (400, "Couldn't extract element '"
-                             + to_string(firstElement) + "' of path '"
-                             + asPath.toUtf8String() + "' with length "
-                             + to_string(asPath.size()));
-                    }
+
+                    if (firstElement < 0 || firstElement >= asPath.size())
+                        return ExpressionValue::null(args[0].getEffectiveTimestamp());
+
                     return ExpressionValue(asPath.at(firstElement).toUtf8String(),
                                            std::max(rowPath.getEffectiveTimestamp(),
                                                     args[0].getEffectiveTimestamp()));

@@ -34,7 +34,7 @@ class Mldb1721(MldbUnitTest):
         })
 
         self.assertTableResultEquals(
-            mldb.query("select * from bag_of_words"),
+            mldb.query("select * from bag_of_words order by rowName() DESC"),
                 [
                     [
                         "_rowName",
