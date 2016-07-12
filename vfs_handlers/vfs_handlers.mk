@@ -16,7 +16,6 @@ $(eval $(call library,vfs_handlers,$(LIBVFS_HANDLERS_SOURCES),$(LIBVFS_HANDLERS_
 # gcc 4.7
 $(eval $(call set_compile_option,aws.cc,-fpermissive))
 
-$(eval $(call program,s3_transfer_cmd,vfs_handlers boost_program_options boost_filesystem utils))
 $(eval $(call program,s3tee,vfs_handlers boost_program_options utils))
 $(eval $(call program,s3cp,vfs_handlers boost_program_options utils))
 $(eval $(call program,s3_multipart_cmd,vfs_handlers boost_program_options utils))

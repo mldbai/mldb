@@ -78,8 +78,8 @@ BOOST_AUTO_TEST_CASE( test_s3_attributes )
 }
 
 #if 1
-/* Test S3Api::upload with small payloads */
-BOOST_AUTO_TEST_CASE( test_s3api_upload )
+/* Test s3 uploads with small payloads */
+BOOST_AUTO_TEST_CASE( test_s3_uploads )
 {
     JML_TRACE_EXCEPTIONS(false);
 
@@ -91,32 +91,39 @@ BOOST_AUTO_TEST_CASE( test_s3api_upload )
     };
     ML::Call_Guard guard(cleanup);
 
+    auto writeFile = [&] (const string & filename, const string & contents) {
+        FileCommiter commiter(filename);
+        filter_ostream outs(filename);
+        outs << contents;
+        outs.close();
+        commiter.commit();
+    };
+    
     string basename = "/s3api-upload-" + randomString(16);
     string fileUrl = "s3://" + bucket + basename;
     cleanupUrls.push_back(fileUrl);
-
-    auto s3Api = getS3ApiForUri(fileUrl);
-
+    
     /* Test writing of empty file */
-    string etag = s3Api->upload("", 0, bucket, basename);
+    writeFile(fileUrl, "");
     auto info = tryGetUriObjectInfo(fileUrl);
-    BOOST_CHECK_NE(etag, string());
     BOOST_CHECK_EQUAL(bool(info), true);
+    BOOST_CHECK_NE(info.etag, string());
     BOOST_CHECK_EQUAL(info.size, 0);
 
     /* Test writing of non-empty file */
     string contents = randomString(1024);
-    etag = s3Api->upload(contents.c_str(), contents.size(), bucket, basename);
+    writeFile(fileUrl, contents);
     info = tryGetUriObjectInfo(fileUrl);
+    string etag1 = info.etag;
     BOOST_CHECK_EQUAL(info.size, contents.size());
 
     /* Ensure that a double upload result in the same etag. In practice upload
      * should be a no-op in this case due to "check" being CM_SIZE, but there
      * is currently no way of knowing if this worked. */
-    string etag2 = s3Api->upload(contents.c_str(), contents.size(),
-                                 bucket, basename);
+    writeFile(fileUrl, contents);
     info = tryGetUriObjectInfo(fileUrl);
-    BOOST_CHECK_EQUAL(etag, etag2);
+    string etag2 = info.etag;
+    BOOST_CHECK_EQUAL(etag1, etag2);
 }
 #endif
 
@@ -150,20 +157,16 @@ BOOST_AUTO_TEST_CASE( test_s3_large_files )
 
     auto s3Api = getS3ApiForUri(fileUrl);
 
-    /* upload with S3Api::upload (S3Uploader) */
-    {
-        string etag = s3Api->upload(contents.c_str(), contents.size(),
-                                    bucket, basename);
-        auto info = tryGetUriObjectInfo(fileUrl);
-        BOOST_CHECK_EQUAL(info.size, contents.size());
-        tryEraseUriObject(fileUrl);
-    }
-
     /* upload with filter_ostream (StreamingUploadSource, S3Uploader) */
     {
+        FileCommiter commiter(fileUrl);
         filter_ostream stream(fileUrl);
         stream << contents;
         stream.close();
+        commiter.commit();
+
+        auto info = tryGetUriObjectInfo(fileUrl);
+        BOOST_CHECK_EQUAL(info.size, contents.size());
     }
 
     /* download with S3Api::get */
@@ -172,20 +175,6 @@ BOOST_AUTO_TEST_CASE( test_s3_large_files )
         BOOST_CHECK_EQUAL(info.size, contents.size());
         auto resp = s3Api->get(bucket, basename, info.size);
         ExcAssertEqual(resp.body_, contents);
-    }
-
-    /* download with S3Api::download (S3Downloader) */
-    {
-        const char * src = contents.c_str();
-        auto onChunk = [&] (const char * chunk,
-                            size_t size,
-                            int chunkIndex,
-                            uint64_t offset,
-                            uint64_t totalSize) {
-            int res = ::memcmp(chunk, src + offset, size);
-            ExcAssertEqual(res, 0);
-        };
-        s3Api->download(fileUrl, onChunk);
     }
 
     /* download with filter_istream (S3DownloadSource, S3Downloader) */
@@ -216,8 +205,6 @@ BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
     string escapedResource("/" + escapedObject);
     string unescapedUrl("s3://" + bucket + resource);
     string escapedUrl("s3://" + bucket + escapedResource);
-    string doublyEscapedResource("/s3_test/filename%2520with%2520spaces");
-    string doublyEscapedUrl("s3://" + bucket + doublyEscapedResource);
 
     auto s3Api = getS3ApiForUri(escapedUrl);
 
@@ -237,57 +224,28 @@ BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
 
     s3Api->erase(bucket, resource);
     s3Api->erase(bucket, escapedResource);
-    s3Api->erase(bucket, doublyEscapedResource);
-
-    /* S3Api::upload with resource */
-    {
-        cerr << "S3Api::upload with unescaped resource\n";
-        ML::Call_Guard cleanup(cleanupFn);
-        s3Api->erase(bucket, resource);
-        auto etag = s3Api->upload(randomData.c_str(), bufferSize, bucket, resource);
-
-        /* test getObjectInfo, which indirectly tests HEAD */
-        auto info = s3Api->getObjectInfo(bucket, object);
-        BOOST_CHECK_EQUAL(info.size, bufferSize);
-
-        /* test get */
-        filter_istream download(unescapedUrl);
-        string contents = download.readAll();
-        BOOST_CHECK_EQUAL(contents, randomData);
-    }
-
-    /* S3Api::upload with url */
-    {
-        ML::Call_Guard cleanup(cleanupFn);
-        s3Api->erase(bucket, resource);
-        cerr << "S3Api::upload with unescaped url\n";
-        s3Api->upload(randomData.c_str(), bufferSize, unescapedUrl);
-    }
-    {
-        ML::Call_Guard cleanup(cleanupEscapedFn);
-        cerr << "S3Api::upload with escaped url\n";
-        s3Api->upload(randomData.c_str(), bufferSize, escapedUrl);
-    }
 
     /* streaming upload */
-    {
-        // ML::Call_Guard cleanup(cleanupFn);
+    ML::Call_Guard cleanup(cleanupFn);
 
-        cerr << "streaming upload with unescaped url\n";
-        filter_ostream stream(unescapedUrl);
-        stream << randomData;
-        stream.close();
+    cerr << "streaming upload with unescaped url\n";
+    filter_ostream stream(unescapedUrl);
+    stream << randomData;
+    stream.close();
 
-        /* corresponding download */
-        string body;
-        filter_istream inputStream(unescapedUrl);
-        while (inputStream) {
-            char buf[16384];
-            inputStream.read(buf, 16384);
-            body.append(buf, inputStream.gcount());
-        }
-        BOOST_CHECK_EQUAL(body, randomData);
-    }
+    /* test getObjectInfo, which indirectly tests HEAD */
+    auto info = s3Api->getObjectInfo(bucket, object);
+    BOOST_CHECK_EQUAL(info.size, bufferSize);
+
+    /* corresponding download */
+    filter_istream inputStream(unescapedUrl);
+    string body = inputStream.readAll();
+    BOOST_CHECK_EQUAL(body, randomData);
+
+    /* test get */
+    filter_istream download(unescapedUrl);
+    string contents = download.readAll();
+    BOOST_CHECK_EQUAL(contents, randomData);
 }
 
 

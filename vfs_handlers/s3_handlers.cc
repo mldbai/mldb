@@ -678,13 +678,12 @@ struct StreamingUploadSource {
                         // Upload the data
                         string md5 = md5HashToHex(chunk.data, chunk.size);
 
+                        HttpRequestContent body(string(chunk.data, chunk.size));
                         auto putResult = owner->put(bucket, "/" + object,
                                                     ML::format("partNumber=%d&uploadId=%s",
                                                                chunk.index + 1, uploadId),
                                                     {}, {},
-                                                    S3Api::Content(chunk.data,
-                                                                   chunk.size,
-                                                                   md5));
+                                                    body);
                         if (putResult.code_ != 200) {
                             cerr << putResult.bodyXmlStr() << endl;
 

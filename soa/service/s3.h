@@ -21,6 +21,7 @@
 #include "aws.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/http/http_request.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/http/http_header.h"
 
@@ -79,11 +80,6 @@ struct S3Api : public AwsApi {
           const std::string & defaultProtocol = "http",
           const std::string & serviceUri = "s3.amazonaws.com");
 
-    /** Set up the API, getting its credentials from the default credentials
-        handler.
-    */
-    //void init();
-
     /** Set up the API to called with the given credentials. */
     void init(const std::string & accessKeyId,
               const std::string & accessKey,
@@ -97,31 +93,6 @@ struct S3Api : public AwsApi {
     std::string serviceUri;
     double bandwidthToServiceMbps;
 
-
-    struct Content {
-        Content()
-            : data(0), size(0), hasContent(false)
-        {
-        }
-
-        Content(const char * data, uint64_t size,
-                const std::string & contentType = "",
-                const std::string & contentMd5 = "")
-            : data(data), size(size), hasContent(true),
-              contentType(contentType), contentMd5(contentMd5)
-        {
-        }
-
-        Content(const tinyxml2::XMLDocument & xml);
-
-        const char * data;
-        uint64_t size;
-        bool hasContent;
-
-        std::string str;
-        std::string contentType;
-        std::string contentMd5;
-    };
 
     struct Range {
         Range(uint64_t aSize)
@@ -172,7 +143,7 @@ struct S3Api : public AwsApi {
 
         std::string contentType;
         std::string contentMd5;
-        Content content;
+        HttpRequestContent content;
         Range downloadRange;
 
         RestParams headers;
@@ -328,7 +299,7 @@ struct S3Api : public AwsApi {
                   const std::string & subResource = "",
                   const RestParams & headers = RestParams(),
                   const RestParams & queryParams = RestParams(),
-                  const Content & content = Content())
+                  const HttpRequestContent & content = HttpRequestContent())
         const
     {
         return postEscaped(bucket, s3EscapeResource(resource), subResource,
@@ -341,7 +312,7 @@ struct S3Api : public AwsApi {
                  const std::string & subResource = "",
                  const RestParams & headers = RestParams(),
                  const RestParams & queryParams = RestParams(),
-                 const Content & content = Content())
+                 const HttpRequestContent & content = HttpRequestContent())
         const
     {
         return putEscaped(bucket, s3EscapeResource(resource), subResource,
@@ -354,7 +325,7 @@ struct S3Api : public AwsApi {
                    const std::string & subResource = "",
                    const RestParams & headers = RestParams(),
                    const RestParams & queryParams = RestParams(),
-                   const Content & content = Content())
+                   const HttpRequestContent & content = HttpRequestContent())
         const
     {
         return eraseEscaped(bucket, s3EscapeResource(resource), subResource,
@@ -366,59 +337,6 @@ struct S3Api : public AwsApi {
         CM_MD5_ETAG, ///< Check via the md5 of the content vs the etag
         CM_ASSUME_INVALID  ///< Anything there is assumed invalid
     };
-
-    /** Upload a memory buffer into an s3 bucket.  Uses a multi-part upload
-        algorithm that can achieve 200MB/second for data already in memory.
-
-        If the resource already exists, then it will use the given method
-        to determine whether it's OK or not.
-
-        Returns the etag field of the uploaded file.
-    */
-    std::string upload(const char * data,
-                       size_t bytes,
-                       const std::string & bucket,
-                       const std::string & resource,
-                       CheckMethod check = CM_SIZE,
-                       const ObjectMetadata & md = ObjectMetadata(),
-                       int numInParallel = -1);
-
-    std::string upload(const char * data,
-                       size_t bytes,
-                       const std::string & uri,
-                       CheckMethod check = CM_SIZE,
-                       const ObjectMetadata & md = ObjectMetadata(),
-                       int numInParallel = -1);
-
-    typedef std::function<void (const char * chunk,
-                                size_t size,
-                                int chunkIndex,
-                                uint64_t offset,
-                                uint64_t totalSize) >
-        OnChunk;
-
-    /** OnChunk function that writes to the given file. */
-    static OnChunk writeToFile(const std::string & filename);
-
-    /** Download the contents of a bucket.  This will call the given
-        output function for each chunk that is received.  Note that there
-        is no guarantee that the chunks will be received in order as the
-        download happens in multiple parallel chunks.
-    */
-    void download(const std::string & bucket,
-                  const std::string & object,
-                  const OnChunk & onChunk,
-                  ssize_t startOffset = 0,
-                  ssize_t endOffset = -1) const;
-
-    void download(const std::string & uri,
-                  const OnChunk & onChunk,
-                  ssize_t startOffset = 0,
-                  ssize_t endOffset = -1) const;
-
-    void downloadToFile(const std::string & uri,
-                  const std::string & outfile,
-                  ssize_t endOffset = -1) const;
 
     struct ObjectInfo : public FsObjectInfo {
         ObjectInfo()
@@ -571,10 +489,6 @@ struct S3Api : public AwsApi {
                           const std::string & uploadId,
                           const std::vector<std::string> & etags) const;
 
-    void uploadRecursive(std::string dirSrc,
-                         std::string bucketDest,
-                         bool includeDir);
-
     /** Pre-escaped versions of the above methods */
 
     /* head */
@@ -598,7 +512,8 @@ struct S3Api : public AwsApi {
                          const std::string & subResource = "",
                          const RestParams & headers = RestParams(),
                          const RestParams & queryParams = RestParams(),
-                         const Content & content = Content()) const;
+                         const HttpRequestContent & content
+                         = HttpRequestContent()) const;
 
     /* put */
     Response putEscaped(const std::string & bucket,
@@ -606,7 +521,8 @@ struct S3Api : public AwsApi {
                         const std::string & subResource = "",
                         const RestParams & headers = RestParams(),
                         const RestParams & queryParams = RestParams(),
-                        const Content & content = Content()) const;
+                        const HttpRequestContent & content
+                        = HttpRequestContent()) const;
 
     /* erase */
     Response eraseEscaped(const std::string & bucket,
@@ -614,7 +530,8 @@ struct S3Api : public AwsApi {
                           const std::string & subResource,
                           const RestParams & headers = RestParams(),
                           const RestParams & queryParams = RestParams(),
-                          const Content & content = Content()) const;
+                          const HttpRequestContent & content
+                          = HttpRequestContent()) const;
 
     //easy handle for v8 wrapping
     void setDefaultBandwidthToServiceMbps(double mpbs);
