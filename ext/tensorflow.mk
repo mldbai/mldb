@@ -157,24 +157,28 @@ CUDA_HEADERS := cuda.h cublas.h cufft.h cuComplex.h vector_types.h builtin_types
 # If we are using CUDA, we also need to link its include directory into
 # third_party/gpus/cuda/include
 
-$(INC)/third_party/gpus/cuda/include/%: $(CUDA_SYSTEM_HEADER_DIR)/%
+$(INC)/third_party/gpus/cuda/include/%: | $(CUDA_SYSTEM_HEADER_DIR)/%
 	@mkdir -p $(dir $@)
 	@ln -s $< $@
+
+$(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
+	mkdir -p $(dir $@)
+	ln -sf $(CUDA_BASE_DIR)/extras $@
 
 # Anything that's to do with Cuda depends on these header files, so set
 # up the dependency.
 
 $(TENSORFLOW_CC_FILES): \
-	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header))
+	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras
 
 # Some of the CUDA headers include their header dependencies via <file.h>
 # instead of "file.h", which requires us to set up the system header directory
 # to find them in.
-TENSORFLOW_CUDA_INCLUDE_FLAGS:=-Isystem$(CUDA_SYSTEM_HEADER_DIR) -I$(CUDA_SYSTEM_HEADER_DIR)
+TENSORFLOW_CUDA_INCLUDE_FLAGS:=-Isystem$(CUDA_SYSTEM_HEADER_DIR) -I$(CUDA_SYSTEM_HEADER_DIR) -I$(INC)/third_party/gpus/cuda/extras/CUPTI/include
 
 # Now we find all of the cuda files that need to be compiled by nvidia's
 # nvcc compiler.  These are anything that end in .cu.cc
-TENSORFLOW_CUDA_NVCC_FILES:=$(shell (find $(CWD)/tensorflow -name "*.cu.cc"))
+TENSORFLOW_CUDA_NVCC_FILES:=$(shell (find $(CWD)/tensorflow -name "*.cu.cc") | grep -v how_tos)
 
 # Turn them into the symbolic source names we need for the build system
 TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
