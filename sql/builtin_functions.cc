@@ -3146,6 +3146,25 @@ BoundFunction hash(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerHashFunction(hash, "hash");
 
+BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 2);
+    auto outputInfo
+        = std::make_shared<NumericValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (args[0].isException()) {
+                    return args[1];
+                }
+                return args[0];
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerTryFunction(tryFct, "try");
+
 
 } // namespace Builtins
 } // namespace MLDB

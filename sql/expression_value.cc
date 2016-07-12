@@ -1578,6 +1578,17 @@ null(Date ts)
     return ExpressionValue(nullptr, ts);
 }
 
+ExpressionValue
+ExpressionValue::
+exception(Utf8String msg, Date ts)
+{
+    // Make sure not empty, otherwise update "empty()"
+    ExcAssert(!msg.empty());
+    auto res = ExpressionValue(msg, ts);
+    res.type_ = Type::EXCEPTION;
+    return res;
+}
+
 ExpressionValue::
 ExpressionValue(Date val, Date ts)
     : type_(Type::NONE)
@@ -1846,6 +1857,7 @@ destroy()
 
     switch (type) {
     case Type::NONE: return;
+    case Type::EXCEPTION:
     case Type::ATOM: cell_.~CellValue();  return;
     case Type::STRUCTURED:  structured_.~StructuredRepr();  return;
     case Type::EMBEDDING: embedding_.~EmbeddingRepr();  return;
@@ -1859,6 +1871,7 @@ ExpressionValue(const ExpressionValue & other)
 {
     switch (other.type_) {
     case Type::NONE: ts_ = other.ts_;  return;
+    case Type::EXCEPTION:
     case Type::ATOM: initAtom(other.cell_, other.ts_);  return;
     case Type::STRUCTURED:  initStructured(other.structured_);  return;
     case Type::EMBEDDING: {
@@ -2130,6 +2143,7 @@ isTrue() const
     switch (type_) {
     case Type::NONE:
         return false;
+    case Type::EXCEPTION:
     case Type::ATOM:
         return cell_.isTrue();
     case Type::STRUCTURED:
@@ -2150,6 +2164,7 @@ isFalse() const
     switch (type_) {
     case Type::NONE:
         return false;
+    case Type::EXCEPTION:
     case Type::ATOM:
         return cell_.isFalse();
     case Type::STRUCTURED:
@@ -2282,6 +2297,13 @@ ExpressionValue::
 isEmbedding() const
 {
     return type_ == Type::EMBEDDING;
+}
+
+bool
+ExpressionValue::
+isException() const
+{
+    return type_ == Type::EXCEPTION;
 }
 
 std::string
@@ -2549,6 +2571,7 @@ tryGetColumn(const PathElement & columnName,
         return superposition_->tryGetNestedColumn(columnName, storage, ts_);
     }
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         return nullptr;
     }
@@ -2637,6 +2660,7 @@ tryGetNestedColumn(const ColumnName & columnName,
         return superposition_->tryGetNestedColumn(columnName, storage, ts_);
     }
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         return nullptr;
     }
@@ -2662,6 +2686,7 @@ getEmbeddingShape() const
 {
     switch (type_) {
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         return {};
     case Type::STRUCTURED:
@@ -2681,6 +2706,7 @@ reshape(DimsVector newShape) const
 {
     switch (type_) {
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
     case Type::STRUCTURED:
         throw HttpReturnException(500, "Cannot reshape non-embedding");
@@ -2911,6 +2937,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
         break;
 
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         throw HttpReturnException(400, "Cannot extract embedding from atom");
     case Type::SUPERPOSITION:
@@ -3173,6 +3200,7 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
     case Type::NONE:
         row.emplace_back(std::move(columnName), CellValue(), ts_);
         return;
+    case Type::EXCEPTION:
     case Type::ATOM:
         row.emplace_back(std::move(columnName), stealAtom(), ts_);
         return;
@@ -3316,6 +3344,7 @@ forEachAtom(const std::function<bool (const Path & columnName,
     case Type::NONE: {
         return onAtom(Path(), prefix, CellValue(), ts_);
     }
+    case Type::EXCEPTION:
     case Type::ATOM: {
         return onAtom(Path(), prefix, cell_, ts_);
     }
@@ -3348,6 +3377,7 @@ forEachColumn(const std::function<bool (const PathElement & columnName,
         return embedding_->forEachColumn(onColumn, ts_);
     }
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         // A non-row doesn't have columns, so this call doesn't make sense
         throw HttpReturnException(500, "Expected row expression",
@@ -3416,6 +3446,7 @@ forEachColumnDestructiveT(Fn && onColumn) const
         return superposition_->forEachColumn(onCol, ts_);
     }
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         throw HttpReturnException(500, "Expected row expression",
                                   "expression", *this,
@@ -3501,6 +3532,7 @@ forEachAtomDestructiveT(Fn && onAtom)
         CellValue val;
         return onAtom(name, val, ts_);
     }
+    case Type::EXCEPTION:
     case Type::ATOM: {
         Path name;
         CellValue val = stealAtom();
@@ -3548,6 +3580,7 @@ forEachSuperposedValue(const std::function<bool (const ExpressionValue & val)> &
     case Type::NONE:
         return true;
     case Type::EMBEDDING:
+    case Type::EXCEPTION:
     case Type::ATOM:
         return onValue(*this);
     case Type::SUPERPOSITION:
@@ -3851,6 +3884,7 @@ hasKey(const Utf8String & key) const
 {
     switch (type_) {
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         return { false, Date::negativeInfinity() };
     case Type::STRUCTURED: 
@@ -3904,6 +3938,7 @@ hasValue(const ExpressionValue & val) const
 {
     switch (type_) {
     case Type::NONE:
+    case Type::EXCEPTION:
     case Type::ATOM:
         return { false, Date::negativeInfinity() };
     case Type::STRUCTURED: 
@@ -3940,6 +3975,7 @@ hash() const
     switch (type_) {
     case Type::NONE:
         return CellValue().hash();
+    case Type::EXCEPTION:
     case Type::ATOM:
         return cell_.hash();
     case Type::STRUCTURED:
@@ -4096,6 +4132,7 @@ coerceToAtom() const
     switch (type_) {
     case Type::NONE:
         return EMPTY_CELL;
+    case Type::EXCEPTION:
     case Type::ATOM:
         return cell_;
     case Type::STRUCTURED:
@@ -4251,6 +4288,7 @@ compare(const ExpressionValue & other) const
     
     switch (type_) {
     case Type::NONE: return 0;
+    case Type::EXCEPTION:
     case Type::ATOM:
         //cerr << "getAtom() 1 = " << getAtom() << endl;
         //cerr << "getAtom() 2 = " << other.getAtom() << endl;
@@ -4279,6 +4317,7 @@ operator == (const ExpressionValue & other) const
         return false;
     switch (type_) {
     case Type::NONE: return true;
+    case Type::EXCEPTION:
     case Type::ATOM: return cell_ == other.cell_;
     case Type::STRUCTURED: {
         auto leftRow = getStructured();
@@ -4304,6 +4343,7 @@ operator <  (const ExpressionValue & other) const
 
     switch (type_) {
     case Type::NONE: return false;
+    case Type::EXCEPTION:
     case Type::ATOM: return cell_ < other.cell_;
     case Type::STRUCTURED:  {
         auto leftRow = getStructured();
@@ -4325,6 +4365,7 @@ getSpecializedValueInfo() const
     switch (type_) {
     case Type::NONE:
         return std::make_shared<EmptyValueInfo>();
+    case Type::EXCEPTION:
     case Type::ATOM:
         // TODO: specialize for concrete type
         return std::make_shared<AtomValueInfo>();
@@ -4358,6 +4399,7 @@ extractJson(JsonPrintingContext & context) const
         context.writeNull();
         return;
 
+    case Type::EXCEPTION:
     case ExpressionValue::Type::ATOM:
         cellDesc->printJsonTyped(&cell_, context);
         return;
@@ -4578,6 +4620,7 @@ printJsonTyped(const ExpressionValue * val,
         context.writeNull();
         return;
     case ExpressionValue::Type::ATOM:
+    case ExpressionValue::Type::EXCEPTION:
         cellDesc->printJsonTyped(&val->cell_, context);
         return;
     case ExpressionValue::Type::STRUCTURED:

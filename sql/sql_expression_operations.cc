@@ -2256,21 +2256,48 @@ bindBuiltinFunction(SqlBindingScope & scope,
                 this,
                 fn.resultInfo};
     }
-    else {
+
+    if (functionName == "try") {
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
-                {
-                    std::vector<ExpressionValue> evaluatedArgs;
-                    evaluatedArgs.reserve(boundArgs.size());
-                    for (auto & a: boundArgs)
-                        evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
+            {
+                ExcAssert(args.size() == 2);
+                std::vector<ExpressionValue> evaluatedArgs;
+                evaluatedArgs.reserve(boundArgs.size());
+                try {
+                    evaluatedArgs.emplace_back(std::move(
+                        boundArgs[0](row, fn.filter)));
+                }
+                catch (const ML::Exception & exc) {
+                    evaluatedArgs.emplace_back(std::move(
+                        ExpressionValue::exception(exc.what(),
+                                                    Date::now())));
+                }
+                evaluatedArgs.emplace_back(std::move(boundArgs[1](row,
+                                                                  fn.filter)));
 
-                    return storage = std::move(fn(evaluatedArgs, row));
-                },
-                this,
-                fn.resultInfo};
+                return storage = std::move(fn(evaluatedArgs, row));
+            },
+            this,
+            fn.resultInfo};
     }
+
+    // The same function w/o try/catch handling
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
+        {
+            std::vector<ExpressionValue> evaluatedArgs;
+            evaluatedArgs.reserve(boundArgs.size());
+            for (auto & a: boundArgs) {
+                evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
+            }
+
+            return storage = std::move(fn(evaluatedArgs, row));
+        },
+        this,
+        fn.resultInfo};
 }
 
 Utf8String
