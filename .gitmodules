@@ -25,3 +25,12 @@
 [submodule "ext/uap-core"]
 	path = ext/uap-core
 	url = https://github.com/mldbai/uap-core.git
+[submodule "ext/protobuf"]
+	path = ext/protobuf
+	url = https://github.com/mldbai/protobuf
+[submodule "ext/farmhash"]
+	path = ext/farmhash
+	url = https://github.com/mldbai/farmhash.git
+[submodule "ext/highwayhash"]
+	path = ext/highwayhash
+	url = https://github.com/mldbai/highwayhash.git

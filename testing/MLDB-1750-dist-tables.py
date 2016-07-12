@@ -205,7 +205,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 'outcomes': [['price', 'price']],
                 'distTableFileUrl': "file://tmp/mldb-1750_non_default_stats.dt",
                 'functionName': 'get_stats',
-                'statistics': ['last', 'min'],
+                'statistics': ['last', 'min', 'sum'],
                 'runOnCreation': True
             }
         })
@@ -213,14 +213,18 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
 
         self.assertTableResultEquals(
             mldb.query("select * from bid_req_features_few_stats where rowName() = 'row4'"),
-            [["_rowName", "price.host.last", "price.host.min", "price.region.last", "price.region.min"],
-             ["row4",      7,                  3,               9,                   9]
+            [["_rowName", "price.host.last", "price.host.min", "price.host.sum",
+                          "price.region.last", "price.region.min", "price.region.sum"],
+             ["row4", 7, 3, 10, # values: [3,7]
+                      9, 9, 9]  # values: [9]
             ])
 
         self.assertTableResultEquals(
             mldb.query("select get_stats({features: {host, region}})[stats] as * from bid_req where rowName() = 'row4'"),
-            [["_rowName", "price.host.last", "price.host.min", "price.region.last", "price.region.min"],
-             ["row4",      11,                3,                11,                  9]
+            [["_rowName", "price.host.last", "price.host.min", "price.host.sum",
+                          "price.region.last", "price.region.min", "price.region.sum"],
+             ["row4", 11, 3, 21, # values: [3,7,11]
+                      11, 9, 20] # values: [9,11]
             ])
 
         # create a function  with different stats
@@ -231,7 +235,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 'statistics': ['max']
             }
         })
-        
+
         self.assertTableResultEquals(
             mldb.query("""
                 SELECT get_stats_non_default({features: {host: 'prout', region: 'usa'}}) AS *
@@ -248,7 +252,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                     11
                 ]
             ])
-        
+
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
                 'Unknown distribution table statistic'):
             mldb.put('/v1/functions/get_stats_non_default2', {
