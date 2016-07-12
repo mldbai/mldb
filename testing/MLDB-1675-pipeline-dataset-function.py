@@ -22,6 +22,11 @@ class DatasetFunctionTest(MldbUnitTest):
         ds.record_row("row_b",[["x", "terminator", 0]])
         ds.commit()
 
+        ds = mldb.create_dataset({ "id": "dataset3", "type": "sparse.mutable" })
+        ds.record_row("row_a",[["z", 0.1, 0]])
+        ds.record_row("row_b",[["z", 0.2, 0]])
+        ds.commit()
+
     def test_transpose_dataset(self):
 
         res = mldb.put('/v1/functions/bop', {
@@ -120,6 +125,39 @@ class DatasetFunctionTest(MldbUnitTest):
         mldb.log(res)
 
         expected = [["_rowName","bop().x"],["result","terminator"]]
+
+        self.assertEqual(res, expected)
+
+    def test_transpose_transpose(self):
+
+        res = mldb.put('/v1/functions/bop', {
+            'type': 'sql.query',
+            'params': {
+                'query': "select * from transpose(transpose(dataset2))"
+            }
+        })
+
+        res = mldb.query("select bop()")
+        mldb.log(res)
+
+        expected = [["_rowName","bop().x"],["result","terminator"]]
+
+        self.assertEqual(res, expected)
+
+    def test_merge_dataset(self):
+
+        res = mldb.put('/v1/functions/bop', {
+            'type': 'sql.query',
+            'params': {
+                'query': "select * from merge(dataset2, dataset3)"
+            }
+        })
+
+        res = mldb.query("select bop()")
+        mldb.log("merge")
+        mldb.log(res)
+
+        expected = [["_rowName","bop().x","bop().y","bop().z"],["result","toy story","123456",0.10000000149011612]]
 
         self.assertEqual(res, expected)
 

@@ -877,7 +877,7 @@ struct DatasetFunctionElement : public PipelineElement {
     std::shared_ptr<DatasetFunctionExpression> function_;
 
     std::shared_ptr<PipelineElement> pipeline;
-    std::shared_ptr<PipelineElement> subpipeline_;
+    std::shared_ptr<PipelineElement> pipelineRight;
 
     struct TransposeExecutor: public ElementExecutor {
         TransposeExecutor(std::shared_ptr<ElementExecutor> subpipeline);
@@ -888,12 +888,31 @@ struct DatasetFunctionElement : public PipelineElement {
         std::shared_ptr<ElementExecutor> subpipeline_;
     };
 
+    struct MergeExecutor: public ElementExecutor {
+        MergeExecutor(std::shared_ptr<ElementExecutor> subpipelineLeft, std::shared_ptr<ElementExecutor> subpipelineRight);
+        virtual std::shared_ptr<PipelineResults> take();
+        virtual void restart();
+
+        std::shared_ptr<ElementExecutor> subpipelineLeft_;
+        std::shared_ptr<ElementExecutor> subpipelineRight_;
+
+        std::shared_ptr<PipelineResults> left;
+        std::shared_ptr<PipelineResults> right;
+    };
+
     struct Bound: public BoundPipelineElement {
-        Bound(std::shared_ptr<BoundPipelineElement> source, std::shared_ptr<BoundPipelineElement> subpipeline, const Utf8String& asName);
+        Bound(std::shared_ptr<BoundPipelineElement> source, std::shared_ptr<BoundPipelineElement> subpipeline, const Utf8String& asName, const Utf8String& functionName);
+        Bound(std::shared_ptr<BoundPipelineElement> source, 
+              std::shared_ptr<BoundPipelineElement> subpipeline, 
+              std::shared_ptr<BoundPipelineElement> subpipelineRight, 
+              const Utf8String& asName, 
+              const Utf8String& functionName);
 
         std::shared_ptr<BoundPipelineElement> source_;
         std::shared_ptr<BoundPipelineElement> subpipeline_;
+        std::shared_ptr<BoundPipelineElement> subpipelineRight_;
         Utf8String asName_;
+        Utf8String functionName_;
         std::shared_ptr<PipelineExpressionScope> outputScope_;
 
         std::shared_ptr<ElementExecutor>
