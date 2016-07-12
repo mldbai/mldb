@@ -25,6 +25,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 

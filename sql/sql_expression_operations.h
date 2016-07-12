@@ -201,6 +201,8 @@ struct SelectWithinExpression: public SqlExpression {
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
+    virtual bool isConstant() const;
+
     std::shared_ptr<SqlRowExpression> select;
 };
 
@@ -473,6 +475,11 @@ struct NamedColumnExpression: public SqlRowExpression {
         return alias.toUtf8String();
     }
 
+    virtual bool isConstant() const
+    {
+        return expression->isConstant();
+    }
+
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 };
 
@@ -508,7 +515,10 @@ struct FunctionCallExpression: public SqlRowExpression {
     virtual std::map<ScopedName, UnboundFunction>
     functionNames() const override;
 
-    virtual bool isAggregator() const { return !!tryLookupAggregator(functionName); }
+    virtual bool isAggregator() const override
+    {
+        return !!tryLookupAggregator(functionName);
+    }
 
 private:
 

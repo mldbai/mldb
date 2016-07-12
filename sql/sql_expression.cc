@@ -15,6 +15,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/jml/utils/environment.h"
 #include "sql_expression_operations.h"
 #include "table_expression_operations.h"
 #include "interval.h"
@@ -117,8 +118,9 @@ ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
+    return expr->constantValue();
+
     if (!metadata.isConstant) {
-        cerr << "surface = " << expr->surface << endl;
         throw HttpReturnException
             (400, "Attempt to extract constant from non-constant expression.  "
              "One of the elements of the expression requires a constant "
@@ -228,6 +230,12 @@ doGetFunction(const Utf8String & tableName,
 
     if (functionName == "rightRowName")
         throw HttpReturnException(400, "Function 'rightRowName' is not available outside of a join");
+
+    if (functionName == "leftRowPath")
+        throw HttpReturnException(400, "Function 'leftRowPath' is not available outside of a join");
+
+    if (functionName == "rightRowPath")
+        throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
     
     return {nullptr, nullptr};
 }
@@ -337,7 +345,7 @@ ColumnGetter
 SqlBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " must override getColumn: wanted "
                               + columnName.toUtf8String());
 }
@@ -347,7 +355,7 @@ SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override getAllColumns: wanted "
                         + tableName);
 }
@@ -358,7 +366,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doCreateRowsWhereGenerator");
 }
 
@@ -366,7 +374,7 @@ ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doGetColumnFunction");
 }
 
@@ -374,7 +382,7 @@ ColumnGetter
 SqlBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support bound parameters ($1... or $name)");
 }
 
@@ -382,7 +390,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -390,7 +398,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -398,7 +406,7 @@ TableOperations
 SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting tables");
 }
 
@@ -613,6 +621,18 @@ hasUnboundVariables() const
     return false;
 }
 
+bool
+UnboundEntities::
+hasRowFunctions() const
+{
+    // False coupling to improve. See MLDB-1769
+    return funcs.find("columnCount") != funcs.end()
+        || funcs.find("rowHash") != funcs.end()
+        || funcs.find("rowPath") != funcs.end()
+        || funcs.find("leftRowHash") != funcs.end()
+        || funcs.find("rightRowHash") != funcs.end();
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(UnboundEntities);
 
 UnboundEntitiesDescription::
@@ -634,6 +654,25 @@ UnboundEntitiesDescription()
 /*****************************************************************************/
 /* SQL ROW SCOPE                                                             */
 /*****************************************************************************/
+
+// Environment variable that tells us whether we check the row scope types
+// or not, which may be more expensive.
+ML::Env_Option<bool> MLDB_CHECK_ROW_SCOPE_TYPES
+("MLDB_CHECK_ROW_SCOPE_TYPES", false);
+
+// Visible manifestation of that variable.  We statically initialize it here
+// so that it can still be accessed before shared library initialization.
+bool SqlRowScope::checkRowScopeTypes = false;
+
+namespace {
+// Initialize with the final value once the library loads
+struct InitializeCheckRowScopeTypes {
+    InitializeCheckRowScopeTypes()
+    {
+        SqlRowScope::checkRowScopeTypes = MLDB_CHECK_ROW_SCOPE_TYPES;
+    }
+};
+} // file scope
 
 void
 SqlRowScope::
@@ -1473,13 +1512,15 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         }
 
         // 'LIKE' expression
-        if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
-            expect_whitespace(context);
+        if (currentPrecedence > 5) {
+            if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
+                expect_whitespace(context);
 
-            auto rhs = SqlExpression::parse(context, 10, allowUtf8);
+                auto rhs = SqlExpression::parse(context, 5, allowUtf8);
 
-            lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
-            lhs->surface = ML::trim(token.captured());
+                lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
+                lhs->surface = ML::trim(token.captured());
+            }
         }
 
         // Now look for an operator
@@ -1487,12 +1528,12 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         for (const Operator & op: operators) {
             if (op.unary)
                 continue;
-            if (op.precedence > currentPrecedence) {
+            if (op.precedence >= currentPrecedence) {
                 /* Will need to be bound outside our expression, since the precence is wrong. */
                 break;
             }
             if (matchOperator(context, op.token)) {
-                auto rhs = parse(context, op.precedence - 1, allowUtf8);
+                auto rhs = parse(context, op.precedence, allowUtf8);
                 lhs = op.handler(lhs, rhs, op.token);
                 lhs->surface = ML::trim(token.captured());
                 found = true;
@@ -2015,7 +2056,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             as = SqlExpression::parse(context, 10, allowUtf8);
             // As eats whitespace
         }
-        else as = SqlExpression::parse("columnName()");
+        else as = SqlExpression::parse("columnPath()");
         
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
@@ -3018,9 +3059,13 @@ bind(SqlBindingScope & context) const
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             StructValue result;
+            result.reserve(boundClauses.size());
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context, filter);
-                v.mergeToRowDestructive(result);
+                ExpressionValue storage;
+                const ExpressionValue & v = c(context, storage, filter);
+                if (&v == &storage)
+                    storage.mergeToRowDestructive(result);
+                else v.appendToRow(Path(), result);
             }
             
             return storage = std::move(ExpressionValue(std::move(result)));
@@ -3096,6 +3141,17 @@ isIdentitySelect(SqlExpressionDatasetScope & context) const
     // execution of some expressions.
     return clauses.size() == 1
         && clauses[0]->isIdentitySelect(context);
+}
+
+bool
+SelectExpression::
+isConstant() const
+{
+    for (auto & c: clauses) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
 }
 
 struct SelectExpressionDescription
@@ -3832,7 +3888,6 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-    
     return std::move(statement);
 }
 

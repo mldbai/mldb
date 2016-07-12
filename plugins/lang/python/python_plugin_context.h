@@ -25,7 +25,7 @@
 #include "mldb/server/script_output.h"
 
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb/rest/in_process_rest_connection.h"
 
 

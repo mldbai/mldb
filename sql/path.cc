@@ -22,6 +22,12 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+namespace {
+// If ever we allow the first offset of a path to be non-zero (eg, to tail
+// a long path via sharing) we should remove this.
+constexpr bool PATH_OFFSET_ZERO_IS_ALWAYS_ZERO = true;
+} // file scope
+
 
 /*****************************************************************************/
 /* COMPARISON FUNCTIONS                                                      */
@@ -273,7 +279,8 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                 if (c == '\"') {
                     if (exceptions) {
                         throw HttpReturnException
-                            (400, "invalid char in PathElement '" + Utf8String(start, e)
+                            (400, "invalid char in PathElement '"
+                             + Utf8String(p, e)
                              + "'.  Quotes must be doubled.");
                     }
                     else {
@@ -283,7 +290,8 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                 else {
                     if (exceptions) {
                         throw HttpReturnException
-                            (400, "invalid char in PathElement '" + Utf8String(start, e)
+                            (400, "invalid char in PathElement '"
+                             + Utf8String(p, e)
                              + "'.  Special characters must be quoted and "
                              "nulls are not accepted.");
                     }
@@ -413,6 +421,24 @@ operator <  (const PathElement & other) const
 
 bool
 PathElement::
+operator <= (const PathElement & other) const
+{
+    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
+    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
+
+    if (digits_ == NO_DIGITS && other.digits_ == NO_DIGITS) {
+        size_t l1 = dataLength();
+        size_t l2 = other.dataLength();
+        int res = std::memcmp(data(), other.data(), std::min(l1, l2));
+        if (res) return res <= 0;
+        return l1 <= l2;
+    }
+
+    return compareString(other.data(), other.dataLength()) <= 0;
+}
+
+bool
+PathElement::
 startsWith(const std::string & other) const
 {
     return toUtf8String().startsWith(other);
@@ -530,7 +556,9 @@ toIndex() const
     const char * p = data();
     const char * e = p + dataLength();
     if (e == p)
-        return false;
+        return -1;
+    if (*p == '0' && dataLength() != 1)
+        return -1;
     for (; p != e;  ++p) {
         if (!isdigit(*p))
             return -1;
@@ -573,16 +601,16 @@ Path
 PathElement::
 operator + (const PathElement & other) const
 {
-    Path result(*this);
-    return result + other;
+    PathBuilder builder;
+    return builder.add(*this).add(other).extract();
 }
 
 Path
 PathElement::
 operator + (PathElement && other) const
 {
-    Path result(*this);
-    return result + std::move(other);
+    PathBuilder builder;
+    return builder.add(*this).add(std::move(other)).extract();
 }
 
 Path
@@ -854,6 +882,19 @@ add(const PathElement & element)
 
 PathBuilder &
 PathBuilder::
+add(const char * utf8Str, size_t charLength)
+{
+    bytes.append(utf8Str, utf8Str + charLength);
+    if (indexes.size() <= 16) {
+        digits_ = digits_ | (calcDigits(utf8Str, charLength) << (2 * (indexes.size() - 1)));
+    }
+    indexes.emplace_back(bytes.size());
+    
+    return *this;
+}
+
+PathBuilder &
+PathBuilder::
 addRange(const Path & path, size_t first, size_t last)
 {
     if (last > path.size())
@@ -961,6 +1002,25 @@ toUtf8String() const
         result += at(i).toEscapedUtf8String(); 
         first = false;
     }
+    return result;
+}
+
+ssize_t
+Path::
+toIndex() const
+{
+    if (length_ != 1 || digits(0) != PathElement::DIGITS_ONLY)
+        return -1;
+    return at(0).toIndex();
+}
+
+size_t
+Path::
+requireIndex() const
+{
+    ssize_t result = toIndex();
+    if (result == -1)
+        throw HttpReturnException(400, "Path was not an index");
     return result;
 }
 
@@ -1326,8 +1386,9 @@ operator == (const Path & other) const
     //if (digits_ != other.digits_)
     //    return false;
 
-    // Short circuit
-    if (offset(0) == 0 && other.offset(0) == 0) {
+    // Short circuit (currently offset(0) is always 0, so always taken.
+    if (PATH_OFFSET_ZERO_IS_ALWAYS_ZERO
+        || (offset(0) == 0 && other.offset(0) == 0)) {
         for (size_t i = 1;  i <= length_;  ++i) {
             if (offset(i) != other.offset(i)) {
                 return false;
@@ -1335,9 +1396,10 @@ operator == (const Path & other) const
         }
         if (bytes_.size() != other.bytes_.size())
             return false;
-        return std::memcmp(bytes_.data(), other.bytes_.data(), bytes_.size()) == 0;
+        return std::memcmp(bytes_.data(), other.bytes_.data(), bytes_.size())
+            == 0;
     }
-
+    
     return compare(other) == 0;
 }
 

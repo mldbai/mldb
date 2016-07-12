@@ -18,7 +18,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/testing/watchdog.h"
-#include "mldb/soa/service/message_loop.h"
+#include "mldb/io/message_loop.h"
 #include "mldb/soa/service/runner.h"
 #include "mldb/soa/service/sink.h"
 #include "mldb/types/date.h"

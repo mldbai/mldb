@@ -222,16 +222,19 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    const ExpressionValue& rowNameValue = row.values.at(fieldOffset + ROW_PATH);
+                    const ExpressionValue& rowPath
+                        = row.values.at(fieldOffset + ROW_PATH);
 
                     //Can be empty in case of unmatched outerjoin
-                    if (rowNameValue.empty()) {
-                        return ExpressionValue("", Date::Date::notADate());
+                    if (rowPath.empty()) {
+                        return ExpressionValue::null(Date::Date::notADate());
                     }
                     else {
-                        return ExpressionValue(rowNameValue.toUtf8String(),row.values.at(fieldOffset + ROW_PATH).getEffectiveTimestamp());
+                        return ExpressionValue
+                            (rowPath.toUtf8String(),
+                             row.values.at(fieldOffset + ROW_PATH)
+                             .getEffectiveTimestamp());
                     }
-                    
                 },
                 std::make_shared<Utf8StringValueInfo>()
             };
@@ -824,57 +827,61 @@ doGetFunction(const Utf8String & functionName,
     //cerr << "Asking join for function " << functionName
     //     << " with field offset " << fieldOffset << endl;
 
-    if (functionName == "rowName") {
-        auto leftRowName
-            = left->doGetFunction(functionName, args, leftFieldOffset(fieldOffset), argScope);
-        auto rightRowName
-            = right->doGetFunction(functionName, args, rightFieldOffset(fieldOffset), argScope);
-            
+    if (functionName == "rowPath" || functionName == "rowName") {
+        auto leftRowPath
+            = left->doGetFunction("rowPath", args, leftFieldOffset(fieldOffset), argScope);
+        auto rightRowPath
+            = right->doGetFunction("rowPath", args, rightFieldOffset(fieldOffset), argScope);
+        
+        bool isRowName = functionName == "rowName";
+        std::shared_ptr<ExpressionValueInfo> info;
+        if (isRowName)
+            info = std::make_shared<Utf8StringValueInfo>();
+        else info = std::make_shared<PathValueInfo>();
+        
         auto exec = [=] (const std::vector<ExpressionValue> & args,
                          const SqlRowScope & context)
             -> ExpressionValue
             {
-                Utf8String rowName;
-                ExpressionValue left = leftRowName(args, context);
-                ExpressionValue right = rightRowName(args, context);
+                ExpressionValue left = leftRowPath(args, context);
+                ExpressionValue right = rightRowPath(args, context);
 
+#if 0  // structured row names               
+                Path both = left.coerceToPath() + right.coerceToPath();
+#else
+                Utf8String rowName;
                 rowName = left.empty() ? "[]-" : "[" + left.toUtf8String() + "]-";
                 rowName += right.empty() ? "[]" : "[" + right.toUtf8String() + "]";
-
-                return ExpressionValue(std::move(rowName),Date::notADate());
+                Path both(rowName);
+#endif
+                Date ts = std::min(left.getEffectiveTimestamp(),
+                                   right.getEffectiveTimestamp());
+                if (isRowName)
+                    return ExpressionValue(both.toUtf8String(), ts);
+                else return ExpressionValue(std::move(both), ts);
             };
 
-        return { exec, leftRowName.resultInfo };
+        return { exec, info };
     }
 
     if (functionName == "leftRowName") {
-        auto leftRowName
-            = left->doGetFunction("rowName", args, leftFieldOffset(fieldOffset), argScope);
+        return left->doGetFunction("rowName", args,
+                                   leftFieldOffset(fieldOffset), argScope);
+    }
 
-        auto exec = [=] (const std::vector<ExpressionValue> & args,
-                         const SqlRowScope & context)
-            -> ExpressionValue
-            {
-                Utf8String rowName;
-                return leftRowName(args, context);
-            };
-
-        return { exec, leftRowName.resultInfo };
+    if (functionName == "leftRowPath") {
+        return left->doGetFunction("rowPath", args,
+                                     leftFieldOffset(fieldOffset), argScope);
     }
 
     if (functionName == "rightRowName") {
-        auto rightRowName
-            = right->doGetFunction("rowName", args, rightFieldOffset(fieldOffset), argScope);
+        return right->doGetFunction("rowName", args,
+                                    rightFieldOffset(fieldOffset), argScope);
+    }
 
-        auto exec = [=] (const std::vector<ExpressionValue> & args,
-                         const SqlRowScope & context)
-            -> ExpressionValue
-            {
-                Utf8String rowName;
-                return rightRowName(args, context);
-            };
-
-        return { exec, rightRowName.resultInfo };
+    if (functionName == "rightRowPath") {
+        return right->doGetFunction("rowPath", args,
+                                    rightFieldOffset(fieldOffset), argScope);
     }
 
     // For now, don't allow joins to override functions
@@ -1025,9 +1032,9 @@ bind() const
 {
     return std::make_shared<Bound>(root->bind(),
                                    leftImpl->bind(),
-                                    rightImpl->bind(),
-                                    leftRaw->bind(),
-                                    rightRaw->bind(),
+                                   rightImpl->bind(),
+                                   leftRaw->bind(),
+                                   rightRaw->bind(),
                                    condition,
                                    joinQualification);
 }
@@ -1279,8 +1286,8 @@ take()
             if (field.empty() || !where.asBool())
             {
                 s->values.pop_back();
-                s->values.emplace_back(ExpressionValue("", Date::notADate()));
-                s->values.emplace_back(ExpressionValue("", Date::notADate()));
+                s->values.emplace_back(ExpressionValue::null(Date::notADate()));
+                s->values.emplace_back(ExpressionValue::null(Date::notADate()));
                 return true;
             }
 
@@ -1399,8 +1406,8 @@ take()
     if (outerLeft && l)
     {
         l->values.pop_back();
-        l->values.emplace_back(ExpressionValue("", Date::notADate()));
-        l->values.emplace_back(ExpressionValue("", Date::notADate()));
+        l->values.emplace_back(ExpressionValue::null(Date::notADate()));
+        l->values.emplace_back(ExpressionValue::null(Date::notADate()));
         auto result = std::move(l);
         l = left->take();
         return result;
@@ -1409,8 +1416,8 @@ take()
     if (outerRight && r)
     {
         r->values.pop_back();
-        r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
-        r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
+        r->values.insert(r->values.begin(), ExpressionValue::null(Date::notADate()));
+        r->values.insert(r->values.begin(), ExpressionValue::null(Date::notADate()));
         auto result = std::move(r);
         r = right->take();
         return result;
@@ -1836,7 +1843,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                         if (offset == 0) {
                             NamedRowValue row;
                             row.rowName = RowName("result");
-                            row.rowHash = RowName("result");
+                            row.rowHash = row.rowName;
                             result.push_back(std::move(row));
                         }
 

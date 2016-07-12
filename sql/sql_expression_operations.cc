@@ -10,6 +10,7 @@
 #include <boost/algorithm/string.hpp>
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/compact_vector_description.h"
 #include "table_expression_operations.h"
 #include <unordered_set>
 #include "mldb/server/dataset_context.h"
@@ -1712,6 +1713,12 @@ getChildren() const
     return result;
 }
 
+bool
+SelectWithinExpression::
+isConstant() const
+{
+    return select->isConstant();
+}
 
 /*****************************************************************************/
 /* EMBEDDING EXPRESSION                                                      */
@@ -1747,7 +1754,7 @@ bind(SqlBindingScope & scope) const
     }
 
     vector<BoundSqlExpression> boundClauses;
-    vector<size_t> knownDims = {clauses.size()};
+    DimsVector knownDims = {clauses.size()};
 
     std::vector<std::shared_ptr<ExpressionValueInfo> > clauseInfo;
 
@@ -1769,15 +1776,18 @@ bind(SqlBindingScope & scope) const
                      const VariableFilter & filter) -> const ExpressionValue &
         {  
             Date ts = Date::negativeInfinity();
-            std::vector<CellValue> cells;
 
             if (lastLevel) {
-                cells.reserve(boundClauses.size());
+                std::vector<CellValue> cells(boundClauses.size());
 
-                for (auto & c: boundClauses) {
-                    ExpressionValue v = c(scope, filter);
+                for (size_t i = 0;  i < boundClauses.size();  ++i) {
+                    auto & c = boundClauses[i];
+                    ExpressionValue storage2;
+                    const ExpressionValue & v = c(scope, storage2, filter);
                     ts.setMax(v.getEffectiveTimestamp());
-                    cells.emplace_back(v.stealAtom());
+                    if (&v == &storage2)
+                        cells[i] = storage2.stealAtom();
+                    else cells[i] = v.getAtom();
                 }
 
                 ExpressionValue result(std::move(cells), ts);
@@ -1785,7 +1795,9 @@ bind(SqlBindingScope & scope) const
             }
             else {
 
-                std::vector<size_t> dims = { boundClauses.size() };
+                std::vector<CellValue> cells;
+
+                DimsVector dims { boundClauses.size() };
 
                 for (unsigned i = 0;  i < boundClauses.size();  ++i) {
                     auto & c = boundClauses[i];
@@ -2228,34 +2240,34 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     std::vector<BoundSqlExpression>& boundArgs,
                     BoundFunction& fn) const
 {
-    bool isAggregate = tryLookupAggregator(functionName) != nullptr;	
+    bool isAggregate = tryLookupAggregator(functionName) != nullptr;
 
     if (isAggregate) {
-        return {[=] (const SqlRowScope & row,		
+        return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &		
-                {		
-                    std::vector<ExpressionValue> evaluatedArgs;		
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    std::vector<ExpressionValue> evaluatedArgs;
                     // ??? BAD SMELL
-                    //Don't evaluate the args for aggregator		
-                    evaluatedArgs.resize(boundArgs.size());		
-                    return storage = std::move(fn(evaluatedArgs, row));		
-                },		
-                this,		
-                fn.resultInfo};		
-    }		
-    else {		
-        return {[=] (const SqlRowScope & row,		
+                    //Don't evaluate the args for aggregator
+                    evaluatedArgs.resize(boundArgs.size());
+                    return storage = std::move(fn(evaluatedArgs, row));
+                },
+                this,
+                fn.resultInfo};
+    }
+    else {
+        return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &		
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     std::vector<ExpressionValue> evaluatedArgs;
                     evaluatedArgs.reserve(boundArgs.size());
-                    for (auto & a: boundArgs)		
+                    for (auto & a: boundArgs)
                         evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
-                    
-                    return storage = std::move(fn(evaluatedArgs, row));		
-                },		         
+
+                    return storage = std::move(fn(evaluatedArgs, row));
+                },
                 this,
                 fn.resultInfo};
     }
@@ -2265,8 +2277,8 @@ Utf8String
 FunctionCallExpression::
 print() const
 {
-    Utf8String result = "function(" + jsonEncodeStr(tableName)
-        + "," + jsonEncodeStr(functionName);
+    Utf8String result = "function(" + jsonEncodeUtf8(tableName)
+        + "," + jsonEncodeUtf8(functionName);
         
     for (auto & a : args) {
         result += "," + a->print();
@@ -2507,7 +2519,7 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue vstorage;
                     const ExpressionValue & v = boundExpr(row, vstorage, filter);
-                    
+
                     if (!v.empty()) {
                         for (auto & w: boundWhen) {
                             ExpressionValue wstorage;
@@ -2519,9 +2531,18 @@ bind(SqlBindingScope & scope) const
                         }
                     }
 
-                    if (elseExpr)
+                    if (elseExpr) {
                         return boundElse(row, storage, filter);
-                    else return storage = std::move(ExpressionValue());
+                    }
+
+                    if (boundWhen.size() > 0 && boundWhen[0].second.info->isRow()) {
+                        // No else defined, first when returned a row,
+                        // return an empty row as default else
+                        return storage = std::move(ExpressionValue(RowValue()));
+                    }
+
+                    // default else returns an empty value
+                    return storage = std::move(ExpressionValue());
                 },
                 this,
                 // TODO: infer the type
@@ -3745,7 +3766,7 @@ bind(SqlBindingScope & scope) const
         if (!keep)
             continue;
 
-        Utf8String newColName = boundAs(thisScope, GET_LATEST).toUtf8String();
+        ColumnName newColName = boundAs(thisScope, GET_LATEST).coerceToPath();
 
         vector<ExpressionValue> orderBy;
         for (auto & c: boundOrderBy) {

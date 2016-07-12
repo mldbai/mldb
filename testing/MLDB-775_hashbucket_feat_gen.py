@@ -3,53 +3,84 @@
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
-mldb = mldb_wrapper.wrap(mldb) # noqa
-
 
 import datetime
+import unittest
 
-dataset_config = {
-    'type'    : 'sparse.mutable',
-    'id'      : 'toy'
-}
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-dataset = mldb.create_dataset(dataset_config)
-mldb.log("data loader created dataset")
+class Mldb775(MldbUnitTest):
+    @classmethod
+    def setUpClass(self):
+        dataset_config = {
+            'type'    : 'sparse.mutable',
+            'id'      : 'toy'
+        }
 
-now = datetime.datetime.now()
+        dataset = mldb.create_dataset(dataset_config)
+        mldb.log("data loader created dataset")
 
-for i in xrange(5):
-    dataset.record_row("example-%d" % i, [["fwin", i, now],
-                                          ["fwine", i*2, now]])
+        now = datetime.datetime.now()
 
-mldb.log("Committing dataset")
-dataset.commit()
+        for i in xrange(5):
+            dataset.record_row("example-%d" % i, [["fwin", i, now],
+                                                  ["fwine", i*2, now],
+                                                  ["fwinette", i**4, now]])
 
-#add an explain function
-script_func_conf = {
-    "id":"featHasher",
-    "type":"experimental.feature_generator.hashed_column",
-    "params": {
-        "numBits": 8
-    }
-}
-script_func_output = mldb.put("/v1/functions/" + script_func_conf["id"],
-                              script_func_conf)
-mldb.log("The resulf of the script function creation "
-         + script_func_output.text)
-mldb.log("passed assert")
+        mldb.log("Committing dataset")
+        dataset.commit()
 
 
-# requires "as args" because args is the input pin
-select = "featHasher({{*} as columns})[hash]";
+        ## create functions
+        script_func_conf = {
+            "id":"featHasher",
+            "type":"feature_hasher",
+            "params": {
+                "numBits": 2,
+                "mode": "columns"
+            }
+        }
+        rez = mldb.put("/v1/functions/" + script_func_conf["id"],
+                                      script_func_conf)
 
-query_output = mldb.get("/v1/datasets/toy/query", select=select, limit="10")
 
-js_resp = query_output.json()
+        script_func_conf = {
+            "id":"featHasher2",
+            "type":"feature_hasher",
+            "params": {
+                "numBits": 2,
+                "mode": "columnsAndValues"
+            }
+        }
+        rez = mldb.put("/v1/functions/" + script_func_conf["id"],
+                                      script_func_conf)
 
-for line in js_resp:
-    assert len(line["columns"]) == 256
-    mldb.log(line)
-    mldb.log("----")
 
-mldb.script.set_return("success")
+    def test_function(self):
+        rez = mldb.query("select featHasher({{*} as columns})[hash] from toy")
+        for line in rez:
+            self.assertEqual(len(line), 2**2 + 1)
+
+
+    def test_colNVal_func(self):
+        rez = mldb.query("""
+                select
+                    featHasher({{*} as columns})[hash] as a,
+                    featHasher2({{*} as columns})[hash] as b
+                from toy""")
+
+
+        # make sure the values returned by both functions are not equal
+        colIndexes = { colName: colId for colId, colName in enumerate(rez[0]) }
+        for line in rez[1:]:
+            for i in xrange(4):
+                colA = "a.hashColumn%d" % i
+                colB = "b.hashColumn%d" % i
+                if line[colIndexes[colA]] != line[colIndexes[colB]]:
+                    break
+            else:
+                raise Exception("identical")
+
+
+mldb.run_tests()
+

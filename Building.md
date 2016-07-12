@@ -14,7 +14,7 @@ libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
 libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en
+language-pack-en libyaml-cpp-dev
 ```
 ## Installing Docker
 
@@ -178,8 +178,10 @@ make mldb_base IMG_NAME=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
 
 make docker_mldb DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
 # When convinced things are ok:
+docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
 docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:14.04
-docker push -f quay.io/datacratic/mldb_base:14.04
+docker push quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
+docker push quay.io/datacratic/mldb_base:14.04
 ```
 
 The script used to build this layer is `mldb_base/docker_create_mldb_base.sh`
@@ -265,3 +267,9 @@ sudo apt-get install clang-3.5
 
 You can then add `toolchain=clang` to compile with the clang compiler.
 
+## Environment variables
+
+* `MLDB_CHECK_ROW_SCOPE_TYPES` is a boolean (default 0) that tells MLDB
+  whether to do extra type checking of row scopes.  Setting to 1 will
+  do so, at the expense of slightly slower code.  It may be helpful in
+  debugging of segmentation faults.

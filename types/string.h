@@ -177,6 +177,18 @@ public:
 
     size_t length() const;
 
+    /** Reserve the given amount of space. This is in bytes for the UTF-8
+        encoded string, not capacity; in other words to reserve space
+        for string x use x.rawLength() not x.length().
+    */
+    void reserve(size_t capacity);
+
+    /** How much space is reserved?  This is in bytes for the UTF-8
+        encoded string, not capacity; in other words to reserve space
+        for string x use x.rawLength() not x.length().
+    */
+    size_t capacity() const;
+
     const_iterator find(int c) const;
     const_iterator find(const char * s) const;
     const_iterator find(const wchar_t * s) const;

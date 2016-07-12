@@ -5,6 +5,14 @@
 // with the following:
 // https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip
 
+var res = mldb.query("SELECT tf_Cos(1.23, {T: { type: 'DT_DOUBLE'}}) AS res");
+
+mldb.log(res);
+
+var res = mldb.query("SELECT tf_MatrixInverse([[1,2,3],[4,-5,6],[-7,8,9]], { T: { type: 'DT_DOUBLE' } }) AS res");
+
+mldb.log(res);
+
 var inceptionUrl = 'file://inception_dec_2015.zip';
 
 // This sets up a fetcher function, which will download a given URL
@@ -17,6 +25,9 @@ var fetcherConfig = {
 };
 var fetcher = mldb.createFunction(fetcherConfig);
 
+//var res = mldb.query("SELECT tf_DecodeJpeg(fetch({url: 'file://mldb/ext/tensorflow/tensorflow/examples/label_image/data/grace_hopper.jpg'})[content], {ratio: 8}) as px");
+
+mldb.log(res);
 // The labels for the Inception classifier live within the zip file
 // downloaded above.  We read them into a dataset so that we can
 // join against them later on.

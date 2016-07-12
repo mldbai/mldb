@@ -26,7 +26,7 @@ void jsonEscape(const std::string & str, std::ostream & out);
 
 void jsonEscape(const std::string & str, std::string & out);
 
-bool isJsonValid(char c);
+bool isJsonValidAscii(char c);
 
 /*****************************************************************************/
 /* JSON PRINTING CONTEXT                                                     */
@@ -213,6 +213,25 @@ protected:
     void write(const char * str);
     void write(const char * str, int len);
     void write(const std::string & s);
+};
+
+/*****************************************************************************/
+/* UTF8 STRING JSON PRINTING CONTEXT                                         */
+/*****************************************************************************/
+
+/** Writes a JSON representation to the given Utf8 string.  Note that the
+    string CANNOT be modified during writing; direct access to it is
+    undefined.
+
+    TODO: we should change this interface (and that of the previous class)
+    to have a str() method rather than pass in its result by reference.
+*/
+
+struct Utf8StringJsonPrintingContext
+    : public StringJsonPrintingContext {
+
+    Utf8StringJsonPrintingContext(Utf8String & str);
+    Utf8String & str;
 };
 
 

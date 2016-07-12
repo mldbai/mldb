@@ -13,6 +13,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/compact_vector_description.h"
 #include "mldb/types/tuple_description.h"
 #include "ml/value_descriptions.h"
 #include "mldb/http/http_exception.h"
@@ -21,7 +22,7 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/jml/utils/less.h"
 #include "mldb/jml/utils/lightweight_hash.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 
 using namespace std;
 
@@ -201,26 +202,98 @@ getDouble(const void * buf, StorageType storageType, size_t n)
 }
 #endif
 
-double coerceTo(const CellValue & val, double *)
-{
-    return val.coerceToNumber().toDouble();
-}
-
 double coerceTo(Date d, double *)
 {
     return d.secondsSinceEpoch();
 }
 
+float coerceTo(Date d, float *)
+{
+    return d.secondsSinceEpoch();
+}
+
 template<typename T>
-double coerceTo(const T & t, double *,
-                typename std::enable_if<std::is_arithmetic<T>::value>::type * = 0)
+T coerceTo(const T & t, T *)
 {
     return t;
 }
 
 template<typename T>
-double coerceTo(const T & t, double *,
-                typename std::enable_if<!std::is_arithmetic<T>::value>::type * = 0)
+CellValue coerceTo(const T & t, CellValue *)
+{
+    return t;
+}
+
+CellValue coerceTo(const CellValue & t, CellValue *)
+{
+    return t;
+}
+
+float coerceTo(const CellValue & v, float *)
+{
+    return v.toDouble();
+}
+
+double coerceTo(const CellValue & v, double *)
+{
+    return v.toDouble();
+}
+
+uint8_t coerceTo(const CellValue & v, uint8_t *)
+{
+    return v.toUInt();
+}
+
+uint16_t coerceTo(const CellValue & v, uint16_t *)
+{
+    return v.toUInt();
+}
+
+uint32_t coerceTo(const CellValue & v, uint32_t *)
+{
+    return v.toUInt();
+}
+
+uint64_t coerceTo(const CellValue & v, uint64_t *)
+{
+    return v.toUInt();
+}
+
+int8_t coerceTo(const CellValue & v, int8_t *)
+{
+    return v.toInt();
+}
+
+int16_t coerceTo(const CellValue & v, int16_t *)
+{
+    return v.toInt();
+}
+
+int32_t coerceTo(const CellValue & v, int32_t *)
+{
+    return v.toInt();
+}
+
+int64_t coerceTo(const CellValue & v, int64_t *)
+{
+    return v.toInt();
+}
+
+bool coerceTo(const CellValue & v, bool *)
+{
+    return v.toInt();
+}
+
+template<typename T, typename TResult>
+TResult coerceTo(const T & t, TResult *,
+                 typename std::enable_if<std::is_arithmetic<T>::value && std::is_arithmetic<TResult>::value>::type * = 0)
+{
+    return t;
+}
+
+template<typename T, typename TReturn>
+TReturn coerceTo(const T & t, TReturn *,
+                 typename std::enable_if<!(std::is_arithmetic<T>::value && std::is_arithmetic<TReturn>::value)>::type * = 0)
 {
     throw HttpReturnException(400, "Can't coerce non-numeric value to numeric type");
 }
@@ -1199,7 +1272,7 @@ struct ExpressionValue::Flattened {
 struct ExpressionValue::Embedding {
     std::shared_ptr<const void> data_;
     StorageType storageType_;
-    std::vector<size_t> dims_;
+    DimsVector dims_;
     std::shared_ptr<const EmbeddingMetadata> metadata_;
 
     size_t length() const
@@ -1256,7 +1329,7 @@ struct ExpressionValue::Embedding {
                 offset += stride * index;
             }
 
-            std::vector<size_t> newDims;
+            DimsVector newDims;
             for (size_t i = column.size();  i < dims_.size();  ++i)
                 newDims.emplace_back(dims_[i]);
             
@@ -1335,7 +1408,7 @@ struct ExpressionValue::Embedding {
         }
         else {
             // Each value is a sub-embedding
-            std::vector<size_t> newDims;
+            DimsVector newDims;
             newDims.reserve(dims_.size() - 1);
             size_t stride = 1;
             for (size_t i = 1;  i < dims_.size();  ++i) {
@@ -1641,10 +1714,10 @@ parseJson(JsonParsingContext & context,
             // JSON encode them
             for (auto & v: out) {
                 ExpressionValue & columnValue = std::get<1>(v);
-                std::string str;
-                StringJsonPrintingContext context(str);
+                Utf8String str;
+                Utf8StringJsonPrintingContext context(str);
                 columnValue.extractJson(context);
-                columnValue = ExpressionValue(str, timestamp);
+                columnValue = ExpressionValue(std::move(str), timestamp);
             }
         }
 
@@ -1713,7 +1786,7 @@ ExpressionValue(RowValue row) noexcept
             size_t numUnique = 0;
 
             for (auto it = first;  it != last;  ++it) {
-                ExcAssert(std::get<0>(*it).size() > level);
+                ExcAssertGreater(std::get<0>(*it).size(), level);
                 
                 if (std::get<0>(*it).size() == level + 1) {
                     // This is a final value, and so gets its own value
@@ -1760,21 +1833,24 @@ ExpressionValue(RowValue row) noexcept
     initStructured(doLevel(row.begin(), row.end(), 0 /* level */));
 }
 
+void
 ExpressionValue::
-~ExpressionValue()
+destroy()
 {
     typedef std::shared_ptr<const Structured> StructuredRepr;
     typedef std::shared_ptr<const Embedding> EmbeddingRepr;
     typedef std::shared_ptr<const Superposition> SuperpositionRepr;
 
-    switch (type_) {
+    auto type = type_;
+    type_ = Type::NONE;
+
+    switch (type) {
     case Type::NONE: return;
     case Type::ATOM: cell_.~CellValue();  return;
     case Type::STRUCTURED:  structured_.~StructuredRepr();  return;
     case Type::EMBEDDING: embedding_.~EmbeddingRepr();  return;
     case Type::SUPERPOSITION: superposition_.~SuperpositionRepr();  return;
     }
-    throw HttpReturnException(400, "Unknown expression value type");
 }
 
 ExpressionValue::
@@ -1801,6 +1877,7 @@ ExpressionValue(const ExpressionValue & other)
     throw HttpReturnException(400, "Unknown expression value type");
 }
 
+#if 0
 ExpressionValue::
 ExpressionValue(ExpressionValue && other) noexcept
     : type_(Type::NONE)
@@ -1817,6 +1894,7 @@ ExpressionValue(ExpressionValue && other) noexcept
     }
     throw HttpReturnException(400, "Unknown expression value type");
 }
+#endif
 
 ExpressionValue::
 ExpressionValue(StructValue vals) noexcept
@@ -1834,6 +1912,7 @@ operator = (const ExpressionValue & other)
     return *this;
 }
 
+#if 0
 ExpressionValue &
 ExpressionValue::
 operator = (ExpressionValue && other) noexcept
@@ -1842,7 +1921,6 @@ operator = (ExpressionValue && other) noexcept
     swap(newMe);
     return *this;
 }
-
 void
 ExpressionValue::
 swap(ExpressionValue & other) noexcept
@@ -1854,6 +1932,7 @@ swap(ExpressionValue & other) noexcept
     std::swap(storage_[1], other.storage_[1]);
     std::swap(ts_, other.ts_);
 }
+#endif
 
 ExpressionValue::
 ExpressionValue(std::vector<CellValue> values,
@@ -1881,8 +1960,6 @@ ExpressionValue(const std::vector<double> & values,
 {
     ExcAssertEqual(values.size(), (*cols).size());
 
-    ExcAssertEqual(values.size(), (*cols).size());
-
     RowValue row;
     row.reserve(cols->size());
     for (size_t i = 0;  i < cols->size();  ++i) {
@@ -1896,41 +1973,39 @@ ExpressionValue(const std::vector<double> & values,
 ExpressionValue::
 ExpressionValue(std::vector<CellValue> values,
                 Date ts,
-                std::vector<size_t> shape)
+                DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
-    std::shared_ptr<CellValue> vals(new CellValue[values.size()],
-                                    [] (CellValue * p) { delete[] p; });
-    std::copy(std::make_move_iterator(values.begin()),
-              std::make_move_iterator(values.end()),
-              vals.get());
+    // This avoids needing to reallocate... it essentially allows us to create
+    // a shared_ptr that owns the storage of a vector
+    auto movedVals = std::make_shared<std::vector<CellValue> >(std::move(values));
+    std::shared_ptr<CellValue> vals(movedVals, movedVals->data());
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_ATOM;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
-        content->dims_ = { values.size() };
-    
+        content->dims_ = { movedVals->size() };
+
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
 }
 
 ExpressionValue::
 ExpressionValue(std::vector<float> values, Date ts,
-                std::vector<size_t> shape)
+                DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
-    std::shared_ptr<float> vals(new float[values.size()],
-                                    [] (float * p) { delete[] p; });
-    std::copy(std::make_move_iterator(values.begin()),
-              std::make_move_iterator(values.end()),
-              vals.get());
+    // This avoids needing to reallocate... it essentially allows us to create
+    // a shared_ptr that owns the storage of a vector
+    auto movedVals = std::make_shared<std::vector<float> >(std::move(values));
+    std::shared_ptr<float> vals(movedVals, movedVals->data());
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT32;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
-        content->dims_ = { values.size() };
+        content->dims_ = { movedVals->size() };
     
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
@@ -1938,20 +2013,19 @@ ExpressionValue(std::vector<float> values, Date ts,
 
 ExpressionValue::
 ExpressionValue(std::vector<double> values, Date ts,
-                std::vector<size_t> shape)
+                DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
-    std::shared_ptr<double> vals(new double[values.size()],
-                                    [] (double * p) { delete[] p; });
-    std::copy(std::make_move_iterator(values.begin()),
-              std::make_move_iterator(values.end()),
-              vals.get());
+    // This avoids needing to reallocate... it essentially allows us to create
+    // a shared_ptr that owns the storage of a vector
+    auto movedVals = std::make_shared<std::vector<double> >(std::move(values));
+    std::shared_ptr<double> vals(movedVals, movedVals->data());
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT64;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
-        content->dims_ = { values.size() };
+        content->dims_ = { movedVals->size() };
     
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
@@ -1962,7 +2036,7 @@ ExpressionValue::
 embedding(Date ts,
        std::shared_ptr<const void> data,
        StorageType storageType,
-       std::vector<size_t> dims,
+       DimsVector dims,
        std::shared_ptr<const EmbeddingMetadata> md)
 {
     auto embeddingData = std::make_shared<Embedding>();
@@ -2443,6 +2517,27 @@ tryGetColumn(const PathElement & columnName,
 {
     switch (type_) {
     case Type::STRUCTURED: {
+        // Note that in the structured representation, we will never have
+        // more than one value for a column.  So we simply need to return
+        // filtered version of the column.
+        bool found = false;
+        auto onValue = [&] (ExpressionValue val) -> bool
+            {
+                if (found)
+                    return false;
+                storage = val.getFilteredDestructive(filter);
+                found = true;
+                return true;
+            };
+        
+        if (iterateStructured(*structured_, columnName, onValue)) {
+            if (found)
+                return &storage;
+            else return nullptr;
+        }
+
+        // More than one value, fall back
+        // (shouldn't happen)
         FilterAccumulator accum(filter);
         iterateStructured(*structured_, columnName, accum);
         return accum.extract(storage);
@@ -2561,7 +2656,7 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
     else return *val;
 }
 
-std::vector<size_t>
+DimsVector
 ExpressionValue::
 getEmbeddingShape() const
 {
@@ -2582,7 +2677,7 @@ getEmbeddingShape() const
 
 ExpressionValue
 ExpressionValue::
-reshape(std::vector<size_t> newShape) const
+reshape(DimsVector newShape) const
 {
     switch (type_) {
     case Type::NONE:
@@ -2749,7 +2844,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
     switch (type_) {
 
     case Type::EMBEDDING: {
-        std::vector<size_t> shape = getEmbeddingShape();
+        DimsVector shape = getEmbeddingShape();
         size_t totalLength = 1;
         for (auto & s: shape)
             totalLength *= s;
@@ -2823,6 +2918,115 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
     }
 
     return features;
+}
+
+void
+ExpressionValue::
+convertEmbedding(void * buf, size_t len, StorageType bufType) const
+{
+    switch (type_) {
+
+    case Type::EMBEDDING: {
+        DimsVector shape = getEmbeddingShape();
+        size_t totalLength = 1;
+        for (auto & s: shape)
+            totalLength *= s;
+
+        if (len != totalLength)
+            throw HttpReturnException(400,
+                                      "wrong number of columns for embedding",
+                                      "shape", shape,
+                                      "totalLength", totalLength,
+                                      "numExpectedCols", len);
+
+        switch (bufType) {
+        case ST_FLOAT32:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (float *)buf, len);
+            return;
+        case ST_FLOAT64:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (double *)buf, len);
+            return;
+        case ST_INT8:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int8_t *)buf, len);
+            return;
+        case ST_UINT8:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint8_t *)buf, len);
+            return;
+        case ST_INT16:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int16_t *)buf, len);
+            return;
+        case ST_UINT16:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint16_t *)buf, len);
+            return;
+        case ST_INT32:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int32_t *)buf, len);
+            return;
+        case ST_UINT32:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint32_t *)buf, len);
+            return;
+        case ST_INT64:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int64_t *)buf, len);
+            return;
+        case ST_UINT64:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint64_t *)buf, len);
+            return;
+        case ST_BLOB:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (std::vector<uint8_t> *)buf, len);
+            return;
+        case ST_STRING:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (std::string *)buf, len);
+            return;
+        case ST_UTF8STRING:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (Utf8String *)buf, len);
+            return;
+        case ST_ATOM:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (CellValue *)buf, len);
+            return;
+        case ST_BOOL:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (bool *)buf, len);
+            return;
+        case ST_TIMESTAMP:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (Date *)buf, len);
+            return;
+        case ST_TIMEINTERVAL:
+            throw HttpReturnException(500, "Can't store time intervals");
+        }
+    }
+    default:
+        throw HttpReturnException(500, "convertEmbedding called for non-embedding");
+    }
 }
 
 std::vector<CellValue>
@@ -3769,54 +3973,71 @@ void
 ExpressionValue::
 initStructured(Structured value) noexcept
 {
-    // Do we need sorting, etc?
-    bool needsSorting = true;  // TODO: detect this; it will make things much faster
+    // Do we need sorting, or to collapse duplicate keys into one?
+    bool needsSorting = false;  // TODO: detect this; it will make things much faster
+    bool duplicates = false;
 
-    if (needsSorting) {
-        // Deduplicate...
+    for (size_t i = 1;  i < value.size() && !needsSorting;  ++i) {
+        int cmp = std::get<0>(value[i - 1]).compare(std::get<0>(value[i]));
+        if (cmp == 0)
+            duplicates = true;
+        else if (cmp > 0)
+            needsSorting = true;
+    }
 
+    if (needsSorting || duplicates) {
         // Sort by row name then value
-        std::sort(value.begin(), value.end());
-
-        Structured newValue;
-        newValue.reserve(value.size());
-
-        // Remove dups
-        for (ssize_t i = 0;  i < value.size();  /* no inc */) {
-            // Find the end of the range of dups
-            ssize_t j = i + 1;
-            for (; j < value.size() && std::get<0>(value[i]) == std::get<0>(value[j]);
-                 ++j);
-
-            if (i == 0 && j == value.size()) {
-                const PathElement & key = std::get<0>(value[i]);
-
-                if (key.empty()) {
-                    // All have the same key.  We have one single element as a
-                    // superposition.  If we continue, we'll get into an infinite
-                    // loop.
-                    value.swap(newValue);  // it will be swapped back...
-                    break;
-                }
-            }
-
-
-            if (j == i + 1) {
-                newValue.emplace_back(std::move(value[i]));
-                i = j;
-            }
-            else {
-                std::vector<ExpressionValue> vals;
-                vals.reserve(j - i);
-                for (; i < j;  ++i) {
-                    vals.emplace_back(std::move(std::get<1>(value[i])));
-                }
-                newValue.emplace_back(std::get<0>(value[i - 1]),
-                                      superpose(std::move(vals)));
+        if (needsSorting) {
+            std::sort(value.begin(), value.end());
+            for (size_t i = 1;  i < value.size() && !duplicates;  ++i) {
+                if (std::get<0>(value[i - 1]) == std::get<0>(value[i]))
+                    duplicates = true;
             }
         }
 
-        value.swap(newValue);
+        // Deduplicate if necessary
+        if (duplicates) {
+            Structured newValue;
+            newValue.reserve(value.size());
+
+            // Remove dups
+            for (ssize_t i = 0;  i < value.size();  /* no inc */) {
+                // Find the end of the range of dups
+                ssize_t j = i + 1;
+                for (; j < value.size() && std::get<0>(value[i]) == std::get<0>(value[j]);
+                     ++j);
+
+                if (i == 0 && j == value.size()) {
+                    const PathElement & key = std::get<0>(value[i]);
+
+                    if (key.empty()) {
+                        // All have the same key.  We have one single element as a
+                        // superposition.  If we continue, we'll get into an infinite
+                        // loop.
+                        value.swap(newValue);  // it will be swapped back...
+                        break;
+                    }
+                }
+
+                // Just a single value.  We don't need to wrap it up in a
+                // superposition.
+                if (j == i + 1) {
+                    newValue.emplace_back(std::move(value[i]));
+                    i = j;
+                }
+                else {
+                    std::vector<ExpressionValue> vals;
+                    vals.reserve(j - i);
+                    for (; i < j;  ++i) {
+                        vals.emplace_back(std::move(std::get<1>(value[i])));
+                    }
+                    newValue.emplace_back(std::get<0>(value[i - 1]),
+                                          superpose(std::move(vals)));
+                }
+            }
+
+            value.swap(newValue);
+        }
     }
 
     initStructured(std::make_shared<Structured>(std::move(value)));
@@ -4144,7 +4365,7 @@ extractJson(JsonPrintingContext & context) const
     case ExpressionValue::Type::STRUCTURED: {
         context.startObject();
 
-        std::map<PathElement, ML::compact_vector<int, 2> > vals;
+        std::map<PathElement, compact_vector<int, 2> > vals;
 
         for (int i = 0;  i < structured_->size();  ++i) {
             // We need to deal with doubled values
@@ -4215,11 +4436,20 @@ extractJson() const
 */
 struct ExpressionValueDescription
     : public ValueDescriptionT<ExpressionValue> {
+    ExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info
+                               = std::make_shared<AnyValueInfo>())
+        : info(std::move(info))
+    {
+        ExcAssert(this->info);
+    }
+
     virtual void parseJsonTyped(ExpressionValue * val,
                                 JsonParsingContext & context) const;
     virtual void printJsonTyped(const ExpressionValue * val,
                                 JsonPrintingContext & context) const;
     virtual bool isDefaultTyped(const ExpressionValue * val) const;
+
+    std::shared_ptr<ExpressionValueInfo> info;
 };
 
 /** Value description not including the timestamp.  It serializes as just the
@@ -4238,6 +4468,25 @@ std::shared_ptr<ValueDescriptionT<ExpressionValue> >
 getExpressionValueDescriptionNoTimestamp()
 {
     return std::make_shared<ExpressionValueDescriptionNoTimestamp>();
+}
+
+std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
+makeExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info)
+{
+    return std::make_shared<ExpressionValueDescription>(std::move(info));
+}
+
+std::shared_ptr<ExpressionValueInfo>
+extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc)
+{
+    ExcAssert(desc);
+    const ExpressionValueDescription * descCast
+        = dynamic_cast<const ExpressionValueDescription *>(desc.get());
+    if (!descCast) {
+        cerr << "field type was " << ML::type_name(*desc) << endl;
+        return nullptr;
+    }
+    return descCast->info;
 }
 
 void

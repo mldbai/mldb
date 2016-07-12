@@ -36,8 +36,8 @@ If the dataset has been aliased (e.g. `FROM dataset AS x`), you **must** use the
 The following standard SQL operators are supported by MLDB.  An
 operator with lower precedence binds tighter than one with a
 higher predecence, so for example `x + y * z` is the same as
-`x + (y * z)`.  Expressions at the same precendence level are 
-always are left associative, that is the expression
+`x + (y * z)`.  Expressions at the same precedence level are 
+always left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
   Operator  |  Type              | Precedence 
@@ -90,6 +90,7 @@ Note that the operators `+` and `*` are commutative in all cases.
 
 SQL `BETWEEN` expressions are a shorthand way of testing for an
 open interval.  The expression `x BETWEEN y AND z` is the same as `x >= y AND x <= z` except that the `x` expression will only be evaluated once.
+It has the same precedence as binary comparisons (`=` , `!=`, `>` , `<` , `>=` , `<=`).
 
 
 ### `CASE` expressions
@@ -200,7 +201,7 @@ in a set of values on the right hand side.  There are four ways to specify the s
 4.  As the values of a row expression (`x IN (VALUES OF expr)`)
 
 The first two are standard SQL; the second two are MLDB extensions and are
-made possible by MLDB's sparse data model.
+made possible by MLDB's sparse data model. It has the same precedence as the unary not (`NOT`).
 
 #### IN expression with sub-select
 
@@ -237,6 +238,8 @@ The `%` character will substitute for 0 or more characters. For example: `x LIKE
 The `_` character will substitute for a single character. For example: `x LIKE 'a_a'` will test if x is a string that has 3 characters that starts and ends with `a`.
 
 For more intricate patterns, you can use the `regex_match` function.
+
+This expression has the same precedence as the unary not (`NOT`).
 
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
@@ -299,15 +302,17 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 These functions are always available when processing rows from a dataset, and
 will change values on each row under consideration. See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
 
+<a name="rowHash"></a>
+
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
 - `rowPath()` is the structured path to the row under consideration.
 - `rowPathElement(n)` is the nth element of the `rowPath()` of the row
-  under consideration.  If n is less than zero, it will be a distance from the
-  end (for example, -1 is the last element).  For a rowName of `x.y.2`, then
-  `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
-  `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
-  be `2`. 
+   under consideration.  Negative indexing is supported, meaning that if n is less than zero, 
+   it will be a distance from the end (for example, -1 is the last element, -2 is the second to last). 
+   For a rowName of `x.y.2`, then `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` 
+   and `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will be `2`. If n is 
+   bigger than the number of elements in the row path, NULL will be returned.
 - `columnCount()`: returns the number of columns with explicit values set in the current row
 - `leftRowName()` and `rightRowName()`: in the context of a join, returns the name of the row that was joined on the left or right side respectively.
 
@@ -335,6 +340,7 @@ will change values on each row under consideration. See the [Intro to Datasets](
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
+- `hash(expr)` return the hash of the value in `expr`. See also [`rowHash()`](#rowHash).
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
@@ -345,8 +351,9 @@ will change values on each row under consideration. See the [Intro to Datasets](
   there is ambiguity in the expression (for example, the same key with multiple
   values), then one of the values of the key will be chosen to represent the value
   of the key.
-- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse'})` returns a row with the JSON decoding of the
-  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
+- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse', ignoreErrors: false})` returns a row with the JSON decoding of the
+  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. If the `ignoreErrors` option is set to `true`, the function will return NULL for strings that do not parse
+  as valid JSON. It will throw an exception otherwise.
 
   Here are examples with the following JSON string:
 
@@ -383,6 +390,7 @@ With `{arrays: 'encode'}` the output will be:
 - `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
+- `sign(x)`: returns the sign of x (-1, 0, +1).
 - `isnan(x)`: return true if x is 'NaN' in the floating point representation.
 - `isinf(x)`: return true if x is infinity in the floating point representation.
 - `isfinite(x)`: return true if x is neither infinite nor not-a-number.
@@ -503,7 +511,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
-### Geographical functions
+### <a name="geofunctions"></a>Geographical functions
 
 The following functions operate on latitudes and longtitudes and can be used to
 calculate
@@ -513,6 +521,14 @@ calculate
   the Earth is a perfect sphere with a radius of 6371008.8 meters.  It will be
   accurate to within 0.3% anywhere on earth, apart from near the North or South
   Poles.
+
+### <a name="httpfunctions"></a>Web data functions
+
+The following functions are used to extract and process web data.
+
+- `extract_domain(str, {removeSubdomain: false}` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+
+See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
 
 ### <a name="importfunctions"></a>Data import functions
 
@@ -543,7 +559,7 @@ The following standard SQL aggregation functions are supported. They may only be
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
 - `count_distinct` returns the number of unique, distinct non-null values in the group.
 
-The following useful non-standard aggregation functions is also supported:
+The following useful non-standard aggregation functions are also supported:
 
 - `latest`, `earliest` will return the values with the latest or earliest timestamp in the group
 - `pivot(columnName, value)` will accumulate a single row per group, with the
@@ -602,7 +618,7 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `temporal_latest(<row>)` returns the non-null value with the latest timestamp per cell.
   - `temporal_earliest(<row>)` returns the non-null value with the earliest timestamp per cell.
 
-## Evaluating a JS function from SQL (Experimental)
+## <a name="jseval"></a>Evaluating a JavaScript function from SQL
 
 The SQL function `jseval` allows for the inline definition of functions using Javascript. This function takes the following arguments:
 
@@ -661,4 +677,6 @@ return result;
 The `mldb` Javascript object is available from the function; this can notably used to
 log to the console to aid debugging. Documentation for this object can be found with the
 ![](%%doclink javascript plugin) documentation.
+
+You can also take a look at the ![](%%nblink _tutorials/Executing JavaScript Code Directly in SQL Queries Using the jseval Function Tutorial) for examples of how to use the `jseval` function.
 

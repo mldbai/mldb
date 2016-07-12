@@ -238,7 +238,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
-        int numRows = whereGenerator.upperBound;
+        int64_t numRows = whereGenerator.rowStreamTotalRows;
         
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)numRows);
@@ -826,7 +826,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         int numNeeded = offset + limit;
 
-        int upperBound = whereGenerator.upperBound;
+        int64_t upperBound = whereGenerator.rowStreamTotalRows;
         int maxNumTask = numCpus() * TASK_PER_THREAD;
         //try to have at least MIN_ROW_PER_TASK element per task
         int numChunk = upperBound < maxNumTask*MIN_ROW_PER_TASK ? (upperBound / maxNumTask) : maxNumTask;
@@ -1448,6 +1448,13 @@ execute(RowProcessor processor,
     typedef std::vector<ExpressionValue> RowKey;
     typedef std::map<RowKey, GroupMapValue> GroupByMapType;
     std::vector<GroupByMapType> accum(numBuckets);
+
+    for (const auto & c: select.clauses) {
+        if (c->isWildcard()) {
+            throw HttpReturnException(
+                400, "Wildcard cannot be used with GROUP BY");
+        }
+    }
 
     //bind the selectexpression, this will create the bound aggregators (which we wont use, ah!)
     auto boundSelect = select.bind(*groupContext);

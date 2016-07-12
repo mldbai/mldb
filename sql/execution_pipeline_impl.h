@@ -9,7 +9,7 @@
 
 #include "execution_pipeline.h"
 #include "join_utils.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -446,7 +446,7 @@ struct JoinElement: public PipelineElement {
 
         int side;
 
-        typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
+        typedef std::map<RowHash, compact_vector<RowName, 1> > SideRowIndex;
 
         SideRowIndex leftRowIndex;
         SideRowIndex rightRowIndex;

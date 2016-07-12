@@ -9,6 +9,7 @@
 LIBVALUE_DESCRIPTION_SOURCES := \
 	value_description.cc \
 	basic_value_descriptions.cc \
+	libc_value_descriptions.cc \
 	json_parsing.cc \
 	json_printing.cc \
 	dtoa.c \

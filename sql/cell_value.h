@@ -45,7 +45,10 @@ enum StringCharacteristics {
 
 struct CellValue {
 
-    CellValue() noexcept;
+    JML_ALWAYS_INLINE CellValue() noexcept
+        : bits1(0), bits2(0), flags(0)
+    {
+    }
     //CellValue(bool boolValue)
     //{
     //    initInt(boolValue);
@@ -91,7 +94,7 @@ struct CellValue {
     CellValue(Date timestampstatic) noexcept;
     
     CellValue(const CellValue & other);
-    CellValue(CellValue && other) noexcept
+    JML_ALWAYS_INLINE CellValue(CellValue && other) noexcept
         : bits1(other.bits1), bits2(other.bits2), flags(other.flags)
     {
         other.type = ST_EMPTY;
@@ -128,7 +131,7 @@ struct CellValue {
         return *this;
     }
 
-    CellValue & operator = (CellValue && other) noexcept
+    JML_ALWAYS_INLINE CellValue & operator = (CellValue && other) noexcept
     {
         CellValue newMe(std::move(other));
         swap(newMe);
@@ -136,14 +139,14 @@ struct CellValue {
 
     }
     
-    void swap(CellValue & other) noexcept
+    JML_ALWAYS_INLINE void swap(CellValue & other) noexcept
     {
         auto t1 = flags;  flags = other.flags;  other.flags = t1;
         auto t2 = bits1;  bits1 = other.bits1;  other.bits1 = t2;
         auto t3 = bits2;  bits2 = other.bits2;  other.bits2 = t3;
     }
     
-    ~CellValue()
+    JML_ALWAYS_INLINE ~CellValue()
     {
         if (type == ST_ASCII_LONG_STRING || type == ST_UTF8_LONG_STRING
             || type == ST_LONG_BLOB)
@@ -447,7 +450,7 @@ private:
     };
 
     struct StringRepr {
-        StringRepr()
+        StringRepr() noexcept
             : hash(0), ref(0)
         {
         }
@@ -485,7 +488,8 @@ private:
         };
         struct {
             uint32_t strType:4;
-            uint32_t strLength:28;
+            uint32_t strFlags:4;
+            uint32_t strLength:24;
         };
         struct {
             uint32_t floatType:4;
