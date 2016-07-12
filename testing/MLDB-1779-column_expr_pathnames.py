@@ -37,6 +37,7 @@ class MLDB1779ColumnExpr(MldbUnitTest):  # noqa
             """ % subselect),
             expected)
 
+
 if __name__ == '__main__':
     mldb.run_tests()
 
