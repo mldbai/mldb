@@ -30,15 +30,15 @@ struct EventLoop {
 
     EventLoopImpl & impl();
 
-    /* Wait for and process events indefinitely or until "terminate" is
+    /** Wait for and process events indefinitely or until "terminate" is
      * called. */
     void run();
 
-    /* Requests the event loop to stop as soon as no event are left to
+    /** Requests the event loop to stop as soon as no event are left to
        process. */
     void terminate();
 
-    /* Post a job to be executed when the loop is idle. */
+    /** Post a job to be executed when the loop is idle. */
     void post(const JobFn & jobFn);
 
 private:

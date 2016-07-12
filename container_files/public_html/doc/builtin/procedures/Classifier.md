@@ -246,7 +246,7 @@ The default, overrideable `configurationFile` contains the following predefined 
         "link_function": "linear",
         "verbosity": 3,
         "normalize ": "true",
-        "ridge_regression ": "true"
+        "regularization" = "l2"
     },
 
     "glz": {
@@ -255,7 +255,7 @@ The default, overrideable `configurationFile` contains the following predefined 
         "type": "glz",
         "verbosity": 3,
         "normalize ": " true",
-        "ridge_regression ": " true"
+        "regularization" = "l2"
     },
 
     "glz2": {

@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dist_table_procedure.cc                                        -*- C++ -*-
     Simon Lemieux, June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     distTable procedure
 */
@@ -66,32 +64,36 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 }
 
 /*****************************************************************************/
-/* DIST TABLE                                                               */
+/* DIST TABLE                                                                */
 /*****************************************************************************/
 
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const DistTableStats & s)
 {
-    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max;
+    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max
+                 << s.last << s.sum;
 }
 
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, DistTableStats & s)
 {
-    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max;
+    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max >> s.last
+          >> s.sum;
     return store;
 }
 
 void
-DistTableStats::increment(double value)
+DistTableStats::
+increment(double value)
 {
     // special case if first value
     if (JML_UNLIKELY(count == 0)) {
         count = 1;
-        avg = min = max = value;
+        avg = min = max = sum = value;
         M2 = 0.;
     } else {
         count++;
+        sum += value;
         double delta = value - avg;
         avg += delta / count;
         // For the unbiased std, I'm using Welford's algorithm described here
@@ -100,9 +102,28 @@ DistTableStats::increment(double value)
 
         if (count >= 2) // otherwise unbiased variance doesn't make sense
             var = M2 / (count - 1);
-        
+
         min = std::min(min, value);
         max = std::max(max, value);
+    }
+
+    last = value;
+}
+
+double
+DistTableStats::
+getStat(DISTTABLE_STATISTICS stat) const
+{
+    switch(stat) {
+        case DT_COUNT:  return count;
+        case DT_AVG:    return avg;
+        case DT_STD:    return getStd();
+        case DT_MIN:    return min;
+        case DT_MAX:    return max;
+        case DT_LAST:   return last;
+        case DT_SUM:    return sum;
+        default:
+            throw ML::Exception("Unknown DistTable_Stat");
     }
 }
 
@@ -115,7 +136,8 @@ DistTable(const std::string & filename):
     reconstitute(store);
 }
 
-void DistTable::
+void
+DistTable::
 increment(const Utf8String & featureValue, const vector<double> & targets)
 {
     const auto & it = stats.find(featureValue);
@@ -202,6 +224,11 @@ DistTableProcedureConfigDescription()
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be of type `INTEGER` or `NUMBER`");
+
+    std::vector<Utf8String> defaultStats = { "count", "avg", "std", "min", "max" };
+    addField("statistics", &DistTableProcedureConfig::statistics,
+             "List of statistics to track for each outcome.", defaultStats);
+
     addField("distTableFileUrl", &DistTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.dt') should be saved. "
              "This file can be loaded by the ![](%%doclink experimental.distTable.getStats function). "
@@ -247,6 +274,22 @@ run(const ProcedureRunConfig & run,
     DistTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
+
+    // build a cache of the names for quick access
+    std::string dtStatsNames[DT_NUM_STATISTICS];
+    for(int i=0; i<DT_NUM_STATISTICS; i++)
+        dtStatsNames[(DISTTABLE_STATISTICS)i] = print((DISTTABLE_STATISTICS)i);
+
+    // configure active statistics
+    if(runProcConf.statistics.size() == 0)
+        runProcConf.statistics = { "count", "avg", "std", "min", "max" };
+
+    vector<DISTTABLE_STATISTICS> activeStats;
+    for(auto & stat : runProcConf.statistics) {
+        activeStats.push_back(parseDistTableStatistic(stat));
+    }
+
+
     SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
@@ -263,7 +306,9 @@ run(const ProcedureRunConfig & run,
         auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
         for (const auto & c: selectBound.info->getKnownColumns()) {
-            distTablesMap.insert(make_pair(c.columnName, DistTable(c.columnName, outcome_names)));
+            distTablesMap.insert(
+                    make_pair(c.columnName,
+                              DistTable(c.columnName, outcome_names)));
         }
     }
 
@@ -324,8 +369,8 @@ run(const ProcedureRunConfig & run,
                 const tuple<ColumnName, CellValue, Date> & col =
                     row.columns[col_ptr->second];
 
-                const Utf8String & featureValue = get<1>(col).toString();
-                const Date & ts = get<2>(col); 
+                const Utf8String & featureValue = get<1>(col).toUtf8String();
+                const Date & ts = get<2>(col);
 
                 // note current dist tables for output dataset
                 // TODO we compute the column names everytime, maybe we should
@@ -333,38 +378,20 @@ run(const ProcedureRunConfig & run,
                 const auto & stats = distTable.getStats(featureValue);
 
                 for (int i=0; i < nbOutcomes; ++i) {
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "count",
-                        CellValue(stats[i].count),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "avg",
-                        CellValue(stats[i].avg),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "std",
-                        CellValue(stats[i].getStd()),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "min",
-                        CellValue(stats[i].min),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "max",
-                        CellValue(stats[i].max),
-                        ts);
+                    for(DISTTABLE_STATISTICS sid : activeStats) {
+                        output_cols.emplace_back(
+                            PathElement(outcome_names[i]) + featureColumnName
+                                + dtStatsNames[sid],
+                            CellValue(stats[i].getStat(sid)),
+                            ts);
+                    }
                 }
 
                 // increment stats tables with current row
                 distTable.increment(featureValue, targets);
             }
 
-            output->recordRow(ColumnName(row.rowName), output_cols);
+            output->recordRow(ColumnName(row.rowName), std::move(output_cols));
 
             return true;
         };
@@ -399,7 +426,8 @@ run(const ProcedureRunConfig & run,
         PolyConfig clsFuncPC;
         clsFuncPC.type = "experimental.distTable.getStats";
         clsFuncPC.id = runProcConf.functionName;
-        clsFuncPC.params = DistTableFunctionConfig(runProcConf.modelFileUrl);
+        clsFuncPC.params = DistTableFunctionConfig(runProcConf.modelFileUrl,
+                runProcConf.statistics);
 
         createFunction(server, clsFuncPC, onProgress, true);
     }
@@ -412,13 +440,17 @@ run(const ProcedureRunConfig & run,
 
 
 /*****************************************************************************/
-/* DIST TABLE FUNCTION                                                      */
+/* DIST TABLE FUNCTION                                                       */
 /*****************************************************************************/
 DEFINE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
 DistTableFunctionConfigDescription::
 DistTableFunctionConfigDescription()
 {
+    std::vector<Utf8String> defaultStats = { "count", "avg", "std", "min", "max" };
+    addField("statistics", &DistTableFunctionConfig::statistics,
+             "List of statistics to track for each outcome.", defaultStats);
+
     addField("distTableFileUrl", &DistTableFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.dt') to load. "
              "This file is created by the ![](%%doclink experimental.distTable.train procedure).");
@@ -436,6 +468,18 @@ DistTableFunction(MldbServer * owner,
     filter_istream stream(functionConfig.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
     store >> distTablesMap;
+
+    // build a cache of the names for quick access
+    for(int i=0; i<DT_NUM_STATISTICS; i++)
+        dtStatsNames[(DISTTABLE_STATISTICS)i] = print((DISTTABLE_STATISTICS)i);
+
+    // configure active statistics
+    if(functionConfig.statistics.size() == 0)
+        functionConfig.statistics = { "count", "avg", "std", "min", "max" };
+
+    for(auto & stat : functionConfig.statistics) {
+        activeStats.push_back(parseDistTableStatistic(stat));
+    }
 }
 
 DistTableFunction::
@@ -475,9 +519,9 @@ apply(const FunctionApplier & applier,
     RowValue rtnRow;
     // TODO should we cache column names
     auto onAtom = [&] (const ColumnName & columnName,
-                        const ColumnName & prefix,
-                        const CellValue & val,
-                        Date ts)
+                       const ColumnName & prefix,
+                       const CellValue & val,
+                       Date ts)
     {
         auto st = distTablesMap.find(columnName);
         if (st == distTablesMap.end())
@@ -487,25 +531,15 @@ apply(const FunctionApplier & applier,
             return true;
 
         const DistTable & distTable = st->second;
-
-        const auto & stats = distTable.getStats(val.toString());
+        const auto & stats = distTable.getStats(val.toUtf8String());
         for (int i=0; i < distTable.outcome_names.size(); ++i) {
-
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "count", stats[i].count, ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "avg", stats[i].avg, ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "std", stats[i].getStd(), ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "min", stats[i].min, ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "max", stats[i].max, ts);
+            for(DISTTABLE_STATISTICS sid : activeStats) {
+                rtnRow.emplace_back(
+                    PathElement(distTable.outcome_names[i]) + columnName
+                                + dtStatsNames[sid],
+                    stats[i].getStat(sid),
+                    ts);
+            }
         }
 
         return true;
@@ -528,10 +562,10 @@ getFunctionInfo() const
                               COLUMN_IS_DENSE, 0);
     outputColumns.emplace_back(PathElement("stats"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
-    
+
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
+
     return result;
 }
 

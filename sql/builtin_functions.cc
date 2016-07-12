@@ -1782,6 +1782,7 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
     if (args.size() > 2 || args.size() < 1)
         throw HttpReturnException(400, " takes 1 or 2 argument, got " + to_string(args.size()));
 
+
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
@@ -1790,33 +1791,70 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 
                 if(val.empty())
                     return ExpressionValue::null(val.getEffectiveTimestamp());
-                
-                Utf8String str = val.toUtf8String();
+
+                bool check[] = {false, false};
+                auto assertArg = [&] (size_t field, const string & name)
+                    {
+                        if (check[field])
+                            throw HttpReturnException(400, "Argument " + name + " is specified more than once");
+                        check[field] = true;
+                    };
 
                 JsonArrayHandling encode = PARSE_ARRAYS;
+                bool ignoreErrors = false;
+                if(args.size() == 2) {
+                    const ExpressionValue::Structured & argRow =
+                        args.at(1).getStructured();
 
-                if (args.size() > 1) {
-                    const auto & col = args[1].getColumn("arrays");
-                    if(col.empty())
-                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: NULL");
-                    Utf8String arrays = col.toUtf8String();
-                    if (arrays == "encode")
-                        encode = ENCODE_ARRAYS;
-                    else if (arrays != "parse")
-                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
+                    for (auto& arg : argRow) {
+                        const ColumnName& columnName = std::get<0>(arg);
+                        if (columnName == ColumnName("arrays")) {
+                            assertArg(0, "arrays");
+                            const auto & argOne = std::get<1>(arg);
+                            if(argOne.empty())
+                                throw HttpReturnException(400, " value of 'arrays' "
+                                        "must be 'parse' or 'encode', got: NULL");
+                            auto arrays = argOne.toUtf8String();
+                            if (arrays == "encode")
+                                encode = ENCODE_ARRAYS;
+                            else if (arrays != "parse")
+                                throw HttpReturnException(400, " value of 'arrays' "
+                                        "must be 'parse' or 'encode', got: " + arrays);
+                        }
+                        else if (columnName == ColumnName("ignoreErrors")) {
+                            assertArg(1, "ignoreErrors");
+                            ignoreErrors = std::get<1>(arg).asBool();
+                        }
+                        else {
+                            throw HttpReturnException(400, "Unknown argument "
+                                    "in parse_json", "argument", columnName);
+                        }
+                    }
                 }
 
-                StreamingJsonParsingContext parser(str.rawString(),
-                                                   str.rawData(),
-                                                   str.rawLength());
+                try {
+                    Utf8String str = val.toUtf8String();
+                    StreamingJsonParsingContext parser(str.rawString(),
+                                                       str.rawData(),
+                                                       str.rawLength());
 
-                if (!parser.isObject())
-                    throw HttpReturnException(400, "JSON passed to parse_json must be an object",
-                                              "json", str);
+                    if (!parser.isObject() && !parser.isArray())
+                        throw HttpReturnException(400, "JSON passed to parse_json must be "
+                                "an object or an array", "json", str);
 
-                return ExpressionValue::
-                    parseJson(parser, val.getEffectiveTimestamp(),
-                              encode);
+                    return ExpressionValue::
+                        parseJson(parser, val.getEffectiveTimestamp(),
+                                  encode);
+                }
+                catch(std::exception & e) {
+                    if(ignoreErrors) {
+                        RowValue rv;
+                        rv.emplace_back(make_tuple(Path("__parse_json_error__"), CellValue(true), val.getEffectiveTimestamp()));
+                        return ExpressionValue(std::move(rv));
+                    }
+
+                    throw;
+                }
             },
             std::make_shared<UnknownRowValueInfo>()
             };
@@ -3085,6 +3123,28 @@ BoundFunction sign(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerSignFunction(sign, "sign");
+
+BoundFunction hash(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+    auto outputInfo
+        = std::make_shared<NumericValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (args[0].empty()) {
+                    return ExpressionValue::null(
+                        args[0].getEffectiveTimestamp());
+                }
+                return ExpressionValue(
+                    args[0].hash(),
+                    args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerHashFunction(hash, "hash");
 
 
 } // namespace Builtins

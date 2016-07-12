@@ -235,6 +235,7 @@ endef
 $(call set,EXT_FUNCTIONS,.cu.cc,add_cuda_source)
 $(call set,EXT_FUNCTIONS,.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.pb.cc,add_c++_source)
+$(call set,EXT_FUNCTIONS,.pb_text.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.cpp,add_c++_source)
 $(call set,EXT_FUNCTIONS,.c,add_c_source)
 $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
@@ -338,7 +339,7 @@ LINK_$(1)_COMMAND2 := $$(subst $$(sodir)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$
 LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
 
 $$(LIB_$(1)_SO):	$$(dir $$(LIB_$(1)_SO))/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "            $(COLOR_YELLOW)[SO]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "            $(COLOR_YELLOW)[SO]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
 	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND2)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$$(LIB_$(1)_FILENAME)")
 

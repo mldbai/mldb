@@ -7,6 +7,11 @@ LIBHTTP_SOURCES := \
 	http_parsers.cc \
 	http_rest_proxy.cc \
 	curl_wrapper.cc \
+	http_client.cc \
+	http_client_callbacks.cc \
+	http_request.cc \
+	http_client_impl.cc \
+	http_client_impl_v1.cc
 
 
 LIBHTTP_LINK := curl io_base arch jsoncpp types boost_system value_description boost_filesystem cityhash watch

@@ -88,11 +88,15 @@ class HavingTest(unittest.TestCase):
     def test_error_function(self):
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
-            res = mldb.get("/v1/query", q='select hash(2)')
+            res = mldb.get("/v1/query", q='select unexisting(2)')
 
         mldb.log(re.exception.response.json()["error"])
 
-        expected = "Unable to find function 'hash' binding function call 'hash(2)'.  The function is not a built-in function, and either it's not a registered user function, or user functions are not available in the scope of the expression."
+        expected = (
+            "Unable to find function 'unexisting' binding function call "
+            "'unexisting(2)'.  The function is not a built-in function, and "
+            "either it's not a registered user function, or user functions "
+            "are not available in the scope of the expression.")
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 

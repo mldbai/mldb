@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dist_table_procedure.h                                         -*- C++ -*-
     Simon Lemieux, June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     distTable procedure
 */
@@ -22,19 +20,61 @@
 namespace Datacratic {
 namespace MLDB {
 
+/*****************************************************************************/
+/* DIST TABLE STATS ENUM                                                     */
+/*****************************************************************************/
+
+enum DISTTABLE_STATISTICS {
+    DT_COUNT,
+    DT_AVG,
+    DT_STD,
+    DT_MIN,
+    DT_MAX,
+    DT_LAST,
+    DT_SUM,
+    DT_NUM_STATISTICS
+};
+
+inline DISTTABLE_STATISTICS parseDistTableStatistic(const Utf8String & st)
+{
+    if(st == "avg")   return DT_AVG;
+    if(st == "std")   return DT_STD;
+    if(st == "min")   return DT_MIN;
+    if(st == "max")   return DT_MAX;
+    if(st == "last")  return DT_LAST;
+    if(st == "count") return DT_COUNT;
+    if(st == "sum")   return DT_SUM;
+    throw ML::Exception("Unknown distribution table statistic");
+}
+
+inline std::string print(DISTTABLE_STATISTICS stat)
+{
+    switch(stat) {
+        case DT_COUNT:  return "count";
+        case DT_AVG:    return "avg";
+        case DT_STD:    return "std";
+        case DT_MIN:    return "min";
+        case DT_MAX:    return "max";
+        case DT_LAST:   return "last";
+        case DT_SUM:    return "sum";
+        default:
+            throw ML::Exception("Unknown DistTable_Stat");
+    }
+}
+
 
 /*****************************************************************************/
 /* DIST TABLE                                                               */
 /*****************************************************************************/
 
 struct DistTableStats {
-
     
     DistTableStats():
-        count(0), avg(NAN), var(NAN), M2(NAN), min(NAN), max(NAN)
+        count(0), last(NAN), avg(NAN), var(NAN), M2(NAN), min(NAN), max(NAN), sum(0)
     {}
                     
     uint64_t count;
+    double last; // last value
     double avg;
     // unbiased vars assuming we are on a sample and not the whole population
     double var;
@@ -42,8 +82,11 @@ struct DistTableStats {
     double M2;
     double min;
     double max;
+    double sum;
 
     double getStd() const { return sqrt(var); }
+
+    double getStat(DISTTABLE_STATISTICS stat) const;
 
     void increment(double value);
 };
@@ -64,9 +107,10 @@ struct DistTable {
     void increment(const Utf8String & featureValue,
                    const std::vector<double> & targets);
 
-    // returns the stats (count, avg, std, min, max) for a given featureValue
+    // returns the stats for a given featureValue
     // and outcome
-    const std::vector<DistTableStats> & getStats(const Utf8String & featureValue) const;
+    const std::vector<DistTableStats> & getStats(
+            const Utf8String & featureValue) const;
 
     void save(const std::string & filename) const;
     void serialize(ML::DB::Store_Writer & store) const;
@@ -106,6 +150,8 @@ struct DistTableProcedureConfig : public ProcedureConfig {
     Url modelFileUrl;
 
     Utf8String functionName;
+    
+    std::vector<Utf8String> statistics;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
@@ -136,11 +182,13 @@ struct DistTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct DistTableFunctionConfig {
-    DistTableFunctionConfig(const Url & modelFileUrl = Url())
-        : modelFileUrl(modelFileUrl)
+    DistTableFunctionConfig(const Url & modelFileUrl = Url(),
+            std::vector<Utf8String> statistics = { "count", "avg", "std", "min", "max" })
+        : statistics(statistics), modelFileUrl(modelFileUrl)
     {
     }
 
+    std::vector<Utf8String> statistics;
     Url modelFileUrl;
 };
 
@@ -165,6 +213,9 @@ struct DistTableFunction: public Function {
 
     DistTableFunctionConfig functionConfig;
 
+    std::string dtStatsNames[DT_NUM_STATISTICS];
+    
+    std::vector<DISTTABLE_STATISTICS> activeStats;
     DistTablesMap distTablesMap;
 };
 
