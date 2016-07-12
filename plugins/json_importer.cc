@@ -91,6 +91,16 @@ JSONImporterConfigDescription()
              SqlExpression::parse("lineNumber()"));
 
     addParent<ProcedureConfig>();
+
+    onPostValidate = [] (JSONImporterConfig * config,
+                         JsonParsingContext & context)
+    {
+        if (config->dataFileUrl.empty()) {
+            throw HttpReturnException(
+                400,
+                "dataFileUrl is a required property and must not be empty");
+        }
+    };
 }
 
 struct JsonRowScope : SqlRowScope {

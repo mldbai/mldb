@@ -70,13 +70,15 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const DistTableStats & s)
 {
-    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max << s.last;
+    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max
+                 << s.last << s.sum;
 }
 
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, DistTableStats & s)
 {
-    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max >> s.last;
+    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max >> s.last
+          >> s.sum;
     return store;
 }
 
@@ -87,10 +89,11 @@ increment(double value)
     // special case if first value
     if (JML_UNLIKELY(count == 0)) {
         count = 1;
-        avg = min = max = value;
+        avg = min = max = sum = value;
         M2 = 0.;
     } else {
         count++;
+        sum += value;
         double delta = value - avg;
         avg += delta / count;
         // For the unbiased std, I'm using Welford's algorithm described here
@@ -118,6 +121,7 @@ getStat(DISTTABLE_STATISTICS stat) const
         case DT_MIN:    return min;
         case DT_MAX:    return max;
         case DT_LAST:   return last;
+        case DT_SUM:    return sum;
         default:
             throw ML::Exception("Unknown DistTable_Stat");
     }
