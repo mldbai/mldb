@@ -307,5 +307,45 @@ class ImportJsonTest(MldbUnitTest):  # noqa
             ["5", None]
         ])
 
+    def test_no_input_file(self):
+        msg = "dataFileUrl is a required property and must not be empty";
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.post("/v1/procedures", {
+                "type": "import.json",
+                "params": {
+                    "outputDataset": {
+                        'id' : "test_no_input_file",
+                    },
+                    "runOnCreation": True,
+                    'named' : 'lineNumber() - 1',
+                }
+            })
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.post("/v1/procedures", {
+                "type": "import.json",
+                "params": {
+                    'dataFileUrl' : '',
+                    "outputDataset": {
+                        'id' : "test_no_input_file",
+                    },
+                    "runOnCreation": True,
+                    'named' : 'lineNumber() - 1',
+                }
+            })
+
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            mldb.post("/v1/procedures", {
+                "type": "import.json",
+                "params": {
+                    'dataFileUrl' : 'file://',
+                    "outputDataset": {
+                        'id' : "test_no_input_file",
+                    },
+                    "runOnCreation": True,
+                    'named' : 'lineNumber() - 1',
+                }
+            })
+
 if __name__ == '__main__':
     mldb.run_tests()
