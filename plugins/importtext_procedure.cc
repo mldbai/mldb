@@ -697,10 +697,10 @@ struct ImportTextProcedureWorkInstance
                   MldbServer * server,
                   const std::function<bool (const Json::Value &)> & onProgress)
     {
-        string filename = config.dataFileUrl.toString();
+        string filename = config.dataFileUrl.toDecodedString();
 
         // Ask for a memory mappable stream if possible
-        Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
+        filter_istream stream(config.dataFileUrl, { { "mapped", "true" } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
