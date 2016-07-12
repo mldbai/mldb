@@ -400,3 +400,5 @@ $(eval $(call mldb_unit_test,MLDB-1502-import-text-column-name-confusion.js))
 $(eval $(call mldb_unit_test,MLDB-1779-column_expr_pathnames.py))
 $(eval $(call mldb_unit_test,MLDB-1781-path-flattening.js))
 $(eval $(call mldb_unit_test,builtin_hash_fct_test.py))
+
+$(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
