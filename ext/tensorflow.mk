@@ -74,7 +74,7 @@ TENSORFLOW_PROTOBUF_HEADERS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) $(TENSO
 # kernels.  We strip out any Cuda constructs, and add them back in later in
 # the part of the makefile designed around Cuda support.
 
-TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op.cc' | grep -v test | grep -v tutorial | grep -v user_ops | grep -v 'fact_op\.cc' $(if $(WITH_CUDA),, | grep -v cuda) | grep -v cuda_dnn | grep -v /kernels/ | grep -v distributed_runtime | grep -v platform/cloud | grep -v pb_text)
+TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op\.cc' | grep -v test | grep -v tutorial | grep -v user_ops | grep -v 'fact_op\.cc' $(if $(WITH_CUDA),, | grep -v cuda  $(if $(WITH_CUDNN),,| grep -v cu_dnn) ) | grep -v /kernels/ | grep -v distributed_runtime | grep -v platform/cloud | grep -v pb_text)
 
 #TENSORFLOW_CC_FILES:=$(TF_CC_SRCS)
 
@@ -136,6 +136,10 @@ $(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto |
 # equal to 1.
 ifeq ($(WITH_CUDA),1)
 
+# Which CUDA compute capabilities do we support?  3.0 is needed for the
+# AWS g2 instances.
+TF_CUDA_CAPABILITIES:=3.0
+
 # This is the directory that the whole CUDA development kit is installed
 # inside.
 CUDA_BASE_DIR?=/usr/local/cuda-7.5
@@ -152,7 +156,7 @@ NVCC?=$(CUDA_BASE_DIR)/bin/nvcc
 # We link them individually in the directory that they're expected in
 # to avoid issues with header name clashes.
 
-CUDA_HEADERS := cuda.h cublas.h cufft.h cuComplex.h vector_types.h builtin_types.h device_types.h host_defines.h driver_types.h surface_types.h texture_types.h cublas_v2.h curand.h cuda_runtime.h cublas_api.h cuda_fp16.h
+CUDA_HEADERS := cuda.h cublas.h cufft.h cuComplex.h vector_types.h builtin_types.h device_types.h host_defines.h driver_types.h surface_types.h texture_types.h cublas_v2.h curand.h cuda_runtime.h cublas_api.h cuda_fp16.h $(if $(WITH_CUDNN),cudnn.h)
 
 # If we are using CUDA, we also need to link its include directory into
 # third_party/gpus/cuda/include
@@ -162,8 +166,13 @@ $(INC)/third_party/gpus/cuda/include/%: | $(CUDA_SYSTEM_HEADER_DIR)/%
 	@ln -s $< $@
 
 $(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
+	@mkdir -p $(dir $@)
+	@ln -sf $(CUDA_BASE_DIR)/extras $@
+
+$(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudnn_v5.h
 	mkdir -p $(dir $@)
-	ln -sf $(CUDA_BASE_DIR)/extras $@
+	ln -s $< $@
+
 
 # Anything that's to do with Cuda depends on these header files, so set
 # up the dependency.
@@ -196,7 +205,7 @@ TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
 #   between the CUDA and non-CUDA kernels; otherwise there will be linker
 #   errors.  If you get something like "undefined symbol tensorflow::functor::XXXFunctor<Eigen::GpuDevice>::Reduce<..., std::array*, >(...)" then this is
 #   the problem.
-TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1
+TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES)
 
 # Here are the flags we need to pass to NVCC to compile TensorFlow's CUDA
 # files.
