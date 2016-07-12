@@ -366,7 +366,7 @@ $(eval $(call mldb_unit_test,MLDBFB-509_pushed_non_printable_char_cant_query.py)
 $(eval $(call mldb_unit_test,MLDB-1355-explain-bad-alloc.js))
 $(eval $(call mldb_unit_test,MLDB-1631-join-transpose-where-rowname.js))
 $(eval $(call mldb_unit_test,MLDB-1503-bad-rowname-error-message.js))
-
+$(eval $(call mldb_unit_test,MLDB-1794-join-subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1702_comparisons_test.py))
 $(eval $(call mldb_unit_test,MLDB-1638-import-text-structured-names.js))
 $(eval $(call mldb_unit_test,MLDB-1649-csv-import-trailing-comma.js))
