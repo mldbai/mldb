@@ -465,7 +465,7 @@ DistTableFunction(MldbServer * owner,
     functionConfig = config.params.convert<DistTableFunctionConfig>();
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> distTablesMap;
 

@@ -238,7 +238,7 @@ struct JSONImporter: public Procedure {
         std::string line;
         std::string filename = runProcConf.dataFileUrl.toString();
 
-        filter_istream stream(filename);
+        filter_istream stream(runProcConf.dataFileUrl);
 
         Date timestamp = stream.info().lastModified;
 

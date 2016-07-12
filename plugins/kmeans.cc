@@ -340,7 +340,7 @@ struct KmeansFunction::Impl {
 
     Impl(const Url & modelFileUrl)
     {
-        filter_istream stream(modelFileUrl.toString());
+        filter_istream stream(modelFileUrl);
         std::string firstLine;
         std::getline(stream, firstLine);
         Json::Value md = Json::parse(firstLine);

@@ -314,7 +314,7 @@ ProbabilizeFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<ProbabilizeFunctionConfig>();
     itl.reset(new Itl());
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     auto repr = jsonDecodeStream<ProbabilizerRepr>(stream);
     itl->probabilizer.link = repr.link;
     itl->probabilizer.params.resize(1);

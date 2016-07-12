@@ -165,7 +165,7 @@ class ImportTextTest(MldbUnitTest):
         res = mldb.query("SELECT * FROM test_impot_filename_with_whitespaces")
         self.assertTableResultEquals(res, [
             ['_rowName', 'a', 'b'],
-            [2, 1, 2]
+            ['2', 1, 2]
         ])
 
 
