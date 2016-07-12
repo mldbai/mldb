@@ -488,7 +488,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `jaccard_index(expr, expr)` will return the [Jaccard index](https://en.wikipedia.org/wiki/Jaccard_index), also
   known as the *Jaccard similarity coefficient*, on two sets. The sets are specified using two row expressions.
   The column names will be used as values, meaning this function can be used
-  on the output of the `tokenize` function. The function will return 1 if the sets are equal, and 0 if they are 
+  on the output of the [`tokenize`](#importfunctions) function. The function will return 1 if the sets are equal, and 0 if they are 
   completely different.
 
 ### Vector space functions
