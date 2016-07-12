@@ -2526,7 +2526,10 @@ DatasetFunctionElement(std::shared_ptr<PipelineElement> root, std::shared_ptr<Da
     ExcAssert(source_);
     ExcAssert(getParamInfo);
 
-    if (function_->functionName == "merge") {
+    if (function_->functionName == "sample") {
+        throw HttpReturnException(500, "Dataset sampling not implemented for sql.query or cross joins");
+    }
+    else if (function_->functionName == "merge") {
         ExcAssert(function->args.size() == 2);
 
         pipeline = source_
@@ -2715,6 +2718,7 @@ take()
 {
     std::shared_ptr<PipelineResults> result;
     while (left && right) {
+
         auto& leftRowName = left->values[left->values.size() - 2];
         auto& rightRowName = right->values[right->values.size() - 2];
 

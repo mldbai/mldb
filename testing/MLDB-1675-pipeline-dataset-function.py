@@ -190,10 +190,26 @@ class DatasetFunctionTest(MldbUnitTest):
         })
 
         res = mldb.query("select bop()")
-        mldb.log("here")
         mldb.log(res)
 
         expected = [["_rowName","bop().column","bop().value"],["result","x",1]]
+
+        self.assertEqual(res, expected)
+
+    @unittest.expectedFailure #not yet implemented
+    def test_sampled_dataset(self):
+
+        res = mldb.put('/v1/functions/bop', {
+            'type': 'sql.query',
+            'params': {
+                'query': "SELECT x.* FROM sample(dataset2, {rows: 1, withReplacement: FALSE}) AS x"
+            }
+        })
+
+        res = mldb.query("select bop()")
+        mldb.log(res)
+
+        expected = [] # to be filled
 
         self.assertEqual(res, expected)
 
