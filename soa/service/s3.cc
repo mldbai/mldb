@@ -7,41 +7,411 @@
     Code to talk to s3.
 */
 
-#include <atomic>
-#include "mldb/soa/service/s3.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/types/date.h"
-#include "mldb/types/url.h"
-#include "mldb/soa/utils/print_utils.h"
-#include "mldb/types/structure_description.h"
-#include "mldb/arch/futex.h"
-#include "mldb/arch/threads.h"
+#include <exception>
+#include <future>
+
+#include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/ring_buffer.h"
-#include "mldb/base/hash.h"
+#include "mldb/http/http_client.h"
+#include "mldb/io/legacy_event_loop.h"
+#include "mldb/io/message_loop.h"
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/info.h"
-#include "mldb/jml/utils/environment.h"
-#include "xml_helpers.h"
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/soa/credentials/credential_provider.h"
-#include "mldb/http/curl_wrapper.h"
-#include "mldb/http/http_rest_proxy_impl.h"
-
-#include <exception>
-#include <thread>
-#include <chrono>
-#include <unordered_map>
-#include <boost/filesystem.hpp>
-
+#include "mldb/soa/utils/print_utils.h"
+#include "mldb/soa/service/xml_helpers.h"
+#include "mldb/types/structure_description.h"
 #include "mldb/vfs/fs_utils.h"
+
+#include "mldb/soa/service/s3.h"
 
 
 using namespace std;
-using namespace ML;
 using namespace Datacratic;
+
+
+namespace {
+
+/****************************************************************************/
+/* S3 GLOBALS                                                               */
+/****************************************************************************/
+
+struct S3Globals {
+    S3Globals()
+        : baseRetryDelay(3), numRetries(-1)
+    {
+        if (numRetries == -1) {
+            char * numRetriesEnv = getenv("S3_RETRIES");
+            if (numRetriesEnv) {
+                numRetries = atoi(numRetriesEnv);
+            }
+            else {
+                numRetries = 45;
+            }
+        }
+
+        loop.start();
+    }
+
+    /* This method return an HttpClient attached to the given hostname. The
+       instances thereby created are kept alive until the death of the
+       process. This method is thread-safe. */
+    HttpClient & getClient(const string & bucket,
+                           const string & baseHostname = "s3.amazonaws.com")
+    {
+        string hostname = bucket;
+        if (hostname.size() > 0) {
+            hostname += ".";
+        }
+        hostname += baseHostname;
+
+        unique_lock<mutex> guard(clientsLock);
+        auto it = clients.find(hostname);
+        if (it == clients.end()) {
+            HttpClient newClient(loop, "http://" + hostname, 30);
+
+            /* By disabling "Expect: 100-Continue", we remove one round trip
+               per put request. Since the chances to receive an error after
+               PUT requests are low, this reduces latency for the great
+               majority of our requests.
+               https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.1.1
+            */
+            newClient.sendExpect100Continue(false);
+            it = clients.insert(std::make_pair(std::move(hostname),
+                                               std::move(newClient)))
+                        .first;
+        }
+
+        return it->second;
+    }
+
+    int baseRetryDelay;
+    int numRetries;
+    LegacyEventLoop loop;
+
+private:
+    mutex clientsLock;
+    map<string, HttpClient> clients;
+};
+
+static S3Globals &
+getS3Globals()
+{
+    static S3Globals s3Config;
+    return s3Config;
+}
+
+
+/****************************************************************************/
+/* S3 REQUEST STATE                                                         */
+/****************************************************************************/
+
+struct S3RequestState {
+    S3RequestState(const shared_ptr<S3Api::SignedRequest> & rq,
+                   const S3Api::OnResponse & onResponse)
+        : rq(rq), onResponse(onResponse),
+          range(rq->params.downloadRange), retries(0)
+    {
+    }
+
+    RestParams makeHeaders()
+        const
+    {
+        RestParams headers = rq->params.headers;
+        headers.push_back({"Date", rq->params.date});
+        headers.push_back({"Authorization", rq->auth});
+        if (rq->params.useRange()) {
+            headers.push_back({"Range", range.headerValue()});
+        }
+
+        return headers;
+    }
+
+    int makeTimeout()
+        const
+    {
+        double expectedTimeSeconds
+            = (range.size / 1000000.0) / rq->bandwidthToServiceMbps;
+        return 15 + std::max<int>(30, expectedTimeSeconds * 6);
+    }
+
+    shared_ptr<S3Api::SignedRequest> rq;
+
+    S3Api::OnResponse onResponse;
+
+    string body;
+    string requestBody;
+    S3Api::Range range;
+    int retries;
+};
+
+/****************************************************************************/
+/* S3 REQUEST CALLBACKS                                                     */
+/****************************************************************************/
+
+struct S3RequestCallbacks : public HttpClientCallbacks {
+    S3RequestCallbacks(const shared_ptr<S3RequestState> & state)
+        : state_(state)
+    {
+    }
+
+    virtual void onResponseStart(const HttpRequest & rq,
+                                 const string & httpVersion,
+                                 int code);
+    virtual void onHeader(const HttpRequest & rq,
+                          const char * data, size_t size);
+    virtual void onData(const HttpRequest & rq,
+                        const char * data, size_t size);
+    virtual void onDone(const HttpRequest & rq,
+                        HttpClientError errorCode);
+
+    pair<string, string> detectXMLError() const;
+    string httpErrorContext() const;
+    void scheduleRestart() const;
+
+    shared_ptr<S3RequestState> state_;
+
+    S3Api::Response response_;
+    string header_;
+};
+
+void
+performStateRequest(const shared_ptr<S3RequestState> & state)
+{
+    auto & client = getS3Globals().getClient(state->rq->params.bucket);
+
+    const S3Api::RequestParams & params = state->rq->params;
+    auto callbacks = make_shared<S3RequestCallbacks>(state);
+    RestParams headers = state->makeHeaders();
+    int timeout = state->makeTimeout();
+
+    if (!client.enqueueRequest(params.verb, state->rq->resource,
+                                  callbacks,
+                                  state->rq->params.content,
+                                  /* query params already encoded in
+                                     resource */
+                                  {},
+                                  headers,
+                                  timeout)) {
+        /* TODO: should invoke onResponse with "too many requests" */
+        throw ML::Exception("the http client could not enqueue the request");
+    }
+}
+
+void
+S3RequestCallbacks::
+onResponseStart(const HttpRequest & rq, const string & httpVersion,
+                int code)
+{
+    response_.code_ = code;
+}
+
+void
+S3RequestCallbacks::
+onHeader(const HttpRequest & rq, const char * data, size_t size)
+{
+    header_.append(data, size);
+}
+
+void
+S3RequestCallbacks::
+onData(const HttpRequest & rq, const char * data, size_t size)
+{
+    state_->requestBody.append(data, size);
+}
+
+void
+S3RequestCallbacks::
+onDone(const HttpRequest & rq, HttpClientError errorCode)
+{
+    bool errorCondition(false);
+    bool recoverable(false);
+    string errorCause;
+    string errorDetails;
+
+    if (errorCode == HttpClientError::None) {
+        auto xmlError = detectXMLError();
+        if (!xmlError.first.empty()) {
+            errorCondition = true;
+            errorCause = "REST error code \"" + xmlError.first + "\"";
+            errorDetails = ("http status: "
+                            + to_string(response_.code_) + "\n"
+                            + "message: " + xmlError.second);
+
+            /* retry on "InternalError" */
+            if (xmlError.first == "InternalError") {
+                recoverable = true;
+            }
+        }
+        else if (response_.code_ >= 300 && response_.code_ != 404) {
+            errorCondition = true;
+            errorCause = "HTTP status code " + to_string(response_.code_);
+            errorDetails = httpErrorContext();
+
+            /* retry on 50X range errors */
+            if (response_.code_ >= 500 and response_.code_ < 505) {
+                recoverable = true;
+            }
+        }
+    }
+    else {
+        errorCondition = true;
+        errorCause = "internal error \"" + errorMessage(errorCode) + "\"";
+        recoverable = true;
+        if (state_->rq->params.useRange()) {
+            state_->range.adjust(state_->requestBody.size());
+        }
+        state_->body.append(state_->requestBody);
+    }
+
+    if (errorCondition) {
+        string recoverability;
+        if (recoverable) {
+            if (state_->retries < getS3Globals().numRetries) {
+                recoverability = "The operation will be retried.";
+                state_->retries++;
+            }
+            else {
+                recoverability = "The operation was retried too many times.";
+                recoverable = false;
+            }
+        }
+        else {
+            recoverability = "The error is non recoverable.";
+        }
+
+        string message("S3 operation failed with " + errorCause);
+
+        const S3Api::RequestParams & params = state_->rq->params;
+        string diagnostic(message + "\n"
+                          + "operation: " + params.verb
+                          + " " + state_->rq->resource + "\n");
+        if (!errorDetails.empty()) {
+            diagnostic += errorDetails + "\n";
+        }
+        diagnostic += recoverability + "\n";
+
+        cerr << diagnostic;
+
+        header_.clear();
+        state_->requestBody.clear();
+        if (recoverable) {
+            scheduleRestart();
+        }
+        else {
+            auto excPtr = std::make_exception_ptr(ML::Exception(message));
+            state_->onResponse(std::move(response_), excPtr);
+        }
+    }
+    else {
+        response_.header_.parse(header_, false);
+        header_.clear();
+        state_->body.append(state_->requestBody);
+        state_->requestBody.clear();
+        response_.body_ = std::move(state_->body);
+        state_->onResponse(std::move(response_), nullptr);
+    }
+}
+
+pair<string, string>
+S3RequestCallbacks::
+detectXMLError()
+    const
+{
+    /* Detect so-called "REST error"
+       (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
+
+       Some S3 methods may return an XML error AND still have a 200 HTTP
+       status code:
+       http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
+       Explanation of the why:
+       https://github.com/aws/aws-sdk-go/issues/501.
+    */
+
+    pair<string, string> xmlError; /* {code, message} */
+
+    const S3Api::RequestParams & params = state_->rq->params;
+    if (!(response_.code_ == 200
+          && (params.verb == "GET" || params.verb == "HEAD"))
+        && ((header_.find("Content-Type: application/xml")
+             != string::npos)
+            || (header_.find("content-type: application/xml")
+                != string::npos))) {
+        if (!state_->requestBody.empty()) {
+            std::unique_ptr<tinyxml2::XMLDocument> localXml;
+            localXml.reset(new tinyxml2::XMLDocument());
+            localXml->Parse(state_->requestBody.c_str());
+            auto element = tinyxml2::XMLHandle(*localXml)
+                .FirstChildElement("Error")
+                .ToElement();
+            if (element) {
+                xmlError.first = extract<string>(element, "Code");
+                xmlError.second = extract<string>(element, "Message");
+            }
+        }
+    }
+
+    return xmlError;
+}
+
+string
+S3RequestCallbacks::
+httpErrorContext()
+    const
+{
+    string context = "http status: " + to_string(response_.code_) + "\n";
+    if (header_.size() > 0) {
+        context += "response headers:\n" + header_;
+    }
+    if (!state_->requestBody.empty()) {
+        context += (string("response body (")
+                    + to_string(state_->requestBody.size())
+                    + " bytes):\n" + state_->requestBody + "\n");
+    }
+
+    return context;
+}
+
+void
+S3RequestCallbacks::
+scheduleRestart()
+    const
+{
+    S3Globals & globals = getS3Globals();
+
+    // allow a maximum of 384 seconds for retry delays (1 << 7 * 3)
+    int multiplier = (state_->retries < 8
+                      ? (1 << state_->retries)
+                      : state_->retries << 7);
+    double numSeconds = ::random() % (globals.baseRetryDelay
+                                      * multiplier);
+    if (numSeconds == 0) {
+        numSeconds = globals.baseRetryDelay * multiplier;
+    }
+
+    /* TODO: "numSeconds" is set to a fixed value here because the base
+       multiplier for exponential backoff should be carefully tuned in order
+       to reduce the chances of stalling transfers. */
+    numSeconds = 0.05;
+
+    const S3Api::RequestParams & params = state_->rq->params;
+
+    cerr << ("S3 operation retry in" + to_string(numSeconds) + " seconds: "
+             + params.verb + " " + params.resource + "\n");
+
+    auto timer = make_shared<PeriodicEventSource>();
+
+    auto state = state_;
+    auto onTimeout = [&, timer, state] (uint64_t ticks) {
+        S3Globals & globals = getS3Globals();
+        performStateRequest(state);
+        globals.loop.loop().removeSource(timer.get());
+    };
+    timer->init(numSeconds, std::move(onTimeout));
+    globals.loop.loop().addSource("retry-timer-" + randomString(8), timer);
+}
+
+} // file scope
 
 
 namespace Datacratic {
@@ -56,493 +426,177 @@ S3ConfigDescription()
     addField("accessKey", &S3Config::accessKey, "");
 }
 
-std::string
-S3Api::
-s3EscapeResource(const std::string & str)
+
+/****************************************************************************/
+/* S3 API :: RANGE                                                          */
+/****************************************************************************/
+
+S3Api::Range::
+Range(uint64_t aSize)
+    : offset(0), size(aSize)
+{}
+
+S3Api::Range::
+Range(uint64_t aOffset, uint64_t aSize)
+    : offset(aOffset), size(aSize)
+{}
+
+uint64_t
+S3Api::Range::
+endPos()
+    const
 {
-    if (str.size() == 0) {
-        throw ML::Exception("empty str name");
-    }
-
-    if (str[0] != '/') {
-        throw ML::Exception("resource name must start with a '/'");
-    }
-
-    std::string result;
-    for (auto c: str) {
-
-        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/')
-            result += c;
-        else result += ML::format("%%%02X", c);
-    }
-
-    return result;
-}
-
-
-double
-S3Api::
-defaultBandwidthToServiceMbps = 20.0;
-
-S3Api::Range S3Api::Range::Full(0);
-
-S3Api::
-S3Api()
-{
-    bandwidthToServiceMbps = defaultBandwidthToServiceMbps;
-}
-
-S3Api::
-S3Api(const std::string & accessKeyId,
-      const std::string & accessKey,
-      double bandwidthToServiceMbps,
-      const std::string & defaultProtocol,
-      const std::string & serviceUri)
-    : accessKeyId(accessKeyId),
-      accessKey(accessKey),
-      defaultProtocol(defaultProtocol),
-      serviceUri(serviceUri),
-      bandwidthToServiceMbps(bandwidthToServiceMbps)
-{
+    return (offset + size - 1);
 }
 
 void
-S3Api::
-init(const std::string & accessKeyId,
-     const std::string & accessKey,
-     double bandwidthToServiceMbps,
-     const std::string & defaultProtocol,
-     const std::string & serviceUri)
+S3Api::Range::
+adjust(size_t downloaded)
 {
-    this->accessKeyId = accessKeyId;
-    this->accessKey = accessKey;
-    this->defaultProtocol = defaultProtocol;
-    this->serviceUri = serviceUri;
-    this->bandwidthToServiceMbps = bandwidthToServiceMbps;
+    if (downloaded > size) {
+        throw ML::Exception("excessive adjustment size: downloaded %d size %d",
+                            downloaded, size);
+    }
+    offset += downloaded;
+    size -= downloaded;
 }
 
-ML::Env_Option<int> S3_DEBUG("S3_DEBUG", 0);
-
-S3Api::Response
-S3Api::SignedRequest::
-performSync() const
+string
+S3Api::Range::
+headerValue()
+    const
 {
-    static const int baseRetryDelay(3);
-    static int numRetries(-1);
-
-    if (numRetries == -1) {
-        char * numRetriesEnv = getenv("S3_RETRIES");
-        if (numRetriesEnv) {
-            numRetries = atoi(numRetriesEnv);
-        }
-        else {
-            numRetries = 45;
-        }
-    }
-
-    size_t spacePos = uri.find(" ");
-    if (spacePos != string::npos) {
-        throw ML::Exception("url '" + uri + "' contains an unescaped space"
-                            " at position " + to_string(spacePos));
-    }
-
-    Range currentRange = params.downloadRange;
-
-    /* The "Range" header is only useful with GET and when the range is
-       explicitly specified. The use of Range::Full means that we always
-       request the full body, even during retries. This is mainly useful for
-       requests on non-object urls, where that header is ignored by the S3
-       servers. */
-    bool useRange = (params.verb == "GET" && currentRange != Range::Full);
-
-    string body;
-
-    for (int i = 0; i < numRetries; ++i) {
-        if (i > 0) {
-            /* allow a maximum of 384 seconds for retry delays (1 << 7 * 3) */
-            int multiplier = i < 8 ? (1 << i) : i << 7;
-            double numSeconds = ::random() % (baseRetryDelay * multiplier);
-            if (numSeconds == 0) {
-                numSeconds = baseRetryDelay * multiplier;
-            }
-
-            numSeconds = 0.05;
-
-            ::fprintf(stderr,
-                      "S3 operation retry in %f seconds: %s %s\n",
-                      numSeconds, params.verb.c_str(), uri.c_str());
-            std::this_thread::sleep_for(std::chrono::milliseconds(int(numSeconds * 1000)));
-        }
-
-        string responseHeaders;
-        string responseBody;
-        long int responseCode(0);
-        size_t received(0);
-
-        auto connection = owner->proxy.getConnection();
-        CurlWrapper::Easy & myRequest = (CurlWrapper::Easy &)(*connection);
-        myRequest.reset();
-
-
-        RestParams headers = params.headers;
-        headers.emplace_back(make_pair("Date", params.date));
-        headers.emplace_back(make_pair("Authorization", auth));
-
-        if (useRange) {
-            uint64_t end = currentRange.endPos();
-            string range = ML::format("bytes=%zd-%zd",
-                                      currentRange.offset, end);
-            // ::fprintf(stderr, "%p: requesting %s\n", this, range.c_str());
-            headers.emplace_back(make_pair("range", range));
-        }
-
-        // cerr << "getting " << uri << " " << params.headers << endl;
-
-        double expectedTimeSeconds
-            = (currentRange.size / 1000000.0) / bandwidthToServiceMbps;
-        int timeout = 15 + std::max<int>(30, expectedTimeSeconds * 6);
-
-#if 0
-        cerr << "expectedTimeSeconds = " << expectedTimeSeconds << endl;
-        cerr << "timeout = " << timeout << endl;
-#endif
-
-        //cerr << "!!!Setting params verb " << params.verb << endl;
-        myRequest.add_option(CURLOPT_CUSTOMREQUEST, params.verb);
-
-        myRequest.add_option(CURLOPT_URL, uri);
-        myRequest.add_option(CURLOPT_TIMEOUT, timeout);
-        myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
-
-        if (S3_DEBUG)
-            myRequest.add_option(CURLOPT_VERBOSE, 1L);
-
-        bool noBody = (params.verb == "HEAD");
-        if (noBody) {
-            myRequest.add_option(CURLOPT_NOBODY, noBody);
-        }
-
-        CurlWrapper::Easy::CurlCallback onWriteData
-            = [&] (char * data, size_t ofs1, size_t ofs2) {
-            size_t total = ofs1 * ofs2;
-            received += total;
-            responseBody.append(data, total);
-            return total;
-        };
-
-        bool afterContinue = false;
-
-        CurlWrapper::Easy::CurlCallback onHeader
-            = [&] (char * data, size_t ofs1, size_t ofs2) {
-            string headerLine(data, ofs1 * ofs2);
-
-            if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
-                afterContinue = true;
-            }
-            else if (afterContinue) {
-                if (headerLine == "\r\n")
-                    afterContinue = false;
-            }
-            else {
-                responseHeaders.append(headerLine);
-                //cerr << "got header data " << headerLine << endl;
-            }
-            return ofs1 * ofs2;
-        };
-
-        myRequest.add_callback_option(CURLOPT_HEADERFUNCTION, CURLOPT_HEADERDATA, onHeader);
-        myRequest.add_callback_option(CURLOPT_WRITEFUNCTION, CURLOPT_WRITEDATA, onWriteData);
-
-        const string & s = params.content.body();
-
-        if (!noBody) {
-            myRequest.add_option(CURLOPT_POSTFIELDS, s);
-            myRequest.add_option(CURLOPT_POSTFIELDSIZE, s.size());
-            headers.emplace_back(make_pair("Content-Length",
-                                           ML::format("%lld", s.size())));
-
-            // This is needed for S3 to properly understand the request
-            headers.emplace_back(make_pair("Content-Type", ""));
-        }
-
-        myRequest.add_header_option(headers);
-
-        CURLcode res = myRequest.perform();
-
-        if (res != CURLE_OK) {
-            string message("S3 operation failed with a libCurl error: "
-                           + string(curl_easy_strerror(res))
-                           + " (" + to_string(res) + ")\n"
-                           + params.verb + " " + uri + "\n");
-            if (responseHeaders.size() > 0) {
-                message += "headers:\n" + responseHeaders;
-            }
-            ::fprintf(stderr, "%s\n", message.c_str());
-
-            if (useRange && received > 0) {
-                body.append(responseBody);
-                currentRange.adjust(received);
-            }
-            continue;
-        }
-
-        myRequest.get_info(CURLINFO_RESPONSE_CODE, responseCode);
-
-        /* Detect so-called "REST error"
-           (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
-
-           Some S3 methods may return an XML error AND still have a 200 HTTP
-           status code:
-           http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
-           Explanation of the why:
-           https://github.com/aws/aws-sdk-go/issues/501.
-        */
-        pair<string, string> xmlError; /* {code, message} */
-        if (!(responseCode == 200
-              && (params.verb == "GET" || params.verb == "HEAD"))
-            && (responseHeaders.find("Content-Type: application/xml")
-                != string::npos)) {
-            unique_ptr<tinyxml2::XMLDocument> localXml(
-                new tinyxml2::XMLDocument()
-                );
-            localXml->Parse(responseBody.c_str());
-            auto element
-                = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
-                .ToElement();
-            if (element) {
-                xmlError.first = extract<string>(element, "Code");
-                xmlError.second = extract<string>(element, "Message");
-            }
-        }
-
-        auto makeErrorMsg = [&] () {
-            string message("S3 operation failed with HTTP code "
-                           + to_string(responseCode) + "\n"
-                           + params.verb + " " + uri + "\n");
-            if (responseHeaders.size() > 0) {
-                message += "headers:\n" + responseHeaders;
-            }
-            if (responseBody.size() > 0) {
-                message += (string("body (") + to_string(responseBody.size())
-                            + " bytes):\n" + responseBody + "\n");
-            }
-            if (!xmlError.first.empty()) {
-                message += ("S3 REST error code: "
-                            + xmlError.first
-                            + "; message: "
-                            + xmlError.second
-                            +"\n");
-            }
-
-            return message;
-        };
-
-        if (!xmlError.first.empty()
-            || (responseCode >= 300 && responseCode != 404)) {
-            string message(makeErrorMsg());
-            ::fprintf(stderr, "%s\n", message.c_str());
-
-            /* retry on 50X range errors (recoverable) */
-            if ((responseCode >= 500 && responseCode < 505)
-                || xmlError.first == "InternalError") {
-                continue;
-            }
-            else {
-                string firstLine(responseHeaders, 0, responseHeaders.find('\n'));
-
-                throw ML::Exception("S3 error loading '%s': %s",
-                                    uri.c_str(), firstLine.c_str());
-            }
-        }
-
-        Response response;
-        response.code_ = responseCode;
-        response.header_.parse(responseHeaders, !noBody);
-        body.append(responseBody);
-        response.body_ = body;
-
-        return response;
-    }
-
-    throw ML::Exception("too many retries");
+    return (string("bytes=")
+            + std::to_string(offset) + "-" + std::to_string(endPos()));
 }
 
-std::string
-S3Api::
-signature(const RequestParams & request) const
+bool
+S3Api::Range::
+operator == (const Range & other)
+    const
 {
-    string digest
-        = S3Api::getStringToSignV2Multi(request.verb,
-                                        request.bucket,
-                                        request.resource, request.subResource,
-                                        request.contentType, request.contentMd5,
-                                        request.date, request.headers);
-
-    //cerr << "digest = " << digest << endl;
-
-    return signV2(digest, accessKey);
+    return offset == other.offset && size == other.size;
 }
 
-S3Api::SignedRequest
-S3Api::
-prepare(const RequestParams & request) const
+bool
+S3Api::Range::
+operator != (const Range & other)
+    const
 {
-    string protocol = defaultProtocol;
-    if(protocol.length() == 0){
-        throw ML::Exception("attempt to perform s3 request without a "
-            "default protocol. (Could be caused by S3Api initialisation with "
-            "the empty constructor.)");
-    }
+    return !(*this == other);
+}
 
-    SignedRequest result;
-    result.params = request;
-    result.bandwidthToServiceMbps = bandwidthToServiceMbps;
-    result.owner = const_cast<S3Api *>(this);
 
-    if (request.resource.find("//") != string::npos)
-        throw ML::Exception("attempt to perform s3 request with double slash: "
-                            + request.resource);
+/****************************************************************************/
+/* S3 API :: REQUEST PARAMS                                                 */
+/****************************************************************************/
 
-    if (request.bucket.empty()) {
-        result.uri = protocol + "://" + serviceUri
-            + request.resource
-            + (request.subResource != "" ? "?" + request.subResource : "");
-    }
-    else {
-        result.uri = protocol + "://" + request.bucket + "." + serviceUri
-            + request.resource
-            + (request.subResource != "" ? "?" + request.subResource : "");
-    }
+S3Api::RequestParams::
+RequestParams()
+    : downloadRange(0)
+{
+}
 
-    for (unsigned i = 0;  i < request.queryParams.size();  ++i) {
-        if (i == 0 && request.subResource == "")
-            result.uri += "?";
-        else result.uri += "&";
-        result.uri += uriEncode(request.queryParams[i].first)
-            + "=" + uriEncode(request.queryParams[i].second);
-    }
+bool
+S3Api::RequestParams::
+useRange()
+    const
+{
+    /* The "Range" header is only useful with GET and when the range
+       is explicitly specified. The use of Range::Full means that we
+       always request the full body, even during retries. This is
+       mainly useful for requests on non-object urls, where that
+       header is ignored by the S3 servers. */
+    return (verb == "GET" && downloadRange != Range::Full);
+}
 
-    string sig = signature(request);
-    result.auth = "AWS " + accessKeyId + ":" + sig;
 
-    //cerr << "result.uri = " << result.uri << endl;
-    //cerr << "result.auth = " << result.auth << endl;
+/****************************************************************************/
+/* S3 API :: RESPONSE                                                       */
+/****************************************************************************/
 
+S3Api::Response::
+Response()
+    : code_(0)
+{
+}
+
+const string &
+S3Api::Response::
+body()
+    const
+{
+    if (code_ < 200 || code_ >= 300)
+        throw ML::Exception("invalid http code returned");
+    return body_;
+}
+
+std::unique_ptr<tinyxml2::XMLDocument>
+S3Api::Response::
+bodyXml()
+    const
+{
+    if (code_ != 200)
+        throw ML::Exception("invalid http code returned");
+    std::unique_ptr<tinyxml2::XMLDocument> result(new tinyxml2::XMLDocument());
+    result->Parse(body_.c_str());
     return result;
 }
 
-S3Api::Response
-S3Api::
-headEscaped(const std::string & bucket,
-            const std::string & resource,
-            const std::string & subResource,
-            const RestParams & headers,
-            const RestParams & queryParams) const
+S3Api::Response::
+operator std::unique_ptr<tinyxml2::XMLDocument>()
+    const
 {
-    RequestParams request;
-    request.verb = "HEAD";
-    request.bucket = bucket;
-    request.resource = resource;
-    request.subResource = subResource;
-    request.headers = headers;
-    request.queryParams = queryParams;
-    request.date = Date::now().printRfc2616();
-
-    return prepare(request).performSync();
+    return bodyXml();
 }
 
-S3Api::Response
-S3Api::
-getEscaped(const std::string & bucket,
-           const std::string & resource,
-           const Range & downloadRange,
-           const std::string & subResource,
-           const RestParams & headers,
-           const RestParams & queryParams) const
+string
+S3Api::Response::
+bodyXmlStr()
+    const
 {
-    RequestParams request;
-    request.verb = "GET";
-    request.bucket = bucket;
-    request.resource = resource;
-    request.subResource = subResource;
-    request.headers = headers;
-    request.queryParams = queryParams;
-    request.date = Date::now().printRfc2616();
-    request.downloadRange = downloadRange;
-
-    return prepare(request).performSync();
+    auto x = bodyXml();
+    tinyxml2::XMLPrinter printer;
+    x->Print(&printer);
+    return printer.CStr();
 }
 
-/** Perform a POST request from end to end. */
-S3Api::Response
-S3Api::
-postEscaped(const std::string & bucket,
-            const std::string & resource,
-            const std::string & subResource,
-            const RestParams & headers,
-            const RestParams & queryParams,
-            const HttpRequestContent & content) const
+string
+S3Api::Response::
+getHeader(const string & name)
+    const
 {
-    RequestParams request;
-    request.verb = "POST";
-    request.bucket = bucket;
-    request.resource = resource;
-    request.subResource = subResource;
-    request.headers = headers;
-    request.queryParams = queryParams;
-    request.date = Date::now().printRfc2616();
-    request.content = content;
-
-    return prepare(request).performSync();
+    auto it = header_.headers.find(name);
+    if (it == header_.headers.end())
+        throw ML::Exception("required header " + name + " not found");
+    return it->second;
 }
 
-S3Api::Response
-S3Api::
-putEscaped(const std::string & bucket,
-           const std::string & resource,
-           const std::string & subResource,
-           const RestParams & headers,
-           const RestParams & queryParams,
-           const HttpRequestContent & content) const
-{
-    RequestParams request;
-    request.verb = "PUT";
-    request.bucket = bucket;
-    request.resource = resource;
-    request.subResource = subResource;
-    request.headers = headers;
-    request.queryParams = queryParams;
-    request.date = Date::now().printRfc2616();
-    request.content = content;
 
-    return prepare(request).performSync();
+/****************************************************************************/
+/* S3 API :: OBJECT METADATA                                                */
+/****************************************************************************/
+
+S3Api::ObjectMetadata::
+ObjectMetadata()
+    : redundancy(REDUNDANCY_DEFAULT),
+      serverSideEncryption(SSE_NONE),
+      numRequests(8)
+{
 }
 
-S3Api::Response
-S3Api::
-eraseEscaped(const std::string & bucket,
-             const std::string & resource,
-             const std::string & subResource,
-             const RestParams & headers,
-             const RestParams & queryParams,
-             const HttpRequestContent & content) const
+S3Api::ObjectMetadata::
+ObjectMetadata(Redundancy redundancy)
+    : redundancy(redundancy),
+      serverSideEncryption(SSE_NONE),
+      numRequests(8)
 {
-    RequestParams request;
-    request.verb = "DELETE";
-    request.bucket = bucket;
-    request.resource = resource;
-    request.subResource = subResource;
-    request.headers = headers;
-    request.queryParams = queryParams;
-    request.date = Date::now().printRfc2616();
-    request.content = content;
-
-    return prepare(request).performSync();
 }
 
 RestParams
 S3Api::ObjectMetadata::
-getRequestHeaders() const
+getRequestHeaders()
+    const
 {
     RestParams result;
     Redundancy redundancy = this->redundancy;
@@ -568,10 +622,485 @@ getRequestHeaders() const
     return result;
 }
 
+
+/****************************************************************************/
+/* S3 API :: MULTI PART UPLOAD PART                                         */
+/****************************************************************************/
+
+S3Api::MultiPartUploadPart::
+MultiPartUploadPart()
+    : partNumber(0), done(false)
+{
+}
+
+void
+S3Api::MultiPartUploadPart::
+fromXml(tinyxml2::XMLElement * element)
+{
+    partNumber = extract<int>(element, "PartNumber");
+    lastModified = extract<string>(element, "LastModified");
+    etag = extract<string>(element, "ETag");
+    size = extract<uint64_t>(element, "Size");
+    done = true;
+}
+
+
+/****************************************************************************/
+/* S3 API :: OBJECT INFO                                                    */
+/****************************************************************************/
+
+S3Api::ObjectInfo::
+ObjectInfo(tinyxml2::XMLNode * element)
+{
+    size = extract<uint64_t>(element, "Size");
+    key  = extract<string>(element, "Key");
+    string lastModifiedStr = extract<string>(element, "LastModified");
+    lastModified = Date::parseIso8601DateTime(lastModifiedStr);
+    etag = extract<string>(element, "ETag");
+    ownerId = extract<string>(element, "Owner/ID");
+    ownerName = extractDef<string>(element, "Owner/DisplayName", "");
+    storageClass = extract<string>(element, "StorageClass");
+    exists = true;
+}
+
+S3Api::ObjectInfo::
+ObjectInfo(const S3Api::Response & response)
+{
+    exists = true;
+    lastModified = Date::parse(response.getHeader("last-modified"),
+            "%a, %e %b %Y %H:%M:%S %Z");
+    size = response.header_.contentLength;
+    etag = response.getHeader("etag");
+    storageClass = ""; // Not available in headers
+    ownerId = "";      // Not available in headers
+    ownerName = "";    // Not available in headers
+}
+
+
+/****************************************************************************/
+/* S3 API                                                                   */
+/****************************************************************************/
+
+string
+S3Api::
+s3EscapeResource(const string & str)
+{
+    if (str.size() == 0) {
+        throw ML::Exception("empty str name");
+    }
+
+    if (str[0] != '/') {
+        throw ML::Exception("resource name must start with a '/'");
+    }
+
+    string result;
+    for (auto c: str) {
+
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/')
+            result += c;
+        else result += ML::format("%%%02X", c);
+    }
+
+    return result;
+}
+
+double
+S3Api::
+defaultBandwidthToServiceMbps = 20.0;
+
+S3Api::Range S3Api::Range::Full(0);
+
+S3Api::
+S3Api()
+{
+    bandwidthToServiceMbps = defaultBandwidthToServiceMbps;
+}
+
+S3Api::
+S3Api(const string & accessKeyId,
+      const string & accessKey,
+      double bandwidthToServiceMbps,
+      const string & defaultProtocol,
+      const string & serviceUri)
+    : accessKeyId(accessKeyId),
+      accessKey(accessKey),
+      defaultProtocol(defaultProtocol),
+      serviceUri(serviceUri),
+      bandwidthToServiceMbps(bandwidthToServiceMbps)
+{
+}
+
+void
+S3Api::
+init(const string & accessKeyId,
+     const string & accessKey,
+     double bandwidthToServiceMbps,
+     const string & defaultProtocol,
+     const string & serviceUri)
+{
+    this->accessKeyId = accessKeyId;
+    this->accessKey = accessKey;
+    this->defaultProtocol = defaultProtocol;
+    this->serviceUri = serviceUri;
+    this->bandwidthToServiceMbps = bandwidthToServiceMbps;
+}
+
+void
+S3Api::
+perform(const OnResponse & onResponse, const shared_ptr<SignedRequest> & rq)
+    const
+{
+    size_t spacePos = rq->resource.find(" ");
+    if (spacePos != string::npos) {
+        throw ML::Exception("url '" + rq->resource + "' contains an unescaped"
+                            " space at position " + to_string(spacePos));
+    }
+
+    performStateRequest(make_shared<S3RequestState>(rq, onResponse));
+}
+
+S3Api::Response
+S3Api::
+performSync(const shared_ptr<SignedRequest> & rq)
+    const
+{
+    std::promise<S3Api::Response> respPromise;
+
+    auto onResponse = [&] (S3Api::Response && response,
+                           std::exception_ptr excPtr) {
+        if (excPtr) {
+            respPromise.set_exception(excPtr);
+        }
+        else {
+            respPromise.set_value(response);
+        }
+    };
+    perform(onResponse, rq);
+
+    auto respFuture = respPromise.get_future();
+    respFuture.wait();
+
+    return respFuture.get();
+}
+
+string
+S3Api::
+signature(const RequestParams & request) const
+{
+    string digest
+        = S3Api::getStringToSignV2Multi(request.verb,
+                                        request.bucket,
+                                        request.resource, request.subResource,
+                                        request.contentType, request.contentMd5,
+                                        request.date, request.headers);
+
+    //cerr << "digest = " << digest << endl;
+
+    return signV2(digest, accessKey);
+}
+
+shared_ptr<S3Api::SignedRequest>
+S3Api::
+prepare(const RequestParams & request) const
+{
+    string protocol = defaultProtocol;
+    if(protocol.length() == 0){
+        throw ML::Exception("attempt to perform s3 request without a "
+            "default protocol. (Could be caused by S3Api initialisation with "
+            "the empty constructor.)");
+    }
+
+    auto result = make_shared<SignedRequest>();
+    result->params = request;
+    result->bandwidthToServiceMbps = bandwidthToServiceMbps;
+
+    if (request.resource.find("//") != string::npos)
+        throw ML::Exception("attempt to perform s3 request with double slash: "
+                            + request.resource);
+
+    result->resource += request.resource;
+    if (request.subResource.size() > 0) {
+        result->resource += "?" + request.subResource;
+    }
+
+    for (unsigned i = 0;  i < request.queryParams.size();  ++i) {
+        if (i == 0 && request.subResource == "")
+            result->resource += "?";
+        else
+            result->resource += "&";
+        result->resource += (uriEncode(request.queryParams[i].first)
+                            + "=" + uriEncode(request.queryParams[i].second));
+    }
+
+    string sig = signature(request);
+    result->auth = "AWS " + accessKeyId + ":" + sig;
+
+    //cerr << "result->resource = " << result->resource << endl;
+    //cerr << "result->auth = " << result->auth << endl;
+
+    return result;
+}
+
+S3Api::Response
+S3Api::
+head(const string & bucket,
+     const string & resource,
+     const string & subResource,
+     const RestParams & headers,
+     const RestParams & queryParams)
+    const
+{
+    return headEscaped(bucket, s3EscapeResource(resource), subResource,
+                       headers, queryParams);
+}
+
+S3Api::Response
+S3Api::
+headEscaped(const string & bucket,
+            const string & resource,
+            const string & subResource,
+            const RestParams & headers,
+            const RestParams & queryParams) const
+{
+    RequestParams request;
+    request.verb = "HEAD";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+
+    return performSync(prepare(request));;
+}
+
+S3Api::Response
+S3Api::
+get(const string & bucket,
+    const string & resource,
+    const Range & downloadRange,
+    const string & subResource,
+    const RestParams & headers,
+    const RestParams & queryParams)
+    const
+{
+    return getEscaped(bucket, s3EscapeResource(resource), downloadRange,
+                      subResource, headers, queryParams);
+}
+
+S3Api::Response
+S3Api::
+getEscaped(const string & bucket,
+           const string & resource,
+           const Range & downloadRange,
+           const string & subResource,
+           const RestParams & headers,
+           const RestParams & queryParams) const
+{
+    RequestParams request;
+    request.verb = "GET";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+    request.downloadRange = downloadRange;
+
+    return performSync(prepare(request));;
+}
+
+void
+S3Api:: 
+getAsync(const OnResponse & onResponse,
+         const string & bucket,
+         const string & resource,
+         const Range & downloadRange,
+         const string & subResource,
+         const RestParams & headers,
+         const RestParams & queryParams)
+        const
+{
+    getEscapedAsync(onResponse, bucket, s3EscapeResource(resource),
+                    downloadRange, subResource, headers,
+                    queryParams);
+}
+
+void
+S3Api::
+getEscapedAsync(const S3Api::OnResponse & onResponse,
+                const string & bucket,
+                const string & resource,
+                const Range & downloadRange,
+                const string & subResource,
+                const RestParams & headers,
+                const RestParams & queryParams) const
+{
+    RequestParams request;
+    request.verb = "GET";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+    request.downloadRange = downloadRange;
+
+    perform(onResponse, prepare(request));
+}
+
+/** Perform a POST request from end to end. */
+S3Api::Response
+S3Api::
+post(const string & bucket,
+     const string & resource,
+     const string & subResource,
+     const RestParams & headers,
+     const RestParams & queryParams,
+     const HttpRequestContent & content)
+    const
+{
+    return postEscaped(bucket, s3EscapeResource(resource), subResource,
+                       headers, queryParams, content);
+}
+
+S3Api::Response
+S3Api::
+postEscaped(const string & bucket,
+            const string & resource,
+            const string & subResource,
+            const RestParams & headers,
+            const RestParams & queryParams,
+            const HttpRequestContent & content)
+    const
+{
+    RequestParams request;
+    request.verb = "POST";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+    request.content = content;
+
+    return performSync(prepare(request));;
+}
+
+S3Api::Response
+S3Api::
+put(const string & bucket,
+    const string & resource,
+    const string & subResource,
+    const RestParams & headers,
+    const RestParams & queryParams,
+    const HttpRequestContent & content)
+    const
+{
+    return putEscaped(bucket, s3EscapeResource(resource), subResource,
+                      headers, queryParams, content);
+}
+
+S3Api::Response
+S3Api::
+putEscaped(const string & bucket,
+           const string & resource,
+           const string & subResource,
+           const RestParams & headers,
+           const RestParams & queryParams,
+           const HttpRequestContent & content)
+    const
+{
+    RequestParams request;
+    request.verb = "PUT";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+    request.content = content;
+
+    return performSync(prepare(request));;
+}
+
+void
+S3Api::
+putAsync(const OnResponse & onResponse,
+         const string & bucket,
+         const string & resource,
+         const string & subResource,
+         const RestParams & headers,
+         const RestParams & queryParams,
+         const HttpRequestContent & content)
+    const
+{
+    putEscapedAsync(onResponse, bucket, s3EscapeResource(resource),
+                    subResource, headers, queryParams, content);
+}
+
+void
+S3Api::
+putEscapedAsync(const OnResponse & onResponse,
+                const string & bucket,
+                const string & resource,
+                const string & subResource,
+                const RestParams & headers,
+                const RestParams & queryParams,
+                const HttpRequestContent & content)
+    const
+{
+    RequestParams request;
+    request.verb = "PUT";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+    request.content = content;
+
+    perform(onResponse, prepare(request));
+}
+
+S3Api::Response
+S3Api::
+erase(const string & bucket,
+      const string & resource,
+      const string & subResource,
+      const RestParams & headers,
+      const RestParams & queryParams)
+    const
+{
+    return eraseEscaped(bucket, s3EscapeResource(resource), subResource,
+                        headers, queryParams);
+}
+
+S3Api::Response
+S3Api::
+eraseEscaped(const string & bucket,
+             const string & resource,
+             const string & subResource,
+             const RestParams & headers,
+             const RestParams & queryParams)
+    const
+{
+    RequestParams request;
+    request.verb = "DELETE";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+
+    return performSync(prepare(request));;
+}
+
 pair<bool,string>
 S3Api::isMultiPartUploadInProgress(
-    const std::string & bucket,
-    const std::string & resource) const
+    const string & bucket,
+    const string & resource) const
 {
     // Contains the resource without the leading slash
     string outputPrefix(resource, 1);
@@ -617,8 +1146,8 @@ S3Api::isMultiPartUploadInProgress(
 
 S3Api::MultiPartUpload
 S3Api::
-obtainMultiPartUpload(const std::string & bucket,
-                      const std::string & resource,
+obtainMultiPartUpload(const string & bucket,
+                      const string & resource,
                       const ObjectMetadata & metadata,
                       UploadRequirements requirements) const
 {
@@ -733,12 +1262,12 @@ obtainMultiPartUpload(const std::string & bucket,
     return result;
 }
 
-std::string
+string
 S3Api::
-finishMultiPartUpload(const std::string & bucket,
-                      const std::string & resource,
-                      const std::string & uploadId,
-                      const std::vector<std::string> & etags) const
+finishMultiPartUpload(const string & bucket,
+                      const string & resource,
+                      const string & uploadId,
+                      const std::vector<string> & etags) const
 {
     using namespace tinyxml2;
     // Finally, send back a response to join the parts together
@@ -756,8 +1285,7 @@ finishMultiPartUpload(const std::string & bucket,
 
     string escapedResource = s3EscapeResource(resource);
 
-    HttpRequestContent xmlReq(xmlDocumentAsString(joinRequest),
-                              "application/xml");
+    HttpRequestContent xmlReq(xmlDocumentAsString(joinRequest));
     auto joinResponse
         = postEscaped(bucket, escapedResource, "uploadId=" + uploadId,
                       {}, {}, xmlReq);
@@ -782,53 +1310,14 @@ finishMultiPartUpload(const std::string & bucket,
 }
 
 void
-S3Api::MultiPartUploadPart::
-fromXml(tinyxml2::XMLElement * element)
-{
-    partNumber = extract<int>(element, "PartNumber");
-    lastModified = extract<string>(element, "LastModified");
-    etag = extract<string>(element, "ETag");
-    size = extract<uint64_t>(element, "Size");
-    done = true;
-}
-
-S3Api::ObjectInfo::
-ObjectInfo(tinyxml2::XMLNode * element)
-{
-    size = extract<uint64_t>(element, "Size");
-    key  = extract<string>(element, "Key");
-    string lastModifiedStr = extract<string>(element, "LastModified");
-    lastModified = Date::parseIso8601DateTime(lastModifiedStr);
-    etag = extract<string>(element, "ETag");
-    ownerId = extract<string>(element, "Owner/ID");
-    ownerName = extractDef<string>(element, "Owner/DisplayName", "");
-    storageClass = extract<string>(element, "StorageClass");
-    exists = true;
-}
-
-S3Api::ObjectInfo::
-ObjectInfo(const S3Api::Response & response)
-{
-    exists = true;
-    lastModified = Date::parse(response.getHeader("last-modified"),
-            "%a, %e %b %Y %H:%M:%S %Z");
-    size = response.header_.contentLength;
-    etag = response.getHeader("etag");
-    storageClass = ""; // Not available in headers
-    ownerId = "";      // Not available in headers
-    ownerName = "";    // Not available in headers
-}
-
-
-void
 S3Api::
-forEachObject(const std::string & bucket,
-              const std::string & prefix,
+forEachObject(const string & bucket,
+              const string & prefix,
               const OnObject & onObject,
               const OnSubdir & onSubdir,
-              const std::string & delimiter,
+              const string & delimiter,
               int depth,
-              const std::string & startAt) const
+              const string & startAt) const
 {
     using namespace tinyxml2;
 
@@ -918,18 +1407,18 @@ forEachObject(const std::string & bucket,
 
 void
 S3Api::
-forEachObject(const std::string & uriPrefix,
+forEachObject(const string & uriPrefix,
               const OnObjectUri & onObject,
               const OnSubdir & onSubdir,
-              const std::string & delimiter,
+              const string & delimiter,
               int depth,
-              const std::string & startAt) const
+              const string & startAt) const
 {
     string bucket, objectPrefix;
     std::tie(bucket, objectPrefix) = parseUri(uriPrefix);
 
-    auto onObject2 = [&] (const std::string & prefix,
-                          const std::string & objectName,
+    auto onObject2 = [&] (const string & prefix,
+                          const string & objectName,
                           const ObjectInfo & info,
                           int depth)
         {
@@ -945,7 +1434,7 @@ forEachObject(const std::string & uriPrefix,
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfo(const std::string & bucket, const std::string & object,
+getObjectInfo(const string & bucket, const string & object,
               S3ObjectInfoTypes infos)
     const
 {
@@ -956,7 +1445,7 @@ getObjectInfo(const std::string & bucket, const std::string & object,
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfoFull(const std::string & bucket, const std::string & object)
+getObjectInfoFull(const string & bucket, const string & object)
     const
 {
     RestParams queryParams;
@@ -992,7 +1481,7 @@ getObjectInfoFull(const std::string & bucket, const std::string & object)
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfoShort(const std::string & bucket, const std::string & object)
+getObjectInfoShort(const string & bucket, const string & object)
     const
 {
     auto res = head(bucket, "/" + object);
@@ -1008,8 +1497,8 @@ getObjectInfoShort(const std::string & bucket, const std::string & object)
 
 S3Api::ObjectInfo
 S3Api::
-tryGetObjectInfo(const std::string & bucket,
-                 const std::string & object,
+tryGetObjectInfo(const string & bucket,
+                 const string & object,
                  S3ObjectInfoTypes infos)
     const
 {
@@ -1020,7 +1509,7 @@ tryGetObjectInfo(const std::string & bucket,
 
 S3Api::ObjectInfo
 S3Api::
-tryGetObjectInfoFull(const std::string & bucket, const std::string & object)
+tryGetObjectInfoFull(const string & bucket, const string & object)
     const
 {
     RestParams queryParams;
@@ -1054,7 +1543,7 @@ tryGetObjectInfoFull(const std::string & bucket, const std::string & object)
 
 S3Api::ObjectInfo
 S3Api::
-tryGetObjectInfoShort(const std::string & bucket, const std::string & object)
+tryGetObjectInfoShort(const string & bucket, const string & object)
     const
 {
     auto res = head(bucket, "/" + object);
@@ -1070,7 +1559,7 @@ tryGetObjectInfoShort(const std::string & bucket, const std::string & object)
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
+getObjectInfo(const string & uri, S3ObjectInfoTypes infos)
     const
 {
     string bucket, object;
@@ -1080,7 +1569,7 @@ getObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
 
 S3Api::ObjectInfo
 S3Api::
-tryGetObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
+tryGetObjectInfo(const string & uri, S3ObjectInfoTypes infos)
     const
 {
     string bucket, object;
@@ -1090,8 +1579,8 @@ tryGetObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
 
 void
 S3Api::
-eraseObject(const std::string & bucket,
-            const std::string & object)
+eraseObject(const string & bucket,
+            const string & object)
 {
     Response response = erase(bucket, object);
 
@@ -1104,8 +1593,8 @@ eraseObject(const std::string & bucket,
 
 bool
 S3Api::
-tryEraseObject(const std::string & bucket,
-               const std::string & object)
+tryEraseObject(const string & bucket,
+               const string & object)
 {
     Response response = erase(bucket, object);
 
@@ -1118,7 +1607,7 @@ tryEraseObject(const std::string & bucket,
 
 void
 S3Api::
-eraseObject(const std::string & uri)
+eraseObject(const string & uri)
 {
     string bucket, object;
     std::tie(bucket, object) = parseUri(uri);
@@ -1127,35 +1616,35 @@ eraseObject(const std::string & uri)
 
 bool
 S3Api::
-tryEraseObject(const std::string & uri)
+tryEraseObject(const string & uri)
 {
     string bucket, object;
     std::tie(bucket, object) = parseUri(uri);
     return tryEraseObject(bucket, object);
 }
 
-std::string
+string
 S3Api::
-getPublicUri(const std::string & uri,
-             const std::string & protocol)
+getPublicUri(const string & uri,
+             const string & protocol)
 {
     string bucket, object;
     std::tie(bucket, object) = parseUri(uri);
     return getPublicUri(bucket, object, protocol);
 }
 
-std::string
+string
 S3Api::
-getPublicUri(const std::string & bucket,
-             const std::string & object,
-             const std::string & protocol)
+getPublicUri(const string & bucket,
+             const string & object,
+             const string & protocol)
 {
     return protocol + "://" + bucket + ".s3.amazonaws.com/" + object;
 }
 
-std::pair<std::string, std::string>
+std::pair<string, string>
 S3Api::
-parseUri(const std::string & uri)
+parseUri(const string & uri)
 {
     if (uri.find("s3://") != 0)
         throw ML::Exception("wrong scheme (should start with s3://)");
@@ -1203,8 +1692,6 @@ void S3Api::setDefaultBandwidthToServiceMbps(double mbps){
     S3Api::defaultBandwidthToServiceMbps = mbps;
 }
 
-HttpRestProxy S3Api::proxy;
-
 S3Api::Redundancy S3Api::defaultRedundancy = S3Api::REDUNDANCY_STANDARD;
 
 void
@@ -1223,10 +1710,10 @@ getDefaultRedundancy()
     return defaultRedundancy;
 }
 
-/** getEnv, but compatible with std::string.  Returns null string if not
+/** getEnv, but compatible with string.  Returns null string if not
     found.
 */
-static std::string getEnv(const char * varName)
+static string getEnv(const char * varName)
 {
     const char * val = getenv(varName);
     return val ? val : "";
@@ -1238,31 +1725,31 @@ static std::string getEnv(const char * varName)
 
 struct S3ExplicitCredentialProvider: public CredentialProvider {
 
-    std::vector<std::string> buckets;
+    std::vector<string> buckets;
     StoredCredentials cred;
 
     S3ExplicitCredentialProvider()
     {
     }
 
-    S3ExplicitCredentialProvider(std::string provider,
-                                 std::string id,
-                                 std::string secret,
-                                 std::vector<std::string> buckets,
+    S3ExplicitCredentialProvider(string provider,
+                                 string id,
+                                 string secret,
+                                 std::vector<string> buckets,
                                  double bandwidthToServiceMbps,
-                                 const std::string & protocol,
-                                 const std::string & serviceUri)
+                                 const string & protocol,
+                                 const string & serviceUri)
     {
         init(provider, id, secret, buckets, bandwidthToServiceMbps, protocol, serviceUri);
     }
 
-    void init(std::string provider,
-              std::string id,
-              std::string secret,
-              std::vector<std::string> buckets,
+    void init(string provider,
+              string id,
+              string secret,
+              std::vector<string> buckets,
               double bandwidthToServiceMbps = S3Api::defaultBandwidthToServiceMbps,
-              const std::string & protocol = "http",
-              const std::string & serviceUri = "s3.amazonaws.com")
+              const string & protocol = "http",
+              const string & serviceUri = "s3.amazonaws.com")
     {
         cred.resourceType = "aws:s3";
         cred.resource = "";
@@ -1276,7 +1763,7 @@ struct S3ExplicitCredentialProvider: public CredentialProvider {
     }
 
     virtual std::vector<StoredCredentials>
-    getCredentialsOfType(const std::string & resourceType) const
+    getCredentialsOfType(const string & resourceType) const
     {
         if (resourceType == "aws:s3")
             return { cred };
@@ -1384,7 +1871,7 @@ struct RegisterS3CredProvider {
         std::vector<StoredCredentials> creds;
 
         virtual std::vector<StoredCredentials>
-        getCredentialsOfType(const std::string & resourceType) const
+        getCredentialsOfType(const string & resourceType) const
         {
             if (disableCloudCredentials || resourceType != "aws:s3")
                 return {};
@@ -1418,12 +1905,12 @@ struct RegisterS3CredProvider {
     you can open it directly from s3.
 */
 
-void registerS3Bucket(const std::string & bucketName,
-                      const std::string & accessKeyId,
-                      const std::string & accessKey,
+void registerS3Bucket(const string & bucketName,
+                      const string & accessKeyId,
+                      const string & accessKey,
                       double bandwidthToServiceMbps,
-                      const std::string & protocol,
-                      const std::string & serviceUri)
+                      const string & protocol,
+                      const string & serviceUri)
 {
     CredentialProvider::registerProvider
         (std::make_shared<S3ExplicitCredentialProvider>
@@ -1432,11 +1919,11 @@ void registerS3Bucket(const std::string & bucketName,
           bandwidthToServiceMbps, protocol, serviceUri));
 }
 
-void registerS3Buckets(const std::string & accessKeyId,
-                       const std::string & accessKey,
+void registerS3Buckets(const string & accessKeyId,
+                       const string & accessKey,
                        double bandwidthToServiceMbps,
-                       const std::string & protocol,
-                       const std::string & serviceUri)
+                       const string & protocol,
+                       const string & serviceUri)
 {
     auto api = std::make_shared<S3Api>(accessKeyId, accessKey,
                                        bandwidthToServiceMbps,
@@ -1444,7 +1931,7 @@ void registerS3Buckets(const std::string & accessKeyId,
 
     vector<string> bucketNames;
 
-    auto onBucket = [&] (const std::string & bucketName)
+    auto onBucket = [&] (const string & bucketName)
         {
             bucketNames.push_back(bucketName);
             return true;
@@ -1470,7 +1957,7 @@ static double getBandwidth(const Credential & cred)
     else return S3Api::defaultBandwidthToServiceMbps;
 }
 
-std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri)
+std::shared_ptr<S3Api> getS3ApiForUri(const string & uri)
 {
     // Get the credentials
     auto creds = getCredential("aws:s3", uri);

@@ -152,12 +152,6 @@ struct HttpClient
                               queryParams, headers, timeout);
     }
 
-    /** Returns the number of requests in the queue */
-    size_t queuedRequests() const;
-
-    HttpClient & operator = (HttpClient && other) noexcept;
-
-private:
     /** Enqueue (or perform) the specified request */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
@@ -167,6 +161,12 @@ private:
                         const RestParams & headers,
                         int timeout = -1);
 
+    /** Returns the number of requests in the queue */
+    size_t queuedRequests() const;
+
+    HttpClient & operator = (HttpClient && other) noexcept;
+
+private:
     LegacyEventLoop & eventLoop_;
     std::shared_ptr<HttpClientImpl> impl_;
 };
