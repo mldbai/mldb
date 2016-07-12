@@ -180,4 +180,21 @@ class DatasetFunctionTest(MldbUnitTest):
 
         self.assertEqual(res, expected)
 
+    def test_row_dataset(self):
+
+        res = mldb.put('/v1/functions/bop', {
+            'type': 'sql.query',
+            'params': {
+                'query': "select * from row_dataset({x: 1, y:2, z: 'three'})"
+            }
+        })
+
+        res = mldb.query("select bop()")
+        mldb.log("here")
+        mldb.log(res)
+
+        expected = [["_rowName","bop().column","bop().value"],["result","x",1]]
+
+        self.assertEqual(res, expected)
+
 mldb.run_tests()
