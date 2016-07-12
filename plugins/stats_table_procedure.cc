@@ -343,7 +343,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTables;
     }
@@ -388,7 +388,7 @@ StatsTableFunction(MldbServer * owner,
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> statsTables;
 }
@@ -524,7 +524,7 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     // Load saved stats tables
-    filter_istream stream(runProcConf.modelFileUrl.toString());
+    filter_istream stream(runProcConf.modelFileUrl);
     ML::DB::Store_Reader store(stream);
 
     StatsTablesMap statsTables;
@@ -777,7 +777,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTable;
     }
@@ -832,7 +832,7 @@ StatsTablePosNegFunction(MldbServer * owner,
     StatsTable statsTable;
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> statsTable;
 

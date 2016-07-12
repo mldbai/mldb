@@ -1475,7 +1475,7 @@ struct TensorflowGraph: public TensorflowGraphBase {
 
         std::string graphContents;
 
-        filter_istream stream(functionConfig.modelFileUrl.toString());
+        filter_istream stream(functionConfig.modelFileUrl);
         modelTs = stream.info().lastModified;
         
         google::protobuf::io::IstreamInputStream pstream(&stream);

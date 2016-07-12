@@ -695,7 +695,7 @@ run(const ProcedureRunConfig & run,
         };
 
     if (!runProcConf.modelFileUrl.empty()) {
-        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+        checkWritability(runProcConf.modelFileUrl.toDecodedString(), "modelFileUrl");
     }
 
     int numBasisVectors = runProcConf.numDenseBasisVectors;
@@ -750,8 +750,8 @@ run(const ProcedureRunConfig & run,
 #endif
 
     if (!runProcConf.modelFileUrl.empty()) {
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toDecodedString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         jsonEncodeToStream(allSvd, stream);
     }
 
@@ -1062,7 +1062,7 @@ SvdEmbedRow(MldbServer * owner,
     : BaseT(owner)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
-    svd = std::move(jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toString()));
+    svd = std::move(jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString()));
 
     std::map<ColumnHash, SvdColumnIndexEntry> columnIndex2;
 

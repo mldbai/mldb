@@ -737,8 +737,9 @@ struct XlsxImporter: public Procedure {
                 return true;
             };
 
-        forEachUriObject("archive+" + runProcConf.dataFileUrl.toString(),
-                         onFile);
+        forEachUriObject(
+            "archive+" + runProcConf.dataFileUrl.toDecodedString(),
+            onFile);
 
         // Create the output dataset
 
@@ -751,7 +752,9 @@ struct XlsxImporter: public Procedure {
 
         // 4.  Load the worksheets, one by one
         for (auto & sheetEntry: workbook.sheets) {
-            Utf8String filename = "archive+" + runProcConf.dataFileUrl.toString() + "#xl/" + sheetEntry.filename;
+            Utf8String filename =
+                "archive+" + runProcConf.dataFileUrl.toDecodedString()
+                + "#xl/" + sheetEntry.filename;
             filter_istream sheetStream(filename.rawString());
 
             Sheet sheet(sheetStream.rdbuf(), workbook, strings, styles);

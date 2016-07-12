@@ -189,7 +189,8 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(tfidfconfig, run);
 
     if (!runProcConf.modelFileUrl.empty()) {
-        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+        checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                         "modelFileUrl");
     }
 
     SqlExpressionMldbScope context(server);
@@ -224,8 +225,9 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-            save(runProcConf.modelFileUrl.toString(), corpusSize, dfs);
+            Datacratic::makeUriDirectory(
+                runProcConf.modelFileUrl.toDecodedString());
+            save(runProcConf.modelFileUrl.toDecodedString(), corpusSize, dfs);
             saved = true;
         }
         catch (const std::exception & exc) {

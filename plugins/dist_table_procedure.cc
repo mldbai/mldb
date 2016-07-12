@@ -417,7 +417,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << distTablesMap;
     }
@@ -465,7 +465,7 @@ DistTableFunction(MldbServer * owner,
     functionConfig = config.params.convert<DistTableFunctionConfig>();
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> distTablesMap;
 

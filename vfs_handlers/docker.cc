@@ -263,7 +263,7 @@ struct DockerUrlFsHandler: UrlFsHandler {
 
     virtual FsObjectInfo tryGetInfo(const Url & url) const
     {
-        Utf8String dockerSource(url.toString());
+        Utf8String dockerSource(url.toDecodedString());
         if (!dockerSource.removePrefix("docker@"))
             throw ML::Exception("docker doesn't start with docker@");
 

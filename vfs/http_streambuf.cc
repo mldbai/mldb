@@ -347,7 +347,8 @@ struct HttpUrlFsHandler: UrlFsHandler {
                     return true;
                 };
         
-            resp = proxy.perform("HEAD", url.toString(), HttpRestProxy::Content(),
+            resp = proxy.perform("HEAD", url.toDecodedString(),
+                                 HttpRestProxy::Content(),
                                  {}, {}, 1.0, false, nullptr, onHeader,
                                  true /* follow redirects */);
             
