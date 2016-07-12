@@ -89,3 +89,7 @@ The following functions are available in the context of a column expression:
   to `columnPathElement(-1)` which will be `2`. If n is bigger than the number 
   of elements in the column path, NULL will be returned.
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.
+
+## See also
+
+* ![](%%nblink _tutorials/Selecting Columns Programmatically Using Column Expressions Tutorial)
