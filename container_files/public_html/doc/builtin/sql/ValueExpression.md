@@ -340,7 +340,11 @@ will change values on each row under consideration. See the [Intro to Datasets](
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
-- `hash(expr)` return the hash of the value in `expr`. See also [`rowHash()`](#rowHash).
+- `hash(expr)` returns a hash of the value of            `expr`.  Hashing a `null`
+  value will always return a `null`.  Internally, this uses
+  the [Highway Tree Hash](https://github.com/google/highwayhash) which is
+  claimed to be likely secure whilst retaining good speed.  See also
+  [`rowHash()`](#rowHash).
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the

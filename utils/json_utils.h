@@ -20,8 +20,9 @@ std::string jsonPrintAbbreviated(const Json::Value & val,
 
 /** Type used for the seed of a hash. */
 union HashSeed {
-    char b[16];
-    int64_t i64[2];
+    char b[32];
+    int64_t i64[4];
+    uint64_t u64[4];
 };
 
 /** Hash seed used by default for hashes that need to be stable over
@@ -31,7 +32,7 @@ union HashSeed {
 extern const HashSeed defaultSeedStable;
 
 /** Create a hash from the given JSON value, with the given hash seed.
-    This uses the SIP hash, which is collision resistant and can
+    This uses the highway hash, which is collision resistant and can
     prevent against DOS attacks.
 
     You should use the defaultSeedStable if you need the hash to be

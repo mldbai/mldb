@@ -15,15 +15,14 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "utils/json_utils.h"
-#include "mldb/ext/siphash/csiphash.h"
-#include "mldb/ext/cityhash/src/city.h"
+#include "mldb/ext/highwayhash.h"
 
 using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
 
-constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+constexpr HashSeed defaultSeedStable { .u64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 
 /*****************************************************************************/
@@ -115,7 +114,8 @@ call(FeatureGeneratorInput input) const
         }
         else if(functionConfig.mode == COLUMNS_AND_VALUES) {
             Utf8String str(columnName.toUtf8String() + "::" + val.toUtf8String());
-            hash = ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
+            // Keep sip hash so that old classifiers still work
+            hash = sipHash(defaultSeedStable.u64, str.rawData(), str.rawLength());
         }
         else {
             throw ML::Exception("Unsupported hashing mode");
