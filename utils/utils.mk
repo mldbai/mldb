@@ -2,7 +2,7 @@
 
 $(eval $(call library,config,config.cc,boost_program_options boost_locale))
 $(eval $(call library,log,log.cc, config))
-$(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types utils siphash))
+$(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types utils highwayhash))
 
 LIBCOMMAND_EXPRESSION_SOURCES := \
 	command.cc \

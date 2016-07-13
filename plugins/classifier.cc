@@ -185,7 +185,8 @@ run(const ProcedureRunConfig & run,
 
     // try to create output folder and write open a writer to make sure 
     // we have permissions before we do the actual training
-    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                     "modelFileUrl");
 
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
@@ -677,7 +678,7 @@ run(const ProcedureRunConfig & run,
 
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            classifier.save(runProcConf.modelFileUrl.toString());
+            classifier.save(runProcConf.modelFileUrl.toDecodedString());
         }
         JML_CATCH_ALL {
             rethrowHttpException(400, "Error saving classifier to '"
@@ -737,7 +738,7 @@ ClassifyFunction(MldbServer * owner,
 
     itl.reset(new Itl());
 
-    itl->classifier.load(functionConfig.modelFileUrl.toString());
+    itl->classifier.load(functionConfig.modelFileUrl.toDecodedString());
 
     itl->featureSpace = itl->classifier.feature_space<DatasetFeatureSpace>();
 

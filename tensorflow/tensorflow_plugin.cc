@@ -324,9 +324,11 @@ struct TensorflowGraphBase: public Function {
                     continue;
                 //cerr << "attr " << attr.first << " " << attr.second.DebugString()
                 //<< endl;
-                if (attr.first == "use_cudnn_on_gpu") {
-                    attr.second.set_b(false);
-                }
+
+                // TODO: interrogate to see if cudnn is available
+                //if (attr.first == "use_cudnn_on_gpu") {
+                //    attr.second.set_b(false);
+                //}
             }
             //for (const auto & input: node.input()) {
             //    cerr << "input " << input << endl;
@@ -1473,7 +1475,7 @@ struct TensorflowGraph: public TensorflowGraphBase {
 
         std::string graphContents;
 
-        filter_istream stream(functionConfig.modelFileUrl.toString());
+        filter_istream stream(functionConfig.modelFileUrl);
         modelTs = stream.info().lastModified;
         
         google::protobuf::io::IstreamInputStream pstream(&stream);

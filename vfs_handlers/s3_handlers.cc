@@ -34,7 +34,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     virtual FsObjectInfo getInfo(const Url & url) const
     {
         string bucket = url.host();
-        auto api = getS3ApiForUri(url.toString());
+        auto api = getS3ApiForUri(url.toDecodedString());
         auto bucketPath = S3Api::parseUri(url.original);
         return api->getObjectInfo(bucket, bucketPath.second);
     }
@@ -42,7 +42,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     virtual FsObjectInfo tryGetInfo(const Url & url) const
     {
         string bucket = url.host();
-        auto api = getS3ApiForUri(url.toString());
+        auto api = getS3ApiForUri(url.toDecodedString());
         auto bucketPath = S3Api::parseUri(url.original);
         return api->tryGetObjectInfo(bucket, bucketPath.second);
     }
@@ -54,7 +54,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     virtual bool erase(const Url & url, bool throwException) const
     {
         string bucket = url.host();
-        auto api = getS3ApiForUri(url.toString());
+        auto api = getS3ApiForUri(url.toDecodedString());
         auto bucketPath = S3Api::parseUri(url.original);
         if (throwException) {
             api->eraseObject(bucket, "/" + bucketPath.second);
@@ -569,7 +569,7 @@ struct StreamingUploadSource {
             //<< "threads!!! " << endl;
 
             startDate = Date::now();
-            for (unsigned i = 0;  i < metadata.numThreads;  ++i)
+            for (unsigned i = 0;  i < metadata.numRequests;  ++i)
                 tg.emplace_back(std::bind<void>(&Impl::runThread, this));
             current.init(0, chunkSize, 0);
         }
@@ -676,8 +676,6 @@ struct StreamingUploadSource {
                         //     << chunk.index << endl;
 
                         // Upload the data
-                        string md5 = md5HashToHex(chunk.data, chunk.size);
-
                         HttpRequestContent body(string(chunk.data, chunk.size));
                         auto putResult = owner->put(bucket, "/" + object,
                                                     ML::format("partNumber=%d&uploadId=%s",
@@ -810,7 +808,13 @@ struct RegisterS3Handler {
                 }
                 else if(name == "num-threads")
                 {
-                    md.numThreads = std::stoi(value);
+                    cerr << ("warning: use of obsolete 'num-threads' option"
+                             " key\n");
+                    md.numRequests = std::stoi(value);
+                }
+                else if(name == "num-requests")
+                {
+                    md.numRequests = std::stoi(value);
                 }
                 else {
                     cerr << "warning: skipping unknown S3 option "

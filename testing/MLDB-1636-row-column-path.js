@@ -46,16 +46,17 @@ var expected = [
          [
             "rowPath()",
             {
-               "path" : [ "examples", "3" ]
+               "path" : [ "examples", "4" ]
             },
             "-Inf"
          ],
          [ "rowPathElement(2)", null, "-Inf" ]
       ],
-      "rowHash" : "7ffd74ba46cf035e",
-      "rowName" : "examples.3"
+      "rowHash" : "dec1ca216cd01079",
+      "rowName" : "examples.4"
    }
 ];
+mldb.log(resp);
 assertEqual(resp, expected);
 
 

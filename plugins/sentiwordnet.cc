@@ -78,9 +78,10 @@ struct SentiWordNetImporter: public Procedure {
         enum SynsetScoreNames { POS, NEG, OBJ };
         typedef std::array<double, 3> SynsetScores;
 
-        auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
+        auto info = getUriObjectInfo(
+            runProcConf.dataFileUrl.toDecodedString());
 
-        filter_istream stream(runProcConf.dataFileUrl.toString());
+        filter_istream stream(runProcConf.dataFileUrl);
 
         std::shared_ptr<Dataset> outputDataset;
         if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {
