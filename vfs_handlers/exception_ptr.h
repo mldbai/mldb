@@ -1,7 +1,8 @@
-/* exception_ptr.h                                                 -*- C++ -*-
+/** exception_ptr.h                                                 -*- C++ -*-
    Wolfgang Sourdeau, July 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright (c) 2015 Datacratic. All rights reserved.
 
+   A class that provides thread-safe handling of exception_ptr.
 */
 
 #pragma once
@@ -10,13 +11,12 @@
 #include <mutex>
 
 
-namespace ML {
+namespace Datacratic {
 
 /****************************************************************************/
-/* EXCEPTIONPTR HANDLER                                                     */
+/* EXCEPTION PTR HANDLER                                                    */
 /****************************************************************************/
 
-/* This class provides thread-safe handling of exception-ptr. */
 struct ExceptionPtrHandler {
     bool hasException();
     void takeException(std::exception_ptr newPtr);

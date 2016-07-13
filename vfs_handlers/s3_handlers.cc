@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** s3_handlers.cc
     Jeremy Barnes, 3 July 2012
     Wolfgang Sourdeau, 7 July 2012
+    This file is part of MLDB.
     Copyright (c) 2012, 2016 Datacratic.  All rights reserved.
 
     S3 VFS handlers
@@ -20,6 +19,7 @@
 #include "mldb/types/url.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs_handlers/exception_ptr.h"
 #include "mldb/soa/service/s3.h"
 
 using namespace std;
@@ -122,6 +122,10 @@ struct AtInit {
 } atInit;
 
 
+/****************************************************************************/
+/* S3 DOWNLOADER                                                            */
+/****************************************************************************/
+
 size_t getTotalSystemMemory()
 {
     long pages = sysconf(_SC_PHYS_PAGES);
@@ -129,30 +133,353 @@ size_t getTotalSystemMemory()
     return pages * page_size;
 }
 
+struct S3Downloader {
+    S3Downloader(const S3Api * api,
+                 const string & bucket,
+                 const string & resource, // starts with "/", unescaped (buggy)
+                 ssize_t startOffset = 0, ssize_t endOffset = -1)
+        : api(api),
+          bucket(bucket), resource(resource),
+          offset(startOffset),
+          baseChunkSize(1024*1024), // start with 1MB and ramp up
+          closed(false),
+          readOffset(0),
+          readPartOffset(-1),
+          currentChunk(0),
+          requestedBytes(0),
+          currentRq(0),
+          activeRqs(0)
+    {
+        fileInfo = api->getObjectInfo(bucket, resource.substr(1));
+        if (!fileInfo) {
+            throw ML::Exception("missing object: " + resource);
+        }
+
+        if (endOffset == -1 || endOffset > fileInfo.size) {
+            endOffset = fileInfo.size;
+        }
+        downloadSize = endOffset - startOffset;
+
+        /* Maximum chunk size is what we can do in 3 seconds, up to 1% of
+           system memory. */
+        maxChunkSize = api->bandwidthToServiceMbps * 3.0 * 1000000;
+        size_t sysMemory = getTotalSystemMemory();
+        maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
+
+        /* The maximum number of concurrent requests is set depending on
+           the total size of the stream. */
+        maxRqs = 1;
+        if (fileInfo.size > 1024 * 1024)
+            maxRqs = 5;
+        if (fileInfo.size > 16 * 1024 * 1024)
+            maxRqs = 15;
+        if (fileInfo.size > 256 * 1024 * 1024)
+            maxRqs = 30;
+        chunks.resize(maxRqs);
+
+        /* Kick start the requests */
+        ensureRequests();
+    }
+
+    ~S3Downloader()
+    {
+        /* We ensure at runtime that "close" is called because it is mandatory
+           for the proper cleanup of active requests. Because "close" can
+           throw, we cannot however call it from the destructor. */
+        if (!closed) {
+            cerr << "destroying S3Downloader without invoking close()\n";
+            abort();
+        }
+    }
+
+    std::streamsize read(char * s, std::streamsize n)
+    {
+        if (closed) {
+            throw ML::Exception("invoking read() on a closed download");
+        }
+
+        if (endOfDownload()) {
+            return -1;
+        }
+
+        if (readPartOffset == -1) {
+            waitNextPart();
+        }
+        ensureRequests();
+
+        size_t toDo = min<size_t>(readPart.size() - readPartOffset,
+                                  n);
+        const char * start = readPart.c_str() + readPartOffset;
+        std::copy(start, start + toDo, s);
+
+        readPartOffset += toDo;
+        if (readPartOffset == readPart.size()) {
+            readPartOffset = -1;
+        }
+
+        readOffset += toDo;
+
+        return toDo;
+    }
+
+    uint64_t getDownloadSize()
+        const
+    {
+        return downloadSize;
+    }
+
+    bool endOfDownload()
+        const
+    {
+        return (readOffset == downloadSize);
+    }
+
+    void close()
+    {
+        closed = true;
+        while (activeRqs > 0) {
+            ML::futex_wait(activeRqs, activeRqs);
+        }
+        excPtrHandler.rethrowIfSet();
+    }
+
+    const FsObjectInfo & info()
+        const
+    {
+        return fileInfo;
+    }
+
+private:
+    /* download Chunk */
+    struct Chunk {
+        enum State {
+            IDLE,
+            QUERY,
+            RESPONSE
+        };
+
+        Chunk() noexcept
+            : state(IDLE)
+        {
+        }
+
+        Chunk(Chunk && other) noexcept
+            : state(other.state.load()),
+              data(std::move(other.data))
+        {
+        }
+
+        void setQuerying()
+        {
+            ExcAssertEqual(state, IDLE);
+            setState(QUERY);
+        }
+
+        void assign(string newData)
+        {
+            ExcAssertEqual(state, QUERY);
+            data = move(newData);
+            setState(RESPONSE);
+            ML::futex_wake(state);
+        }
+
+        std::string retrieve()
+        {
+            ExcAssertEqual(state, RESPONSE);
+            string chunkData = std::move(data);
+            setState(IDLE);
+            return std::move(chunkData);
+        }
+
+        void setState(int newState)
+        {
+            state = newState;
+            ML::futex_wake(state);
+        }
+
+        bool isIdle()
+            const
+        {
+            return (state == IDLE);
+        }
+
+        bool waitResponse(double timeout)
+            const
+        {
+            if (timeout > 0.0) {
+                int old = state;
+                if (state != RESPONSE) {
+                    ML::futex_wait(state, old, timeout);
+                }
+            }
+
+            return (state == RESPONSE);
+        }
+
+    private:
+        std::atomic<int> state;
+        string data;
+    };
+
+    void waitNextPart()
+    {
+        unsigned int chunkNr(currentChunk % maxRqs);
+        Chunk & chunk = chunks[chunkNr];
+        while (!excPtrHandler.hasException() && !chunk.waitResponse(1.0));
+        excPtrHandler.rethrowIfSet();
+        readPart = chunk.retrieve();
+        readPartOffset = 0;
+        currentChunk++;
+    }
+
+    void ensureRequests()
+    {
+        while (true) {
+            if (excPtrHandler.hasException()) {
+                break;
+            }
+            if (activeRqs == maxRqs) {
+                break;
+            }
+            ExcAssert(activeRqs < maxRqs);
+            if (requestedBytes == downloadSize) {
+                break;
+            }
+            ExcAssert(requestedBytes < downloadSize);
+
+            Chunk & chunk = chunks[currentRq % maxRqs];
+            if (!chunk.isIdle()) {
+                break;
+            }
+
+            ensureRequest();
+        }
+    }
+
+    void ensureRequest()
+    {
+        size_t chunkSize = getChunkSize(currentRq);
+        uint64_t end = requestedBytes + chunkSize;
+        if (end > fileInfo.size) {
+            end = fileInfo.size;
+            chunkSize = end - requestedBytes;
+        }
+
+        unsigned int chunkNr = currentRq % maxRqs;
+        Chunk & chunk = chunks[chunkNr];
+        activeRqs++;
+        chunk.setQuerying();
+
+        auto onResponse
+            = [&, chunkNr, chunkSize] (S3Api::Response && response,
+                                       std::exception_ptr excPtr) {
+            this->handleResponse(chunkNr, chunkSize, std::move(response), excPtr);
+        };
+        S3Api::Range range(offset + requestedBytes, chunkSize);
+        api->getAsync(onResponse, bucket, resource, range);
+        ExcAssertLess(currentRq, UINT_MAX);
+        currentRq++;
+        requestedBytes += chunkSize;
+    }
+
+    void handleResponse(unsigned int chunkNr, size_t chunkSize,
+                        S3Api::Response && response,
+                        std::exception_ptr excPtr)
+    {
+        try {
+            if (excPtr) {
+                rethrow_exception(excPtr);
+            }
+
+            if (response.code_ != 200 && response.code_ != 206) {
+                throw ML::Exception("http error "
+                                    + to_string(response.code_)
+                                    + " while getting chunk "
+                                    + response.bodyXmlStr());
+            }
+
+            /* It can sometimes happen that a file changes during download i.e
+               it is being overwritten. Make sure we check for this condition
+               and throw an appropriate exception. */
+            string chunkEtag = response.getHeader("etag");
+            if (chunkEtag != fileInfo.etag) {
+                throw ML::Exception("chunk etag '%s' differs from original"
+                                    " etag '%s' of file '%s'",
+                                    chunkEtag.c_str(), fileInfo.etag.c_str(),
+                                    resource.c_str());
+            }
+            ExcAssertEqual(response.body().size(), chunkSize);
+            Chunk & chunk = chunks[chunkNr];
+            chunk.assign(std::move(response.body_));
+        }
+        catch (const std::exception & exc) {
+            excPtrHandler.takeCurrentException();
+        }
+        activeRqs--;
+        ML::futex_wake(activeRqs);
+    }
+
+    size_t getChunkSize(unsigned int chunkNbr)
+        const
+    {
+        size_t chunkSize = std::min(baseChunkSize * (1 << (chunkNbr / 2)),
+                                    maxChunkSize);
+        return chunkSize;
+    }
+
+    /* static variables, set during or right after construction */
+    const S3Api * api;
+    std::string bucket;
+    std::string resource;
+    S3Api::ObjectInfo fileInfo;
+    uint64_t offset; /* the lower position in the file from which the download
+                      * is started */
+    uint64_t downloadSize; /* total number of bytes to download */
+    size_t baseChunkSize;
+    size_t maxChunkSize;
+
+    bool closed; /* whether close() was invoked */
+    ExceptionPtrHandler excPtrHandler; /* TODO: use promise/future instead */
+
+    /* read thread */
+    uint64_t readOffset; /* number of bytes from the entire stream that
+                          * have been returned to the caller */
+    string readPart; /* data buffer for the part of the stream being
+                      * transferred to the caller */
+    ssize_t readPartOffset; /* number of bytes from "readPart" that have
+                             * been returned to the caller, or -1 when
+                             * awaiting a new part */
+    unsigned int currentChunk; /* chunk being read */
+
+    /* http requests */
+    unsigned int maxRqs; /* maximum number of concurrent http requests */
+    uint64_t requestedBytes; /* total number of bytes that have been
+                              * requested, including the non-received ones */
+    vector<Chunk> chunks; /* chunks */
+    unsigned int currentRq;  /* number of done requests */
+    atomic<unsigned int> activeRqs; /* number of pending http requests */
+};
+
+
+/****************************************************************************/
+/* STREAMING DOWNLOAD SOURCE                                                */
+/****************************************************************************/
+
 struct StreamingDownloadSource {
     StreamingDownloadSource(const std::string & urlStr)
     {
-        impl.reset(new Impl());
-        impl->owner = getS3ApiForUri(urlStr);
-        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
-        impl->info = impl->owner->getObjectInfo(urlStr);
-        impl->baseChunkSize = 1024 * 1024;  // start with 1MB and ramp up
+        owner = getS3ApiForUri(urlStr);
 
-        int numThreads = 1;
-        if (impl->info.size > 1024 * 1024)
-            numThreads = 2;
-        if (impl->info.size > 16 * 1024 * 1024)
-            numThreads = 3;
-        if (impl->info.size > 256 * 1024 * 1024)
-            numThreads = 5;
-
-        impl->start(numThreads);
+        string bucket, resource;
+        std::tie(bucket, resource) = S3Api::parseUri(urlStr);
+        downloader.reset(new S3Downloader(owner.get(),
+                                          bucket, "/" + resource));
     }
 
     const FsObjectInfo & info()
     {
-        ExcAssert(impl);
-        return impl->info;
+        ExcAssert(downloader);
+        return downloader->info();
     }
 
     typedef char char_type;
@@ -163,250 +490,27 @@ struct StreamingDownloadSource {
         boost::iostreams::closable_tag
     { };
 
-    struct Impl {
-        Impl()
-            : baseChunkSize(0)
-        {
-            reset();
-        }
-
-        ~Impl()
-        {
-            stop();
-        }
-
-        /* static variables, set during or right after construction */
-        shared_ptr<S3Api> owner;
-        std::string bucket;
-        std::string object;
-        S3Api::ObjectInfo info;
-        size_t baseChunkSize;
-
-        /* variables set during or after "start" has been called */
-        size_t maxChunkSize;
-
-        atomic<bool> shutdown;
-        exception_ptr lastExc;
-
-        /* read thread */
-        uint64_t readOffset; /* number of bytes from the entire stream that
-                              * have been returned to the caller */
-
-        string readPart; /* data buffer for the part of the stream being
-                          * transferred to the caller */
-        ssize_t readPartOffset; /* number of bytes from "readPart" that have
-                                 * been returned to the caller, or -1 when
-                                 * awaiting a new part */
-        int readPartDone; /* the number of the chunk representing "readPart" */
-
-        /* http threads */
-        typedef ML::RingBufferSRMW<string> ThreadData;
-
-        int numThreads; /* number of http threads */
-        vector<thread> threads; /* thread pool */
-        vector<ThreadData> threadQueues; /* per-thread queue of chunk data */
-
-        /* cleanup all the variables that are used during reading, the
-           "static" ones are left untouched */
-        void reset()
-        {
-            shutdown = false;
-
-            readOffset = 0;
-
-            readPart = "";
-            readPartOffset = -1;
-            readPartDone = 0;
-
-            threadQueues.clear();
-            threads.clear();
-            numThreads = 0;
-        }
-
-        void start(int nThreads)
-        {
-            // Maximum chunk size is what we can do in 3 seconds
-            maxChunkSize = (owner->bandwidthToServiceMbps
-                            * 3.0 * 1000000);
-            size_t sysMemory = getTotalSystemMemory();
-
-            //cerr << "sysMemory = " << sysMemory << endl;
-            // Limit each chunk to 1% of system memory
-            maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
-            //cerr << "maxChunkSize = " << maxChunkSize << endl;
-            numThreads = nThreads;
-
-            for (int i = 0; i < numThreads; i++) {
-                threadQueues.emplace_back(2);
-            }
-
-            /* ensure that the queues are ready before the threads are
-               launched */
-            std::atomic_thread_fence(std::memory_order_release);
-
-            for (int i = 0; i < numThreads; i++) {
-                auto threadFn = [&] (int threadNum) {
-                    this->runThread(threadNum);
-                };
-                threads.emplace_back(threadFn, i);
-            }
-        }
-
-        void stop()
-        {
-            shutdown = true;
-            for (thread & th: threads) {
-                th.join();
-            }
-
-            reset();
-        }
-
-        /* reader thread */
-        std::streamsize read(char_type* s, std::streamsize n)
-        {
-            if (lastExc) {
-                rethrow_exception(lastExc);
-            }
-
-            if (readOffset == info.size)
-                return -1;
-
-            if (readPartOffset == -1) {
-                waitNextPart();
-            }
-
-            if (lastExc) {
-                rethrow_exception(lastExc);
-            }
-
-            size_t toDo = min<size_t>(readPart.size() - readPartOffset,
-                                      n);
-            const char_type * start = readPart.c_str() + readPartOffset;
-            std::copy(start, start + toDo, s);
-
-            readPartOffset += toDo;
-            if (readPartOffset == readPart.size()) {
-                readPartOffset = -1;
-            }
-
-            readOffset += toDo;
-
-            return toDo;
-        }
-
-        void waitNextPart()
-        {
-            int partThread = readPartDone % numThreads;
-            ThreadData & threadQueue = threadQueues[partThread];
-
-            /* We set a timeout to avoid dead locking when http threads have
-             * exited after an exception. */
-            while (!lastExc) {
-                if (threadQueue.tryPop(readPart, 1.0)) {
-                    break;
-                }
-            }
-
-            readPartOffset = 0;
-            readPartDone++;
-        }
-
-        /* download threads */
-        void runThread(int threadNum)
-        {
-            ThreadData & threadQueue = threadQueues[threadNum];
-
-            uint64_t start = 0;
-            unsigned int prevChunkNbr = 0;
-
-            try {
-                for (int loop = 0;; loop++) {
-                    /* number of the chunk that we need to process */
-                    unsigned int chunkNbr = loop * numThreads + threadNum;
-
-                    /* we adjust the offset by adding the chunk sizes of all
-                       the chunks downloaded between our previous loop until
-                       now */
-                    for (unsigned int i = prevChunkNbr; i < chunkNbr; i++) {
-                        start += getChunkSize(i);
-                    }
-
-                    if (start >= info.size) {
-                        /* we are done */
-                        return;
-                    }
-                    prevChunkNbr = chunkNbr;
-
-                    size_t chunkSize = getChunkSize(chunkNbr);
-                    uint64_t end = start + chunkSize;
-                    if (end > info.size) {
-                        end = info.size;
-                        chunkSize = end - start;
-                    }
-
-                    auto partResult
-                        = owner->get(bucket, "/" + object,
-                                     S3Api::Range(start, chunkSize));
-
-                    if (!(partResult.code_ == 200 || partResult.code_ == 206)) {
-                        throw ML::Exception("http error "
-                                            + to_string(partResult.code_)
-                                            + " while getting part "
-                                            + partResult.bodyXmlStr());
-                    }
-                    // it can sometimes happen that a file changes during download
-                    // i.e it is being overwritten. Make sure we check for this condition
-                    // and throw an appropriate exception
-                    string chunkEtag = partResult.getHeader("etag") ;
-                    if(chunkEtag != info.etag)
-                        throw ML::Exception("chunk etag %s not equal to file etag %s: file <%s> has changed during download!!", chunkEtag.c_str(), info.etag.c_str(), object.c_str());
-                    ExcAssert(partResult.body().size() == chunkSize);
-
-                    while (true) {
-                        if (shutdown || lastExc) {
-                            return;
-                        }
-                        if (threadQueue.tryPush(partResult.body())) {
-                            break;
-                        }
-                        else {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                        }
-                    }
-                }
-            }
-            catch (...) {
-                lastExc = current_exception();
-            }
-        }
-
-        size_t getChunkSize(unsigned int chunkNbr)
-            const
-        {
-            size_t chunkSize = std::min(baseChunkSize * (1 << (chunkNbr / 2)),
-                                        maxChunkSize);
-            return chunkSize;
-        }
-    };
-
-    std::shared_ptr<Impl> impl;
-
-    std::streamsize read(char_type* s, std::streamsize n)
+    std::streamsize read(char_type * s, std::streamsize n)
     {
-        return impl->read(s, n);
+        return downloader->read(s, n);
     }
 
     bool is_open() const
     {
-        return !!impl;
+        return !!downloader;
     }
 
     void close()
     {
-        impl.reset();
+        downloader->close();
+        downloader.reset();
     }
+
+private:
+    std::shared_ptr<S3Api> owner;
+    std::shared_ptr<S3Downloader> downloader;
 };
+
 
 std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
 makeStreamingDownload(const std::string & uri)
@@ -425,20 +529,235 @@ makeStreamingDownload(const std::string & bucket,
     return makeStreamingDownload("s3://" + bucket + "/" + object);
 }
 
-struct StreamingUploadSource {
 
+/****************************************************************************/
+/* S3 UPLOADER                                                              */
+/****************************************************************************/
+
+/* The "touch" functions below enable to preload "mmapped" files into RAM
+ * buffers, which significantly improves the performance of their upload. */
+inline void touchByte(const char * c)
+{
+    __asm__(" # [in]":: [in] "r" (*c):);
+}
+
+inline void touch(const char * start, size_t size)
+{
+    const char * current = start - (intptr_t) start % 4096;
+    if (current < start) {
+        current += 4096;
+    }
+    const char * end = start + size;
+    for (; current < end; current += 4096) {
+        touchByte(current);
+    }
+}
+
+
+struct S3Uploader {
+    S3Uploader(const S3Api * api,
+               const string & bucket,
+               const string & resource, // starts with "/", unescaped (buggy)
+               const OnUriHandlerException & excCallback,
+               const S3Api::ObjectMetadata & objectMetadata)
+        : api(api),
+          bucket(bucket), resource(resource),
+          metadata(objectMetadata),
+          onException(excCallback),
+          closed(false),
+          chunkSize(8 * 1024 * 1024), // start with 8MB and ramp up
+          currentRq(0),
+          activeRqs(0)
+    {
+        /* Maximum chunk size is what we can do in 3 seconds, up to 1% of
+           system memory. */
+        maxChunkSize = api->bandwidthToServiceMbps * 3.0 * 1000000;
+        size_t sysMemory = getTotalSystemMemory();
+        maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
+
+        try {
+            S3Api::MultiPartUpload upload
+              = api->obtainMultiPartUpload(bucket, resource, metadata,
+                                           S3Api::UR_EXCLUSIVE);
+            uploadId = upload.id;
+        }
+        JML_CATCH_ALL {
+            if (onException) {
+                onException();
+            }
+            throw;
+        }
+    }
+
+    ~S3Uploader()
+    {
+        /* We ensure at runtime that "close" is called because it is mandatory
+           for the proper cleanup of active requests. Because "close" can
+           throw, we cannot however call it from the destructor. */
+        if (!closed) {
+            cerr << "destroying S3Uploader without invoking close()\n";
+            abort();
+        }
+    }
+
+    std::streamsize write(const char * s, std::streamsize n)
+    {
+        std::streamsize done(0);
+
+        touch(s, n);
+
+        size_t remaining = chunkSize - current.size();
+        while (n > 0) {
+            if (excPtrHandler.hasException() && onException) {
+                onException();
+            }
+            excPtrHandler.rethrowIfSet();
+            size_t toDo = min(remaining, (size_t) n);
+            if (toDo < n) {
+                flush();
+                remaining = chunkSize - current.size();
+            }
+            current.append(s, toDo);
+            s += toDo;
+            n -= toDo;
+            done += toDo;
+            remaining -= toDo;
+        }
+
+        return done;
+    }
+
+    void flush(bool force = false)
+    {
+        if (!force) {
+            ExcAssert(current.size() > 0);
+        }
+        while (activeRqs == metadata.numRequests) {
+            ML::futex_wait(activeRqs, activeRqs);
+        }
+        if (excPtrHandler.hasException() && onException) {
+            onException();
+        }
+        excPtrHandler.rethrowIfSet();
+
+        unsigned int rqNbr(currentRq);
+        auto onResponse = [&, rqNbr] (S3Api::Response && response,
+                                      std::exception_ptr excPtr) {
+            this->handleResponse(rqNbr, std::move(response), excPtr);
+        };
+
+        unsigned int partNumber = currentRq + 1;
+        if (etags.size() < partNumber) {
+            etags.resize(partNumber);
+        }
+
+        activeRqs++;
+        api->putAsync(onResponse, bucket, resource,
+                      ML::format("partNumber=%d&uploadId=%s",
+                                 partNumber, uploadId),
+                      {}, {}, current);
+
+        if (currentRq % 5 == 0 && chunkSize < maxChunkSize)
+            chunkSize *= 2;
+
+        current.clear();
+        currentRq = partNumber;
+    }
+
+    void handleResponse(unsigned int rqNbr,
+                        S3Api::Response && response,
+                        std::exception_ptr excPtr)
+    {
+        try {
+            if (excPtr) {
+                rethrow_exception(excPtr);
+            }
+
+            if (response.code_ != 200) {
+                cerr << response.bodyXmlStr() << endl;
+                throw ML::Exception("put didn't work: %d", (int)response.code_);
+            }
+
+            string etag = response.getHeader("etag");
+            ExcAssert(etag.size() > 0);
+            etags[rqNbr] = etag;
+        }
+        catch (const std::exception & exc) {
+            excPtrHandler.takeCurrentException();
+        }
+        activeRqs--;
+        ML::futex_wake(activeRqs);
+    }
+
+    string close()
+    {
+        closed = true;
+        if (current.size() > 0) {
+            flush();
+        }
+        else if (currentRq == 0) {
+            /* for empty files, force the creation of a single empty part */
+            flush(true);
+        }
+        while (activeRqs > 0) {
+            ML::futex_wait(activeRqs, activeRqs);
+        }
+        if (excPtrHandler.hasException() && onException) {
+            onException();
+        }
+        excPtrHandler.rethrowIfSet();
+
+        string finalEtag;
+        try {
+            finalEtag = api->finishMultiPartUpload(bucket, resource,
+                                                   uploadId, etags);
+        }
+        JML_CATCH_ALL {
+            if (onException) {
+                onException();
+            }
+            throw;
+        }
+
+        return finalEtag;
+    }
+
+private:
+    const S3Api * api;
+    std::string bucket;
+    std::string resource;
+    S3Api::ObjectMetadata metadata;
+    OnUriHandlerException onException;
+
+    size_t maxChunkSize;
+    std::string uploadId;
+
+    /* state variables, used between "start" and "stop" */
+    bool closed; /* whether close() was invoked */
+    ExceptionPtrHandler excPtrHandler; /* TODO: use promise/future instead */
+
+    string current; /* current chunk data */
+    size_t chunkSize; /* current chunk size */
+    std::vector<std::string> etags; /* etags of individual chunks */
+    unsigned int currentRq;  /* number of done requests */
+    atomic<unsigned int> activeRqs; /* number of pending http requests */
+};
+
+
+/****************************************************************************/
+/* STREAMING UPLOAD SOURCE                                                  */
+/****************************************************************************/
+
+struct StreamingUploadSource {
     StreamingUploadSource(const std::string & urlStr,
                           const OnUriHandlerException & excCallback,
                           const S3Api::ObjectMetadata & metadata)
+        : owner(getS3ApiForUri(urlStr))
     {
-        impl.reset(new Impl());
-        impl->owner = getS3ApiForUri(urlStr);
-        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
-        impl->metadata = metadata;
-        impl->onException = excCallback;
-        impl->chunkSize = 8 * 1024 * 1024;  // start with 8MB and ramp up
-
-        impl->start();
+        string bucket, resource;
+        std::tie(bucket, resource) = S3Api::parseUri(urlStr);
+        uploader.reset(new S3Uploader(owner.get(), bucket, "/" + resource,
+                                      excCallback, metadata));
     }
 
     typedef char char_type;
@@ -449,282 +768,25 @@ struct StreamingUploadSource {
     {
     };
 
-    struct Impl {
-        Impl()
-            : offset(0), chunkIndex(0), shutdown(false),
-              chunks(16)
-        {
-        }
-
-        ~Impl()
-        {
-            //cerr << "destroying streaming upload at " << object << endl;
-            stop();
-        }
-
-        shared_ptr<S3Api> owner;
-        std::string bucket;
-        std::string object;
-        S3Api::ObjectMetadata metadata;
-        std::string uploadId;
-        size_t offset;
-        size_t chunkSize;
-        size_t chunkIndex;
-        atomic<bool> shutdown;
-        std::vector<std::thread> tg;
-
-        Date startDate;
-
-        struct Chunk {
-            Chunk() : data(nullptr)
-            {
-            }
-
-            Chunk(Chunk && other)
-                noexcept
-            {
-                this->offset = other.offset;
-                this->size = other.size;
-                this->capacity = other.capacity;
-                this->index = other.index;
-                this->data = other.data;
-
-                other.data = nullptr;
-            }
-
-            Chunk & operator = (Chunk && other)
-                noexcept
-            {
-                this->offset = other.offset;
-                this->size = other.size;
-                this->capacity = other.capacity;
-                this->index = other.index;
-                this->data = other.data;
-                other.data = nullptr;
-
-                return *this;
-            }
-
-            ~Chunk()
-                noexcept
-            {
-                if (this->data) {
-                    delete[] this->data;
-                }
-            }
-
-            void init(uint64_t offset, size_t capacity, int index)
-            {
-                this->offset = offset;
-                this->size = 0;
-                this->capacity = capacity;
-                this->index = index;
-                this->data = new char[capacity];
-            }
-
-            size_t append(const char * input, size_t n)
-            {
-                size_t todo = std::min(n, capacity - size);
-                std::copy(input, input + todo, data + size);
-                size += todo;
-                return todo;
-            }
-
-            char * data;
-            size_t size;
-            size_t capacity;
-            int index;
-            uint64_t offset;
-
-        private:
-            Chunk(const Chunk & other) {}
-            Chunk & operator = (const Chunk & other) { return *this; }
-        };
-
-        Chunk current;
-
-        ML::RingBufferSWMR<Chunk> chunks;
-
-        std::mutex etagsLock;
-        std::vector<std::string> etags;
-        std::exception_ptr exc;
-        OnUriHandlerException onException;
-
-        void start()
-        {
-            shutdown = false;
-            S3Api::MultiPartUpload upload;
-            try {
-                upload = owner->obtainMultiPartUpload(bucket, "/" + object,
-                                                      metadata,
-                                                      S3Api::UR_EXCLUSIVE);
-            }
-            catch (...) {
-                onException();
-                throw;
-            }
-
-            uploadId = upload.id;
-            //cerr << "uploadId = " << uploadId << " with " << metadata.numThreads
-            //<< "threads!!! " << endl;
-
-            startDate = Date::now();
-            for (unsigned i = 0;  i < metadata.numRequests;  ++i)
-                tg.emplace_back(std::bind<void>(&Impl::runThread, this));
-            current.init(0, chunkSize, 0);
-        }
-
-        void stop()
-        {
-            if (!shutdown) {
-                shutdown = true;
-                for (auto & t: tg)
-                    t.join();
-            }
-        }
-
-        std::streamsize write(const char_type* s, std::streamsize n)
-        {
-            if (exc)
-                std::rethrow_exception(exc);
-
-            size_t done = current.append(s, n);
-            offset += done;
-            if (done < n) {
-                flush();
-                done += current.append(s + done, n - done);
-            }
-
-            //cerr << "writing " << n << " characters returned "
-            //     << done << endl;
-
-            if (exc)
-                std::rethrow_exception(exc);
-
-            return done;
-        }
-
-        void flush()
-        {
-            if (current.size == 0) return;
-            chunks.push(std::move(current));
-            ++chunkIndex;
-
-            // Get bigger for bigger files
-            if (chunkIndex % 5 == 0 && chunkSize < 64 * 1024 * 1024)
-                chunkSize *= 2;
-
-            current.init(offset, chunkSize, chunkIndex);
-        }
-
-        void finish()
-        {
-            if (exc)
-                std::rethrow_exception(exc);
-            // cerr << "pushing last chunk " << chunkIndex << endl;
-            flush();
-
-            if (!chunkIndex) {
-                chunks.push(std::move(current));
-                ++chunkIndex;
-            }
-
-            //cerr << "waiting for everything to stop" << endl;
-            chunks.waitUntilEmpty();
-            //cerr << "empty" << endl;
-            stop();
-            //cerr << "stopped" << endl;
-
-            // Make sure that an exception in uploading the last chunk doesn't
-            // lead to a corrupt (truncated) file
-            if (exc)
-                std::rethrow_exception(exc);
-
-            string etag;
-            try {
-                etag = owner->finishMultiPartUpload(bucket, "/" + object,
-                                                    uploadId,
-                                                    etags);
-            }
-            catch (...) {
-                onException();
-                throw;
-            }
-            //cerr << "final etag is " << etag << endl;
-
-            if (exc)
-                std::rethrow_exception(exc);
-
-            // double elapsed = Date::now().secondsSince(startDate);
-
-            // cerr << "uploaded " << offset / 1024.0 / 1024.0
-            //      << "MB in " << elapsed << "s at "
-            //      << offset / 1024.0 / 1024.0 / elapsed
-            //      << "MB/s" << " to " << etag << endl;
-        }
-
-        void runThread()
-        {
-            while (!shutdown) {
-                Chunk chunk;
-                if (chunks.tryPop(chunk, 0.01)) {
-                    if (exc)
-                        return;
-                    try {
-                        //cerr << "got chunk " << chunk.index
-                        //     << " with " << chunk.size << " bytes at index "
-                        //     << chunk.index << endl;
-
-                        // Upload the data
-                        HttpRequestContent body(string(chunk.data, chunk.size));
-                        auto putResult = owner->put(bucket, "/" + object,
-                                                    ML::format("partNumber=%d&uploadId=%s",
-                                                               chunk.index + 1, uploadId),
-                                                    {}, {},
-                                                    body);
-                        if (putResult.code_ != 200) {
-                            cerr << putResult.bodyXmlStr() << endl;
-
-                            throw ML::Exception("put didn't work: %d", (int)putResult.code_);
-                        }
-                        string etag = putResult.getHeader("etag");
-                        // cerr << "successfully uploaded part " << chunk.index
-                        //     << " with etag " << etag << endl;
-
-                        std::unique_lock<std::mutex> guard(etagsLock);
-                        while (etags.size() <= chunk.index)
-                            etags.push_back("");
-                        etags[chunk.index] = etag;
-                    } catch (...) {
-                        // Capture exception to be thrown later
-                        exc = std::current_exception();
-                        onException();
-                    }
-                }
-                else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                }
-            }
-        }
-    };
-
-    std::shared_ptr<Impl> impl;
-
     std::streamsize write(const char_type* s, std::streamsize n)
     {
-        return impl->write(s, n);
+        return uploader->write(s, n);
     }
 
     bool is_open() const
     {
-        return !!impl;
+        return !!uploader;
     }
 
     void close()
     {
-        impl->finish();
-        impl.reset();
+        uploader->close();
+        uploader.reset();
     }
+
+private:
+    std::shared_ptr<S3Api> owner;
+    std::shared_ptr<S3Uploader> uploader;
 };
 
 std::unique_ptr<std::streambuf>

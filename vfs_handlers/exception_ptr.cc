@@ -1,18 +1,17 @@
-/* exception_ptr.cc
+/** exception_ptr.cc
    Wolfgang Sourdeau, July 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright (c) 2015 Datacratic. All rights reserved.
 
 */
 
 #include "exception_ptr.h"
 
-
 using namespace std;
-using namespace ML;
+using namespace Datacratic;
 
 
 /****************************************************************************/
-/* EXCEPTIONPTR HANDLER                                                     */
+/* EXCEPTION PTR HANDLER                                                    */
 /****************************************************************************/
 
 bool
