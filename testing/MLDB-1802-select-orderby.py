@@ -1,5 +1,5 @@
 # MLDB-1802-join-order-by.py
-# Mathieu Marquis Bolduc, 2016-12-07
+# Mathieu Marquis Bolduc, 2016-07-12
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
@@ -42,7 +42,7 @@ class DatasetFunctionTest(MldbUnitTest):
                     ["row_b", 2],
                     ["row_a", 1]]
 
-        self.assertEqual(res1, expected1)
-        self.assertEqual(res2, expected2)
+        self.assertTableResultEquals(res1, expected1)
+        self.assertTableResultEquals(res2, expected2)
 
 mldb.run_tests()
