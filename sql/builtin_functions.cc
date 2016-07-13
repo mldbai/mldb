@@ -3141,6 +3141,45 @@ BoundFunction hash(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerHashFunction(hash, "hash");
 
+BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 2);
+    auto outputInfo
+        = std::make_shared<UnknownRowValueInfo>();
+//     auto exec = [=] (const std::vector<ExpressionValue> & args,
+//                      const SqlRowScope & scope) -> ExpressionValue
+//     {
+//         // Should never reach this point. The flow should remain in
+//         // bindBuiltinFunction
+//         throw ML::Exception("Should not be here");
+//     };
+    auto bindBuiltinFunction = [=] (SqlBindingScope & scope,
+                            std::vector<BoundSqlExpression>& boundArgs,
+                            const SqlExpression * expr) ->  BoundSqlExpression
+    {
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+        {
+            ExcAssertEqual(boundArgs.size(), 2);
+            try {
+                //for (auto & a: boundArgs)
+                //    evaluatedArgs.emplace_back(std::move(a(row, GET_LATEST)));
+                return storage = std::move(boundArgs[0](row, GET_LATEST));
+            }
+            catch (const HttpReturnException & exc) {
+                return storage = std::move(boundArgs[1](row, GET_LATEST));
+            }
+            //return storage = std::move(fn(evaluatedArgs, row));
+        },
+        expr,
+        outputInfo};
+    };
+    return {bindBuiltinFunction};
+}
+
+static RegisterBuiltin registerTryFunction(tryFct, "try");
+
 
 } // namespace Builtins
 } // namespace MLDB

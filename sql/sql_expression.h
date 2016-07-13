@@ -309,6 +309,10 @@ struct ColumnGetter {
 struct BoundFunction {
     typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
                           const SqlRowScope & context) > Exec;
+    typedef std::function<
+        BoundSqlExpression (SqlBindingScope & scope,
+                            std::vector<BoundSqlExpression>& boundArgs,
+                            const SqlExpression * expr)> BindBuiltinFunction;
 
     BoundFunction()
         : filter(GET_LATEST)
@@ -332,17 +336,24 @@ struct BoundFunction {
     {
     }
 
+    BoundFunction(BindBuiltinFunction bindBuiltinFunction)
+        : bindBuiltinFunction(std::move(bindBuiltinFunction))
+    {
+    }
+
     operator bool () const { return !!exec; }
 
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
+    BindBuiltinFunction bindBuiltinFunction;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
     {
         return exec(args, context);
     }
+
 };
 
 
