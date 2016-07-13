@@ -8,6 +8,7 @@
     s3 bucket.
 */
 
+#include "mldb/arch/exception.h"
 #include "mldb/soa/service/s3.h"
 #include "mldb/vfs/filter_streams.h"
 #include <boost/program_options/cmdline.hpp>
