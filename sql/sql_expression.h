@@ -336,8 +336,13 @@ struct BoundFunction {
     {
     }
 
-    BoundFunction(BindBuiltinFunction bindBuiltinFunction)
-        : bindBuiltinFunction(std::move(bindBuiltinFunction))
+    // Use this ctor to have a BoundFunction that will override the call to
+    // bindBuiltinFunction. It can hence hence have the control flow when the
+    // expressions within are called.
+    BoundFunction(BindBuiltinFunction bindBuiltinFunction,
+                  std::shared_ptr<ExpressionValueInfo> resultInfo)
+        : resultInfo(resultInfo),
+          bindBuiltinFunction(std::move(bindBuiltinFunction))
     {
     }
 
@@ -346,6 +351,8 @@ struct BoundFunction {
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
+
+    // If defined, overrides the default bindBuiltinFunction call.
     BindBuiltinFunction bindBuiltinFunction;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
