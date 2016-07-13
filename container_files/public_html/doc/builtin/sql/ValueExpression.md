@@ -530,7 +530,7 @@ calculate
 
 The following functions are used to extract and process web data.
 
-- `extract_domain(str, {removeSubdomain: false}` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
 
 See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
 
