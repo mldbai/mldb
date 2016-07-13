@@ -82,8 +82,17 @@ struct JoinedDataset::Itl
             iter = source->rows.begin() + start;
         }
 
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            return iter->rowName;
+        }
+
         virtual RowName next() {
             return (iter++)->rowName;
+        }
+        
+        virtual void advance() {
+            ++iter;
         }
 
     private:

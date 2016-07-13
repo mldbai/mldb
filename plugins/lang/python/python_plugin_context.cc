@@ -12,6 +12,7 @@
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/base/optimized_path.h"
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <memory>
@@ -641,6 +642,28 @@ getScript()
     throw ML::Exception("Cannot call the script object in this context");
 }
 
+void MldbPythonContext::
+setPathOptimizationLevel(const std::string & val)
+{
+    std::string valLc;
+    for (auto c: val)
+        valLc += tolower(c);
+    int level = -1;
+    if (valLc == "always") {
+        level = OptimizedPath::ALWAYS;
+    }
+    else if (valLc == "never") {
+        level = OptimizedPath::NEVER;
+    }
+    else if (valLc == "sometimes") {
+        level = OptimizedPath::SOMETIMES;
+    }
+    else throw ML::Exception("Couldn't parse path optimization level '"
+                             + val + "': accepted are 'always', 'never' "
+                             "and 'sometimes'");
+
+    OptimizedPath::setDefault(level);
+}
 
 } // namespace MLDB
 } // namespace Datacratic

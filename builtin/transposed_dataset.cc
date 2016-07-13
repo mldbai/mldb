@@ -77,7 +77,16 @@ struct TransposedDataset::Itl
         }
 
         virtual RowName next() {
-            return TransposedDataset::Itl::colToRow(*(column_iterator++));             
+            return TransposedDataset::Itl::colToRow(*(column_iterator++));
+        }
+
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            return storage = TransposedDataset::Itl::colToRow(*column_iterator);
+        }
+
+        virtual void advance() {
+            column_iterator++;
         }
 
         //todo: suboptimal for large number of columns

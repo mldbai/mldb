@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** python_plugin_context.h                                        -*- C++ -*-
     Francois Maillet, 6 mars 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-
+    
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -266,6 +265,9 @@ struct MldbPythonContext {
 
     void setPlugin(std::shared_ptr<PythonPluginContext> plug);
     void setScript(std::shared_ptr<PythonScriptContext> scrp);
+
+    /** Set the path optimization level.  See base/optimized_path.h. */
+    void setPathOptimizationLevel(const std::string & level);
 
     std::shared_ptr<PythonPluginContext> plugin;
     std::shared_ptr<PythonScriptContext> script;
