@@ -1,6 +1,7 @@
 # VFS Handlers
 
 LIBVFS_HANDLERS_SOURCES := \
+	exception_ptr.cc \
 	sftp.cc \
 	s3_handlers.cc \
 	archive.cc \
