@@ -18,17 +18,6 @@ class DatasetFunctionTest(MldbUnitTest):
         ds.record_row("row2",[["x", "terminator", 0],["y", "2", 0]])
         ds.commit()
 
-        # load CSV dataset
-        print mldb.post('/v1/procedures', {
-            'type': 'import.text',
-            'params': {
-                'dataFileUrl': 'file://bid_req_2016-07-07_None_None.csv.gz',
-                'outputDataset': 'bid_req',
-                'runOnCreation': True,
-                'limit':5
-            }
-        })    
-
     def test_join_subselect_groupby(self):        
 
         res = mldb.query("select a.x from dataset1 as a INNER JOIN ( SELECT x from dataset1 GROUP BY x) as b ON a.x = b.x AND a.y != b.x")
