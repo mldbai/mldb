@@ -43,6 +43,8 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
             mldb.log(sequence)
             mldb_res = mldb.query("SELECT stddev(a) FROM rand")[1][1]
             numpy_res = float(numpy.var(sequence, ddof=1))
+            mldb.log("mldb:  {}".format(mldb_res))
+            mldb.log("numpy: {}".format(numpy_res))
             self.assertAlmostEqual(mldb_res, numpy_res)
             ds.delete()
             mldb.log("Success with a size of {}".format(size))
