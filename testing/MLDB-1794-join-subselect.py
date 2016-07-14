@@ -24,37 +24,20 @@ class DatasetFunctionTest(MldbUnitTest):
             'params': {
                 'dataFileUrl': 'file://bid_req_2016-07-07_None_None.csv.gz',
                 'outputDataset': 'bid_req',
-                'runOnCreation': True
+                'runOnCreation': True,
+                'limit':5
             }
         })    
 
     def test_join_subselect_groupby(self):        
 
-        res = mldb.query("select a.x from dataset1 as a INNER JOIN ( SELECT x from dataset1 GROUP BY x) as b ON a.x = b.x")
+        res = mldb.query("select a.x from dataset1 as a INNER JOIN ( SELECT x from dataset1 GROUP BY x) as b ON a.x = b.x AND a.y != b.x")
         mldb.log(res)
 
         expected = [["_rowName","a.x"],
                     ["\"[row2]-[\"\"[\"\"\"\"terminator\"\"\"\"]\"\"]\"","terminator"],
                     ["\"[row1]-[\"\"[\"\"\"\"toy story\"\"\"\"]\"\"]\"","toy story"]]
 
-        self.assertEqual(res, expected)
-
-    def test_join_subselect_groupby_csv(self):        
-
-        res = mldb.query("""
-                            SELECT a.pageViewId, a.cpm, a.bidderName
-                            FROM bid_req as a
-                            INNER JOIN (
-                                SELECT pageViewId, max(cpm) as cpm
-                                FROM bid_req
-                                GROUP BY pageViewId
-                            ) as b ON a.pageViewId = b.pageViewId AND a.cpm = b.cpm
-                            limit 5
-                        """)
-        mldb.log(res)
-
-        expected = []
-
-        self.assertEqual(res, expected)
+        self.assertEqual(res, expected)    
 
 mldb.run_tests()
