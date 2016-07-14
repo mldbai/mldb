@@ -28,5 +28,21 @@ class Mldb1808PrecisionLossIssue(MldbUnitTest):  # noqa
         res = mldb.query("SELECT {:.10f}".format(number))
         self.assertEqual(res[1][1], number)
 
+    @unittest.expectedFailure
+    def test_precision_in_agg(self):
+        ds = mldb.create_dataset({'id' : 'ds_agg', 'type' : 'sparse.mutable'})
+        number_1 =  71218.50311678024
+        number_2 = 255650.6226198759
+        ds.record_row('1', [['a', number_1, 0]])
+        ds.record_row('2', [['a', number_2, 0]])
+        ds.commit()
+
+        res = mldb.query("SELECT sum(a) FROM ds_agg")
+        self.assertEqual(res[1][1], number_1 + number_2)
+
+        res = mldb.query("SELECT avg(a) FROM ds_agg")
+        self.assertEqual(res[1][1], (number_1 + number_2) / 2)
+
+
 if __name__ == '__main__':
     mldb.run_tests()
