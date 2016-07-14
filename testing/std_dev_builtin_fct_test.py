@@ -30,8 +30,11 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
         mldb_res = mldb.query("SELECT vertical_stddev(a) FROM ds")[1][1]
         self.assertAlmostEqual(mldb_res, float_res)
 
-    @unittest.expectedFailure # Numerical instability is the problem
+    @unittest.expectedFailure # MLDB-1808
     def test_random_sequences(self):
+        """
+        Generate random sequences and compare the result with numpy.
+        """
         for size in xrange(2, 100):
             ds = mldb.create_dataset({'id' : 'rand', 'type' : 'tabular'})
             sequence = []
@@ -58,6 +61,19 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
 
         res = mldb.query("SELECT stddev(c) FROM null_ds")
         self.assertEqual(res[1][1], "NaN")
+
+    def test_some_numbers(self):
+        ds = mldb.create_dataset({'id' : 'some_numbers', 'type' : 'tabular'})
+        arr = ['a', 71218.50311678024, 0]
+        mldb.log(arr)
+        ds.record_row('1', [arr])
+        ds.record_row('2', [['a', 255650.6226198759, 0]])
+        ds.commit()
+        res = mldb.query("SELECT stddev(a) FROM some_numbers")
+        mldb.log(res)
+
+        res = mldb.query("SELECT a FROM some_numbers")
+        mldb.log(res)
 
 if __name__ == '__main__':
     mldb.run_tests()
