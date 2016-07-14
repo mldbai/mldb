@@ -310,3 +310,17 @@ It has the following methods defined:
 - `function.status()` returns the status of the function
 - `function.details()` returns the details of the function
 
+## Debugging
+
+The following are useful for debugging MLDB, but should not be used in normal
+use of MLDB:
+
+- `mldb.debugSetPathOptimizationLevel(level)` controls whether MLDB takes
+  optimized or generic paths.  It can be used to unit-test the equivalence
+  of optimized and non-optimized paths.  Setting to `"always"` (the default)
+  will make MLDB always use optimized implementations when possible.  Setting
+  to `"never"` has the opposite effect.  Setting to `"sometimes"` will
+  randomly and non-deterministically choose whether or not to use an
+  optimized path each time that one is encountered (50% probability of each).
+  Note that this setting applies to the entire MLDB instance, and so should
+  not be used in production.

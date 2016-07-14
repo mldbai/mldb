@@ -340,7 +340,11 @@ will change values on each row under consideration. See the [Intro to Datasets](
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
-- `hash(expr)` return the hash of the value in `expr`. See also [`rowHash()`](#rowHash).
+- `hash(expr)` returns a hash of the value of            `expr`.  Hashing a `null`
+  value will always return a `null`.  Internally, this uses
+  the [Highway Tree Hash](https://github.com/google/highwayhash) which is
+  claimed to be likely secure whilst retaining good speed.  See also
+  [`rowHash()`](#rowHash).
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
@@ -526,7 +530,7 @@ calculate
 
 The following functions are used to extract and process web data.
 
-- `extract_domain(str, {removeSubdomain: false}` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
 
 See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
 

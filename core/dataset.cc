@@ -70,6 +70,100 @@ struct SortByRowHash {
 
 
 /*****************************************************************************/
+/* ROW STREAM                                                                */
+/*****************************************************************************/
+
+std::vector<std::shared_ptr<RowStream> >
+RowStream::
+parallelize(int64_t rowStreamTotalRows,
+            ssize_t approxNumberOfChildStreams,
+            std::vector<size_t> * streamOffsets) const
+{
+    ExcAssert(rowStreamTotalRows > 0);
+
+    std::vector<std::shared_ptr<RowStream> > streams;
+    if (approxNumberOfChildStreams == -1)
+        approxNumberOfChildStreams = 32;
+    if (rowStreamTotalRows <= approxNumberOfChildStreams)
+        approxNumberOfChildStreams = 1;
+
+    size_t numPerStream = rowStreamTotalRows / approxNumberOfChildStreams;
+    ExcAssertGreater(numPerStream, 0);
+
+    if (streamOffsets)
+        streamOffsets->clear();
+
+    std::shared_ptr<RowStream> current = clone();
+
+    size_t startAt = 0;
+    for (size_t i = 0;  i < approxNumberOfChildStreams;  ++i) {
+        if (streamOffsets)
+            streamOffsets->push_back(startAt);
+        size_t endAt = std::min<size_t>(rowStreamTotalRows,
+                                        startAt + numPerStream);
+        //size_t n = endAt - startAt;
+        current->initAt(startAt);
+        streams.push_back(current);
+        current = current->clone();
+        startAt = endAt;
+    }
+    
+    if (streamOffsets)
+        streamOffsets->push_back(startAt);
+    
+    return streams;
+}
+
+void
+RowStream::
+advance()
+{
+    next();  // less efficient because we throw away the result
+}
+
+void
+RowStream::
+advanceBy(size_t n)
+{
+    while (n--)
+        advance();
+}
+
+bool
+RowStream::
+supportsExtendedInterface() const
+{
+    return false;
+}
+
+void
+RowStream::
+extractColumns(size_t numValues,
+               const std::vector<ColumnName> & columnNames,
+               CellValue * output)
+{
+    throw HttpReturnException(600, "unimplemented rowStream method");
+}
+    
+void
+RowStream::
+extractNumbers(size_t numValues,
+               const std::vector<ColumnName> & columnNames,
+               double * output)
+{
+    std::unique_ptr<CellValue[]> tmpOutput
+        (new CellValue[numValues * columnNames.size()]);
+
+    extractColumns(numValues, columnNames, tmpOutput.get());
+
+    for (size_t i = 0;  i < numValues * columnNames.size();  ++i) {
+        output[i] = tmpOutput[i].toDouble();
+    }
+}
+    
+
+
+/*****************************************************************************/
 /* DATASET                                                                   */
 /*****************************************************************************/
 
