@@ -32,6 +32,12 @@ class TryExceptBuiltinFct(MldbUnitTest):  # noqa
         """)
         self.assertEqual(res[1][1], 'err')
 
+        res = mldb.query("""
+            SELECT try(parse_json('coco'))
+        """)
+        self.assertRegexpMatches(
+            res[1][1],
+            "JSON passed to parse_json must be an object or an array")
 
 
 if __name__ == '__main__':

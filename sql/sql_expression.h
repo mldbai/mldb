@@ -312,7 +312,7 @@ struct BoundFunction {
     typedef std::function<
         BoundSqlExpression (SqlBindingScope & scope,
                             std::vector<BoundSqlExpression>& boundArgs,
-                            const SqlExpression * expr)> BindBuiltinFunction;
+                            const SqlExpression * expr)> BindFunction;
 
     BoundFunction()
         : filter(GET_LATEST)
@@ -339,10 +339,10 @@ struct BoundFunction {
     // Use this ctor to have a BoundFunction that will override the call to
     // bindBuiltinFunction. It can hence hence have the control flow when the
     // expressions within are called.
-    BoundFunction(BindBuiltinFunction bindBuiltinFunction,
+    BoundFunction(BindFunction bindFunction,
                   std::shared_ptr<ExpressionValueInfo> resultInfo)
         : resultInfo(resultInfo),
-          bindBuiltinFunction(std::move(bindBuiltinFunction))
+          bindFunction(std::move(bindFunction))
     {
     }
 
@@ -353,7 +353,7 @@ struct BoundFunction {
     VariableFilter filter; // allows function to filter variable as they need
 
     // If defined, overrides the default bindBuiltinFunction call.
-    BindBuiltinFunction bindBuiltinFunction;
+    BindFunction bindFunction;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
