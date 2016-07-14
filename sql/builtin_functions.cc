@@ -3161,7 +3161,7 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
                 try {
                     return storage = std::move(boundArgs[0](row, GET_LATEST));
                 }
-                catch (const ML::Exception & exc) {
+                catch (const std::exception & exc) {
                 }
                 return storage = std::move(boundArgs[1](row, GET_LATEST));
             },
@@ -3188,7 +3188,7 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
             try {
                 return storage = std::move(boundArgs[0](row, GET_LATEST));
             }
-            catch (const ML::Exception & exc) {
+            catch (const std::exception & exc) {
                 return storage = std::move(ExpressionValue(
                     ML::getExceptionString(), Date::negativeInfinity()));
             }

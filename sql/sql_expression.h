@@ -352,7 +352,7 @@ struct BoundFunction {
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
 
-    // If defined, overrides the default bindBuiltinFunction call.
+    // If defined, overrides the default bindFunction call.
     BindFunction bindFunction;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
@@ -360,7 +360,6 @@ struct BoundFunction {
     {
         return exec(args, context);
     }
-
 };
 
 
