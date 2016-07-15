@@ -64,17 +64,19 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
             else:
                 rx = abs(mldb_res - numpy_res) / numpy_res * 100
                 err = ''
-                if rx > 0.0000000000001:
+                # The diff % to consider MLDB is "too" off compared to numpy
+                if rx > 0.0000000000005:
                     err_cnt += 1
                     err = 'ERR'
                     mldb.log(sequence)
                 lines.append(
-                    '| {:>4} | {:>20f} | {:>20f} | {:>10.18f} | {:>10f} | {:^3} |'
+                    '| {:>4} | {:>20f} | {:>20f} | {:>.18f} | {:>10f} | {:^3} |'
                     .format(size, mldb_res, numpy_res, rx,
                             abs(mldb_res - numpy_res), err))
             mldb.delete('/v1/datasets/rand')
         mldb.log('\n'.join(lines))
         mldb.log(err_cnt)
+        self.assertEqual(err_cnt, 0)
 
 if __name__ == '__main__':
     mldb.run_tests()
