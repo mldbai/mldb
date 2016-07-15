@@ -3143,6 +3143,64 @@ BoundFunction hash(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerHashFunction(hash, "hash");
 
+BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
+{
+    auto outputInfo
+        = std::make_shared<UnknownRowValueInfo>();
+    if (args.size() == 2) {
+        // In case of error, this handler yields the second arg
+        auto bindFunction = [=] (SqlBindingScope & scope,
+                                 std::vector<BoundSqlExpression>& boundArgs,
+                                 const SqlExpression * expr) ->  BoundSqlExpression
+        {
+            return {[=] (const SqlRowScope & row,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter) -> const ExpressionValue &
+            {
+                ExcAssertEqual(boundArgs.size(), 2);
+                try {
+                    return storage = std::move(boundArgs[0](row, GET_LATEST));
+                }
+                catch (const std::exception & exc) {
+                }
+                return storage = std::move(boundArgs[1](row, GET_LATEST));
+            },
+            expr,
+            outputInfo};
+        };
+        return {bindFunction, outputInfo};
+    }
+
+    if (args.size() != 1) {
+        throw HttpReturnException(400, "requires one or two arguments");
+    }
+
+    // In case of error, this handler yields the exception message
+    auto bindFunction = [=] (SqlBindingScope & scope,
+                             std::vector<BoundSqlExpression>& boundArgs,
+                             const SqlExpression * expr) ->  BoundSqlExpression
+    {
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+        {
+            ExcAssertEqual(boundArgs.size(), 1);
+            try {
+                return storage = std::move(boundArgs[0](row, GET_LATEST));
+            }
+            catch (const std::exception & exc) {
+                return storage = std::move(ExpressionValue(
+                    ML::getExceptionString(), Date::negativeInfinity()));
+            }
+        },
+        expr,
+        outputInfo};
+    };
+    return {bindFunction, outputInfo};
+}
+
+static RegisterBuiltin registerTryFunction(tryFct, "try");
+
 
 } // namespace Builtins
 } // namespace MLDB

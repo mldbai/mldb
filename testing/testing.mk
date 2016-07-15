@@ -402,6 +402,7 @@ $(eval $(call mldb_unit_test,MLDB-1781-path-flattening.js))
 $(eval $(call mldb_unit_test,MLDB-1601-unclosed-string-error-message.js))
 $(eval $(call mldb_unit_test,builtin_hash_fct_test.py))
 $(eval $(call mldb_unit_test,MLDB-1792_aggregator_error_message.py))
+$(eval $(call mldb_unit_test,try_except_builtin_fct.py))
 $(eval $(call mldb_unit_test,MLDB-1808_precision_loss_issue.py))
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
