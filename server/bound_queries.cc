@@ -1345,6 +1345,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
                       const std::vector<ExpressionValue>& row)
     {
         for (size_t i = 0;  i < outputAgg.size();  ++i) {
+            ExcAssert(argOffset + outputAgg[i].inputIndex + outputAgg[i].numInputs <= row.size());
             outputAgg[i].aggregate
                 .process(&row[argOffset + outputAgg[i].inputIndex],
                          outputAgg[i].numInputs,
@@ -1406,7 +1407,6 @@ BoundGroupByQuery(const SelectExpression & select,
     for (auto & expr : aggregatorsExpr)
     {
         auto fn = dynamic_cast<const FunctionCallExpression *>(expr.get());
-
         //Important: This assumes they are in the same order as in the group context
         for (auto & a: fn->args) {
            calc.emplace_back(a);
