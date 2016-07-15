@@ -9,7 +9,6 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class Mldb1808PrecisionLossIssue(MldbUnitTest):  # noqa
 
-    @unittest.expectedFailure
     def test_precision_through_dataset(self):
         number = 71218.50311678024
         data = ['a', number, 0]
@@ -28,7 +27,6 @@ class Mldb1808PrecisionLossIssue(MldbUnitTest):  # noqa
         res = mldb.query("SELECT {:.10f}".format(number))
         self.assertEqual(res[1][1], number)
 
-    @unittest.expectedFailure
     def test_precision_in_agg(self):
         ds = mldb.create_dataset({'id' : 'ds_agg', 'type' : 'sparse.mutable'})
         number_1 =  71218.50311678024
