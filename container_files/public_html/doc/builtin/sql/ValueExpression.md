@@ -688,7 +688,7 @@ You can also take a look at the ![](%%nblink _tutorials/Executing JavaScript Cod
 
 When a function is given invalid input, the whole query fails and no result is
 returned. The `try` function is meant to handle those cases. The first argument
-is the function you want to "try" to apply. The optional second argument is
+is the expression you want to "try" to apply. The optional second argument is
 what will be done if an error is encountered. It can be any value expression
 including other functions and other `try`. If no second argument is given, the
 error is returned.
