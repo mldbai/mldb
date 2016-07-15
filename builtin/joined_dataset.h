@@ -16,6 +16,11 @@
 namespace Datacratic {
 namespace MLDB {
 
+ enum JoinSide {
+    JOIN_SIDE_LEFT = 0,
+    JOIN_SIDE_RIGHT,
+    JOIN_SIDE_MAX
+};
 
 /*****************************************************************************/
 /* JOINED DATASET CONFIG                                                     */
@@ -73,6 +78,19 @@ struct JoinedDataset: public Dataset {
     virtual int getChainedJoinDepth() const;
 
 private:
+
+    BoundFunction
+    overrideFunctionFromSide(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const;
+
+    BoundFunction
+    overrideFunctionFromChild(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const;
+
     JoinedDatasetConfig datasetConfig;
     struct Itl;
     std::shared_ptr<Itl> itl;
