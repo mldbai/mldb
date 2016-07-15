@@ -59,7 +59,7 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
 
             mldb_res = mldb.query("SELECT stddev(a) FROM rand")[1][1]
             numpy_res = float(numpy.var(sequence, ddof=1))
-            if (numpy == 0):
+            if (numpy_res == 0):
                 mldb.log("Skipping case where numpy_re == 0")
             else:
                 rx = abs(mldb_res - numpy_res) / numpy_res * 100
