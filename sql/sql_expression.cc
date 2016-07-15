@@ -237,7 +237,7 @@ doGetFunction(const Utf8String & tableName,
     if (functionName == "rightRowPath")
         throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
     
-    return {nullptr, nullptr};
+    return BoundFunction();
 }
 
 //These are functions in table expression, i.e. in FROM clauses
