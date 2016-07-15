@@ -329,7 +329,7 @@ struct StrConstructableIdFromPython
             id = to_string(boost::python::extract<int>(obj_ptr)());
         }
         else if (PyFloat_Check(obj_ptr)) {
-            id = to_string(boost::python::extract<float>(obj_ptr)());
+            id = to_string(boost::python::extract<double>(obj_ptr)());
         }
         else if (PyUnicode_Check(obj_ptr) || PyString_Check(obj_ptr)) {
             if (PyUnicode_Check(obj_ptr)) {
