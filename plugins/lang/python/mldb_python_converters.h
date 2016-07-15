@@ -103,8 +103,8 @@ struct CellValueConverter
             new (storage) CellValue(val);
         }
         else if (PyFloat_Check(obj_ptr)) {
-            float val = boost::python::extract<float>(obj_ptr);
-//             cerr << "   recording val as FLOAT: " << val << endl;
+            double val = boost::python::extract<double>(obj_ptr);
+//             cerr << "   recording val as DOUBLE: " << val << endl;
             new (storage) CellValue(val);
         }
         else if (PyUnicode_Check(obj_ptr) || PyString_Check(obj_ptr)) {
