@@ -64,16 +64,22 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
 
     def test_some_numbers(self):
         ds = mldb.create_dataset({'id' : 'some_numbers', 'type' : 'tabular'})
-        arr = ['a', 71218.50311678024, 0]
+        number_1 = 71218.50311678024
+        number_2 = 255650.6226198759
+        arr = ['a', number_1, 0]
         mldb.log(arr)
         ds.record_row('1', [arr])
-        ds.record_row('2', [['a', 255650.6226198759, 0]])
+        ds.record_row('2', [['a', number_2, 0]])
         ds.commit()
         res = mldb.query("SELECT stddev(a) FROM some_numbers")
         mldb.log(res)
 
-        res = mldb.query("SELECT a FROM some_numbers")
-        mldb.log(res)
+        res = mldb.query("SELECT a FROM some_numbers ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'a'],
+            ['1', number_1],
+            ['2', number_2]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()
