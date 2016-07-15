@@ -346,6 +346,7 @@ $(eval $(call mldb_unit_test,MLDB-1594-aggregator-empty-row.py))
 $(eval $(call mldb_unit_test,MLDB-1707-no-context-resolve-table.py))
 $(eval $(call mldb_unit_test,MLDB-1706-horizontal.py))
 $(eval $(call mldb_unit_test,MLDB-1603-nonprintable-chars-json.js))
+$(eval $(call mldb_unit_test,MLDBFB-638-groupby-orderby-transform.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
