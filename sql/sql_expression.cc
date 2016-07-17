@@ -24,6 +24,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/value_description.h"
+#include "mldb/jml/utils/string_functions.h"
 
 #include <mutex>
 

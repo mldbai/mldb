@@ -42,7 +42,7 @@ class MldbFb573(MldbUnitTest):
 
     def test_null_arrays(self):
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-            'got: NULL'):
+            'NULL value found'):
             mldb.query("SELECT parse_json(x, {arrays: parse}) from sample")
 
     def test_parse_empty_list(self):

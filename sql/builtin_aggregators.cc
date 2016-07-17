@@ -209,27 +209,50 @@ struct AggregatorT {
                 return;
             }
             const ExpressionValue & val = args[0];
-            const auto & row = val.getStructured();
 
             // Check if the column names or number don't match, and
             // pessimize back to the sparse version if it's the case.
-            bool needToPessimize = row.size() != columnNames.size();
-            for (unsigned i = 0;  i < columnNames.size() && !needToPessimize;
-                 ++i) {
-                needToPessimize = columnNames[i] != std::get<0>(row[i]);
-            }
+            bool needToPessimize = columnNames.size() != val.rowLength();
 
-            if (needToPessimize) {
-                pessimize();
-                fallback->process(args, nargs);
-            }
+            // Counts how many of the elements we've done so far
+            size_t n = 0;
 
-            // Names and number of columns matches.  We can go ahead
-            // and process everything on the fast path.
-            int64_t n = 0;
-            for (auto & col: row) {
-                columnState[n++].process(&std::get<1>(col), 1);
-            }
+            // Set of values we skipped because we just discovered that
+            // we need to pessimize.
+            StructValue skipped;
+
+            auto onColumn = [&] (const PathElement & columnName,
+                                 const ExpressionValue & val)
+                {
+                    if (needToPessimize || n > columnNames.size()
+                        || columnNames[n] != columnName) {
+                        needToPessimize = true;
+                        skipped.emplace_back(columnName, val);
+                    }
+                    else {
+                        // Names and number of columns matches.  We can go ahead
+                        // and process everything on the fast path.
+                        columnState[n].process(&val, 1);
+                    }
+                    ++n;
+                    return true;
+                };
+
+            val.forEachColumn(onColumn);
+
+            if (!needToPessimize)
+                return;
+
+            // Our list of column names or their order has changed.  Too bad;
+            // we'll have to move to a sparse format.
+            pessimize();
+
+            // We have processed some rows but not others (those that still
+            // need to be processed are in skipped).  Here we pessimize, and
+            // then pass in a new value with just the unprocessed ones in it.
+            vector<ExpressionValue> newArgs{ std::move(skipped) };
+
+            fallback->process(newArgs.data(), newArgs.size());
         }
 
         ExpressionValue extract()
@@ -369,6 +392,13 @@ struct AggregatorT {
                      rowInfo };
         }
         else {
+            // ExpressionValues will always sort their columns, so do so here
+            // so we don't just mess up the ordering.
+            if (!std::is_sorted(denseColumnNames.begin(),
+                                denseColumnNames.end()))
+                std::sort(denseColumnNames.begin(),
+                          denseColumnNames.end());
+            
             // Use an optimized version, assuming everything comes in in the
             // same order as the first row.  We may need to pessimize
             // afterwards

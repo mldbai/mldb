@@ -685,7 +685,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     return true;
                 } catch (...) {
-                    rethrowHttpException(-1, "Executing non-grouped query bound to row: " + ML::getExceptionString(),
+                    rethrowHttpException(KEEP_HTTP_CODE,
+                                         "Executing non-grouped query bound to row: " + ML::getExceptionString(),
                                          "row", row,
                                          "rowHash", rows[rowNum],
                                          "rowNum", rowNum);
