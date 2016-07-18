@@ -10,17 +10,12 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/table_expression_operations.h"
+#include "mldb/sql/join_utils.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"
 
 namespace Datacratic {
 namespace MLDB {
-
- enum JoinSide {
-    JOIN_SIDE_LEFT = 0,
-    JOIN_SIDE_RIGHT,
-    JOIN_SIDE_MAX
-};
 
 /*****************************************************************************/
 /* JOINED DATASET CONFIG                                                     */
