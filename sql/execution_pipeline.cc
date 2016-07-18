@@ -368,6 +368,12 @@ takeAll(std::function<bool (std::shared_ptr<PipelineResults> &)> onResult)
     return true;
 }
 
+std::shared_ptr<PipelineResults> 
+ElementExecutor::
+takeColumn()
+{
+    throw HttpReturnException(500, "Element Executor " + ML::type_name(*this) + " does not allow taking columns");
+}
 /*****************************************************************************/
 /* PIPELINE ELEMENT                                                          */
 /*****************************************************************************/
@@ -397,6 +403,8 @@ std::shared_ptr<PipelineElement>
 PipelineElement::
 params(std::function<std::shared_ptr<ExpressionValueInfo> (const Utf8String & name)> getParamInfo)
 {
+    ExcAssert(shared_from_this());
+    ExcAssert(getParamInfo);
     return std::make_shared<ParamsElement>(shared_from_this(), std::move(getParamInfo));
 }
 

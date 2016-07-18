@@ -270,6 +270,7 @@ $(eval $(call mldb_unit_test,MLDB-1452-like-operator.py))
 $(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
 $(eval $(call mldb_unit_test,MLDB-1595-count-distinct.py))
 $(eval $(call mldb_unit_test,MLDB-1639-join-where.py))
+$(eval $(call mldb_unit_test,MLDB-1675-pipeline-dataset-function.py))
 $(eval $(call mldb_unit_test,MLDB-1661-function-name-conflict.py))
 $(eval $(call mldb_unit_test,MLDB-1710-left-right-rowname.py))
 

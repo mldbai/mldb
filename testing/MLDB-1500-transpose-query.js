@@ -184,5 +184,26 @@ mldb.log(res.json.error)
 assertEqual(res.json.error, "Non-aggregator 'horizontal_count({*})' with GROUP BY clause is not allowed",
             "Did not get the expected error");
 
+//MLDB-1575
+
+res = mldb.put('/v1/functions/bop3', {
+    'type': 'sql.query',
+    'params': {
+        'query': "select * from transpose((select $x))"
+    }
+})
+
+expected = [
+   [ "_rowName", "bop3({x : 'a'}).result" ],
+   [ "result", "a" ]
+];
+
+res = mldb.get('/v1/query', { q: "select bop3({x : 'a'})", format: 'table' });
+
+mldb.log(res.json)
+
+assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+            "output was not the same as expected output in pipeline executor");
+
 "success"
 

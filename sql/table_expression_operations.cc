@@ -55,6 +55,16 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
                                        offset, limit);
         };
 
+    //Todo: Column Generator? To avoid doing the getColumnNames all over again
+    result.table.getColumn = [=] (ssize_t offset) -> MatrixColumn
+    {
+        std::vector<ColumnName> columnNames = cols->getColumnNames();
+        if (offset >= columnNames.size())
+            return MatrixColumn();
+        else
+            return cols->getColumn(columnNames[offset]);
+    };
+
     result.table.getChildAliases = [=] ()
         {
             std::vector<Utf8String> aliases;
@@ -538,6 +548,7 @@ BoundTableExpression
 DatasetFunctionExpression::
 bind(SqlBindingScope & context) const
 {
+    //binding args
     std::vector<BoundTableExpression> boundArgs;
     for (auto arg : args)
         boundArgs.push_back(arg->bind(context));
@@ -547,6 +558,7 @@ bind(SqlBindingScope & context) const
         expValOptions = options->constantValue();
     }
 
+    //getting function
     auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);
 
     if (!fn)

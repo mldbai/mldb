@@ -233,6 +233,9 @@ struct TableOperations {
                                      ssize_t limit)>
     runQuery;
 
+    std::function<MatrixColumn (size_t offset)>
+    getColumn;
+
     /// What aliases (sub-dataset names) does this dataset contain?
     /// Normally used in a join
     std::function<std::vector<Utf8String> () > getChildAliases;

@@ -9,6 +9,7 @@
 
 #include "execution_pipeline.h"
 #include "join_utils.h"
+#include "mldb/utils/compact_vector.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -66,6 +67,7 @@ struct GenerateRowsExecutor: public ElementExecutor {
 
     std::shared_ptr<Dataset> dataset;
     BasicRowGenerator generator;
+    std::function<MatrixColumn (size_t offset)> columnGenerator;
     BoundParameters params;
 
     std::vector<NamedRowValue> current;
@@ -75,6 +77,8 @@ struct GenerateRowsExecutor: public ElementExecutor {
     bool generateMore(SqlRowScope & scope);
 
     virtual std::shared_ptr<PipelineResults> take();
+
+    std::shared_ptr<PipelineResults> takeColumn();
 
     virtual void restart();
 };
@@ -177,7 +181,13 @@ struct SubSelectExecutor: public ElementExecutor {
 
     virtual std::shared_ptr<PipelineResults> take();
 
+    virtual std::shared_ptr<PipelineResults> takeColumn();
+
     virtual void restart();
+
+    std::shared_ptr<std::vector<std::shared_ptr<PipelineResults> > > rows;
+    std::vector<PathElement> columnNames;
+    int columnIndex;
 };
 
 
@@ -322,8 +332,11 @@ struct JoinElement: public PipelineElement {
 
     std::shared_ptr<PipelineElement> leftImpl;
     std::shared_ptr<PipelineElement> rightImpl;
+    std::shared_ptr<PipelineElement> leftRaw;
+    std::shared_ptr<PipelineElement> rightRaw;
 
     struct Bound;
+    struct JoinTransposeExecutor;
 
     /** Execution runs over all left rows for each right row.  The complexity is
         therefore O(left rows) * O(right rows).  The canonical example of this
@@ -333,14 +346,20 @@ struct JoinElement: public PipelineElement {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
                           std::shared_ptr<ElementExecutor> left,
-                          std::shared_ptr<ElementExecutor> right);
+                          std::shared_ptr<ElementExecutor> right,
+                          std::shared_ptr<ElementExecutor> leftRaw,
+                          std::shared_ptr<ElementExecutor> rightRaw);
 
         const Bound * parent;
-        std::shared_ptr<ElementExecutor> root, left, right;
+        std::shared_ptr<ElementExecutor> root, left, right, leftRaw, rightRaw;
         
         std::shared_ptr<PipelineResults> l,r;
+
+        std::shared_ptr<JoinTransposeExecutor> transpose_;
             
         virtual std::shared_ptr<PipelineResults> take();
+
+        virtual std::shared_ptr<PipelineResults> takeColumn();
 
         void restart();
     };
@@ -358,16 +377,21 @@ struct JoinElement: public PipelineElement {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
                          std::shared_ptr<ElementExecutor> left,
-                         std::shared_ptr<ElementExecutor> right);
+                         std::shared_ptr<ElementExecutor> right,
+                         std::shared_ptr<ElementExecutor> leftRaw,
+                         std::shared_ptr<ElementExecutor> rightRaw);
 
         const Bound * parent;
-        std::shared_ptr<ElementExecutor> root, left, right;
-        
+        std::shared_ptr<ElementExecutor> root, left, right, leftRaw, rightRaw;        
         std::shared_ptr<PipelineResults> l,r;
+
+        std::shared_ptr<JoinTransposeExecutor> transpose_;
 
         void takeMoreInput();
             
         virtual std::shared_ptr<PipelineResults> take();
+
+        virtual std::shared_ptr<PipelineResults> takeColumn();
 
         virtual void restart();
     };
@@ -381,12 +405,16 @@ struct JoinElement: public PipelineElement {
         Bound(std::shared_ptr<BoundPipelineElement> root,
               std::shared_ptr<BoundPipelineElement> left,
               std::shared_ptr<BoundPipelineElement> right,
+              std::shared_ptr<BoundPipelineElement> leftRaw,
+              std::shared_ptr<BoundPipelineElement> rightRaw,
               AnnotatedJoinCondition condition,
               JoinQualification joinQualification);
 
         std::shared_ptr<BoundPipelineElement> root_;
         std::shared_ptr<BoundPipelineElement> left_;
         std::shared_ptr<BoundPipelineElement> right_;
+        std::shared_ptr<BoundPipelineElement> leftRaw_;
+        std::shared_ptr<BoundPipelineElement> rightRaw_;
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         BoundSqlExpression crossWhere_;
         AnnotatedJoinCondition condition_;
@@ -409,6 +437,27 @@ struct JoinElement: public PipelineElement {
             output context is the same as its input context.
         */
         virtual std::shared_ptr<PipelineExpressionScope> outputScope() const;
+       
+    };
+
+    struct JoinTransposeExecutor {
+
+        JoinTransposeExecutor(ElementExecutor& joinExecutor, 
+                              std::shared_ptr<ElementExecutor> leftRaw, 
+                              std::shared_ptr<ElementExecutor> rightRaw);
+
+        std::shared_ptr<PipelineResults> take();
+
+        ElementExecutor& joinExecutor;
+        std::shared_ptr<ElementExecutor> leftRaw;
+        std::shared_ptr<ElementExecutor> rightRaw;
+
+        int side;
+
+        typedef std::map<RowHash, compact_vector<RowName, 1> > SideRowIndex;
+
+        SideRowIndex leftRowIndex;
+        SideRowIndex rightRowIndex;
     };
 
     std::shared_ptr<BoundPipelineElement>
@@ -799,6 +848,101 @@ struct ParamsElement: public PipelineElement {
     };
 
     std::shared_ptr<BoundPipelineElement> bind() const;
+};
+
+/*****************************************************************************/
+/* TRANSPOSE LEXICAL SCOPE                                                   */
+/*****************************************************************************/
+
+struct TransposeLexicalScope: public TableLexicalScope {
+
+    TransposeLexicalScope(std::shared_ptr<PipelineExpressionScope> inner,
+                          std::shared_ptr<RowValueInfo> rowInfo,
+                          Utf8String asName_);
+
+    std::shared_ptr<PipelineExpressionScope> inner;
+
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
+
+    virtual GetAllColumnsOutput
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOffset);
+
+    virtual std::set<Utf8String> tableNames() const;
+
+    virtual std::vector<std::shared_ptr<ExpressionValueInfo> >
+    outputAdded() const;
+};
+
+/*****************************************************************************/
+/* DATASET FUNCTION ELEMENT                                                  */
+/*****************************************************************************/
+
+struct DatasetFunctionElement : public PipelineElement {
+
+    DatasetFunctionElement(std::shared_ptr<PipelineElement> source,
+                           std::shared_ptr<DatasetFunctionExpression> function,
+                           GetParamInfo getParamInfo);
+
+    std::shared_ptr<PipelineElement> source_;
+    std::shared_ptr<DatasetFunctionExpression> function_;
+
+    std::shared_ptr<PipelineElement> pipeline;
+    std::shared_ptr<PipelineElement> pipelineRight;
+
+    struct TransposeExecutor: public ElementExecutor {
+        TransposeExecutor(std::shared_ptr<ElementExecutor> subpipeline);
+        virtual std::shared_ptr<PipelineResults> take();
+        virtual std::shared_ptr<PipelineResults> takeColumn();
+        virtual void restart();
+
+        std::shared_ptr<ElementExecutor> subpipeline_;
+    };
+
+    struct MergeExecutor: public ElementExecutor {
+        MergeExecutor(std::shared_ptr<ElementExecutor> subpipelineLeft,
+                      std::shared_ptr<ElementExecutor> subpipelineRight);
+        virtual std::shared_ptr<PipelineResults> take();
+        virtual void restart();
+
+        std::shared_ptr<ElementExecutor> subpipelineLeft_;
+        std::shared_ptr<ElementExecutor> subpipelineRight_;
+
+        std::shared_ptr<PipelineResults> left;
+        std::shared_ptr<PipelineResults> right;
+    };
+
+    struct Bound: public BoundPipelineElement {
+        Bound(std::shared_ptr<BoundPipelineElement> source, 
+              std::shared_ptr<BoundPipelineElement> subpipeline,
+              const Utf8String& asName,
+              const Utf8String& functionName);
+        Bound(std::shared_ptr<BoundPipelineElement> source, 
+              std::shared_ptr<BoundPipelineElement> subpipeline, 
+              std::shared_ptr<BoundPipelineElement> subpipelineRight, 
+              const Utf8String& asName, 
+              const Utf8String& functionName);
+
+        std::shared_ptr<BoundPipelineElement> source_;
+        std::shared_ptr<BoundPipelineElement> subpipeline_;
+        std::shared_ptr<BoundPipelineElement> subpipelineRight_;
+        Utf8String asName_;
+        Utf8String functionName_;
+        std::shared_ptr<PipelineExpressionScope> outputScope_;
+
+        std::shared_ptr<ElementExecutor>
+        start(const BoundParameters & getParam) const;
+
+        virtual std::shared_ptr<BoundPipelineElement>
+        boundSource() const;
+
+        virtual std::shared_ptr<PipelineExpressionScope> outputScope() const;
+
+        std::shared_ptr<PipelineExpressionScope> createOuputScope();
+    };
+
+    std::shared_ptr<BoundPipelineElement> bind() const;
+
 };
 
 } // namespace MLDB
