@@ -1171,8 +1171,12 @@ static CellValue binaryModulus(const CellValue & la, const CellValue & ra)
 struct BinaryPlusOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
+        if (l.empty()) {
             return l;
+        }
+        if (r.empty()) {
+            return r;
+        }
         return binaryPlus(l, r);
     }
 
@@ -1187,8 +1191,12 @@ struct BinaryPlusOp {
 struct BinaryMinusOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
+        if (l.empty()) {
             return l;
+        }
+        if (r.empty()) {
+            return r;
+        }
         return binaryMinus(l, r);
     }
 
@@ -1203,8 +1211,12 @@ struct BinaryMinusOp {
 struct BinaryMultiplicationOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
+        if (l.empty()) {
             return l;
+        }
+        if (r.empty()) {
+            return r;
+        }
         return binaryMultiplication(l, r);
     }
 
@@ -1219,8 +1231,12 @@ struct BinaryMultiplicationOp {
 struct BinaryDivisionOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
+        if (l.empty()) {
             return l;
+        }
+        if (r.empty()) {
+            return r;
+        }
         return binaryDivision(l, r);
     }
 
@@ -1235,8 +1251,12 @@ struct BinaryDivisionOp {
 struct BinaryModulusOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
+        if (l.empty()) {
             return l;
+        }
+        if (r.empty()) {
+            return r;
+        }
         return binaryModulus(l, r);
     }
 
