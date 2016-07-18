@@ -138,7 +138,7 @@ class TokenizeTest(MldbUnitTest):  # noqa
         result = mldb.get(
             '/v1/query',
             q="""SELECT tokenize('I would want a burger',
-                                 {splitchars: ' ', ngram_range: {1, 3}, min_token_length:2})
+                                 {splitchars: ' ', ngram_range: [1, 3], min_token_length:2})
                         AS tokens""")
         self.find_column(result, "tokens.would_want_burger", 1)
         self.find_column(result, "tokens.burger", 1)
@@ -150,7 +150,7 @@ class TokenizeTest(MldbUnitTest):  # noqa
         result = mldb.get(
             '/v1/query',
             q="""SELECT tokenize('I would want a burger I would want a burger',
-                                 {splitchars: ' ', ngram_range: {3, 3}, min_token_length:2})
+                                 {splitchars: ' ', ngram_range: [3, 3], min_token_length:2})
                         AS tokens""")
         self.find_column(result, "tokens.would_want_burger", 2)
         self.not_find_column(result, "tokens.would_want")
@@ -167,7 +167,7 @@ class TokenizeTest(MldbUnitTest):  # noqa
             mldb.get(
                 '/v1/query',
                 q="""SELECT tokenize('I would want a burger',
-                                     {splitchars: ' ', ngram_range: {-2, 8}})
+                                     {splitchars: ' ', ngram_range: [-2, 8]})
                             AS tokens""")
 
     def test_tokenize_to_print_json(self):

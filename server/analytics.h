@@ -15,7 +15,7 @@
 #include <functional>
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/sql/expression_value.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/sql/sql_expression_operations.h"
 
 namespace Datacratic {
@@ -48,6 +48,20 @@ struct RowProcessor {
     bool operator () (NamedRowValue & output) {return processorfct(output);}
 };
 
+struct RowProcessorExpr {
+    std::function<bool (Path & rowName,
+                        ExpressionValue & output,
+                        std::vector<ExpressionValue> & calc)> processorfct;
+    bool processInParallel;
+
+    bool operator () (Path & rowName,
+                      ExpressionValue & output,
+                      std::vector<ExpressionValue> & calc)
+    {
+        return processorfct(rowName, output, calc);
+    }
+};
+
 struct RowProcessorEx {
     std::function<bool (NamedRowValue & output, const std::vector<ExpressionValue> & calc)> processorfct;
     bool processInParallel;
@@ -58,7 +72,7 @@ struct RowProcessorEx {
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-void iterateDataset(const SelectExpression & select,
+bool iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -72,7 +86,22 @@ void iterateDataset(const SelectExpression & select,
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-void iterateDataset(const SelectExpression & select,
+bool iterateDatasetExpr(const SelectExpression & select,
+                        const Dataset & from,
+                        const Utf8String & alias,
+                        const WhenExpression & when,
+                        const SqlExpression & where,
+                        std::vector<std::shared_ptr<SqlExpression> > calc,
+                        RowProcessorExpr processor,
+                        const OrderByExpression & orderBy,
+                        ssize_t offset,
+                        ssize_t limit,
+                        std::function<bool (const Json::Value &)> onProgress);
+
+/** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
+    row is passed to the aggregator.
+*/
+bool iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String& alias,
                     const WhenExpression & when,
@@ -85,7 +114,7 @@ void iterateDataset(const SelectExpression & select,
                     std::function<bool (const Json::Value &)> onProgress = nullptr);
 
 /** Full select function, with grouping. */
-void iterateDatasetGrouped(const SelectExpression & select,
+bool iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String& alias,
                            const WhenExpression & when,
@@ -135,7 +164,7 @@ getEmbedding(const SelectStatement & stm,
    you should be running this function under an SqlExpressionMldbScope.
  */
 std::vector<MatrixNamedRow>
-queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope);
+queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope);
 
 /** Select from the given statement.  This will choose the most
     appropriate execution method based upon what is in the query.
@@ -144,7 +173,23 @@ queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope);
     See the comment above if you have errors inside this function.
 */
 std::vector<MatrixNamedRow>
-queryFromStatement(SelectStatement & stm,
+queryFromStatement(const SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params = nullptr);
+
+/** Select from the given statement.  This will choose the most
+    appropriate execution method based upon what is in the query.
+
+    The scope should be a clean scope, not requiring any row scope.
+    See the comment above if you have errors inside this function.
+
+    Will return the results one by one, and will stop when the
+    onRow function returns false.  Returns false if one of the
+    onRow calls returned false, or true otherwise.
+*/
+bool
+queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                   const SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params = nullptr);
 

@@ -143,7 +143,7 @@ struct JsonScope : SqlExpressionMldbScope {
         {
             const auto & row = scope.as<JsonRowScope>();
             StructValue result;
-            result.reserve(row.expr.getStructured().size());
+            result.reserve(row.expr.rowLength());
 
             const auto onCol = [&] (const PathElement & columnName,
                                     const ExpressionValue & val)

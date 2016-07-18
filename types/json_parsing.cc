@@ -1506,6 +1506,8 @@ int
 StructuredJsonParsingContext::
 expectInt()
 {
+    if (current->isNull() || !current->isConvertibleTo(Json::intValue))
+        exception("Integer was expected; instead got '" + current->toStringNoNewLine() + "'");
     return current->asInt();
 }
 
@@ -1513,6 +1515,8 @@ unsigned int
 StructuredJsonParsingContext::
 expectUnsignedInt()
 {
+    if (current->isNull() || !current->isConvertibleTo(Json::uintValue))
+        exception("Unsigned integer was expected; instead got '" + current->toStringNoNewLine() + "'");
     return current->asUInt();
 }
 
@@ -1520,6 +1524,8 @@ long
 StructuredJsonParsingContext::
 expectLong()
 {
+    if (current->isNull() || !current->isConvertibleTo(Json::intValue))
+        exception("Integer was expected; instead got '" + current->toStringNoNewLine() + "'");
     return current->asInt();
 }
 
@@ -1527,6 +1533,8 @@ unsigned long
 StructuredJsonParsingContext::
 expectUnsignedLong()
 {
+    if (current->isNull() || !current->isConvertibleTo(Json::uintValue))
+        exception("Unsigned integer was expected; instead got '" + current->toStringNoNewLine() + "'");
     return current->asUInt();
 }
 
@@ -1534,6 +1542,8 @@ long long
 StructuredJsonParsingContext::
 expectLongLong()
 {
+    if (current->isNull() || !current->isConvertibleTo(Json::intValue))
+        exception("Integer was expected; instead got '" + current->toStringNoNewLine() + "'");
     return current->asInt();
 }
 
@@ -1541,6 +1551,8 @@ unsigned long long
 StructuredJsonParsingContext::
 expectUnsignedLongLong()
 {
+    if (current->isNull() || !current->isConvertibleTo(Json::uintValue))
+        exception("Unsigned integer was expected; instead got '" + current->toStringNoNewLine() + "'");
     return current->asUInt();
 }
 
@@ -1548,6 +1560,8 @@ float
 StructuredJsonParsingContext::
 expectFloat()
 {
+    if (current->isNull())
+        exception("NULL found where floating point value expected");
     return current->asDouble();
 }
 
@@ -1555,6 +1569,8 @@ double
 StructuredJsonParsingContext::
 expectDouble()
 {
+    if (current->isNull())
+        exception("NULL found where floating point value expected");
     return current->asDouble();
 }
 

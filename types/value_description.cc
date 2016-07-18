@@ -106,14 +106,14 @@ std::vector<std::shared_ptr<const ValueDescription> >
 ValueDescription::
 getTupleElementDescriptions() const
 {
-    throw ML::Exception("type '" + typeName + "' is not a tuple");
+    throw ML::Exception("type '" + typeName + "' is not a tuple " + ML::type_name(*this));
 }
 
 size_t
 ValueDescription::
 getTupleLength() const
 {
-    throw ML::Exception("type '" + typeName + "' is not a tuple");
+    throw ML::Exception("type '" + typeName + "' is not a tuple " + ML::type_name(*this));
 }
 
 const void *
@@ -639,6 +639,22 @@ getArrayElementDescription(const void * val, uint32_t element) const
 {
     ExcAssert(impl);
     return impl->getArrayElementDescription(val, element);
+}
+
+size_t
+BridgedValueDescription::
+getTupleLength() const
+{
+    ExcAssert(impl);
+    return impl->getTupleLength();
+}
+
+std::vector<std::shared_ptr<const ValueDescription> >
+BridgedValueDescription::
+getTupleElementDescriptions() const
+{
+    ExcAssert(impl);
+    return impl->getTupleElementDescriptions();
 }
 
 void

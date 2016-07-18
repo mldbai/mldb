@@ -14,6 +14,7 @@
 
 namespace Datacratic {
 
+
 void parallelMap(size_t first, size_t last,
                  const std::function<void (size_t)> & doWork,
                  int occupancyLimit)
@@ -21,7 +22,7 @@ void parallelMap(size_t first, size_t last,
     ExcAssertGreaterEqual(last, first);
     ExcAssertLess((last - first), 1ULL << 31);
 
-    std::atomic<int> has_exc(0);
+    std::atomic<int> hasException(0);
     std::atomic<size_t> index(first);
     std::mutex exc_mutex;
     std::exception_ptr exc;
@@ -36,14 +37,14 @@ void parallelMap(size_t first, size_t last,
 
     auto worker = [&] ()
         {
-            while (!has_exc.load(std::memory_order_relaxed)) {
+            while (!hasException.load(std::memory_order_relaxed)) {
                 size_t myindex = index.fetch_add(1);
                 if (myindex >= last)
                     return;
                 try {
                     doWork(myindex);
                 } JML_CATCH_ALL {
-                    if (has_exc.fetch_add(1) == 0) {
+                    if (hasException.fetch_add(1) == 0) {
                         ExcAssert(!exc);
                         exc = std::current_exception();
                     }
@@ -65,6 +66,65 @@ void parallelMap(size_t first, size_t last,
         std::rethrow_exception(exc);
 }
 
+bool parallelMapHaltable(size_t first, size_t last,
+                         const std::function<bool (size_t)> & doWork,
+                         int occupancyLimit)
+{
+    ExcAssertGreaterEqual(last, first);
+    ExcAssertLess((last - first), 1ULL << 31);
+
+    std::atomic<int> hasException(0);
+    std::atomic<int> stop(0);
+    std::atomic<size_t> index(first);
+    std::mutex exc_mutex;
+    std::exception_ptr exc;
+
+    // This creates a thread pool that runs jobs on the default thread pool
+    ThreadPool tp;
+
+    if (occupancyLimit == -1)
+        occupancyLimit = numCpus();
+    if (occupancyLimit > (last - first))
+        occupancyLimit = (last - first);
+
+    auto worker = [&] ()
+        {
+            while (!stop.load(std::memory_order_relaxed)
+                   && !hasException.load(std::memory_order_relaxed)) {
+                size_t myindex = index.fetch_add(1);
+                if (myindex >= last)
+                    return;
+                try {
+                    if (!doWork(myindex)) {
+                        stop = true;
+                        return;
+                    }
+                } JML_CATCH_ALL {
+                    if (hasException.fetch_add(1) == 0) {
+                        ExcAssert(!exc);
+                        exc = std::current_exception();
+                    }
+                    return;
+                }
+            }
+        };
+
+    // Leave one set of work for this thread to do directly
+    for (int i = 0;  i < occupancyLimit - 1;  ++i)
+        tp.add(worker);
+    
+    // Do work until there is nothing left to do
+    worker();
+
+    // Wait for the rest of the work to be done
+    tp.waitForAll();
+
+    if (exc)
+        std::rethrow_exception(exc);
+
+    return !stop;
+}
+
 
 void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
                         const std::function<void (size_t, size_t)> & doWork,
@@ -74,7 +134,7 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
     ExcAssertGreater(last, first);
     ExcAssertLess((last - first) / chunkSize, 1ULL << 31);
 
-    std::atomic<int> has_exc(0);
+    std::atomic<int> hasException(0);
     std::atomic<size_t> index(first);
     std::mutex exc_mutex;
     std::exception_ptr exc;
@@ -89,7 +149,7 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
 
     auto worker = [&] ()
         {
-            while (!has_exc.load(std::memory_order_relaxed)) {
+            while (!hasException.load(std::memory_order_relaxed)) {
                 size_t myindex = index.fetch_add(chunkSize);
                 if (myindex >= last)
                     return;
@@ -97,7 +157,7 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
                 try {
                     doWork(myindex, indexEnd);
                 } JML_CATCH_ALL {
-                    if (has_exc.fetch_add(1) == 0) {
+                    if (hasException.fetch_add(1) == 0) {
                         ExcAssert(!exc);
                         exc = std::current_exception();
                     }

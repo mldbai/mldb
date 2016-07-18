@@ -949,6 +949,9 @@ struct AtInit {
         mldb.add_property("script", &MldbPythonContext::getScript);
         mldb.add_property("plugin", &MldbPythonContext::getPlugin);
 
+        mldb.def("debugSetPathOptimizationLevel",
+                 &MldbPythonContext::setPathOptimizationLevel);
+
         /****
          *  Functions
          *  **/

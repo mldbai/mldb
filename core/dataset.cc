@@ -70,6 +70,100 @@ struct SortByRowHash {
 
 
 /*****************************************************************************/
+/* ROW STREAM                                                                */
+/*****************************************************************************/
+
+std::vector<std::shared_ptr<RowStream> >
+RowStream::
+parallelize(int64_t rowStreamTotalRows,
+            ssize_t approxNumberOfChildStreams,
+            std::vector<size_t> * streamOffsets) const
+{
+    ExcAssert(rowStreamTotalRows > 0);
+
+    std::vector<std::shared_ptr<RowStream> > streams;
+    if (approxNumberOfChildStreams == -1)
+        approxNumberOfChildStreams = 32;
+    if (rowStreamTotalRows <= approxNumberOfChildStreams)
+        approxNumberOfChildStreams = 1;
+
+    size_t numPerStream = rowStreamTotalRows / approxNumberOfChildStreams;
+    ExcAssertGreater(numPerStream, 0);
+
+    if (streamOffsets)
+        streamOffsets->clear();
+
+    std::shared_ptr<RowStream> current = clone();
+
+    size_t startAt = 0;
+    for (size_t i = 0;  i < approxNumberOfChildStreams;  ++i) {
+        if (streamOffsets)
+            streamOffsets->push_back(startAt);
+        size_t endAt = std::min<size_t>(rowStreamTotalRows,
+                                        startAt + numPerStream);
+        //size_t n = endAt - startAt;
+        current->initAt(startAt);
+        streams.push_back(current);
+        current = current->clone();
+        startAt = endAt;
+    }
+    
+    if (streamOffsets)
+        streamOffsets->push_back(startAt);
+    
+    return streams;
+}
+
+void
+RowStream::
+advance()
+{
+    next();  // less efficient because we throw away the result
+}
+
+void
+RowStream::
+advanceBy(size_t n)
+{
+    while (n--)
+        advance();
+}
+
+bool
+RowStream::
+supportsExtendedInterface() const
+{
+    return false;
+}
+
+void
+RowStream::
+extractColumns(size_t numValues,
+               const std::vector<ColumnName> & columnNames,
+               CellValue * output)
+{
+    throw HttpReturnException(600, "unimplemented rowStream method");
+}
+    
+void
+RowStream::
+extractNumbers(size_t numValues,
+               const std::vector<ColumnName> & columnNames,
+               double * output)
+{
+    std::unique_ptr<CellValue[]> tmpOutput
+        (new CellValue[numValues * columnNames.size()]);
+
+    extractColumns(numValues, columnNames, tmpOutput.get());
+
+    for (size_t i = 0;  i < numValues * columnNames.size();  ++i) {
+        output[i] = tmpOutput[i].toDouble();
+    }
+}
+    
+
+
+/*****************************************************************************/
 /* DATASET                                                                   */
 /*****************************************************************************/
 
@@ -733,6 +827,70 @@ queryStructured(const SelectExpression & select,
     }
 
     return output;
+}
+
+bool
+Dataset::
+queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                           const SelectExpression & select,
+                           const WhenExpression & when,
+                           const SqlExpression & where,
+                           const OrderByExpression & orderBy,
+                           const TupleExpression & groupBy,
+                           const SqlExpression & having,
+                           const SqlExpression & rowName,
+                           ssize_t offset,
+                           ssize_t limit,
+                           Utf8String alias) const
+{
+    if (!having.isConstantTrue() && groupBy.clauses.empty())
+        throw HttpReturnException
+            (400, "HAVING expression requires a GROUP BY expression");
+
+    std::vector< std::shared_ptr<SqlExpression> > aggregators
+        = select.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators
+        = having.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
+        = orderBy.findAggregators(!groupBy.clauses.empty());
+
+    // Do it ungrouped if possible
+    if (groupBy.clauses.empty() && aggregators.empty()) {
+        auto processor = [&] (RowName & rowName,
+                              ExpressionValue & row,
+                              std::vector<ExpressionValue> & calc)
+            {
+                Path path = getValidatedRowName(calc.at(0));
+                return onRow(path, row);
+            };
+
+        return iterateDatasetExpr(select, *this, alias, when, where,
+                                  { rowName.shallowCopy() },
+                                  { processor, true /*processInParallel*/ },
+                                  orderBy, offset, limit,
+                                  nullptr);
+    }
+    else {
+
+        aggregators.insert(aggregators.end(), havingaggregators.begin(),
+                           havingaggregators.end());
+        aggregators.insert(aggregators.end(), orderbyaggregators.begin(),
+                           orderbyaggregators.end());
+
+        // Otherwise do it grouped...
+        auto processor = [&] (NamedRowValue & row)
+            {
+                ExpressionValue val(std::move(row.columns));
+                return onRow(row.rowName, val);
+            };
+
+         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
+        return iterateDatasetGrouped(select, *this, alias, when, where,
+                                     groupBy, aggregators, having, rowName,
+                                     {processor, true/*processInParallel*/},
+                                     orderBy, offset, limit,
+                                     nullptr);
+    }
 }
 
 template<typename Filter>
@@ -1780,13 +1938,14 @@ queryBasic(const SqlBindingScope & scope,
                 
                 auto doRow = [&] (int rowNum) -> bool
                     {
-                        auto row = matrix->getRow(rows[rowNum]);
+                        auto row = this->getRowExpr(rows[rowNum]);
 
                         NamedRowValue outputRow;
-                        outputRow.rowName = row.rowName;
-                        outputRow.rowHash = row.rowName;
+                        outputRow.rowName = rows[rowNum];
+                        outputRow.rowHash = rows[rowNum];
 
-                        auto rowScope = selectScope.getRowScope(row, &params);
+                        auto rowScope
+                            = selectScope.getRowScope(rows[rowNum], row, &params);
 
                         // Filter the tuple using the WHEN expression
                         if (!whenTrue)
@@ -1796,8 +1955,7 @@ queryBasic(const SqlBindingScope & scope,
                         std::vector<ExpressionValue> sortFields;
 
                         if (selectStar) {
-                            ExpressionValue selectOutput(std::move(row.columns));
-                            selectOutput.mergeToRowDestructive(outputRow.columns);
+                            row.mergeToRowDestructive(outputRow.columns);
 
                             // We can move things out of the row scope,
                             // since they will be found in the output
@@ -1809,8 +1967,7 @@ queryBasic(const SqlBindingScope & scope,
                         }
                         else {
                             ExpressionValue selectOutput
-                            = boundSelect(rowScope, GET_LATEST);
-                            
+                                = boundSelect(rowScope, GET_LATEST);
                             selectOutput.mergeToRowDestructive(outputRow.columns);
 
                             // Get the order by scope, which can read from both the result

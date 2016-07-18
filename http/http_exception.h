@@ -16,6 +16,10 @@
 
 namespace Datacratic {
 
+/// Indicates on a rethrow that we should keep the HTTP code that was in
+/// the outer exception.
+constexpr int KEEP_HTTP_CODE = -1;
+
 struct HttpReturnException: public ML::Exception {
     HttpReturnException(int httpCode, const Utf8String & message, Any details = Any())
         : ML::Exception(message.rawData()), message(message), httpCode(httpCode), details(details)

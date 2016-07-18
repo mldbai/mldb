@@ -235,19 +235,107 @@ struct RowStream {
     {
     }
 
-    /* Clone the stream with just enough information to use the initAt 
-       clones streams should be un-initialized                        */
+    /** Clone the stream with just enough information to use the initAt 
+        clones streams should be un-initialized                        */
     virtual std::shared_ptr<RowStream> clone() const = 0;
 
-    /* set where the stream should start*/
+    /* Set where the stream should start.  This is called after
+       clone() to initialize the stream at a given position.  Note
+       that the parallelize() interface is better, and eventually
+       clone() / initAt() will be replaced by that interface.
+    */
     virtual void initAt(size_t start) = 0;
 
     /* Return the current RowName and move the stream forward 
        for performance, this method shall NOT do bound checking 
        so be sure to obtain the maximum number of rows beforehand 
-       using MatrixView::getRowCount for example */
+       using MatrixView::getRowCount for example.
+    */
     virtual RowName next() = 0;
 
+    /** The methods below this one are only supported if this function
+        returns true.  Note that eventually the above methods will be
+        removed along with this function.
+
+        Default returns false.  Datasets that support this interface
+        should override and return true.
+    */
+    virtual bool supportsExtendedInterface() const;
+
+    /// Constant for an automatic number of child streams (whatever
+    /// makes sense to the implementation).
+    static constexpr ssize_t AUTO = -1;
+
+    /** Parallelize the given stream into about n sub-streams, each of
+        which can be run in parallel.
+        
+        Default implementation will use a combination of clone() and
+        initAt(), but specialization will help greatly.
+
+        If streamOffsets is non-null, it will be filled in with the
+        starting offset of each of the chunks.  It will contain one
+        more entry than the number of streams returned, with the last
+        entry being the total number of rows.
+    */
+    virtual std::vector<std::shared_ptr<RowStream> >
+    parallelize(int64_t rowStreamTotalRows,
+                ssize_t approxNumberOfChildStreams = AUTO,
+                std::vector<size_t> * streamOffsets = nullptr) const;
+
+    /** Return the rowName() at the current position of the
+        stream.  This may be called as many times as required.
+        Undefined behaviour if it is called on a stream without
+        initAt() having been called or having advanced to the
+        end.
+    */
+    virtual const RowName & rowName(RowName & storage) const = 0;
+
+    /** Advance by a single position, but without returning a
+        rowName().  More efficient than next() when just skipping
+        ahead.
+    */
+    virtual void advance();
+
+    /** Advance by a number of steps.  Equivalent to calling advance()
+        n times, but may be more efficient for some row streams.
+    */
+    virtual void advanceBy(size_t n);
+
+    /** Extract the given set of columns for the given stream,
+        as atoms, for numRows rows.  This will fill in a
+        numRows x columnNames.size() matrix pointed to by
+        output with the values.
+
+        Any column that is not present will fill in nulls.
+
+        Any column that does not have a single, scalar value
+        will throw an exception.
+        
+        It will also advance the rowStream by n rows.
+    */
+    virtual void
+    extractColumns(size_t numRows,
+                   const std::vector<ColumnName> & columnNames,
+                   CellValue * output);
+    
+    /** Extract the given set of columns for the given stream,
+        as atoms, for numRows rows.  This will fill in a
+        numRows x columnNames.size() matrix pointed to by
+        output with the values.
+
+        Any column that is not present or null will fill in with
+        NaN.
+
+        Any column that does not have a single, numeric value
+        will throw an exception.
+        
+        It will also advance the rowStream by n rows.
+    */
+    virtual void
+    extractNumbers(size_t numRows,
+                   const std::vector<ColumnName> & columnNames,
+                   double * output);
+    
 };
 
 
@@ -444,6 +532,20 @@ struct Dataset: public MldbEntity {
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "") const;
+
+    /** Select from the database. */
+    virtual bool
+    queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                               const SelectExpression & select,
+                               const WhenExpression & when,
+                               const SqlExpression & where,
+                               const OrderByExpression & orderBy,
+                               const TupleExpression & groupBy,
+                               const SqlExpression & having,
+                               const SqlExpression & rowName,
+                               ssize_t offset,
+                               ssize_t limit,
+                               Utf8String alias = "") const;
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>

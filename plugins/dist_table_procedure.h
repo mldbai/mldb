@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "types/value_description.h"
+#include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
 #include "server/mldb_server.h"
 #include "mldb/core/procedure.h"
@@ -133,16 +133,22 @@ struct DistTable {
 /* DIST TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
+enum DistTableMode {
+    DT_MODE_BAG_OF_WORDS,
+    DT_MODE_FIXED_COLUMNS
+};
+
 struct DistTableProcedureConfig : public ProcedureConfig {
     static constexpr const char * name = "experimental.distTable.train";
 
-    DistTableProcedureConfig()
+    DistTableProcedureConfig() : mode(DT_MODE_FIXED_COLUMNS)
     {
-        output.withType("tabular");
     }
 
     InputQuery trainingData;
-    PolyConfigT<Dataset> output;
+
+    Optional<PolyConfigT<Dataset> > output;
+    static constexpr char const * defaultOutputDatasetType = "tabular";
 
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
@@ -150,8 +156,10 @@ struct DistTableProcedureConfig : public ProcedureConfig {
     Url modelFileUrl;
 
     Utf8String functionName;
-    
+
     std::vector<Utf8String> statistics;
+
+    DistTableMode mode;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
@@ -212,9 +220,10 @@ struct DistTableFunction: public Function {
     virtual FunctionInfo getFunctionInfo() const;
 
     DistTableFunctionConfig functionConfig;
+    DistTableMode mode;
 
     std::string dtStatsNames[DT_NUM_STATISTICS];
-    
+
     std::vector<DISTTABLE_STATISTICS> activeStats;
     DistTablesMap distTablesMap;
 };

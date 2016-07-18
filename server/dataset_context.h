@@ -11,6 +11,7 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/binding_contexts.h"
+#include <unordered_map>
 
 namespace Datacratic {
 namespace MLDB {
@@ -77,18 +78,85 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
 struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
-        RowScope(const MatrixNamedRow & row,
-                   const BoundParameters * params = nullptr)
-            : row(row), params(params)
+        RowScope(const MatrixNamedRow & rowValue,
+                 const BoundParameters * params = nullptr)
+            : row(&rowValue), rowName(nullptr), expr(nullptr), params(params)
         {
         }
 
-        const MatrixNamedRow & row;
+        RowScope(const RowName & rowName,
+                 const ExpressionValue & rowValue,
+                 const BoundParameters * params = nullptr)
+            : row(nullptr), rowName(&rowName), expr(&rowValue), params(params)
+        {
+        }
+
+        /** Return a moveable copy of the row name of the row being
+            processed. */
+        RowName getRowName() const;
+
+        /** Return either a reference to the row name, or a reference to
+            the row name stored in storage.
+        */
+        const RowName & getRowName(RowName & storage) const;
+
+        /** Return the hash of the row name of the row being processed.
+            INVARIANT: should be equal to RowHash(getRowName()).
+        */
+        RowHash getRowHash() const;
+
+        /** Return the value of the given column.  If knownOffset is set,
+            then it can be used to immediately find the column within
+            the structure without doing a lookup.
+
+            Either returns a reference to the value, or a reference to
+            storage which has the value stored inside it.
+        */
+        const ExpressionValue & getColumn(const ColumnName & columnName,
+                                          const VariableFilter & filter,
+                                          ExpressionValue & storage,
+                                          ssize_t knownOffset = -1) const;
+
+        /** Returns the number of columns in the row, and the timestamp
+            associated with it.
+        */
+        ExpressionValue getColumnCount() const;
+        
+        /** Return a reference to the filtered version of the row value.
+            Storage is set as in ther other methods.
+        */
+        const ExpressionValue &
+        getFilteredValue(const VariableFilter & filter,
+                         ExpressionValue & storage) const;
+        
+        /** Return a value which has its values renamed according to the
+            index, and is filtered according to the filter.
+
+            Each column will be:
+            - renamed to the name in index if it appears there;
+            - dropped if not
+        */
+        ExpressionValue
+        getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
+                    const VariableFilter & filter) const;
+
+        /** If we contain a MatrixNamedRow (legacy), this contains a pointer
+            to that value.
+        */
+        const MatrixNamedRow * row;
+
+        /** If we have an ExpressionValue, this points to the rowName of the
+            row.  TODO: don't require a materialized rowName().
+        */
+        const RowName * rowName;
+
+        /** If we have an ExpressionValue, this points to the value of the
+            row.
+        */
+        const ExpressionValue * expr;
 
         /// If set, this tells us how to get the value of a bound parameter
         const BoundParameters * params;
-
-        //const Date date;
     };
 
     SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
@@ -124,9 +192,16 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     doGetBoundParameter(const Utf8String & paramName);
     
     static RowScope getRowScope(const MatrixNamedRow & row,
-                                    const BoundParameters * params = nullptr)
+                                const BoundParameters * params = nullptr)
     {
         return RowScope(row, params);
+    }
+
+    static RowScope getRowScope(const RowName & rowName,
+                                const ExpressionValue & row,
+                                const BoundParameters * params = nullptr)
+    {
+        return RowScope(rowName, row, params);
     }
 
     virtual ColumnName

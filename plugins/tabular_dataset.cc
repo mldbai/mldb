@@ -80,9 +80,51 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             }
         }
 
-        virtual const RowName & rowName(RowName & storage) const
+        /// Parallelize chunk by chunk, which allows for natural
+        /// boundaries.
+        virtual std::vector<std::shared_ptr<RowStream> >
+        parallelize(int64_t rowStreamTotalRows,
+                    ssize_t approxNumberOfChildStreams,
+                    std::vector<size_t> * streamOffsets) const override
         {
-            ExcAssert(rowIndex < rowCount);
+            // Always do the number of chunks
+            std::vector<std::shared_ptr<RowStream> > streams;
+            if (streamOffsets)
+                streamOffsets->clear();
+
+            ssize_t startAt = 0;
+            for (auto it = store->chunks.begin();  it != store->chunks.end();
+                 ++it) {
+                if (streamOffsets)
+                    streamOffsets->push_back(startAt);
+                startAt += it->rowCount();
+
+                auto stream = std::make_shared<TabularDataStoreRowStream>(store);
+                stream->chunkiter = it;
+                stream->rowIndex = 0;
+                stream->rowCount = it->rowCount();
+
+                streams.emplace_back(stream);
+            }
+
+            if (streamOffsets)
+                streamOffsets->push_back(startAt);
+
+            ExcAssertEqual(startAt, rowStreamTotalRows);
+
+            //cerr << "returned " << streams.size() << " streams with offsets "
+            //     << jsonEncode(*streamOffsets) << endl;
+
+            return streams;
+        }
+
+        virtual bool supportsExtendedInterface() const override
+        {
+            return true;
+        }
+
+        virtual const RowName & rowName(RowName & storage) const override
+        {
             return chunkiter->getRowName(rowIndex, storage);
         }
 
@@ -108,6 +150,83 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     ExcAssertGreater(rowCount, 0);
                 }
             }
+        }
+
+        static double extractVal(const CellValue & val, double *)
+        {
+            return val.toDouble();
+        }
+
+        static CellValue extractVal(CellValue val, CellValue *)
+        {
+            return std::move(val);
+        }
+
+        template<typename T>
+        void extractT(size_t numValues,
+                      const std::vector<ColumnName> & columnNames,
+                      T * output)
+        {
+            // 1.  Index each of the columns
+            size_t n = 0;
+            std::vector<int> columnIndexes;
+            columnIndexes.reserve(columnNames.size());
+            for (auto & c: columnNames) {
+                auto it = store->columnIndex.find(c.newHash());
+                if (it == store->columnIndex.end()) {
+                    columnIndexes.emplace_back(-1);
+                }
+                else {
+                    columnIndexes.emplace_back(it->second);
+                }
+            }
+
+            // 2.  Go through chunk by chunk
+            while (n < numValues) {
+                // 1.  Find the columns for the current chunk
+                std::vector<const FrozenColumn *> columns;
+                columns.reserve(columnNames.size());
+                for (size_t i = 0;  i < columnNames.size();  ++i) {
+                    columns.push_back
+                        (chunkiter->maybeGetColumn(columnIndexes[i],
+                                                   columnNames[i]));
+                    if (!columns.back())
+                        throw HttpReturnException(400,
+                                                  "Couldn't find column " + columnNames[i].toUtf8String());
+                }
+
+                // 2.  Go through the rows and get the values
+                for (; rowIndex < rowCount && n < numValues;) {
+                    for (size_t i = 0;  i < columnNames.size();  ++i) {
+                        output[n * columnNames.size() + i]
+                            = extractVal(columns[i]->get(rowIndex), (T *)0);
+                    }
+                    
+                    ++n;
+
+                    if (rowIndex == rowCount - 1) {
+                        advance();
+                        break;  // new chunk, so new columns
+                    }
+                    advance();
+                }
+            }
+        }
+
+        virtual void
+        extractNumbers(size_t numValues,
+                       const std::vector<ColumnName> & columnNames,
+                       double * output) override
+        {
+            return extractT<double>(numValues, columnNames, output);
+        }
+
+        virtual void
+        extractColumns(size_t numValues,
+                       const std::vector<ColumnName> & columnNames,
+                       CellValue * output) override
+        {
+            return extractT<CellValue>(numValues, columnNames, output);
         }
 
         TabularDataStore* store;
@@ -1268,6 +1387,13 @@ getRowStream() const
     return std::make_shared<TabularDataStore::TabularDataStoreRowStream>
         (itl.get()); 
 } 
+
+ExpressionValue
+TabularDataset::
+getRowExpr(const RowName & row) const
+{
+    return itl->getRowExpr(row);
+}
 
 GenerateRowsWhereFunction
 TabularDataset::

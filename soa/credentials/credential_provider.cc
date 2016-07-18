@@ -9,6 +9,7 @@
 
 #include "credential_provider.h"
 #include "mldb/types/optional.h"
+#include "mldb/base/exc_assert.h"
 #include <mutex>
 #include <iostream>
 

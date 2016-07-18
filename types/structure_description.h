@@ -231,6 +231,21 @@ struct StructureDescription
         orderedFields.push_back(it);
     }
 
+    /** Add a description with an automatic default value derived
+        from the default constructor.
+    */
+    template<typename V, typename Base,
+             typename Desc = ValueDescriptionWithDefault<V> >
+    void addAuto(std::string name,
+                 V Base::* field,
+                 std::string comment,
+                 std::shared_ptr<const ValueDescriptionT<V> > baseDesc
+                     = getDefaultDescriptionSharedT<V>())
+    {
+        V defValue = Base() .* field;
+        addField(std::move(name), field, comment, defValue, baseDesc);
+    }
+
     using ValueDescriptionT<Struct>::parents;
 
     template<typename V>

@@ -1,17 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* etcd_client.h                                                   -*- C++ -*-
    Jeremy Barnes, 4 March 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Client for etcd.
 */
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/date.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/arch/exception.h"
 
 namespace Datacratic {
 

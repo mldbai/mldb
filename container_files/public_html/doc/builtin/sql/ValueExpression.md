@@ -383,6 +383,14 @@ With `{arrays: 'encode'}` the output will be:
 |:---:|:---:|:---:|:-----:|:------:|:------:
 | 'b' | 'e' | 1 | 1   | '{"j":"k"}' | '{"l":"m"}'
 
+The full set of options to the `parse_json` function are as follows:
+
+![](%%type Datacratic::MLDB::Builtins::ParseJsonOptions)
+
+and the possible values for the `arrays` field are:
+
+![](%%type Datacratic::MLDB::JsonArrayHandling)
+
 
 ### Numeric functions
 
@@ -530,7 +538,12 @@ calculate
 
 The following functions are used to extract and process web data.
 
-- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+
+The full set of options to the `extract_domain` function are as follows:
+
+![](%%type Datacratic::MLDB::Builtins::ExtractDomainOptions)
+
 
 See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
 
@@ -540,13 +553,11 @@ See also the ![](%%doclink http.useragent function) that can be used to parse a 
 can be used to create bag-of-tokens representations of strings, by returning a row whose
 columns are formed by tokenizing `str` by splitting along `splitchars` and whose values by default are the
 number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitchars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`.
-  - `offset` and `limit` are used to skip the first `offset` tokens and only generate `limit` tokens
-  - `value` (if not set to `null`) will be used instead of token-counts for the values of the columns in the output row
-  - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"', {quotechar:'"'})` will return the row `{'a':1,'b,c':1}`
-  - `min_token_length` is used to specify the minimum length of tokens that are returned
-  - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
-- `token_extract(str, n, {splitchars: ',', quotechar: '', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
+- `token_extract(str, n, {splitchars: ',', quotechar: '', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered, and ngram options are ignored.
 
+Parameters to `tokenize` and `token_extract` are as follows:
+
+![](%%type Datacratic::TokenizeOptions)
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions
