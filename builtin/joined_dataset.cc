@@ -1009,7 +1009,7 @@ overrideFunctionFromSide(JoinSide tableSide,
                      const SqlRowScope & scope)
                 {
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(itl->getSubRowHash(row.row.rowName, tableSide), Date::negativeInfinity());
+                    return ExpressionValue(itl->getSubRowHash(row.getRowName(), tableSide), Date::negativeInfinity());
                 },
                 std::make_shared<Uint64ValueInfo>()
             };
@@ -1020,7 +1020,7 @@ overrideFunctionFromSide(JoinSide tableSide,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(CellValue(itl->getSubRowName(row.row.rowName, tableSide)),
+                    return ExpressionValue(CellValue(itl->getSubRowName(row.getRowName(), tableSide)),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()
@@ -1054,7 +1054,7 @@ overrideFunctionFromChild(JoinSide tableSide,
                      const SqlRowScope & scope)
                 {
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(itl->getSubRowHashFromChildTable(tableName, row.row.rowName, tableSide), Date::negativeInfinity());
+                    return ExpressionValue(itl->getSubRowHashFromChildTable(tableName, row.getRowName(), tableSide), Date::negativeInfinity());
                 },
                 std::make_shared<Uint64ValueInfo>()
             };
@@ -1065,7 +1065,7 @@ overrideFunctionFromChild(JoinSide tableSide,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(CellValue(itl->getSubRowNameFromChildTable(tableName, row.row.rowName, tableSide)),
+                    return ExpressionValue(CellValue(itl->getSubRowNameFromChildTable(tableName, row.getRowName(), tableSide)),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()
