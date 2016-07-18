@@ -15,6 +15,7 @@
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/less.h"
+#include "mldb/types/value_description.h"
 
 
 using namespace std;

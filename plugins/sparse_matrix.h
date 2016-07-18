@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/utils/compact_vector.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace Datacratic {
 namespace MLDB {

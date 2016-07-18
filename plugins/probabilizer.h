@@ -13,7 +13,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "matrix.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/ml/jml/feature_info.h"
 #include "mldb/ml/value_descriptions.h"
 

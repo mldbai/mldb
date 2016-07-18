@@ -15,7 +15,7 @@
 #include <functional>
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/sql/expression_value.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/sql/sql_expression_operations.h"
 
 namespace Datacratic {

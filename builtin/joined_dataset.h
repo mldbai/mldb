@@ -11,7 +11,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/table_expression_operations.h"
 #include "mldb/core/dataset.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace Datacratic {
 namespace MLDB {
