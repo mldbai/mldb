@@ -8,7 +8,7 @@
 #pragma once
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
 // TODO - Common includes, use the one you need, clean up the others
 //#include "mldb/core/function.h"

@@ -14,6 +14,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/jml/utils/vector_utils.h"
 
 
 using namespace std;

@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* temporary_etcd_server.h                                         -*- C++ -*-
    Jeremy Barnes, 4 March 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
-   
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.   
 */
 
 #pragma once
@@ -18,6 +17,7 @@
 #include "mldb/jml/utils/info.h"
 #include "mldb/utils/command.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/types/value_description.h"
 #include <mutex>
 
 namespace Datacratic {

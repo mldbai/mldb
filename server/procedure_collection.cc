@@ -7,6 +7,7 @@
     Collection of procedures.
 */
 
+#include "mldb/types/value_description.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/server/mldb_server.h"

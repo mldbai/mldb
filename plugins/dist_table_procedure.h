@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "types/value_description.h"
+#include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
 #include "server/mldb_server.h"
 #include "mldb/core/procedure.h"
