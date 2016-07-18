@@ -110,6 +110,41 @@ SummaryStatisticsProcedure(MldbServer * owner,
 
 typedef tuple<ColumnName, CellValue, Date> Cell;
 
+template <typename T, int size>
+struct MostFrequents {
+    static_assert(size > 0, "Top holder size must be greather than 0");
+    std::pair<int64_t, T> top[size];
+    int currSize;
+    int lowerIdx;
+
+    MostFrequents() : currSize(0), lowerIdx(0) {}
+
+    void addItem(std::pair<int64_t, T> item) {
+        // For the size first items
+        if (currSize < size) {
+            top[currSize] = item;
+            if (currSize > 0 && item < top[lowerIdx]) {
+                lowerIdx = currSize;
+            }
+            ++ currSize;
+            return;
+        }
+
+        // For the rest
+        if (item > top[lowerIdx]) {
+            top[lowerIdx] = item;
+
+            // find new lower
+            lowerIdx = 0;
+            for (int i = 1; i < size; ++ i) {
+                if (top[i] < top[lowerIdx]) {
+                    lowerIdx = i;
+                }
+            }
+        }
+    }
+};
+
 // Simple handlers to enhance the lisibility of the run function.
 struct NumericRowHandler {
     NumericRowHandler() = delete;
@@ -233,7 +268,7 @@ struct NumericRowHandler {
                                                     numNotNull * 0.75};
         int idx = 0;
         int64_t count = 0;
-        pair<int64_t, double> mostFrequent(0, 0);
+        MostFrequents<double, 10> mostFrequents; // Keep top 10
         auto onRow2 = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
@@ -242,11 +277,9 @@ struct NumericRowHandler {
                 first = false;
             }
             int64_t currentCount = std::get<1>(cols[0]).toInt();
+            mostFrequents.addItem(make_pair(currentCount,
+                                            std::get<1>(cols[1]).toDouble()));
             count += currentCount;
-            if (currentCount > mostFrequent.first) {
-                mostFrequent.first = currentCount;
-                mostFrequent.second = std::get<1>(cols[1]).toDouble();
-            }
             while (idx < NUM_QUARTILES && quartilesThreshold[idx] < count) {
                 quartiles[idx] = std::get<1>(cols[1]).toDouble();
                 ++idx;
@@ -273,9 +306,11 @@ struct NumericRowHandler {
         toRecord.emplace_back(value + "1st_quartile", quartiles[0], now);
         toRecord.emplace_back(value + "median", quartiles[1], now);
         toRecord.emplace_back(value + "3rd_quartile", quartiles[2], now);
-        toRecord.emplace_back(
-            value + "most_frequent_items" + to_string(mostFrequent.second),
-            mostFrequent.first, now);
+        for (int i = 0; i < mostFrequents.currSize; ++ i) {
+            toRecord.emplace_back(
+                value + "most_frequent_items" + to_string(mostFrequents.top[i].second),
+                mostFrequents.top[i].first, now);
+        }
         output->recordRow(rowName, toRecord);
         return true;
     }
@@ -346,29 +381,19 @@ struct CategoricalRowHandler {
         auto groupBy = TupleExpression::parse(name);
         auto orderBy = OrderByExpression::parse("_0 DESC");
 
+        MostFrequents<Utf8String, 10> mostFrequents; // Keep top 10
         auto onRow2 = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {
                 ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");
                 ExcAssert(std::get<0>(cols[1]).toUtf8String() == "_1");
             }
-            vector<Cell> toRecord;
-            if (std::get<1>(cols[1]).empty()) {
-                toRecord.emplace_back(
-                    // don't merge most_frequent_items with NULL,
-                    // the + calls Path::operator + here
-                    // (not string::operator +)
-                    value + "most_frequent_items" + "NULL",
-                    std::get<1>(cols[0]).toInt(),
-                    now);
+            if (JML_UNLIKELY(std::get<1>(cols[1]).empty())) {
+                // skipp null
+                return true;
             }
-            else {
-                toRecord.emplace_back(
-                    value + "most_frequent_items" + std::get<1>(cols[1]).toString(),
-                    std::get<1>(cols[0]).toInt(),
-                    now);
-            }
-            output->recordRow(rowName, toRecord);
+            mostFrequents.addItem(make_pair(std::get<1>(cols[0]).toInt(),
+                                            std::get<1>(cols[1]).toString()));
             return true;
         };
         BoundGroupByQuery(select,
@@ -383,8 +408,16 @@ struct CategoricalRowHandler {
                         orderBy)
             .execute({onRow2, false /*processInParallel*/},
                     0, // offset
-                    1, // limit
+                    -1, // limit
                     onProgress);
+        vector<Cell> toRecord;
+        for (int i = 0; i < mostFrequents.currSize; ++ i) {
+            toRecord.emplace_back(
+                value + "most_frequent_items" + mostFrequents.top[i].second,
+                mostFrequents.top[i].first,
+                now);
+        }
+        output->recordRow(rowName, toRecord);
         first = false;
     }
 };

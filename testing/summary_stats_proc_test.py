@@ -46,19 +46,21 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
              "value.1st_quartile", "value.median", "value.3rd_quartile",
              "value.most_frequent_items.banane",
              "value.most_frequent_items.20", "value.most_frequent_items.2",
-             "value.most_frequent_items.1", "value.stddev"],
+             "value.most_frequent_items.1", "value.stddev",
+             "value.most_frequent_items.10",
+             "value.most_frequent_items.patate"],
 
             ["colTxt", "categorical", 1, 2, None, None, None, None, None,
-             None, 1, None, None, None, None],
+             None, 1, None, None, None, None, None, 1],
 
-            ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20, None, 1, None,
-             None, "NaN"],
+             ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20, None, 1, None,
+              None, "NaN", None, None],
 
             ["colB", "number", 2, 1, 2, 2, 2, 2, 2, 2, None, None, 1, None,
-             "NaN"],
+             "NaN", None, None],
 
             ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2,
-             27]
+             27, 1, None]
         ])
 
     def test_dottest_col_names(self):
@@ -104,11 +106,10 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
 
         res = mldb.query("SELECT * FROM output_unexisting_col_ds")
         self.assertTableResultEquals(res, [
-            ["_rowName", "value.data_type",
-             "value.most_frequent_items.NULL", "value.num_null",
+            ["_rowName", "value.data_type", "value.num_null",
              "value.num_unique"],
 
-            ["unexisting", "categorical", 0, 3, 0]
+            ["unexisting", "categorical", 3, 0]
         ])
 
     def test_invalid_select(self):
@@ -140,6 +141,69 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
 
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             run_proc('SELECT max(colA) FROM ds')
+
+    def test_most_frequent(self):
+        ds = mldb.create_dataset({
+            'id' : 'most_freq_source',
+            'type' : 'sparse.mutable'
+        })
+
+        row_num = 0
+        class Counter(object):
+            def __init__(self):
+                self.num = 0
+
+            def next(self):
+                self.num += 1
+                return self.num
+
+        vals = {
+            'a' : 5,
+            'b' : 4,
+            'c' : 3,
+            'd' : 2,
+            'e' : 1,
+            'f' : 1,
+            'g' : 1,
+            'h' : 1,
+            'i' : 1,
+            'j' : 1,
+            'k' : 1,
+            'l' : 1,
+            'm' : 1,
+        }
+        c = Counter()
+        for k, count in vals.iteritems():
+            for _ in xrange(count):
+                ds.record_row(c.next(), [['col', k, 0]])
+
+        ds.commit()
+
+        mldb.post('/v1/procedures', {
+            'type' : 'summary.statistics',
+            'params' : {
+                'runOnCreation' : True,
+                'inputData' : "SELECT * FROM most_freq_source",
+                'outputDataset' : {
+                    'id' : 'most_freq_output',
+                    'type' : 'sparse.mutable'
+                }
+            }
+        })
+
+        res = mldb.query("SELECT * FROM most_freq_output ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ["_rowName", "value.data_type", "value.most_frequent_items.a",
+             "value.most_frequent_items.b", "value.most_frequent_items.c",
+             "value.most_frequent_items.d", "value.most_frequent_items.h",
+             "value.most_frequent_items.i", "value.most_frequent_items.j",
+             "value.most_frequent_items.k", "value.most_frequent_items.l",
+             "value.most_frequent_items.m", "value.num_null",
+             "value.num_unique"],
+            [ "col", "categorical", 5, 4, 3, 2, 1, 1, 1, 1, 1, 1, 0, 13]
+        ])
+
+
 
 if __name__ == '__main__':
     mldb.run_tests()
