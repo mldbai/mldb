@@ -565,7 +565,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress)
     {
-//        STACK_PROFILE(RowHashOrderedExecutor.execute_bloc);
+        //STACK_PROFILE(RowHashOrderedExecutor_execute_bloc);
 
         QueryThreadTracker parentTracker;
 
@@ -988,12 +988,14 @@ BoundSelectQuery(const SelectExpression & select,
         // Get a generator rows from the for the ordered, limited where expression
 
         // Remove any constants from the order by clauses
+
         OrderByExpression newOrderBy;
         for (auto & x: orderBy.clauses) {
 
             // TODO: Better constant detection
-            if (x.first->getType() == "constant")
+            if (x.first->getType() == "constant") {
                 continue;  
+            }
 
             newOrderBy.clauses.push_back(x);
         }
@@ -1004,9 +1006,14 @@ BoundSelectQuery(const SelectExpression & select,
             && newOrderBy.clauses[0].second == ASC
             && newOrderBy.clauses[0].first->getType() == "function"
             && newOrderBy.clauses[0].first->getOperation() == "rowHash") {
-            orderByRowHash = true;
+
+            Utf8String datasetName = static_pointer_cast<FunctionCallExpression>(newOrderBy.clauses[0].first)->tableName;
+
+            if (datasetName.empty() || datasetName.empty() == alias)
+                orderByRowHash = true;
         }
-        else if (newOrderBy.clauses.size() > 0) {
+
+        if (!orderByRowHash && newOrderBy.clauses.size() > 0) {
             //if we have an order by, always add a rowHash() to make sure we have a fully deterministic sorting order
             newOrderBy.clauses.emplace_back(SqlExpression::parse("rowHash()"), ASC);
         }

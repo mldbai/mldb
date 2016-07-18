@@ -10,12 +10,12 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/table_expression_operations.h"
+#include "mldb/sql/join_utils.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description_fwd.h"
 
 namespace Datacratic {
 namespace MLDB {
-
 
 /*****************************************************************************/
 /* JOINED DATASET CONFIG                                                     */
@@ -73,6 +73,19 @@ struct JoinedDataset: public Dataset {
     virtual int getChainedJoinDepth() const;
 
 private:
+
+    BoundFunction
+    overrideFunctionFromSide(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const;
+
+    BoundFunction
+    overrideFunctionFromChild(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const;
+
     JoinedDatasetConfig datasetConfig;
     struct Itl;
     std::shared_ptr<Itl> itl;
