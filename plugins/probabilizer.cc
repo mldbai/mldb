@@ -45,7 +45,7 @@ DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerConfig);
 ProbabilizerConfigDescription::
 ProbabilizerConfigDescription()
 {
-    addField("inputData", &ProbabilizerConfig::trainingData,
+    addField("trainingData", &ProbabilizerConfig::trainingData,
              "SQL query that specifies the scores, labels and optional weights for "
              "the probabilizer training procedure. "
              "The query should be of the form `select x as score, y as label from ds`.\n\n"
