@@ -146,7 +146,8 @@ struct EmbeddingDatasetRepr {
 
     struct Row {
         Row(RowName rowName, ML::distribution<float> coords, Date timestamp)
-            : rowName(std::move(rowName)), coords(std::move(coords))
+            : rowName(std::move(rowName)), coords(std::move(coords)),
+              timestamp(timestamp)
         {
         }
 
