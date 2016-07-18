@@ -89,8 +89,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             {
                 auto & row = rowScope.as<PipelineResults>();
 
-                const ExpressionValue & rowContents
-                = row.values.at(fieldOffset + ROW_CONTENTS);
+                const ExpressionValue & rowContents = row.values.at(fieldOffset + ROW_CONTENTS);
 
                 RowValue result;
 
@@ -114,7 +113,6 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                             return true;
                         };
 
-                        // TODO: lots of optimizations possible here...
                         value.forEachAtom(onAtom, outputName);
                     }
 
@@ -184,7 +182,6 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                         return true;
                     };
 
-                    // TODO: lots of optimizations possible here...
                     value.forEachAtom(onAtom, it->second);
 
                     return true;
@@ -1454,8 +1451,10 @@ restart()
 }
 
 JoinElement::JoinTransposeExecutor::
-JoinTransposeExecutor(ElementExecutor& joinExecutor, std::shared_ptr<ElementExecutor> leftRaw, std::shared_ptr<ElementExecutor> rightRaw) : 
-joinExecutor(joinExecutor), leftRaw(std::move(leftRaw)), rightRaw(std::move(rightRaw))
+JoinTransposeExecutor(ElementExecutor& joinExecutor,
+                      std::shared_ptr<ElementExecutor> leftRaw,
+                      std::shared_ptr<ElementExecutor> rightRaw)
+ : joinExecutor(joinExecutor), leftRaw(std::move(leftRaw)), rightRaw(std::move(rightRaw))
 {
     side = 0;
 
@@ -1468,7 +1467,7 @@ joinExecutor(joinExecutor), leftRaw(std::move(leftRaw)), rightRaw(std::move(righ
 
         //TODO: This will not work in so many cases. Use the scope
         Utf8String leftNameUtf8 = "";
-        if (!res->values.at(0).empty()) //TODO: Always 0?
+        if (!res->values.at(0).empty())
             leftNameUtf8 = res->values.at(0).toUtf8String();
         size_t i = 2;
         for (; i + 2 < res->values.size(); i+=2) {
@@ -1779,7 +1778,8 @@ FromElement(std::shared_ptr<PipelineElement> root_,
         impl.reset(new SubSelectElement(root, subSelect->statement, orderBy, getParamInfo, from->getAs()));
     }
     else if (from->getType() == "datasetFunction") {
-        std::shared_ptr<DatasetFunctionExpression> function = std::dynamic_pointer_cast<DatasetFunctionExpression>(from);
+        std::shared_ptr<DatasetFunctionExpression> function 
+                        = std::dynamic_pointer_cast<DatasetFunctionExpression>(from);
         ExcAssert(this->root);
         ExcAssert(function);
 
@@ -2518,7 +2518,9 @@ outputScope() const
 /*****************************************************************************/
 
 DatasetFunctionElement::
-DatasetFunctionElement(std::shared_ptr<PipelineElement> root, std::shared_ptr<DatasetFunctionExpression> function, GetParamInfo getParamInfo)
+DatasetFunctionElement(std::shared_ptr<PipelineElement> root,
+                       std::shared_ptr<DatasetFunctionExpression> function,
+                       GetParamInfo getParamInfo)
  : source_(std::move(root)), function_(function)
 {
     ExcAssert(function->args.size() <= 2);
@@ -2567,9 +2569,16 @@ DatasetFunctionElement::
 bind() const
 {
     if (pipelineRight)
-        return std::make_shared<Bound>(source_->bind(), pipeline->bind(), pipelineRight->bind(), function_->getAs(), function_->functionName);
+        return std::make_shared<Bound>(source_->bind(), 
+                                       pipeline->bind(), 
+                                       pipelineRight->bind(), 
+                                       function_->getAs(), 
+                                       function_->functionName);
     else
-        return std::make_shared<Bound>(source_->bind(), pipeline->bind(), function_->getAs(), function_->functionName);
+        return std::make_shared<Bound>(source_->bind(),
+                                       pipeline->bind(),
+                                       function_->getAs(), 
+                                       function_->functionName);
 }
 
 /*****************************************************************************/
@@ -2577,7 +2586,9 @@ bind() const
 /*****************************************************************************/
 
 TransposeLexicalScope::
-TransposeLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<RowValueInfo> rowValueInfo, Utf8String asName)
+TransposeLexicalScope(std::shared_ptr<PipelineExpressionScope> inner,
+                      std::shared_ptr<RowValueInfo> rowValueInfo,
+                      Utf8String asName)
                     : TableLexicalScope(rowValueInfo, asName),
                     inner(inner) {
 
@@ -2600,7 +2611,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             auto & row = rowScope.as<PipelineResults>();
 
             const ExpressionValue & rowContents
-            = row.values.at(fieldOffset + ROW_CONTENTS);
+                    = row.values.at(fieldOffset + ROW_CONTENTS);
 
             RowValue result;
 
@@ -2800,7 +2811,8 @@ createOuputScope()
     std::shared_ptr<RowValueInfo> rowValueInfo = std::make_shared<RowValueInfo>(columns, SCHEMA_OPEN);
 
     if (functionName_ == "transpose")
-        return source_->outputScope()->tableScope(std::make_shared<TransposeLexicalScope>(subpipeline_->outputScope(), rowValueInfo, asName_));
+        return source_->outputScope()->tableScope(std::make_shared<TransposeLexicalScope>(subpipeline_->outputScope(),
+                                                                                          rowValueInfo, asName_));
     else if (functionName_ == "merge")
         return subpipeline_->outputScope()->tableScope(std::make_shared<TableLexicalScope>(rowValueInfo, asName_));
     else

@@ -436,7 +436,9 @@ struct JoinElement: public PipelineElement {
 
     struct JoinTransposeExecutor {
 
-        JoinTransposeExecutor(ElementExecutor& joinExecutor, std::shared_ptr<ElementExecutor> leftRaw, std::shared_ptr<ElementExecutor> rightRaw);
+        JoinTransposeExecutor(ElementExecutor& joinExecutor, 
+                              std::shared_ptr<ElementExecutor> leftRaw, 
+                              std::shared_ptr<ElementExecutor> rightRaw);
 
         std::shared_ptr<PipelineResults> take();
 
@@ -847,7 +849,9 @@ struct ParamsElement: public PipelineElement {
 
 struct TransposeLexicalScope: public TableLexicalScope {
 
-    TransposeLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<RowValueInfo> rowInfo, Utf8String asName_);
+    TransposeLexicalScope(std::shared_ptr<PipelineExpressionScope> inner,
+                          std::shared_ptr<RowValueInfo> rowInfo,
+                          Utf8String asName_);
 
     std::shared_ptr<PipelineExpressionScope> inner;
 
@@ -889,7 +893,8 @@ struct DatasetFunctionElement : public PipelineElement {
     };
 
     struct MergeExecutor: public ElementExecutor {
-        MergeExecutor(std::shared_ptr<ElementExecutor> subpipelineLeft, std::shared_ptr<ElementExecutor> subpipelineRight);
+        MergeExecutor(std::shared_ptr<ElementExecutor> subpipelineLeft,
+                      std::shared_ptr<ElementExecutor> subpipelineRight);
         virtual std::shared_ptr<PipelineResults> take();
         virtual void restart();
 
@@ -901,7 +906,10 @@ struct DatasetFunctionElement : public PipelineElement {
     };
 
     struct Bound: public BoundPipelineElement {
-        Bound(std::shared_ptr<BoundPipelineElement> source, std::shared_ptr<BoundPipelineElement> subpipeline, const Utf8String& asName, const Utf8String& functionName);
+        Bound(std::shared_ptr<BoundPipelineElement> source, 
+              std::shared_ptr<BoundPipelineElement> subpipeline,
+              const Utf8String& asName,
+              const Utf8String& functionName);
         Bound(std::shared_ptr<BoundPipelineElement> source, 
               std::shared_ptr<BoundPipelineElement> subpipeline, 
               std::shared_ptr<BoundPipelineElement> subpipelineRight, 
