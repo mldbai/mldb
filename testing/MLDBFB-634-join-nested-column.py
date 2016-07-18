@@ -15,7 +15,8 @@ class DatasetFunctionTest(MldbUnitTest):
         # create a dummy dataset
         ds = mldb.create_dataset({ "id": "x", "type": "sparse.mutable" })
         ds.record_row("row1",[[["a", "b"], 1, 0], [["a", "b"], 2, 0]])
-     #   ds.record_row("row2",[["a", ["b", 3, 0], ["c", 4, 0], 0]])
+        ds.record_row("row2",[[["a", "bééé"], 3, 0], [["c"], 4, 0]])
+        ds.record_row("row2",[["a", 3, 0], [[4, 28, "ÉÉÉ"], 4, 0]])
         ds.commit()
 
     def test_nested(self):        
