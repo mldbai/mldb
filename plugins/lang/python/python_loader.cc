@@ -859,6 +859,8 @@ struct AtInit {
 
         bp::to_python_converter<std::pair<string, string>,
                         PairConverter<string, string> >();
+        
+        from_python_converter< Path, PathConverter>();
 
         from_python_converter< RestParams, RestParamsConverter>();
         bp::to_python_converter< RestParams, RestParamsConverter>();
