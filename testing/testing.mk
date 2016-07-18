@@ -408,4 +408,5 @@ $(eval $(call mldb_unit_test,MLDB-1808_precision_loss_issue.py))
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))
+$(eval $(call mldb_unit_test,stddev_builtin_fct_test.py))
 $(eval $(call mldb_unit_test,MLDB-1810-new-executor-rowpath.js))

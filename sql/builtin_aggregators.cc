@@ -966,6 +966,61 @@ struct LaterAccum {
 static RegisterAggregatorT<EarliestLatestAccum<EarlierAccum> > registerEarliest("earliest", "vertical_earliest");
 static RegisterAggregatorT<EarliestLatestAccum<LaterAccum> > registerLatest("latest", "vertical_latest");
 
+struct StdAggAccum {
+    static constexpr int nargs = 1;
+    int64_t n;
+    double mean;
+    double M2;
+    Date ts;
+
+    StdAggAccum() : n(0), mean(0), M2(0), ts(Date::negativeInfinity())
+    {
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    info(const std::vector<BoundSqlExpression> & args)
+    {
+        return std::make_shared<NumericValueInfo>();
+    }
+
+    void process(const ExpressionValue * args, size_t nargs)
+    {
+        checkArgsSize(nargs, 1);
+        const ExpressionValue & val = args[0];
+
+        if (val.empty()) {
+            return;
+        }
+
+        ++ n;
+        double delta = val.toDouble() - mean;
+        mean += delta / n;
+        M2 += delta * (val.toDouble() - mean);
+
+        ts.setMax(val.getEffectiveTimestamp());
+    }
+     
+    ExpressionValue extract()
+    {
+        if (n < 2) {
+            return ExpressionValue(std::nan(""), ts);
+        }
+        return ExpressionValue(M2 / (n - 1), ts);
+    }
+
+    void merge(StdAggAccum* src)
+    {
+        double delta = src->mean - mean;
+        M2 = M2 + src->M2 + delta * delta * n * src->n / (n + src->n);
+        mean = (n * mean + src->n * src->mean) / (n + src->n);
+        n += src->n;
+        ts.setMax(src->ts);
+    }
+};
+
+static RegisterAggregatorT<StdAggAccum>
+registerStdAgg("stddev", "vertical_stddev");
+
 
 } // namespace Builtins
 } // namespace MLDB
