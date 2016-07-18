@@ -45,7 +45,7 @@ class DatasetFunctionTest(MldbUnitTest):
 
         expected = [["_rowName","bop().row_a","bop().row_b"],["result","toy story","terminator"]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_transpose_subselect(self):
 
@@ -61,7 +61,7 @@ class DatasetFunctionTest(MldbUnitTest):
 
         expected = [["_rowName", "bop({k : 'x'}).result"],["result","x"]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
   
     def test_transpose_join(self):
 
@@ -93,7 +93,7 @@ class DatasetFunctionTest(MldbUnitTest):
 
         expected = [["_rowName","bop2().[a]-[row_a]"], ["result", "123456"]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_transpose_join_cross(self):
 
@@ -114,7 +114,7 @@ class DatasetFunctionTest(MldbUnitTest):
         expected =  [["_rowName", "bop().[a]-[row_a]", "bop().[a]-[row_b]"],
                      ["result", "toy story", "toy story"]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_transpose_transpose(self):
 
@@ -130,7 +130,7 @@ class DatasetFunctionTest(MldbUnitTest):
 
         expected = [["_rowName","bop().x"],["result","terminator"]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_transpose_transpose(self):
 
@@ -146,7 +146,7 @@ class DatasetFunctionTest(MldbUnitTest):
 
         expected = [["_rowName","bop().x"],["result","terminator"]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_merge_dataset(self):
 
@@ -160,9 +160,9 @@ class DatasetFunctionTest(MldbUnitTest):
         res = mldb.query("select bop()")
         mldb.log(res)
 
-        expected = [["_rowName","bop().x","bop().y","bop().z"],["result","toy story","123456",0.10000000149011612]]
+        expected = [["_rowName","bop().x","bop().y","bop().z"],["result","toy story","123456",0.1]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_merge_subselect(self):
 
@@ -176,9 +176,9 @@ class DatasetFunctionTest(MldbUnitTest):
         res = mldb.query("select bop({k : 'x'})")
         mldb.log(res)
 
-        expected = [["_rowName","bop({k : 'x'}).blah","bop({k : 'x'}).z"],["result","x",0.10000000149011612]]
+        expected = [["_rowName","bop({k : 'x'}).blah","bop({k : 'x'}).z"],["result","x",0.1]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_row_dataset(self):
 
@@ -194,7 +194,7 @@ class DatasetFunctionTest(MldbUnitTest):
 
         expected = [["_rowName","bop().column","bop().value"],["result","x",1]]
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     @unittest.expectedFailure #not yet implemented
     def test_sampled_dataset(self):
@@ -211,6 +211,6 @@ class DatasetFunctionTest(MldbUnitTest):
 
         expected = [] # to be filled
 
-        self.assertEqual(res, expected)
+        self.assertTableResultEquals(res, expected)
 
 mldb.run_tests()
