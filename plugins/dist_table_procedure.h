@@ -31,6 +31,7 @@ enum DISTTABLE_STATISTICS {
     DT_MIN,
     DT_MAX,
     DT_LAST,
+    DT_SUM,
     DT_NUM_STATISTICS
 };
 
@@ -42,6 +43,7 @@ inline DISTTABLE_STATISTICS parseDistTableStatistic(const Utf8String & st)
     if(st == "max")   return DT_MAX;
     if(st == "last")  return DT_LAST;
     if(st == "count") return DT_COUNT;
+    if(st == "sum")   return DT_SUM;
     throw ML::Exception("Unknown distribution table statistic");
 }
 
@@ -54,6 +56,7 @@ inline std::string print(DISTTABLE_STATISTICS stat)
         case DT_MIN:    return "min";
         case DT_MAX:    return "max";
         case DT_LAST:   return "last";
+        case DT_SUM:    return "sum";
         default:
             throw ML::Exception("Unknown DistTable_Stat");
     }
@@ -67,7 +70,7 @@ inline std::string print(DISTTABLE_STATISTICS stat)
 struct DistTableStats {
     
     DistTableStats():
-        count(0), last(NAN), avg(NAN), var(NAN), M2(NAN), min(NAN), max(NAN)
+        count(0), last(NAN), avg(NAN), var(NAN), M2(NAN), min(NAN), max(NAN), sum(0)
     {}
                     
     uint64_t count;
@@ -79,6 +82,7 @@ struct DistTableStats {
     double M2;
     double min;
     double max;
+    double sum;
 
     double getStd() const { return sqrt(var); }
 
@@ -103,7 +107,7 @@ struct DistTable {
     void increment(const Utf8String & featureValue,
                    const std::vector<double> & targets);
 
-    // returns the stats (count, avg, std, min, max) for a given featureValue
+    // returns the stats for a given featureValue
     // and outcome
     const std::vector<DistTableStats> & getStats(
             const Utf8String & featureValue) const;
@@ -129,16 +133,22 @@ struct DistTable {
 /* DIST TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
+enum DistTableMode {
+    DT_MODE_BAG_OF_WORDS,
+    DT_MODE_FIXED_COLUMNS
+};
+
 struct DistTableProcedureConfig : public ProcedureConfig {
     static constexpr const char * name = "experimental.distTable.train";
 
-    DistTableProcedureConfig()
+    DistTableProcedureConfig() : mode(DT_MODE_FIXED_COLUMNS)
     {
-        output.withType("tabular");
     }
 
     InputQuery trainingData;
-    PolyConfigT<Dataset> output;
+
+    Optional<PolyConfigT<Dataset> > output;
+    static constexpr char const * defaultOutputDatasetType = "tabular";
 
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
@@ -146,8 +156,10 @@ struct DistTableProcedureConfig : public ProcedureConfig {
     Url modelFileUrl;
 
     Utf8String functionName;
-    
+
     std::vector<Utf8String> statistics;
+
+    DistTableMode mode;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
@@ -208,9 +220,10 @@ struct DistTableFunction: public Function {
     virtual FunctionInfo getFunctionInfo() const;
 
     DistTableFunctionConfig functionConfig;
+    DistTableMode mode;
 
     std::string dtStatsNames[DT_NUM_STATISTICS];
-    
+
     std::vector<DISTTABLE_STATISTICS> activeStats;
     DistTablesMap distTablesMap;
 };

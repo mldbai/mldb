@@ -122,6 +122,20 @@ struct TabularDatasetChunk {
         else return rowNames.at(index);
     }
 
+    const FrozenColumn *
+    maybeGetColumn(size_t columnIndex, const Path & columnName) const
+    {
+        if (columnIndex < columns.size()) {
+            return columns.at(columnIndex).get();
+        }
+        else {
+            auto it = sparseColumns.find(columnName);
+            if (it == sparseColumns.end())
+                return nullptr;
+            return it->second.get();
+        }
+    }
+
     std::vector<std::shared_ptr<FrozenColumn> > columns;
     std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
 private:

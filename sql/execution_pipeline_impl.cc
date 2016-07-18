@@ -494,6 +494,18 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 
 }
 
+BoundFunction
+SubSelectLexicalScope::
+doGetFunction(const Utf8String & functionName,
+              const std::vector<BoundSqlExpression> & args,
+              int fieldOffset,
+              SqlBindingScope & argScope)
+{
+    ExcAssert(outputAdded().size() >= 2);
+    size_t offset = outputAdded().size() - 2;
+    return TableLexicalScope::doGetFunction(functionName, args, fieldOffset + offset, argScope);
+}
+
 std::set<Utf8String>
 SubSelectLexicalScope::
 tableNames() const {
@@ -2223,8 +2235,8 @@ outputScope() const
 /*****************************************************************************/
 
 AggregateLexicalScope::
-AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner)
-    : inner(inner)
+AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, int numValues)
+    : inner(inner), numValues_(numValues)
 {
 }
 
@@ -2282,6 +2294,69 @@ doGetFunction(const Utf8String & functionName,
             };
 
         return { exec, aggregate.resultInfo };
+    }
+    else if (functionName == "rowPath" 
+             || functionName == "rowName" 
+                || functionName == "rowHash") {
+        auto getRowName = [=] (const SqlRowScope & rowScope) {
+            auto & row = rowScope.as<PipelineResults>();
+
+            // cerr << "rowPath from: " << jsonEncode(row) << " offset: " << fieldOffset << endl;
+
+            static VectorDescription<ExpressionValue>
+                desc(getExpressionValueDescriptionNoTimestamp());
+
+            std::string result;
+            result.reserve(116);  /// try to force a 128 byte allocation
+            StringJsonPrintingContext scontext(result);
+            scontext.writeUtf8 = true;
+            std::vector<ExpressionValue> key;
+
+            for (int i = 0; i < numValues_; ++i) {
+                key.push_back(row.values.at(fieldOffset - numValues_ + i));
+            }
+
+            desc.printJsonTyped(&key, scontext);
+
+            return result;
+        };
+
+        if (functionName == "rowPath") {
+            auto exec = [=] (const std::vector<ExpressionValue> & argValues,
+                             const SqlRowScope & rowScope) -> ExpressionValue
+            {
+                auto result = getRowName(rowScope);
+
+                return ExpressionValue(Path(result),
+                                       Date::negativeInfinity());
+            };
+
+            return { exec, std::make_shared<PathValueInfo>() };
+        }
+        else if (functionName == "rowName"){
+            auto exec = [=] (const std::vector<ExpressionValue> & argValues,
+                             const SqlRowScope & rowScope) -> ExpressionValue
+            {
+                auto result = getRowName(rowScope);
+
+                return ExpressionValue(PathElement(result).toUtf8String(),
+                                       Date::negativeInfinity());
+            };
+
+            return { exec, std::make_shared<StringValueInfo>() };
+        }
+        else {
+
+             return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & rowScope)
+                {
+                    auto result = getRowName(rowScope);
+                    return ExpressionValue(Path(result).hash(),
+                                           Date::notADate());
+                },
+                std::make_shared<Uint64ValueInfo>()
+                };
+        }
     }
     else {
         return inner->doGetFunction(Utf8String(), functionName, args, argScope);
@@ -2376,7 +2451,7 @@ take()
     auto result = key;
     result->group = std::move(group);
 
-   //cerr << "got group " << jsonEncode(result->group) << endl;
+    //cerr << "got group " << jsonEncode(result->group) << endl;
 
     return result;
 }
@@ -2400,7 +2475,7 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
     : source_(std::move(source)),
       outputScope_(source_->outputScope()
                    ->tableScope(std::make_shared<AggregateLexicalScope>
-                                (source_->outputScope()))),
+                                (source_->outputScope(), numValues))),
       numValues_(numValues)
 {
 }

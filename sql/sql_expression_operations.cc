@@ -2214,7 +2214,7 @@ bind(SqlBindingScope & scope) const
     BoundFunction fn = scope.doGetFunction(tableName, functionName,
                                            boundArgs, scope);
     
-    if (!fn) {
+    if (!fn && !fn.bindFunction) {
         Utf8String message = "Unable to find function '" + functionName + "'";
         if (!tableName.empty())
             message += " in dataset '" + tableName + "'";
@@ -2231,6 +2231,9 @@ bind(SqlBindingScope & scope) const
                                   "surface", surface);
     }
 
+    if (fn.bindFunction) {
+        return fn.bindFunction(scope, boundArgs, this);
+    }
     return bindBuiltinFunction(scope, boundArgs, fn);
 }
 

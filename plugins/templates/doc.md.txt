@@ -1,0 +1,7 @@
+# {human_proc_title} Procedure
+
+/**DESCRIPTION GOES HERE**/
+
+## Configuration
+
+![](%%config procedure {proc_name})

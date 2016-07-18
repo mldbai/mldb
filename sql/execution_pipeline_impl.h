@@ -159,6 +159,12 @@ struct SubSelectLexicalScope: public TableLexicalScope {
 
     virtual std::vector<std::shared_ptr<ExpressionValueInfo> >
     outputAdded() const;
+
+    virtual BoundFunction
+    doGetFunction(const Utf8String & functionName,
+              const std::vector<BoundSqlExpression> & args,
+              int fieldOffset,
+              SqlBindingScope & argScope);
 };
 
 /*****************************************************************************/
@@ -710,9 +716,10 @@ struct OrderByElement: public PipelineElement {
 
 struct AggregateLexicalScope: public LexicalScope {
 
-    AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner);
+    AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, int numValues);
 
     std::shared_ptr<PipelineExpressionScope> inner;
+    int numValues_;
 
     virtual ColumnGetter
     doGetColumn(const ColumnName & columnName, int fieldOffset);

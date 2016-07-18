@@ -145,7 +145,7 @@ res = mldb.get('/v1/query', {q: 'select bop()', format: 'table'});
 //check that we get biggest value, should be the same as in the batch executor
 expected = [
       [ "_rowName", "bop().rowName()", "bop().width" ],
-      [ "result", "AskReddit", 780 ]
+      [ "result", "[\"AskReddit\"]", 780 ]
    ]
 
 
@@ -167,7 +167,7 @@ res = mldb.get('/v1/query', {q: 'select bop2()', format: 'table'});
 //check that we get smallest value, should be the same (value) as in the batch executor
 expected = [
     [ "_rowName", "bop2().rowName()", "bop2().width" ],
-    [ "result", "1000", 1 ]
+    [ "result", "[\"1000\"]", 1 ]
 ];
 
 mldb.log(res)

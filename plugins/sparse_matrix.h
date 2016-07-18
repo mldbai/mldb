@@ -72,13 +72,15 @@ struct MatrixWriteTransaction;
 
 struct MatrixReadTransaction {
 
-      struct Stream {       
+    struct Stream {       
 
         virtual std::shared_ptr<MatrixReadTransaction::Stream> clone() const = 0;
 
         virtual void initAt(size_t start) = 0;
 
         virtual uint64_t next() = 0;
+
+        virtual uint64_t current() const = 0;
     };
 
     virtual ~MatrixReadTransaction()

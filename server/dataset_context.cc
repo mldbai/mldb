@@ -515,7 +515,9 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
                     }
                     else {
                         ColumnName tail = columnName.removePrefix();
-                        return storage = fromOutput->getNestedColumn(tail, filter);
+                        auto value = fromOutput->getNestedColumn(tail, filter);
+                        if (!value.empty())
+                            return storage = std::move(value);
                     }
                 }
                 

@@ -548,9 +548,15 @@ run(const ProcedureRunConfig & run,
     // Get the input dataset
     SqlExpressionMldbScope context(server);
 
+    bool emptyGroupBy = runProcConf.inputData.stm->groupBy.clauses.empty();
+
     std::vector< std::shared_ptr<SqlExpression> > aggregators = 
         runProcConf.inputData.stm->select
-        .findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
+        .findAggregators(!emptyGroupBy);
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators
+        = runProcConf.inputData.stm->having->findAggregators(!emptyGroupBy);
+    std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
+        = runProcConf.inputData.stm->orderBy.findAggregators(!emptyGroupBy);
 
     // Create the output
     std::shared_ptr<Dataset> output =
@@ -643,6 +649,9 @@ run(const ProcedureRunConfig & run,
 
                 return true;
             };
+
+        aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
+        aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
 
         BoundGroupByQuery(runProcConf.inputData.stm->select,
                           *boundDataset.dataset,

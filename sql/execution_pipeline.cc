@@ -81,7 +81,11 @@ tableScope(std::shared_ptr<LexicalScope> table)
     TableEntry entry(table, numOutputFields());
     Utf8String asName = table->as();
 
+    //Note for JB: In which case do we need more than the one default table?
+    //Not using the latest causes issues
+    result->defaultTables.resize(0);
     result->defaultTables.emplace_back(entry);
+
     if (!asName.empty())
         result->tables[asName] = entry;
     result->parent_ = shared_from_this();
@@ -556,7 +560,6 @@ statement(SelectStatement& stm, GetParamInfo getParamInfo)
     }
 
     if (hasGroupBy) {
-
         return root
             ->params(getParamInfo)
             ->from(stm.from, stm.when,

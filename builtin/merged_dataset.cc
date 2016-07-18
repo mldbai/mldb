@@ -212,6 +212,12 @@ struct MergedDataset::Itl
             return source->getRowName(RowHash(hash));
         }
 
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            uint64_t hash = (*it).first;
+            return source->getRowName(RowHash(hash));
+        }
+
         const MergedDataset::Itl* source;
         IdHashes::const_iterator it;
 

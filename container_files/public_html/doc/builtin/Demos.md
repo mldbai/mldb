@@ -16,6 +16,7 @@ MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
 * ![](%%nblink _tutorials/Loading Data From An HTTP Server Tutorial)
 * ![](%%nblink _tutorials/Virtual Manipulation of Datasets Tutorial) 
 * ![](%%nblink _tutorials/Executing JavaScript Code Directly in SQL Queries Using the jseval Function Tutorial)
+* ![](%%nblink _tutorials/Selecting Columns Programmatically Using Column Expressions Tutorial)
 * ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) 
 
 ## Benchmarks

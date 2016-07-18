@@ -1050,7 +1050,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     UriHandler getUriHandler(const Url & url) const
     {
-        string urlStr = url.toString();
+        string urlStr = url.toDecodedString();
         ExcAssert(urlStr.find("sftp://") == 0);
         const auto fooFct = [](){};
         const std::map<std::string, std::string> options;
@@ -1077,7 +1077,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     void makeDirectory(const Url & url) const override
     {
-        string urlStr = url.toString();
+        string urlStr = url.toDecodedString();
         string connStr = connStrFromUri(urlStr);
         const auto & conn = getSftpConnectionFromConnStr(connStr);
         conn.mkdir(urlStr.substr(7 + connStr.size()));
@@ -1085,7 +1085,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     bool erase(const Url & url, bool throwException) const override
     {
-        string urlStr = url.toString();
+        string urlStr = url.toDecodedString();
         string connStr = connStrFromUri(urlStr);
         const auto & conn = getSftpConnectionFromConnStr(connStr);
         int res = 0;

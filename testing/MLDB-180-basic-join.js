@@ -188,7 +188,7 @@ testQuery(
     'SELECT poil_group() as *',
     [
         [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "rn", "t1.x" ],
-        [ "result", 2, 1, "[[ex1]-[ex4]]-[ex4]", 1 ]
+        [ "result", 2, 1, "[1]", 1 ]
     ]);
 
 // big example with where and groupby

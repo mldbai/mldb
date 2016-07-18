@@ -87,7 +87,7 @@ Url::init(std::string s)
         throw ML::Exception("Attempt to create a URL without a scheme: if you mean http:// or file:// then add it explicitly: " + s);
         //s = "http://" + s;
     }
-    url.reset(new GURL(s));
+    url.reset(new GURL(encodeUri(s)));
 
     if (url->possibly_invalid_spec().empty()) {
         //cerr << "bad parse 1" << endl;
@@ -120,6 +120,26 @@ toUtf8String() const
     if (valid())
         return Utf8String(canonical());
     return Utf8String(original);
+}
+
+string
+Url::
+toDecodedString() const
+{
+    if (valid()) {
+        return decodeUri(canonical()).rawString();
+    }
+    return original;
+}
+
+Utf8String
+Url::
+toDecodedUtf8String() const
+{
+    if (valid()) {
+        return decodeUri(canonical());
+    }
+    return original;
 }
 
 const char *
@@ -371,6 +391,61 @@ decodeUri(Utf8String in)
     return out;
 #endif
 }
+
+Utf8String
+Url::
+encodeUri(const Utf8String & uri)
+{
+    return encodeUri(uri.rawString());
+}
+
+string
+Url::
+encodeUri(const char * uri)
+{
+    return encodeUri(string(uri));
+}
+
+string
+Url::
+encodeUri(const string & uri)
+{
+    string res;
+    string toEncode;
+    for (const char c: uri) {
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c<= '9') || c == '#' || c == ';' || c == ','
+            || c == '/' || c == '?' || c == ':' || c == '@' || c == '&'
+            || c == '=' || c == '+' || c == '$' || c == '-' || c == '_'
+            || c == '.' || c == '!' || c == '~' || c == '*' || c == '\''
+            || c == '(' || c == ')')
+        {
+            if (!toEncode.empty()) {
+                url_canon::RawCanonOutputT<char> buffer;
+                url_util::EncodeURIComponent(toEncode.c_str(),
+                                             toEncode.length(),
+                                             &buffer);
+                res += string(buffer.data(), buffer.length());
+                toEncode = "";
+            }
+            res += c;
+        }
+        else {
+            toEncode += c;
+        }
+    }
+
+    if (!toEncode.empty()) {
+        url_canon::RawCanonOutputT<char> buffer;
+        url_util::EncodeURIComponent(toEncode.c_str(),
+                                        toEncode.length(),
+                                        &buffer);
+        res += string(buffer.data(), buffer.length());
+    }
+
+    return res;
+}
+
 
 
 /*****************************************************************************/

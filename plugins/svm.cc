@@ -244,7 +244,8 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
     };
 
-    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                     "modelFileUrl");
 
     SqlExpressionMldbScope context(server);
 
@@ -331,9 +332,10 @@ run(const ProcedureRunConfig & run,
         if (svm_save_model(model_tmp_name.c_str(),model))
             throw ML::Exception("");
 
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+        Datacratic::makeUriDirectory(
+            runProcConf.modelFileUrl.toDecodedString());
         filter_istream in(model_tmp_name);
-        filter_ostream out(runProcConf.modelFileUrl.toString());
+        filter_ostream out(runProcConf.modelFileUrl);
 
         // Write a header that gives the model kind
         Json::Value md;
@@ -403,7 +405,7 @@ SVMFunction(MldbServer * owner,
     auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_b.svm");
     try {
-        filter_istream in(functionConfig.modelFileUrl.toString());
+        filter_istream in(functionConfig.modelFileUrl);
         std::string firstLine;
         std::getline(in, firstLine);
         Json::Value md = Json::parse(firstLine);

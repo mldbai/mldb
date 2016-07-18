@@ -237,7 +237,7 @@ doGetFunction(const Utf8String & tableName,
     if (functionName == "rightRowPath")
         throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
     
-    return {nullptr, nullptr};
+    return BoundFunction();
 }
 
 //These are functions in table expression, i.e. in FROM clauses
@@ -709,16 +709,27 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
         return result;
 
     if (context.match_literal('"')) {
-        //read until the single quote closes.
-        for (;;) {
-            if (context.match_literal("\"\"")) {
-                result += '"';
+        //read until the double quote closes.
+        {
+            ML::Parse_Context::Revert_Token token(context);
+
+            for (;;) {
+                if (context.match_literal("\"\"")) {
+                    result += '"';
+                }
+                else if (context.match_literal('"')) {
+                    token.ignore();
+                    return result;
+                }
+                else if (!context) {
+                    break;
+                }
+                else result += expectUtf8Char(context);           
             }
-            else if (context.match_literal('"')) {
-                break;
-            }
-            else result += expectUtf8Char(context);           
         }
+        
+        // If we get here, we had EOF inside a string
+        context.exception("No closing quote character for string");
     }
     else {
 
@@ -905,26 +916,50 @@ static bool peekKeyword(ML::Parse_Context & context, const char * keyword)
 
 void matchSingleQuoteStringAscii(ML::Parse_Context & context, std::string& resultStr)
 {
-    for (;;) {
-        if (context.match_literal("\'\'"))
-            resultStr += '\'';
-        else if (context.match_literal('\''))
-            break;
-        else if (*context < 0 || *context > 127)
-            context.exception("Non-ASCII character in ASCII context");
-        else resultStr += *context++;
+    {
+        ML::Parse_Context::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\'\'"))
+                resultStr += '\'';
+            else if (context.match_literal('\'')) {
+                token.ignore();
+                return;
+            }
+            else if (!context)
+                break;  // eof inside string
+            else if (*context < 0 || *context > 127)
+                context.exception("Non-ASCII character in ASCII context");
+            else resultStr += *context++;
+        }
     }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
 }
 
-void matchSingleQuoteStringUTF8(ML::Parse_Context & context, std::basic_string<char32_t>& resultStr)
+void matchSingleQuoteStringUTF8(ML::Parse_Context & context,
+                                std::basic_string<char32_t>& resultStr)
 {
-   for (;;) {
-       if (context.match_literal("\'\'"))
-          resultStr += '\'';
-       else if (context.match_literal('\''))
-          break;
-       else resultStr += expectUtf8Char(context);
-   }
+    {
+        ML::Parse_Context::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\'\'"))
+                resultStr += '\'';
+            else if (context.match_literal('\'')) {
+                token.ignore();
+                return;
+            }
+            else if (!context) {
+                break;  // eof inside string
+            }
+            else resultStr += expectUtf8Char(context);
+        }
+    }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
 }
 
 bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
