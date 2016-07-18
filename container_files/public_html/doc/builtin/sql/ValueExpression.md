@@ -686,12 +686,13 @@ You can also take a look at the ![](%%nblink _tutorials/Executing JavaScript Cod
 
 ## <a name="try"></a>Handling errors line by line
 
-When a function is given invalid input, the whole query fails and no result is
-returned. The `try` function is meant to handle those cases. The first argument
-is the expression you want to "try" to apply. The optional second argument is
-what will be done if an error is encountered. It can be any value expression
-including other functions and other `try`. If no second argument is given, the
-error is returned.
+When an error occurs when processing a query, the whole query fails and no
+result is given even if a single line caused the error.  The `try` function is
+meant to handle those cases. The first argument is the expression you want to
+"try" to apply. The optional second argument is what will be done if an error
+is encountered. It can be any value expression including other functions and
+other `try`. If no second argument is given, the error is returned. It is
+analogous to a try/catch block in other programming languages.
 
 Example usage
 
@@ -700,7 +701,7 @@ SELECT try(parse_json('foo'), 'err')
 ```
 
 Here, `parse_json('foo')` will fail. Since the second argument is provided, the
-value "err" will be returned..
+value "err" will be returned.
 
 ```sql
 SELECT try(parse_json('foo'))
