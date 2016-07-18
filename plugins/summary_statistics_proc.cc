@@ -112,7 +112,7 @@ typedef tuple<ColumnName, CellValue, Date> Cell;
 
 template <typename T, int size>
 struct MostFrequents {
-    static_assert(size > 0, "Top holder size must be greather than 0");
+    static_assert(size > 0, "MostFrequents size must be greather than 0");
     std::pair<int64_t, T> top[size];
     int currSize;
     int lowerIdx;
