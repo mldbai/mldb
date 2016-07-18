@@ -4,8 +4,12 @@
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 import unittest
-import numpy
 import random
+try:
+    import numpy
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
@@ -40,6 +44,7 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT stddev(c) FROM null_ds")
         self.assertEqual(res[1][1], "NaN")
 
+    @unittest.skipUnless(NUMPY_AVAILABLE, "Requires numpy")
     def test_random_sequences(self):
         """
         Generate random sequences and compare the result with numpy.
@@ -56,6 +61,8 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
                 sequence.append(random.random() * 1000000)
                 ds.record_row(row, [['a', sequence[-1], 0]])
             ds.commit()
+            if (size == 20):
+                mldb.log(sequence)
 
             mldb_res = mldb.query("SELECT stddev(a) FROM rand")[1][1]
             numpy_res = float(numpy.var(sequence, ddof=1))
@@ -77,6 +84,29 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
         mldb.log('\n'.join(lines))
         mldb.log(err_cnt)
         self.assertEqual(err_cnt, 0)
+
+    def test_pre_generated_sequence(self):
+        """
+        Use a sequence that was randomly generated. Fall back when numpy is
+        not available.
+        """
+        sequence = [208427.44720839578, 457112.4117661105, 382059.51760122814,
+                    665800.0456080714, 467338.1109353526, 213330.03276811822,
+                    511618.87320035807, 479816.93290939386, 299103.40031107765,
+                    473251.9045436747, 76189.30209577834, 886893.3898863205,
+                    943297.756950757, 613434.874169999, 114575.37447960586,
+                    683344.908275345, 719435.7021704618, 112303.13453557184,
+                    646095.3802013887, 394881.5084234503]
+        ds = mldb.create_dataset({
+            'id' : 'pre_gen_seq_input',
+            'type' : 'sparse.mutable'
+        })
+        for idx, num in enumerate(sequence):
+            ds.record_row(idx, [['col', num, 0]])
+
+        ds.commit()
+        res = mldb.query("SELECT stddev(col) FROM pre_gen_seq_input")
+        self.assertEqual(res[1][1],  62294040173.716774)
 
 if __name__ == '__main__':
     mldb.run_tests()
