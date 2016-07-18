@@ -127,6 +127,7 @@ struct NumericRowHandler {
     const int NUM_NOT_NULL_IDX = 3;
     const int NUM_NULL_IDX = 4;
     const int NUM_UNIQUE_IDX = 5;
+    const int STDDEV_IDX = 6;
 
     bool first;
     BoundTableExpression & boundDataset;
@@ -154,6 +155,7 @@ struct NumericRowHandler {
                 ExcAssert(std::get<0>(cols[NUM_NOT_NULL_IDX]).toUtf8String() == "num_not_null");
                 ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
+                ExcAssert(std::get<0>(cols[STDDEV_IDX]).toUtf8String() == "stddev");
 
             }
 
@@ -169,6 +171,7 @@ struct NumericRowHandler {
             toRecord.emplace_back(value + "min", std::get<1>(cols[MIN_IDX]).toDouble(), now);
             toRecord.emplace_back(value + "num_null", std::get<1>(cols[NUM_NULL_IDX]).toInt(), now);
             toRecord.emplace_back(value + "num_unique", std::get<1>(cols[NUM_UNIQUE_IDX]).toInt(), now);
+            toRecord.emplace_back(value + "stddev", std::get<1>(cols[STDDEV_IDX]).toDouble(), now);
             toRecord.emplace_back(value + "data_type", "number", now);
             output->recordRow(rowName, toRecord);
             numNotNull = std::get<1>(cols[NUM_NOT_NULL_IDX]).toInt();
@@ -182,7 +185,8 @@ struct NumericRowHandler {
             "max(" + name + ") AS max, "
             "avg(" + name + ") AS avg, "
             "sum(" + name + " IS NULL) AS num_null, "
-            "sum(" + name + " IS NOT NULL) AS num_not_null"
+            "sum(" + name + " IS NOT NULL) AS num_not_null, "
+            "stddev(" + name + ") AS stddev"
         );
         vector<shared_ptr<SqlExpression>> aggregators =
             select.findAggregators(!config.inputData.stm->groupBy.clauses.empty());

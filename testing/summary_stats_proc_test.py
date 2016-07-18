@@ -46,16 +46,19 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
              "value.1st_quartile", "value.median", "value.3rd_quartile",
              "value.most_frequent_items.banane",
              "value.most_frequent_items.20", "value.most_frequent_items.2",
-             "value.most_frequent_items.1"],
+             "value.most_frequent_items.1", "value.stddev"],
 
             ["colTxt", "categorical", 1, 2, None, None, None, None, None,
-             None, 1, None, None, None],
+             None, 1, None, None, None, None],
 
             ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20, None, 1, None,
-             None],
+             None, "NaN"],
 
-            ["colB", "number", 2, 1, 2, 2, 2, 2, 2, 2, None, None, 1, None],
-            ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2]
+            ["colB", "number", 2, 1, 2, 2, 2, 2, 2, 2, None, None, 1, None,
+             "NaN"],
+
+            ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2,
+             27]
         ])
 
     def test_dottest_col_names(self):
@@ -82,8 +85,8 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
             ["_rowName", "value.1st_quartile", "value.3rd_quartile",
              "value.data_type", "value.max", "value.avg", "value.median",
              "value.min", "value.most_frequent_items.1", "value.num_null",
-             "value.num_unique"],
-            ['"col.a"', 1, 1, "number", 1, 1, 1, 1, 1, 0, 1]
+             "value.num_unique", "value.stddev"],
+            ['"col.a"', 1, 1, "number", 1, 1, 1, 1, 1, 0, 1, "NaN"]
         ])
 
     def test_unexisting_col(self):
