@@ -73,6 +73,8 @@ enum JsonArrayHandling {
     ENCODE_ARRAYS ///< Arrays are encoded as one-hot or JSON literals
 };
 
+DECLARE_ENUM_DESCRIPTION(JsonArrayHandling);
+
 /** Vector of dimensions for an embedding. */
 typedef compact_vector<size_t, 4> DimsVector;
 
@@ -756,13 +758,6 @@ struct ExpressionValue {
     /// Destructive getAtom() call, that moves it into the result
     CellValue stealAtom();
 
-    const Structured & getStructured() const;
-
-#if 0
-    // like getRow, but it actually moves it out so no copying is required
-    Structured stealStructured();
-#endif
-
     CellValue coerceToString() const;
     CellValue coerceToInteger() const;
     CellValue coerceToNumber() const;
@@ -1033,12 +1028,24 @@ struct ExpressionValue {
     /** Same, but return the JSON directly. */
     Json::Value extractJson() const;
 
+    /** Convert to the given type described by its ValueDescription. */
+    template<typename T>
+    T extractT(const ValueDescription & desc
+               = *getDefaultDescriptionSharedT<T>()) const
+    {
+        T result;
+        extractImpl(&result, desc);
+        return result;
+    }
+
     /** Return a hash of the value.  Note the the timestamps are NOT and MUST
         NOT BE incorporated into the calculated value.
     */
     size_t hash() const;
 
 private:
+    void extractImpl(void * obj, const ValueDescription & desc) const;
+
     void initInt(int64_t intValue, Date ts);
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept
@@ -1052,6 +1059,7 @@ private:
     }
     void initStructured(Structured row) noexcept;
     void initStructured(std::shared_ptr<const Structured> row) noexcept;
+    const Structured & getStructured() const;
 
     void setAtom(CellValue value, Date ts);
 

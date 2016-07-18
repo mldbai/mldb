@@ -1,10 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** enum_description.h                                             -*- C++ -*-
     Jeremy Barnes, 21 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-    Value description for a pointer.
+    Value description for an enum.
 */
 
 #pragma once
@@ -48,6 +47,12 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
 
     virtual void parseJsonTyped(Enum * val, JsonParsingContext & context) const
     {
+        if (context.isNull()) {
+            context.exception("NULL value found parsing enumeration "
+                              + this->typeName + "; expected either a "
+                              "string or an integer");
+        }
+
         if (context.isString()) {
             std::string s = context.expectStringAscii();
             auto it = parse.find(s);

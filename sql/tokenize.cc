@@ -9,6 +9,8 @@
 
 #include "tokenize.h"
 #include "base/parse_context.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/types/pair_description.h"
 #include <queue>
 
 using namespace std;
@@ -16,6 +18,39 @@ using namespace std;
 
 namespace Datacratic {
 
+DEFINE_STRUCTURE_DESCRIPTION(TokenizeOptions);
+
+TokenizeOptionsDescription::
+TokenizeOptionsDescription()
+{
+    addAuto("splitchars", &TokenizeOptions::splitchar,
+            "Characters to split on in the tokenization.");
+    addAuto("quotechar", &TokenizeOptions::quotechar,
+            "a single character to delimit tokens which may contain the "
+            "`splitchars`, so by default "
+            "`tokenize('a,\"b,c\"', {quotechar:'\"'})` will return the row "
+            "`{'a':1,'b,c':1}`.  By default no quoting character is used.");
+    addAuto("offset", &TokenizeOptions::offset,
+            "Skip the first `offset` tokens of the output (default 0).");
+    addAuto("limit", &TokenizeOptions::limit,
+            "Only generate `limit` tokens in the output (default is -1, "
+            "which means generate all.");
+    addAuto("value", &TokenizeOptions::value,
+            "`value` (if not set to `null`) will be used instead of "
+            "token counts for the values of the columns in the output row.");
+    addAuto("min_token_length", &TokenizeOptions::min_token_length,
+            "Minimum number of characters in a token for it to be output or "
+            "included as part of an ngram");
+    addAuto("ngram_range", &TokenizeOptions::ngram_range,
+            "Specifies the complexity of n-grams to return, with the "
+            "first element corresponding to minimum length and the "
+            "second to maximum length.  "
+            "`[1, 1]` will return only unigrams, while `[2, 3]` will "
+            "return bigrams and trigrams, where tokens are joined by "
+            "underscores. For example, "
+            "`tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})`"
+            "will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`");
+}
 
 struct NGramer {
 
@@ -215,18 +250,13 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
     return;
 }
 
-bool
-tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
-         ML::Parse_Context& context,
-         const Utf8String& splitchars,
-         const Utf8String& quotechar,
-         int offset, int limit,
-         int min_token_length,
-         ML::distribution<float, std::vector<float> > & ngram_range)
+bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
+              ML::Parse_Context& pcontext,
+              const TokenizeOptions & options)
 {
     int count = 0;
  
-    NGramer nGramer(ngram_range[0], ngram_range[1]);
+    NGramer nGramer(options.ngram_range.first, options.ngram_range.second);
 
     auto onGram = [&](Utf8String& word) -> bool
     {
@@ -244,29 +274,31 @@ tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
     auto aggregate = [&](Utf8String& word) -> bool
     {
         ++count;
-        if (count <= offset)
+        if (count <= options.offset)
             return true; //continue
 
         if (word != "") {
             nGramer.add_token(word, onGram);
         }
 
-        if (count == limit+offset)
+        if (count == options.limit+options.offset)
             return false; //stop here
 
         return true;
     };
 
-    tokenize_exec(aggregate, context, splitchars, quotechar, min_token_length);
+    tokenize_exec(aggregate, pcontext,
+                  options.splitchar,
+                  options.quotechar,
+                  options.min_token_length);
 
     return !bagOfWords.empty();
 }
 
+
 Utf8String token_extract(ML::Parse_Context& context,
-                         const Utf8String& splitchars,
-                         const Utf8String& quotechar,
-                         int offset, int limit, int nth,
-                         int min_token_length)
+                         int nth,
+                         const TokenizeOptions & options)
 {
     Utf8String result;
 
@@ -275,7 +307,7 @@ Utf8String token_extract(ML::Parse_Context& context,
         auto aggregate_positive = [&] (Utf8String& word) -> bool
         {
             ++count;
-            if (count <= offset + nth)
+            if (count <= options.offset + nth)
                 return true; //skip & continue
 
             if (word != "") {
@@ -283,13 +315,15 @@ Utf8String token_extract(ML::Parse_Context& context,
                 return false; //found it, stop
             }
 
-            if (count == limit+offset+nth)
+            if (count == options.limit+options.offset+nth)
                 return false; //stop here
 
             return true;
         };
 
-        tokenize_exec(aggregate_positive, context, splitchars, quotechar, min_token_length);
+        tokenize_exec(aggregate_positive, context,
+                      options.splitchar, options.quotechar,
+                      options.min_token_length);
     }
     else {
         std::queue<Utf8String> tokens;
@@ -297,21 +331,23 @@ Utf8String token_extract(ML::Parse_Context& context,
         auto aggregate_negative = [&](Utf8String& word) -> bool
         {
             ++count;
-            if (count <= offset)
+            if (count <= options.offset)
                 return true; //continue
 
             tokens.push(word);
 
             if (tokens.size() > -nth)
-                   tokens.pop(); //For memory efficiency
+                tokens.pop(); //For memory efficiency
 
-            if (count == limit+offset)
+            if (count == options.limit+options.offset)
                 return false; //stop here
 
             return true;
         };
 
-        tokenize_exec(aggregate_negative, context, splitchars, quotechar, min_token_length);
+        tokenize_exec(aggregate_negative, context,
+                      options.splitchar, options.quotechar,
+                      options.min_token_length);
         if (tokens.size() == -nth)
             result = std::move(tokens.front());
     }

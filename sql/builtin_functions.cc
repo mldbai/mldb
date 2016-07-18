@@ -21,6 +21,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
 #include "mldb/ext/edlib/src/edlib.h"
+#include "mldb/types/structure_description.h"
 
 #include <boost/regex/icu.hpp>
 #include <iterator>
@@ -1777,6 +1778,30 @@ BoundFunction norm(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerNorm(norm, "norm");
 
 
+struct ParseJsonOptions {
+    bool ignoreErrors = false;
+    JsonArrayHandling arrays = PARSE_ARRAYS;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ParseJsonOptions);
+DEFINE_STRUCTURE_DESCRIPTION(ParseJsonOptions);
+
+ParseJsonOptionsDescription::
+ParseJsonOptionsDescription()
+{
+    addAuto("ignoreErrors", &ParseJsonOptions::ignoreErrors,
+            "If true, errors in the JSON are ignored and the element with "
+            "an error will be silently ignored.  If false (the default), "
+            "a JSON format error will lead to the function failing with "
+            "an exception.");
+    addAuto("arrays", &ParseJsonOptions::arrays,
+            "Describes how arrays are encoded in the JSON output.  For "
+            "''parse' (default), the arrays become structured values. "
+            "For 'encode', "
+            "arrays containing atoms are sparsified with the values "
+            "representing one-hot "
+            "keys and boolean true values");
+}
 
 BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
@@ -1800,40 +1825,16 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                             throw HttpReturnException(400, "Argument " + name + " is specified more than once");
                         check[field] = true;
                     };
+ 
+                ParseJsonOptions options;
 
-                JsonArrayHandling encode = PARSE_ARRAYS;
-                bool ignoreErrors = false;
                 if(args.size() == 2) {
-                    const ExpressionValue::Structured & argRow =
-                        args.at(1).getStructured();
-
-                    for (auto& arg : argRow) {
-                        const ColumnName& columnName = std::get<0>(arg);
-                        if (columnName == ColumnName("arrays")) {
-                            assertArg(0, "arrays");
-                            const auto & argOne = std::get<1>(arg);
-                            if(argOne.empty())
-                                throw HttpReturnException(400, " value of 'arrays' "
-                                        "must be 'parse' or 'encode', got: NULL");
-                            auto arrays = argOne.toUtf8String();
-                            if (arrays == "encode")
-                                encode = ENCODE_ARRAYS;
-                            else if (arrays != "parse")
-                                throw HttpReturnException(400, " value of 'arrays' "
-                                        "must be 'parse' or 'encode', got: " + arrays);
-                        }
-                        else if (columnName == ColumnName("ignoreErrors")) {
-                            assertArg(1, "ignoreErrors");
-                            ignoreErrors = std::get<1>(arg).asBool();
-                        }
-                        else {
-                            throw HttpReturnException(400, "Unknown argument "
-                                    "in parse_json", "argument", columnName);
-                        }
-                    }
+                    options = args[1].extractT<ParseJsonOptions>();
                 }
 
                 try {
+                    JML_TRACE_EXCEPTIONS(!options.ignoreErrors);
+
                     Utf8String str = val.toUtf8String();
                     StreamingJsonParsingContext parser(str.rawString(),
                                                        str.rawData(),
@@ -1841,16 +1842,20 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 
                     if (!parser.isObject() && !parser.isArray())
                         throw HttpReturnException(400, "JSON passed to parse_json must be "
-                                "an object or an array", "json", str);
+                                "an object or an array; got '" + str + "'",
+                                                  "json", str);
 
                     return ExpressionValue::
                         parseJson(parser, val.getEffectiveTimestamp(),
-                                  encode);
+                                  options.arrays);
                 }
                 catch(std::exception & e) {
-                    if(ignoreErrors) {
+                    if(options.ignoreErrors) {
                         RowValue rv;
-                        rv.emplace_back(make_tuple(Path("__parse_json_error__"), CellValue(true), val.getEffectiveTimestamp()));
+                        rv.emplace_back(make_tuple(Path("__parse_json_error__"),
+                                                   CellValue(true),
+                                                   //CellValue(e.what()),
+                                                   val.getEffectiveTimestamp()));
                         return ExpressionValue(std::move(rv));
                     }
 
@@ -1913,57 +1918,6 @@ BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args
 
 static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
 
-void
-ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
-                       int& offset, int& limit, int& min_token_length,
-                       ML::distribution<float, std::vector<float> > & ngram_range,
-                       ExpressionValue& values,
-                       bool check[7],
-                       const ExpressionValue::Structured & argRow)
-{
-    auto assertArg = [&] (size_t field, const string & name)
-        {
-            if (check[field])
-                throw HttpReturnException(400, "Argument " + name + " is specified more than once");
-            check[field] = true;
-        };
-    
-    for (auto& arg : argRow) {
-        const ColumnName& columnName = std::get<0>(arg);
-        if (columnName == ColumnName("splitchars")) {
-            assertArg(0, "splitchars");
-            splitchar = std::get<1>(arg).toUtf8String();
-        }
-        else if (columnName == ColumnName("quotechar")) {
-            assertArg(1, "quotechar");
-            quotechar = std::get<1>(arg).toUtf8String();
-        }
-        else if (columnName == ColumnName("offset")) {
-            assertArg(2, "offset");
-            offset = std::get<1>(arg).toInt();
-        }
-        else if (columnName == ColumnName("limit")) {
-            assertArg(3, "limit");
-            limit = std::get<1>(arg).toInt();
-        }
-        else if (columnName == ColumnName("value")) {
-            assertArg(4, "value");
-            values = std::get<1>(arg);
-        }
-        else if (columnName == ColumnName("min_token_length")) {
-            assertArg(5, "min_token_length");
-            min_token_length = std::get<1>(arg).toInt();
-        }
-        else if (columnName == ColumnName("ngram_range")) {
-            assertArg(6, "ngram_range");
-            ngram_range = std::get<1>(arg).getEmbedding(2);
-        }
-        else {
-            throw HttpReturnException(400, "Unknown argument in tokenize", "argument", columnName);
-        }
-    }
-}
-
 BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() == 0)
@@ -1985,26 +1939,17 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
 
                 Utf8String text = args[0].toUtf8String();
 
-                Utf8String splitchar = ",";
-                Utf8String quotechar = "";
-                int offset = 0;
-                int limit = -1;
-                int min_token_length = 1;
-                ML::distribution<float, std::vector<float> > ngram_range = {1, 1};
-                ExpressionValue values;
-                bool check[] = {false, false, false, false, false, false, false};
+                TokenizeOptions options;
 
-                if (args.size() == 2)
-                    ParseTokenizeArguments(splitchar, quotechar, offset, limit,
-                                           min_token_length, ngram_range, values,
-                                           check, args.at(1).getStructured());
+                if (args.size() == 2) {
+                    options = args[1].extractT<TokenizeOptions>();
+                }
 
                 ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
 
                 std::unordered_map<Utf8String, int> bagOfWords;
 
-                tokenize(bagOfWords, pcontext, splitchar, quotechar, offset, limit,
-                        min_token_length, ngram_range);
+                tokenize(bagOfWords, pcontext, options);
 
                 RowValue row;
                 row.reserve(bagOfWords.size());
@@ -2012,26 +1957,19 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 auto it = bagOfWords.begin();
 
                 while (it != bagOfWords.end()) {
-                    if (check[4]) //values
-                    {
-                        if (!values.isAtom())
-                          throw HttpReturnException(400, ML::format("requires 'value' "
-                                "argument be a scalar, got type '%s'",
-                                values.getTypeAsString()));
-
+                    if (!options.value.empty()) {
                         row.emplace_back(ColumnName(it->first),
-                                     values.getAtom(),
-                                     ts);
+                                         options.value,
+                                         ts);
                         ++it;
                     }
                     else
                     {
                         row.emplace_back(ColumnName(it->first),
-                                     it->second,
-                                     ts);
+                                         it->second,
+                                         ts);
                         ++it;
                     }
-
                 }
 
                 return ExpressionValue(std::move(row));
@@ -2058,32 +1996,24 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
 
                 Utf8String text = args[0].toUtf8String();
 
-                Utf8String splitchar = ",";
-                Utf8String quotechar = "";
-                int offset = 0;
-                int limit = 1;
-                int min_token_length = 1;
-                ML::distribution<float, std::vector<float> > ngram_range;
-                ExpressionValue values;
-                bool check[] = {false, false, false, false, false, false, false};
+                TokenizeOptions options;
 
-                int nth = args.at(1).toInt();
-
-                if (args.size() == 3)
-                    ParseTokenizeArguments(splitchar, quotechar, offset, limit, min_token_length,
-                                           ngram_range, values, check, args.at(2).getStructured());
-
+                if (args.size() == 3) {
+                    options = args[2].extractT<TokenizeOptions>();
+                }
+                
                 ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
 
                 ExpressionValue result;
 
-                Utf8String output = token_extract(pcontext, splitchar, quotechar, offset, limit,
-                        nth, min_token_length);
+                int nth = args.at(1).toInt();
 
-                if (output != "")
-                    result = ExpressionValue(output, ts);
+                Utf8String output = token_extract(pcontext, nth, options);
 
-                return std::move(result);
+                if (!output.empty())
+                    result = ExpressionValue(std::move(output), ts);
+
+                return result;
             },
             std::make_shared<UnknownRowValueInfo>()};
 }
@@ -2428,34 +2358,23 @@ RegisterVectorOp<SumOp> registerVectorSum("vector_sum");
 RegisterVectorOp<ProductOp> registerVectorProduct("vector_product");
 RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
 
-void
-ParseConcatArguments(Utf8String& separator, bool& columnValue,
-                     const ExpressionValue::Structured & argRow)
-{
-    bool check[3] = {false, false, false};
-    auto assertArg = [&] (size_t field, const string & name) {
-        if (check[field]) {
-            throw HttpReturnException(
-                400, "Argument " + name + " is specified more than once");
-        }
-        check[field] = true;
-    };
+struct ConcatOptions {
+    Utf8String separator = ",";
+    bool columnValue = true;
+};
 
-    for (const auto &arg : argRow) {
-        const ColumnName& columnName = std::get<0>(arg);
-        if (columnName == ColumnName("separator")) {
-            assertArg(1, "separator");
-            separator = std::get<1>(arg).toUtf8String();
-        }
-        else if (columnName == ColumnName("columnValue")) {
-            assertArg(2, "columnValue");
-            columnValue = std::get<1>(arg).asBool();
-        }
-        else {
-            throw HttpReturnException(400, "Unknown argument in concat",
-                                      "argument", columnName);
-        }
-    }
+DECLARE_STRUCTURE_DESCRIPTION(ConcatOptions);
+
+DEFINE_STRUCTURE_DESCRIPTION(ConcatOptions);
+
+ConcatOptionsDescription::
+ConcatOptionsDescription()
+{
+    addAuto("separator", &ConcatOptions::separator,
+            "Separator to place between concatenated items (default ',')");
+    addAuto("columnValue", &ConcatOptions::columnValue,
+            "If true (default), the column is used as the value.  Otherwise "
+            "the column *name* is used as the value.");
 }
 
 BoundFunction concat(const std::vector<BoundSqlExpression> & args)
@@ -2470,13 +2389,10 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
             400, "requires at most two arguments");
     }
 
-    Utf8String separator(",");
-    bool columnValue = true;
+    ConcatOptions options;
 
     if (args.size() == 2) {
-        SqlRowScope emptyScope;
-        ParseConcatArguments(separator, columnValue,
-                             args[1](emptyScope, GET_LATEST).getStructured());
+        options = args[1].constantValue().extractT<ConcatOptions>();
     }
 
     return {[=] (const std::vector<ExpressionValue> & args,
@@ -2495,20 +2411,22 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
                         first = false;
                     }
                     else {
-                        result += separator;
+                        result += options.separator;
                     }
-                    result += columnValue ?
+                    result += options.columnValue ?
                        val.toUtf8String() : columnName.toUtf8String();
                 }
                 return true;
             };
 
             args.at(0).forEachAtom(onAtom);
-            return ExpressionValue(result, ts);
+
+            return ExpressionValue(std::move(result), ts);
         },
-        std::make_shared<UnknownRowValueInfo>()
+        std::make_shared<Utf8StringValueInfo>()
     };
 }
+
 static RegisterBuiltin registerConcat(concat, "concat");
 
 BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
