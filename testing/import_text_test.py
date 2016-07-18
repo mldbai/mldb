@@ -115,6 +115,58 @@ class ImportTextTest(MldbUnitTest):
                 }
             })
 
+    def test_rowHash(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                'outputDataset' : "titanic_hashed",
+                "where": "rowHash() % 3 = 0",
+                'runOnCreation' : True,
+            }
+        })
+
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                'outputDataset' : "titanic_no_hashed",
+                'runOnCreation' : True,
+            }
+        })
+
+
+
+        self.assertTableResultEquals(
+            mldb.query("select count(*) from titanic_hashed"),
+            [["_rowName","count(*)"],
+             ["[]",279]]
+        )
+
+        self.assertTableResultEquals(
+            mldb.query("select count(*) from titanic_no_hashed"),
+            [["_rowName","count(*)"],
+             ["[]",891]]
+        )
+
+    def test_import_filename_with_whitespaces(self):
+        """
+        MLDB-1797
+        """
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                'dataFileUrl' : 'file://mldb/testing/filename with whitespaces.csv',
+                'outputDataset' : 'test_impot_filename_with_whitespaces',
+                'runOnCreation' : True
+            }
+        })
+
+        res = mldb.query("SELECT * FROM test_impot_filename_with_whitespaces")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'a', 'b'],
+            ['2', 1, 2]
+        ])
 
 
 if __name__ == '__main__':

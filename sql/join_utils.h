@@ -13,6 +13,12 @@
 namespace Datacratic {
 namespace MLDB {
 
+ enum JoinSide {
+    JOIN_SIDE_LEFT = 0,
+    JOIN_SIDE_RIGHT,
+    JOIN_SIDE_MAX
+};
+
 /** Fix up an expression, by looking for all column references and removing
     the table name in the set of aliases from each one.
 */

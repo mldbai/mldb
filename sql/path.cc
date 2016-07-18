@@ -11,7 +11,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/ext/siphash/csiphash.h"
+#include "mldb/ext/highwayhash.h"
 #include "mldb/types/itoa.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/ext/cityhash/src/city.h"
@@ -594,7 +594,7 @@ uint64_t
 PathElement::
 newHash() const
 {
-    return ::mldb_siphash24(data(), dataLength(), defaultSeedStable.b);
+    return highwayHash(defaultSeedStable.u64, data(), dataLength());
 }
 
 Path

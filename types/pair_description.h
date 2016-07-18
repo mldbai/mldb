@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** pair_description.h                                          -*- C++ -*-
     Jeremy Barnes, 21 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Value description for a pointer.
 */
@@ -15,10 +14,11 @@ namespace Datacratic {
 
 template<typename T, typename U>
 struct PairDescription
-    : public ValueDescriptionI<std::pair<T, U>, ValueKind::TUPLE, PairDescription<T, U> > {
+    : public ValueDescriptionI<std::pair<T, U>, ValueKind::TUPLE,
+                               PairDescription<T, U> > {
 
     PairDescription(ValueDescriptionT<T> * inner1,
-                       ValueDescriptionT<U> * inner2)
+                    ValueDescriptionT<U> * inner2)
         : inner1(inner1), inner2(inner2)
     {
     }
@@ -38,19 +38,19 @@ struct PairDescription
     std::shared_ptr<const ValueDescriptionT<T> > inner1;
     std::shared_ptr<const ValueDescriptionT<U> > inner2;
 
-    virtual size_t getTupleLength() const
+    virtual size_t getTupleLength() const override
     {
         return 2;
     }
 
     virtual std::vector<std::shared_ptr<const ValueDescription> >
-    getTupleElementDescriptions() const
+    getTupleElementDescriptions() const override
     {
         return { inner1, inner2 };
     }
 
     virtual const ValueDescription &
-    getArrayElementDescription(const void * val, uint32_t element) const
+    getArrayElementDescription(const void * val, uint32_t element) const override
     {
         if (element == 0)
             return *inner1;

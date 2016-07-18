@@ -9,6 +9,7 @@
 
 #include "credential_provider.h"
 #include "mldb/types/optional.h"
+#include "mldb/base/exc_assert.h"
 #include <mutex>
 #include <iostream>
 
@@ -54,7 +55,6 @@ getCredential(const std::string & resourceType,
             auto creds = (*it)->getCredentialsOfType(resourceType);
             if (!creds.empty()) {
                 candidates.insert(candidates.end(), creds.begin(), creds.end());
-                cerr << "found candidates in " << creds[0].credential.provider << endl;
             }
         }
     }
@@ -75,7 +75,6 @@ getCredential(const std::string & resourceType,
         // better match on path
         if (!bestMatch || bestMatch->resource.find(storedCredential.resource)) {
             bestMatch.reset(new StoredCredentials(storedCredential));
-            cerr << "found matching with path " << storedCredential.resource << endl;
         }
     }
 

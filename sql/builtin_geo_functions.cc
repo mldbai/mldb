@@ -30,7 +30,7 @@ static constexpr double EARTH_MEAN_RADIUS_METERS       = 6371008.8;
 
 BoundFunction geo_distance(const std::vector<BoundSqlExpression> & args)
 {
-    checkArgsSize(args.size(), 4);
+    checkArgsSize(args.size(), 4, __FUNCTION__);
 
     auto outputInfo
         = std::make_shared<Float64ValueInfo>();
@@ -38,7 +38,7 @@ BoundFunction geo_distance(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 4);
+                checkArgsSize(args.size(), 4);
 
                 Date ts = calcTs(args[0], args[1], args[2], args[3]);
                 

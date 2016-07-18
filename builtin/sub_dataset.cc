@@ -111,7 +111,7 @@ struct SubDataset::Itl
 
     ~Itl() { }
 
-     struct SubRowStream : public RowStream {
+    struct SubRowStream : public RowStream {
 
         SubRowStream(SubDataset::Itl* source) : source(source)
         {
@@ -129,6 +129,11 @@ struct SubDataset::Itl
 
         virtual RowName next() {
             return (iter++)->rowName;
+        }
+
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            return iter->rowName;
         }
 
         std::vector<MatrixNamedRow>::const_iterator iter;

@@ -8,6 +8,7 @@
 #include "mldb/builtin/sub_dataset.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/sql/execution_pipeline.h"
+#include "mldb/types/value_description.h"
 
 using namespace std;
 

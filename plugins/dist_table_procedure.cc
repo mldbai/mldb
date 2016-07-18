@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dist_table_procedure.cc                                        -*- C++ -*-
     Simon Lemieux, June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     distTable procedure
 */
@@ -66,32 +64,36 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 }
 
 /*****************************************************************************/
-/* DIST TABLE                                                               */
+/* DIST TABLE                                                                */
 /*****************************************************************************/
 
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const DistTableStats & s)
 {
-    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max;
+    return store << s.count << s.avg << s.var << s.M2 << s.min << s.max
+                 << s.last << s.sum;
 }
 
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, DistTableStats & s)
 {
-    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max;
+    store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max >> s.last
+          >> s.sum;
     return store;
 }
 
 void
-DistTableStats::increment(double value)
+DistTableStats::
+increment(double value)
 {
     // special case if first value
     if (JML_UNLIKELY(count == 0)) {
         count = 1;
-        avg = min = max = value;
+        avg = min = max = sum = value;
         M2 = 0.;
     } else {
         count++;
+        sum += value;
         double delta = value - avg;
         avg += delta / count;
         // For the unbiased std, I'm using Welford's algorithm described here
@@ -100,9 +102,28 @@ DistTableStats::increment(double value)
 
         if (count >= 2) // otherwise unbiased variance doesn't make sense
             var = M2 / (count - 1);
-        
+
         min = std::min(min, value);
         max = std::max(max, value);
+    }
+
+    last = value;
+}
+
+double
+DistTableStats::
+getStat(DISTTABLE_STATISTICS stat) const
+{
+    switch(stat) {
+        case DT_COUNT:  return count;
+        case DT_AVG:    return avg;
+        case DT_STD:    return getStd();
+        case DT_MIN:    return min;
+        case DT_MAX:    return max;
+        case DT_LAST:   return last;
+        case DT_SUM:    return sum;
+        default:
+            throw ML::Exception("Unknown DistTable_Stat");
     }
 }
 
@@ -115,7 +136,8 @@ DistTable(const std::string & filename):
     reconstitute(store);
 }
 
-void DistTable::
+void
+DistTable::
 increment(const Utf8String & featureValue, const vector<double> & targets)
 {
     const auto & it = stats.find(featureValue);
@@ -187,21 +209,44 @@ reconstitute(ML::DB::Store_Reader & store)
 /* DIST TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
+DEFINE_ENUM_DESCRIPTION(DistTableMode);
+
+DistTableModeDescription::
+DistTableModeDescription()
+{
+    addValue("bagOfWords",   DT_MODE_BAG_OF_WORDS, "This mode will use the names of "
+        "the columns as the keys to the distribution tables.");
+    addValue("fixedColumns", DT_MODE_FIXED_COLUMNS, "This mode will use the value "
+        "of the cells as the keys to the distrubtion tables.");
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
 
 DistTableProcedureConfigDescription::
 DistTableProcedureConfigDescription()
 {
+    Optional<PolyConfigT<Dataset> > optionalOutputDataset;
+    optionalOutputDataset.emplace(PolyConfigT<Dataset>().
+                                  withType(DistTableProcedureConfig::defaultOutputDatasetType));
+
     addField("trainingData", &DistTableProcedureConfig::trainingData,
              "SQL query to select the data on which the rolling operations will "
              "be performed.");
     addField("outputDataset", &DistTableProcedureConfig::output,
-             "Output dataset",
-             PolyConfigT<Dataset>().withType("tabular"));
+             "Output dataset", optionalOutputDataset);
     addField("outcomes", &DistTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be of type `INTEGER` or `NUMBER`");
+
+    std::vector<Utf8String> defaultStats = { "count", "avg", "std", "min", "max" };
+    addField("statistics", &DistTableProcedureConfig::statistics,
+             "List of statistics to track for each outcome.", defaultStats);
+
+    addField("mode", &DistTableProcedureConfig::mode,
+            "Distribution table mode. This must match the type of data to use: fixed "
+            "columns or bag of words.", DT_MODE_FIXED_COLUMNS);
+
     addField("distTableFileUrl", &DistTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.dt') should be saved. "
              "This file can be loaded by the ![](%%doclink experimental.distTable.getStats function). "
@@ -247,6 +292,22 @@ run(const ProcedureRunConfig & run,
     DistTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
+
+    // build a cache of the names for quick access
+    std::string dtStatsNames[DT_NUM_STATISTICS];
+    for(int i=0; i<DT_NUM_STATISTICS; i++)
+        dtStatsNames[(DISTTABLE_STATISTICS)i] = print((DISTTABLE_STATISTICS)i);
+
+    // configure active statistics
+    if(runProcConf.statistics.size() == 0)
+        runProcConf.statistics = { "count", "avg", "std", "min", "max" };
+
+    vector<DISTTABLE_STATISTICS> activeStats;
+    for(auto & stat : runProcConf.statistics) {
+        activeStats.push_back(parseDistTableStatistic(stat));
+    }
+
+
     SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
@@ -256,15 +317,25 @@ run(const ProcedureRunConfig & run,
 
     DistTablesMap distTablesMap;
 
-    {
+    if(runProcConf.mode == DT_MODE_FIXED_COLUMNS) {
         // Find only those variables used
         SqlExpressionDatasetScope context(boundDataset);
 
         auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
         for (const auto & c: selectBound.info->getKnownColumns()) {
-            distTablesMap.insert(make_pair(c.columnName, DistTable(c.columnName, outcome_names)));
+            distTablesMap.insert(
+                    make_pair(c.columnName,
+                              DistTable(c.columnName, outcome_names)));
         }
+    }
+    else if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
+        distTablesMap.insert(
+                make_pair(ColumnName("words"),
+                          DistTable(ColumnName("words"), outcome_names)));
+    }
+    else {
+        throw ML::Exception("unsupported dist table mode");
     }
 
     auto onProgress2 = [&] (const Json::Value & progress)
@@ -274,7 +345,17 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    auto output = createDataset(server, runProcConf.output, onProgress2, true /*overwrite*/);
+    std::shared_ptr<Dataset> output;
+    if(runProcConf.output) {
+        if(runProcConf.mode == DT_MODE_BAG_OF_WORDS)
+            throw ML::Exception("Cannot use outputDataset when mode=bagOfWords");
+
+        PolyConfigT<Dataset> outputDataset = *runProcConf.output;
+        if (outputDataset.type.empty())
+            outputDataset.type = DistTableProcedureConfig::defaultOutputDatasetType;
+
+        output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
+    }
 
     int num_req = 0;
     Date start = Date::now();
@@ -300,71 +381,71 @@ run(const ProcedureRunConfig & run,
                 targets[i] = outcome.toDouble();
             }
 
-            map<ColumnName, size_t> column_idx;
-            for (int i=0; i<row.columns.size(); i++) {
-                column_idx.insert(make_pair(get<0>(row.columns[i]), i));
+
+            if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
+                // there is only a single table
+                DistTable & distTable = distTablesMap.begin()->second;
+                for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
+                    distTable.increment(get<0>(col).toUtf8String(), targets);
+                }
             }
+            else if(runProcConf.mode == DT_MODE_FIXED_COLUMNS) {
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
+                std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
 
-            // for each of our feature column (or distribution table)
-            for (auto it = distTablesMap.begin(); it != distTablesMap.end(); it++) {
-                const ColumnName & featureColumnName = it->first;
-                DistTable & distTable = it->second;
-
-                // It seems that all the columns from the select will always
-                // be here, even if NULL. If that is not the case, we will need
-                // to treat this case separately and return (0,nan, nan, nan,
-                // nan, nan) as statistics.
-                auto col_ptr = column_idx.find(featureColumnName);
-                if (col_ptr == column_idx.end()) {
-                    ExcAssert(false);
+                map<ColumnName, size_t> column_idx;
+                for (int i=0; i<row.columns.size(); i++) {
+                    column_idx.insert(make_pair(get<0>(row.columns[i]), i));
                 }
 
-                const tuple<ColumnName, CellValue, Date> & col =
-                    row.columns[col_ptr->second];
+                // for each of our feature column (or distribution table)
+                for (auto it = distTablesMap.begin(); it != distTablesMap.end(); it++) {
+                    const ColumnName & featureColumnName = it->first;
+                    DistTable & distTable = it->second;
 
-                const Utf8String & featureValue = get<1>(col).toString();
-                const Date & ts = get<2>(col); 
+                    // It seems that all the columns from the select will always
+                    // be here, even if NULL. If that is not the case, we will need
+                    // to treat this case separately and return (0,nan, nan, nan,
+                    // nan, nan) as statistics.
+                    auto col_ptr = column_idx.find(featureColumnName);
+                    if (col_ptr == column_idx.end()) {
+                        ExcAssert(false);
+                    }
 
-                // note current dist tables for output dataset
-                // TODO we compute the column names everytime, maybe we should
-                // cache them
-                const auto & stats = distTable.getStats(featureValue);
+                    const tuple<ColumnName, CellValue, Date> & col =
+                        row.columns[col_ptr->second];
 
-                for (int i=0; i < nbOutcomes; ++i) {
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "count",
-                        CellValue(stats[i].count),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "avg",
-                        CellValue(stats[i].avg),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "std",
-                        CellValue(stats[i].getStd()),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "min",
-                        CellValue(stats[i].min),
-                        ts);
-                    output_cols.emplace_back(
-                        PathElement(outcome_names[i]) + featureColumnName
-                            + "max",
-                        CellValue(stats[i].max),
-                        ts);
+                    const Utf8String & featureValue = get<1>(col).toUtf8String();
+                    const Date & ts = get<2>(col);
+
+                    if(output) {
+                        // note current dist tables for output dataset
+                        // TODO we compute the column names everytime, maybe we should
+                        // cache them
+                        const auto & stats = distTable.getStats(featureValue);
+
+                        for (int i=0; i < nbOutcomes; ++i) {
+                            for(DISTTABLE_STATISTICS sid : activeStats) {
+                                output_cols.emplace_back(
+                                    PathElement(outcome_names[i]) + featureColumnName
+                                        + dtStatsNames[sid],
+                                    CellValue(stats[i].getStat(sid)),
+                                    ts);
+                            }
+                        }
+                    }
+
+                    // increment stats tables with current row
+                    distTable.increment(featureValue, targets);
                 }
 
-                // increment stats tables with current row
-                distTable.increment(featureValue, targets);
+                if(output) {
+                    output->recordRow(ColumnName(row.rowName), std::move(output_cols));
+                }
             }
-
-            output->recordRow(ColumnName(row.rowName), output_cols);
+            else {
+                throw ML::Exception("Unknown distTable mode");
+            }
 
             return true;
         };
@@ -386,20 +467,24 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
 
-    output->commit();
+    if(output) {
+        output->commit();
+    }
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
-        store << distTablesMap;
+        int VERSION = 2;
+        store << VERSION << runProcConf.mode << distTablesMap;
     }
 
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
         PolyConfig clsFuncPC;
         clsFuncPC.type = "experimental.distTable.getStats";
         clsFuncPC.id = runProcConf.functionName;
-        clsFuncPC.params = DistTableFunctionConfig(runProcConf.modelFileUrl);
+        clsFuncPC.params = DistTableFunctionConfig(runProcConf.modelFileUrl,
+                runProcConf.statistics);
 
         createFunction(server, clsFuncPC, onProgress, true);
     }
@@ -412,13 +497,17 @@ run(const ProcedureRunConfig & run,
 
 
 /*****************************************************************************/
-/* DIST TABLE FUNCTION                                                      */
+/* DIST TABLE FUNCTION                                                       */
 /*****************************************************************************/
 DEFINE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
 DistTableFunctionConfigDescription::
 DistTableFunctionConfigDescription()
 {
+    std::vector<Utf8String> defaultStats = { "count", "avg", "std", "min", "max" };
+    addField("statistics", &DistTableFunctionConfig::statistics,
+             "List of statistics to track for each outcome.", defaultStats);
+
     addField("distTableFileUrl", &DistTableFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.dt') to load. "
              "This file is created by the ![](%%doclink experimental.distTable.train procedure).");
@@ -432,10 +521,36 @@ DistTableFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<DistTableFunctionConfig>();
 
+    int version;
+    int REQUIRED_VERSION = 2;
+    int i_mode;
+
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
-    store >> distTablesMap;
+    store >> version;
+    if(version != REQUIRED_VERSION)
+        throw ML::Exception("Wrong DistTable map version");
+
+    store >> i_mode;
+    mode = (DistTableMode)i_mode;
+
+    if(mode != DT_MODE_BAG_OF_WORDS && mode != DT_MODE_FIXED_COLUMNS)
+        throw ML::Exception("Unsupported DistTable mode");
+
+    store >>distTablesMap;
+
+    // build a cache of the names for quick access
+    for(int i=0; i<DT_NUM_STATISTICS; i++)
+        dtStatsNames[(DISTTABLE_STATISTICS)i] = print((DISTTABLE_STATISTICS)i);
+
+    // configure active statistics
+    if(functionConfig.statistics.size() == 0)
+        functionConfig.statistics = { "count", "avg", "std", "min", "max" };
+
+    for(auto & stat : functionConfig.statistics) {
+        activeStats.push_back(parseDistTableStatistic(stat));
+    }
 }
 
 DistTableFunction::
@@ -474,10 +589,11 @@ apply(const FunctionApplier & applier,
 
     RowValue rtnRow;
     // TODO should we cache column names
-    auto onAtom = [&] (const ColumnName & columnName,
-                        const ColumnName & prefix,
-                        const CellValue & val,
-                        Date ts)
+    auto onAtomFixedColumns = 
+        [&] (const ColumnName & columnName,
+             const ColumnName & prefix,
+             const CellValue & val,
+             Date ts)
     {
         auto st = distTablesMap.find(columnName);
         if (st == distTablesMap.end())
@@ -487,31 +603,54 @@ apply(const FunctionApplier & applier,
             return true;
 
         const DistTable & distTable = st->second;
-
-        const auto & stats = distTable.getStats(val.toString());
+        const auto & stats = distTable.getStats(val.toUtf8String());
         for (int i=0; i < distTable.outcome_names.size(); ++i) {
-
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "count", stats[i].count, ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "avg", stats[i].avg, ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "std", stats[i].getStd(), ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "min", stats[i].min, ts);
-            rtnRow.emplace_back(
-                PathElement(distTable.outcome_names[i]) + columnName
-                            + "max", stats[i].max, ts);
+            for(DISTTABLE_STATISTICS sid : activeStats) {
+                rtnRow.emplace_back(
+                    PathElement(distTable.outcome_names[i]) + columnName
+                                + dtStatsNames[sid],
+                    stats[i].getStat(sid),
+                    ts);
+            }
         }
 
         return true;
     };
 
-    arg.forEachAtom(onAtom);
+    auto onAtomBow = 
+        [&] (const ColumnName & columnName,
+             const ColumnName & prefix,
+             const CellValue & val,
+             Date ts)
+    {
+        if (val.empty())
+            return true;
+
+        const DistTable & distTable = distTablesMap.begin()->second;
+        const auto & stats = distTable.getStats(columnName.toUtf8String());
+        for (int i=0; i < distTable.outcome_names.size(); ++i) {
+            for(DISTTABLE_STATISTICS sid : activeStats) {
+                rtnRow.emplace_back(
+                    PathElement(distTable.outcome_names[i]) + columnName
+                                + dtStatsNames[sid],
+                    stats[i].getStat(sid),
+                    ts);
+            }
+        }
+
+        return true;
+    };
+
+
+    switch(mode) {
+        case DT_MODE_FIXED_COLUMNS:
+            arg.forEachAtom(onAtomFixedColumns);
+            break;
+        case DT_MODE_BAG_OF_WORDS:
+            arg.forEachAtom(onAtomBow);
+            break;
+    }
+
     result.emplace_back("stats", ExpressionValue(std::move(rtnRow)));
 
     return std::move(result);
@@ -526,12 +665,12 @@ getFunctionInfo() const
     std::vector<KnownColumn> inputColumns, outputColumns;
     inputColumns.emplace_back(PathElement("features"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(PathElement("counts"), std::make_shared<UnknownRowValueInfo>(),
+    outputColumns.emplace_back(PathElement("stats"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
-    
+
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
+
     return result;
 }
 

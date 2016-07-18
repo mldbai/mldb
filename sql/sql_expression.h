@@ -309,6 +309,10 @@ struct ColumnGetter {
 struct BoundFunction {
     typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
                           const SqlRowScope & context) > Exec;
+    typedef std::function<
+        BoundSqlExpression (SqlBindingScope & scope,
+                            std::vector<BoundSqlExpression>& boundArgs,
+                            const SqlExpression * expr)> BindFunction;
 
     BoundFunction()
         : filter(GET_LATEST)
@@ -332,11 +336,24 @@ struct BoundFunction {
     {
     }
 
+    // Use this ctor to have a BoundFunction that will override the call to
+    // bindBuiltinFunction. It can hence hence have the control flow when the
+    // expressions within are called.
+    BoundFunction(BindFunction bindFunction,
+                  std::shared_ptr<ExpressionValueInfo> resultInfo)
+        : resultInfo(resultInfo),
+          bindFunction(std::move(bindFunction))
+    {
+    }
+
     operator bool () const { return !!exec; }
 
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
+
+    // If defined, overrides the default bindFunction call.
+    BindFunction bindFunction;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
@@ -812,13 +829,19 @@ struct SqlRowScope {
                                      const std::type_info & typeFound)
         __attribute__((noreturn));
 
+    /** Static variable controlled by the MLDB_CHECK_ROW_SCOPE_TYPES
+        environment variable that decides whether we do extra checks
+        (which may be expensive) or not.
+    */
+    static bool checkRowScopeTypes;
+
     /** Assert that the type of this object is the one given, and return it
         as that type.
     */
     template<typename T>
     T & as()
     {
-        if (typeid(*this) == typeid(T))
+        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<T &>(*this);
 
         auto * cast = dynamic_cast<T *>(this);
@@ -834,7 +857,7 @@ struct SqlRowScope {
     template<typename T>
     const T & as() const
     {
-        if (typeid(*this) == typeid(T))
+        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<const T &>(*this);
 
         auto * cast = dynamic_cast<const T *>(this);
@@ -1567,12 +1590,25 @@ makeInputDatasetDescription();
 
 struct BoundWhenExpression {
     
-    typedef std::function<void (MatrixNamedRow & row,
+    typedef std::function<void (ExpressionValue & row,
                                 const SqlRowScope & rowScope)> FilterFunction;
 
-    FilterFunction filterInPlace;
+    BoundWhenExpression(FilterFunction fn = nullptr,
+                        const WhenExpression * expr = nullptr)
+        : filterInPlaceFn(fn), expr(expr)
+    {
+    }
 
-    /// Expression that lef to this bound expression
+    FilterFunction filterInPlaceFn;
+
+    void filterInPlace(ExpressionValue & row,
+                       const SqlRowScope & rowScope) const
+    {
+        if (filterInPlaceFn)
+            filterInPlaceFn(row, rowScope);
+    }
+
+    /// Expression that led to this bound expression
     const WhenExpression * expr;
 };
 

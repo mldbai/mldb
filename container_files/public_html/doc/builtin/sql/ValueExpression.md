@@ -302,15 +302,17 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 These functions are always available when processing rows from a dataset, and
 will change values on each row under consideration. See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
 
+<a name="rowHash"></a>
+
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
 - `rowPath()` is the structured path to the row under consideration.
 - `rowPathElement(n)` is the nth element of the `rowPath()` of the row
-  under consideration.  If n is less than zero, it will be a distance from the
-  end (for example, -1 is the last element).  For a rowName of `x.y.2`, then
-  `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
-  `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
-  be `2`. 
+   under consideration.  Negative indexing is supported, meaning that if n is less than zero, 
+   it will be a distance from the end (for example, -1 is the last element, -2 is the second to last). 
+   For a rowName of `x.y.2`, then `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` 
+   and `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will be `2`. If n is 
+   bigger than the number of elements in the row path, NULL will be returned.
 - `columnCount()`: returns the number of columns with explicit values set in the current row
 - `leftRowName()` and `rightRowName()`: in the context of a join, returns the name of the row that was joined on the left or right side respectively.
 
@@ -338,6 +340,11 @@ will change values on each row under consideration. See the [Intro to Datasets](
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
+- `hash(expr)` returns a hash of the value of            `expr`.  Hashing a `null`
+  value will always return a `null`.  Internally, this uses
+  the [Highway Tree Hash](https://github.com/google/highwayhash) which is
+  claimed to be likely secure whilst retaining good speed.  See also
+  [`rowHash()`](#rowHash).
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
@@ -348,8 +355,9 @@ will change values on each row under consideration. See the [Intro to Datasets](
   there is ambiguity in the expression (for example, the same key with multiple
   values), then one of the values of the key will be chosen to represent the value
   of the key.
-- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse'})` returns a row with the JSON decoding of the
-  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
+- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse', ignoreErrors: false})` returns a row with the JSON decoding of the
+  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. If the `ignoreErrors` option is set to `true`, the function will return NULL for strings that do not parse
+  as valid JSON. It will throw an exception otherwise.
 
   Here are examples with the following JSON string:
 
@@ -374,6 +382,14 @@ With `{arrays: 'encode'}` the output will be:
 | a | c.d | f.g | f.h | i.0 | i.1
 |:---:|:---:|:---:|:-----:|:------:|:------:
 | 'b' | 'e' | 1 | 1   | '{"j":"k"}' | '{"l":"m"}'
+
+The full set of options to the `parse_json` function are as follows:
+
+![](%%type Datacratic::MLDB::Builtins::ParseJsonOptions)
+
+and the possible values for the `arrays` field are:
+
+![](%%type Datacratic::MLDB::JsonArrayHandling)
 
 
 ### Numeric functions
@@ -484,7 +500,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `jaccard_index(expr, expr)` will return the [Jaccard index](https://en.wikipedia.org/wiki/Jaccard_index), also
   known as the *Jaccard similarity coefficient*, on two sets. The sets are specified using two row expressions.
   The column names will be used as values, meaning this function can be used
-  on the output of the `tokenize` function. The function will return 1 if the sets are equal, and 0 if they are 
+  on the output of the [`tokenize`](#importfunctions) function. The function will return 1 if the sets are equal, and 0 if they are 
   completely different.
 
 ### Vector space functions
@@ -522,7 +538,12 @@ calculate
 
 The following functions are used to extract and process web data.
 
-- `extract_domain(str, {removeSubdomain: false}` extracts the domain name from a URL. Setting the option `removeSubdomain` to `True` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+
+The full set of options to the `extract_domain` function are as follows:
+
+![](%%type Datacratic::MLDB::Builtins::ExtractDomainOptions)
+
 
 See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
 
@@ -532,13 +553,11 @@ See also the ![](%%doclink http.useragent function) that can be used to parse a 
 can be used to create bag-of-tokens representations of strings, by returning a row whose
 columns are formed by tokenizing `str` by splitting along `splitchars` and whose values by default are the
 number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitchars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`.
-  - `offset` and `limit` are used to skip the first `offset` tokens and only generate `limit` tokens
-  - `value` (if not set to `null`) will be used instead of token-counts for the values of the columns in the output row
-  - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"', {quotechar:'"'})` will return the row `{'a':1,'b,c':1}`
-  - `min_token_length` is used to specify the minimum length of tokens that are returned
-  - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
-- `token_extract(str, n, {splitchars: ',', quotechar: '', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
+- `token_extract(str, n, {splitchars: ',', quotechar: '', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered, and ngram options are ignored.
 
+Parameters to `tokenize` and `token_extract` are as follows:
+
+![](%%type Datacratic::TokenizeOptions)
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions

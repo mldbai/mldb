@@ -82,9 +82,14 @@ The following functions are available in the context of a column expression:
   as the `columnPath()` elements concatenated with a `.` character.
 - `columnPath()` is the structured path to the column under consideration.
 - `columnPathElement(n)` is the nth element of the column path of the column
-  under consideration.  If n is less than zero, it will be a distance from the
-  end (for example, -1 is the last element).  For a columnName of `x.y.2`, then
-  `columnPathElement(0)` will be `x`, `columnPathElement(1)` will be `y` and
-  `columnPathElement(2)` is equivalent to `columnPathElement(-1)` which will
-  be `2`. 
+  under consideration.  Negative indexing is supported, meaning that if n is less than 
+  zero, it will be a distance from the end (for example, -1 is the last element, -2 
+  is the second to last element). For a columnName of `x.y.2`, then `columnPathElement(0)` 
+  will be `x`, `columnPathElement(1)` will be `y` and `columnPathElement(2)` is equivalent 
+  to `columnPathElement(-1)` which will be `2`. If n is bigger than the number 
+  of elements in the column path, NULL will be returned.
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.
+
+## See also
+
+* ![](%%nblink _tutorials/Selecting Columns Programmatically Using Column Expressions Tutorial)

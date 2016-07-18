@@ -2214,7 +2214,7 @@ bind(SqlBindingScope & scope) const
     BoundFunction fn = scope.doGetFunction(tableName, functionName,
                                            boundArgs, scope);
     
-    if (!fn) {
+    if (!fn && !fn.bindFunction) {
         Utf8String message = "Unable to find function '" + functionName + "'";
         if (!tableName.empty())
             message += " in dataset '" + tableName + "'";
@@ -2231,6 +2231,9 @@ bind(SqlBindingScope & scope) const
                                   "surface", surface);
     }
 
+    if (fn.bindFunction) {
+        return fn.bindFunction(scope, boundArgs, this);
+    }
     return bindBuiltinFunction(scope, boundArgs, fn);
 }
 
@@ -2240,34 +2243,34 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     std::vector<BoundSqlExpression>& boundArgs,
                     BoundFunction& fn) const
 {
-    bool isAggregate = tryLookupAggregator(functionName) != nullptr;	
+    bool isAggregate = tryLookupAggregator(functionName) != nullptr;
 
     if (isAggregate) {
-        return {[=] (const SqlRowScope & row,		
+        return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &		
-                {		
-                    std::vector<ExpressionValue> evaluatedArgs;		
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    std::vector<ExpressionValue> evaluatedArgs;
                     // ??? BAD SMELL
-                    //Don't evaluate the args for aggregator		
-                    evaluatedArgs.resize(boundArgs.size());		
-                    return storage = std::move(fn(evaluatedArgs, row));		
-                },		
-                this,		
-                fn.resultInfo};		
-    }		
-    else {		
-        return {[=] (const SqlRowScope & row,		
+                    //Don't evaluate the args for aggregator
+                    evaluatedArgs.resize(boundArgs.size());
+                    return storage = std::move(fn(evaluatedArgs, row));
+                },
+                this,
+                fn.resultInfo};
+    }
+    else {
+        return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &		
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     std::vector<ExpressionValue> evaluatedArgs;
                     evaluatedArgs.reserve(boundArgs.size());
-                    for (auto & a: boundArgs)		
+                    for (auto & a: boundArgs)
                         evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
-                    
-                    return storage = std::move(fn(evaluatedArgs, row));		
-                },		         
+
+                    return storage = std::move(fn(evaluatedArgs, row));
+                },
                 this,
                 fn.resultInfo};
     }
@@ -2277,8 +2280,8 @@ Utf8String
 FunctionCallExpression::
 print() const
 {
-    Utf8String result = "function(" + jsonEncodeStr(tableName)
-        + "," + jsonEncodeStr(functionName);
+    Utf8String result = "function(" + jsonEncodeUtf8(tableName)
+        + "," + jsonEncodeUtf8(functionName);
         
     for (auto & a : args) {
         result += "," + a->print();
@@ -3766,7 +3769,7 @@ bind(SqlBindingScope & scope) const
         if (!keep)
             continue;
 
-        Utf8String newColName = boundAs(thisScope, GET_LATEST).toUtf8String();
+        ColumnName newColName = boundAs(thisScope, GET_LATEST).coerceToPath();
 
         vector<ExpressionValue> orderBy;
         for (auto & c: boundOrderBy) {

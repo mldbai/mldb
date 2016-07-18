@@ -98,7 +98,7 @@ struct TsneItl {
 
     TsneItl(const Url & filename)
     {
-        filter_istream stream(filename.toString());
+        filter_istream stream(filename);
         ML::DB::Store_Reader store(stream);
 
         reconstitute(store);

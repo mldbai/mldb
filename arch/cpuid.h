@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* cpuid.h                                                         -*- C++ -*-
    Jeremy Barnes, 21 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Implementation of the CPUID-related functionality.
 */
 
-#ifndef __arch__cpuid_h__
-#define __arch__cpuid_h__
+#pragma once
 
 #include <stdint.h>
 #include <string>
@@ -177,8 +175,12 @@ uint32_t cpuid_flags();
 std::string vendor_id();
 std::string model_id();
 
+struct Regs {
+    uint32_t eax, ebx, ecx, edx;
+};
+
+Regs cpuid(uint32_t request, uint32_t ecx = 0);
+
 #endif // __i686__
 
 } // namespace ML
-
-#endif /* __arch__cpuid_h__ */

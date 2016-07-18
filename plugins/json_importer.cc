@@ -91,6 +91,16 @@ JSONImporterConfigDescription()
              SqlExpression::parse("lineNumber()"));
 
     addParent<ProcedureConfig>();
+
+    onPostValidate = [] (JSONImporterConfig * config,
+                         JsonParsingContext & context)
+    {
+        if (config->dataFileUrl.empty()) {
+            throw HttpReturnException(
+                400,
+                "dataFileUrl is a required property and must not be empty");
+        }
+    };
 }
 
 struct JsonRowScope : SqlRowScope {
@@ -133,7 +143,7 @@ struct JsonScope : SqlExpressionMldbScope {
         {
             const auto & row = scope.as<JsonRowScope>();
             StructValue result;
-            result.reserve(row.expr.getStructured().size());
+            result.reserve(row.expr.rowLength());
 
             const auto onCol = [&] (const PathElement & columnName,
                                     const ExpressionValue & val)
@@ -226,7 +236,7 @@ struct JSONImporter: public Procedure {
         std::atomic<int64_t> recordedLines(0);
         int64_t lineOffset = 1;
         std::string line;
-        std::string filename = runProcConf.dataFileUrl.toString();
+        std::string filename = runProcConf.dataFileUrl.toDecodedString();
 
         filter_istream stream(filename);
 

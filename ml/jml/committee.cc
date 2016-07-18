@@ -30,24 +30,23 @@ namespace ML {
 
 Committee::
 Committee()
-    : optimized_(false)
+    : encoding(OE_PROB), optimized_(false)
 {
 }
 
 Committee::
 Committee(DB::Store_Reader & store,
           const std::shared_ptr<const Feature_Space> & feature_space)
-    : optimized_(false)
+    : encoding(OE_PROB), optimized_(false)
 {
     reconstitute(store, feature_space);
 }
 
 Committee::
-Committee(const std::shared_ptr<const Feature_Space>
-             & feature_space,
+Committee(const std::shared_ptr<const Feature_Space> & feature_space,
           const Feature & predicted)
     : Classifier_Impl(feature_space, predicted),
-      optimized_(false)
+      encoding(OE_PROB), optimized_(false)
 {
 }
 

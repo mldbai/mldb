@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** stats_table_procedure.h                                                   -*- C++ -*-
     Francois Maillet, 2 septembre 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     StatsTable procedure
 */
 
 #pragma once
 
-#include "types/value_description.h"
+#include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
 #include "server/mldb_server.h"
 #include "mldb/core/procedure.h"

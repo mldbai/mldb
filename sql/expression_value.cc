@@ -30,6 +30,17 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+DEFINE_ENUM_DESCRIPTION(JsonArrayHandling);
+
+JsonArrayHandlingDescription::
+JsonArrayHandlingDescription()
+{
+    addValue("parse", JsonArrayHandling::PARSE_ARRAYS,
+             "Arrays will be parsed into nested values");
+    addValue("encode", JsonArrayHandling::ENCODE_ARRAYS,
+             "Arrays will be encoded as one-hot values");
+}
+
 DEFINE_ENUM_DESCRIPTION(ColumnSparsity);
 
 ColumnSparsityDescription::
@@ -1714,10 +1725,10 @@ parseJson(JsonParsingContext & context,
             // JSON encode them
             for (auto & v: out) {
                 ExpressionValue & columnValue = std::get<1>(v);
-                std::string str;
-                StringJsonPrintingContext context(str);
+                Utf8String str;
+                Utf8StringJsonPrintingContext context(str);
                 columnValue.extractJson(context);
-                columnValue = ExpressionValue(str, timestamp);
+                columnValue = ExpressionValue(std::move(str), timestamp);
             }
         }
 
@@ -1786,7 +1797,7 @@ ExpressionValue(RowValue row) noexcept
             size_t numUnique = 0;
 
             for (auto it = first;  it != last;  ++it) {
-                ExcAssert(std::get<0>(*it).size() > level);
+                ExcAssertGreater(std::get<0>(*it).size(), level);
                 
                 if (std::get<0>(*it).size() == level + 1) {
                     // This is a final value, and so gets its own value
@@ -3617,7 +3628,7 @@ getFiltered(const VariableFilter & filter,
         const ExpressionValue * output = atoms.extract(storage);
         if (output)
             return *output;
-        else return (storage = ExpressionValue());
+        else return (storage = ExpressionValue::null(Date::notADate()));
     }
     else {
         // Atoms get added to rows
@@ -4121,17 +4132,6 @@ getStructured() const
     return *structured_;
 }
 
-#if 0
-ExpressionValue::Structured
-ExpressionValue::
-stealStructured()
-{
-    assertType(Type::STRUCTURED);
-    type_ = Type::NONE;
-    return std::move(*structured_);
-}
-#endif
-
 CellValue
 ExpressionValue::
 coerceToString() const
@@ -4429,6 +4429,22 @@ extractJson() const
     StructuredJsonPrintingContext context(result);
     extractJson(context);
     return result;
+}
+
+void
+ExpressionValue::
+extractImpl(void * obj, const ValueDescription & desc) const
+{
+    // TODO: don't go through JSON for simple atoms and structures
+    // This will eventually stop working when we try to do something
+    // complex.  We should use the code in core/value_function.cc
+    // instead to allow for full fidelity in the conversions.
+    // MLDB-1820
+    Json::Value json;
+    StructuredJsonPrintingContext context(json);
+    extractJson(context);
+    StructuredJsonParsingContext pcontext(json);
+    desc.parseJson(obj, pcontext);
 }
 
 /** Value description that includes the timestamp.  It serializes as an array with 

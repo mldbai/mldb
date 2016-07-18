@@ -11,7 +11,7 @@
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/ext/cityhash/src/city.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/http/event_loop.h"
+#include "mldb/io/event_loop.h"
 #include "http_rest_endpoint.h"
 #include "http_rest_service.h"
 #include "mldb/utils/log.h"

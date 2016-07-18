@@ -343,7 +343,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTables;
     }
@@ -388,7 +388,7 @@ StatsTableFunction(MldbServer * owner,
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> statsTables;
 }
@@ -445,7 +445,7 @@ apply(const FunctionApplier & applier,
                                         counts.second[lbl_idx],
                                         ts);
                 }
-                
+
                 return true;
             };
 
@@ -471,10 +471,10 @@ getFunctionInfo() const
                               COLUMN_IS_DENSE, 0);
     outputColumns.emplace_back(PathElement("counts"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
-    
+
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
+
     return result;
 }
 
@@ -524,7 +524,7 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     // Load saved stats tables
-    filter_istream stream(runProcConf.modelFileUrl.toString());
+    filter_istream stream(runProcConf.modelFileUrl);
     ML::DB::Store_Reader store(stream);
 
     StatsTablesMap statsTables;
@@ -658,7 +658,7 @@ run(const ProcedureRunConfig & run,
 
     BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
-    
+
     if(!runProcConf.functionName.empty() && runProcConf.functionOutcomeToUse.empty()) {
         throw ML::Exception("The 'functionOutcomeToUse' parameter must be set when the "
                 "'functionName' parameter is set.");
@@ -777,11 +777,11 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTable;
     }
-    
+
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty() &&
             !runProcConf.functionOutcomeToUse.empty()) {
         PolyConfig clsFuncPC;
@@ -792,7 +792,7 @@ run(const ProcedureRunConfig & run,
 
         createFunction(server, clsFuncPC, onProgress, true);
     }
-    
+
     return RunOutput();
 }
 
@@ -832,7 +832,7 @@ StatsTablePosNegFunction(MldbServer * owner,
     StatsTable statsTable;
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> statsTable;
 
@@ -941,7 +941,7 @@ apply(const FunctionApplier & applier,
     else {
         throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
-    
+
     return std::move(result);
 }
 
@@ -950,16 +950,16 @@ StatsTablePosNegFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    
+
     std::vector<KnownColumn> inputColumns, outputColumns;
     inputColumns.emplace_back(PathElement("words"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
     outputColumns.emplace_back(PathElement("probs"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
-    
+
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
+
     return result;
 }
 

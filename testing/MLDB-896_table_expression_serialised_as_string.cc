@@ -18,6 +18,7 @@
 #include "jml/utils/string_functions.h"
 #include "jml/utils/vector_utils.h"
 #include "plugins/accuracy.h"
+#include "mldb/types/value_description.h"
 
 
 using namespace std;

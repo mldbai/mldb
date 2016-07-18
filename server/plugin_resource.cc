@@ -225,7 +225,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
         createPluginDir();
 
-        filter_istream istream(url.toString());
+        filter_istream istream(url);
         filter_ostream ostream(getElementLocation(MAIN));
         string line;
         while(getline(istream, line)) {

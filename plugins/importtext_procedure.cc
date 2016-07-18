@@ -20,6 +20,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/progress.h"
+#include "mldb/jml/utils/vector_utils.h"
 
 
 using namespace std;
@@ -140,6 +141,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
         Date ts;
         int64_t lineNumber;
         int64_t lineOffset;
+        const RowName * rowName;
     };
 
     SqlCsvScope(MldbServer * server,
@@ -265,7 +267,21 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(row.lineNumber, fileTimestamp);
                     },
                     std::make_shared<IntegerValueInfo>()
-                        };
+                };
+        }
+        else if (functionName == "rowHash") {
+            lineNumberUsed = true;
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope)
+                    {
+                        auto & row = scope.as<RowScope>();
+                        if(!row.rowName) {
+                            throw ML::Exception("rowHash() not available in this scope");
+                        }
+                        return ExpressionValue(row.rowName->hash(), fileTimestamp);
+                    },
+                    std::make_shared<IntegerValueInfo>()
+                };
         }
         else if (functionName == "fileTimestamp") {
             return {[=] (const std::vector<ExpressionValue> & args,
@@ -274,7 +290,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(fileTimestamp, fileTimestamp);
                     },
                     std::make_shared<TimestampValueInfo>()
-                        };
+                };
         }
         else if (functionName == "dataFileUrl") {
             return {[=] (const std::vector<ExpressionValue> & args,
@@ -283,7 +299,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(dataFileUrl, fileTimestamp);
                     },
                     std::make_shared<Utf8StringValueInfo>()
-                        };
+                };
         }
         else if (functionName == "lineOffset") {
             return {[=] (const std::vector<ExpressionValue> & args,
@@ -293,7 +309,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         return ExpressionValue(row.lineOffset, fileTimestamp);
                     },
                     std::make_shared<IntegerValueInfo>()
-                        };
+                };
         }
         return SqlBindingScope::doGetFunction(tableName, functionName, args,
                                               argScope);
@@ -349,7 +365,7 @@ const char * findInvalidAscii(const char * start, size_t length, char*buf, char 
     char* p = buf;
     char* end = buf+length;
     while (p != end) {
-        if (!isJsonValid(*p))
+        if (!isJsonValidAscii(*p))
             *p = replaceInvalidCharactersWith;
         ++p;
     }
@@ -682,10 +698,10 @@ struct ImportTextProcedureWorkInstance
                   MldbServer * server,
                   const std::function<bool (const Json::Value &)> & onProgress)
     {
-        string filename = config.dataFileUrl.toString();
+        string filename = config.dataFileUrl.toDecodedString();
 
         // Ask for a memory mappable stream if possible
-        Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
+        filter_istream stream(config.dataFileUrl, { { "mapped", "true" } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
@@ -830,7 +846,7 @@ struct ImportTextProcedureWorkInstance
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
         SqlCsvScope scope(server, inputColumnNames, ts,
-                          Utf8String(config.dataFileUrl.toString()));
+                          Utf8String(config.dataFileUrl.toDecodedString()));
 
         selectBound = config.select.bind(scope);
         whereBound = config.where->bind(scope);
@@ -1034,6 +1050,11 @@ struct ImportTextProcedureWorkInstance
             auto row = scope.bindRow(&values[0], ts, actualLineNum,
                                          0 /* todo: chunk ofs */);
 
+            ExpressionValue nameStorage;
+            RowName rowName(namedBound(row, nameStorage, GET_ALL)
+                                .toUtf8String());
+            row.rowName = &rowName;
+
             // If it doesn't match the where, don't add it
             if (!isWhereTrue) {
                 ExpressionValue storage;
@@ -1046,10 +1067,6 @@ struct ImportTextProcedureWorkInstance
             ExpressionValue tsStorage;
             rowTs = timestampBound(row, tsStorage, GET_ALL)
                     .coerceToTimestamp().toTimestamp();
-
-            ExpressionValue nameStorage;
-            RowName rowName(namedBound(row, nameStorage, GET_ALL)
-                                .toUtf8String());
 
             //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 

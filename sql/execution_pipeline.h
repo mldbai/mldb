@@ -387,7 +387,7 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
 
     // return a pipeline that will execute the specified statement
     std::shared_ptr<PipelineElement>
-    statement(SelectStatement& statement, GetParamInfo getParamInfo);
+    statement(const SelectStatement& statement, GetParamInfo getParamInfo);
 };
 
 } // namespace MLDB

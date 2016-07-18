@@ -1,0 +1,47 @@
+/**                                                                 -*- C++ -*-
+ * {filename}.h
+ * {author}, {date}
+ *
+ * This file is part of MLDB. Copyright {year} Datacratic. All rights reserved.
+ **/
+
+#pragma once
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/types/value_description_fwd.h"
+
+// TODO - Common includes, use the one you need, clean up the others
+//#include "mldb/core/function.h"
+//#include "mldb/sql/sql_expression.h"
+
+namespace Datacratic {{
+namespace MLDB {{
+
+struct {cc_proc_name}ProcedureConfig : ProcedureConfig {{
+    static constexpr const char * name = "{proc_name}";
+
+    {cc_proc_name}ProcedureConfig();
+
+    PolyConfigT<Dataset> outputDataset;
+}};
+
+DECLARE_STRUCTURE_DESCRIPTION({cc_proc_name}ProcedureConfig);
+
+struct {cc_proc_name}Procedure: public Procedure {{
+
+    {cc_proc_name}Procedure(
+        MldbServer * owner,
+        PolyConfig config,
+        const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual RunOutput run(
+        const ProcedureRunConfig & run,
+        const std::function<bool (const Json::Value &)> & onProgress) const;
+
+    virtual Any getStatus() const;
+
+    {cc_proc_name}ProcedureConfig procedureConfig;
+}};
+
+}} // namespace MLDB
+}} // namespace Datacratic

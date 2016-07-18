@@ -146,7 +146,8 @@ struct EmbeddingDatasetRepr {
 
     struct Row {
         Row(RowName rowName, ML::distribution<float> coords, Date timestamp)
-            : rowName(std::move(rowName)), coords(std::move(coords))
+            : rowName(std::move(rowName)), coords(std::move(coords)),
+              timestamp(timestamp)
         {
         }
 
@@ -320,6 +321,12 @@ struct EmbeddingDataset::Itl
         virtual RowName next() {
             auto repr = source->committed();     
             return repr->rows[index++].rowName;
+        }
+
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            auto repr = source->committed();     
+            return repr->rows[index].rowName;
         }
 
         size_t index;

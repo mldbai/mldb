@@ -1,17 +1,17 @@
 /** builtin_aggregators.cc
     Jeremy Barnes, 14 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Builtin aggregators for SQL.
 */
 
 #include "sql_expression.h"
+#include "builtin_functions.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/base/optimized_path.h"
 #include <array>
 #include <unordered_set>
 
@@ -22,7 +22,8 @@ namespace Datacratic {
 namespace MLDB {
 namespace Builtins {
 
-typedef BoundAggregator (&BuiltinAggregator) (const std::vector<BoundSqlExpression> &);
+typedef BoundAggregator (&BuiltinAggregator) (const std::vector<BoundSqlExpression> &,
+                                              const string & name);
 
 struct RegisterAggregator {
     template<typename... Names>
@@ -39,12 +40,12 @@ struct RegisterAggregator {
     void doRegister(BuiltinAggregator aggregator, std::string name,
                     Names&&... names)
     {
-        auto fn = [&] (const Utf8String & str,
+        auto fn = [&aggregator, name] (const Utf8String & str,
                        const std::vector<BoundSqlExpression> & args,
                        SqlBindingScope & context)
             -> BoundAggregator
             {
-                return std::move(aggregator(args));
+                return std::move(aggregator(args, name));
             };
         handles.push_back(registerAggregator(Utf8String(name), fn));
         doRegister(aggregator, std::forward<Names>(names)...);
@@ -53,26 +54,33 @@ struct RegisterAggregator {
     std::vector<std::shared_ptr<void> > handles;
 };
 
+/// Allow control over whether the given optimization path is run
+/// so that we can test both with and without optimization.
+static const OptimizedPath optimizeDenseAggregators
+("mldb.sql.optimizeDenseAggregators");
+
+
 template<typename State>
 struct AggregatorT {
     /** This is the function that is actually called when we want to use
         an aggregator.  It meets the interface used by the normal aggregator
         registration functionality.
     */
-    static BoundAggregator entry(const std::vector<BoundSqlExpression> & args)
+    static BoundAggregator entry(const std::vector<BoundSqlExpression> & args,
+                                 const string & name)
     {
         // These take the number of arguments given in the State class
-        ExcAssertEqual(args.size(), State::nargs);
+        checkArgsSize(args.size(), State::nargs, name);
         ExcAssert(args[0].info);
 
         if (args[0].info->isRow()) {
-            return enterRow(args);
+            return enterRow(args, name);
         }
         else if (args[0].info->isScalar()) {
-            return enterScalar(args);
+            return enterScalar(args, name);
         }
         else {
-            return enterAmbiguous(args);
+            return enterAmbiguous(args, name);
         }
     }
 
@@ -107,7 +115,8 @@ struct AggregatorT {
     /** Entry point for when we are called with the first argument as a scalar.
         This does a normal SQL aggregation.
     */
-    static BoundAggregator enterScalar(const std::vector<BoundSqlExpression> & args)
+    static BoundAggregator enterScalar(const std::vector<BoundSqlExpression> & args,
+                                       const string & name)
     {
         return { scalarInit, scalarProcess, scalarExtract, scalarMerge, State::info(args) };
     }
@@ -126,7 +135,7 @@ struct AggregatorT {
 
         void process(const ExpressionValue * args, size_t nargs)
         {
-            ExcAssertEqual(nargs, 1);
+            checkArgsSize(nargs, 1);
             const ExpressionValue & val = args[0];
 
             // This must be a row...
@@ -200,34 +209,60 @@ struct AggregatorT {
 
         void process(const ExpressionValue * args, size_t nargs)
         {
-            ExcAssertEqual(nargs, 1);
+            checkArgsSize(nargs, 1);
 
             if (fallback.get()) {
                 fallback->process(args, nargs);
                 return;
             }
             const ExpressionValue & val = args[0];
-            const auto & row = val.getStructured();
+
+            if (val.empty())
+                return;
 
             // Check if the column names or number don't match, and
             // pessimize back to the sparse version if it's the case.
-            bool needToPessimize = row.size() != columnNames.size();
-            for (unsigned i = 0;  i < columnNames.size() && !needToPessimize;
-                 ++i) {
-                needToPessimize = columnNames[i] != std::get<0>(row[i]);
-            }
+            bool needToPessimize = columnNames.size() != val.rowLength();
 
-            if (needToPessimize) {
-                pessimize();
-                fallback->process(args, nargs);
-            }
+            // Counts how many of the elements we've done so far
+            size_t n = 0;
 
-            // Names and number of columns matches.  We can go ahead
-            // and process everything on the fast path.
-            int64_t n = 0;
-            for (auto & col: row) {
-                columnState[n++].process(&std::get<1>(col), 1);
-            }
+            // Set of values we skipped because we just discovered that
+            // we need to pessimize.
+            StructValue skipped;
+
+            auto onColumn = [&] (const PathElement & columnName,
+                                 const ExpressionValue & val)
+                {
+                    if (needToPessimize || n > columnNames.size()
+                        || columnNames[n] != columnName) {
+                        needToPessimize = true;
+                        skipped.emplace_back(columnName, val);
+                    }
+                    else {
+                        // Names and number of columns matches.  We can go ahead
+                        // and process everything on the fast path.
+                        columnState[n].process(&val, 1);
+                    }
+                    ++n;
+                    return true;
+                };
+
+            val.forEachColumn(onColumn);
+
+            if (!needToPessimize)
+                return;
+
+            // Our list of column names or their order has changed.  Too bad;
+            // we'll have to move to a sparse format.
+            pessimize();
+
+            // We have processed some rows but not others (those that still
+            // need to be processed are in skipped).  Here we pessimize, and
+            // then pass in a new value with just the unprocessed ones in it.
+            vector<ExpressionValue> newArgs{ std::move(skipped) };
+
+            fallback->process(newArgs.data(), newArgs.size());
         }
 
         ExpressionValue extract()
@@ -321,14 +356,14 @@ struct AggregatorT {
         row.  This does an aggregation per column in the row.
     */
     static BoundAggregator
-    enterRow(const std::vector<BoundSqlExpression> & args)
+    enterRow(const std::vector<BoundSqlExpression> & args, const string & name)
     {
         // Analyzes the input arguments for a row, and figures out:
         // a) what kind of output will be produced
         // b) what is the best way to implement the query
         // First output: information about the row
         // Second output: is it dense (in other words, all rows are the same)?
-        ExcAssertEqual(args.size(), 1);
+        checkArgsSize(args.size(), 1, name);
         ExcAssert(args[0].info);
 
         // Create a value info object for the output.  It has the same
@@ -359,14 +394,14 @@ struct AggregatorT {
 
         auto rowInfo = std::make_shared<RowValueInfo>(cols, hasUnknown);
 
-        if (!isDense) {
-            return { sparseRowInit,
-                     sparseRowProcess,
-                     sparseRowExtract,
-                     sparseRowMerge,
-                     rowInfo };
-        }
-        else {
+        if (optimizeDenseAggregators(isDense)) {
+            // ExpressionValues will always sort their columns, so do so here
+            // so we don't just mess up the ordering.
+            if (!std::is_sorted(denseColumnNames.begin(),
+                                denseColumnNames.end()))
+                std::sort(denseColumnNames.begin(),
+                          denseColumnNames.end());
+            
             // Use an optimized version, assuming everything comes in in the
             // same order as the first row.  We may need to pessimize
             // afterwards
@@ -374,6 +409,14 @@ struct AggregatorT {
                      denseRowProcess,
                      denseRowExtract,
                      denseRowMerge,
+                     rowInfo };
+        }
+        else {
+            // Do it the slow way by looking up keys in maps
+            return { sparseRowInit,
+                     sparseRowProcess,
+                     sparseRowExtract,
+                     sparseRowMerge,
                      rowInfo };
         }
     }
@@ -403,7 +446,7 @@ struct AggregatorT {
 
         if (!state->isDetermined) {
             state->isDetermined = true;
-            ExcAssertEqual(nargs, 1);
+            checkArgsSize(nargs, 1);
             state->isRow = args[0].isRow();
         }
 
@@ -445,7 +488,8 @@ struct AggregatorT {
     /** Entry point where we don't know whether the argument is a row or a scalar
         will be determined on the first row aggregated
     */
-    static BoundAggregator enterAmbiguous(const std::vector<BoundSqlExpression> & args)
+    static BoundAggregator enterAmbiguous(const std::vector<BoundSqlExpression> & args,
+                                          const string & name)
     {
         return { ambiguousStateInit, ambiguousProcess, ambiguousExtract, ambiguousMerge, std::make_shared<AnyValueInfo>() };
     }
@@ -476,7 +520,7 @@ struct AverageAccum {
 
     void process(const ExpressionValue * args, size_t nargs)
     {
-        ExcAssertEqual(nargs, 1);
+        checkArgsSize(nargs, 1);
         const ExpressionValue & val = args[0];
         if (val.empty())
             return;
@@ -520,7 +564,7 @@ struct ValueAccum {
 
     void process(const ExpressionValue * args, size_t nargs)
     {
-        ExcAssertEqual(nargs, 1);
+        checkArgsSize(nargs, 1);
         const ExpressionValue & val = args[0];
         if (val.empty())
             return;
@@ -561,7 +605,7 @@ struct StringAggAccum {
 
     void process(const ExpressionValue * args, size_t nargs)
     {
-        ExcAssertEqual(nargs, 2);
+        checkArgsSize(nargs, 2);
         const ExpressionValue & val = args[0];
         const ExpressionValue & separator = args[1];
 
@@ -630,7 +674,7 @@ struct MinMaxAccum {
     void process(const ExpressionValue * args,
                  size_t nargs)
     {
-        ExcAssertEqual(nargs, 1);
+        checkArgsSize(nargs, 1);
         const ExpressionValue & val = args[0];
         //cerr << "processing " << jsonEncode(val) << endl;
         if (val.empty())
@@ -694,7 +738,7 @@ struct CountAccum {
     void process (const ExpressionValue * args,
                   size_t nargs)
     {
-        ExcAssertEqual(nargs, 1);
+        checkArgsSize(nargs, 1);
         const ExpressionValue & val = args[0];
         if (val.empty())
             return;
@@ -736,7 +780,7 @@ struct DistinctAccum {
     void process (const ExpressionValue * args,
                   size_t nargs)
     {
-        ExcAssertEqual(nargs, 1);
+        checkArgsSize(nargs, 1);
         const ExpressionValue & val = args[0];
         if (val.empty())
             return;
@@ -772,18 +816,19 @@ struct LikelihoodRatioAccum {
     std::unordered_map<ColumnName, std::array<uint64_t, 2> > counts;
 };
 
-BoundAggregator lr(const std::vector<BoundSqlExpression> & args)
+BoundAggregator lr(const std::vector<BoundSqlExpression> & args,
+                   const string & name)
 {
     auto init = [] () -> std::shared_ptr<void>
         {
             return std::make_shared<LikelihoodRatioAccum>();
         };
 
-    auto process = [] (const ExpressionValue * args,
+    auto process = [name] (const ExpressionValue * args,
                        size_t nargs,
                        void * data)
         {
-            ExcAssertEqual(nargs, 2);
+            checkArgsSize(nargs, 2, name);
             const ExpressionValue & val = args[0];
             bool conv = args[1].isTrue();
             LikelihoodRatioAccum & accum = *(LikelihoodRatioAccum *)data;
@@ -859,20 +904,21 @@ struct PivotAccum {
     StructValue vals;
 };
 
-BoundAggregator pivot(const std::vector<BoundSqlExpression> & args)
+BoundAggregator pivot(const std::vector<BoundSqlExpression> & args,
+                      const string & name)
 {
     auto init = [] () -> std::shared_ptr<void>
         {
             return std::make_shared<PivotAccum>();
         };
 
-    auto process = [] (const ExpressionValue * args,
+    auto process = [name] (const ExpressionValue * args,
                        size_t nargs,
                        void * data)
         {
             PivotAccum & accum = *(PivotAccum *)data;
 
-            ExcAssertEqual(nargs, 2);
+            checkArgsSize(nargs, 2, name);
             const ExpressionValue & col = args[0];
             const ExpressionValue & val = args[1];
 
@@ -920,7 +966,7 @@ struct EarliestLatestAccum {
     void process(const ExpressionValue * args,
                  size_t nargs)
     {
-        ExcAssertEqual(nargs, 1);
+        checkArgsSize(nargs, 1);
         const ExpressionValue & val = args[0];
         //cerr << "processing " << jsonEncode(val) << endl;
         if (val.empty())
@@ -960,6 +1006,61 @@ struct LaterAccum {
 
 static RegisterAggregatorT<EarliestLatestAccum<EarlierAccum> > registerEarliest("earliest", "vertical_earliest");
 static RegisterAggregatorT<EarliestLatestAccum<LaterAccum> > registerLatest("latest", "vertical_latest");
+
+struct StdAggAccum {
+    static constexpr int nargs = 1;
+    int64_t n;
+    double mean;
+    double M2;
+    Date ts;
+
+    StdAggAccum() : n(0), mean(0), M2(0), ts(Date::negativeInfinity())
+    {
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    info(const std::vector<BoundSqlExpression> & args)
+    {
+        return std::make_shared<NumericValueInfo>();
+    }
+
+    void process(const ExpressionValue * args, size_t nargs)
+    {
+        checkArgsSize(nargs, 1);
+        const ExpressionValue & val = args[0];
+
+        if (val.empty()) {
+            return;
+        }
+
+        ++ n;
+        double delta = val.toDouble() - mean;
+        mean += delta / n;
+        M2 += delta * (val.toDouble() - mean);
+
+        ts.setMax(val.getEffectiveTimestamp());
+    }
+     
+    ExpressionValue extract()
+    {
+        if (n < 2) {
+            return ExpressionValue(std::nan(""), ts);
+        }
+        return ExpressionValue(M2 / (n - 1), ts);
+    }
+
+    void merge(StdAggAccum* src)
+    {
+        double delta = src->mean - mean;
+        M2 = M2 + src->M2 + delta * delta * n * src->n / (n + src->n);
+        mean = (n * mean + src->n * src->mean) / (n + src->n);
+        n += src->n;
+        ts.setMax(src->ts);
+    }
+};
+
+static RegisterAggregatorT<StdAggAccum>
+registerStdAgg("stddev", "vertical_stddev");
 
 
 } // namespace Builtins

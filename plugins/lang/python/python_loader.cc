@@ -35,7 +35,7 @@
 #include "mldb/types/dtoa.h"
 
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb_python_converters.h"
 #include "mldb/types/any_impl.h"
 
@@ -948,6 +948,9 @@ struct AtInit {
 
         mldb.add_property("script", &MldbPythonContext::getScript);
         mldb.add_property("plugin", &MldbPythonContext::getPlugin);
+
+        mldb.def("debugSetPathOptimizationLevel",
+                 &MldbPythonContext::setPathOptimizationLevel);
 
         /****
          *  Functions

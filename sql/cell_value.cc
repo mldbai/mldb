@@ -6,7 +6,7 @@
 */
 
 #include "cell_value.h"
-#include "mldb/ext/siphash/csiphash.h"
+#include "mldb/ext/highwayhash.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/dtoa.h"
 #include "mldb/http/http_exception.h"
@@ -599,6 +599,25 @@ coerceToTimestamp() const
     return CellValue();
 }
 
+Date
+CellValue::
+mustCoerceToTimestamp() const
+{
+    if (type == ST_EMPTY)
+        return Date::notADate();
+    if (isAsciiString()) {
+        return Date::parseIso8601DateTime(toString());
+    }
+    if (type == ST_TIMESTAMP)
+        return toTimestamp();
+    if (isNumber()) {
+        return Date::fromSecondsSinceEpoch(toDouble());
+    }
+    throw HttpReturnException(400, "Couldn't convert value '" + toUtf8String()
+                              + "' to timestamp",
+                              "value", *this);
+}
+
 CellValue
 CellValue::
 coerceToBlob() const
@@ -736,9 +755,11 @@ isFalse() const
 const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 template<typename T>
-static uint64_t siphash24_bin(const T & v, HashSeed key)
+static uint64_t highwayhash_bin(const T & v, const HashSeed & key)
 {
-    return ::mldb_siphash24(&v, sizeof(v), key.b);
+    char c[sizeof(v)];
+    std::memcpy(c, &v, sizeof(v));
+    return highwayHash(key.u64, c, sizeof(v));
 }
 
 CellValueHash
@@ -749,16 +770,16 @@ hash() const
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_SHORT_BLOB:
-        return CellValueHash(mldb_siphash24(shortString, strLength, defaultSeedStable.b));
+        return CellValueHash(highwayHash(defaultSeedStable.u64, shortString, strLength));
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
     case ST_LONG_BLOB:
         if (!longString->hash) {
-            longString->hash = mldb_siphash24(longString->repr, strLength, defaultSeedStable.b);
+            longString->hash = highwayHash(defaultSeedStable.u64, longString->repr, strLength);
         }
         return CellValueHash(longString->hash);
     case ST_TIMEINTERVAL:
-        return CellValueHash(mldb_siphash24(shortString, 12, defaultSeedStable.b));
+        return CellValueHash(highwayHash(defaultSeedStable.u64, shortString, 12));
     case ST_SHORT_PATH:
     case ST_LONG_PATH:
         return CellValueHash(coerceToPath().hash());
@@ -766,7 +787,7 @@ hash() const
         if (bits2 != 0)
             cerr << "hashing " << jsonEncodeStr(*this) << endl;
         ExcAssertEqual(bits2, 0);
-        return CellValueHash(siphash24_bin(bits1, defaultSeedStable));
+        return CellValueHash(highwayhash_bin(bits1, defaultSeedStable));
     }
 }
 

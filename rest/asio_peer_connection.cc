@@ -9,8 +9,8 @@
 #include "asio_peer_connection.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/arch/backtrace.h"
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/asio_timer.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/asio_timer.h"
 #include "mldb/watch/watch_impl.h"
 #include <atomic>
 #include <boost/asio.hpp>
