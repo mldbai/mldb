@@ -2458,59 +2458,6 @@ ParseConcatArguments(Utf8String& separator, bool& columnValue,
     }
 }
 
-BoundFunction concat(const std::vector<BoundSqlExpression> & args)
-{
-    if (args.size() == 0) {
-        throw HttpReturnException(
-            400, "requires at least one argument");
-    }
-
-    if (args.size() > 2) {
-        throw HttpReturnException(
-            400, "requires at most two arguments");
-    }
-
-    Utf8String separator(",");
-    bool columnValue = true;
-
-    if (args.size() == 2) {
-        SqlRowScope emptyScope;
-        ParseConcatArguments(separator, columnValue,
-                             args[1](emptyScope, GET_LATEST).getStructured());
-    }
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-        {
-            Utf8String result = "";
-            Date ts = Date::negativeInfinity();
-            bool first = true;
-            auto onAtom = [&] (const Path & columnName,
-                               const Path & prefix,
-                               const CellValue & val,
-                               Date atomTs)
-            {
-                if (!val.empty()) {
-                    if (first) {
-                        first = false;
-                    }
-                    else {
-                        result += separator;
-                    }
-                    result += columnValue ?
-                       val.toUtf8String() : columnName.toUtf8String();
-                }
-                return true;
-            };
-
-            args.at(0).forEachAtom(onAtom);
-            return ExpressionValue(result, ts);
-        },
-        std::make_shared<UnknownRowValueInfo>()
-    };
-}
-static RegisterBuiltin registerConcat(concat, "concat");
-
 BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
 {
     // Convert a blob into base64

@@ -306,7 +306,6 @@ $(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py))
 $(eval $(call mldb_unit_test,MLDB-980-unquoted-string-crash.js))
 $(eval $(call mldb_unit_test,MLDB-1195-query-where-test.py))
 $(eval $(call mldb_unit_test,MLDB-1192-js-procedure-function.js))
-$(eval $(call mldb_unit_test,MLDB-1253_concat_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
 $(eval $(call mldb_unit_test,MLDB-1322-sum_stem_token.py))
