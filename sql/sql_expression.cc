@@ -3610,6 +3610,50 @@ parse(ML::Parse_Context & context, bool allowUtf8) {
     return WhenExpression(result);
 }
 
+static bool filterWhen(ExpressionValue & val,
+                       const SqlRowScope & rowScope,
+                       const BoundSqlExpression & boundWhen)
+{
+    auto passValue = [&] (Date timestamp)
+        {
+            auto tupleScope
+                = SqlExpressionWhenScope
+                ::getRowScope(rowScope, timestamp);
+
+            return boundWhen(tupleScope, GET_LATEST).isTrue();
+        };
+
+    if (val.isEmbedding() || val.isAtom() || val.empty()) {
+        // Don't deconstruct an embedding or an atom; either pass or not
+        // based upon the timestamp (there is only a single timestamp)
+        return passValue(val.getEffectiveTimestamp());
+    }
+
+    StructValue kept;
+    kept.reserve(val.rowLength());
+
+    // TODO: we should do two passes to first mark and then extract
+    // destructively.  Performance enhancement for later.
+    auto onColumn = [&] (const PathElement & columnName,
+                         ExpressionValue val)
+        {
+            bool keepThisOne = filterWhen(val, rowScope, boundWhen);
+            if (keepThisOne) {
+                kept.emplace_back(std::move(columnName), std::move(val));
+            }
+            return true;
+        };
+
+    val.forEachColumn(onColumn);
+
+    bool noTimestamp = kept.empty();
+    val = std::move(kept);
+    if (!noTimestamp)
+        val.setEffectiveTimestamp(Date::notADate());
+
+    return !val.empty();
+}
+
 BoundWhenExpression
 WhenExpression::
 bind(SqlBindingScope & scope) const
@@ -3618,7 +3662,7 @@ bind(SqlBindingScope & scope) const
     if (when->isConstant()) {
         if (when->constantValue().isTrue()) {
             // keep everything, filter is a no-op
-            auto filterInPlace = [] (MatrixNamedRow & row,
+            auto filterInPlace = [] (ExpressionValue & row,
                                      const SqlRowScope & rowScope)
                 {
                 };
@@ -3627,10 +3671,10 @@ bind(SqlBindingScope & scope) const
         }
         else {
             // remove everything; filter is a clear
-            auto filterInPlace = [] (MatrixNamedRow & row,
+            auto filterInPlace = [] (ExpressionValue & row,
                                      const SqlRowScope & rowScope)
                 {
-                    row.columns.clear();
+                    row = ExpressionValue::null(Date::notADate());
                 };
 
             return { filterInPlace, this };
@@ -3648,12 +3692,14 @@ bind(SqlBindingScope & scope) const
     // Second, check for an expression that do not depend on tuples
     if (!whenScope.isTupleDependent) {
         // cerr << "not tuple dependent" << endl;
-        auto filterInPlace = [=] (MatrixNamedRow & row,
-                              const SqlRowScope & rowScope)
+        auto filterInPlace = [=] (ExpressionValue & row,
+                                  const SqlRowScope & rowScope)
             {
-                auto tupleScope = SqlExpressionWhenScope::getRowScope(rowScope, Date());
+                auto tupleScope = SqlExpressionWhenScope
+                    ::getRowScope(rowScope, Date());
                 if (!boundWhen(tupleScope, GET_LATEST).isTrue()) {
-                    row.columns.clear();
+                    StructValue vals;
+                    row = std::move(vals);
                 }
             };
         return { filterInPlace, this };
@@ -3661,49 +3707,11 @@ bind(SqlBindingScope & scope) const
 
     // Executing a when expression will filter the row by the expression,
     // applying it to each of the tuples
-    auto filterInPlace = [=] (MatrixNamedRow & row,
-                              const SqlRowScope & rowScope)
+    std::function<void (ExpressionValue &, const SqlRowScope &)>
+        filterInPlace = [=] (ExpressionValue & row,
+                             const SqlRowScope & rowScope)
         {
-            // Figure out which ones we keep.  We need to perform all of the
-            // scanning before we extract any output, as we want the row
-            // to remain intact (it's used by the rowScope) until we've
-            // evaluated our when expression.
-
-            std::vector<char> keep;  // not bool to avoid bitmap
-            keep.reserve(row.columns.size());
-
-            // How many columns do we output?
-            size_t numOutput = 0;
-
-            for (const auto & col: row.columns) {
-                auto tupleScope
-                    = SqlExpressionWhenScope
-                    ::getRowScope(rowScope, std::get<2>(col));
-
-                auto whenExpressionValue = boundWhen(tupleScope, GET_LATEST);
-                bool keepThisCol = whenExpressionValue.isTrue();
-                keep.emplace_back(keepThisCol);
-                numOutput += keepThisCol;
-            }
-
-            // Now we create our output
-            std::vector<std::tuple<ColumnName, CellValue, Date> > output;
-
-            // If we keep them all, no need to copy
-            if (numOutput == row.columns.size()) {
-                return;
-            }
-
-            // Move the kept elements into the output
-            for (unsigned i = 0;  i < row.columns.size();  ++i) {
-                if (!keep[i])
-                    continue;
-
-                output.emplace_back(std::move(row.columns[i]));
-            }
-            
-            // Swap them back in
-            row.columns.swap(output);
+            filterWhen(row, rowScope, boundWhen);
         };
 
     return { filterInPlace, this };

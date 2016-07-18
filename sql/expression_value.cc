@@ -3628,7 +3628,7 @@ getFiltered(const VariableFilter & filter,
         const ExpressionValue * output = atoms.extract(storage);
         if (output)
             return *output;
-        else return (storage = ExpressionValue());
+        else return (storage = ExpressionValue::null(Date::notADate()));
     }
     else {
         // Atoms get added to rows
