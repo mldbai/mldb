@@ -186,6 +186,21 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<PathValueInfo>()};
     }
 
+    if (functionName == "value") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & col = scope.as<ColumnScope>();
+                    if (!col.columnValue)
+                        throw HttpReturnException
+                            (400,
+                             "Evaluation value() in column "
+                             "expression without columns");
+                    return *col.columnValue;
+                },
+                std::make_shared<AnyValueInfo>()};
+    }
+
     auto fn = outer.doGetColumnFunction(functionName);
 
     if (fn)
