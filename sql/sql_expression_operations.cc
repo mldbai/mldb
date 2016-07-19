@@ -3819,6 +3819,10 @@ bind(SqlBindingScope & scope) const
 
     std::sort(columns.begin(), columns.end(), compareColumns);
 
+    bool selectValue
+        = select->getType() == "function"
+        && select->getOperation() == "value";
+
     //for (unsigned i = 0;  i < 10 && i < columns.size();  ++i) {
     //    cerr << "column " << i << " name " << columns[i].columnName
     //         << " sort " << jsonEncodeStr(columns[i].sortFields) << endl;
@@ -3860,17 +3864,88 @@ bind(SqlBindingScope & scope) const
     auto outputColumns
         = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
-    auto exec = [=] (const SqlRowScope & scope,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter)
-        -> const ExpressionValue &
-        {
-            return storage = std::move(outputColumns.exec(scope, filter));
-        };
+    if (selectValue) {
 
-    BoundSqlExpression result(exec, this, outputColumns.info);
+        auto exec = [=] (const SqlRowScope & scope,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                return storage = std::move(outputColumns.exec(scope, filter));
+            };
+
+        BoundSqlExpression result(exec, this, outputColumns.info);
     
-    return result;
+        return result;
+    }
+    else {
+
+        BoundSqlExpression boundSelect = select->bind(colScope);
+
+        auto exec = [=] (const SqlRowScope & scope,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                ExpressionValue input = outputColumns.exec(scope, filter);
+
+                RowValue output;
+                
+                auto onAtom = [&] (ColumnName & columnName,
+                                   CellValue & val,
+                                   Date ts)
+                {
+                    ExpressionValue in(std::move(val), ts);
+                    auto scope = ColumnExpressionBindingScope
+                        ::getColumnScope(columnName, in);
+                    
+                    ExpressionValue storage;
+                    const ExpressionValue & result
+                        = boundSelect(scope, storage, GET_ALL);
+                    
+                    if (&result == &storage) {
+                        // The expression may produce more than one atom as an
+                        // output, so take all of them.
+                        auto onAtom2 = [&] (ColumnName & columnName2,
+                                            CellValue & val,
+                                            Date ts)
+                            {
+                                output.emplace_back(columnName + columnName2,
+                                                    std::move(val),
+                                                    ts);
+                                return true;
+                            };
+
+                        storage.forEachAtomDestructive(onAtom2);
+                    }
+                    else {
+
+                        auto onAtom2 = [&] (const ColumnName & prefix,
+                                            const ColumnName & suffix,
+                                            const CellValue & val,
+                                            Date ts)
+                            {
+                                output.emplace_back(columnName + prefix + suffix,
+                                                    std::move(val),
+                                                    ts);
+                                return true;
+                            };
+                        
+                        result.forEachAtom(onAtom2);
+                    }
+
+                    return true;
+                };
+                
+                input.forEachAtomDestructive(onAtom);
+
+                return storage = std::move(output);
+            };
+
+        BoundSqlExpression result(exec, this, outputColumns.info);
+    
+        return result;
+    }
 }
 
 Utf8String

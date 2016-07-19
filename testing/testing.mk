@@ -406,6 +406,7 @@ $(eval $(call mldb_unit_test,MLDB-1792_aggregator_error_message.py))
 $(eval $(call mldb_unit_test,try_except_builtin_fct.py))
 $(eval $(call mldb_unit_test,MLDB-1808_precision_loss_issue.py))
 $(eval $(call mldb_unit_test,MLDBFB-636-join-rowhash.py))
+$(eval $(call mldb_unit_test,MLDBFB-646-column-expression-select.js))
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))

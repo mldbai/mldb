@@ -101,11 +101,18 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
     /// RowContex structure. Derived class's row scope must derive from this
     struct ColumnScope: public SqlRowScope {
         ColumnScope(const ColumnName & columnName)
-            : columnName(columnName)
+            : columnName(columnName), columnValue(nullptr)
+        {
+        }
+
+        ColumnScope(const ColumnName & columnName,
+                    const ExpressionValue & columnValue)
+            : columnName(columnName), columnValue(&columnValue)
         {
         }
 
         const ColumnName & columnName;
+        const ExpressionValue * columnValue;
     };
 
     virtual BoundFunction
@@ -114,11 +121,17 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    ColumnScope getColumnScope(const ColumnName & columnName)
+    static ColumnScope getColumnScope(const ColumnName & columnName)
     {
         return ColumnScope(columnName);
     }
-
+    
+    static ColumnScope getColumnScope(const ColumnName & columnName,
+                                      const ExpressionValue & val)
+    {
+        return ColumnScope(columnName, val);
+    }
+    
     virtual MldbServer * getMldbServer() const
     {
         return outer.getMldbServer();
