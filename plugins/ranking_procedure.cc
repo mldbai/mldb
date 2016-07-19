@@ -60,7 +60,7 @@ RankingProcedureConfigDescription()
     addField("rankingType", &RankingProcedureConfig::rankingType,
              "The type of the rank to output. The only accepted value is "
              "`index`. It generates an integer based rank ranging from 0 to "
-             "n -1.", INDEX);
+             "n - 1.", INDEX);
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
              "The name to give to the ranking column.", string("rank"));
     addParent<ProcedureConfig>();
