@@ -25,7 +25,7 @@ struct FunctionJS: public JsObjectBase {
     std::shared_ptr<Function> function;
 
     static v8::Handle<v8::Object>
-    create(std::shared_ptr<Function> function, JsPluginContext * context);
+    create(std::shared_ptr<Function> function, JsThreadContext * context);
 
     static Function *
     getShared(const v8::Handle<v8::Object> & val);

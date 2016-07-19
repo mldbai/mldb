@@ -25,7 +25,7 @@ struct ProcedureJS: public JsObjectBase {
     std::shared_ptr<Procedure> procedure;
 
     static v8::Handle<v8::Object>
-    create(std::shared_ptr<Procedure> procedure, JsPluginContext * context);
+    create(std::shared_ptr<Procedure> procedure, JsThreadContext * context);
 
     static Procedure *
     getShared(const v8::Handle<v8::Object> & val);

@@ -23,7 +23,7 @@ namespace MLDB {
 
 v8::Handle<v8::Object>
 FunctionJS::
-create(std::shared_ptr<Function> function, JsPluginContext * context)
+create(std::shared_ptr<Function> function, JsThreadContext * context)
 {
     auto obj = context->Function->GetFunction()->NewInstance();
     auto * wrapped = new FunctionJS();

@@ -639,7 +639,7 @@ The SQL function `jseval` allows for the inline definition of functions using Ja
 
 1.  A text string containing the text of the function to be evaluated.  This
     must be a valid Javascript function, which will return with the `return`
-    function.  For example, `return x + y`.  This must be a constant string,
+    keyword.  For example, `return x + y`.  This must be a constant string,
     it cannot be an expression that is evaluated at run time.
 2.  A text string containing the names of all of the parameters that will be
     passed to the function, as they are referred to within the function.  For
@@ -649,13 +649,21 @@ The SQL function `jseval` allows for the inline definition of functions using Ja
     any SQL expressions and will be bound to the parameters passed in to the
     function.
 
+There are two ways that values in arguments can be represented in Javascript:
+simplified (the default), and a non-simplified representation that is accessed
+by adding a `!` character to the parameter name argument (for example, `!x,y`
+instead of `x,y`).
+
+### Simplified arguments
+
 The result of the function will be the result of calling the function on the
 supplied arguments.  This will be converted into a result as follows:
 
 - A `null` will remain a `null`
 - A Javascript number, string or `Date` will be converted to the equivalent
   MLDB number, string or timestamp;
-- An object (dictionary) will be converted to a row
+- An object (dictionary) or array will be converted to a row, with each
+  element represented as a `[column name, value, timestamp]` tuple. 
 
 In all cases, the timestamp on the output will be equal to the latest of the
 timestamps on the arguments passed in to the function.
@@ -695,3 +703,16 @@ log to the console to aid debugging. Documentation for this object can be found 
 
 You can also take a look at the ![](%%nblink _tutorials/Executing JavaScript Code Directly in SQL Queries Using the jseval Function Tutorial) for examples of how to use the `jseval` function.
 
+### Non-simplified arguments
+
+If the first character of the argument string is `!`, then non-simplified
+arguments are used.  These are harder to work with in Javascript, but allow
+for the entire set of values in MLDB to be represented, especially structured
+values or those with repeated columns or multiple timestamps per value.
+
+For example, the following query yields the same as `(SELECT x:1, y:2)`,
+in other words it doesn't mess around with the values:
+
+```sql
+SELECT jseval('return row;', '!row', {*}) AS * FROM (SELECT x:1, y:2)"
+```

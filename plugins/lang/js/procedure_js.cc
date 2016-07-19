@@ -23,7 +23,7 @@ namespace MLDB {
 
 v8::Handle<v8::Object>
 ProcedureJS::
-create(std::shared_ptr<Procedure> procedure, JsPluginContext * context)
+create(std::shared_ptr<Procedure> procedure, JsThreadContext * context)
 {
     auto obj = context->Procedure->GetFunction()->NewInstance();
     auto * wrapped = new ProcedureJS();

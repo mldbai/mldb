@@ -40,7 +40,7 @@ dataset.commit()
 
 var res1 = mldb.get("/v1/datasets/test/query",
                     {
-                        select: "jseval('mldb.log(''Hello '' + x);  return { x: x, y: ''yes''}', 'x', x) AS *",
+                        select: "jseval('mldb.log(''Hello '' + x.toJs());  return { x: x, y: ''yes''}', '!x', x) AS *",
                         format: 'table',
                         orderBy: 'rowName()'
                     });
@@ -57,7 +57,37 @@ var expected = [
 
 assertEqual(res1.json, expected, "row output from JS function");
 
+var res1 = mldb.get("/v1/datasets/test/query",
+                    {
+                        select: "jseval('mldb.log(''Hello '' + x);  return { x: x, y: ''yes''}', 'x', x) AS *",
+                        format: 'table',
+                        orderBy: 'rowName()'
+                    });
+
+plugin.log(res1);
+
+assertEqual(res1.json, expected, "row output from JS function");
+
 // MLDB-757
+
+var res2 = mldb.get("/v1/datasets/test/query",
+                    {
+                        select: "jseval('return Object.keys(x.columns()).length', '!x', {*}) AS nvals",
+                        format: 'table',
+                        orderBy: 'rowName()'
+                    });
+
+plugin.log(res2);
+
+var expected2 = [
+   [ "_rowName", "nvals" ],
+   [ "ex1", 2 ],
+   [ "ex2", 3 ],
+   [ "ex3", 2 ],
+   [ "ex4", 3 ]
+];
+
+assertEqual(res2.json, expected2, "row input to JS function");
 
 var res2 = mldb.get("/v1/datasets/test/query",
                     {
@@ -99,5 +129,20 @@ var expected3 = [
 
 assertEqual(res3.json, expected3, "undefined output of JS function");
 
+
+var res4 = mldb.query("SELECT jseval('return row;', '!row', {*}) AS * NAMED 'res' FROM (SELECT x:1, y:2)");
+
+expected4 = [
+   {
+      "columns" : [
+         [ "x", 1, "-Inf" ],
+         [ "y", 2, "-Inf" ]
+      ],
+      "rowHash" : "4ba25cf9b5244b88",
+      "rowName" : "res"
+   }
+];
+
+assertEqual(res4, expected4);
 
 "success"
