@@ -33,7 +33,7 @@ RankingTypeDescription::
 RankingTypeDescription()
 {
     //addValue("percentile", PERCENTILE);
-    addValue("index", INDEX, "Gives an integer index ranging from 1 to n.");
+    addValue("index", INDEX, "Gives an integer index ranging from 0 to n - 1.");
 }
 
 RankingProcedureConfig::
