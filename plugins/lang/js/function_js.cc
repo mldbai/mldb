@@ -7,7 +7,7 @@
 
 #include "function_js.h"
 #include "mldb/core/function.h"
-#include "mldb/types/js/id_js.h"
+#include "id_js.h"
 
 
 using namespace std;

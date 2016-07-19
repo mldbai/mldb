@@ -2,7 +2,6 @@
 
 # SOA makefile
 
-$(eval $(call include_sub_make,js))
 $(eval $(call include_sub_make,credentials))
 $(eval $(call include_sub_make,service))
 $(eval $(call include_sub_make,utils))

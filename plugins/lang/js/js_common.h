@@ -8,7 +8,7 @@
 */
 
 #include <v8.h>
-#include "mldb/soa/js/js_utils.h"
+#include "mldb/plugins/lang/js/js_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/logging/logging.h"
 #include "mldb/server/script_output.h"

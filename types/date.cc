@@ -11,7 +11,6 @@
 #include <cmath>
 #include <limits>
 #include "mldb/arch/format.h"
-#include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/base/parse_context.h"
 #include <cmath>
