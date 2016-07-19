@@ -82,6 +82,8 @@ ProbabilizerConfigDescription()
 
     onPostValidate = chain(validateQuery(&ProbabilizerConfig::trainingData,
                                          MustContainFrom(),
+                                         ScoreLabelSelect(),
+                                         PlainColumnSelect(),
                                          NoGroupByHaving()),
                            validateFunction<ProbabilizerConfig>());
 }
