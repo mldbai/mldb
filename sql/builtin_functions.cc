@@ -2975,8 +2975,6 @@ BoundFunction hash(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                cerr << "hashing " << jsonEncodeStr(args[0])
-                     << " gives " << args[0].hash() << endl;
                 if (args[0].empty()) {
                     return ExpressionValue::null(
                         args[0].getEffectiveTimestamp());
