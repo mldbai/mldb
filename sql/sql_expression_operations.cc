@@ -1174,9 +1174,6 @@ struct BinaryPlusOp {
         if (l.empty() || r.empty()) {
             return CellValue();
         }
-        if (r.empty()) {
-            return r;
-        }
         return binaryPlus(l, r);
     }
 
