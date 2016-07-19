@@ -8,15 +8,27 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class Mldb1827OperatorNullPropagationTest(MldbUnitTest):  # noqa
 
+    @classmethod
+    def setUpClass(cls):
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['val', 4, 6]])
+        ds.commit()
+
     def run_operations(self, operator):
-        res = mldb.query("SELECT 4 {} NULL".format(operator))
-        self.assertEqual(res[1][1], None)
+        res = mldb.get('/v1/query', q="SELECT val {} NULL FROM ds"
+                       .format(operator)).json()[0]['columns'][0]
+        self.assertEqual(res[1], None)
+        self.assertEqual(res[2], '1970-01-01T00:00:06Z')
 
-        res = mldb.query("SELECT NULL {} NULL".format(operator))
-        self.assertEqual(res[1][1], None)
+        res = mldb.get('/v1/query', q="SELECT NULL {} NULL FROM ds"
+                       .format(operator)).json()[0]['columns'][0]
+        self.assertEqual(res[1], None)
+        self.assertEqual(res[2], '1970-01-01T00:00:00Z')
 
-        res = mldb.query("SELECT NULL {} 4".format(operator))
-        self.assertEqual(res[1][1], None)
+        res = mldb.get('/v1/query', q="SELECT NULL {} val FROM ds"
+                       .format(operator)).json()[0]['columns'][0]
+        self.assertEqual(res[1], None)
+        self.assertEqual(res[2], '1970-01-01T00:00:06Z')
 
     def test_plus(self):
         self.run_operations('+')
