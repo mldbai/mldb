@@ -79,7 +79,9 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 The following functions are available in the context of a column expression:
 
 - `columnName()` is the name of the column under consideration.  It is the same
-  as the `columnPath()` elements concatenated with a `.` character.
+  as the `columnPath()` elements concatenated with a `.` character. (Note that
+  using `columnName()` in an `ORDER BY` clause is only useful when combined
+  with `LIMIT` and/or `OFFSET`. It does not order the columns of the output.)
 - `columnPath()` is the structured path to the column under consideration.
 - `columnPathElement(n)` is the nth element of the column path of the column
   under consideration.  Negative indexing is supported, meaning that if n is less than 
