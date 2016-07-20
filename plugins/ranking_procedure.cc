@@ -33,7 +33,9 @@ RankingTypeDescription::
 RankingTypeDescription()
 {
     //addValue("percentile", PERCENTILE);
-    addValue("index", INDEX, "Gives an integer index ranging from 0 to n - 1.");
+    addValue("index", INDEX, 
+             "Gives an integer index ranging from 0 to n - 1, where "
+             "n is the number of rows.");
 }
 
 RankingProcedureConfig::
@@ -199,7 +201,9 @@ static RegisterProcedureType<RankingProcedure, RankingProcedureConfig>
 regRankingProcedure(
     builtinPackage(),
     "Assign ranks over a sorted dataset",
-    "procedures/RankingProcedure.md.html");
+    "procedures/RankingProcedure.md.html",
+    nullptr /* static route */,
+    { MldbEntity::INTERNAL_ENTITY });
 
 
 } // namespace MLDB
