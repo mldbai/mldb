@@ -75,7 +75,8 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 
 GetAllColumnsOutput
 TableLexicalScope::
-doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+doGetAllColumns(const Utf8String & tableName,
+                std::function<ColumnName (const ColumnName &)> keep,
                 int fieldOffset)
 {
     //cerr << "dataset lexical scope get columns: fieldOffset = "
@@ -105,46 +106,34 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
         columnsWithInfo.emplace_back(std::move(out));
         index[column.columnName] = ColumnName(outputName);
     }
-    
+
     auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter) -> ExpressionValue
+    {
+        auto & row = rowScope.as<PipelineResults>();
+
+        const ExpressionValue & rowContents
+        = row.values.at(fieldOffset + ROW_CONTENTS);
+
+        RowValue result;
+
+        auto onAtom = [&] (const Path & columnName,
+                       const Path & prefix,
+                       const CellValue & val,
+                       Date ts)
         {
-            auto & row = rowScope.as<PipelineResults>();
-
-            const ExpressionValue & rowContents
-            = row.values.at(fieldOffset + ROW_CONTENTS);
-
-            RowValue result;
-
-            auto onColumn = [&] (const PathElement & columnName,
-                                 const ExpressionValue & value)
-            {
-                auto it = index.find(Path(columnName));
-                if (it == index.end()) {
-                    return true;
-                }
-
-                auto onAtom = [&] (const Path & columnName,
-                                   const Path & prefix,
-                                   CellValue atom,
-                                   Date ts)
-                {
-                    result.emplace_back(prefix + columnName,
-                                        std::move(atom), ts);
-                    return true;
-                };
-
-                // TODO: lots of optimizations possible here...
-                value.forEachAtom(onAtom, it->second);
-                
+            ColumnName newColumnName = prefix + columnName;
+            auto it = index.find(newColumnName);
+            if (it == index.end())
                 return true;
-            };
-
-            if (!rowContents.empty())
-                rowContents.forEachColumn(onColumn);
-            
-            ExpressionValue val(std::move(result));
-            return val.getFilteredDestructive(filter);
+            result.emplace_back(it->second, val, ts);
+            return true;
         };
+
+        rowContents.forEachAtom(onAtom);
+
+        ExpressionValue val(std::move(result));
+        return val.getFilteredDestructive(filter);
+    };
 
     GetAllColumnsOutput result;
     result.info = std::make_shared<RowValueInfo>(columnsWithInfo, SCHEMA_CLOSED);
@@ -391,7 +380,8 @@ SubSelectLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::share
 
 GetAllColumnsOutput
 SubSelectLexicalScope::
-doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+doGetAllColumns(const Utf8String & tableName,
+                std::function<ColumnName (const ColumnName &)> keep,
                 int fieldOffset)
 {
     //We want the last two that were added by the sub pipeline.
@@ -401,7 +391,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
     ExcAssert(outputAdded().size() >= 2);
     size_t offset = outputAdded().size() - 2;
 
-    return TableLexicalScope::doGetAllColumns(keep, fieldOffset + offset);
+    return TableLexicalScope::doGetAllColumns(tableName, keep, fieldOffset + offset);
 }
 
 ColumnGetter
@@ -617,7 +607,8 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 /** For a join, we can select over the columns for either one or the other. */
 GetAllColumnsOutput
 JoinLexicalScope::
-doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+doGetAllColumns(const Utf8String & tableName,
+                std::function<ColumnName (const ColumnName &)> keep,
                 int fieldOffset)
 {
     //cerr << "doGetAllColums for join with field offset " << fieldOffset << endl;
@@ -628,15 +619,21 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
     PathElement rightPrefix;
     if (!right->as().empty())
         rightPrefix = right->as();
-    
-    auto leftOutput = left->doGetAllColumns(keep, leftFieldOffset(fieldOffset));
-    auto rightOutput = right->doGetAllColumns(keep, rightFieldOffset(fieldOffset));
+
+
+    auto leftOutput = left->doGetAllColumns(tableName, keep, leftFieldOffset(fieldOffset));
+    auto rightOutput = right->doGetAllColumns(tableName, keep, rightFieldOffset(fieldOffset));
 
     GetAllColumnsOutput result;
     result.exec = [=] (const SqlRowScope & scope, const VariableFilter & filter) -> ExpressionValue
         {
-            ExpressionValue leftResult = leftOutput.exec(scope, filter);
-            ExpressionValue rightResult = rightOutput.exec(scope, filter);
+            ExpressionValue leftResult, rightResult;
+
+            if (tableName.empty() || tableName == leftPrefix)
+                leftResult = leftOutput.exec(scope, filter);
+
+            if (tableName.empty() || tableName == rightPrefix)
+                rightResult = rightOutput.exec(scope, filter);
 
             //cerr << "get all columns merging "
             //     << jsonEncode(leftResult) << " and "
@@ -1932,7 +1929,8 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 
 GetAllColumnsOutput
 AggregateLexicalScope::
-doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+doGetAllColumns(const Utf8String & tableName,
+                std::function<ColumnName (const ColumnName &)> keep,
                 int fieldOffset)
 {
     return inner->doGetAllColumns("" /* table name */, keep);

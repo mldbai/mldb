@@ -3469,8 +3469,12 @@ bind(SqlBindingScope & scope) const
             //cerr << "input column name " << inputColumnName << endl;
 
             // First, check it matches the prefix
-            if (!inputColumnName.matchWildcard(simplifiedPrefix)) {
-                //cerr << "rejected by prefix" << endl;
+            // We have to check the simplified prefix for regular datasets
+            // i.e select x.a.* from x returns a.b
+            // But we have to check the initial prefix for joins
+            // i.e select x.a.* from x join y returns x.a.b
+            if (!inputColumnName.matchWildcard(simplifiedPrefix) && !inputColumnName.matchWildcard(prefix)) {
+               //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
                 return ColumnName();
             }
 

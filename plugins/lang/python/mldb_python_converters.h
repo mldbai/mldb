@@ -6,6 +6,7 @@
 #include <boost/python.hpp>
 #include <boost/python/return_value_policy.hpp>
 #include "mldb/sql/cell_value.h"
+#include "mldb/sql/path.h"
 #include "python_converters.h"
 #include "from_python_converter.h"
 #include "callback.h"
