@@ -15,6 +15,7 @@ endef
 
 $(eval $(call mldb_install_directory,mldb/container_files/demos,$(ALTROOT)/$(IPYTHON_DIR)))
 $(eval $(call mldb_install_directory,mldb/container_files/tutorials,$(ALTROOT)/$(IPYTHON_DIR)))
+$(eval $(call mldb_install_directory,mldb/container_files/examples,$(ALTROOT)/$(IPYTHON_DIR)))
 $(eval $(call mldb_install_directory,mldb/container_files/public_html/doc,$(ALTROOT)/opt/local/public_html))
 $(eval $(call mldb_install_directory,mldb/container_files/public_html/resources,$(ALTROOT)/opt/local/public_html))
 

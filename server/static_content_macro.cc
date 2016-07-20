@@ -375,6 +375,33 @@ void doclinkMacro(MacroContext & context,
                               true /* follow redirect */);
 }
 
+void notebookexampleMacro(MacroContext & context,
+                  const std::string & macroName,
+                  const Utf8String & argsStr)
+{
+    vector<string> args = ML::split(argsStr.rawString(), ' ');
+    if (args.size() < 2) {
+        context.writeHtml("Macro %%notebookexample needs 2 parameters");
+        return;
+    }
+    string type = args.at(0);
+    string kind = args.at(1);
+
+    
+    string iframeId = "exifrm_"+ type + "_" + kind;
+    Utf8String url = "/doc/nblink.html#_examples/";
+    Utf8String fullUrl = context.prefixUrl(url) + type + "_" + kind + "_example";
+    context.writeHtml("<a href=\"" + fullUrl + "\" " + "target=\"_blank\">Open in new window</a>");
+
+    context.writeHtml("<br><iframe id=\""+iframeId+"\" src=\"" + fullUrl + 
+            "\" style=\"width:98%; height:500px; display:none;\"></iframe>");
+    context.writeHtml("<script>$('#"+iframeId+"').load(\n"
+                      "     function() {\n"
+                      "         onNotebookLoaded('"+iframeId+"');\n"
+                      "     });\n"
+                      "</script>");
+}
+
 void codeexampleMacro(MacroContext & context,
                       const std::string & macroName,
                       const Utf8String & argsStr)
@@ -387,11 +414,11 @@ void codeexampleMacro(MacroContext & context,
             language = " class=\"" + args[1] + "\"";
 
         ML::File_Read_Buffer buf(filename);
-        
+
         string result(buf.start(), buf.end());
-        
+
         context.writeHtml("<pre><code" + language + ">");
-        
+
         context.writeText(result);
 
         context.writeHtml("</code></pre>");
@@ -561,6 +588,7 @@ auto regType = RegisterMacro("type", typeMacro);
 auto regNbLink = RegisterMacro("nblink", nblinkMacro);
 auto regDoclink = RegisterMacro("doclink", doclinkMacro);
 auto regCodeExample = RegisterMacro("codeexaple", codeexampleMacro);
+auto regNotebookCodeExample = RegisterMacro("notebookexample", notebookexampleMacro);
 auto regConfig = RegisterMacro("config", configMacro);
 auto regAvailableTypes = RegisterMacro("availabletypes", availabletypesMacro);
 

@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** static_content_handler.cc
     Jeremy Barnes, 5 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Handler for static content.
 */
@@ -60,7 +58,7 @@ void handleNormalText (hoedown_buffer *ob, const hoedown_buffer *text, const hoe
     }
 
     hoedown_escape_html(ob, text->data, text->size, 0);
-    
+
 }
 
 int handleImage (hoedown_buffer *ob,
@@ -145,7 +143,7 @@ std::string renderMarkdown(const char * buf, size_t len,
 {
     auto renderer = hoedown_html_renderer_new(HOEDOWN_HTML_USE_XHTML,
                                               0 /* data.toc_level */,
-                                              (void *)&macroData);                
+                                              (void *)&macroData);
     Scope_Exit(hoedown_html_renderer_free(renderer));
 
     renderer->normal_text = handleNormalText;
@@ -160,12 +158,12 @@ std::string renderMarkdown(const char * buf, size_t len,
         = HOEDOWN_EXT_MATH
         | HOEDOWN_EXT_TABLES
         | HOEDOWN_EXT_FENCED_CODE;
-                
+
     auto document = hoedown_document_new(renderer,
                                          (hoedown_extensions)extensions,
                                          10 /*data.max_nesting*/);
     Scope_Exit(hoedown_document_free(document));
-    
+
     hoedown_document_render(document, ob, (const uint8_t *)buf, len);
 
     std::string result((const char *)ob->data, (const char *)(ob->data + ob->size));
@@ -213,7 +211,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
 
                     //cerr << "Loading file " << filename << " as " << filenameToLoad << endl;
                     ML::File_Read_Buffer buf(filenameToLoad);
-            
+
                     string result(buf.start(), buf.end());
                     boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->httpBaseUrl);
                     connection.sendResponse(200, result, mimeType);
@@ -277,6 +275,20 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "  else\n";
                 result += "  { ga('create', 'UA-16909325-10', {'cookieDomain': 'none'}); }\n";
                 result += "  ga('send', 'pageview');\n";
+                result += "</script>\n";
+                result += "<script>\n";
+                result += "$.intervals = {};\n";
+                result += "function onNotebookLoaded(iframe_id) {\n";
+                result += "  $('#'+iframe_id).contents().find('#header-container').hide();\n";
+                result += "  $('#'+iframe_id).contents().find('#maintoolbar').hide();\n";
+                result += "  $('#'+iframe_id).show();\n";
+                result += "  $.intervals[iframe_id] = setTimeout(function(){\n";
+                result += "     if(document.getElementById(iframe_id).contentWindow.window.onbeforeunload != null) {\n";
+                result += "         document.getElementById(iframe_id).contentWindow.window.onbeforeunload = null;\n";
+                result += "         clearInterval($.intervals[iframe_id]);\n";
+                result += "     }\n";
+                result += "  }, 500);\n";
+                result += "}\n";
                 result += "</script>\n";
                 result += "</head>\n";
                 result += "<body style='margin-left: 50px; max-width: 1000px'>\n";

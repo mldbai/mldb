@@ -22,6 +22,15 @@ if [ ! -f {{IPYTHON_NB_DIR}}/_tutorials/_latest ]; then
     ln -rs {{IPYTHON_NB_DIR}}/_tutorials/v{{VERSION_NAME2}} {{IPYTHON_NB_DIR}}/_tutorials/_latest 
 fi
 
+/sbin/setuser _mldb mkdir -p {{IPYTHON_NB_DIR}}/_examples/v{{VERSION_NAME2}}
+/sbin/setuser _mldb cp -pnR {{IPYTHON_DIR}}/examples/* {{IPYTHON_NB_DIR}}/_examples/v{{VERSION_NAME2}}
+if [ -L {{IPYTHON_NB_DIR}}/_examples/_latest ]; then
+    rm {{IPYTHON_NB_DIR}}/_examples/_latest
+fi
+if [ ! -f {{IPYTHON_NB_DIR}}/_examples/_latest ]; then
+    ln -rs {{IPYTHON_NB_DIR}}/_examples/v{{VERSION_NAME2}} {{IPYTHON_NB_DIR}}/_examples/_latest 
+fi
+
 cp {{NGINX_ROOT}}/favicon.ico {{IPYTHON_IMAGES_DIR}}/favicon.ico
 cp {{MLDB_PUBLIC_HTML_PATH}}/resources/images/mldb_ipython_logo.png {{IPYTHON_IMAGES_DIR}}/logo.png
 
