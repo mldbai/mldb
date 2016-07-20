@@ -2145,7 +2145,10 @@ BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
 
                 args.at(0).forEachAtom(onAtom);
 
-                return ExpressionValue(ML::xdiv(accum, num_cols), ts);
+                if(num_cols > 0)
+                    return ExpressionValue(accum / num_cols, ts);
+
+                return ExpressionValue::null(args[0].getEffectiveTimestamp());
             },
             std::make_shared<Float64ValueInfo>()};
 }
