@@ -5,11 +5,6 @@
 #
 import unittest
 import random
-try:
-    import numpy
-    NUMPY_AVAILABLE = True
-except ImportError:
-    NUMPY_AVAILABLE = False
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
@@ -26,13 +21,11 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
         ds.commit()
 
     def test_base(self):
-        mldb_res = mldb.query("SELECT stddev(a) FROM ds")[1][1]
-        numpy_res = numpy.var([1,2,3,10], ddof=1)
-        float_res = float(numpy_res)
-        self.assertAlmostEqual(mldb_res, float_res)
+        res = mldb.query("SELECT stddev(a) FROM ds")[1][1]
+        self.assertAlmostEqual(res, 16.6666666667)
 
-        mldb_res = mldb.query("SELECT vertical_stddev(a) FROM ds")[1][1]
-        self.assertAlmostEqual(mldb_res, float_res)
+        res = mldb.query("SELECT vertical_stddev(a) FROM ds")[1][1]
+        self.assertAlmostEqual(res, 16.6666666667)
 
     def test_nan(self):
         ds = mldb.create_dataset({'id' : 'null_ds', 'type' : 'tabular'})
@@ -44,11 +37,12 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT stddev(c) FROM null_ds")
         self.assertEqual(res[1][1], "NaN")
 
-    @unittest.skipUnless(NUMPY_AVAILABLE, "Requires numpy")
+    @unittest.skip("Run manually if you want numpy comparison test")
     def test_random_sequences(self):
         """
         Generate random sequences and compare the result with numpy.
         """
+        import numpy
         lines = [""]
         lines.append(
             '| {:^4} | {:^20} | {:^20} | {:^20} | {:^10} | {:^3} |'
@@ -87,8 +81,7 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
 
     def test_pre_generated_sequence(self):
         """
-        Use a sequence that was randomly generated. Fall back when numpy is
-        not available.
+        Use a sequence that was randomly generated.
         """
         sequence = [208427.44720839578, 457112.4117661105, 382059.51760122814,
                     665800.0456080714, 467338.1109353526, 213330.03276811822,
