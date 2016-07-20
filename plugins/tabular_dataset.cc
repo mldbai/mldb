@@ -69,7 +69,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             size_t sum = 0;
             chunkiter = store->chunks.begin();
             while (chunkiter != store->chunks.end()
-                   && start > sum + chunkiter->rowCount())  {
+                   && start >= sum + chunkiter->rowCount())  {
                 sum += chunkiter->rowCount();
                 ++chunkiter;
             }
