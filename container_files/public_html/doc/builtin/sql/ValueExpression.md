@@ -404,7 +404,7 @@ and the possible values for the `arrays` field are:
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
 - `sign(x)`: returns the sign of x (-1, 0, +1).
 - `isnan(x)`: return true if x is 'NaN' in the floating point representation.
-- `isinf(x)`: return true if x is infinity in the floating point representation.
+- `isinf(x)`: return true if x is +/- infinity in the floating point representation.
 - `isfinite(x)`: return true if x is neither infinite nor not-a-number.
 
 - `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
