@@ -563,8 +563,8 @@ getTimestampRange() const
                           *SqlExpression::TRUE /* where */,
                           OrderByExpression(),
                           TupleExpression(),
-                          *SqlExpression::TRUE /* having */,
-                          *SqlExpression::TRUE,
+                          SqlExpression::TRUE /* having */,
+                          SqlExpression::TRUE,/* rowName */
                           0, 1, "" /* alias */);
     
     std::pair<Date, Date> result;
@@ -768,8 +768,8 @@ queryStructured(const SelectExpression & select,
                 const SqlExpression & where,
                 const OrderByExpression & orderBy,
                 const TupleExpression & groupBy,
-                const SqlExpression & having,
-                const SqlExpression & rowName,
+                const std::shared_ptr<SqlExpression> having,
+                const std::shared_ptr<SqlExpression> rowName,
                 ssize_t offset,
                 ssize_t limit,
                 Utf8String alias) const
@@ -777,18 +777,22 @@ queryStructured(const SelectExpression & select,
     std::mutex lock;
     std::vector<MatrixNamedRow> output;
 
-    if (!having.isConstantTrue() && groupBy.clauses.empty())
+    if (!having->isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
 
     std::vector< std::shared_ptr<SqlExpression> > aggregators
         = select.findAggregators(!groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > havingaggregators
-        = having.findAggregators(!groupBy.clauses.empty());
+        = having->findAggregators(!groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
         = orderBy.findAggregators(!groupBy.clauses.empty());
 
+    std::vector< std::shared_ptr<SqlExpression> > namedaggregators
+        = rowName->findAggregators(!groupBy.clauses.empty());
+
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
+
         auto processor = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
@@ -803,13 +807,14 @@ queryStructured(const SelectExpression & select,
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
         iterateDataset(select, *this, alias, when, where,
-                       { rowName.shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
+                       { rowName->shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
                        nullptr);
     }
     else {
 
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
         aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
+        aggregators.insert(aggregators.end(), namedaggregators.begin(), namedaggregators.end());
 
         // Otherwise do it grouped...
         auto processor = [&] (NamedRowValue & row_)
@@ -821,7 +826,7 @@ queryStructured(const SelectExpression & select,
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         iterateDatasetGrouped(select, *this, alias, when, where,
-                              groupBy, aggregators, having, rowName,
+                              groupBy, aggregators, *having, *rowName,
                               {processor, false/*processInParallel*/}, orderBy, offset, limit,
                               nullptr);
     }
@@ -2084,8 +2089,8 @@ queryString(const Utf8String & query) const
             *stm.where,
             stm.orderBy,
             stm.groupBy,
-            *stm.having,
-            *stm.rowName,
+            stm.having,
+            stm.rowName,
             stm.offset, stm.limit);
 }
 

@@ -1902,8 +1902,10 @@ findAggregatorsT(const T* expression, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
     std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
+    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();    
     
+    cerr << "children size" << children.size() << endl;
+
      // collect aggregators
     for (auto iter = children.begin(); iter != children.end(); ++iter)
     {

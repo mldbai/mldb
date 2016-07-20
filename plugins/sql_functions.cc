@@ -554,6 +554,8 @@ run(const ProcedureRunConfig & run,
         = runProcConf.inputData.stm->having->findAggregators(!emptyGroupBy);
     std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
         = runProcConf.inputData.stm->orderBy.findAggregators(!emptyGroupBy);
+    std::vector< std::shared_ptr<SqlExpression> > namedaggregators
+        = runProcConf.inputData.stm->rowName->findAggregators(!emptyGroupBy);
 
     // Create the output
     std::shared_ptr<Dataset> output =
@@ -649,6 +651,7 @@ run(const ProcedureRunConfig & run,
 
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
         aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
+        aggregators.insert(aggregators.end(), namedaggregators.begin(), namedaggregators.end());
 
         BoundGroupByQuery(runProcConf.inputData.stm->select,
                           *boundDataset.dataset,

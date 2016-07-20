@@ -632,7 +632,7 @@ queryStructured(const Dataset * dataset,
         {
             return dataset->queryStructured
                 (selectParsed, whenParsed, *whereParsed, orderByParsed,
-                 groupByParsed, *havingParsed, *rowNameParsed, offset, limit);
+                 groupByParsed,havingParsed, rowNameParsed, offset, limit);
         };
 
     runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes, sortColumns);
