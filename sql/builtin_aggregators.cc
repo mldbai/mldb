@@ -11,6 +11,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/base/optimized_path.h"
 #include <array>
 #include <unordered_set>
 
@@ -52,6 +53,12 @@ struct RegisterAggregator {
 
     std::vector<std::shared_ptr<void> > handles;
 };
+
+/// Allow control over whether the given optimization path is run
+/// so that we can test both with and without optimization.
+static const OptimizedPath optimizeDenseAggregators
+("mldb.sql.optimizeDenseAggregators");
+
 
 template<typename State>
 struct AggregatorT {
@@ -209,27 +216,53 @@ struct AggregatorT {
                 return;
             }
             const ExpressionValue & val = args[0];
-            const auto & row = val.getStructured();
+
+            if (val.empty())
+                return;
 
             // Check if the column names or number don't match, and
             // pessimize back to the sparse version if it's the case.
-            bool needToPessimize = row.size() != columnNames.size();
-            for (unsigned i = 0;  i < columnNames.size() && !needToPessimize;
-                 ++i) {
-                needToPessimize = columnNames[i] != std::get<0>(row[i]);
-            }
+            bool needToPessimize = columnNames.size() != val.rowLength();
 
-            if (needToPessimize) {
-                pessimize();
-                fallback->process(args, nargs);
-            }
+            // Counts how many of the elements we've done so far
+            size_t n = 0;
 
-            // Names and number of columns matches.  We can go ahead
-            // and process everything on the fast path.
-            int64_t n = 0;
-            for (auto & col: row) {
-                columnState[n++].process(&std::get<1>(col), 1);
-            }
+            // Set of values we skipped because we just discovered that
+            // we need to pessimize.
+            StructValue skipped;
+
+            auto onColumn = [&] (const PathElement & columnName,
+                                 const ExpressionValue & val)
+                {
+                    if (needToPessimize || n > columnNames.size()
+                        || columnNames[n] != columnName) {
+                        needToPessimize = true;
+                        skipped.emplace_back(columnName, val);
+                    }
+                    else {
+                        // Names and number of columns matches.  We can go ahead
+                        // and process everything on the fast path.
+                        columnState[n].process(&val, 1);
+                    }
+                    ++n;
+                    return true;
+                };
+
+            val.forEachColumn(onColumn);
+
+            if (!needToPessimize)
+                return;
+
+            // Our list of column names or their order has changed.  Too bad;
+            // we'll have to move to a sparse format.
+            pessimize();
+
+            // We have processed some rows but not others (those that still
+            // need to be processed are in skipped).  Here we pessimize, and
+            // then pass in a new value with just the unprocessed ones in it.
+            vector<ExpressionValue> newArgs{ std::move(skipped) };
+
+            fallback->process(newArgs.data(), newArgs.size());
         }
 
         ExpressionValue extract()
@@ -361,14 +394,14 @@ struct AggregatorT {
 
         auto rowInfo = std::make_shared<RowValueInfo>(cols, hasUnknown);
 
-        if (!isDense) {
-            return { sparseRowInit,
-                     sparseRowProcess,
-                     sparseRowExtract,
-                     sparseRowMerge,
-                     rowInfo };
-        }
-        else {
+        if (optimizeDenseAggregators(isDense)) {
+            // ExpressionValues will always sort their columns, so do so here
+            // so we don't just mess up the ordering.
+            if (!std::is_sorted(denseColumnNames.begin(),
+                                denseColumnNames.end()))
+                std::sort(denseColumnNames.begin(),
+                          denseColumnNames.end());
+            
             // Use an optimized version, assuming everything comes in in the
             // same order as the first row.  We may need to pessimize
             // afterwards
@@ -376,6 +409,14 @@ struct AggregatorT {
                      denseRowProcess,
                      denseRowExtract,
                      denseRowMerge,
+                     rowInfo };
+        }
+        else {
+            // Do it the slow way by looking up keys in maps
+            return { sparseRowInit,
+                     sparseRowProcess,
+                     sparseRowExtract,
+                     sparseRowMerge,
                      rowInfo };
         }
     }
@@ -965,6 +1006,61 @@ struct LaterAccum {
 
 static RegisterAggregatorT<EarliestLatestAccum<EarlierAccum> > registerEarliest("earliest", "vertical_earliest");
 static RegisterAggregatorT<EarliestLatestAccum<LaterAccum> > registerLatest("latest", "vertical_latest");
+
+struct StdAggAccum {
+    static constexpr int nargs = 1;
+    int64_t n;
+    double mean;
+    double M2;
+    Date ts;
+
+    StdAggAccum() : n(0), mean(0), M2(0), ts(Date::negativeInfinity())
+    {
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    info(const std::vector<BoundSqlExpression> & args)
+    {
+        return std::make_shared<NumericValueInfo>();
+    }
+
+    void process(const ExpressionValue * args, size_t nargs)
+    {
+        checkArgsSize(nargs, 1);
+        const ExpressionValue & val = args[0];
+
+        if (val.empty()) {
+            return;
+        }
+
+        ++ n;
+        double delta = val.toDouble() - mean;
+        mean += delta / n;
+        M2 += delta * (val.toDouble() - mean);
+
+        ts.setMax(val.getEffectiveTimestamp());
+    }
+     
+    ExpressionValue extract()
+    {
+        if (n < 2) {
+            return ExpressionValue(std::nan(""), ts);
+        }
+        return ExpressionValue(M2 / (n - 1), ts);
+    }
+
+    void merge(StdAggAccum* src)
+    {
+        double delta = src->mean - mean;
+        M2 = M2 + src->M2 + delta * delta * n * src->n / (n + src->n);
+        mean = (n * mean + src->n * src->mean) / (n + src->n);
+        n += src->n;
+        ts.setMax(src->ts);
+    }
+};
+
+static RegisterAggregatorT<StdAggAccum>
+registerStdAgg("stddev", "vertical_stddev");
 
 
 } // namespace Builtins

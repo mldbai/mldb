@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** filtered_dataset.h                                               -*- C++ -*-
     Guy Dumais, September 18th 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Dataset that filters some of the tuples out.  This is used namely to implement
     the SQL WHEN clause.
@@ -12,7 +11,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace Datacratic {
 namespace MLDB {

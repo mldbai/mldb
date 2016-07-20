@@ -81,7 +81,7 @@ ClassifierConfigDescription()
              "must match that of the classifier mode. Rows with null labels will be ignored. \n"
              "     * `boolean` mode: a boolean (0 or 1)\n"
              "     * `regression` mode: a real number\n"
-             "     * `categorical` mode: any combination of numbers and strings for\n\n"
+             "     * `categorical` mode: any combination of numbers and strings\n\n"
              "The select expression can contain an optional `weight` column. The weight "
              "allows the relative importance of examples to be set. It must "
              "be a real number. If the `weight` is not specified each row will have "

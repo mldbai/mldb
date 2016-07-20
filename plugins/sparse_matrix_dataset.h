@@ -9,7 +9,7 @@
 #pragma once
 
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/core/dataset.h"
 
 

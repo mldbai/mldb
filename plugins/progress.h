@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "mldb/types/date.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace Datacratic {
 namespace MLDB {

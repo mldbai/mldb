@@ -609,3 +609,41 @@ BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
         BOOST_CHECK_EQUAL(std::get<2>(testTuple), 3);
     }
 }
+
+BOOST_AUTO_TEST_CASE(test_null_parsing)
+{
+    { 
+        // Make sure that nulls result in parsing errors not zeros
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(jsonDecode<int>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<unsigned int>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<long int>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<unsigned long int>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<long long int>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<unsigned long long int>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<double>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<float>(Json::Value()), std::exception);
+        BOOST_CHECK_THROW(jsonDecode<SomeSize>(Json::Value()), std::exception);
+
+        //BOOST_CHECK_THROW(jsonDecode<unsigned int>(Json::parse("-1")),
+        //                  std::exception);
+
+        BOOST_CHECK_THROW(jsonDecodeStr<int>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<unsigned int>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<long int>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<unsigned long int>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<long long int>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<unsigned long long int>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<double>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<float>(string("null")), std::exception);
+        BOOST_CHECK_THROW(jsonDecodeStr<SomeSize>(string("null")), std::exception);
+
+        //BOOST_CHECK_THROW(jsonDecodeStr<unsigned int>(string("-1")),
+        //                  std::exception);
+    }
+
+    BOOST_CHECK_EQUAL(jsonDecode<int>(Json::parse("1")), 1);
+    BOOST_CHECK_EQUAL(jsonDecode<int>(Json::parse("-1")), -1);
+
+    BOOST_CHECK_EQUAL(jsonDecode<unsigned int>(Json::parse("1")), 1);
+}

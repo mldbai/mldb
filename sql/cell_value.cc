@@ -599,6 +599,25 @@ coerceToTimestamp() const
     return CellValue();
 }
 
+Date
+CellValue::
+mustCoerceToTimestamp() const
+{
+    if (type == ST_EMPTY)
+        return Date::notADate();
+    if (isAsciiString()) {
+        return Date::parseIso8601DateTime(toString());
+    }
+    if (type == ST_TIMESTAMP)
+        return toTimestamp();
+    if (isNumber()) {
+        return Date::fromSecondsSinceEpoch(toDouble());
+    }
+    throw HttpReturnException(400, "Couldn't convert value '" + toUtf8String()
+                              + "' to timestamp",
+                              "value", *this);
+}
+
 CellValue
 CellValue::
 coerceToBlob() const

@@ -1171,8 +1171,9 @@ static CellValue binaryModulus(const CellValue & la, const CellValue & ra)
 struct BinaryPlusOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
-            return l;
+        if (l.empty() || r.empty()) {
+            return CellValue();
+        }
         return binaryPlus(l, r);
     }
 
@@ -1187,8 +1188,9 @@ struct BinaryPlusOp {
 struct BinaryMinusOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
-            return l;
+        if (l.empty() || r.empty()) {
+            return CellValue();
+        }
         return binaryMinus(l, r);
     }
 
@@ -1203,8 +1205,9 @@ struct BinaryMinusOp {
 struct BinaryMultiplicationOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
-            return l;
+        if (l.empty() || r.empty()) {
+            return CellValue();
+        }
         return binaryMultiplication(l, r);
     }
 
@@ -1219,8 +1222,9 @@ struct BinaryMultiplicationOp {
 struct BinaryDivisionOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
-            return l;
+        if (l.empty() || r.empty()) {
+            return CellValue();
+        }
         return binaryDivision(l, r);
     }
 
@@ -1235,8 +1239,9 @@ struct BinaryDivisionOp {
 struct BinaryModulusOp {
     static CellValue apply(const CellValue & l, const CellValue & r)
     {
-        if (l.empty() || r.empty())
-            return l;
+        if (l.empty() || r.empty()) {
+            return CellValue();
+        }
         return binaryModulus(l, r);
     }
 
@@ -3469,8 +3474,12 @@ bind(SqlBindingScope & scope) const
             //cerr << "input column name " << inputColumnName << endl;
 
             // First, check it matches the prefix
-            if (!inputColumnName.matchWildcard(simplifiedPrefix)) {
-                //cerr << "rejected by prefix" << endl;
+            // We have to check the simplified prefix for regular datasets
+            // i.e select x.a.* from x returns a.b
+            // But we have to check the initial prefix for joins
+            // i.e select x.a.* from x join y returns x.a.b
+            if (!inputColumnName.matchWildcard(simplifiedPrefix) && !inputColumnName.matchWildcard(prefix)) {
+               //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
                 return ColumnName();
             }
 
@@ -3819,6 +3828,10 @@ bind(SqlBindingScope & scope) const
 
     std::sort(columns.begin(), columns.end(), compareColumns);
 
+    bool selectValue
+        = select->getType() == "function"
+        && select->getOperation() == "value";
+
     //for (unsigned i = 0;  i < 10 && i < columns.size();  ++i) {
     //    cerr << "column " << i << " name " << columns[i].columnName
     //         << " sort " << jsonEncodeStr(columns[i].sortFields) << endl;
@@ -3860,17 +3873,88 @@ bind(SqlBindingScope & scope) const
     auto outputColumns
         = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
-    auto exec = [=] (const SqlRowScope & scope,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter)
-        -> const ExpressionValue &
-        {
-            return storage = std::move(outputColumns.exec(scope, filter));
-        };
+    if (selectValue) {
 
-    BoundSqlExpression result(exec, this, outputColumns.info);
+        auto exec = [=] (const SqlRowScope & scope,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                return storage = std::move(outputColumns.exec(scope, filter));
+            };
+
+        BoundSqlExpression result(exec, this, outputColumns.info);
     
-    return result;
+        return result;
+    }
+    else {
+
+        BoundSqlExpression boundSelect = select->bind(colScope);
+
+        auto exec = [=] (const SqlRowScope & scope,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                ExpressionValue input = outputColumns.exec(scope, filter);
+
+                RowValue output;
+                
+                auto onAtom = [&] (ColumnName & columnName,
+                                   CellValue & val,
+                                   Date ts)
+                {
+                    ExpressionValue in(std::move(val), ts);
+                    auto scope = ColumnExpressionBindingScope
+                        ::getColumnScope(columnName, in);
+                    
+                    ExpressionValue storage;
+                    const ExpressionValue & result
+                        = boundSelect(scope, storage, GET_ALL);
+                    
+                    if (&result == &storage) {
+                        // The expression may produce more than one atom as an
+                        // output, so take all of them.
+                        auto onAtom2 = [&] (ColumnName & columnName2,
+                                            CellValue & val,
+                                            Date ts)
+                            {
+                                output.emplace_back(columnName + columnName2,
+                                                    std::move(val),
+                                                    ts);
+                                return true;
+                            };
+
+                        storage.forEachAtomDestructive(onAtom2);
+                    }
+                    else {
+
+                        auto onAtom2 = [&] (const ColumnName & prefix,
+                                            const ColumnName & suffix,
+                                            const CellValue & val,
+                                            Date ts)
+                            {
+                                output.emplace_back(columnName + prefix + suffix,
+                                                    std::move(val),
+                                                    ts);
+                                return true;
+                            };
+                        
+                        result.forEachAtom(onAtom2);
+                    }
+
+                    return true;
+                };
+                
+                input.forEachAtomDestructive(onAtom);
+
+                return storage = std::move(output);
+            };
+
+        BoundSqlExpression result(exec, this, outputColumns.info);
+    
+        return result;
+    }
 }
 
 Utf8String

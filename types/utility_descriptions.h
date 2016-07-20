@@ -1,10 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** utility_descriptions.h                                         -*- C++ -*-
     Jeremy Barnes, 21 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-    Value description for a pointer.
+    Utility functions for value descriptions.
 */
 
 #pragma once
@@ -42,6 +41,9 @@ struct BridgedValueDescription: public ValueDescription {
     virtual const ValueDescription &
     getArrayElementDescription(const void * val, uint32_t element) const;
     virtual void setArrayLength(void * val, size_t newLength) const JML_OVERRIDE;
+    virtual size_t getTupleLength() const override;
+    virtual std::vector<std::shared_ptr<const ValueDescription> >
+    getTupleElementDescriptions() const override;
     virtual const ValueDescription & getKeyValueDescription() const JML_OVERRIDE;
     virtual const ValueDescription & contained() const JML_OVERRIDE;
     virtual OwnershipModel getOwnershipModel() const JML_OVERRIDE;

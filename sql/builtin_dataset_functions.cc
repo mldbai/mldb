@@ -4,6 +4,7 @@
 #include "sql_expression.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/builtin/transposed_dataset.h"
+#include "mldb/types/value_description.h"
 
 using namespace std;
 

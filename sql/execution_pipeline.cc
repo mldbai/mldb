@@ -180,13 +180,22 @@ doGetAllColumns(const Utf8String & tableName,
     if (tableName.empty()) {
         if (defaultTables.empty())
             throw HttpReturnException(500, "Get variable without table name with no default table in scope");
-        return defaultTables.back().doGetAllColumns(keep);
+        return defaultTables.back().doGetAllColumns(tableName, keep);
     }
     else {
         // Otherwise, look in the table scope
         auto it = tables.find(tableName);
         if (it != tables.end()) {
-            return it->second.doGetAllColumns(keep);
+            return it->second.doGetAllColumns(tableName, keep);
+        }
+
+        // look in the default table childs
+        for (auto& t : defaultTables) {
+            auto tableNames = t.tableNames();
+             auto it = tableNames.find(tableName);
+             if (it != tableNames.end()) {
+                return t.doGetAllColumns(tableName, keep);
+             }
         }
     }        
 
@@ -266,17 +275,26 @@ doGetBoundParameter(const Utf8String & paramName)
 
 ColumnName
 PipelineExpressionScope::
-doResolveTableName(const ColumnName & fullVariableName,
+doResolveTableName(const ColumnName & fullColumnName,
                    Utf8String &tableName) const
 {
     for (auto & t: tables) {
-        if (fullVariableName.startsWith(t.first)) {
+        if (fullColumnName.startsWith(t.first)) {
             tableName = t.first;
-            return fullVariableName.removePrefix();
+            return fullColumnName.removePrefix();
         }
     }
 
-    return fullVariableName;
+    for (auto & t: defaultTables) {
+        for (auto & t2: t.tableNames()) {
+            if (fullColumnName.startsWith(t2)) {
+                tableName = t2;
+                return fullColumnName.removePrefix();
+            }
+        }
+    }
+
+    return fullColumnName;
 }
 
 std::vector<Utf8String>
@@ -339,9 +357,9 @@ doGetColumn(const ColumnName & columnName) const
     
 GetAllColumnsOutput
 PipelineExpressionScope::TableEntry::
-doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const
+doGetAllColumns(const Utf8String & tableName, std::function<ColumnName (const ColumnName &)> keep) const
 {
-    return scope->doGetAllColumns(keep, fieldOffset);
+    return scope->doGetAllColumns(tableName, keep, fieldOffset);
 }
 
 BoundFunction
@@ -351,6 +369,13 @@ doGetFunction(const Utf8String & functionName,
               SqlBindingScope & argScope) const
 {
     return scope->doGetFunction(functionName, args, fieldOffset, argScope);
+}
+
+std::set<Utf8String>
+PipelineExpressionScope::TableEntry::
+tableNames() const
+{
+    return scope->tableNames();
 }
 
 /*****************************************************************************/
@@ -538,16 +563,19 @@ partition(int numElements)
 
 std::shared_ptr<PipelineElement>
 PipelineElement::
-statement(SelectStatement& stm, GetParamInfo getParamInfo)
+statement(const SelectStatement& stm, GetParamInfo getParamInfo)
 {
     auto root = shared_from_this();
 
     bool hasGroupBy = !stm.groupBy.empty();
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = stm.select.findAggregators(hasGroupBy);
+    std::vector< std::shared_ptr<SqlExpression> > aggregators
+        = stm.select.findAggregators(hasGroupBy);
+
+    auto groupBy = stm.groupBy;
 
     if (!hasGroupBy && !aggregators.empty()) {
         //if we have no group by but aggregators, make a universal group
-        stm.groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+        groupBy.clauses.emplace_back(SqlExpression::parse("1"));
         hasGroupBy = true;
     }
 
@@ -558,9 +586,9 @@ statement(SelectStatement& stm, GetParamInfo getParamInfo)
                    SelectExpression::STAR, stm.where,
                    OrderByExpression(), getParamInfo)
             ->where(stm.where)
-            ->select(stm.groupBy)
-            ->sort(stm.groupBy)
-            ->partition(stm.groupBy.clauses.size())
+            ->select(groupBy)
+            ->sort(groupBy)
+            ->partition(groupBy.clauses.size())
             ->where(stm.having)
             ->select(stm.orderBy)
             ->sort(stm.orderBy)

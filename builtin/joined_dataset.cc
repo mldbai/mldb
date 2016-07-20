@@ -58,13 +58,7 @@ struct JoinedDataset::Itl
         RowName rowName;   ///< Name of joined row
         RowName leftName, rightName;  ///< Names of joined rows from input datasets
         //compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
-    };
-
-    enum JoinSide {
-        JOIN_SIDE_LEFT = 0,
-        JOIN_SIDE_RIGHT,
-        JOIN_SIDE_MAX
-    };
+    };   
 
     struct JoinedRowStream : public RowStream {
 
@@ -817,7 +811,14 @@ struct JoinedDataset::Itl
 
         int64_t index = iter->second;
         const RowEntry& entry = rows[index];
+
         return JOIN_SIDE_LEFT == side ? entry.leftName : entry.rightName;
+    };
+
+    RowHash getSubRowHash(const RowName & name, JoinSide side) const
+    {
+        RowName subName = getSubRowName(name, side);
+        return RowHash(subName);      
     };
 
     //Query the original row name down the tree of joined datasets on that side
@@ -840,6 +841,29 @@ struct JoinedDataset::Itl
 
         return (JOIN_SIDE_LEFT == side ? *leftDataset : *rightDataset)
             .getOriginalRowName(tableName, subRowName);
+    }
+
+    //Query the original row name down the tree of joined datasets on that side
+    //The alternative would be to store a variable-size list of <alias,rowName> tuples for each row entry
+    RowHash
+    getSubRowHashFromChildTable(const Utf8String& tableName,
+                                const RowName & name, JoinSide side) const
+    {
+        ExcAssert(side < JOIN_SIDE_MAX);
+        RowName childName = getSubRowNameFromChildTable(tableName, name, side);
+        return RowHash(name);
+    }
+
+    //Alias of the direct child on that side
+    Utf8String getTableAlias(JoinSide side) const
+    {
+        return childAliases[side];
+    }
+
+    //Is this table alias found down the tree of joined datasets on that side
+    bool isChildTable(const Utf8String& tableName, JoinSide side) const
+    {
+        return std::find(sideChildNames[side].begin(), sideChildNames[side].end(), tableName) != sideChildNames[side].end();
     }
 
     //As getSubRowNameFromChildTable, but we dont know which side, or whether is a direct child or not.
@@ -871,18 +895,6 @@ struct JoinedDataset::Itl
         }
 
         return RowName();
-    }
-
-    //Alias of the direct child on that side    
-    Utf8String getTableAlias(JoinSide side) const
-    {
-        return childAliases[side];
-    }
-
-    //Is this table alias found down the tree of joined datasets on that side
-    bool isChildTable(const Utf8String& tableName, JoinSide side) const
-    {
-        return std::find(sideChildNames[side].begin(), sideChildNames[side].end(), tableName) != sideChildNames[side].end();
     }
 };
 
@@ -973,53 +985,126 @@ getChildAliases(std::vector<Utf8String> & outAliases) const
 
 BoundFunction
 JoinedDataset::
+overrideFunctionFromSide(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const {
+
+    ExcAssert(tableSide != JOIN_SIDE_MAX);
+    if (functionName == "rowName") {
+        return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    return ExpressionValue
+                        (itl->getSubRowName(row.getRowName(), tableSide)
+                             .toUtf8String(),
+                         Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()
+            };
+    }
+    else if (functionName == "rowHash"){
+        return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    return ExpressionValue(itl->getSubRowHash(row.getRowName(), tableSide), Date::negativeInfinity());
+                },
+                std::make_shared<Uint64ValueInfo>()
+            };
+    }
+    else {
+        ExcAssert(functionName == "rowPath");
+        return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+                {
+                    auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
+                    return ExpressionValue(CellValue(itl->getSubRowName(row.getRowName(), tableSide)),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<PathValueInfo>()
+                };
+    }
+}
+
+BoundFunction
+JoinedDataset::
+overrideFunctionFromChild(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const {
+
+    ExcAssert(tableSide != JOIN_SIDE_MAX);
+    if (functionName == "rowName") {
+        return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    return ExpressionValue
+                        (itl->getSubRowNameFromChildTable
+                         (tableName, row.getRowName(), tableSide).toUtf8String(),
+                         Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()
+            };
+    }
+    else if (functionName == "rowHash"){
+        return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    return ExpressionValue(itl->getSubRowHashFromChildTable(tableName, row.getRowName(), tableSide), Date::negativeInfinity());
+                },
+                std::make_shared<Uint64ValueInfo>()
+            };
+    }
+    else{
+        ExcAssert(functionName == "rowPath");
+        return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+                {
+                    auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
+                    return ExpressionValue(CellValue(itl->getSubRowNameFromChildTable(tableName, row.getRowName(), tableSide)),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<PathValueInfo>()
+                };
+    }
+}
+
+BoundFunction
+JoinedDataset::
 overrideFunction(const Utf8String & tableName,
                  const Utf8String & functionName,
                  SqlBindingScope & scope) const
 {
     //cerr << "JoinedDataset function name: " << functionName << " from table: " << tableName << endl;
-    if (functionName == "rowName") {
+    if (functionName == "rowName" || functionName == "rowHash" || functionName == "rowPath") {
 
         if (tableName.empty())
             return BoundFunction();
 
         //we do as much "side-checking" as we can at binding time
 
-        JoinedDataset::Itl::JoinSide tableSide = JoinedDataset::Itl::JOIN_SIDE_MAX;
+        JoinSide tableSide = JOIN_SIDE_MAX;
 
-        if (tableName == itl->getTableAlias(JoinedDataset::Itl::JOIN_SIDE_LEFT))
-            tableSide = JoinedDataset::Itl::JOIN_SIDE_LEFT;
-        else if (tableName == itl->getTableAlias(JoinedDataset::Itl::JOIN_SIDE_RIGHT))
-            tableSide = JoinedDataset::Itl::JOIN_SIDE_RIGHT;
+        if (tableName == itl->getTableAlias(JOIN_SIDE_LEFT))
+            tableSide = JOIN_SIDE_LEFT;
+        else if (tableName == itl->getTableAlias(JOIN_SIDE_RIGHT))
+            tableSide = JOIN_SIDE_RIGHT;
 
-        if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
-        {
-            return {[&, tableSide] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
-                { 
-                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(itl->getSubRowName(row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
-                },
-                std::make_shared<Utf8StringValueInfo>()
-            };
-        }
+        if (tableSide != JOIN_SIDE_MAX)
+            return overrideFunctionFromSide(tableSide, tableName, functionName, scope);
 
-        if (itl->isChildTable(tableName, JoinedDataset::Itl::JOIN_SIDE_LEFT))
-            tableSide = JoinedDataset::Itl::JOIN_SIDE_LEFT;
-        else if (itl->isChildTable(tableName, JoinedDataset::Itl::JOIN_SIDE_RIGHT))
-            tableSide = JoinedDataset::Itl::JOIN_SIDE_RIGHT;
+        if (itl->isChildTable(tableName, JOIN_SIDE_LEFT))
+            tableSide = JOIN_SIDE_LEFT;
+        else if (itl->isChildTable(tableName, JOIN_SIDE_RIGHT))
+            tableSide = JOIN_SIDE_RIGHT;
 
-        if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
-        {
-            return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
-                {
-                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(itl->getSubRowNameFromChildTable(tableName, row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
-                },
-                std::make_shared<Utf8StringValueInfo>()
-            };
-        }
+        if (tableSide != JOIN_SIDE_MAX)
+            return overrideFunctionFromChild(tableSide, tableName, functionName, scope);
+
     }
     else if (tableName.empty() && functionName.endsWith(".rowName"))
     {
@@ -1033,7 +1118,7 @@ overrideFunction(const Utf8String & tableName,
                      const SqlRowScope & scope)
                 {
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    RowHash rowHash(row.row.rowName);
+                    RowHash rowHash(row.getRowHash());
                     return ExpressionValue(itl->rows[itl->rowIndex[rowHash]].leftName, Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -1044,7 +1129,7 @@ overrideFunction(const Utf8String & tableName,
                      const SqlRowScope & scope)
                 {
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    RowHash rowHash(row.row.rowName);
+                    RowHash rowHash(row.getRowHash());
                     return ExpressionValue(itl->rows[itl->rowIndex[rowHash]].rightName, Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()

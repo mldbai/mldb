@@ -328,6 +328,7 @@ struct CellValue {
     CellValue coerceToString() const;
     CellValue coerceToBoolean() const;
     CellValue coerceToTimestamp() const;
+    Date mustCoerceToTimestamp() const;
     CellValue coerceToBlob() const;
     PathElement coerceToPathElement() const;
     Path coerceToPath() const;

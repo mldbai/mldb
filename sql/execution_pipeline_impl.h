@@ -39,7 +39,8 @@ struct TableLexicalScope: public LexicalScope {
     doGetColumn(const ColumnName & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -149,7 +150,9 @@ struct SubSelectLexicalScope: public TableLexicalScope {
     doGetColumn(const ColumnName & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOffset);
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep,
+                    int fieldOffset);
 
     virtual std::set<Utf8String> tableNames() const;
 
@@ -266,7 +269,8 @@ struct JoinLexicalScope: public LexicalScope {
         other.
     */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -676,7 +680,8 @@ struct AggregateLexicalScope: public LexicalScope {
     doGetColumn(const ColumnName & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset);
 
     virtual BoundFunction

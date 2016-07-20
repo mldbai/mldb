@@ -1388,6 +1388,13 @@ getRowStream() const
         (itl.get()); 
 } 
 
+ExpressionValue
+TabularDataset::
+getRowExpr(const RowName & row) const
+{
+    return itl->getRowExpr(row);
+}
+
 GenerateRowsWhereFunction
 TabularDataset::
 generateRowsWhere(const SqlBindingScope & context,

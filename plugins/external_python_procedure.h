@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/core/procedure.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/server/plugin_resource.h"
 
 namespace Datacratic {

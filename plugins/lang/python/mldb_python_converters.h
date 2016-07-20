@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* mldb_python_converters.h                                             -*- C++ -*-
    Sunil Rottoo, 25 March 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-
-   
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
+
 #include <boost/python.hpp>
 #include <boost/python/return_value_policy.hpp>
 #include "mldb/sql/cell_value.h"
+#include "mldb/sql/path.h"
 #include "python_converters.h"
 #include "from_python_converter.h"
 #include "callback.h"
@@ -122,6 +120,71 @@ struct CellValueConverter
     }
 };
 
-}// namespace MLDB
+
+struct PathConverter
+{
+    typedef boost::python::list PyList;
+
+    static void* convertible(PyObject* obj_ptr)
+    {
+        // check if it's a basic type, which would be a path with
+        // a single element
+        if (!PyString_Check(obj_ptr) && !PyUnicode_Check(obj_ptr)
+            && !PyInt_Check(obj_ptr) && !PyFloat_Check(obj_ptr)) {
+
+            // if not check if it's a structured path, that should
+            // be represented as an array
+            boost::python::extract<PyList> listExtract(obj_ptr);
+            if (!listExtract.check()) return 0;
+        }
+        return obj_ptr;
+    }
+
+    static void construct(PyObject* obj_ptr, void* storage)
+    {
+        auto pyToPathElement = [] (PyObject* ptr)
+        {
+            if (PyInt_Check(ptr)) {
+                int val = boost::python::extract<int>(ptr);
+                return PathElement(std::to_string(val));
+            }
+            else if (PyFloat_Check(ptr)) {
+                double val = boost::python::extract<double>(ptr);
+                return PathElement(std::to_string(val));
+            }
+            else if (PyUnicode_Check(ptr) || PyString_Check(ptr)) {
+                if (PyUnicode_Check(ptr)) {
+                    ptr = PyUnicode_AsUTF8String(ptr);
+                    ExcCheck(ptr!=nullptr,
+                             "Error converting unicode");
+                }
+                std::string val = boost::python::extract<std::string>(ptr);
+                return PathElement(Utf8String(val));
+            }
+
+            throw ML::Exception("Unsupported value type for Path converter");
+        };
+
+        boost::python::extract<PyList> listExtract(obj_ptr);
+        // if it's a number of string, return a single element path
+        if (!listExtract.check()) {
+            new (storage) Path(pyToPathElement(obj_ptr));
+            return;
+        }
+
+        PyList pyList = boost::python::extract<PyList>(obj_ptr)();
+        boost::python::ssize_t n = boost::python::len(pyList);
+
+        std::vector<PathElement> el_container;
+        for (boost::python::ssize_t i = 0; i < n; ++i){
+            el_container.push_back(std::move(
+                        pyToPathElement(boost::python::object(pyList[i]).ptr())));
+        }
+
+        new (storage) Path(el_container.begin(), el_container.end());
+    }
+};
+
+} // namespace MLDB
 } // namespace Datacratic
 
