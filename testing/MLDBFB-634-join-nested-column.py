@@ -46,8 +46,8 @@ class DatasetFunctionTest(MldbUnitTest):
 
         mldb.log(res)
 
-        expected = [["_rowName", "nested({}).x.a.b", "nested({}).x.a.c", "nested({}).y"],
-                    ["result", 1, 2, None ]]
+        expected = [["_rowName", "nested({}).x.a.b", "nested({}).x.a.c"],
+                    ["result", 1, 2 ]]
 
         self.assertTableResultEquals(res, expected)
 

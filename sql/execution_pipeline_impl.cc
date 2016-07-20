@@ -611,7 +611,7 @@ doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep,
                 int fieldOffset)
 {
-    //cerr << "doGetAllColums for join with field offset " << fieldOffset << endl;
+    //cerr << "doGetAllColums for join with field offset " << fieldOffset << "table name" << tableName << endl;
 
     PathElement leftPrefix;
     if (!left->as().empty())
@@ -620,6 +620,14 @@ doGetAllColumns(const Utf8String & tableName,
     if (!right->as().empty())
         rightPrefix = right->as();
 
+    bool useLeft = tableName.empty() || tableName == leftPrefix;
+    bool useRight = tableName.empty() || tableName == rightPrefix;
+
+    if (useLeft)
+        cerr << "use left" << endl;
+
+    if (useRight)
+        cerr << "use right" << endl;
 
     auto leftOutput = left->doGetAllColumns(tableName, keep, leftFieldOffset(fieldOffset));
     auto rightOutput = right->doGetAllColumns(tableName, keep, rightFieldOffset(fieldOffset));
@@ -629,10 +637,10 @@ doGetAllColumns(const Utf8String & tableName,
         {
             ExpressionValue leftResult, rightResult;
 
-            if (tableName.empty() || tableName == leftPrefix)
+            if (useLeft)
                 leftResult = leftOutput.exec(scope, filter);
 
-            if (tableName.empty() || tableName == rightPrefix)
+            if (useRight)
                 rightResult = rightOutput.exec(scope, filter);
 
             //cerr << "get all columns merging "
@@ -640,35 +648,41 @@ doGetAllColumns(const Utf8String & tableName,
             //     << jsonEncode(rightResult) << endl;
                 
             StructValue output;
-            if (!leftPrefix.empty()) {
-                output.emplace_back(leftPrefix, std::move(leftResult));
-            }
-            else {
-                leftResult.mergeToRowDestructive(output);
+            if (useLeft) {
+                if (!leftPrefix.empty()) {
+                    output.emplace_back(leftPrefix, std::move(leftResult));
+                }
+                else {
+                    leftResult.mergeToRowDestructive(output);
+                }
             }
 
-            if (!rightPrefix.empty()) {
-                output.emplace_back(rightPrefix, std::move(rightResult));
-            }
-            else {
-                rightResult.mergeToRowDestructive(output);
+            if (useRight) {
+                 if (!rightPrefix.empty()) {
+                    output.emplace_back(rightPrefix, std::move(rightResult));
+                }
+                else {
+                    rightResult.mergeToRowDestructive(output);
+                }
             }
 
             return std::move(output);
         };
 
     std::vector<KnownColumn> knownColumns;
-    knownColumns.emplace_back(leftPrefix, leftOutput.info, COLUMN_IS_DENSE, 
-                              0 /* fixed offset */);
-    knownColumns.emplace_back(rightPrefix, rightOutput.info, COLUMN_IS_DENSE, 
-                              1 /* fixed offset */);
+    if (useLeft)
+        knownColumns.emplace_back(leftPrefix, leftOutput.info, COLUMN_IS_DENSE,
+                                  0 /* fixed offset */);
+    if (useRight)
+        knownColumns.emplace_back(rightPrefix, rightOutput.info, COLUMN_IS_DENSE,
+                                  1 /* fixed offset */);
 
     SchemaCompleteness unk1 = leftOutput.info->getSchemaCompleteness();
     SchemaCompleteness unk2 = rightOutput.info->getSchemaCompleteness();
 
     result.info = std::make_shared<RowValueInfo>
         (knownColumns,
-         (unk1 == SCHEMA_OPEN || unk2 == SCHEMA_OPEN
+         ((unk1 == SCHEMA_OPEN && useLeft) || (unk2 == SCHEMA_OPEN && useRight)
           ? SCHEMA_OPEN : SCHEMA_CLOSED));
         
     return result;
