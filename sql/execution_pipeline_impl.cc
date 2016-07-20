@@ -112,7 +112,7 @@ doGetAllColumns(const Utf8String & tableName,
         auto & row = rowScope.as<PipelineResults>();
 
         const ExpressionValue & rowContents
-        = row.values.at(fieldOffset + ROW_CONTENTS);
+            = row.values.at(fieldOffset + ROW_CONTENTS);
 
         RowValue result;
 
@@ -622,12 +622,6 @@ doGetAllColumns(const Utf8String & tableName,
 
     bool useLeft = tableName.empty() || tableName == leftPrefix;
     bool useRight = tableName.empty() || tableName == rightPrefix;
-
-    if (useLeft)
-        cerr << "use left" << endl;
-
-    if (useRight)
-        cerr << "use right" << endl;
 
     auto leftOutput = left->doGetAllColumns(tableName, keep, leftFieldOffset(fieldOffset));
     auto rightOutput = right->doGetAllColumns(tableName, keep, rightFieldOffset(fieldOffset));

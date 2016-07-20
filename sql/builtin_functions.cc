@@ -2358,76 +2358,6 @@ RegisterVectorOp<SumOp> registerVectorSum("vector_sum");
 RegisterVectorOp<ProductOp> registerVectorProduct("vector_product");
 RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
 
-struct ConcatOptions {
-    Utf8String separator = ",";
-    bool columnValue = true;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(ConcatOptions);
-
-DEFINE_STRUCTURE_DESCRIPTION(ConcatOptions);
-
-ConcatOptionsDescription::
-ConcatOptionsDescription()
-{
-    addAuto("separator", &ConcatOptions::separator,
-            "Separator to place between concatenated items (default ',')");
-    addAuto("columnValue", &ConcatOptions::columnValue,
-            "If true (default), the column is used as the value.  Otherwise "
-            "the column *name* is used as the value.");
-}
-
-BoundFunction concat(const std::vector<BoundSqlExpression> & args)
-{
-    if (args.size() == 0) {
-        throw HttpReturnException(
-            400, "requires at least one argument");
-    }
-
-    if (args.size() > 2) {
-        throw HttpReturnException(
-            400, "requires at most two arguments");
-    }
-
-    ConcatOptions options;
-
-    if (args.size() == 2) {
-        options = args[1].constantValue().extractT<ConcatOptions>();
-    }
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-        {
-            Utf8String result = "";
-            Date ts = Date::negativeInfinity();
-            bool first = true;
-            auto onAtom = [&] (const Path & columnName,
-                               const Path & prefix,
-                               const CellValue & val,
-                               Date atomTs)
-            {
-                if (!val.empty()) {
-                    if (first) {
-                        first = false;
-                    }
-                    else {
-                        result += options.separator;
-                    }
-                    result += options.columnValue ?
-                       val.toUtf8String() : columnName.toUtf8String();
-                }
-                return true;
-            };
-
-            args.at(0).forEachAtom(onAtom);
-
-            return ExpressionValue(std::move(result), ts);
-        },
-        std::make_shared<Utf8StringValueInfo>()
-    };
-}
-
-static RegisterBuiltin registerConcat(concat, "concat");
 
 BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
 {
@@ -3045,8 +2975,6 @@ BoundFunction hash(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                cerr << "hashing " << jsonEncodeStr(args[0])
-                     << " gives " << args[0].hash() << endl;
                 if (args[0].empty()) {
                     return ExpressionValue::null(
                         args[0].getEffectiveTimestamp());
