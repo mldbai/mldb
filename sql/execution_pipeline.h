@@ -58,7 +58,8 @@ struct LexicalScope {
         offset within the row scope for this table's fields.
     */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset) = 0;
 
     /** Return a function accessor for the table.  fieldOffset gives the
@@ -182,12 +183,14 @@ private:
         doGetColumn(const ColumnName & variableName) const;
 
         GetAllColumnsOutput
-        doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const;
+        doGetAllColumns(const Utf8String & tableName, std::function<ColumnName (const ColumnName &)> keep) const;
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,
                       const std::vector<BoundSqlExpression> & args,
                       SqlBindingScope & argsScope) const;
+
+         virtual std::set<Utf8String> tableNames() const;
     };
 
     /** The outer scope, with the scope for the current element. */
