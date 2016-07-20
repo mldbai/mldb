@@ -33,7 +33,9 @@ RankingTypeDescription::
 RankingTypeDescription()
 {
     //addValue("percentile", PERCENTILE);
-    addValue("index", INDEX);
+    addValue("index", INDEX, 
+             "Gives an integer index ranging from 0 to n - 1, where "
+             "n is the number of rows.");
 }
 
 RankingProcedureConfig::
@@ -58,9 +60,11 @@ RankingProcedureConfigDescription()
              "which will be created by the procedure.",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("rankingType", &RankingProcedureConfig::rankingType,
-             "The type of the rank to output.");
+             "The type of the rank to output. The only accepted value is "
+             "`index`. It generates an integer based rank ranging from 0 to "
+             "n - 1.", INDEX);
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
-             "The name to give the ranking column.");
+             "The name to give to the ranking column.", string("rank"));
     addParent<ProcedureConfig>();
     onPostValidate = validateQuery(&RankingProcedureConfig::inputData,
                                    MustContainFrom());
