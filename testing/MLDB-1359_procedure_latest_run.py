@@ -64,7 +64,8 @@ class ProcedureLatestRunTest(MldbUnitTest): # noqa
                 'inputData' : 'SELECT *, coco AS sanchez FROM ds',
                 'outputDataset' : {
                     'id' : 'dsOut'
-                }
+                },
+                'runOnCreation' : 0
             }
         })
         with self.assertMldbRaises(status_code=404):
