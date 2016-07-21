@@ -1898,7 +1898,7 @@ unimp(std::shared_ptr<SqlExpression> lhs,
 //Find aggregators for any class implementing getChildren.
 
 std::vector<std::shared_ptr<SqlExpression> >
-findAggregatorsT(std::vector<std::shared_ptr<SqlExpression> >& children, bool withGroupBy)
+findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
     std::vector<std::shared_ptr<SqlExpression> > output;
@@ -1967,7 +1967,7 @@ std::vector<std::shared_ptr<SqlExpression> >
 findAggregatorsT(const T* expression, bool withGroupBy)
 {
     std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
-    return findAggregatorsT(children, withGroupBy);
+    return findAggregators(children, withGroupBy);
 }
 
 std::vector<std::shared_ptr<SqlExpression> >
@@ -1975,7 +1975,7 @@ findAggregators(std::shared_ptr<SqlExpression> expr, bool withGroupBy)
 {
     std::vector<std::shared_ptr<SqlExpression> > children;
     children.push_back(expr);
-    return findAggregatorsT(children, withGroupBy);
+    return findAggregators(children, withGroupBy);
 
     return children;
 }
