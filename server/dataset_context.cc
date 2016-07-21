@@ -129,6 +129,14 @@ doGetColumn(const Utf8String & tableName,
     throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" with no dataset.");
 }
 
+GetAllColumnsOutput
+SqlExpressionMldbScope::
+doGetAllColumns(const Utf8String & tableName,
+                function<ColumnName (const ColumnName &)> keep)
+{
+    throw HttpReturnException(400, "Cannot get all columns with no dataset.");
+}
+
 /*****************************************************************************/
 /* ROW EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
