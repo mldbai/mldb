@@ -774,6 +774,8 @@ queryStructured(const SelectExpression & select,
                 ssize_t limit,
                 Utf8String alias) const
 {
+    ExcAssert(having);
+    ExcAssert(rowName);
     std::mutex lock;
     std::vector<MatrixNamedRow> output;
 
@@ -783,12 +785,12 @@ queryStructured(const SelectExpression & select,
     std::vector< std::shared_ptr<SqlExpression> > aggregators
         = select.findAggregators(!groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > havingaggregators
-        = having->findAggregators(!groupBy.clauses.empty());
+        = findAggregators(having, !groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
         = orderBy.findAggregators(!groupBy.clauses.empty());
 
     std::vector< std::shared_ptr<SqlExpression> > namedaggregators
-        = rowName->findAggregators(!groupBy.clauses.empty());
+        = findAggregators(rowName, !groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
@@ -842,22 +844,24 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                            const SqlExpression & where,
                            const OrderByExpression & orderBy,
                            const TupleExpression & groupBy,
-                           const SqlExpression & having,
-                           const SqlExpression & rowName,
+                           const std::shared_ptr<SqlExpression> having,
+                           const std::shared_ptr<SqlExpression> rowName,
                            ssize_t offset,
                            ssize_t limit,
                            Utf8String alias) const
 {
-    if (!having.isConstantTrue() && groupBy.clauses.empty())
+    if (!having->isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException
             (400, "HAVING expression requires a GROUP BY expression");
 
     std::vector< std::shared_ptr<SqlExpression> > aggregators
         = select.findAggregators(!groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > havingaggregators
-        = having.findAggregators(!groupBy.clauses.empty());
+        = findAggregators(having, !groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
         = orderBy.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > rowNameaggregators
+        = findAggregators(rowName, !groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
@@ -870,7 +874,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
             };
 
         return iterateDatasetExpr(select, *this, alias, when, where,
-                                  { rowName.shallowCopy() },
+                                  { rowName->shallowCopy() },
                                   { processor, true /*processInParallel*/ },
                                   orderBy, offset, limit,
                                   nullptr);
@@ -881,6 +885,8 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                            havingaggregators.end());
         aggregators.insert(aggregators.end(), orderbyaggregators.begin(),
                            orderbyaggregators.end());
+        aggregators.insert(aggregators.end(), rowNameaggregators.begin(),
+                           rowNameaggregators.end());
 
         // Otherwise do it grouped...
         auto processor = [&] (NamedRowValue & row)
@@ -891,7 +897,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         return iterateDatasetGrouped(select, *this, alias, when, where,
-                                     groupBy, aggregators, having, rowName,
+                                     groupBy, aggregators, *having, *rowName,
                                      {processor, true/*processInParallel*/},
                                      orderBy, offset, limit,
                                      nullptr);
