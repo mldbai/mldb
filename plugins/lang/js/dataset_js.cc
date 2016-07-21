@@ -9,7 +9,7 @@
 
 #include "dataset_js.h"
 #include "mldb/core/dataset.h"
-#include "mldb/types/js/id_js.h"
+#include "id_js.h"
 
 
 using namespace std;
@@ -25,7 +25,7 @@ namespace MLDB {
 
 v8::Handle<v8::Object>
 DatasetJS::
-create(std::shared_ptr<Dataset> dataset, JsPluginContext * context)
+create(std::shared_ptr<Dataset> dataset, JsThreadContext * context)
 {
     auto obj = context->Dataset->GetFunction()->NewInstance();
     auto * wrapped = new DatasetJS();

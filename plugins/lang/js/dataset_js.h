@@ -25,7 +25,7 @@ struct DatasetJS: public JsObjectBase {
     std::shared_ptr<Dataset> dataset;
 
     static v8::Handle<v8::Object>
-    create(std::shared_ptr<Dataset> dataset, JsPluginContext * context);
+    create(std::shared_ptr<Dataset> dataset, JsThreadContext * context);
 
     static Dataset *
     getShared(const v8::Handle<v8::Object> & val);

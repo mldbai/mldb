@@ -196,6 +196,29 @@ MLDB's atomic types are represented in Javascript as follows:
   - An array will be used as a compound path with the elements as specified.
 
 
+### ExpressionValue object
+
+MLDB's non-atomic types are represented in Javascript by the
+`ExpressionValue` class, which represents the various atomic and
+structured values of MLDB, plus their associated timestamps.
+
+That object has the following methods:
+
+- `toJs()` will return a Javascript representation of the current
+  values, stripping off the timestamps.  Structures and arrays
+  are supported.
+- `when()` will return the timestamp associated with a value.
+- `at()` will return a new ExpressionValue with the timestamp
+  modified to happen at the given point in time.  This can be
+  used to put timestamps back on values which have been processed
+  with Javascript code.
+- `columns()` returns an object with the column names as keys and
+  their ExpressionValue values as values.  Note that this method
+  only un-nests by one level.
+
+ExpressionValue objects are primarily used by the `jseval` function
+with simplified arguments off.
+
 
 ### Filesystem access
 

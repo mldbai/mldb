@@ -6,7 +6,7 @@
 
 */
 
-#include "mldb/soa/js/js_call.h"
+#include "mldb/plugins/lang/js/js_call.h"
 
 using namespace Datacratic::JS;
 using namespace Datacratic;

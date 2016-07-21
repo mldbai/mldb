@@ -47,7 +47,7 @@ expected_response = [
             [
                 "msgStats.msgLen", 
                 28, 
-                "-Inf"
+                "NaD"
             ], 
             [
                 "words.I", 

@@ -98,7 +98,7 @@ CellValue from_js(const JS::JSValue & value, CellValue *)
         return CellValue(Date::fromSecondsSinceEpoch(value->NumberValue() / 1000.0));
     else if (value->IsObject()) {
         // Look if it's already a CellValue
-        JsPluginContext * cxt = JsContextScope::current();
+        JsThreadContext * cxt = JsContextScope::current();
         if (cxt->CellValue->HasInstance(value)) {
             return CellValueJS::getShared(value);
         }
@@ -126,8 +126,9 @@ void to_js(JS::JSValue & value, const CellValue & val)
         to_js(value, val.toString());
     }
     else {
+        cerr << endl << endl << endl << "((((((( CELLVALUE ))))))))" << endl << endl;
         // Get our context so we can return a proper object
-        JsPluginContext * cxt = JsContextScope::current();
+        JsThreadContext * cxt = JsContextScope::current();
         value = CellValueJS::create(val, cxt);
     }
 }
@@ -178,18 +179,63 @@ void to_js(JS::JSValue & value, const Path & val)
 
 void to_js(JS::JSValue & value, const ExpressionValue & val)
 {
-    to_js(value, val.getAtom());
+    JsThreadContext * cxt = JsContextScope::current();
+    value = ExpressionValueJS::create(val, cxt);
 }
 
 ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)
 {
-    // NOTE: we currently pretend that CellValue and ExpressionValue
-    // are the same thing; they are not.  We will eventually need to
-    // allow proper JS access to full-blown ExpressionValue objects,
-    // backed with a JS object.
+    if (value->IsNull() || value->IsUndefined())
+        return ExpressionValue::null(Date::notADate());
+    else if (value->IsNumber())
+        return ExpressionValue(value->NumberValue(), Date::notADate());
+    else if (value->IsDate())
+        return ExpressionValue(Date::fromSecondsSinceEpoch(value->NumberValue() / 1000.0),
+                               Date::notADate());
+    else if (value->IsArray()) {
+        // It must be an embedding
+        StructValue result;
 
-    CellValue val = from_js(value, (CellValue *)0);
-    return ExpressionValue(val, Date::notADate());
+        auto arrPtr = v8::Array::Cast(*value);
+        for(size_t i=0; i<arrPtr->Length(); ++i) {
+            PathElement key(i);
+            v8::Local<v8::Value> val = arrPtr->Get(i);
+            ExpressionValue ev = from_js(val, (ExpressionValue *)0);
+            result.emplace_back(std::move(key), std::move(ev));
+        }
+        
+        return std::move(result);
+    }
+    else if (value->IsObject()) {
+        // Look if it's already an ExpressionValue
+        JsThreadContext * cxt = JsContextScope::current();
+        if (cxt->ExpressionValue->HasInstance(value)) {
+            return ExpressionValueJS::getShared(value);
+        }
+
+        // Look if it's already a CellValue
+        if (cxt->CellValue->HasInstance(value)) {
+            return ExpressionValue(CellValueJS::getShared(value),
+                                   Date::notADate());
+        }
+
+        auto objPtr = v8::Object::Cast(*value);
+
+        // It must be a nested structure
+        StructValue result;
+
+        v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+
+        for (size_t i=0; i<properties->Length(); ++i) {
+            v8::Local<v8::Value> key = properties->Get(i);
+            v8::Local<v8::Value> val = objPtr->Get(key);
+            ExpressionValue ev = from_js(val, (ExpressionValue *)0);
+            result.emplace_back(PathElement(JS::utf8str(key)), std::move(ev));
+        }
+
+        return std::move(result);
+    }
+    else return ExpressionValue(JS::utf8str(value), Date::notADate());
 }
 
 ScriptStackFrame
@@ -337,18 +383,18 @@ JsObjectBase::
     js_object_.Clear();
 }
 
-JsPluginContext *
+JsThreadContext *
 JsObjectBase::
 getContext(const v8::Handle<v8::Object> & val)
 {
-    return reinterpret_cast<JsPluginContext *>
+    return reinterpret_cast<JsThreadContext *>
         (v8::Handle<v8::External>::Cast
          (val->GetInternalField(1))->Value());
 }
 
 void
 JsObjectBase::
-wrap(v8::Handle<v8::Object> handle, JsPluginContext * context)
+wrap(v8::Handle<v8::Object> handle, JsThreadContext * context)
 {
     ExcAssert(js_object_.IsEmpty());
 
@@ -420,9 +466,10 @@ garbageCollectionCallback(v8::Persistent<v8::Value> value, void *data)
 /*****************************************************************************/
 
 JsContextScope::
-JsContextScope(JsPluginContext * context)
+JsContextScope(JsThreadContext * context)
     : context(context)
 {
+    ExcAssert(context);
     enter(context);
 }
 
@@ -439,9 +486,9 @@ JsContextScope::
     exit(context);
 }
 
-static __thread std::vector<JsPluginContext *> * jsContextStack = nullptr;
+static __thread std::vector<JsThreadContext *> * jsContextStack = nullptr;
 
-JsPluginContext *
+JsThreadContext *
 JsContextScope::
 current()
 {
@@ -452,16 +499,16 @@ current()
 
 void
 JsContextScope::
-enter(JsPluginContext * context)
+enter(JsThreadContext * context)
 {
     if (!jsContextStack)
-        jsContextStack = new std::vector<JsPluginContext *>();
+        jsContextStack = new std::vector<JsThreadContext *>();
     jsContextStack->push_back(context);
 }
 
 void
 JsContextScope::
-exit(JsPluginContext * context)
+exit(JsThreadContext * context)
 {
     if (current() != context)
         throw ML::Exception("JS context stack consistency error");

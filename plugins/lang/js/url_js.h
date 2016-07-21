@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "mldb/soa/js/js_utils.h"
+#include "mldb/plugins/lang/js/js_utils.h"
 #include "mldb/types/url.h"
 
 namespace Datacratic {

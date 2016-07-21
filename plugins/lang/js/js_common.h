@@ -8,7 +8,7 @@
 */
 
 #include <v8.h>
-#include "mldb/soa/js/js_utils.h"
+#include "mldb/plugins/lang/js/js_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/logging/logging.h"
 #include "mldb/server/script_output.h"
@@ -112,19 +112,18 @@ struct JsException: public ML::Exception {
     ScriptException rep;
 };
 
-struct JsPluginContext {
 
-    /** Create a JS plugin context.  Note that pluginResource may be
-        a null pointer if the context is for a JS function rather than
-        an actual plugin.
-    */
-    JsPluginContext(const Utf8String & pluginName, MldbServer * server,
-                    std::shared_ptr<LoadedPluginResource> pluginResource);
-    ~JsPluginContext();
+/*****************************************************************************/
+/* JS THREAD CONTEXT                                                         */
+/*****************************************************************************/
 
-    JsIsolate isolate;
+struct JsThreadContext {
+    JsThreadContext(JsIsolate & isolate,
+                    MldbServer * server,
+                    const Utf8String & pluginName);
+
+    JsIsolate & isolate;
     v8::Persistent<v8::Context> context;
-    v8::Persistent<v8::Script> script;
 
     std::string categoryName, loaderName;
     std::mutex logMutex;  /// protects the categories below
@@ -133,24 +132,45 @@ struct JsPluginContext {
 
     std::vector<ScriptLogEntry> logs;
 
-    std::function<Json::Value ()> getStatus;
-    RestRequestRouter router;
-    RestRequestRouter::OnProcessRequest handleRequest;
     MldbServer * server;
-
-    std::shared_ptr<LoadedPluginResource> pluginResource;
 
     // These are the function templates for all of the builtin objects
     v8::Persistent<v8::FunctionTemplate> Plugin;
     v8::Persistent<v8::FunctionTemplate> Mldb;
     v8::Persistent<v8::FunctionTemplate> Stream;
     v8::Persistent<v8::FunctionTemplate> CellValue;
+    v8::Persistent<v8::FunctionTemplate> ExpressionValue;
     v8::Persistent<v8::FunctionTemplate> PathElement;
     v8::Persistent<v8::FunctionTemplate> Path;
     v8::Persistent<v8::FunctionTemplate> Dataset;
     v8::Persistent<v8::FunctionTemplate> Function;
     v8::Persistent<v8::FunctionTemplate> Procedure;
     v8::Persistent<v8::FunctionTemplate> RandomNumberGenerator;
+};
+
+
+/*****************************************************************************/
+/* JS PLUGIN CONTEXT                                                         */
+/*****************************************************************************/
+
+struct JsPluginContext: public JsIsolate, public JsThreadContext {
+    
+    /** Create a JS plugin context.  Note that pluginResource may be
+        a null pointer if the context is for a JS function rather than
+        an actual plugin.
+    */
+    JsPluginContext(const Utf8String & pluginName, MldbServer * server,
+                    std::shared_ptr<LoadedPluginResource> pluginResource);
+    ~JsPluginContext();
+
+    using JsThreadContext::isolate;
+    v8::Persistent<v8::Script> script;
+    std::function<Json::Value ()> getStatus;
+    RestRequestRouter router;
+    RestRequestRouter::OnProcessRequest handleRequest;
+
+    std::shared_ptr<LoadedPluginResource> pluginResource;
+
 };
 
 
@@ -163,7 +183,7 @@ struct JsPluginContext {
 */
 
 struct JsContextScope {
-    JsContextScope(JsPluginContext * context);
+    JsContextScope(JsThreadContext * context);
     JsContextScope(const v8::Handle<v8::Object> & val);
     ~JsContextScope();
 
@@ -172,13 +192,13 @@ struct JsContextScope {
     JsContextScope(JsContextScope && other) = delete;
     void operator = (JsContextScope && other) = delete;
     
-    static JsPluginContext * current();
+    static JsThreadContext * current();
 
 private:    
-    static void enter(JsPluginContext * context);
-    static void exit(JsPluginContext * context);
+    static void enter(JsThreadContext * context);
+    static void exit(JsThreadContext * context);
 
-    JsPluginContext * context;
+    JsThreadContext * context;
 };
 
 
@@ -203,7 +223,7 @@ public:
                                (handle->GetInternalField(0))->Value());
     }
 
-    static JsPluginContext * getContext(const v8::Handle<v8::Object> & val);
+    static JsThreadContext * getContext(const v8::Handle<v8::Object> & val);
 
     v8::Persistent<v8::Object> js_object_;
 
@@ -212,7 +232,7 @@ public:
 
     /** Set up the object by making handle contain an external reference
         to the given object. */
-    void wrap(v8::Handle<v8::Object> handle, JsPluginContext * context);
+    void wrap(v8::Handle<v8::Object> handle, JsThreadContext * context);
 
     /** Set this object up to be garbage collected once there are no more
         references to it in the javascript. */

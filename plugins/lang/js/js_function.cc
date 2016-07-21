@@ -10,7 +10,7 @@
 #include "mldb/arch/thread_specific.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/types/js/id_js.h"
+#include "id_js.h"
 #include "mldb/sql/expression_value.h"
 #include "mldb/sql/sql_expression.h"
 
@@ -27,26 +27,23 @@ struct JsFunctionData;
 
 /** Data for a JS function for each thread. */
 struct JsFunctionThreadData {
-    JsFunctionThreadData()
-        : isolate(0), data(0)
-    {
-    }
-
+    
     bool initialized() const
     {
         return isolate;
     }
 
-    JsIsolate * isolate;
-    v8::Persistent<v8::Context> context;
+    JsIsolate * isolate = nullptr;
     v8::Persistent<v8::Script> script;
     v8::Persistent<v8::Function> function;
-    const JsFunctionData * data;
+    const JsFunctionData * data = nullptr;
+    std::shared_ptr<JsThreadContext> threadContext;
 
     void initialize(const JsFunctionData & data);
 
-    ExpressionValue run(const std::vector<ExpressionValue> & args,
-                        const SqlRowScope & context) const;
+    MLDB::ExpressionValue run(const std::vector<MLDB::ExpressionValue> & args,
+                              const SqlRowScope & context,
+                              bool simplified) const;
 };
 
 struct JsFunctionData {
@@ -55,7 +52,6 @@ struct JsFunctionData {
     Utf8String scriptSource;
     std::string filenameForErrorMessages;
     std::vector<std::string> params;
-    std::shared_ptr<JsPluginContext> context;
 };
 
 void
@@ -68,6 +64,8 @@ initialize(const JsFunctionData & data)
         return;
 
     isolate = JsIsolate::getIsolateForMyThread();
+
+    threadContext.reset(new JsThreadContext(*isolate, data.server, "jseval"));
     this->data = &data;
 
     //v8::Locker locker(this->isolate->isolate);
@@ -75,19 +73,11 @@ initialize(const JsFunctionData & data)
 
     HandleScope handle_scope;
 
-    // Create a new context.
-    this->context = v8::Persistent<v8::Context>::New(Context::New());
-
-
     // Enter the created context for compiling and
     // running the hello world script. 
-    Context::Scope context_scope(this->context);
+    Context::Scope context_scope(threadContext->context);
 
     // Add the mldb object to the context
-    auto mldb = MldbJS::registerMe()->NewInstance();
-    mldb->SetInternalField(0, v8::External::New(data.server));
-    mldb->SetInternalField(1, v8::External::New(data.context.get()));
-    this->context->Global()->Set(String::New("mldb"), mldb);
 
     Utf8String jsFunctionSource = data.scriptSource;
 
@@ -99,7 +89,7 @@ initialize(const JsFunctionData & data)
 
     // This is equivalent to fntocall = new Function('arg1', ..., 'script');
     v8::Local<v8::Object> function
-        = v8::Local<v8::Object>::Cast(this->context->Global()->Get(v8::String::New("Function")));
+        = v8::Local<v8::Object>::Cast(threadContext->context->Global()->Get(v8::String::New("Function")));
     std::vector<v8::Handle<v8::Value> > argv;
     for (unsigned i = 0;  i != data.params.size();  ++i)
         argv.push_back(v8::String::New(data.params[i].c_str()));
@@ -122,7 +112,8 @@ initialize(const JsFunctionData & data)
 ExpressionValue
 JsFunctionThreadData::
 run(const std::vector<ExpressionValue> & args,
-    const SqlRowScope & context) const
+    const SqlRowScope & context,
+    bool simplifyArgs) const
 {
     using namespace v8;
 
@@ -135,19 +126,27 @@ run(const std::vector<ExpressionValue> & args,
 
     // Enter the created context for compiling and
     // running the hello world script. 
-    Context::Scope context_scope(this->context);
+    Context::Scope context_scope(threadContext->context);
 
+    JsContextScope jsContextScope(threadContext.get());
+    
     Date ts = Date::negativeInfinity();
 
     std::vector<v8::Handle<v8::Value> > argv;
+    argv.reserve(args.size() - 1);
     for (unsigned i = 2;  i < args.size();  ++i) {
-        if (args[i].isRow()) {
-            RowValue row;
-            args[i].appendToRow(Path(), row);
-            argv.push_back(JS::toJS(row));
+        if (simplifyArgs) {
+            if (args[i].isRow()) {
+                RowValue row;
+                args[i].appendToRow(Path(), row);
+                argv.push_back(JS::toJS(row));
+            }
+            else {
+                argv.push_back(JS::toJS(args[i].getAtom()));
+            }
         }
         else {
-            argv.push_back(JS::toJS(args[i].getAtom()));
+            argv.push_back(JS::toJS(args[i]));
         }
         ts.setMax(args[i].getEffectiveTimestamp());
     }
@@ -155,7 +154,8 @@ run(const std::vector<ExpressionValue> & args,
     TryCatch trycatch;
     //trycatch.SetVerbose(true);
 
-    auto result = this->function->Call(this->context->Global(), argv.size(), &argv[0]);
+    auto result = this->function->Call(threadContext->context->Global(),
+                                       argv.size(), &argv[0]);
 
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running jseval script");
@@ -170,31 +170,21 @@ run(const std::vector<ExpressionValue> & args,
     if (result->IsUndefined()) {
         return ExpressionValue::null(Date::notADate());
     }
-    else if (result->IsString() || result->IsNumber() || result->IsNull() || result->IsDate()) {
+    else if (result->IsString() || result->IsNumber() || result->IsNull()
+             || result->IsDate() || result->IsBoolean()) {
         CellValue res = JS::fromJS(result);
-
         return ExpressionValue(res, ts);
     }
-    else if (result->IsObject()) {
-        std::map<Utf8String, CellValue> cols = JS::fromJS(result);
-
-        std::vector<std::tuple<PathElement, ExpressionValue> > row;
-        row.reserve(cols.size());
-        for (auto & c: cols) {
-            row.emplace_back(c.first, ExpressionValue(std::move(c.second),
-                                                      ts));
-        }
-        return ExpressionValue(std::move(row));
-    }
     else {
-        throw HttpReturnException(400, "Don't understand expression");
+        return JS::fromJS(result);
     }
 }
 
 ExpressionValue
 runJsFunction(const std::vector<ExpressionValue> & args,
               const SqlRowScope & context,
-              const shared_ptr<JsFunctionData> & data)
+              const shared_ptr<JsFunctionData> & data,
+              bool simplifyArgs)
 {
     // 1.  Find the JS function for this isolate
     JsFunctionThreadData * threadData = data->threadInfo.get();
@@ -203,7 +193,7 @@ runJsFunction(const std::vector<ExpressionValue> & args,
         threadData->initialize(*data);
 
     // 2.  Run the function
-    return threadData->run(args, context);
+    return threadData->run(args, context, simplifyArgs);
 }
 
 BoundFunction bindJsEval(const Utf8String & name,
@@ -221,10 +211,16 @@ BoundFunction bindJsEval(const Utf8String & name,
     runner->server = context.getMldbServer();
     runner->scriptSource = scriptSource;
     runner->filenameForErrorMessages = "<<eval>>";
-    runner->context.reset(new JsPluginContext(name, runner->server,
-                                              nullptr /* no plugin context */));
                           
     string params = args[1].constantValue().toString();
+
+    // If the first character of args is an exclamation point, then we
+    // pass args as full ExpressionValues.  Otherwise we pass them
+    // as simplified values or an array of rows.
+    bool simplifyArgs = params.empty() || params[0] != '!';
+    if (!simplifyArgs) {
+        params = string(params, 1);
+    }
     boost::split(runner->params, params,
                  boost::is_any_of(","));
     
@@ -235,7 +231,7 @@ BoundFunction bindJsEval(const Utf8String & name,
     auto fn =  [=] (const std::vector<ExpressionValue> & args,
                     const SqlRowScope & context) -> ExpressionValue
         {
-            return runJsFunction(args, context, runner);
+            return runJsFunction(args, context, runner, simplifyArgs);
         };
 
     // 5.  Return it

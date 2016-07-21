@@ -16,7 +16,7 @@
 #include "mldb/sql/cell_value.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/rest/rest_request_binding.h"
-#include "mldb/types/js/id_js.h"
+#include "id_js.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/types/any_impl.h"
 
@@ -27,7 +27,7 @@
 #include "procedure_js.h"
 #include <v8.h>
 
-#include "mldb/soa/js/js_utils.h"
+#include "mldb/plugins/lang/js/js_utils.h"
 #include "mldb/types/string.h"
 
 #include <boost/algorithm/string.hpp>
@@ -338,25 +338,24 @@ struct JsPluginJS {
 
 
 /*****************************************************************************/
-/* JS PLUGIN CONTEXT                                                         */
+/* JS THREAD CONTEXT                                                         */
 /*****************************************************************************/
 
-JsPluginContext::
-JsPluginContext(const Utf8String & pluginName,
+JsThreadContext::
+JsThreadContext(JsIsolate & isolate,
                 MldbServer * server,
-                std::shared_ptr<LoadedPluginResource> pluginResource)
-    : isolate(false /* for this thread only */),
+                const Utf8String & pluginName)
+    : isolate(isolate),
       categoryName(pluginName.rawString() + " plugin"),
       loaderName(pluginName.rawString() + " loader"),
       category(categoryName.c_str()),
       loader(loaderName.c_str()),
-      server(server),
-      pluginResource(pluginResource)
+      server(server)
 {
     using namespace v8;
 
     v8::Locker locker(this->isolate.isolate);
-    v8::Isolate::Scope isolate(this->isolate.isolate);
+    v8::Isolate::Scope isolateScope(this->isolate.isolate);
 
     HandleScope handle_scope;
 
@@ -372,13 +371,6 @@ JsPluginContext(const Utf8String & pluginName,
     v8::Local<v8::Object> globalPrototype
         = v8::Local<v8::Object>::Cast(context->Global()->GetPrototype());
 
-    auto plugin = JsPluginJS::registerMe()->NewInstance();
-    plugin->SetInternalField(0, v8::External::New(this));
-    plugin->SetInternalField(1, v8::External::New(this));
-    if (pluginResource)
-        plugin->Set(String::New("args"), JS::toJS(jsonEncode(pluginResource->args)));
-    globalPrototype->Set(String::New("plugin"), plugin);
-
     auto mldb = MldbJS::registerMe()->NewInstance();
     mldb->SetInternalField(0, v8::External::New(this->server));
     mldb->SetInternalField(1, v8::External::New(this));
@@ -389,7 +381,44 @@ JsPluginContext(const Utf8String & pluginName,
     Function = v8::Persistent<v8::FunctionTemplate>::New(FunctionJS::registerMe());
     Procedure = v8::Persistent<v8::FunctionTemplate>::New(ProcedureJS::registerMe());
     CellValue = v8::Persistent<v8::FunctionTemplate>::New(CellValueJS::registerMe());
+    ExpressionValue = v8::Persistent<v8::FunctionTemplate>::New(ExpressionValueJS::registerMe());
     RandomNumberGenerator = v8::Persistent<v8::FunctionTemplate>::New(RandomNumberGeneratorJS::registerMe());
+}
+
+
+/*****************************************************************************/
+/* JS PLUGIN CONTEXT                                                         */
+/*****************************************************************************/
+
+JsPluginContext::
+JsPluginContext(const Utf8String & pluginName,
+                MldbServer * server,
+                std::shared_ptr<LoadedPluginResource> pluginResource)
+    : JsIsolate(false /* for this thread only */),
+      JsThreadContext(*this, server, pluginName),
+      pluginResource(pluginResource)
+{
+    using namespace v8;
+
+    v8::Locker locker(this->isolate.isolate);
+    v8::Isolate::Scope isolateScope(this->isolate.isolate);
+
+    HandleScope handle_scope;
+
+    // Enter the created context for compiling and
+    // running the hello world script. 
+    Context::Scope context_scope(context);
+
+    v8::Local<v8::Object> globalPrototype
+        = v8::Local<v8::Object>::Cast(context->Global()->GetPrototype());
+
+    auto plugin = JsPluginJS::registerMe()->NewInstance();
+    plugin->SetInternalField(0, v8::External::New(this));
+    plugin->SetInternalField(1, v8::External::New(this));
+    if (pluginResource)
+        plugin->Set(String::New("args"),
+                    JS::toJS(jsonEncode(pluginResource->args)));
+    globalPrototype->Set(String::New("plugin"), plugin);
 }
 
 JsPluginContext::

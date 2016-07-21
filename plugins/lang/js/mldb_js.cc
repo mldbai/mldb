@@ -46,7 +46,7 @@ struct CellValueJS::Methods {
 
 v8::Handle<v8::Object>
 CellValueJS::
-create(CellValue value, JsPluginContext * context)
+create(CellValue value, JsThreadContext * context)
 {
     auto obj = context->CellValue->GetFunction()->NewInstance();
     auto * wrapped = new CellValueJS();
@@ -74,6 +74,137 @@ registerMe()
 
     auto fntmpl = CreateFunctionTemplate("Atom");
 
+    return scope.Close(fntmpl);
+}
+
+
+/*****************************************************************************/
+/* EXPRESSION VALUE JS                                                       */
+/*****************************************************************************/
+
+struct ExpressionValueJS::Methods {
+    static v8::Handle<v8::Value>
+    toJs(const v8::Arguments & args)
+    {
+        try {
+            auto & val = getShared(args.This());
+            return JS::toJS(val.extractJson());
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    when(const v8::Arguments & args)
+    {
+        try {
+            auto & val = getShared(args.This());
+            return JS::toJS(val.getEffectiveTimestamp());
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    at(const v8::Arguments & args)
+    {
+        try {
+            auto val = getShared(args.This());
+            Date newTs = JS::getArg<Date>(args, 0, "New effective timestamp");
+            val.setEffectiveTimestamp(newTs);
+            return JS::toJS(val);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    columns(const v8::Arguments & args)
+    {
+        try {
+            auto & val = getShared(args.This());
+
+            v8::HandleScope scope;
+            v8::Local<v8::Object> obj= v8::Object::New();
+
+            auto onColumn = [&] (const PathElement & col,
+                                 const ExpressionValue & val)
+                {
+                    obj->Set(JS::toJS(col),
+                             JS::toJS(val));
+                    return true;
+                };
+
+            val.forEachColumn(onColumn);
+            return scope.Close(obj);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+    
+
+#if 0
+    static v8::Handle<v8::Value>
+    getNamed(v8::Local<v8::String> property,
+             const v8::AccessorInfo& info)
+    {
+        try {
+            cerr << "get named" << endl;
+            auto val = getShared(info.This());
+            return v8::Undefined();
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Integer>
+    queryNamed(v8::Local<v8::String> property,
+               const v8::AccessorInfo& info)
+    {
+        cerr << "query named" << endl;
+        auto val = getShared(info.This());
+        abort();
+    }
+
+    static v8::Handle<v8::Array>
+    enumerateNamed(const v8::AccessorInfo& info)
+    {
+        cerr << "enumerate named" << endl;
+        auto val = getShared(info.This());
+        abort();
+    }
+#endif
+};
+
+v8::Handle<v8::Object>
+ExpressionValueJS::
+create(ExpressionValue value, JsThreadContext * context)
+{
+    auto obj = context->ExpressionValue->GetFunction()->NewInstance();
+    auto * wrapped = new ExpressionValueJS();
+    wrapped->val = std::move(value);
+    wrapped->wrap(obj, context);
+    return obj;
+}
+
+ExpressionValue &
+ExpressionValueJS::
+getShared(const v8::Handle<v8::Object> & val)
+{
+    return reinterpret_cast<ExpressionValueJS *>
+        (v8::Handle<v8::External>::Cast
+         (val->GetInternalField(0))->Value())->val;
+}
+
+v8::Local<v8::FunctionTemplate>
+ExpressionValueJS::
+registerMe()
+{
+    using namespace v8;
+
+    HandleScope scope;
+
+    auto fntmpl = CreateFunctionTemplate("ExpressionValue");
+    auto objtmpl = fntmpl->PrototypeTemplate();
+
+    objtmpl->Set(String::New("toJs"), FunctionTemplate::New(Methods::toJs));
+    objtmpl->Set(String::New("when"), FunctionTemplate::New(Methods::when));
+    objtmpl->Set(String::New("at"), FunctionTemplate::New(Methods::at));
+    objtmpl->Set(String::New("columns"), FunctionTemplate::New(Methods::columns));
+    //objtmpl->SetNamedPropertyHandler(Methods::getNamed, nullptr,
+    //                                  Methods::queryNamed, nullptr,
+    //                                 Methods::enumerateNamed);
+    
     return scope.Close(fntmpl);
 }
 
@@ -390,7 +521,7 @@ struct StreamJS::Methods {
 
 v8::Handle<v8::Object>
 StreamJS::
-create(std::shared_ptr<std::istream> stream, JsPluginContext * context)
+create(std::shared_ptr<std::istream> stream, JsThreadContext * context)
 {
     auto obj = context->Stream->GetFunction()->NewInstance();
     auto * wrapped = new StreamJS();
@@ -531,7 +662,7 @@ struct RandomNumberGeneratorJS::Methods {
 v8::Handle<v8::Object>
 RandomNumberGeneratorJS::
 create(std::shared_ptr<RandomNumberGenerator> randomNumberGenerator,
-       JsPluginContext * context)
+       JsThreadContext * context)
 {
     auto obj = context->RandomNumberGenerator->GetFunction()->NewInstance();
     auto * wrapped = new RandomNumberGeneratorJS();
@@ -578,7 +709,7 @@ struct MldbJS::Methods {
     openStream(const v8::Arguments & args)
     {
         try {
-            JsPluginContext * context = MldbJS::getContext(args.This());
+            JsThreadContext * context = MldbJS::getContext(args.This());
             auto stream = std::make_shared<filter_istream>(JS::cstr(args[0]));
             
             return StreamJS::create(stream, context);
@@ -589,7 +720,7 @@ struct MldbJS::Methods {
     createDataset(const v8::Arguments & args)
     {
         try {
-            JsPluginContext * context = MldbJS::getContext(args.This());
+            JsThreadContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
             Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
             PolyConfig config = jsonDecode<PolyConfig>(configJson);
@@ -617,7 +748,7 @@ struct MldbJS::Methods {
     createFunction(const v8::Arguments & args)
     {
         try {
-            JsPluginContext * context = MldbJS::getContext(args.This());
+            JsThreadContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
             Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
             PolyConfig config = jsonDecode<PolyConfig>(configJson);
@@ -645,7 +776,7 @@ struct MldbJS::Methods {
     createProcedure(const v8::Arguments & args)
     {
         try {
-            JsPluginContext * context = MldbJS::getContext(args.This());
+            JsThreadContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
             Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
             PolyConfig config = jsonDecode<PolyConfig>(configJson);
@@ -673,7 +804,7 @@ struct MldbJS::Methods {
     createRandomNumberGenerator(const v8::Arguments & args)
     {
         try {
-            JsPluginContext * context = MldbJS::getContext(args.This());
+            JsThreadContext * context = MldbJS::getContext(args.This());
 
             int seed = JS::getArg(args, random(), 0.0, "Seed of generator");
             auto rng = std::make_shared<RandomNumberGenerator>(seed);
@@ -903,7 +1034,7 @@ struct MldbJS::Methods {
     log(const v8::Arguments & args)
     {
         using namespace v8;
-        JsPluginContext * context = MldbJS::getContext(args.This());
+        JsThreadContext * context = MldbJS::getContext(args.This());
 
         try {
             Utf8String line;
@@ -918,8 +1049,18 @@ struct MldbJS::Methods {
                     printed = CellValue(Date::fromSecondsSinceEpoch(args[i]->NumberValue() * 0.001)).toUtf8String();
                 }
                 else if (args[i]->IsObject()) {
-                    Json::Value val = JS::fromJS(args[i]);
-                    printed = val.toStyledString();
+                    if (context->ExpressionValue->HasInstance(args[i])) {
+                        printed = ExpressionValueJS::getShared(JS::toObject(args[i]))
+                            .extractJson().toStyledString();
+                    }
+                    else if (context->CellValue->HasInstance(args[i])) {
+                        printed = jsonEncodeStr
+                            (CellValueJS::getShared(JS::toObject(args[i])));
+                    }
+                    else {
+                        Json::Value val = JS::fromJS(args[i]);
+                        printed = val.toStyledString();
+                    }
                 }
                 else if (args[i]->IsArray()) {
                     Json::Value val = JS::fromJS(args[i]);
@@ -950,7 +1091,7 @@ struct MldbJS::Methods {
     createInterval(const v8::Arguments & args)
     {
         using namespace v8;
-        JsPluginContext * context = MldbJS::getContext(args.This());
+        JsThreadContext * context = MldbJS::getContext(args.This());
 
         v8::HandleScope scope;
         try {
@@ -1005,7 +1146,7 @@ struct MldbJS::Methods {
     createPath(const v8::Arguments & args)
     {
         using namespace v8;
-        JsPluginContext * context = MldbJS::getContext(args.This());
+        JsThreadContext * context = MldbJS::getContext(args.This());
 
         v8::HandleScope scope;
         try {
@@ -1090,11 +1231,11 @@ getShared(const v8::Handle<v8::Object> & val)
          (val->GetInternalField(0))->Value());
 }
 
-JsPluginContext *
+JsThreadContext *
 MldbJS::
 getContext(const v8::Handle<v8::Object> & val)
 {
-    return reinterpret_cast<JsPluginContext *>
+    return reinterpret_cast<JsThreadContext *>
         (v8::Handle<v8::External>::Cast
          (val->GetInternalField(1))->Value());
 }

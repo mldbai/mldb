@@ -1,18 +1,16 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /**                                                   -*- C++ -*-
-  plugin_resource.cc
+  plugin_resource.h
   Francois Maillet, 18 fevrier 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+  Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+  This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-    Transparent resource getter for plugins
+  Transparent resource getter for plugins
 */
 
 #pragma once
 
 #include "mldb/rest/poly_entity.h"
 #include "mldb/types/any.h"
-#include "mldb/soa/js/js_utils.h"
 #include "mldb/core/plugin.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/url.h"
