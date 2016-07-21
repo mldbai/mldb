@@ -126,7 +126,10 @@ SqlExpressionMldbScope::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" with no dataset.");
+    throw HttpReturnException(
+        400,
+        "Cannot read column \"" + columnName.toUtf8String()
+        + "\" with no FROM clause.");
 }
 
 GetAllColumnsOutput
@@ -134,7 +137,7 @@ SqlExpressionMldbScope::
 doGetAllColumns(const Utf8String & tableName,
                 function<ColumnName (const ColumnName &)> keep)
 {
-    throw HttpReturnException(400, "Cannot get all columns with no dataset.");
+    throw HttpReturnException(400, "Cannot use wildcards with no FROM clause.");
 }
 
 /*****************************************************************************/

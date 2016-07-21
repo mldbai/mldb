@@ -9,8 +9,8 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 class Mldb1834SelectRowExprStarErrMsg(MldbUnitTest):  # noqa
 
     def test_it(self):
-        msg = "Cannot get all columns with no dataset."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg)
+        msg = "Cannot use wildcards with no FROM clause"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT {*}")
 
 if __name__ == '__main__':
