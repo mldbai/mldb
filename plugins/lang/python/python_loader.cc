@@ -512,10 +512,6 @@ class mldb_wrapper(object):
 
     import json as jsonlib
 
-    @staticmethod
-    def wrap(mldb):
-        return Wrapped(mldb)
-
     class MldbBaseException(Exception):
         pass
 
