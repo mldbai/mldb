@@ -87,7 +87,7 @@ class CsvExportTest(unittest.TestCase):
                 "named" : "rowName"
             }
         }
-        mldb.put("/v1/procedures/csv_proc", csv_conf) 
+        mldb.log(mldb.put("/v1/procedures/csv_proc", csv_conf))
 
         # export it (end of roundtrip)
         tmp_file2 = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
@@ -118,7 +118,7 @@ class CsvExportTest(unittest.TestCase):
             }
         })
 
-        mldb.post('/v1/procedures/export3/runs')
+        mldb.log(mldb.post('/v1/procedures/export3/runs'))
 
         lines_expect = [u'outf8 roowo;Ǆώύψ;ăØÆÅ',
                         'oascii roowo;1;2']
