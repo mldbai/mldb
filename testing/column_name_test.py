@@ -64,7 +64,7 @@ class ColumnNameTest(MldbUnitTest):  # noqa
         self.select("{*} FROM (SELECT col.x:1)", '{*}.col.x')
         self.select("{*} AS * FROM (SELECT col.x:1)", 'col.x')
 
-    def test_object_arith(self):
+#     def test_object_arith(self):
 #         self.select("x.y:1 + 1", 'x.y')
 #         self.select("x:{y:1} + 1", 'x.y')
 #         self.select("{x.y:1 + 1}", '"{x.y:1 + 1}".x.y')
