@@ -167,7 +167,7 @@ getRunDetails(const ProcedureRun * run) const
 /*****************************************************************************/
 
 ProcedureConfig::
-ProcedureConfig() : runOnCreation(false)
+ProcedureConfig() : runOnCreation(true)
 {
 }
 
