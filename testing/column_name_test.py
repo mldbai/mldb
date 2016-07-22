@@ -8,9 +8,13 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class ColumnNameTest(MldbUnitTest):  # noqa
 
-    def select(self, col, expected):
-        res = mldb.query("SELECT {}".format(col))
+    def select(self, select, expected):
+        res = mldb.query("SELECT {}".format(select))
         self.assertEqual(res[0][1], expected)
+
+    def select_err(self, select):
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            mldb.query("SELECT {}".format(select))
 
     def test_int(self):
         self.select(1, '1')
@@ -20,20 +24,21 @@ class ColumnNameTest(MldbUnitTest):  # noqa
 
     def test_int_arith(self):
         self.select('1 + 10', '1 + 10')
+        self.select('a:1 + 10', 'a')
 
     def test_float_arith(self):
         self.select('1 + 1.1', '"1 + 1.1"')
+        self.select('a:1 + 1.1', 'a')
 
     def test_col_arith(self):
         self.select('a + b FROM (SELECT a:1, b:2)', 'a + b')
 
-    @unittest.expectedFailure
-    def test_obj_arith(self):
-        self.select('a:{x:1} + 1', 'a:{x:1} + 1.x')  # currently returns a.x
-
     def test_as(self):
         self.select('x:1', 'x')
         self.select('1 AS x', 'x')
+
+        self.select("x.y:1 + 1", 'x.y')
+        self.select("1 + 1 AS x.y", 'x.y')
 
     def test_dotted_as(self):
         self.select('1 as a.b', 'a.b')
@@ -64,12 +69,33 @@ class ColumnNameTest(MldbUnitTest):  # noqa
         self.select("{*} FROM (SELECT col.x:1)", '{*}.col.x')
         self.select("{*} AS * FROM (SELECT col.x:1)", 'col.x')
 
-#     def test_object_arith(self):
-#         self.select("x.y:1 + 1", 'x.y')
-#         self.select("x:{y:1} + 1", 'x.y')
-#         self.select("{x.y:1 + 1}", '"{x.y:1 + 1}".x.y')
-#         self.select("{x:{y:1} + 1}", '"{x.y:1 + 1}".x.y')
-#         self.select("{x.y:1} + 1", '"{x.y:1} + 1".y')  # <--- x took a break?
+    def test_object_arith(self):
+        self.select('{b:1} + 1', '{b:1} + 1.b')  # <--- ugly
+        self.select('{b:1} + 1 AS *', 'b')
+
+        self.select('a:{b:1} + 1', 'a.b')
+        self.select_err('a:{b:1} + 1 AS *')
+
+        self.select("{x.y:1 + 1}", '"{x.y:1 + 1}".x.y')
+        self.select("{x.y:1 + 1} AS *", 'x.y')
+        self.select("{{x.y:1 + 1} AS *} AS *", 'x.y')
+        self.select_err("{x.y:1 + 1} AS x*")
+        self.select_err("{x.y:1 + 1} AS x.*")
+
+        self.select("{x:{y:1} + 1}", '{x:{y:1} + 1}.x.y')
+        self.select("{x:{y:1} + 1} AS *", 'x.y')
+        self.select_err("{x:{y:1} + 1} AS x*")
+        self.select_err("{x:{y:1} + 1} AS x.*")
+
+        # MLDB-1836
+        self.select("{x.y:1} + 1", '"{x.y:1} + 1".y')  # <--- x took a break?
+        self.select("{x:{y:1}} + 1", '{x:{y:1}} + 1.y')  # <--- x took a break?
+
+        self.select("a:{x.y:1} + 1", 'a.y')  # <--- x took a break?
+        self.select("a:{x:{y:1}} + 1", 'a.y')  # <--- x took a break?
+
+        self.select("a:{w.x.y:1} + 1", 'a.y')  # <--- w.x took a break?
+        self.select("a:{w:{x:{y:1}}} + 1", 'a.y')  # <--- w.x took a break?
 
 if __name__ == '__main__':
     mldb.run_tests()
