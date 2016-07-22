@@ -314,6 +314,22 @@ getEmbedding(const SelectStatement & stm,
                         stm.offset, stm.limit, onProgress);
 }
 
+void
+validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
+{
+    stm.where->bind(scope);
+    stm.when.bind(scope);
+    stm.orderBy.bindAll(scope);
+    if (!stm.groupBy.clauses.empty()) {
+        throw HttpReturnException(
+            400, "GROUP BY usage requires a FROM statement");
+    }
+    if (!stm.having->isConstantTrue()) {
+        throw HttpReturnException(
+            400, "HAVING usage requires a FROM statement");
+    }
+}
+
 std::vector<MatrixNamedRow>
 queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 {
@@ -324,16 +340,21 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
         }
     }
     auto boundSelect = stm.select.bind(scope);
-    SqlRowScope context;
-    ExpressionValue val = boundSelect(context, GET_ALL);
+
+    validateQueryWithoutDataset(stm, scope);
+
     MatrixNamedRow row;
-    auto boundRowName = stm.rowName->bind(scope);
+    if (stm.offset < 1 && stm.limit != 0) {
+        SqlRowScope context;
+        ExpressionValue val = boundSelect(context, GET_ALL);
+        auto boundRowName = stm.rowName->bind(scope);
 
-    row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
-    row.rowHash = row.rowName;
-    val.mergeToRowDestructive(row.columns);
-
-    return { std::move(row) };
+        row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
+        row.rowHash = row.rowName;
+        val.mergeToRowDestructive(row.columns);
+        return { std::move(row) };
+    }
+    return vector<MatrixNamedRow>();
 }
 
 std::vector<MatrixNamedRow>
