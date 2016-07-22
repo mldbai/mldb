@@ -123,8 +123,14 @@ doGetAllColumns(const Utf8String & tableName,
         {
             ColumnName newColumnName = prefix + columnName;
             auto it = index.find(newColumnName);
-            if (it == index.end())
+            if (it == index.end()) {
+                if (hasUnknownColumns) {
+                    ColumnName outputName = keep(columnName);
+                    if (!outputName.empty())
+                        result.emplace_back(std::move(outputName), val, ts);
+                }
                 return true;
+            }
             result.emplace_back(it->second, val, ts);
             return true;
         };
@@ -136,7 +142,8 @@ doGetAllColumns(const Utf8String & tableName,
     };
 
     GetAllColumnsOutput result;
-    result.info = std::make_shared<RowValueInfo>(columnsWithInfo, SCHEMA_CLOSED);
+    result.info = std::make_shared<RowValueInfo>
+        (columnsWithInfo, hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED);
     result.exec = exec;
     return result;
 }
