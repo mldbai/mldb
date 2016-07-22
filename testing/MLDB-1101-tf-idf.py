@@ -28,7 +28,7 @@ class TfIdfTest(MldbUnitTest):
             "type": "transform",
             "params": {
                 "inputData": "select tokenize(test, {"
-                "splitchars:' ', quotechar:'', min_token_length: 2}) "
+                "splitChars:' ', quoteChar:'', minTokenLength: 2}) "
                 "as * from example",
                 "outputDataset": {
                     "id": "bag_of_words",
@@ -97,16 +97,16 @@ class TfIdfTest(MldbUnitTest):
               ["this", 1],
               ["time", 1] ]
         )
-        
+
     def test_tfidf_lowerbound(self):
-        rez = mldb.get('/v1/query', q="select tfidffunction({tokenize('time', {' ' as splitchars}) as input}) as *")
+        rez = mldb.get('/v1/query', q="select tfidffunction({tokenize('time', {' ' as splitChars}) as input}) as *")
         mldb.log(rez)
         self.assertTrue(TfIdfTest.get_column(rez, "output.time") > 0, "expected positive tf-idf for 'time'")
 
 
     def check_relative_values(self, scorer):
         query = "select " + scorer + "({tokenize('jelly time butter butter bristol', " \
-            "{' ' as splitchars}) as input}) as *"
+            "{' ' as splitChars}) as input}) as *"
         rez = mldb.get('/v1/query', q=query)
         mldb.log(rez)
         self.assertTrue(TfIdfTest.get_column(rez, "output.bristol") > TfIdfTest.get_column(rez, 'output.jelly'),
@@ -121,7 +121,7 @@ class TfIdfTest(MldbUnitTest):
         self.check_relative_values('tfidffunction_augmented_inverse')
         rez = mldb.get("/v1/query",
                        q="select tfidffunction_augmented_inverse({tokenize('jelly time', "
-                       "{' ' as splitchars}) as input}) as *  "
+                       "{' ' as splitChars}) as input}) as *  "
                        "order by rowName() ASC")
         
         self.assertTrue(TfIdfTest.get_column(rez, 'output.time') > TfIdfTest.get_column(rez, 'output.jelly'),

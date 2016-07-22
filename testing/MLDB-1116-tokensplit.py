@@ -59,7 +59,7 @@ config = {
     'type': 'tokensplit',
     'params': {
         'tokens': "select ':P', '(>_<)', ':-)'",
-        'splitchars': ' ', #split on spaces only
+        'splitChars': ' ', #split on spaces only
         'splitcharToInsert': ' '
     }
 }

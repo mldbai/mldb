@@ -29,8 +29,8 @@ struct TokenizeOptions {
     Utf8String quotechar = "";
     int offset = 0, limit = -1;
     MLDB::CellValue value;
-    int min_token_length = 1;
-    std::pair<int, int> ngram_range = { 1, 1};
+    int minTokenLength = 1;
+    std::pair<int, int> ngramRange = { 1, 1};
 };
 
 /** Allow these options to be accessed and documented via the ValueDescription
@@ -43,7 +43,7 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
               ML::Parse_Context& context,
               const Utf8String& splitchars,
               const Utf8String& quotechar,
-              int min_token_length);
+              int minTokenLength);
 
 char32_t expectUtf8Char(ML::Parse_Context & context);
 

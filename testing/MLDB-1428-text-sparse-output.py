@@ -64,7 +64,7 @@ class ImportTextToSparseTest(unittest.TestCase):
             "params": {
                 "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz",
                 "delimiter": "",
-                "quotechar": "",
+                "quoteChar": "",
                 "select": "tokenize(lineText, {offset: 1, value: 1}) as *",
                 'outputDataset': {'id': 'reddit', 'type': 'sparse.mutable'},
                 'runOnCreation': True

@@ -120,7 +120,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                 "outputDataset": {
                     "id": "imported_json",
                 },
-                "quotechar": "",
+                "quoteChar": "",
                 "delimiter": "",
                 "runOnCreation" : True,
             }
