@@ -3030,7 +3030,10 @@ parse(ML::Parse_Context & context, bool allowUtf8)
     std::shared_ptr<SqlExpression> distinctExpr;
 
     if (matchKeyword(context, "DISTINCT ON ")) {
+        context.skip_whitespace();
+        context.expect_literal('(');
         distinctExpr = SqlExpression::parse(context, 10, allowUtf8);
+        context.expect_literal(')');
     }
     else if (matchKeyword(context, "DISTINCT ")) {
         throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");

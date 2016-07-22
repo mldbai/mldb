@@ -159,6 +159,11 @@ class DistinctOnTest(MldbUnitTest):
 
         self.assertEqual(res, expected)
 
+    def test_distinct_parens(self):
+       
+        with self.assertMldbRaises(status_code=400):
+            res = mldb.query("SELECT DISTINCT ON x FROM dataset1 ORDER BY x")
+
     def test_distinct_generic(self):
        
         with self.assertMldbRaises(expected_regexp="Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'."):
