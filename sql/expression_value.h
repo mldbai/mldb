@@ -659,8 +659,23 @@ struct ExpressionValue {
     ExpressionValue(CellValue atom, Date ts) noexcept;
     ExpressionValue(RowValue row) noexcept;
 
+    enum Sorting {
+        SORTED,
+        MAY_BE_SORTED,
+        NOT_SORTED
+    };
+
+    enum Duplicates {
+        NO_DUPLICATES,
+        MAY_HAVE_DUPLICATES,
+        HAS_DUPLICATES
+    };
+
     // Construct from a set of named values as a row
-    ExpressionValue(StructValue vals) noexcept;
+    ExpressionValue(StructValue vals,
+                    Sorting sorting = MAY_BE_SORTED,
+                    Duplicates duplicates = MAY_HAVE_DUPLICATES) noexcept;
+
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -1064,6 +1079,7 @@ private:
         type_ = Type::ATOM;
     }
     void initStructured(Structured row) noexcept;
+    void initStructured(Structured value, bool needsSorting, bool hasDuplicates) noexcept;
     void initStructured(std::shared_ptr<const Structured> row) noexcept;
     const Structured & getStructured() const;
 

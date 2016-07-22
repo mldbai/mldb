@@ -1945,10 +1945,27 @@ ExpressionValue(ExpressionValue && other) noexcept
 #endif
 
 ExpressionValue::
-ExpressionValue(StructValue vals) noexcept
+ExpressionValue(StructValue vals,
+                Sorting sorting,
+                Duplicates duplicates) noexcept
     : type_(Type::NONE)
 {
-    initStructured(std::move(vals));
+    bool needsSorting = (sorting == NOT_SORTED);
+    bool hasDuplicates = (duplicates == HAS_DUPLICATES);
+
+    if (sorting == MAY_BE_SORTED || duplicates == MAY_HAVE_DUPLICATES) {
+
+        for (size_t i = 1;  i < vals.size() && (!needsSorting || !hasDuplicates);
+             ++i) {
+            int cmp = std::get<0>(vals[i - 1]).compare(std::get<0>(vals[i]));
+            if (cmp == 0)
+                hasDuplicates = true;
+            else if (cmp > 0)
+                needsSorting = true;
+        }
+    }
+    
+    initStructured(std::move(vals), needsSorting, hasDuplicates);
 }
 
 ExpressionValue &
@@ -4040,29 +4057,37 @@ ExpressionValue::
 initStructured(Structured value) noexcept
 {
     // Do we need sorting, or to collapse duplicate keys into one?
-    bool needsSorting = false;  // TODO: detect this; it will make things much faster
-    bool duplicates = false;
+    bool needsSorting = false;
+    bool hasDuplicates = false;
 
     for (size_t i = 1;  i < value.size() && !needsSorting;  ++i) {
         int cmp = std::get<0>(value[i - 1]).compare(std::get<0>(value[i]));
         if (cmp == 0)
-            duplicates = true;
+            hasDuplicates = true;
         else if (cmp > 0)
             needsSorting = true;
     }
 
-    if (needsSorting || duplicates) {
+    initStructured(std::move(value), needsSorting, hasDuplicates);
+}
+
+void
+ExpressionValue::
+initStructured(Structured value, bool needsSorting, bool hasDuplicates) noexcept
+{
+
+    if (needsSorting || hasDuplicates) {
         // Sort by row name then value
         if (needsSorting) {
             std::sort(value.begin(), value.end());
-            for (size_t i = 1;  i < value.size() && !duplicates;  ++i) {
+            for (size_t i = 1;  i < value.size() && !hasDuplicates;  ++i) {
                 if (std::get<0>(value[i - 1]) == std::get<0>(value[i]))
-                    duplicates = true;
+                    hasDuplicates = true;
             }
         }
 
         // Deduplicate if necessary
-        if (duplicates) {
+        if (hasDuplicates) {
             Structured newValue;
             newValue.reserve(value.size());
 
