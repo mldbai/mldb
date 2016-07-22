@@ -1,21 +1,20 @@
 #
-# MDLB-1840_empty_str_paths.py
+# MLDB-1840_empty_str_paths.py
 # Francois Maillet, 2016-07-21
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
-class MDLB1840EmptyStrPaths(MldbUnitTest):  # noqa
-
-    @classmethod
-    def setUpClass(cls):
-        pass
+class Mldb1840EmptyStrPaths(MldbUnitTest):  # noqa
 
     def test_it(self):
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+        ds.record_row('row', [['', 'val', 0]])
+        ds.commit()
         self.assertTableResultEquals(
             mldb.query("""
-                select parse_json('{"": 5, "pwet":10}') as *
+                SELECT parse_json('{"": 5, "pwet":10}') AS *
             """),
             [
                 ["_rowName", "", "pwet"],
@@ -25,18 +24,18 @@ class MDLB1840EmptyStrPaths(MldbUnitTest):  # noqa
 
         self.assertTableResultEquals(
             mldb.query("""
-                select parse_json('{"": 5, "pwet":10}') as *
-                where "" != 5
+                SELECT parse_json('{"": 5, "pwet":10}') AS *
+                WHERE "" != 5
             """),
             [
                 ["_rowName"]
             ]
         )
-        
+
         self.assertTableResultEquals(
             mldb.query("""
-                select * from (
-                    select parse_json('{"": 5, "pwet":10}') as *
+                SELECT * FROM (
+                    SELECT parse_json('{"": 5, "pwet":10}') AS *
                 )
             """),
             [
@@ -44,11 +43,11 @@ class MDLB1840EmptyStrPaths(MldbUnitTest):  # noqa
                 [  "result",  5, 10]
             ]
         )
-        
+
         self.assertTableResultEquals(
             mldb.query("""
-                select pwet from (
-                    select parse_json('{"": 5, "pwet":10}') as *
+                SELECT pwet FROM (
+                    SELECT parse_json('{"": 5, "pwet":10}') AS *
                 )
             """),
             [
@@ -56,11 +55,11 @@ class MDLB1840EmptyStrPaths(MldbUnitTest):  # noqa
                 [  "result", 10]
             ]
         )
-        
+
         self.assertTableResultEquals(
             mldb.query("""
-                select "" from (
-                    select parse_json('{"": 5, "pwet":10}') as *
+                SELECT "" FROM (
+                    SELECT parse_json('{"": 5, "pwet":10}') AS *
                 )
             """),
             [
