@@ -377,6 +377,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
     OrderByExpression newOrderBy;
+    bool doDistinctOn_;
 
     OrderedExecutor(const Dataset & dataset,
                     GenerateRowsWhereFunction whereGenerator,
@@ -384,14 +385,16 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                     BoundWhenExpression whenBound,
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
-                    OrderByExpression newOrderBy)
+                    OrderByExpression newOrderBy,
+                    bool doDistinctOn)
         : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
           whenBound(std::move(whenBound)),
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
-          newOrderBy(std::move(newOrderBy))
+          newOrderBy(std::move(newOrderBy)),
+          doDistinctOn_(doDistinctOn)
     {
     }
 
@@ -504,16 +507,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         auto rowsSorted = parallelMergeSort(accum.threads, compareRows);
 
         //cerr << "shuffle took " << timer.elapsed() << endl;
-        timer.restart();
-
-        auto doSelect = [&] (int rowNum) -> bool
-            {
-                auto & row = std::get<1>(rowsSorted[rowNum]);
-                auto & calcd = std::get<2>(rowsSorted[rowNum]);
-
-                /* Finally, pass to the terminator to continue. */
-                return processor(row, calcd, rowNum);
-            };
+        timer.restart(); 
 
         // Now select only the required subset of sorted rows
         if (limit == -1)
@@ -524,10 +518,46 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
         ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
 
-        for (unsigned i = begin;  i < end;  ++i) {
-            if (!doSelect(i))
-                return false;
+        if (doDistinctOn_) {
+
+            ExpressionValue reference;
+
+            for (unsigned i = begin;  i < end;  ++i) {
+
+                ExpressionValue & mark = std::get<0>(rowsSorted[i])[0];
+
+                if (i == 0) {
+                    reference = mark;
+                }
+                else {
+                    if (mark != reference)
+                        reference = std::move(mark); //careful not to use it later on
+                    else
+                        continue; //skip duplicates
+                }
+
+                auto & row = std::get<1>(rowsSorted[i]);
+                auto & calcd = std::get<2>(rowsSorted[i]);
+
+                /* Finally, pass to the terminator to continue. */
+                if (!processor(row, calcd, i))
+                    return false;
+            }
+
         }
+        else {
+            for (unsigned i = begin;  i < end;  ++i) {
+
+                auto & row = std::get<1>(rowsSorted[i]);
+                auto & calcd = std::get<2>(rowsSorted[i]);
+
+                /* Finally, pass to the terminator to continue. */
+                if (!processor(row, calcd, i))
+                    return false;
+            }
+        }
+
+     
 
         cerr << "reduce took " << timer.elapsed() << endl;
 
@@ -1077,7 +1107,8 @@ BoundSelectQuery(const SelectExpression & select,
                                                std::move(whenBound),
                                                std::move(boundSelect),
                                                std::move(boundCalc),
-                                               std::move(newOrderBy)));
+                                               std::move(newOrderBy),
+                                               (bool)select.distinctExpr));
         } else {
             executor.reset(new UnorderedExecutor(from,
                                                  std::move(whereGenerator),
@@ -1693,14 +1724,6 @@ execute(RowProcessor processor,
     // Sort our output rows
     std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
 
-    auto doSelect = [&] (int rowNum) -> bool
-        {
-            auto & row = std::get<1>(rowsSorted[rowNum]);
-
-            /* Finally, pass to the terminator to continue. */
-            return processor(row);
-        };
-
     // Now select only the required subset of sorted rows
     if (limit == -1)
         limit = rowsSorted.size();
@@ -1710,10 +1733,43 @@ execute(RowProcessor processor,
     ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
     ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
 
-    for (unsigned i = begin;  i < end;  ++i) {
-        if (!doSelect(i))
-            return false;
-    } 
+    if (select.distinctExpr) {
+
+        ExpressionValue reference;
+
+        for (unsigned i = begin;  i < end;  ++i) {
+
+            ExpressionValue & mark = std::get<0>(rowsSorted[i])[0];
+
+            if (i == 0) {
+                reference = mark;
+            }
+            else {
+                if (mark != reference)
+                    reference = std::move(mark); //careful not to use it later on
+                else
+                    continue; //skip duplicates
+            }
+
+            auto & row = std::get<1>(rowsSorted[i]);
+
+            /* Finally, pass to the terminator to continue. */
+            if (!processor(row))
+                return false;
+        }
+
+    }
+    else {
+
+
+        for (unsigned i = begin;  i < end;  ++i) {
+            auto & row = std::get<1>(rowsSorted[i]);
+
+            /* Finally, pass to the terminator to continue. */
+            if (!processor(row))
+                return false;
+        } 
+    }  
 
     return true;
 }

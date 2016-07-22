@@ -1,0 +1,67 @@
+# MLDB-1841-distinct-on.py
+# Mathieu Marquis Bolduc, 2016-07-21
+# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+#
+
+import unittest
+import json
+
+mldb = mldb_wrapper.wrap(mldb) # noqa
+
+#### TODO: CHECK LIMIT / OFFSET
+
+class DistinctOnTest(MldbUnitTest):
+
+    @classmethod
+    def setUpClass(self):
+        # create a dummy dataset
+        ds = mldb.create_dataset({ "id": "dataset1", "type": "sparse.mutable" })
+        ds.record_row("row1",[["x", 1, 0], ["y", 1, 0], ["z", 1, 0]])
+        ds.record_row("row2",[["x", 2, 0], ["y", 2, 0], ["z", 1, 0]])
+        ds.record_row("row3",[["x", 1, 0], ["y", 3, 0], ["z", 2, 0]])
+        ds.record_row("row4",[["x", 1, 0], ["y", 4, 0], ["z", 2, 0]])
+        ds.record_row("row5",[["x", 2, 0], ["y", 5, 0], ["z", 3, 0]])
+        ds.commit()
+
+    def test_distincton(self):        
+
+        res = mldb.query("SELECT DISTINCT ON (x) x, y FROM dataset1 ORDER BY x,y")
+        mldb.log(res)
+
+        expected = [["_rowName","x","y"],
+                    ["row1", 1,  1 ],
+                    ["row2", 2,  2 ]]
+
+        self.assertEqual(res, expected)    
+
+    def test_distincton_where(self):        
+
+        res = mldb.query("SELECT DISTINCT ON (x) x, y FROM dataset1 WHERE y % 2 = 0 ORDER BY x,y")
+
+        mldb.log(res)
+
+        expected = [["_rowName", "x", "y"],
+                    ["row4", 1, 4],
+                    ["row2", 2, 2]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_groupby(self):        
+
+        res = mldb.query("SELECT DISTINCT ON (max(x)) z, max(x) FROM dataset1 GROUP BY z ORDER BY max(x)")
+
+        mldb.log(res)
+
+        expected = [["_rowName", "max(x)", "z"],
+                    ["[2]", 1, 2],
+                    ["[1]", 2, 1]]
+
+        self.assertEqual(res, expected)
+
+    def test_distinct_generic(self):
+       
+        with self.assertMldbRaises(expected_regexp="Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'."):
+            res = mldb.query("SELECT DISTINCT x FROM dataset1")
+
+
+mldb.run_tests()
