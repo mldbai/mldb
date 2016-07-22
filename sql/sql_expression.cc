@@ -1896,13 +1896,12 @@ unimp(std::shared_ptr<SqlExpression> lhs,
 }
 
 //Find aggregators for any class implementing getChildren.
-template <class T>
+
 std::vector<std::shared_ptr<SqlExpression> >
-findAggregatorsT(const T* expression, bool withGroupBy)
+findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
     std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
     
      // collect aggregators
     for (auto iter = children.begin(); iter != children.end(); ++iter)
@@ -1963,11 +1962,22 @@ findAggregatorsT(const T* expression, bool withGroupBy)
     return std::move(output);
 }
 
+template <class T>
 std::vector<std::shared_ptr<SqlExpression> >
-SqlExpression::
-findAggregators(bool withGroupBy) const
+findAggregatorsT(const T* expression, bool withGroupBy)
 {
-    return findAggregatorsT<SqlExpression>(this, withGroupBy);
+    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
+    return findAggregators(children, withGroupBy);
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+findAggregators(std::shared_ptr<SqlExpression> expr, bool withGroupBy)
+{
+    std::vector<std::shared_ptr<SqlExpression> > children;
+    children.push_back(expr);
+    return findAggregators(children, withGroupBy);
+
+    return children;
 }
 
 struct SqlExpressionDescription
@@ -3188,6 +3198,13 @@ isConstant() const
             return false;
     }
     return true;
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+SelectExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<SelectExpression>(this, withGroupBy);
 }
 
 struct SelectExpressionDescription

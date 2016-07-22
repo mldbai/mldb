@@ -1889,34 +1889,6 @@ BoundFunction print_json(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerPrintJson(print_json, "print_json");
 
-BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args)
-{
-    // Comma separated list, first is row name, rest are row columns
-    checkArgsSize(args.size(), 1);
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                checkArgsSize(args.size(), 1);
-                auto val = args.at(0);
-                Utf8String str = val.toUtf8String();
-                Date ts = val.getEffectiveTimestamp();
-
-                StreamingJsonParsingContext parser(str.rawString(),
-                                                   str.rawData(),
-                                                   str.rawLength());
-
-                if (!parser.isObject())
-                    throw HttpReturnException(400, "JSON passed to unpack_json must be an object",
-                                              "json", str);
-
-                return ExpressionValue::
-                    parseJson(parser, ts, ENCODE_ARRAYS);
-            },
-            std::make_shared<UnknownRowValueInfo>()};
-}
-
-static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
 
 BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
 {

@@ -31,30 +31,42 @@ struct SparseMatrixDataset: public Dataset {
         All other views are built on top of this.
     */
     virtual void recordRowItl(const RowName & rowName,
-                           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
 
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+
+    virtual void
+    recordRowExpr(const RowName & rowName,
+                  const ExpressionValue & vals) override;
+
+    virtual void
+    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows)
+        override;
 
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
     */
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn
+    getKnownColumnInfo(const ColumnName & columnName) const override;
 
-    /** Commit changes to the database.  Default is a no-op. */
-    virtual void commit();
+    /** Commit changes to the database. */
+    virtual void commit() override;
 
     // TODO: implement; the default version is very slow
     //virtual std::pair<Date, Date> getTimestampRange() const;
-    virtual Date quantizeTimestamp(Date timestamp) const;
 
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-    virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual Date quantizeTimestamp(Date timestamp) const override;
+
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
 
     virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
                   const RestRequest & request,
-                  RestRequestParsingContext & context) const;
+                  RestRequestParsingContext & context) const override;
+
+    virtual ExpressionValue getRowExpr(const RowName & rowName) const override;
 
 protected:
     struct Itl;
@@ -108,6 +120,8 @@ struct MutableSparseMatrixDataset: public SparseMatrixDataset {
     MutableSparseMatrixDataset(MldbServer * owner,
                                PolyConfig config,
                                const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual MultiChunkRecorder getChunkRecorder();
 
     struct Itl;
 };

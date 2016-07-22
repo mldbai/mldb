@@ -30,7 +30,7 @@ function assertEqual(expr, val, msg)
 }
 
 
-var resp = mldb.get("/v1/query", {q:"SELECT y, label, x FROM test", format:'table'});
+var resp = mldb.get("/v1/query", {q:"SELECT y, label, x FROM test ORDER BY rowPath()", format:'table'});
 
 assertEqual(resp.responseCode, 200, "Error executing query");
 
@@ -38,9 +38,9 @@ plugin.log("returned", resp.json);
 
 var expected = [
    [ "_rowName", "label", "x", "y" ],
-   [ "ex3", "cat", 1, 2 ],
+   [ "ex1", "cat", 0, 0 ],
    [ "ex2", "dog", 1, 1 ],
-   [ "ex1", "cat", 0, 0 ]
+   [ "ex3", "cat", 1, 2 ]
 ];
 
 plugin.log("expected", expected);

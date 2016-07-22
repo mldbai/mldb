@@ -347,8 +347,8 @@ queryFromStatement(const SelectStatement & stm,
         return table.dataset->queryStructured(stm.select, stm.when,
                                               *stm.where,
                                               stm.orderBy, stm.groupBy,
-                                              *stm.having,
-                                              *stm.rowName,
+                                              stm.having,
+                                              stm.rowName,
                                               stm.offset, stm.limit, 
                                               table.asName);
     }
@@ -429,8 +429,8 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
             (onRow, stm.select, stm.when,
              *stm.where,
              stm.orderBy, stm.groupBy,
-             *stm.having,
-             *stm.rowName,
+             stm.having,
+             stm.rowName,
              stm.offset, stm.limit, 
              table.asName);
     }
