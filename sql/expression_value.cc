@@ -503,6 +503,13 @@ getSchemaCompleteness() const
                               "type", ML::type_name(*this));
 }
 
+SchemaCompleteness
+ExpressionValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return SCHEMA_CLOSED;
+}
+
 std::vector<KnownColumn>
 ExpressionValueInfo::
 getKnownColumns() const
@@ -663,6 +670,7 @@ struct ExpressionValueInfoPtrDescription
             out["kind"] = "row";
             out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
             out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
+            out["hasUnknownColumnsRecursive"] = (*val)->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
         }
         context.writeJson(out);
     }
@@ -699,6 +707,7 @@ struct RowValueInfoPtrDescription
         out["kind"] = "row";
         out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
         out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
+        out["hasUnknownColumnsRecursive"] = (*val)->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
         context.writeJson(out);
     }
     
@@ -972,6 +981,13 @@ getSchemaCompleteness() const
     return SCHEMA_CLOSED;
 }
 
+SchemaCompleteness
+EmbeddingValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return getSchemaCompleteness();
+}
+
 
 // TODO: generalize
 std::shared_ptr<ExpressionValueInfo>
@@ -1138,6 +1154,13 @@ getSchemaCompleteness() const
     return SCHEMA_OPEN;
 }
 
+SchemaCompleteness
+AnyValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return SCHEMA_OPEN;
+}
+
 std::vector<KnownColumn>
 AnyValueInfo::
 getKnownColumns() const
@@ -1154,8 +1177,15 @@ RowValueInfo::
 RowValueInfo(const std::vector<KnownColumn> & columns,
              SchemaCompleteness completeness)
     : columns(columns),
-      completeness(completeness)
+      completeness(completeness),
+      completenessRecursive(completeness)
 {
+    for (auto & c: this->columns) {
+        if (c.valueInfo->getSchemaCompletenessRecursive() == SCHEMA_OPEN) {
+            completenessRecursive = SCHEMA_OPEN;
+            break;
+        }
+    }
 }
 
 bool
@@ -1194,6 +1224,13 @@ RowValueInfo::
 getSchemaCompleteness() const
 {
     return completeness;
+}
+
+SchemaCompleteness
+RowValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return completenessRecursive;
 }
 
 std::shared_ptr<ExpressionValueInfo>

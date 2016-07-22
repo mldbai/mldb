@@ -3478,8 +3478,9 @@ bind(SqlBindingScope & scope) const
             // i.e select x.a.* from x returns a.b
             // But we have to check the initial prefix for joins
             // i.e select x.a.* from x join y returns x.a.b
-            if (!inputColumnName.matchWildcard(simplifiedPrefix) && !inputColumnName.matchWildcard(prefix)) {
-               //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
+            if (!inputColumnName.matchWildcard(simplifiedPrefix)
+                && !inputColumnName.matchWildcard(prefix)) {
+                //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
                 return ColumnName();
             }
 
@@ -3677,7 +3678,8 @@ bind(SqlBindingScope & scope) const
         std::vector<KnownColumn> knownColumns = {
             KnownColumn(alias, exprBound.info, COLUMN_IS_DENSE) };
         
-        auto info = std::make_shared<RowValueInfo>(knownColumns, SCHEMA_CLOSED);
+        auto info = std::make_shared<RowValueInfo>
+            (knownColumns, SCHEMA_CLOSED);
 
         return BoundSqlExpression(exec, this, info);
     }
