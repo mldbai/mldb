@@ -23,10 +23,9 @@ class DistinctOnTest(MldbUnitTest):
         ds.record_row("row5",[["x", 2, 0], ["y", 5, 0], ["z", 3, 0]])
         ds.commit()
 
-    def test_distincton(self):        
+    def test_distincton(self):
 
         res = mldb.query("SELECT DISTINCT ON (x) x, y FROM dataset1 ORDER BY x,y")
-        mldb.log(res)
 
         expected = [["_rowName","x","y"],
                     ["row1", 1,  1 ],
@@ -34,11 +33,9 @@ class DistinctOnTest(MldbUnitTest):
 
         self.assertEqual(res, expected)    
 
-    def test_distincton_where(self):        
+    def test_distincton_where(self):
 
         res = mldb.query("SELECT DISTINCT ON (x) x, y FROM dataset1 WHERE y % 2 = 0 ORDER BY x,y")
-
-        mldb.log(res)
 
         expected = [["_rowName", "x", "y"],
                     ["row4", 1, 4],
@@ -46,14 +43,68 @@ class DistinctOnTest(MldbUnitTest):
 
         self.assertEqual(res, expected)
 
-    def test_distincton_groupby(self):        
+    def test_distincton_offset(self):
+
+        #without offset/limit we have rows 1, 3, 5
+        res = mldb.query("SELECT DISTINCT ON (z) x, y FROM dataset1 ORDER BY z OFFSET 1")
+
+        expected = [["_rowName", "x", "y"],
+                    ["row3", 1, 3],
+                    ["row5", 2, 5]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_limit(self):
+
+        #without offset/limit we have rows 1, 3, 5
+        res = mldb.query("SELECT DISTINCT ON (z) x, y FROM dataset1 ORDER BY z LIMIT 2")
+
+        expected = [["_rowName", "x", "y"],
+                    ["row1", 1, 1],
+                    ["row3", 1, 3]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_limit_offset(self):
+
+        #without offset/limit we have rows 1, 3, 5
+        res = mldb.query("SELECT DISTINCT ON (z) x, y FROM dataset1 ORDER BY z LIMIT 1 OFFSET 1")
+
+        expected = [["_rowName", "x", "y"],
+                    ["row3", 1, 3]]
+
+        self.assertEqual(res, expected)   
+
+    def test_distincton_groupby(self):
 
         res = mldb.query("SELECT DISTINCT ON (max(x)) z, max(x) FROM dataset1 GROUP BY z ORDER BY max(x)")
 
-        mldb.log(res)
-
         expected = [["_rowName", "max(x)", "z"],
                     ["[2]", 1, 2],
+                    ["[1]", 2, 1]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_groupby_offset(self):
+
+        res = mldb.query("SELECT DISTINCT ON (max(x)) z, max(x) FROM dataset1 GROUP BY z ORDER BY max(x) OFFSET 1")
+        expected = [["_rowName", "max(x)", "z"],
+                    ["[1]", 2, 1]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_groupby_limit(self):
+
+        res = mldb.query("SELECT DISTINCT ON (max(x)) z, max(x) FROM dataset1 GROUP BY z ORDER BY max(x) LIMIT 1")
+        expected = [["_rowName", "max(x)", "z"],
+                    ["[2]", 1, 2]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_groupby_limit_offset(self):
+
+        res = mldb.query("SELECT DISTINCT ON (max(x)) z, max(x) FROM dataset1 GROUP BY z ORDER BY max(x) LIMIT 1 OFFSET 1")
+        expected = [["_rowName", "max(x)", "z"],
                     ["[1]", 2, 1]]
 
         self.assertEqual(res, expected)

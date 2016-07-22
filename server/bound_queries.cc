@@ -515,14 +515,12 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssertGreaterEqual(offset, 0);
 
-        ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
-        ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
-
         if (doDistinctOn_) {
 
             ExpressionValue reference;
+            ssize_t count = 0;
 
-            for (unsigned i = begin;  i < end;  ++i) {
+            for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
 
                 ExpressionValue & mark = std::get<0>(rowsSorted[i])[0];
 
@@ -536,16 +534,26 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                         continue; //skip duplicates
                 }
 
+                ++count;
+
+                if (count <= offset)
+                    continue;
+
                 auto & row = std::get<1>(rowsSorted[i]);
                 auto & calcd = std::get<2>(rowsSorted[i]);
 
                 /* Finally, pass to the terminator to continue. */
                 if (!processor(row, calcd, i))
                     return false;
+
+                if (count - offset == limit)
+                    break;
             }
 
         }
         else {
+            ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
+            ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
             for (unsigned i = begin;  i < end;  ++i) {
 
                 auto & row = std::get<1>(rowsSorted[i]);
@@ -1730,14 +1738,12 @@ execute(RowProcessor processor,
 
     ExcAssertGreaterEqual(offset, 0);
 
-    ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
-    ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
-
     if (select.distinctExpr) {
 
         ExpressionValue reference;
+        ssize_t count = 0;
 
-        for (unsigned i = begin;  i < end;  ++i) {
+        for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
 
             ExpressionValue & mark = std::get<0>(rowsSorted[i])[0];
 
@@ -1751,16 +1757,26 @@ execute(RowProcessor processor,
                     continue; //skip duplicates
             }
 
+            ++count;
+
+            if (count <= offset)
+                continue;
+
             auto & row = std::get<1>(rowsSorted[i]);
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
                 return false;
+
+            if (count - offset == limit)
+                break;
         }
 
     }
     else {
 
+        ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
+        ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
 
         for (unsigned i = begin;  i < end;  ++i) {
             auto & row = std::get<1>(rowsSorted[i]);
