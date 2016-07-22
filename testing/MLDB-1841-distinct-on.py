@@ -139,6 +139,26 @@ class DistinctOnTest(MldbUnitTest):
 
         self.assertEqual(res, expected)
 
+    def test_distincton_subselect(self):
+
+        res = mldb.query("SELECT * FROM (SELECT DISTINCT ON (x) x, y FROM dataset1 ORDER BY x,y)")
+
+        expected = [["_rowName","x","y"],
+                    ["row1", 1,  1 ],
+                    ["row2", 2,  2 ]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_where_subselect(self):
+
+        res = mldb.query("SELECT * FROM (SELECT DISTINCT ON (x) x, y FROM dataset1 WHERE y % 2 = 0 ORDER BY x,y)")
+
+        expected = [["_rowName","x","y"],
+                    ["row4", 1, 4],
+                    ["row2", 2, 2]]
+
+        self.assertEqual(res, expected)
+
     def test_distinct_generic(self):
        
         with self.assertMldbRaises(expected_regexp="Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'."):
