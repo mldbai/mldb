@@ -31,7 +31,7 @@ class DistinctOnTest(MldbUnitTest):
                     ["row1", 1,  1 ],
                     ["row2", 2,  2 ]]
 
-        self.assertEqual(res, expected)    
+        self.assertEqual(res, expected)
 
     def test_distincton_where(self):
 
@@ -106,6 +106,36 @@ class DistinctOnTest(MldbUnitTest):
         res = mldb.query("SELECT DISTINCT ON (max(x)) z, max(x) FROM dataset1 GROUP BY z ORDER BY max(x) LIMIT 1 OFFSET 1")
         expected = [["_rowName", "max(x)", "z"],
                     ["[1]", 2, 1]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_pipeline(self):
+
+        res = mldb.put('/v1/functions/mydistinct', {
+                    'type': 'sql.query',
+                    'params': {
+                    'query': 'SELECT DISTINCT ON (x) x, y FROM dataset1 ORDER BY x,y'
+                    }})
+
+        res = mldb.query('SELECT mydistinct({}) as *')
+
+        expected = [["_rowName","x","y"],
+                    ["result", 1,  1 ]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_where_pipeline(self):
+
+        res = mldb.put('/v1/functions/mydistinct', {
+                    'type': 'sql.query',
+                    'params': {
+                    'query': 'SELECT DISTINCT ON (x) x, y FROM dataset1 WHERE y % 2 = 0 ORDER BY x,y'
+                    }})
+
+        res = mldb.query('SELECT mydistinct({}) as *')
+
+        expected = [["_rowName", "x", "y"],
+                    ["result", 1, 4]]
 
         self.assertEqual(res, expected)
 
