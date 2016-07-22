@@ -3458,35 +3458,53 @@ forEachAtomDestructiveT(Fn && onAtom)
             // a non-const version of that expression.  This means that it
             // should be thread-safe to break constness and steal the result,
             // as otherwise we would have two references from different threads
-            // with at least one non-const, which breaks thread safety.
+            // with at least one non-const, which is undefined behaviour.
 
             for (auto & col: const_cast<Structured &>(*structured_)) {
-                auto onAtom2 = [&] (ColumnName & columnName,
-                                    CellValue & val,
-                                    Date ts)
-                    {
-                        Path fullColumnName
+                if (std::get<1>(col).isAtom()) {
+                    Path columnName(std::move(std::get<0>(col)));
+                    CellValue atom(std::get<1>(col).stealAtom());
+                    onAtom(columnName, atom,
+                           std::get<1>(col).getEffectiveTimestamp());
+                }
+                else {
+                    auto onAtom2 = [&] (ColumnName & columnName,
+                                        CellValue & val,
+                                        Date ts)
+                        {
+                            //cerr << "adding " << std::get<0>(col)
+                            //<< " and " << columnName << endl;
+                            Path fullColumnName
                             = std::move(std::get<0>(col)) + std::move(columnName);
-                        return onAtom(fullColumnName, val, ts);
-                    };
+                            return onAtom(fullColumnName, val, ts);
+                        };
                 
-                std::get<1>(col).forEachAtomDestructive(onAtom2);
+                    std::get<1>(col).forEachAtomDestructive(onAtom2);
+                }
             }
         }
         else {
             for (auto & col: *structured_) {
-                auto onAtom2 = [&] (ColumnName columnName,
-                                    ColumnName prefix,
-                                    CellValue val,
-                                    Date ts)
-                    {
-                        Path fullColumnName
+                if (std::get<1>(col).isAtom()) {
+                    ColumnName columnName(std::get<0>(col));
+                    CellValue val(std::get<1>(col).getAtom());
+                    onAtom(columnName, val, 
+                           std::get<1>(col).getEffectiveTimestamp());
+                }
+                else {
+                    auto onAtom2 = [&] (ColumnName columnName,
+                                        ColumnName prefix,
+                                        CellValue val,
+                                        Date ts)
+                        {
+                            Path fullColumnName
                             = std::move(prefix) + std::move(columnName);
 
-                        return onAtom(fullColumnName, val, ts);
-                    };
+                            return onAtom(fullColumnName, val, ts);
+                        };
                 
-                std::get<1>(col).forEachAtom(onAtom2, std::get<0>(col));
+                    std::get<1>(col).forEachAtom(onAtom2, std::get<0>(col));
+                }
             }
         }
         return true;

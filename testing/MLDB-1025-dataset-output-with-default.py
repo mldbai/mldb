@@ -5,10 +5,8 @@
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
-import datetime
 
 dataset_index = 1
-
 
 def run_transform(output):
     global dataset_index
@@ -44,7 +42,7 @@ def load_test_dataset():
     row_count = 10
     for i in xrange(row_count - 1):
         # row name is x's value
-        ds1.record_row(str(i), [['x', i, now], ['y', i, now]])
+        ds1.record_row(str(i), [['x', i, 0], ['y', i, 0]])
 
     ds1.commit()
 
@@ -98,70 +96,83 @@ def train_kmeans_with_default(config):
     mldb.log(response)
     return response['type']
 
-now = datetime.datetime.now()
-same_time_tomorrow = now + datetime.timedelta(days=1)
-in_two_hours = now + datetime.timedelta(hours=2)
 
-load_test_dataset()
+class Mldb1025DatasetOutputWithDefault(MldbUnitTest):
 
-# check that the transformed dataset is as expected
-assert len(run_transform({"id": "dataset2", "type": "sparse.mutable"})) == 1, \
-    'expected only one row to be returned'
-# check that default type works
-assert len(run_transform({"id": "dataset3"})) == 1, \
-    'expected only one row to be returned'
-# check that string are interpreted as dataset id
-assert len(run_transform("dataset4")) == 1, \
-    'expected only one row to be returned'
-# check that the transformed dataset can be overwritten
-assert len(run_transform({"id": "dataset2", "type": "sparse.mutable"})) == 1, \
-    'expected only one row to be returned'
+    def test_id(self):
 
-train_svd_with_default()
+        load_test_dataset()
 
-metric = 'euclidean'
-kmeans_config = {
-    'type' : 'kmeans.train',
-    'params' : {
-        'trainingData' : 'select * from dataset1',
-        'centroidsDataset' : {'id' : 'kmeans_centroids',
-                              'params': {'metric': metric}},
-        'numClusters' : 2,
-        'metric': metric
-    }
-}
+        # check that the transformed dataset is as expected
+        self.assertEqual(
+            len(run_transform({"id": "dataset2", "type": "sparse.mutable"})),
+            1, 'expected only one row to be returned')
 
-# check that the default type is used
-result = mldb.get('/v1/datasets')
-dataset_count_before = len(result.json())
-assert train_kmeans_with_default(kmeans_config) == 'embedding', \
-    'expected an embedding output dataset'
-result = mldb.get('/v1/datasets')
-dataset_count_after = len(result.json())
-assert dataset_count_before + 1 == dataset_count_after, \
-    'only the centroids must have been created'
+        # check that default type works
+        self.assertEqual(len(run_transform({"id": "dataset3"})), 1,
+                         'expected only one row to be returned')
 
-kmeans_config = {
-    'type' : 'kmeans.train',
-    'params' : {
-        'trainingData' : 'select * from dataset1',
-        'centroidsDataset' : {'id' : 'kmeans_centroids_2',
-                              'type' : 'sparse.mutable'},
-        'outputDataset': { 'type' : 'embedding'},
-        'numClusters' : 2,
-        'metric': metric
-    }
-}
+        # check that string are interpreted as dataset id
+        self.assertEqual(len(run_transform("dataset4")), 1,
+                         'expected only one row to be returned')
 
-# check that the type can be changed and that id are auto-generated when not
-# specified
-result = mldb.get('/v1/datasets')
-dataset_count_before = len(result.json())
-assert train_kmeans_with_default(kmeans_config) == 'sparse.mutable', \
-    'expected an sparse.mutable output dataset'
-result = mldb.get('/v1/datasets')
-dataset_count_after = len(result.json())
-assert dataset_count_before + 2 == dataset_count_after, \
-    'expect the centroids and the outputDataset to be created'
+        # check that the transformed dataset can be overwritten
+        self.assertEqual(
+            len(run_transform({"id": "dataset2", "type": "sparse.mutable"})),
+            1, 'expected only one row to be returned')
 
-mldb.script.set_return('success')
+        train_svd_with_default()
+
+        metric = 'euclidean'
+        kmeans_config = {
+            'type' : 'kmeans.train',
+            'params' : {
+                'trainingData' : 'select * from dataset1',
+                'centroidsDataset' : {'id' : 'kmeans_centroids',
+                                    'params': {'metric': metric}},
+                'numClusters' : 2,
+                'metric': metric,
+                'runOnCreation' : 0
+            }
+        }
+
+        # check that the default type is used
+        result = mldb.get('/v1/datasets')
+        dataset_count_before = len(result.json())
+        self.assertEqual(train_kmeans_with_default(kmeans_config), 'embedding',
+                         'expected an embedding output dataset')
+        result = mldb.get('/v1/datasets')
+        dataset_count_after = len(result.json())
+        self.assertEqual(dataset_count_before + 1, dataset_count_after,
+                         'only the centroids must have been created')
+
+        kmeans_config = {
+            'type' : 'kmeans.train',
+            'params' : {
+                'trainingData' : 'select * from dataset1',
+                'centroidsDataset' : {'id' : 'kmeans_centroids_2',
+                                    'type' : 'sparse.mutable'},
+                'outputDataset': { 'type' : 'embedding'},
+                'numClusters' : 2,
+                'metric': metric,
+                'runOnCreation' : 0
+            }
+        }
+
+        # check that the type can be changed and that id are auto-generated when not
+        # specified
+        result = mldb.get('/v1/datasets')
+        dataset_count_before = len(result.json())
+        self.assertEqual(train_kmeans_with_default(kmeans_config),
+                         'sparse.mutable',
+                         'expected an sparse.mutable output dataset')
+        result = mldb.get('/v1/datasets')
+        dataset_count_after = len(result.json())
+        self.assertEqual(
+            dataset_count_before + 2, dataset_count_after,
+            'expect the centroids and the outputDataset to be created')
+
+        mldb.script.set_return('success')
+
+if __name__ == '__main__':
+    mldb.run_tests()
