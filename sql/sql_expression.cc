@@ -3096,18 +3096,48 @@ bind(SqlBindingScope & context) const
     for (auto & c: clauses)
         boundClauses.emplace_back(std::move(c->bind(context)));
 
+    std::unordered_set<ColumnName> outputColumnNames;
     std::vector<KnownColumn> outputColumns;
+    std::vector<std::tuple<PathElement, int, int> > sortedColumns;
+    std::vector<size_t> numColumnsByClause;
 
     bool hasUnknownColumns = false;
     bool isConstant = true;
-    for (auto & c: boundClauses) {
+
+    for (size_t i = 0;  i < boundClauses.size();  ++i) {
+        const BoundSqlExpression & c = boundClauses[i];
+
         ExcAssert(c.info);
         if (c.info->getSchemaCompleteness() == SCHEMA_OPEN) {
             hasUnknownColumns = true;
         }
 
         auto knownColumns = c.info->getKnownColumns();
+
+        numColumnsByClause.push_back(knownColumns.size());
+
+        cerr << "clause " << c.expr->print() << " has columns "
+             << jsonEncode(knownColumns) << endl;
+
+        // Which column name prefixes are within this place?
+        std::set<PathElement> prefixes;
         
+        for (auto & col: knownColumns) {
+            prefixes.insert(col.columnName[0]);
+        }
+
+        size_t j = 0;
+        for (auto & p: prefixes) {
+            sortedColumns.emplace_back(std::move(p), i, j++);
+        }
+
+        std::sort(knownColumns.begin(), knownColumns.end(),
+                  [] (const KnownColumn & col1,
+                      const KnownColumn & col2)
+                  {
+                      return col1.columnName < col2.columnName;
+                  });
+
         outputColumns.insert(outputColumns.end(),
                              knownColumns.begin(),
                              knownColumns.end());
@@ -3120,24 +3150,105 @@ bind(SqlBindingScope & context) const
         (std::move(outputColumns),
          hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED);
 
-    auto exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &
-        {
-            StructValue result;
-            result.reserve(boundClauses.size());
-            for (auto & c: boundClauses) {
-                ExpressionValue storage;
-                const ExpressionValue & v = c(context, storage, filter);
-                if (&v == &storage)
-                    storage.mergeToRowDestructive(result);
-                else v.appendToRow(Path(), result);
-            }
-            
-            return storage = std::move(ExpressionValue(std::move(result)));
-        };
+    if (!hasUnknownColumns) {
+        std::sort(sortedColumns.begin(),
+                  sortedColumns.end());
 
-    return BoundSqlExpression(exec, this, outputInfo, isConstant);
+        std::vector<std::vector<size_t> > outputMap(boundClauses.size());
+        for (size_t i = 0;  i < numColumnsByClause.size();  ++i) {
+            outputMap[i].resize(numColumnsByClause[i]);
+        }
+
+        bool hasDuplicates = false;
+        for (size_t i = 0;  i < sortedColumns.size();  ++i) {
+            if (!hasDuplicates
+                && i != 0
+                && std::get<0>(sortedColumns[i]) == std::get<0>(sortedColumns[i-1]))
+                hasDuplicates = true;
+
+            outputMap[std::get<1>(sortedColumns[i])].at(std::get<2>(sortedColumns[i]))
+                = i;
+        }
+    
+        auto exec = [=] (const SqlRowScope & context,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter) -> const ExpressionValue &
+            {
+                StructValue result(sortedColumns.size());
+
+                for (size_t i = 0;  i < boundClauses.size();  ++i) {
+                    auto & c = boundClauses[i];
+                    ExpressionValue storage;
+                    const ExpressionValue & v = c(context, storage, filter);
+                    ExcAssertEqual(v.rowLength(), outputMap[i].size());
+
+                    size_t n = 0;
+                    if (JML_LIKELY(&v == &storage)) {
+                        auto onColumn = [&] (PathElement & columnName,
+                                             ExpressionValue & value)
+                            {
+                                ExcAssertLess(n, result.size());
+                                size_t elNum = outputMap[i][n++];
+                                ExcAssertEqual(std::get<0>(sortedColumns[elNum]),
+                                               columnName);
+                                result[elNum]
+                                    = std::make_tuple(std::move(columnName),
+                                                      std::move(value));
+                                return true;
+                            };
+                        storage.forEachColumnDestructive(onColumn);
+                    }
+                    else {
+                        auto onColumn = [&] (const PathElement & columnName,
+                                             const ExpressionValue & value)
+                            {
+                                ExcAssertLess(n, result.size());
+                                size_t elNum = outputMap[i][n++];
+                                ExcAssertEqual(std::get<0>(sortedColumns[elNum]),
+                                               columnName);
+                                result[elNum]
+                                    = std::make_tuple(columnName, value);
+                                return true;
+                            };
+                        v.forEachColumn(onColumn);
+                    }
+                    ExcAssertEqual(n, outputMap[i].size());
+                }
+                
+                return storage = ExpressionValue(std::move(result),
+                                                 ExpressionValue::SORTED,
+                                                 hasDuplicates
+                                                 ? ExpressionValue::HAS_DUPLICATES
+                                                 : ExpressionValue::NO_DUPLICATES);
+            };
+
+        return BoundSqlExpression(exec, this, outputInfo, isConstant);
+    }
+    else {
+        auto exec = [=] (const SqlRowScope & context,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter) -> const ExpressionValue &
+            {
+                StructValue result;
+                
+                for (size_t i = 0;  i < boundClauses.size();  ++i) {
+                    auto & c = boundClauses[i];
+                    ExpressionValue storage;
+                    const ExpressionValue & v = c(context, storage, filter);
+
+                    if (JML_LIKELY(&v == &storage)) {
+                        storage.mergeToRowDestructive(result);
+                    }
+                    else {
+                        v.appendToRow(Path(), result);
+                    }
+                }
+            
+                return storage = ExpressionValue(std::move(result));
+            };
+        
+        return BoundSqlExpression(exec, this, outputInfo, isConstant);
+    }
 }
 
 Utf8String
