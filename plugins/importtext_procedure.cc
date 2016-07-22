@@ -885,12 +885,21 @@ struct ImportTextProcedureWorkInstance
             if (!columnIndex.insert(make_pair(ch, i)).second)
                 throw HttpReturnException(400, "Duplicate column name in select expression",
                                           "columnName", col.columnName);
-
+            
             knownColumnNames.emplace_back(col.columnName);
+
+            if (!col.sparsity != COLUMN_IS_DENSE) {
+                cerr << "column " << col.columnName << " is not dense" << endl;
+                //areOutputColumnNamesKnown = false;
+            }
         }
 
-        if (isIdentitySelect)
+        if (isIdentitySelect) {
             ExcAssertEqual(inputColumnNames, knownColumnNames);
+        }
+        else if (areOutputColumnNamesKnown) {
+            std::sort(knownColumnNames.begin(), knownColumnNames.end());
+        }
 
         //cerr << "reading " << inputColumnNames.size() << " columns "
         //     << jsonEncodeStr(inputColumnNames) << endl;
@@ -955,7 +964,8 @@ struct ImportTextProcedureWorkInstance
             std::unique_ptr<Recorder> threadRecorder;
 
             /// Special function to allow rapid insertion of fixed set of
-            /// atom valued columns.  Only for isIdentitySelect.
+            /// atom valued columns.  Only for isIdentitySelect or when we
+            /// know our output column names are consistent.
             std::function<void (RowName rowName,
                                 Date timestamp,
                                 CellValue * vals,
@@ -973,10 +983,10 @@ struct ImportTextProcedureWorkInstance
                 //     << lineNumber << endl;
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
-                if (isIdentitySelect)
+                if (isIdentitySelect || areOutputColumnNamesKnown)
                     threadAccum.specializedRecorder
                         = threadAccum.threadRecorder
-                        ->specializeRecordTabular(inputColumnNames);
+                        ->specializeRecordTabular(knownColumnNames);
                 return true;
             };
 
@@ -1002,10 +1012,10 @@ struct ImportTextProcedureWorkInstance
                 onProgress(jsonEncode(iterationStep));
             }
             int64_t actualLineNum = lineNum + lineOffset;
-#if 0
+#if 1
             uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
-            if (linesDone && linesDone % 1000000 == 0) {
+            if (linesDone && linesDone % 100000 == 0) {
                 double wall = timer.elapsed_wall();
                 cerr << "done " << linesDone << " in " << wall
                      << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
@@ -1084,16 +1094,60 @@ struct ImportTextProcedureWorkInstance
                                                 values.size(), {});
             }
             else {
-                // TODO: optimization for
-                // SELECT * excluding (...)
-
                 ExpressionValue selectStorage;
                 const ExpressionValue & selectOutput
                         = selectBound(row, selectStorage, GET_ALL);
 
-                if (&selectOutput == &selectStorage) {
-                    // We can destructively work with it
-                    threadAccum.threadRecorder
+                if (areOutputColumnNamesKnown) {
+                    ExpressionValue selectStorage;
+                    const ExpressionValue & selectOutput
+                        = selectBound(row, selectStorage, GET_ALL);
+
+                    // Record fixed columns, once we've rearranged
+                    std::vector<CellValue> toRecord(knownColumnNames.size());
+                    size_t n = 0;
+
+                    if (JML_LIKELY(&selectOutput == &selectStorage)) {
+                        // We can destructively work with it
+
+                        auto onAtom = [&] (ColumnName & columnName,
+                                           CellValue & value,
+                                           Date ts)
+                            {
+                                ExcAssertLess(n, knownColumnNames.size());
+                                ExcAssertEqual(knownColumnNames[n], columnName);
+                                toRecord[n++] = std::move(value);
+                                return true;
+                            };
+
+                        selectStorage.forEachAtomDestructive(onAtom);
+                    }
+                    else {
+                        auto onAtom = [&] (const ColumnName & suffix,
+                                           const ColumnName & prefix,
+                                           const CellValue & value,
+                                           Date ts)
+                            {
+                                ColumnName columnName
+                                    = prefix + suffix;
+                                ExcAssertLess(n, knownColumnNames.size());
+                                ExcAssertEqual(knownColumnNames[n], columnName);
+                                toRecord[n++] = std::move(value);
+                                return true;
+                            };
+                        
+                        selectOutput.forEachAtom(onAtom);
+                    }
+                    ExcAssertEqual(n, knownColumnNames.size());
+
+                    threadAccum.specializedRecorder(std::move(rowName),
+                                                    rowTs, toRecord.data(),
+                                                    toRecord.size(), {});
+                }
+                else {
+                    if (JML_LIKELY(&selectOutput == &selectStorage)) {
+                        // We can destructively work with it
+                        threadAccum.threadRecorder
                         ->recordRowExprDestructive(std::move(rowName),
                                                    std::move(selectStorage));
                     }
@@ -1101,9 +1155,12 @@ struct ImportTextProcedureWorkInstance
                         // We don't own the output; we will need to copy
                         // it.
                         threadAccum.threadRecorder
-                            ->recordRowExpr(std::move(rowName),
-                                            selectOutput);
+                        ->recordRowExpr(std::move(rowName),
+                                        selectOutput);
+                    }
                 }
+                
+                
             }
 
             return true;
