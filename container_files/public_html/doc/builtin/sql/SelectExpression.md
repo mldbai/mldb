@@ -92,6 +92,25 @@ The following functions are available in the context of a column expression:
   of elements in the column path, NULL will be returned.
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.
 
+## Filtering duplicated rows based on an expression
+
+It is possible to filter out rows based on the value of an expression using the `DISTINCT` ON optional
+clause. The syntax is as follow: 
+
+```
+SELECT DISTINCT ON (<value-expr>) <value-expr>, <value-expr>, [...] FROM <from-expression> ORDER BY <order-by-expr>
+```
+
+The value expression of the `DISTINCT ON` clause must match the left-most clause of the `ORDER BY` expression. This will
+filter out rows so that no two rows have the same value for the `DISTINCT ON` clause. For example:
+
+```
+SELECT DISTINCT ON (x) x,y FROM dataset ORDER BY x,y
+```
+
+will return the values `x` and `y` of each row in `dataset`, but will only return the first row for each unique value of 
+`x`.
+
 ## See also
 
 * ![](%%nblink _tutorials/Selecting Columns Programmatically Using Column Expressions Tutorial)
