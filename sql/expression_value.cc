@@ -4201,7 +4201,7 @@ ExpressionValue::
 initStructured(std::shared_ptr<const Structured> value) noexcept
 {
     assertType(Type::NONE);
-    ts_ = Date();
+    ts_ = Date::negativeInfinity();
     if (value->size() == 0) {
         ts_ = Date::notADate();
     }
