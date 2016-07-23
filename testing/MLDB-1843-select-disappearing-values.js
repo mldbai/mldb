@@ -82,9 +82,9 @@ mldb.log("--------------- fourth query");
 
 var resp4 = mldb.query("SELECT f4() AS *");
 
-mldb.log(resp3);
+mldb.log(resp4);
 
-assertEqual(resp1, resp3);
+assertEqual(resp1, resp4);
 
 
 
