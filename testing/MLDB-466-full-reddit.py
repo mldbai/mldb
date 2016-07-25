@@ -15,7 +15,7 @@ class RedditTest(MldbUnitTest):
             "params": { 
                 "dataFileUrl": "http://public.mldb.ai/reddit.csv.gz",
                 'delimiter':'', 
-                'quotechar':'',
+                'quoteChar':'',
                 'outputDataset': 'reddit_raw',
                 'limit': 2000,
                 'runOnCreation': True

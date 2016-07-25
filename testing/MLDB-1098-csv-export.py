@@ -104,7 +104,7 @@ class CsvExportTest(unittest.TestCase):
 
         self.assert_file_content(tmp_file2.name, lines_expect)
 
-    def test_quotechar_delimiter_noheader(self):
+    def test_quoteChar_delimiter_noheader(self):
         tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
         mldb.put('/v1/procedures/export3', {
             'type' : 'export.csv',

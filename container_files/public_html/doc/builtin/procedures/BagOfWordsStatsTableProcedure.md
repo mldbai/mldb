@@ -35,7 +35,7 @@ If we run the following procedure:
 mldb.put("/v1/procedures/my_st", {
     "type": "statsTable.bagOfWords.train",
     "params": {
-        "trainingData": "SELECT tokenize(text, {splitchars: ' '}) as * FROM text_dataset",
+        "trainingData": "SELECT tokenize(text, {splitChars: ' '}) as * FROM text_dataset",
         "outcomes": [["label", "label IS NOT NULL"]],
         "statsTableFileUrl": "file://my_st.st"
     }

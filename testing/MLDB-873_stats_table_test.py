@@ -266,7 +266,7 @@ dataset.commit()
 conf = {
     "type": "statsTable.bagOfWords.train",
     "params": {
-        "trainingData": "select tokenize(text, {splitchars: ' '}) as * from posneg",
+        "trainingData": "select tokenize(text, {splitChars: ' '}) as * from posneg",
         "outcomes": [["label", "CLICK IS NOT NULL"]],
         "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
         "runOnCreation": True,
@@ -303,7 +303,7 @@ mldb.log(rez.json())
 
 rez = mldb.get(
     "/v1/query",
-    q="select posnegz({words: tokenize(text, {splitchars: ' _'})}) as * from posneg")
+    q="select posnegz({words: tokenize(text, {splitChars: ' _'})}) as * from posneg")
 js_rez = rez.json()
 mldb.log(js_rez)
 
@@ -315,7 +315,7 @@ assert_for_rows(js_rez, "b", "probs.I.label", 0.5)
 # lets try with the function we created at procedure run time
 rez = mldb.get(
     "/v1/query",
-    q="select myBowSt({words: tokenize(text, {splitchars: ' .'})}) as * from posneg")
+    q="select myBowSt({words: tokenize(text, {splitChars: ' .'})}) as * from posneg")
 js_rez = rez.json()
 mldb.log(js_rez)
 
