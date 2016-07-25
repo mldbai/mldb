@@ -178,7 +178,7 @@ class CsvExportTest(MldbUnitTest):
                 'exportData' : 'select rowName() as rowName, * from duplicate_test',
                 'dataFileUrl' : 'file://' + tmp_file.name,
                 'headers' : True,
-                'skipDuplicateCellValues': True,
+                'skipDuplicateCells': True,
                 'runOnCreation': True
             }
         })

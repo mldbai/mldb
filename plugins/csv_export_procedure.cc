@@ -49,15 +49,14 @@ CsvExportProcedureConfigDescription()
     addField("quoteChar", &CsvExportProcedureConfig::quoteChar,
              "The character to enclose the values within when they contain "
              "either a delimiter or a quoteChar", string(","));
-    addField("skipDuplicateCellValues", &CsvExportProcedureConfig::skipDuplicateCellValues,
+    addField("skipDuplicateCells", &CsvExportProcedureConfig::skipDuplicateCells,
              "The CSV format cannot represent many values per cell the way MLDB datasets can "
              "by using the time dimension. When this parameter is set to `false`, an exception "
              "will be thrown when the export procedure detects many values for the same "
              "row/column pair.\n\n"
              "To export a dataset that has more than one value in at least one cell, "
              "there are two options:\n\n"
-             "  * Set this parameter to `true`, which will pick one with no garantee as to\n"
-             "    which one.\n"
+             "  * Set this parameter to `true`, which will pick one in an undetermined way.\n"
              "  * Apply a temporal aggregator, like `temporal_max()`, to the values. See the\n"
              "    [Built-in Functions](../sql/ValueExpression.md.html) documentation for the\n"
              "    complete list of aggregators.\n\n",
@@ -145,7 +144,7 @@ run(const ProcedureRunConfig & run,
                     // column must always be found, otherwise me should be in a
                     // context where cells have multiple values.
                     if (columnNamesIt == columnNamesEnd) {
-                        if(runProcConf.skipDuplicateCellValues)
+                        if(runProcConf.skipDuplicateCells)
                             return false;
 
                         throw ML::Exception(Utf8String("CSV export does not work over "

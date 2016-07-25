@@ -15,7 +15,7 @@ namespace MLDB {
 
 struct CsvExportProcedureConfig : ProcedureConfig {
     CsvExportProcedureConfig()
-        : headers(true), skipDuplicateCellValues(false),
+        : headers(true), skipDuplicateCells(false),
           delimiter(","), quoteChar("\"")
     {
     }
@@ -25,7 +25,7 @@ struct CsvExportProcedureConfig : ProcedureConfig {
     InputQuery exportData;
     Url dataFileUrl;
     bool headers;
-    bool skipDuplicateCellValues;
+    bool skipDuplicateCells;
     std::string delimiter;
     std::string quoteChar;
 };
