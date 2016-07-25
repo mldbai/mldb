@@ -60,7 +60,7 @@ config = {
     'params': {
         'tokens': "select ':P', '(>_<)', ':-)'",
         'splitChars': ' ', #split on spaces only
-        'splitcharToInsert': ' '
+        'splitCharToInsert': ' '
     }
 }
 

@@ -490,7 +490,7 @@ assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "
 var mldb1312Config = {
         type: "import.text",
         params: {
-            dataFileUrl : "file://mldb/testing/MLDB-1312-quoteChar.csv",
+            dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
             outputDataset: {
                 id: 'mldb1312',
             },
@@ -534,7 +534,7 @@ assertEqual(res['responseCode'], 400);
 var mldb1312Config_c = {
         type: "import.text",
         params: {
-            dataFileUrl : "file://mldb/testing/MLDB-1312-quoteChar.csv",
+            dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
             outputDataset: {
                 id: 'mldb1312_c',
             },
