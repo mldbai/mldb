@@ -8,8 +8,6 @@ import json
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-#### TODO: CHECK LIMIT / OFFSET
-
 class DistinctOnTest(MldbUnitTest):
 
     @classmethod
