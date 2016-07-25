@@ -142,7 +142,7 @@ class CsvExportTest(MldbUnitTest):
             'id'      : 'duplicate_test'
         }
         dataset = mldb.create_dataset(dataset_config)
-        dataset.record_row("row1", [["x", 5, 0], ["x", 10, 25]])
+        dataset.record_row("row1", [["x", 5, 50], ["x", 10, 25]])
         dataset.record_row("row2", [["x", 5, 0], ["y", 10, 25]])
         dataset.record_row("row3", [["x", 5, 0], ["x", 25, 50]])
         dataset.record_row("row4", [["x", 5, 0], ["y", 20, 25]])
@@ -151,7 +151,7 @@ class CsvExportTest(MldbUnitTest):
         # make sure we did indeed record a dataset with many values for the row1/x pair
         self.assertTableResultEquals(
             mldb.query("""select temporal_min(x),
-                                 temporal_max(x) 
+                                 temporal_max(x)
                             from duplicate_test where rowName()='row1'
                         """),
             [["_rowName","temporal_max(x)","temporal_min(x)"],
@@ -196,7 +196,7 @@ class CsvExportTest(MldbUnitTest):
         })
 
         self.assertTableResultEquals(
-            mldb.query("select * from duplicate_test_reimp"),
+            mldb.query("select * from duplicate_test_reimp order by rowName() DESC"),
             [["_rowName","x","y"],
              ["row4",5,20],
              ["row3",5,None],
