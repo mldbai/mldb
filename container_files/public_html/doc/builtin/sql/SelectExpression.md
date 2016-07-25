@@ -94,8 +94,8 @@ The following functions are available in the context of a column expression:
 
 ## Filtering duplicated rows based on an expression
 
-It is possible to filter out rows based on the value of an expression using the `DISTINCT` ON optional
-clause. The syntax is as follow: 
+It is possible to filter out rows based on the value of an expression using the `DISTINCT ON` optional
+clause. The syntax is as follows: 
 
 ```
 SELECT DISTINCT ON (<value-expr>) <value-expr>, <value-expr>, [...] FROM <from-expression> ORDER BY <order-by-expr>
