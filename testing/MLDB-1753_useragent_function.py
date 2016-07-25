@@ -97,7 +97,7 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
 
     def test_null_input(self):
         self.assertTableResultEquals(
-            mldb.query("select useragent({ua: x}) as * from (select {y:'pwet'})"),
+            mldb.query("select useragent({ua: NULL}) as *"),
             [["_rowName","browser.family","browser.version","device.brand","device.model","isSpider","os.family","os.version"],
             ["result",None,None,None,None,None,None,None]])
 
