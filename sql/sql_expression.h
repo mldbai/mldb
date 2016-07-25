@@ -1231,7 +1231,7 @@ struct SelectExpression: public SqlRowExpression {
     virtual bool isConstant() const;
 
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
-    std::shared_ptr<SqlExpression> distinctExpr;
+    std::vector<std::shared_ptr<SqlExpression>> distinctExpr;
 
     bool operator == (const SelectExpression & other) const;
     bool operator != (const SelectExpression & other) const

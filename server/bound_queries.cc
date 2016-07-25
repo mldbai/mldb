@@ -377,7 +377,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
     OrderByExpression newOrderBy;
-    bool doDistinctOn_;
+    size_t numDistinctOnClauses_;
 
     OrderedExecutor(const Dataset & dataset,
                     GenerateRowsWhereFunction whereGenerator,
@@ -386,7 +386,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
                     OrderByExpression newOrderBy,
-                    bool doDistinctOn)
+                    size_t numDistinctOnClauses)
         : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
@@ -394,7 +394,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
           newOrderBy(std::move(newOrderBy)),
-          doDistinctOn_(doDistinctOn)
+          numDistinctOnClauses_(numDistinctOnClauses)
     {
     }
 
@@ -515,7 +515,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssertGreaterEqual(offset, 0);
 
-        if (doDistinctOn_) {
+        if (numDistinctOnClauses_ > 0) {
 
             ExpressionValue reference;
             ssize_t count = 0;
@@ -1116,7 +1116,7 @@ BoundSelectQuery(const SelectExpression & select,
                                                std::move(boundSelect),
                                                std::move(boundCalc),
                                                std::move(newOrderBy),
-                                               (bool)select.distinctExpr));
+                                               select.distinctExpr.size()));
         } else {
             executor.reset(new UnorderedExecutor(from,
                                                  std::move(whereGenerator),
@@ -1738,7 +1738,7 @@ execute(RowProcessor processor,
 
     ExcAssertGreaterEqual(offset, 0);
 
-    if (select.distinctExpr) {
+    if (select.distinctExpr.size() > 0) {
 
         ExpressionValue reference;
         ssize_t count = 0;
