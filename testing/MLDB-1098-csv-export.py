@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 #
 # MLDB-1089-csv-export.py
 # Mich, 2015-11-16
-# Copyright (c) 2015 Datacratic Inc. All rights reserved.
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 #
 
 import tempfile
@@ -17,8 +15,7 @@ if False:
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-class CsvExportTest(unittest.TestCase):
-
+class CsvExportTest(MldbUnitTest):
     def assert_file_content(self, filename, lines_expect):
         f = codecs.open(filename, 'rt', 'utf8')
         for index, expect in enumerate(lines_expect):
@@ -87,7 +84,7 @@ class CsvExportTest(unittest.TestCase):
                 "named" : "rowName"
             }
         }
-        mldb.log(mldb.put("/v1/procedures/csv_proc", csv_conf))
+        mldb.put("/v1/procedures/csv_proc", csv_conf)
 
         # export it (end of roundtrip)
         tmp_file2 = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
@@ -138,6 +135,74 @@ class CsvExportTest(unittest.TestCase):
                     'delimiter' : ';'
                 }
             })
+
+    def test_duplicate_cells(self):
+        dataset_config = {
+            'type'    : 'sparse.mutable',
+            'id'      : 'duplicate_test'
+        }
+        dataset = mldb.create_dataset(dataset_config)
+        dataset.record_row("row1", [["x", 5, 0], ["x", 10, 25]])
+        dataset.record_row("row2", [["x", 5, 0], ["y", 10, 25]])
+        dataset.record_row("row3", [["x", 5, 0], ["x", 25, 50]])
+        dataset.record_row("row4", [["x", 5, 0], ["y", 20, 25]])
+        dataset.commit()
+
+        # make sure we did indeed record a dataset with many values for the row1/x pair
+        self.assertTableResultEquals(
+            mldb.query("""select temporal_min(x),
+                                 temporal_max(x) 
+                            from duplicate_test where rowName()='row1'
+                        """),
+            [["_rowName","temporal_max(x)","temporal_min(x)"],
+             ["row1",10,5]
+            ])
+
+        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                "cells having multiple values, at row 'row.' for column '.'"):
+            mldb.post('/v1/procedures', {
+                'type' : 'export.csv',
+                'params' : {
+                    'exportData' : 'select rowName() as rowName, * from duplicate_test',
+                    'dataFileUrl' : 'file://' + tmp_file.name,
+                    'headers' : False,
+                    'runOnCreation': True
+                }
+            })
+
+        mldb.put('/v1/procedures/pwet', {
+            'type' : 'export.csv',
+            'params' : {
+                'exportData' : 'select rowName() as rowName, * from duplicate_test',
+                'dataFileUrl' : 'file://' + tmp_file.name,
+                'headers' : True,
+                'skipDuplicateCellValues': True,
+                'runOnCreation': True
+            }
+        })
+
+        mldb.post("/v1/procedures", {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : 'file://' + tmp_file.name,
+                "outputDataset": "duplicate_test_reimp",
+                "ignoreBadLines": False,
+                "select": "* EXCLUDING(rowName)",
+                "named": "rowName",
+                "runOnCreation": True
+            }
+        })
+
+        self.assertTableResultEquals(
+            mldb.query("select * from duplicate_test_reimp"),
+            [["_rowName","x","y"],
+             ["row4",5,20],
+             ["row3",5,None],
+             ["row2",5,10],
+             ["row1",5,None]])
+
 
 if __name__ == '__main__':
     mldb.run_tests()
