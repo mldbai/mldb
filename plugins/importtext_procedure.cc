@@ -861,7 +861,7 @@ struct ImportTextProcedureWorkInstance
         // Figure out our output column names from the bound
         // select clause
 
-        if (selectBound.info->getSchemaCompleteness() != SCHEMA_CLOSED) {
+        if (selectBound.info->getSchemaCompletenessRecursive() != SCHEMA_CLOSED) {
             areOutputColumnNamesKnown = false;
         }
 

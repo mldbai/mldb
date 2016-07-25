@@ -40,7 +40,7 @@ TableLexicalScope(std::shared_ptr<RowValueInfo> rowInfo,
                   return first.columnName < second.columnName;
               });
     
-    hasUnknownColumns = rowInfo->getSchemaCompleteness() == SCHEMA_OPEN;
+    hasUnknownColumns = rowInfo->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
 }
 
 ColumnGetter
@@ -107,7 +107,8 @@ doGetAllColumns(const Utf8String & tableName,
         index[column.columnName] = ColumnName(outputName);
     }
 
-    auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter) -> ExpressionValue
+    auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter)
+        -> ExpressionValue
     {
         auto & row = rowScope.as<PipelineResults>();
 
@@ -125,7 +126,7 @@ doGetAllColumns(const Utf8String & tableName,
             auto it = index.find(newColumnName);
             if (it == index.end()) {
                 if (hasUnknownColumns) {
-                    ColumnName outputName = keep(columnName);
+                    ColumnName outputName = keep(newColumnName);
                     if (!outputName.empty())
                         result.emplace_back(std::move(outputName), val, ts);
                 }
