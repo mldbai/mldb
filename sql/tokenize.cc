@@ -70,7 +70,7 @@ TokenizeOptionsDescription()
         }
         else {
             context.exception("Unknown field '" + context.fieldName()
-                    + " parsing import.text configuration");
+                    + " parsing tokenize configuration");
           }
     };
 }
