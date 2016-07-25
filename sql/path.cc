@@ -220,7 +220,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
     ExcAssertLessEqual((void *)p, (void *)e);
 
     if (p == e) {
-        return { PathElement(), true };
+        return { PathElement(""), true };
     }
 
     if (*p == '\"') {
@@ -303,7 +303,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
         }
         size_t sz = start - p;
         if (sz == 0)
-            return { PathElement(), true };
+            return { PathElement(""), true };
         PathElement result(p, sz);
         p = start;
         return { std::move(result), true };
@@ -478,8 +478,12 @@ Utf8String
 PathElement::
 toEscapedUtf8String() const
 {
-    if (empty())
+    if (empty()) {
+        return "";
+    }
+    if (complex_ == 1 && str.str.empty()) {
         return "\"\"";
+    }
 
     const char * d = data();
     size_t l = dataLength();
@@ -719,7 +723,7 @@ initStringUnchecked(T && str)
     // characters, for example when importing legacy files.
     words[0] = words[1] = words[2] = 0;
     digits_ = calcDigits(rawData(str), rawLength(str));
-    if (rawLength(str) <= INTERNAL_BYTES - 1) {
+    if (rawLength(str) > 0 && rawLength(str) <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = rawLength(str);
         std::copy(rawData(str), rawData(str) + rawLength(str),
@@ -747,7 +751,7 @@ initChars(const char * str, size_t len, int digits)
     ExcAssertLess(len, 1ULL << 32);
     words[0] = words[1] = words[2] = 0;
     digits_ = digits;
-    if (len <= INTERNAL_BYTES - 1) {
+    if (len > 0 && len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = len;
         std::copy(str, str + len, bytes + 1);
@@ -848,6 +852,10 @@ PathBuilder &
 PathBuilder::
 add(PathElement && element)
 {
+    if (element.empty()) {
+        return *this;
+    }
+
     if (bytes.empty()) {
         bytes = element.stealBytes();
     }
@@ -869,6 +877,10 @@ PathBuilder &
 PathBuilder::
 add(const PathElement & element)
 {
+    if (element.empty()) {
+        return *this;
+    }
+
     auto v = element.getStringView();
     bytes.append(v.first, v.first + v.second);
     if (indexes.size() <= 16) {
@@ -897,6 +909,10 @@ PathBuilder &
 PathBuilder::
 addRange(const Path & path, size_t first, size_t last)
 {
+    if (path.empty()) {
+        return *this;
+    }
+
     if (last > path.size())
         last = path.size();
     if (first > last)
@@ -999,7 +1015,7 @@ toUtf8String() const
     for (size_t i = 0;  i < length_;  ++i) {
         if (!first)
             result += '.';
-        result += at(i).toEscapedUtf8String(); 
+        result += at(i).toEscapedUtf8String();
         first = false;
     }
     return result;
@@ -1065,7 +1081,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
     }
 
     if (str != e && e[-1] == '.') {
-        builder.add(PathElement());
+        builder.add(PathElement(""));
     }
 
     return { builder.extract(), true };

@@ -725,7 +725,7 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
                 else if (!context) {
                     break;
                 }
-                else result += expectUtf8Char(context);           
+                else result += expectUtf8Char(context);
             }
         }
         
@@ -756,8 +756,6 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 
     Utf8String first = matchIdentifier(context, allowUtf8);
 
-    if (first.empty())
-        return result;
     result = PathElement(std::move(first));
 
     while (context.match_literal('.')) {

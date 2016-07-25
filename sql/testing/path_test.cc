@@ -54,19 +54,45 @@ BOOST_AUTO_TEST_CASE(test_coord_constructor)
 {
     PathElement coord1;
     BOOST_CHECK(coord1.empty());
- 
+
     BOOST_CHECK_EQUAL(coord1.toUtf8String(), "");
-   
+
     Path coords1;
     BOOST_CHECK(coords1.empty());
 
     BOOST_CHECK_EQUAL(coords1.toUtf8String(), "");
 
-    BOOST_CHECK_EQUAL((coords1 + coord1).toUtf8String(), "\"\"");
+    Path p2 = coords1 + coords1;
+    BOOST_CHECK(p2.empty());
+
+    BOOST_CHECK_EQUAL(p2.toUtf8String(), "");
+    BOOST_CHECK_EQUAL((coords1 + coord1).toUtf8String(), "");
     BOOST_CHECK_EQUAL(Path(coord1).toUtf8String(), "");
 
     vector<PathElement> coords2;
     coords2.push_back(coord1);
+}
+
+BOOST_AUTO_TEST_CASE(test_empty_str)
+{
+    PathElement pe("");
+    BOOST_CHECK(!pe.empty());
+
+    BOOST_CHECK_EQUAL(pe.toUtf8String(), "");
+    BOOST_CHECK_EQUAL(pe.toEscapedUtf8String(), "\"\"");
+
+    Path path(pe);
+    BOOST_CHECK(!path.empty());
+    BOOST_CHECK_EQUAL(path.size(), 1);
+    BOOST_CHECK_EQUAL(path.toUtf8String(), "\"\"");
+    BOOST_CHECK_EQUAL((pe + pe).toUtf8String(), "\"\".\"\"");
+}
+
+BOOST_AUTO_TEST_CASE(test_double_quotes_str)
+{
+    PathElement pe("\"\"");
+    BOOST_CHECK_EQUAL(pe.toUtf8String(), "\"\"");
+    BOOST_CHECK_EQUAL(pe.toEscapedUtf8String(), "\"\"\"\"\"\"");
 }
 
 BOOST_AUTO_TEST_CASE(test_coord_printing)
@@ -154,7 +180,6 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
         Path coords1 = Path::parse("é");
         BOOST_CHECK_EQUAL(coords1.toUtf8String(), "é");
     }
-
     {
         Path coords1 = Path::parse("..");
         BOOST_CHECK_EQUAL(coords1.size(), 3);
@@ -322,4 +347,12 @@ BOOST_AUTO_TEST_CASE(test_append)
     BOOST_CHECK_EQUAL(p0 + p0, p0);
     BOOST_CHECK_EQUAL(p0 + p1, p1);
     BOOST_CHECK_EQUAL(p1 + p0, p1);
+}
+
+BOOST_AUTO_TEST_CASE(test_path_builder)
+{
+    PathElement elem("x");
+    PathBuilder builder;
+    builder.add(elem);
+    Path path = builder.extract();
 }
