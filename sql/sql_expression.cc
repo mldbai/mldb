@@ -3027,8 +3027,23 @@ SelectExpression
 SelectExpression::
 parse(ML::Parse_Context & context, bool allowUtf8)
 {
+    std::shared_ptr<SqlExpression> distinctExpr;
+
+    if (matchKeyword(context, "DISTINCT ON ")) {
+        context.skip_whitespace();
+        context.expect_literal('(');
+        distinctExpr = SqlExpression::parse(context, 10, allowUtf8);
+        context.expect_literal(')');
+    }
+    else if (matchKeyword(context, "DISTINCT ")) {
+        throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
+    }
+
     SelectExpression result
         = SqlRowExpression::parseList(context, allowUtf8);
+
+    result.distinctExpr = distinctExpr;
+
     // concatenate all the surfaces with spaces
     result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
                                      [](const Utf8String & prefix,
@@ -3043,10 +3058,11 @@ SelectExpression::
 parse(const std::string & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ML::Parse_Context context(filename.empty() ? expr : filename,
+                              expr.c_str(),
+                              expr.length(), row, col);
+
+    return parse(context, false); 
 }
 
 SelectExpression
@@ -3942,6 +3958,13 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     }
     else {
         statement.offset = 0;
+    }
+
+    if (statement.select.distinctExpr) {
+        if (statement.orderBy.clauses.size() == 0 
+            || (statement.select.distinctExpr->print()) != (statement.orderBy.clauses[0].first->print())) {
+             throw HttpReturnException(400, "DISTINCT ON expression must match leftmost ORDER BY clause");
+        }
     }
 
     statement.surface = ML::trim(token.captured());
