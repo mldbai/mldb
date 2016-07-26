@@ -563,7 +563,7 @@ private:
 
 struct Path {
     Path()
-        : length_(0), digits_(0), ofsPtr_(0)
+        : length_(0), digits_(0), ofsPtr_(nullptr)
     {
     }
 
