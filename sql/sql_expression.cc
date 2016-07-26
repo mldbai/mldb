@@ -3993,7 +3993,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
 
     if (statement.select.distinctExpr.size() > 0) {
         if (statement.orderBy.clauses.size() < statement.select.distinctExpr.size())
-            throw HttpReturnException(400, "DISTINCT ON expression cannot have less clauses than ORDER BY expression");
+            throw HttpReturnException(400, "DISTINCT ON expression cannot have more clauses than ORDER BY expression");
 
         for (size_t i = 0; i < statement.select.distinctExpr.size(); ++i) {
             if (statement.select.distinctExpr[i]->print() != statement.orderBy.clauses[i].first->print())
