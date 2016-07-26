@@ -3027,29 +3027,33 @@ SelectExpression
 SelectExpression::
 parse(ML::Parse_Context & context, bool allowUtf8)
 {
-    std::shared_ptr<SqlExpression> distinctExpr;
+    ML::Parse_Context::Hold_Token token(context);
+    std::vector<std::shared_ptr<SqlExpression>> distinctExpr;
 
     if (matchKeyword(context, "DISTINCT ON ")) {
         context.skip_whitespace();
         context.expect_literal('(');
-        distinctExpr = SqlExpression::parse(context, 10, allowUtf8);
+        do {       
+            auto expr = SqlExpression::parse(context, 10, allowUtf8);
+            distinctExpr.push_back(expr);
+            context.skip_whitespace();
+        } while (context.match_literal(','));
+
         context.expect_literal(')');
+
     }
     else if (matchKeyword(context, "DISTINCT ")) {
         throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
     }
 
-    SelectExpression result
-        = SqlRowExpression::parseList(context, allowUtf8);
+    SelectExpression result;
 
-    result.distinctExpr = distinctExpr;
+    result.clauses = SqlRowExpression::parseList(context, allowUtf8);
 
-    // concatenate all the surfaces with spaces
-    result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
-                                     [](const Utf8String & prefix,
-                                        std::shared_ptr<SqlRowExpression> & next) {
-                                         return prefix.empty() ? next->surface : prefix + ", " + next->surface;
-                                     });;
+    result.distinctExpr = std::move(distinctExpr);
+
+    result.surface = ML::trim(token.captured()); 
+
     return result;
 }
 
@@ -3062,7 +3066,12 @@ parse(const std::string & expr,
                               expr.c_str(),
                               expr.length(), row, col);
 
-    return parse(context, false); 
+    auto select = parse(context, false);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 SelectExpression
@@ -3078,10 +3087,16 @@ SelectExpression::
 parse(const Utf8String & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ML::Parse_Context context(filename.empty() ? expr.rawData() : filename,
+                              expr.rawData(),
+                              expr.length(), row, col);
+   
+    auto select = parse(context, true);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 BoundSqlExpression
@@ -3146,6 +3161,22 @@ print() const
             result += ", ";
         result += clauses[i]->print();
     }
+
+    if (distinctExpr.size() > 0) {
+
+        if (clauses.size() > 0)
+            result += ", ";
+
+        result += "distinct on(";
+
+        for (unsigned i = 0; i < distinctExpr.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += distinctExpr[i]->print();
+        } 
+
+        result += ")";
+    }   
 
     result += "]";
     
@@ -3960,10 +3991,13 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         statement.offset = 0;
     }
 
-    if (statement.select.distinctExpr) {
-        if (statement.orderBy.clauses.size() == 0 
-            || (statement.select.distinctExpr->print()) != (statement.orderBy.clauses[0].first->print())) {
-             throw HttpReturnException(400, "DISTINCT ON expression must match leftmost ORDER BY clause");
+    if (statement.select.distinctExpr.size() > 0) {
+        if (statement.orderBy.clauses.size() < statement.select.distinctExpr.size())
+            throw HttpReturnException(400, "DISTINCT ON expression cannot have more clauses than ORDER BY expression");
+
+        for (size_t i = 0; i < statement.select.distinctExpr.size(); ++i) {
+            if (statement.select.distinctExpr[i]->print() != statement.orderBy.clauses[i].first->print())
+                throw HttpReturnException(400, "DISTINCT ON expression must match leftmost(s) ORDER BY clause(s)");
         }
     }
 

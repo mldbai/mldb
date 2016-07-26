@@ -167,5 +167,49 @@ class DistinctOnTest(MldbUnitTest):
         with self.assertMldbRaises(expected_regexp="Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'."):
             res = mldb.query("SELECT DISTINCT x FROM dataset1")
 
+    def test_distincton_multiple(self):
+
+        res = mldb.query("SELECT DISTINCT ON (x,z) x, z FROM dataset1 ORDER BY x,z")
+
+        expected = [["_rowName", "x", "z"],
+                    ["row1", 1, 1],
+                    ["row3", 1, 2],
+                    ["row2", 2, 1],
+                    ["row5", 2, 3]]
+
+        self.assertEqual(res, expected)
+
+    def test_distincton_groupby_multiple(self):
+
+        res = mldb.query("SELECT DISTINCT ON (max(x),z) max(x), z FROM dataset1 GROUP BY z ORDER BY max(x),z")
+
+        expected = [["_rowName","max(x)","z"],
+                    ["[2]",1, 2],
+                    ["[1]",2, 1],
+                    ["[3]",2, 3]]
+
+        self.assertEqual(res, expected)
+   
+    def test_distincton_transform(self):
+
+        mldb.post('/v1/procedures', {
+            'type': 'transform',
+            'params': {
+                'inputData': "SELECT DISTINCT ON (x,z) x, z FROM dataset1 ORDER BY x,z",
+                'outputDataset': 'transformed',
+                'runOnCreation': True
+            }
+        })
+
+        res = mldb.query("SELECT * from transformed")
+
+        expected = [["_rowName", "x", "z"],
+                    ["row1", 1, 1],
+                    ["row3", 1, 2],
+                    ["row2", 2, 1],
+                    ["row5", 2, 3]]
+
+        self.assertEqual(res, expected)
+
 
 mldb.run_tests()
