@@ -755,6 +755,9 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
         return result;
 
     Utf8String first = matchIdentifier(context, allowUtf8);
+    if (first.empty()) {
+        return result;
+    }
 
     result = PathElement(std::move(first));
 
