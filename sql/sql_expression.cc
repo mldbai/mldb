@@ -3027,6 +3027,7 @@ SelectExpression
 SelectExpression::
 parse(ML::Parse_Context & context, bool allowUtf8)
 {
+    ML::Parse_Context::Hold_Token token(context);
     std::vector<std::shared_ptr<SqlExpression>> distinctExpr;
 
     if (matchKeyword(context, "DISTINCT ON ")) {
@@ -3045,17 +3046,14 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
     }
 
-    SelectExpression result
-        = SqlRowExpression::parseList(context, allowUtf8);
+    SelectExpression result;
+
+    result.clauses = SqlRowExpression::parseList(context, allowUtf8);
 
     result.distinctExpr = std::move(distinctExpr);
 
-    // concatenate all the surfaces with spaces
-    result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
-                                     [](const Utf8String & prefix,
-                                        std::shared_ptr<SqlRowExpression> & next) {
-                                         return prefix.empty() ? next->surface : prefix + ", " + next->surface;
-                                     });;
+    result.surface = ML::trim(token.captured()); 
+
     return result;
 }
 
@@ -3068,7 +3066,12 @@ parse(const std::string & expr,
                               expr.c_str(),
                               expr.length(), row, col);
 
-    return parse(context, false); 
+    auto select = parse(context, false);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 SelectExpression
@@ -3084,10 +3087,16 @@ SelectExpression::
 parse(const Utf8String & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ML::Parse_Context context(filename.empty() ? expr.rawData() : filename,
+                              expr.rawData(),
+                              expr.length(), row, col);
+   
+    auto select = parse(context, true);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 BoundSqlExpression
@@ -3152,6 +3161,22 @@ print() const
             result += ", ";
         result += clauses[i]->print();
     }
+
+    if (distinctExpr.size() > 0) {
+
+        if (clauses.size() > 0)
+            result += ", ";
+
+        result += "distinct on(";
+
+        for (unsigned i = 0; i < distinctExpr.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += distinctExpr[i]->print();
+        } 
+
+        result += ")";
+    }   
 
     result += "]";
     
