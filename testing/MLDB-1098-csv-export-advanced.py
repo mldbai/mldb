@@ -1,9 +1,8 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 #
 # MLDB-1098-csv-export-advanced.py
 # Mich, 2015-11-18
-# Copyright (c) 2015 Datacratic Inc. All rights reserved.
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 #
 
 import tempfile

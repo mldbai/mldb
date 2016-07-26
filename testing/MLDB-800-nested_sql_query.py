@@ -54,19 +54,22 @@ mldb.log(res.json())
 expected = {
     "input": {
         "hasUnknownColumns": True, 
+        "hasUnknownColumnsRecursive": True, 
         "type": "Datacratic::MLDB::RowValueInfo", 
         "kind": "row", 
         "knownColumns": []
     }, 
     "output": {
         "hasUnknownColumns": False, 
+        "hasUnknownColumnsRecursive": True, 
         "type": "Datacratic::MLDB::RowValueInfo", 
         "kind": "row", 
         "knownColumns": [
             {
                 "columnName": "patate({*})", 
                 "valueInfo": {
-                    "hasUnknownColumns": False, 
+                    "hasUnknownColumns": True, 
+                    "hasUnknownColumnsRecursive": True, 
                     "type": "Datacratic::MLDB::RowValueInfo", 
                     "kind": "row", 
                     "knownColumns": [

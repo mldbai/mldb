@@ -81,6 +81,9 @@ ParsedUserAgent
 ParseUserAgentFunction::
 call(UserAgentParserArgs input) const
 {
+    if(input.ua.empty())
+        return ParsedUserAgent();
+
     auto parsedResults = parser->parse(input.ua.toUtf8String().rawString());
 
     Date ts = input.ua.getEffectiveTimestamp();

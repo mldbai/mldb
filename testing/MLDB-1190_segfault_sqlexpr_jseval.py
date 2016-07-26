@@ -26,7 +26,7 @@ conf = {
     "params": {
         "expression": """
             getMsgStats({text: raw_text}) as *,
-            tokenize(preProcessed, {splitchars: ' !'}) as words
+            tokenize(preProcessed, {splitChars: ' !'}) as words
         """
     }
 }

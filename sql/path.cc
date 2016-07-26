@@ -856,7 +856,7 @@ add(PathElement && element)
         return *this;
     }
 
-    if (bytes.empty()) {
+    if (bytes.empty() && element.hasExternalStorage()) {
         bytes = element.stealBytes();
     }
     else {
@@ -959,7 +959,13 @@ Path::Path(PathElement && path)
         length_ = 0;
         return;
     }
-    bytes_ = path.stealBytes();
+    if (path.hasExternalStorage()) {
+        bytes_ = path.stealBytes();
+    }
+    else {
+        auto v = path.getStringView();
+        bytes_.append(v.first, v.first + v.second);
+    }
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
         ofsPtr_[0] = 0;
@@ -979,7 +985,13 @@ Path::Path(const PathElement & path)
         length_ = 0;
         return;
     }
-    bytes_ = path.getBytes();
+    if (path.hasExternalStorage()) {
+        bytes_ = path.getBytes();
+    }
+    else {
+        auto v = path.getStringView();
+        bytes_.append(v.first, v.first + v.second);
+    }
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
         ofsPtr_[0] = 0;

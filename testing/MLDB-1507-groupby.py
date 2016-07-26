@@ -47,7 +47,7 @@ class Mldb1507Test(MldbUnitTest):  # noqa
                         'return Name.replace(/([A-Z])/g, function(m, p) { return " "+p; });',
                         'Name', Name
                     ),
-                    {splitchars: ' .()"', quotechar:''}
+                    {splitChars: ' .()"', quoteChar:''}
                 )
             ) as *
             named 'counts'

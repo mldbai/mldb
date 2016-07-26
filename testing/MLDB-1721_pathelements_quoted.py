@@ -24,7 +24,7 @@ class Mldb1721(MldbUnitTest):
                     SELECT
                         tokenize(
                             lower(text),
-                            {splitchars: ' -''"?!;:/[]*,.'}
+                            {splitChars: ' -''"?!;:/[]*,.'}
                         ) as *
                     FROM sample
                     """,

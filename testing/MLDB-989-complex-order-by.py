@@ -34,8 +34,8 @@ class ComplexOrderByTest(unittest.TestCase):
         result = mldb.get(
             '/v1/query',
             q="select tokenize('" +
-              left + "', {splitchars:' '}) " + op + " tokenize('"
-              + right + "', {splitchars:' '}) as comp")
+              left + "', {splitChars:' '}) " + op + " tokenize('"
+              + right + "', {splitChars:' '}) as comp")
         response = result.json()
         mldb.log(response)
         return response[0]['columns'][0][1]

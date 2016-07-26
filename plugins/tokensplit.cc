@@ -29,11 +29,11 @@ TokenSplitConfigDescription()
 {
     addField("tokens", &TokenSplitConfig::tokens,
              "An SQL expression specifiying the list of tokens to separate.");
-    addField("splitchars", &TokenSplitConfig::splitchars,
+    addField("splitChars", &TokenSplitConfig::splitchars,
              "A string containing the list of possible split characters. "
              "Each character in the list is interpreted as a splitchar. ",
              Utf8String("&lt;space&gt;,"));
-    addField("splitcharToInsert", &TokenSplitConfig::splitcharToInsert,
+    addField("splitCharToInsert", &TokenSplitConfig::splitcharToInsert,
              "A string containing the split character to insert if none of the characters "
              "in 'splitchars' are already present.",
              Utf8String("&lt;space&gt;"));

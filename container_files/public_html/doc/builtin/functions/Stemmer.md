@@ -86,7 +86,7 @@ Note that strings are coerced to the integer value 1.
 We can also nicely use it in conjunction with the tokenize function:
 
 ```sql
-SELECT my_stemmer({words: {tokenize('I have liked having carrots', {splitchars:' '}) as *}}) as *
+SELECT my_stemmer({words: {tokenize('I have liked having carrots', {splitChars:' '}) as *}}) as *
 ```
 
 This returns:
@@ -101,7 +101,7 @@ This returns:
 
 A function of this type creates a stemmer that can be used on whole strings.
 It works in a way similar to the [Stemmer Function](#stemmer) and has the same configuration.
-However, its input and output formats are different. It will also stem each word in the string, 
+However, its input and output formats are different. It will also stem each word in the string,
 using spaces as the separator.
 
 
