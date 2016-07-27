@@ -1903,21 +1903,7 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
     std::vector<std::shared_ptr<SqlExpression> > output;
     
-     // collect aggregators
-    for (auto iter = children.begin(); iter != children.end(); ++iter)
-    {
-        auto child = *iter;
-        if (child->isAggregator())
-            output.push_back(child);
-        else {
-            //we dont look for aggregators in aggregator - its not legal - this check above
-            //order MUST be preserved
-            std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
-            int pos = iter - children.begin();
-            children.insert(iter+1, subchildren.begin(), subchildren.end());
-            iter = children.begin() + pos;
-        }
-    }
+    //Collect aggregators AND verify validity at the same time.
 
     std::vector<Utf8String> culprit;
 
@@ -1935,13 +1921,16 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
     */
     std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
         for (IterType it = begin; it < end; ++it) {
-            if (!(*it)->isAggregator()) {
-                auto children = (*it)->getChildren();
-                if (children.size() == 0  && (*it)->isWildcard()) {
+            if ((*it)->isAggregator()) {
+                output.push_back(*it);
+            }
+            else {
+                auto subchildren = (*it)->getChildren();
+                if (subchildren.size() == 0  && (*it)->isWildcard()) {
                     return false;
                 }
                 culprit.push_back((*it)->surface);
-                bool result = wildcardNestedInAggregator(children.begin(), children.end());
+                bool result = wildcardNestedInAggregator(subchildren.begin(), subchildren.end());
                 culprit.pop_back();
                 if (!result) return result;
             }
