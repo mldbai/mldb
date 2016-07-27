@@ -21,6 +21,7 @@ struct BoundTableExpression;
 /* PIPELINE RESULTS                                                          */
 /*****************************************************************************/
 
+
 struct PipelineResults: public SqlRowScope {
     PipelineResults(SqlRowScope * inner = nullptr)
         : inner(inner)
