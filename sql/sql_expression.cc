@@ -702,12 +702,14 @@ namespace {
 
 // Match a non-scoped identifier
 static Utf8String matchIdentifier(ML::Parse_Context & context,
-                                  bool allowUtf8)
+                                  bool allowUtf8, bool & gotMatch)
 {
     Utf8String result;
 
-    if (context.eof())
+    if (context.eof()) {
+        gotMatch = false;
         return result;
+    }
 
     if (context.match_literal('"')) {
         //read until the double quote closes.
@@ -720,6 +722,7 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
                 }
                 else if (context.match_literal('"')) {
                     token.ignore();
+                    gotMatch = true;
                     return result;
                 }
                 else if (!context) {
@@ -743,19 +746,27 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
         while (context && (isalnum(*context) || *context == '_'))
             result += *context++;
     }
-
+    gotMatch = !result.empty();
     return result;
+}
+
+static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
+{
+    bool gotMatch;
+    return matchIdentifier(context, allowUtf8, gotMatch);
 }
 
 static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 {
     ColumnName result;
 
-    if (context.eof())
+    if (context.eof()) {
         return result;
+    }
 
-    Utf8String first = matchIdentifier(context, allowUtf8);
-    if (first.empty()) {
+    bool gotMatch;
+    Utf8String first = matchIdentifier(context, allowUtf8, gotMatch);
+    if (!gotMatch) {
         return result;
     }
 
