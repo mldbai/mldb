@@ -519,10 +519,6 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
 
 RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 {
-    if (rowNameEV.empty()) {
-        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
-    }
-
     RowName name;
     try {
         name = rowNameEV.coerceToPath();
@@ -534,11 +530,6 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
              "array of atoms.",
              "value", rowNameEV);
     }
-
-    static const Path empty{""};
-
-    if (name.empty() || name.compare(empty) == 0)
-        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
     return name;
 }
 

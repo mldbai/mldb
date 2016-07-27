@@ -87,9 +87,16 @@ class NullNameTest(MldbUnitTest):
             'id' : 'ds4',
             'type': 'sparse.mutable'
         })
-        import exceptions
-        with self.assertRaises(exceptions.RuntimeError):
-            ds.record_row("", [['colA', 1, 1]])
+        ds.record_row("", [['colA', 1, 1]])
+        ds.commit()
+        res = mldb.query("SELECT * FROM ds4")
+        self.assertEqual(res[1][0], '""')
+
+    def test_record_null_row_name(self):
+        mldb.put('/v1/datasets/ds_null', {'type' : 'sparse.mutable'})
+        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+            mldb.post('/v1/datasets/ds_null/rows',
+                    {'rowName' : None, 'columns' : [['colA', 1, 1]]})
 
     def test_post_empty_row_name(self):
         mldb.put('/v1/datasets/ds5', {
