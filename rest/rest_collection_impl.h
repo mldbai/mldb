@@ -575,6 +575,10 @@ addBackgroundJobInThread(Key key,
                     task->value = fn(onProgressFn, std::move(cancelled));
                     task->setFinished();
                 } catch (const std::exception & exc) {
+                    // MDLB-1863 progress must be a json object
+                    ExcAssert(task->progress.type() == Json::nullValue ||
+                              task->progress.type() == Json::objectValue);
+
                     task->progress["exception"] = extractException(exc, 500);
                     task->setError(std::current_exception());
                 }
