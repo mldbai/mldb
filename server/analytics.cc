@@ -530,6 +530,12 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
              "array of atoms.",
              "value", rowNameEV);
     }
+
+    static const Path empty;
+
+    if (name.empty() || name.compare(empty) == 0) {
+        throw HttpReturnException(400, "Can't create a row with a null name.");
+    }
     return name;
 }
 
