@@ -3474,8 +3474,13 @@ bind(SqlBindingScope & scope) const
             //cerr << "input column name " << inputColumnName << endl;
 
             // First, check it matches the prefix
-            if (!inputColumnName.matchWildcard(simplifiedPrefix)) {
-                //cerr << "rejected by prefix" << endl;
+            // We have to check the simplified prefix for regular datasets
+            // i.e select x.a.* from x returns a.b
+            // But we have to check the initial prefix for joins
+            // i.e select x.a.* from x join y returns x.a.b
+            if (!inputColumnName.matchWildcard(simplifiedPrefix)
+                && !inputColumnName.matchWildcard(prefix)) {
+                //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
                 return ColumnName();
             }
 
@@ -3673,7 +3678,8 @@ bind(SqlBindingScope & scope) const
         std::vector<KnownColumn> knownColumns = {
             KnownColumn(alias, exprBound.info, COLUMN_IS_DENSE) };
         
-        auto info = std::make_shared<RowValueInfo>(knownColumns, SCHEMA_CLOSED);
+        auto info = std::make_shared<RowValueInfo>
+            (knownColumns, SCHEMA_CLOSED);
 
         return BoundSqlExpression(exec, this, info);
     }
@@ -3730,6 +3736,9 @@ bind(SqlBindingScope & scope) const
     auto allColumns
         = scope.doGetAllColumns("" /* table name */,
                                   [] (ColumnName n) { return std::move(n); });
+    
+    bool hasDynamicColumns
+        = allColumns.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
     
     // Only known columns are kept.  For each one, we filter it then calculate
     // the order by expression.
@@ -3828,6 +3837,10 @@ bind(SqlBindingScope & scope) const
         = select->getType() == "function"
         && select->getOperation() == "value";
 
+    bool asColumnPath
+        = as->getType() == "function"
+        && as->getOperation() == "columnPath";
+
     //for (unsigned i = 0;  i < 10 && i < columns.size();  ++i) {
     //    cerr << "column " << i << " name " << columns[i].columnName
     //         << " sort " << jsonEncodeStr(columns[i].sortFields) << endl;
@@ -3858,10 +3871,12 @@ bind(SqlBindingScope & scope) const
     
     auto filterColumns = [=] (const ColumnName & name) -> ColumnName
         {
+            if (hasDynamicColumns)
+                return name;
             auto it = keepColumns.find(name);
-            if (it == keepColumns.end())
+            if (it == keepColumns.end()) {
                 return ColumnName();
-
+            }
             return it->second;
         };
     
@@ -3869,7 +3884,7 @@ bind(SqlBindingScope & scope) const
     auto outputColumns
         = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
-    if (selectValue) {
+    if (selectValue && asColumnPath && !hasDynamicColumns) {
 
         auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
@@ -3903,17 +3918,42 @@ bind(SqlBindingScope & scope) const
                     ExpressionValue in(std::move(val), ts);
                     auto scope = ColumnExpressionBindingScope
                         ::getColumnScope(columnName, in);
-                    
+
+                    bool keep = boundWhere(scope, GET_LATEST).isTrue();
+
+                    if (!keep)
+                        return true;
+
                     ExpressionValue storage;
+                    if (selectValue)
+                        storage = std::move(in);
                     const ExpressionValue & result
-                        = boundSelect(scope, storage, GET_ALL);
+                        = selectValue
+                            ? storage
+                            : boundSelect(scope, storage, GET_ALL);
+
+                    ColumnName columnNameStorage;
+                    ColumnName * columnNameOut = &columnName;
+                    if (!asColumnPath) {
+                        ExpressionValue tmp;
+                        columnNameStorage
+                            = boundAs(scope, tmp, GET_ALL).coerceToPath();
+                        columnNameOut = &columnNameStorage;
+                    }
                     
                     if (&result == &storage) {
-                        // The expression may produce more than one atom as an
-                        // output, so take all of them.
-                        auto onAtom2 = [&] (ColumnName & columnName2,
-                                            CellValue & val,
-                                            Date ts)
+                        if (storage.isAtom()) {
+                            // Put directly in place
+                            output.emplace_back(std::move(*columnNameOut),
+                                                storage.stealAtom(),
+                                                storage.getEffectiveTimestamp());
+                        }
+                        else {
+                            // The expression may produce more than one atom as an
+                            // output, so take all of them.
+                            auto onAtom2 = [&] (ColumnName & columnName2,
+                                                CellValue & val,
+                                                Date ts)
                             {
                                 output.emplace_back(columnName + columnName2,
                                                     std::move(val),
@@ -3921,7 +3961,8 @@ bind(SqlBindingScope & scope) const
                                 return true;
                             };
 
-                        storage.forEachAtomDestructive(onAtom2);
+                            storage.forEachAtomDestructive(onAtom2);
+                        }
                     }
                     else {
 
@@ -3930,7 +3971,8 @@ bind(SqlBindingScope & scope) const
                                             const CellValue & val,
                                             Date ts)
                             {
-                                output.emplace_back(columnName + prefix + suffix,
+                                output.emplace_back((*columnNameOut)
+                                                    + prefix + suffix,
                                                     std::move(val),
                                                     ts);
                                 return true;

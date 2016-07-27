@@ -18,8 +18,8 @@ class Mldb1668Test(MldbUnitTest):
             self.assertTableResultEquals(
                 mldb.query("""
                     select jaccard_index(
-                                tokenize('%s', {splitchars: ' .,'}),
-                                tokenize('%s', {splitchars: ' .,'})
+                                tokenize('%s', {splitChars: ' .,'}),
+                                tokenize('%s', {splitChars: ' .,'})
                     ) as jaccard
                 """ % (a, b)),
                 [

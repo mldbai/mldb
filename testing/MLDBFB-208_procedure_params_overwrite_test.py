@@ -24,7 +24,8 @@ class GenericProcedureTest(MldbUnitTest): # noqa
                 'outputDataset' : {
                     'id' : 'bar',
                     'type' : 'sparse.mutable'
-                }
+                },
+                'runOnCreation' : 0
             }
         })
 

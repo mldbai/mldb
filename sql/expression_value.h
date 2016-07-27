@@ -215,6 +215,12 @@ struct ExpressionValueInfo {
     /// it's not a row.
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    /// Return whether the schema for a row is closed (only those columns are
+    /// there) or open (other columns may be present).  Will return closed
+    /// for atoms, and open for rows with any open schema inside them at any
+    /// recursive depth.
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     /// Return the set of known columns for a row.  Default throws that it's not
     /// a row.
     virtual std::vector<KnownColumn> getKnownColumns() const;
@@ -1339,6 +1345,8 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
     virtual bool couldBeRow() const
@@ -1398,6 +1406,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
 
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
     virtual std::vector<ColumnName> allColumnNames() const;
@@ -1437,9 +1447,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
     virtual SchemaCompleteness getSchemaCompleteness() const override;
-
-    std::vector<KnownColumn> columns;
-    SchemaCompleteness completeness;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
 
     virtual bool isCompatible(const ExpressionValue & value) const override
     {
@@ -1460,6 +1468,11 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     {
         return false;
     }
+
+protected:
+    std::vector<KnownColumn> columns;
+    SchemaCompleteness completeness;
+    SchemaCompleteness completenessRecursive;
 };
 
 /// For a row.  This may have information about columns within that row.

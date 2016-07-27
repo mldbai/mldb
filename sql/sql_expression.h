@@ -1053,14 +1053,6 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     */
     virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
-    /** Find any children that is an aggregator call 
-        This function perform partial validation of the parse tree for 
-        GROUP BY validatity.  
-        Caller must pass true if there is a GROUP BY clause associated with
-        this expression.
-    */
-    virtual std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
-
     virtual bool isAggregator() const {return false; }
     virtual bool isWildcard() const {return false; }
 
@@ -1121,6 +1113,7 @@ public:
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<SqlExpression>);
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<const SqlExpression>);
 
+std::vector<std::shared_ptr<SqlExpression> > findAggregators(std::shared_ptr<SqlExpression> expression, bool withGroupBy);
 
 
 /*****************************************************************************/
@@ -1238,12 +1231,21 @@ struct SelectExpression: public SqlRowExpression {
     virtual bool isConstant() const;
 
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
+    std::vector<std::shared_ptr<SqlExpression>> distinctExpr;
 
     bool operator == (const SelectExpression & other) const;
     bool operator != (const SelectExpression & other) const
     {
         return ! operator == (other);
     }
+
+    /** Find any children that is an aggregator call 
+    This function perform partial validation of the parse tree for 
+    GROUP BY validatity.  
+    Caller must pass true if there is a GROUP BY clause associated with
+    this expression.
+    */
+    virtual std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(SelectExpression);

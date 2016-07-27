@@ -40,7 +40,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addField("headers", &ImportTextConfig::headers,
              "List of headers for when first row doesn't contain headers",
              vector<Utf8String>());
-    addField("quotechar", &ImportTextConfig::quoter,
+    addField("quoteChar", &ImportTextConfig::quoter,
              "Character to enclose strings", string("\""));
     addField("delimiter", &ImportTextConfig::delimiter,
              "Delimiter for column separation", string(","));
@@ -103,6 +103,10 @@ ImportTextConfigDescription::ImportTextConfigDescription()
             else if (context.fieldName() == "rowNamePrefix") {
                 context.exception("rowNamePrefix has been removed.  Please use "
                                   "'select * as prefix* ' to rename columns");
+            }
+            else if (context.fieldName() == "quotechar") {
+                context.exception("'quotechar' has been removed.  Please use "
+                                  "'quoteChar' instead");
             }
             else {
                 context.exception("Unknown field '" + context.fieldName()
@@ -861,7 +865,7 @@ struct ImportTextProcedureWorkInstance
         // Figure out our output column names from the bound
         // select clause
 
-        if (selectBound.info->getSchemaCompleteness() != SCHEMA_CLOSED) {
+        if (selectBound.info->getSchemaCompletenessRecursive() != SCHEMA_CLOSED) {
             areOutputColumnNamesKnown = false;
         }
 

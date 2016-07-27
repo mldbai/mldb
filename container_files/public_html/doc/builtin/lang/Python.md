@@ -77,6 +77,7 @@ There are two functions that allow access to the virtual filesystem of MLDB:
     * `contentType`: content type of HTTP body
     * `contentLength`: content length of HTTP body
 * `mldb.plugin.set_return(body)`: available within `routes.py`, function called to write to HTTP response body and HTTP return code
+* `mldb.plugin.get_plugin_dir()`: returns the absolute path of the plugin's installation directory on disk
     
 ### Handling a custom route
 

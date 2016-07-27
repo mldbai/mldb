@@ -171,6 +171,7 @@ PythonPlugin(MldbServer * server,
     }
 
     try {
+        injectMldbWrapper(pyControl);
         boost::python::object obj = boost::python::exec(boost::python::str(scriptSource.rawString()),
                                                         pyControl.main_namespace);
     } catch (const boost::python::error_already_set & exc) {
@@ -357,7 +358,7 @@ handleTypeRoute(RestDirectory * server,
         auto scriptConfig = jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
 
         std::shared_ptr<PythonScriptContext> titl;
-        auto pluginRez = 
+        auto pluginRez =
             std::make_shared<LoadedPluginResource>(PYTHON,
                                                    LoadedPluginResource::SCRIPT,
                                                    "", scriptConfig);
@@ -510,10 +511,6 @@ import unittest
 class mldb_wrapper(object):
 
     import json as jsonlib
-
-    @staticmethod
-    def wrap(mldb):
-        return Wrapped(mldb)
 
     class MldbBaseException(Exception):
         pass
@@ -859,6 +856,8 @@ struct AtInit {
 
         bp::to_python_converter<std::pair<string, string>,
                         PairConverter<string, string> >();
+        
+        from_python_converter< Path, PathConverter>();
 
         from_python_converter< RestParams, RestParamsConverter>();
         bp::to_python_converter< RestParams, RestParamsConverter>();

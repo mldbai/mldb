@@ -149,6 +149,7 @@ struct PathElement {
 
     Utf8String toEscapedUtf8String() const;
 
+    bool hasExternalStorage() const { return complex_; }
     std::string stealBytes();
     std::string getBytes() const;
     

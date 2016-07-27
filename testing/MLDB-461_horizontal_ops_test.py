@@ -126,6 +126,12 @@ class HorizontalTest(MldbUnitTest):
              ]
         )
 
+        self.assertTableResultEquals(
+            mldb.query("select horizontal_avg({superPatate*}) from dataset order by rowName()"),
+            [["_rowName","horizontal_avg({superPatate*})"],
+             ["x",None], ["y",None], ["z",None]])
+
+
     def test_horizontal_min(self):
         resp = mldb.get("/v1/query", q="select horizontal_min({*}) from dataset order by rowName()").json()
 

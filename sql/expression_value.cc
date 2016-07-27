@@ -503,6 +503,13 @@ getSchemaCompleteness() const
                               "type", ML::type_name(*this));
 }
 
+SchemaCompleteness
+ExpressionValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return SCHEMA_CLOSED;
+}
+
 std::vector<KnownColumn>
 ExpressionValueInfo::
 getKnownColumns() const
@@ -663,6 +670,7 @@ struct ExpressionValueInfoPtrDescription
             out["kind"] = "row";
             out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
             out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
+            out["hasUnknownColumnsRecursive"] = (*val)->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
         }
         context.writeJson(out);
     }
@@ -699,6 +707,7 @@ struct RowValueInfoPtrDescription
         out["kind"] = "row";
         out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
         out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
+        out["hasUnknownColumnsRecursive"] = (*val)->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
         context.writeJson(out);
     }
     
@@ -972,6 +981,13 @@ getSchemaCompleteness() const
     return SCHEMA_CLOSED;
 }
 
+SchemaCompleteness
+EmbeddingValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return getSchemaCompleteness();
+}
+
 
 // TODO: generalize
 std::shared_ptr<ExpressionValueInfo>
@@ -1138,6 +1154,13 @@ getSchemaCompleteness() const
     return SCHEMA_OPEN;
 }
 
+SchemaCompleteness
+AnyValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return SCHEMA_OPEN;
+}
+
 std::vector<KnownColumn>
 AnyValueInfo::
 getKnownColumns() const
@@ -1154,8 +1177,15 @@ RowValueInfo::
 RowValueInfo(const std::vector<KnownColumn> & columns,
              SchemaCompleteness completeness)
     : columns(columns),
-      completeness(completeness)
+      completeness(completeness),
+      completenessRecursive(completeness)
 {
+    for (auto & c: this->columns) {
+        if (c.valueInfo->getSchemaCompletenessRecursive() == SCHEMA_OPEN) {
+            completenessRecursive = SCHEMA_OPEN;
+            break;
+        }
+    }
 }
 
 bool
@@ -1194,6 +1224,13 @@ RowValueInfo::
 getSchemaCompleteness() const
 {
     return completeness;
+}
+
+SchemaCompleteness
+RowValueInfo::
+getSchemaCompletenessRecursive() const
+{
+    return completenessRecursive;
 }
 
 std::shared_ptr<ExpressionValueInfo>
@@ -3458,35 +3495,53 @@ forEachAtomDestructiveT(Fn && onAtom)
             // a non-const version of that expression.  This means that it
             // should be thread-safe to break constness and steal the result,
             // as otherwise we would have two references from different threads
-            // with at least one non-const, which breaks thread safety.
+            // with at least one non-const, which is undefined behaviour.
 
             for (auto & col: const_cast<Structured &>(*structured_)) {
-                auto onAtom2 = [&] (ColumnName & columnName,
-                                    CellValue & val,
-                                    Date ts)
-                    {
-                        Path fullColumnName
+                if (std::get<1>(col).isAtom()) {
+                    Path columnName(std::move(std::get<0>(col)));
+                    CellValue atom(std::get<1>(col).stealAtom());
+                    onAtom(columnName, atom,
+                           std::get<1>(col).getEffectiveTimestamp());
+                }
+                else {
+                    auto onAtom2 = [&] (ColumnName & columnName,
+                                        CellValue & val,
+                                        Date ts)
+                        {
+                            //cerr << "adding " << std::get<0>(col)
+                            //<< " and " << columnName << endl;
+                            Path fullColumnName
                             = std::move(std::get<0>(col)) + std::move(columnName);
-                        return onAtom(fullColumnName, val, ts);
-                    };
+                            return onAtom(fullColumnName, val, ts);
+                        };
                 
-                std::get<1>(col).forEachAtomDestructive(onAtom2);
+                    std::get<1>(col).forEachAtomDestructive(onAtom2);
+                }
             }
         }
         else {
             for (auto & col: *structured_) {
-                auto onAtom2 = [&] (ColumnName columnName,
-                                    ColumnName prefix,
-                                    CellValue val,
-                                    Date ts)
-                    {
-                        Path fullColumnName
+                if (std::get<1>(col).isAtom()) {
+                    ColumnName columnName(std::get<0>(col));
+                    CellValue val(std::get<1>(col).getAtom());
+                    onAtom(columnName, val, 
+                           std::get<1>(col).getEffectiveTimestamp());
+                }
+                else {
+                    auto onAtom2 = [&] (ColumnName columnName,
+                                        ColumnName prefix,
+                                        CellValue val,
+                                        Date ts)
+                        {
+                            Path fullColumnName
                             = std::move(prefix) + std::move(columnName);
 
-                        return onAtom(fullColumnName, val, ts);
-                    };
+                            return onAtom(fullColumnName, val, ts);
+                        };
                 
-                std::get<1>(col).forEachAtom(onAtom2, std::get<0>(col));
+                    std::get<1>(col).forEachAtom(onAtom2, std::get<0>(col));
+                }
             }
         }
         return true;
