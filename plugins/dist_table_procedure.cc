@@ -668,7 +668,7 @@ persist(const Url & modelFileUrl) const
     // get exclusive access
     DistTablesMap copiedMap;
     {
-        boost::unique_lock<boost::shared_mutex> uniqueLock(_access);
+        boost::shared_lock<boost::shared_mutex> uniqueLock(_access);
         copiedMap = DistTablesMap(distTablesMap);
     }
 
