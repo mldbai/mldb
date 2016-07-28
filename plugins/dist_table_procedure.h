@@ -16,6 +16,7 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/string.h"
+#include <boost/thread/shared_mutex.hpp>
 
 namespace Datacratic {
 namespace MLDB {
@@ -238,6 +239,8 @@ struct DistTableFunction: public Function {
     handleRequest(RestConnection & connection,
                   const RestRequest & request,
                   RestRequestParsingContext & context) const override;
+
+    mutable boost::shared_mutex _access;
 
     DistTableFunctionConfig functionConfig;
     DistTableMode mode;
