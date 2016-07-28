@@ -63,12 +63,22 @@ class Mldb1840EmptyStrPaths(MldbUnitTest):  # noqa
         mldb.post('/v1/datasets/empty_col_name/rows',
                   {'rowName' : 'row', 'columns' : [['', 'val', 0]]})
         mldb.post('/v1/datasets/empty_col_name/commit')
+        res = mldb.query("SELECT * FROM empty_col_name")
+        self.assertTableResultEquals(res, [
+            ['_rowName', '""'],
+            ["row", "val"]
+        ])
 
     def test_post_empty_row_name(self):
         mldb.put('/v1/datasets/empty_row_name', {'type' : 'sparse.mutable'})
         mldb.post('/v1/datasets/empty_row_name/rows',
                   {'rowName' : '', 'columns' : [['col', 'val', 0]]})
         mldb.post('/v1/datasets/empty_row_name/commit')
+        res = mldb.query("SELECT * FROM empty_row_name")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'col'],
+            ['""', "val"]
+        ])
 
 
 if __name__ == '__main__':
