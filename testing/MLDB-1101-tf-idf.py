@@ -14,7 +14,7 @@ class TfIdfTest(MldbUnitTest):
         'peanut butter jelly peanut butter jelly',
         'peanut butter jelly time peanut butter jelly time',
         'this is the jelly song']
-        
+
     @classmethod
     def setUpClass(self):
         dataset = mldb.create_dataset({ "id": "example", "type": "sparse.mutable" })
@@ -111,7 +111,7 @@ class TfIdfTest(MldbUnitTest):
         mldb.log(rez)
         self.assertTrue(TfIdfTest.get_column(rez, "output.bristol") > TfIdfTest.get_column(rez, 'output.jelly'),
                         "'bristol' is more relevant than 'jelly' because it shows only in this document")
-        self.assertTrue(TfIdfTest.get_column(rez, "output.butter") >= TfIdfTest.get_column(rez, 'output.jelly'), 
+        self.assertTrue(TfIdfTest.get_column(rez, "output.butter") >= TfIdfTest.get_column(rez, 'output.jelly'),
                         "'butter' more relevant than 'jelly' because it occurs moreoften")
         self.assertTrue(TfIdfTest.get_column(rez, 'output.time') > TfIdfTest.get_column(rez, 'output.jelly'),
                          "'time' should be more relevant than 'jelly' because its rarer in the corpus")
@@ -121,16 +121,14 @@ class TfIdfTest(MldbUnitTest):
         self.check_relative_values('tfidffunction_augmented_inverse')
         rez = mldb.get("/v1/query",
                        q="select tfidffunction_augmented_inverse({tokenize('jelly time', "
-                       "{' ' as splitChars}) as input}) as *  "
-                       "order by rowName() ASC")
-        
+                       "{' ' as splitChars}) as input}) as *  ")
+
         self.assertTrue(TfIdfTest.get_column(rez, 'output.time') > TfIdfTest.get_column(rez, 'output.jelly'),
                         "'time' should be more relevant than 'jelly' because its rarer in the corpus")
 
     def test_without_tokenize(self):
         rez = mldb.get("/v1/query",
-                       q="select tfidffunction_augmented_inverse({{jelly: 1, time : 1} as input}) as *  "
-                       "order by rowName() ASC")
+                       q="select tfidffunction_augmented_inverse({{jelly: 1, time : 1} as input}) as *  ")
 
         self.assertTrue(TfIdfTest.get_column(rez, 'output.time') > TfIdfTest.get_column(rez, 'output.jelly'),
                         "'time' should be more relevant than 'jelly' because its rarer in the corpus")
@@ -140,8 +138,7 @@ class TfIdfTest(MldbUnitTest):
         jelly_tfidf = -0.5753641 # 2 * ln(3/4)
 
         rez = mldb.get("/v1/query",
-                       q="select tfidffunction_raw_inverse({{jelly: 2, time : 1} as input}) as *  "
-                       "order by rowName() ASC")
+                       q="select tfidffunction_raw_inverse({{jelly: 2, time : 1} as input}) as *  ")
 
         mldb.log(rez)
         self.assertAlmostEqual(TfIdfTest.get_column(rez, 'output.time'), time_tfidf,
@@ -149,5 +146,5 @@ class TfIdfTest(MldbUnitTest):
         self.assertAlmostEqual(TfIdfTest.get_column(rez, 'output.jelly'), jelly_tfidf,
                         msg = "'jelly' tfidg is not equal to the one returned by scikit learn")
 
-        
+
 mldb.run_tests()
