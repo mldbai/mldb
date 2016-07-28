@@ -9,9 +9,6 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 class Mldb1840EmptyStrPaths(MldbUnitTest):  # noqa
 
     def test_parse_empty_col_name(self):
-#         mldb.put('/v1/datasets/ds', {'type' : 'sparse.mutable'})
-#         mldb.post('/v1/datasets/ds/rows', {'rowName' : 'row', 'columns' : [['', 'val', 0]]})
-#         mldb.post('/v1/datasets/ds/commit')
         self.assertTableResultEquals(
             mldb.query("""
                 SELECT parse_json('{"": 5, "pwet":10}') AS *
@@ -60,6 +57,18 @@ class Mldb1840EmptyStrPaths(MldbUnitTest):  # noqa
                 [  "result", 5]
             ]
         )
+
+    def test_post_empty_col_name(self):
+        mldb.put('/v1/datasets/empty_col_name', {'type' : 'sparse.mutable'})
+        mldb.post('/v1/datasets/empty_col_name/rows',
+                  {'rowName' : 'row', 'columns' : [['', 'val', 0]]})
+        mldb.post('/v1/datasets/empty_col_name/commit')
+
+    def test_post_empty_row_name(self):
+        mldb.put('/v1/datasets/empty_row_name', {'type' : 'sparse.mutable'})
+        mldb.post('/v1/datasets/empty_row_name/rows',
+                  {'rowName' : '', 'columns' : [['col', 'val', 0]]})
+        mldb.post('/v1/datasets/empty_row_name/commit')
 
 
 if __name__ == '__main__':

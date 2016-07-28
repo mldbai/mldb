@@ -1062,7 +1062,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
     PathBuilder builder;
 
     if (p == e) {
-        return { Path(), true };
+        return { Path(""), true };
     }
 
     while (p < e) {
@@ -1483,7 +1483,7 @@ operator >> (std::istream & stream, Path & id)
 /* VALUE DESCRIPTIONS                                                        */
 /*****************************************************************************/
 
-struct PathElementDescription 
+struct PathElementDescription
     : public ValueDescriptionI<PathElement, ValueKind::ATOM, PathElementDescription> {
 
     virtual void parseJsonTyped(PathElement * val,
@@ -1527,7 +1527,7 @@ isDefaultTyped(const PathElement * val) const
     return val->empty();
 }
 
-struct PathDescription 
+struct PathDescription
     : public ValueDescriptionI<Path, ValueKind::ATOM, PathDescription> {
 
     virtual void parseJsonTyped(Path * val,

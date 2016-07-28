@@ -222,6 +222,12 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
         BOOST_CHECK_THROW(Path::parse("x\"\""), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\"x\",y"), ML::Exception);
     }
+
+    {
+        Path coords1 = Path::parse("");
+        BOOST_CHECK_EQUAL(coords1.size(), 1);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\"");
+    }
 }
 
 BOOST_AUTO_TEST_CASE(test_wildcards)
