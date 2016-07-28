@@ -186,6 +186,18 @@ struct DistTableProcedure: public Procedure {
 };
 
 /*****************************************************************************/
+/* INCREMENT FUNCTION PAYLOAD                                                */
+/*****************************************************************************/
+
+struct IncrementPayload {
+    std::vector<std::pair<Utf8String, Utf8String>> keys;
+    std::vector<double> outcomes;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(IncrementPayload);
+
+
+/*****************************************************************************/
 /* DIST TABLE FUNCTION                                                      */
 /*****************************************************************************/
 
@@ -219,13 +231,23 @@ struct DistTableFunction: public Function {
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
 
+    void increment(const std::vector<std::pair<Utf8String, Utf8String>> & keys,
+                   const std::vector<double> & outcomes) const;
+
+    RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const override;
+
     DistTableFunctionConfig functionConfig;
     DistTableMode mode;
 
     std::string dtStatsNames[DT_NUM_STATISTICS];
 
     std::vector<DISTTABLE_STATISTICS> activeStats;
-    DistTablesMap distTablesMap;
+    mutable DistTablesMap distTablesMap;
+
+    RestRequestRouter router;
 };
 
 } // namespace MLDB

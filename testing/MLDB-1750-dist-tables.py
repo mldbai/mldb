@@ -241,7 +241,11 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             ])
 
         self.assertTableResultEquals(
-            mldb.query("select get_stats({features: {host, region}})[stats] as * from bid_req where rowName() = 'row4'"),
+            mldb.query("""
+                select get_stats({features: {host, region}})[stats] as * 
+                from bid_req
+                where rowName() = 'row4'
+            """),
             [["_rowName", "price.host.last", "price.host.min", "price.host.sum",
                           "price.region.last", "price.region.min", "price.region.sum"],
              ["row4", 11, 3, 21, # values: [3,7,11]
@@ -283,6 +287,8 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                     'statistics': ['pwel']
                 }
             })
+
+        
 
     def test_bow_dist_tables(self):
         _dt_file = tempfile.NamedTemporaryFile(
@@ -337,6 +343,55 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             """),
             [["_rowName", "price.tag_z.avg", "price.tag_z.max"],
              ["result", 'NaN', 'NaN']])
+
+
+    def test_real_time(self):
+        # call the distTable.train procedure
+        mldb.post('/v1/procedures', {
+            'type': 'experimental.distTable.train',
+            'params': {
+                'trainingData': """ SELECT host, region
+                                    FROM bid_req
+                                    ORDER BY order_
+                                """,
+                'outcomes': [['price', 'price']],
+                'distTableFileUrl': "file://tmp/mldb-1750_non_default_stats_rt.dt",
+                'functionName': 'get_stats_rt',
+                'statistics': ['last', 'min', 'sum'],
+                'runOnCreation': True
+            }
+        })
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                'Unknown dist table \'hosti234234\''):
+            mldb.post("/v1/functions/get_stats/routes/increment", {
+                'keys': [
+                    ['hosti234234', 'pwet']
+                ],
+                'outcomes': [50]
+            })
+
+        mldb.log(mldb.query("""
+            SELECT get_stats({features: {host: 'pwet'}})[stats] AS *
+        """))
+
+        def incrementAndTest(keys, outcomes, expected):
+            if outcomes:
+                mldb.log(mldb.post("/v1/functions/get_stats/routes/increment", {
+                        'keys': keys,
+                        'outcomes': outcomes
+                    }))
+
+            self.assertTableResultEquals(
+                mldb.query("SELECT get_stats({features: {host: '%s'}})[stats] AS *" % keys[0][1]),
+                [["_rowName", "price.host.last", "price.host.min", "price.host.sum"],
+                 ["result"] + expected])
+
+        incrementAndTest([['host', 'patate']], None, ["NaN", "NaN", 0])
+        incrementAndTest([['host', 'patate']], [50], [50, 50, 50])
+        incrementAndTest([['host', 'patate']], [150], [150, 50, 200])
+
+
 
 
 if __name__ == '__main__':
