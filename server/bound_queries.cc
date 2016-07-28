@@ -377,7 +377,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
     OrderByExpression newOrderBy;
-    bool doDistinctOn_;
+    size_t numDistinctOnClauses_;
 
     OrderedExecutor(const Dataset & dataset,
                     GenerateRowsWhereFunction whereGenerator,
@@ -386,7 +386,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
                     OrderByExpression newOrderBy,
-                    bool doDistinctOn)
+                    size_t numDistinctOnClauses)
         : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
@@ -394,7 +394,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
           newOrderBy(std::move(newOrderBy)),
-          doDistinctOn_(doDistinctOn)
+          numDistinctOnClauses_(numDistinctOnClauses)
     {
     }
 
@@ -515,21 +515,31 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssertGreaterEqual(offset, 0);
 
-        if (doDistinctOn_) {
+        if (numDistinctOnClauses_ > 0) {
 
-            ExpressionValue reference;
+            std::vector<ExpressionValue> reference;
+            reference.resize(numDistinctOnClauses_);
             ssize_t count = 0;
 
             for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
 
-                ExpressionValue & mark = std::get<0>(rowsSorted[i])[0];
+                std::vector<ExpressionValue> & mark = std::get<0>(rowsSorted[i]);
 
                 if (i == 0) {
-                    reference = mark;
+                    std::copy_n(mark.begin(), numDistinctOnClauses_, reference.begin());
                 }
                 else {
-                    if (mark != reference)
-                        reference = std::move(mark); //careful not to use it later on
+
+                    bool same = true;
+                    for (int i = 0; i < numDistinctOnClauses_; ++i){
+                        if (reference[i] != mark[i]) {
+                            same = false;
+                            break;
+                        }
+                    }
+
+                    if (!same)
+                        std::copy_n(mark.begin(), numDistinctOnClauses_, reference.begin());
                     else
                         continue; //skip duplicates
                 }
@@ -1116,7 +1126,7 @@ BoundSelectQuery(const SelectExpression & select,
                                                std::move(boundSelect),
                                                std::move(boundCalc),
                                                std::move(newOrderBy),
-                                               (bool)select.distinctExpr));
+                                               select.distinctExpr.size()));
         } else {
             executor.reset(new UnorderedExecutor(from,
                                                  std::move(whereGenerator),
@@ -1738,25 +1748,35 @@ execute(RowProcessor processor,
 
     ExcAssertGreaterEqual(offset, 0);
 
-    if (select.distinctExpr) {
+    if (select.distinctExpr.size() > 0) {
 
-        ExpressionValue reference;
+        std::vector<ExpressionValue> reference;
+        size_t numDistinctOnClauses = select.distinctExpr.size();
+        reference.resize(numDistinctOnClauses);
         ssize_t count = 0;
 
         for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
 
-            ExpressionValue & mark = std::get<0>(rowsSorted[i])[0];
+            std::vector<ExpressionValue> & mark = std::get<0>(rowsSorted[i]);
 
             if (i == 0) {
-                reference = mark;
+                std::copy_n(mark.begin(), numDistinctOnClauses, reference.begin());
             }
             else {
-                if (mark != reference)
-                    reference = std::move(mark); //careful not to use it later on
+
+                bool same = true;
+                for (int i = 0; i < numDistinctOnClauses; ++i){
+                    if (reference[i] != mark[i]) {
+                        same = false;
+                        break;
+                    }
+                }
+
+                if (!same)
+                    std::copy_n(mark.begin(), numDistinctOnClauses, reference.begin());
                 else
                     continue; //skip duplicates
             }
-
             ++count;
 
             if (count <= offset)
