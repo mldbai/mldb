@@ -184,22 +184,21 @@ struct DistTableProcedure: public Procedure {
     virtual Any getStatus() const;
 
     DistTableProcedureConfig procConfig;
+
+    static void persist(const Url & modelFileUrl, DistTableMode mode, 
+                        const DistTablesMap & distTablesMap);
+
+    static const int DIST_TABLE_PERSIST_VERSION = 2;
+
 };
 
 /*****************************************************************************/
-/* INCREMENT FUNCTION PAYLOAD                                                */
+/* DIST TABLE FUNCTION FUNCTIONS ENDPOINT PAYLOAD                            */
 /*****************************************************************************/
-
-struct IncrementPayload {
-    std::vector<std::pair<Utf8String, Utf8String>> keys;
-    std::vector<double> outcomes;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(IncrementPayload);
 
 
 /*****************************************************************************/
-/* DIST TABLE FUNCTION                                                      */
+/* DIST TABLE FUNCTION                                                       */
 /*****************************************************************************/
 
 struct DistTableFunctionConfig {
@@ -234,6 +233,8 @@ struct DistTableFunction: public Function {
 
     void increment(const std::vector<std::pair<Utf8String, Utf8String>> & keys,
                    const std::vector<double> & outcomes) const;
+    
+    void persist(const Url & modelFileUrl) const;
 
     RestRequestMatchResult
     handleRequest(RestConnection & connection,

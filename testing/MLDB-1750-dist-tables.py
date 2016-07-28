@@ -32,7 +32,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 'columns': [[k,v,0] for k,v in zip(headers, row)]
             })
         mldb.post('/v1/datasets/bid_req/commit')
-        
+
         # data for bag of words test
         headers = ['tag_a', 'tag_b', 'tag_c', 'price', 'target2', 'order_']
         data = [
@@ -242,7 +242,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
 
         self.assertTableResultEquals(
             mldb.query("""
-                select get_stats({features: {host, region}})[stats] as * 
+                select get_stats({features: {host, region}})[stats] as *
                 from bid_req
                 where rowName() = 'row4'
             """),
@@ -288,7 +288,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 }
             })
 
-        
+
 
     def test_bow_dist_tables(self):
         _dt_file = tempfile.NamedTemporaryFile(
@@ -375,7 +375,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             SELECT get_stats({features: {host: 'pwet'}})[stats] AS *
         """))
 
-        def incrementAndTest(keys, outcomes, expected):
+        def incrementAndTest(keys, outcomes, expected, fnct="get_stats"):
             if outcomes:
                 mldb.log(mldb.post("/v1/functions/get_stats/routes/increment", {
                         'keys': keys,
@@ -383,7 +383,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                     }))
 
             self.assertTableResultEquals(
-                mldb.query("SELECT get_stats({features: {host: '%s'}})[stats] AS *" % keys[0][1]),
+                mldb.query("SELECT %s({features: {host: '%s'}})[stats] AS *" % (fnct, keys[0][1])),
                 [["_rowName", "price.host.last", "price.host.min", "price.host.sum"],
                  ["result"] + expected])
 
@@ -391,6 +391,21 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
         incrementAndTest([['host', 'patate']], [50], [50, 50, 50])
         incrementAndTest([['host', 'patate']], [150], [150, 50, 200])
 
+        # dump to disk with the updated counts
+        mldb.post("/v1/functions/get_stats/routes/persist", {
+                'modelFileUrl': "file://tmp/mldb-1750_stats_rt_persist.dt"
+            })
+
+        # reload in new function
+        mldb.put('/v1/functions/get_stats_reloaded', {
+            'type': 'experimental.distTable.getStats',
+            'params': {
+                'distTableFileUrl': "file://tmp/mldb-1750_stats_rt_persist.dt",
+                'statistics': ['last', 'min', 'sum']
+            }
+        })
+        # make sure the counts are the updated counts
+        incrementAndTest([['host', 'patate']], None, [150, 50, 200], "get_stats_reloaded")
 
 
 

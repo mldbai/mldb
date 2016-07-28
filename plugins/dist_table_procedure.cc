@@ -274,7 +274,7 @@ DistTableProcedureConfigDescription()
 /*****************************************************************************/
 /* DIST TABLE PROCEDURE                                                     */
 /*****************************************************************************/
-
+    
 DistTableProcedure::
 DistTableProcedure(MldbServer * owner,
             PolyConfig config,
@@ -480,10 +480,8 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl);
-        ML::DB::Store_Writer store(stream);
-        int VERSION = 2;
-        store << VERSION << runProcConf.mode << distTablesMap;
+        DistTableProcedure::persist(runProcConf.modelFileUrl,
+                runProcConf.mode, distTablesMap);
     }
 
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
@@ -499,14 +497,27 @@ run(const ProcedureRunConfig & run,
     return RunOutput();
 }
 
-
+void DistTableProcedure::
+persist(const Url & modelFileUrl, DistTableMode mode, 
+        const DistTablesMap & distTablesMap)
+{
+    filter_ostream stream(modelFileUrl);
+    ML::DB::Store_Writer store(stream);
+    store << DistTableProcedure::DIST_TABLE_PERSIST_VERSION << mode << distTablesMap;
+}
 
 
 
 /*****************************************************************************/
-/* INCREMENT FUNCTION PAYLOAD                                                */
+/* DIST TABLE FUNCTION FUNCTIONS ENDPOINT PAYLOAD                            */
 /*****************************************************************************/
 
+struct IncrementPayload {
+    std::vector<std::pair<Utf8String, Utf8String>> keys;
+    std::vector<double> outcomes;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(IncrementPayload);
 DEFINE_STRUCTURE_DESCRIPTION(IncrementPayload);
 
 IncrementPayloadDescription::
@@ -517,13 +528,26 @@ IncrementPayloadDescription()
 }
 
 
-DEFINE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
+struct PersistPayload {
+    Url modelFileUrl;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(PersistPayload);
+DEFINE_STRUCTURE_DESCRIPTION(PersistPayload);
+
+PersistPayloadDescription::
+PersistPayloadDescription()
+{
+    addField("modelFileUrl", &PersistPayload::modelFileUrl, "");
+}
 
 
 
 /*****************************************************************************/
 /* DIST TABLE FUNCTION                                                       */
 /*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
 DistTableFunctionConfigDescription::
 DistTableFunctionConfigDescription()
@@ -598,6 +622,21 @@ handleRequest(RestConnection & connection,
         connection.sendResponse(200, Json::Value("OK"), "application/json");
         return RestRequestRouter::MR_YES;
     }
+    else if (context.remaining == "/persist") {
+        StreamingJsonParsingContext jsonContext("input",
+                request.payload.c_str(), request.payload.size());
+
+        auto descPtr = getDefaultDescriptionSharedT<PersistPayload>();
+        auto & desc = *descPtr;
+        PersistPayload result;
+        desc.parseJsonTyped(&result, jsonContext);
+
+        persist(result.modelFileUrl);
+
+        connection.sendResponse(200, Json::Value("OK"), "application/json");
+        return RestRequestRouter::MR_YES;
+
+    }
 
     return Function::handleRequest(connection, request, context);
 }
@@ -620,6 +659,21 @@ increment(const vector<pair<Utf8String, Utf8String>> & keys,
         //for(double outcome : outcomes)
         (*table_it).second.increment(key.second, outcomes);
     }
+}
+
+void
+DistTableFunction::
+persist(const Url & modelFileUrl) const
+{
+    // get exclusive access
+    DistTablesMap copiedMap;
+    {
+        boost::unique_lock<boost::shared_mutex> uniqueLock(_access);
+        copiedMap = DistTablesMap(distTablesMap);
+    }
+
+    DistTableProcedure::persist(modelFileUrl,
+            mode, copiedMap);
 }
 
 DistTableFunction::
