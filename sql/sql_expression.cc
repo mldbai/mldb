@@ -3090,7 +3090,7 @@ parse(const Utf8String & expr,
 {
     ML::Parse_Context context(filename.empty() ? expr.rawData() : filename,
                               expr.rawData(),
-                              expr.length(), row, col);
+                              expr.rawLength(), row, col);
    
     auto select = parse(context, true);
 
