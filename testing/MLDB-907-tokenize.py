@@ -41,10 +41,31 @@ class TokenizeTest(MldbUnitTest):  # noqa
     def test_splitChars(self):
         result = mldb.get(
             '/v1/query',
-            q="SELECT tokenize('a b c a', {' ' AS splitChars}) AS tokens")
+            q=u"SELECT tokenize('a b c a', {' …' AS splitChars}) AS tokens")
         self.find_column(result, 'tokens.a', 2)
         self.find_column(result, 'tokens.c', 1)
         self.find_column(result, 'tokens.b', 1)
+
+    def test_in_transform(self):
+        mldb.post('/v1/procedures', {
+            'type': 'transform',
+            'params': {
+                'inputData': u"""
+                    SELECT
+                        tokenize(
+                            'abouyayaa adsf 2 ; sdv, sdf',
+                            {splitChars: ',; …', minTokenLength: 3} 
+                        ) as *
+                    """,
+                'outputDataset': 'bag_of_words',
+                'runOnCreation': True
+            }
+        })
+
+        self.assertTableResultEquals(
+            mldb.query("select * from bag_of_words"),
+            [["_rowName","abouyayaa","adsf","sdf","sdv"],
+             ["result",1,1,1,1]])
 
     def test_splitChars_and_str_value(self):
         result = mldb.get(
