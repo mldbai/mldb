@@ -18,7 +18,7 @@ function runQuery(q, expected)
     assertEqual(resp[0].columns[0][1], expected);
 }
 
-runQuery("select cast ([] as path)", {path: []});
+runQuery("select cast ([''] as path)", {path: [""]});
 runQuery("select cast (['1'] as path)", {path: ["1"]});
 runQuery("select cast ([1] as path)", {path: ["1"]});
 runQuery("select cast ([1,2,3] as path)", {path: ["1","2","3"]});

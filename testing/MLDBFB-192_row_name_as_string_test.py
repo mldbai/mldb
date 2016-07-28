@@ -98,16 +98,5 @@ class NullNameTest(MldbUnitTest):
             mldb.post('/v1/datasets/ds_null/rows',
                     {'rowName' : None, 'columns' : [['colA', 1, 1]]})
 
-    def test_post_empty_row_name(self):
-        mldb.put('/v1/datasets/ds5', {
-            'type' : 'sparse.mutable'
-        })
-
-        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
-            mldb.post('/v1/datasets/ds5/rows', {
-                'rowName' : '',
-                'columns' : [['colA', 1, 1]]
-            })
-
 if __name__ == '__main__':
     mldb.run_tests()
