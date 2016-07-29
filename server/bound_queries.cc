@@ -534,6 +534,10 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 /* Finally, pass to the terminator to continue. */
                 return processor(outputRow, calcd, rowNum);
             };
+        parallelMap(0, sortedRowsSize, doSelect);
+
+        //cerr << "select took " << timer.elapsed() << endl;
+        timer.restart();
 
         // Now select only the required subset of sorted rows
         if (limit == -1)
