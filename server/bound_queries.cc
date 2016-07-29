@@ -523,13 +523,14 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         auto doSelect = [&] (uint64_t sortedRowNum)
         {
             int rowNum = std::get<1>(rowsSorted[sortedRowNum]);
-            auto row = dataset.getRowExpr(rows[rowNum]);
+            auto rowExpr = dataset.getRowExpr(rows[rowNum]);
+            auto & row = rows[rowNum];
 
             auto & namedRow = sortedSelectedRows[sortedRowNum];
-            namedRow.rowName = rows[rowNum];
-            namedRow.rowHash = rows[rowNum];
+            namedRow.rowName = row;
+            namedRow.rowHash = row;
 
-            auto selectRowScope = context.getRowScope(rows[rowNum], row);
+            auto selectRowScope = context.getRowScope(row, rowExpr);
             selectRowScope.setRowInfo(sortedRowNum + 1, rowsSortedSize);
             // Run the bound select expressions
             ExpressionValue selectOutput = boundSelect(selectRowScope,
@@ -574,16 +575,11 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 if (count <= offset)
                     continue;
 
-                int rowNum = std::get<1>(rowsSorted[i]);
-                auto & row = rows[rowNum];
+                auto & row = sortedSelectedRows[i];
                 auto & calcd = std::get<2>(rowsSorted[i]);
 
-                NamedRowValue namedRow;
-                namedRow.rowName = row;
-                namedRow.rowHash = row;
-
                 /* Finally, pass to the terminator to continue. */
-                if (!processor(namedRow, calcd, i))
+                if (!processor(row, calcd, i))
                     return false;
 
                 if (count - offset == limit)
