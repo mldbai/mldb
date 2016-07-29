@@ -12,13 +12,13 @@
  *
  *-------------------------------------------------------------------------
  */
-#include "postgres_fe.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
 
 #include <ctype.h>
 #include <fcntl.h>
 
-#include "libpq-fe.h"
-#include "libpq-int.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-fe.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-int.h"
 
 
 #ifdef WIN32

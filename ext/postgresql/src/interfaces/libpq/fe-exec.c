@@ -12,21 +12,23 @@
  *
  *-------------------------------------------------------------------------
  */
-#include "postgres_fe.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
 
 #include <ctype.h>
 #include <fcntl.h>
 
-#include "libpq-fe.h"
-#include "libpq-int.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-fe.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-int.h"
 
-#include "mb/pg_wchar.h"
+#include "ext/postgresql/src/include/mb/pg_wchar.h"
 
 #ifdef WIN32
 #include "win32.h"
 #else
 #include <unistd.h>
 #endif
+
+#define MAXIMUM_ALIGNOF 4
 
 /* keep this in same order as ExecStatusType in libpq-fe.h */
 char	   *const pgresStatus[] = {

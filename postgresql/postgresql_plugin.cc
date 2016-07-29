@@ -54,7 +54,16 @@ struct PostgresqlDataset: public Dataset {
         //auto values = "";
         //int expand_dbname = 0;
 
-        const char *conninfo = "dbname = mldb";
+       // PGconn* conn = makeEmptyPGconn();
+        //const char *conninfo = "hostaddr=spock.datacratic.com dbname = mldb port=5432 user=mldb password=mldb";
+        const char *conninfo = "dbname = mldb port=5432 user=mldb password=mldb";
+
+       // connectOptions1(conn, conninfo);
+
+       /* if (conn->dbName == NULL)
+            cerr << "no db name" << endl;
+        else
+            cerr << conn->dbName << endl;*/
 
         auto conn = PQconnectdb(conninfo);
 
@@ -65,6 +74,39 @@ struct PostgresqlDataset: public Dataset {
             PQfinish(conn);
             return;
         }
+        else {
+            cerr << "connection successful!" << endl;
+        }
+
+        PGresult *res = nullptr;
+
+        //create a table
+       /* PGresult *res = PQexec(conn, "CREATE TABLE hello (message VARCHAR(32))");
+        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+            cerr << "could not create table" << PQresultErrorMessage(res);
+        PQclear(res);*/
+
+          //insert data
+        /*res = PQexec(conn, "INSERT INTO hello VALUES ('Hello World!')");
+        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+            cerr << "could not insert data" << PQresultErrorMessage(res);
+        PQclear(res);**
+
+        //query the db
+          res = PQexec(conn, "SELECT * FROM hello");
+          if (PQresultStatus(res) != PGRES_TUPLES_OK)
+             cerr << "could not query table: " << PQresultErrorMessage(res);
+         else 
+            cerr << "query successful" << endl;
+
+          int nfields = PQnfields(res);
+          int ntuples = PQntuples(res);
+
+          for(int i = 0; i < ntuples; i++)
+            for(int j = 0; j < nfields; j++)
+              cerr << i << "," << j << ": " << PQgetvalue(res, i, j) << endl;
+          PQclear(res);
+
 
         /* close the connection to the database and cleanup */
         PQfinish(conn);

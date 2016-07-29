@@ -21,8 +21,8 @@
 #define LIBPQ_INT_H
 
 /* We assume libpq-fe.h has already been included. */
-#include "postgres_fe.h"
-#include "libpq-events.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-events.h"
 
 #include <time.h>
 #include <sys/types.h>
@@ -40,10 +40,10 @@
 #endif
 
 /* include stuff common to fe and be */
-#include "getaddrinfo.h"
-#include "libpq/pqcomm.h"
+#include "ext/postgresql/src/include/getaddrinfo.h"
+#include "ext/postgresql/src/include/libpq/pqcomm.h"
 /* include stuff found in fe only */
-#include "pqexpbuffer.h"
+#include "ext/postgresql/src/interfaces/libpq/pqexpbuffer.h"
 
 #ifdef ENABLE_GSS
 #if defined(HAVE_GSSAPI_H)

@@ -177,7 +177,7 @@
 #undef HAVE_GCC_INT_ATOMICS
 
 /* Define to 1 if you have the `getaddrinfo' function. */
-#undef HAVE_GETADDRINFO
+#define HAVE_GETADDRINFO
 
 /* Define to 1 if you have the `gethostbyname_r' function. */
 #undef HAVE_GETHOSTBYNAME_R
@@ -325,7 +325,7 @@
 #undef HAVE_LOCALE_T
 
 /* Define to 1 if `long int' works and is 64 bits. */
-#undef HAVE_LONG_INT_64
+#define HAVE_LONG_INT_64
 
 /* Define to 1 if the system has the type `long long int'. */
 #undef HAVE_LONG_LONG_INT
@@ -491,7 +491,7 @@
 #undef HAVE_STRTOUQ
 
 /* Define to 1 if the system has the type `struct addrinfo'. */
-#undef HAVE_STRUCT_ADDRINFO
+#define HAVE_STRUCT_ADDRINFO
 
 /* Define to 1 if the system has the type `struct cmsgcred'. */
 #undef HAVE_STRUCT_CMSGCRED
@@ -503,10 +503,10 @@
 #undef HAVE_STRUCT_SOCKADDR_SA_LEN
 
 /* Define to 1 if the system has the type `struct sockaddr_storage'. */
-#undef HAVE_STRUCT_SOCKADDR_STORAGE
+#define HAVE_STRUCT_SOCKADDR_STORAGE
 
 /* Define to 1 if `ss_family' is member of `struct sockaddr_storage'. */
-#undef HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY
+#define HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY
 
 /* Define to 1 if `ss_len' is member of `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
@@ -575,7 +575,7 @@
 #undef HAVE_SYS_UCRED_H
 
 /* Define to 1 if you have the <sys/un.h> header file. */
-#undef HAVE_SYS_UN_H
+#define HAVE_SYS_UN_H
 
 /* Define to 1 if you have the <termios.h> header file. */
 #undef HAVE_TERMIOS_H
@@ -612,7 +612,7 @@
 #undef HAVE_UNIX_SOCKETS
 
 /* Define to 1 if you have the `unsetenv' function. */
-#undef HAVE_UNSETENV
+#define HAVE_UNSETENV
 
 /* Define to 1 if you have the `utime' function. */
 #undef HAVE_UTIME

@@ -22,7 +22,7 @@
  *-------------------------------------------------------------------------
  */
 
-#include "postgres_fe.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
 
 #include <limits.h>
 

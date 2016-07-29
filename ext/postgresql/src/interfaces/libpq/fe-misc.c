@@ -28,7 +28,7 @@
  *-------------------------------------------------------------------------
  */
 
-#include "postgres_fe.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
 
 #include <signal.h>
 #include <time.h>
@@ -53,10 +53,10 @@
 #include <sys/select.h>
 #endif
 
-#include "libpq-fe.h"
-#include "libpq-int.h"
-#include "mb/pg_wchar.h"
-#include "pg_config_paths.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-fe.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-int.h"
+#include "ext/postgresql/src/include/mb/pg_wchar.h"
+//#include "pg_config_paths.h"
 
 
 static int	pqPutMsgBytes(const void *buf, size_t len, PGconn *conn);
@@ -71,7 +71,7 @@ static int	pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time);
 int
 PQlibVersion(void)
 {
-	return PG_VERSION_NUM;
+	return /*PG_VERSION_NUM*/9;
 }
 
 /*

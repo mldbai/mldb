@@ -11,6 +11,7 @@ $(eval $(call include_sub_make,protobuf,protobuf,../protobuf.mk))
 $(eval $(call include_sub_make,farmhash,farmhash,../farmhash.mk))
 $(eval $(call include_sub_make,highwayhash,highwayhash,../highwayhash.mk))
 $(eval $(call include_sub_make,tensorflow,tensorflow,../tensorflow.mk))
+$(eval $(call include_sub_make,postgresqlext,postgresql,postgresqlext.mk))
 
 $(eval $(call library,edlib,edlib/src/edlib.cpp))
 $(eval $(call library,uap,uap-cpp/UaParser.cpp,yaml-cpp))

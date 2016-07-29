@@ -13,7 +13,9 @@
  *-------------------------------------------------------------------------
  */
 
-#include "postgres_fe.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
+
+#define DEF_PGPORT_STR "8686"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -23,9 +25,9 @@
 #include <unistd.h>
 
 #include "libpq-fe.h"
-#include "libpq-int.h"
-#include "fe-auth.h"
-#include "pg_config_paths.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-int.h"
+#include "ext/postgresql/src/interfaces/libpq/fe-auth.h"
+//#include "ext/postgresql/src/interfaces/libpq/pg_config_paths.h"
 
 #ifdef WIN32
 #include "win32.h"
@@ -72,8 +74,8 @@ static int ldapServiceLookup(const char *purl, PQconninfoOption *options,
 				  PQExpBuffer errorMessage);
 #endif
 
-#include "libpq/ip.h"
-#include "mb/pg_wchar.h"
+#include "ext/postgresql/src/include/libpq/ip.h"
+#include "ext/postgresql/src/include/mb/pg_wchar.h"
 
 #ifndef FD_CLOEXEC
 #define FD_CLOEXEC 1
@@ -327,7 +329,7 @@ static const PQEnvironmentOption EnvironmentOptions[] =
 static const char uri_designator[] = "postgresql://";
 static const char short_uri_designator[] = "postgres://";
 
-static bool connectOptions1(PGconn *conn, const char *conninfo);
+//static bool connectOptions1(PGconn *conn, const char *conninfo);
 static bool connectOptions2(PGconn *conn);
 static int	connectDBStart(PGconn *conn);
 static int	connectDBComplete(PGconn *conn);
@@ -644,6 +646,8 @@ PQconnectStart(const char *conninfo)
 {
 	PGconn	   *conn;
 
+    printf("0\n");
+
 	/*
 	 * Allocate memory for the conn structure
 	 */
@@ -651,17 +655,28 @@ PQconnectStart(const char *conninfo)
 	if (conn == NULL)
 		return NULL;
 
+    printf("1\n");
+
 	/*
 	 * Parse the conninfo string
 	 */
 	if (!connectOptions1(conn, conninfo))
 		return conn;
 
+    printf("2\n");
+
 	/*
 	 * Compute derived options
 	 */
 	if (!connectOptions2(conn))
 		return conn;
+
+    printf("3\n");
+
+    if (conn->dbName == NULL)
+        printf("no db name\n");
+    else
+        printf("%s\n",conn->dbName);
 
 	/*
 	 * Connect to the database
@@ -671,6 +686,9 @@ PQconnectStart(const char *conninfo)
 		/* Just in case we failed to set it in connectDBStart */
 		conn->status = CONNECTION_BAD;
 	}
+
+    printf("4\n");
+
 
 	return conn;
 }
@@ -725,7 +743,7 @@ fillPGconn(PGconn *conn, PQconninfoOption *connOptions)
  * Returns true if OK, false if trouble (in which case errorMessage is set
  * and so is conn->status).
  */
-static bool
+bool
 connectOptions1(PGconn *conn, const char *conninfo)
 {
 	PQconninfoOption *connOptions;
@@ -1413,7 +1431,7 @@ connectDBStart(PGconn *conn)
 		}
 	}
 	else
-		portnum = DEF_PGPORT;
+		portnum = /*DEF_PGPORT*/8686;
 	snprintf(portstr, sizeof(portstr), "%d", portnum);
 
 	if (conn->pghostaddr != NULL && conn->pghostaddr[0] != '\0')
@@ -1909,7 +1927,7 @@ keep_going:						/* We will come back to here until there is
 
 		case CONNECTION_STARTED:
 			{
-				ACCEPT_TYPE_ARG3 optlen = sizeof(optval);
+				/*ACCEPT_TYPE_ARG3*/socklen_t optlen = sizeof(optval);
 
 				/*
 				 * Write ready, since we've made it here, so the connection
@@ -3930,6 +3948,9 @@ next_file:
 	 * This could be used by any application so we can't use the binary
 	 * location to find our config files.
 	 */
+
+     #define SYSCONFDIR "/usr/local/etc"
+
 	snprintf(serviceFile, MAXPGPATH, "%s/pg_service.conf",
 			 getenv("PGSYSCONFDIR") ? getenv("PGSYSCONFDIR") : SYSCONFDIR);
 	errno = 0;

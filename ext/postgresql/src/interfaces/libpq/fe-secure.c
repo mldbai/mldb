@@ -22,15 +22,15 @@
  *-------------------------------------------------------------------------
  */
 
-#include "postgres_fe.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
 
 #include <signal.h>
 #include <fcntl.h>
 #include <ctype.h>
 
-#include "libpq-fe.h"
-#include "fe-auth.h"
-#include "libpq-int.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-fe.h"
+#include "ext/postgresql/src/interfaces/libpq/fe-auth.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-int.h"
 
 #ifdef WIN32
 #include "win32.h"

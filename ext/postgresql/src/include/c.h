@@ -45,16 +45,16 @@
 #ifndef C_H
 #define C_H
 
-#include "postgres_ext.h"
+#include "ext/postgresql/src/include/postgres_ext.h"
 
 /* Must undef pg_config_ext.h symbols before including pg_config.h */
 #undef PG_INT64_TYPE
 
-#include "pg_config.h"
-#include "pg_config_manual.h"	/* must be after pg_config.h */
+#include "ext/postgresql/src/include/pg_config.h.in"
+#include "ext/postgresql/src/include/pg_config_manual.h"	/* must be after pg_config.h */
 
 #if !defined(WIN32) && !defined(__CYGWIN__)		/* win32 includes further down */
-#include "pg_config_os.h"		/* must be before any system header files */
+//#include "ext/postgresql/src/include/pg_config_os.h"		/* must be before any system header files */
 #endif
 
 #if _MSC_VER >= 1400 || defined(HAVE_CRTDEFS_H)
@@ -739,6 +739,7 @@ typedef NameData *Name;
  *	memset() functions.  More research needs to be done, perhaps with
  *	MEMSET_LOOP_LIMIT tests in configure.
  */
+#define MEMSET_LOOP_LIMIT 0
 #define MemSet(start, val, len) \
 	do \
 	{ \

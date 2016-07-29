@@ -239,6 +239,8 @@ typedef struct pgresAttDesc
 
 /* ===	in fe-connect.c === */
 
+extern bool connectOptions1(PGconn *conn, const char *conninfo);
+
 /* make a new client connection to the backend */
 /* Asynchronous (non-blocking) */
 extern PGconn *PQconnectStart(const char *conninfo);

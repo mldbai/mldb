@@ -20,7 +20,7 @@
  *								of the authentication system
  */
 
-#include "postgres_fe.h"
+#include "ext/postgresql/src/include/postgres_fe.h"
 
 #ifdef WIN32
 #include "win32.h"
@@ -38,9 +38,9 @@
 #include <pwd.h>
 #endif
 
-#include "libpq-fe.h"
-#include "fe-auth.h"
-#include "libpq/md5.h"
+#include "ext/postgresql/src/interfaces/libpq/libpq-fe.h"
+#include "ext/postgresql/src/interfaces/libpq/fe-auth.h"
+#include "ext/postgresql/src/include/libpq/md5.h"
 
 
 #ifdef KRB5
