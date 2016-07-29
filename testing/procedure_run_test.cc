@@ -75,9 +75,11 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     PolyConfig applyProcedureConfig;
     applyProcedureConfig.type = "svd.train";
     applyProcedureConfig.params = svdParams;
+    auto payload = jsonEncode(applyProcedureConfig);
+    payload["params"]["runOnCreation"] = 0;
 
     auto createProcedureOutput = proxy.put("/v1/procedures/test1",
-                                          jsonEncode(applyProcedureConfig));
+                                           payload);
     
     cerr << createProcedureOutput << endl;
 

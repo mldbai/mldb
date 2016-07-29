@@ -33,8 +33,10 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(res, expected)
 
-    #MLDB-1478
     def test_error(self):
+        """
+        MLDB-1478
+        """
 
         csv_conf = {
             "type": "import.text",
@@ -71,14 +73,14 @@ class HavingTest(unittest.TestCase):
 
         mldb.log(re.exception.response.json()["error"])
 
-        expected = 'Cannot read column "a" with no dataset.'
+        expected = 'Cannot read column "a" with no FROM clause.'
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             res = mldb.get("/v1/query", q='SELECT 1 named a')
 
-        expected = 'Cannot read column "a" with no dataset.'
+        expected = 'Cannot read column "a" with no FROM clause.'
 
         mldb.log(re.exception.response.json()["error"])
 

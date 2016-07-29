@@ -59,6 +59,11 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                      const ColumnName & columnName);
+
+    virtual GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep) override;
+
 };
 
 

@@ -1896,29 +1896,14 @@ unimp(std::shared_ptr<SqlExpression> lhs,
 }
 
 //Find aggregators for any class implementing getChildren.
-template <class T>
+
 std::vector<std::shared_ptr<SqlExpression> >
-findAggregatorsT(const T* expression, bool withGroupBy)
+findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
     std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
     
-     // collect aggregators
-    for (auto iter = children.begin(); iter != children.end(); ++iter)
-    {
-        auto child = *iter;
-        if (child->isAggregator())
-            output.push_back(child);
-        else {
-            //we dont look for aggregators in aggregator - its not legal - this check above
-            //order MUST be preserved
-            std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
-            int pos = iter - children.begin();
-            children.insert(iter+1, subchildren.begin(), subchildren.end());
-            iter = children.begin() + pos;
-        }
-    }
+    //Collect aggregators AND verify validity at the same time.
 
     std::vector<Utf8String> culprit;
 
@@ -1936,13 +1921,16 @@ findAggregatorsT(const T* expression, bool withGroupBy)
     */
     std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
         for (IterType it = begin; it < end; ++it) {
-            if (!(*it)->isAggregator()) {
-                auto children = (*it)->getChildren();
-                if (children.size() == 0  && (*it)->isWildcard()) {
+            if ((*it)->isAggregator()) {
+                output.push_back(*it);
+            }
+            else {
+                auto subchildren = (*it)->getChildren();
+                if (subchildren.size() == 0  && (*it)->isWildcard()) {
                     return false;
                 }
                 culprit.push_back((*it)->surface);
-                bool result = wildcardNestedInAggregator(children.begin(), children.end());
+                bool result = wildcardNestedInAggregator(subchildren.begin(), subchildren.end());
                 culprit.pop_back();
                 if (!result) return result;
             }
@@ -1963,11 +1951,22 @@ findAggregatorsT(const T* expression, bool withGroupBy)
     return std::move(output);
 }
 
+template <class T>
 std::vector<std::shared_ptr<SqlExpression> >
-SqlExpression::
-findAggregators(bool withGroupBy) const
+findAggregatorsT(const T* expression, bool withGroupBy)
 {
-    return findAggregatorsT<SqlExpression>(this, withGroupBy);
+    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
+    return findAggregators(children, withGroupBy);
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+findAggregators(std::shared_ptr<SqlExpression> expr, bool withGroupBy)
+{
+    std::vector<std::shared_ptr<SqlExpression> > children;
+    children.push_back(expr);
+    return findAggregators(children, withGroupBy);
+
+    return children;
 }
 
 struct SqlExpressionDescription
@@ -3017,14 +3016,33 @@ SelectExpression
 SelectExpression::
 parse(ML::Parse_Context & context, bool allowUtf8)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(context, allowUtf8);
-    // concatenate all the surfaces with spaces
-    result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
-                                     [](const Utf8String & prefix,
-                                        std::shared_ptr<SqlRowExpression> & next) {
-                                         return prefix.empty() ? next->surface : prefix + ", " + next->surface;
-                                     });;
+    ML::Parse_Context::Hold_Token token(context);
+    std::vector<std::shared_ptr<SqlExpression>> distinctExpr;
+
+    if (matchKeyword(context, "DISTINCT ON ")) {
+        context.skip_whitespace();
+        context.expect_literal('(');
+        do {       
+            auto expr = SqlExpression::parse(context, 10, allowUtf8);
+            distinctExpr.push_back(expr);
+            context.skip_whitespace();
+        } while (context.match_literal(','));
+
+        context.expect_literal(')');
+
+    }
+    else if (matchKeyword(context, "DISTINCT ")) {
+        throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
+    }
+
+    SelectExpression result;
+
+    result.clauses = SqlRowExpression::parseList(context, allowUtf8);
+
+    result.distinctExpr = std::move(distinctExpr);
+
+    result.surface = ML::trim(token.captured()); 
+
     return result;
 }
 
@@ -3033,10 +3051,16 @@ SelectExpression::
 parse(const std::string & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ML::Parse_Context context(filename.empty() ? expr : filename,
+                              expr.c_str(),
+                              expr.length(), row, col);
+
+    auto select = parse(context, false);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 SelectExpression
@@ -3052,10 +3076,16 @@ SelectExpression::
 parse(const Utf8String & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ML::Parse_Context context(filename.empty() ? expr.rawData() : filename,
+                              expr.rawData(),
+                              expr.rawLength(), row, col);
+   
+    auto select = parse(context, true);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 BoundSqlExpression
@@ -3120,6 +3150,22 @@ print() const
             result += ", ";
         result += clauses[i]->print();
     }
+
+    if (distinctExpr.size() > 0) {
+
+        if (clauses.size() > 0)
+            result += ", ";
+
+        result += "distinct on(";
+
+        for (unsigned i = 0; i < distinctExpr.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += distinctExpr[i]->print();
+        } 
+
+        result += ")";
+    }   
 
     result += "]";
     
@@ -3188,6 +3234,13 @@ isConstant() const
             return false;
     }
     return true;
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+SelectExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<SelectExpression>(this, withGroupBy);
 }
 
 struct SelectExpressionDescription
@@ -3925,6 +3978,16 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     }
     else {
         statement.offset = 0;
+    }
+
+    if (statement.select.distinctExpr.size() > 0) {
+        if (statement.orderBy.clauses.size() < statement.select.distinctExpr.size())
+            throw HttpReturnException(400, "DISTINCT ON expression cannot have more clauses than ORDER BY expression");
+
+        for (size_t i = 0; i < statement.select.distinctExpr.size(); ++i) {
+            if (statement.select.distinctExpr[i]->print() != statement.orderBy.clauses[i].first->print())
+                throw HttpReturnException(400, "DISTINCT ON expression must match leftmost(s) ORDER BY clause(s)");
+        }
     }
 
     statement.surface = ML::trim(token.captured());

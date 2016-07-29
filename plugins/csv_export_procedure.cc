@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /**
  * csv_export_procedure.cc
  * Mich, 2015-11-11
  * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
 
 #include "csv_export_procedure.h"
@@ -32,12 +31,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-CsvExportProcedureConfig::
-CsvExportProcedureConfig()
-    : headers(true), delimiter(","), quoteChar("\"")
-{
-}
-
 DEFINE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
 
 CsvExportProcedureConfigDescription::
@@ -56,6 +49,19 @@ CsvExportProcedureConfigDescription()
     addField("quoteChar", &CsvExportProcedureConfig::quoteChar,
              "The character to enclose the values within when they contain "
              "either a delimiter or a quoteChar", string(","));
+    addField("skipDuplicateCells", &CsvExportProcedureConfig::skipDuplicateCells,
+             "The CSV format cannot represent many values per cell the way MLDB datasets can "
+             "by using the time dimension. When this parameter is set to `false`, an exception "
+             "will be thrown when the export procedure detects many values for the same "
+             "row/column pair.\n\n"
+             "To export a dataset that has more than one value in at least one cell, "
+             "there are two options:\n\n"
+             "  * Set this parameter to `true`, which will pick one in an undetermined way.\n"
+             "  * Apply a temporal aggregator, like `temporal_max()`, to the values. See the\n"
+             "    [Built-in Functions](../sql/ValueExpression.md.html) documentation for the\n"
+             "    complete list of aggregators.\n\n",
+             false);
+
     addParent<ProcedureConfig>();
 
     onPostValidate = [&] (CsvExportProcedureConfig * cfg,
@@ -127,7 +133,7 @@ run(const ProcedureRunConfig & run,
         };
 
         for (const auto & col: row.columns) {
-            const auto seekColumn = std::get<0>(col); // the column to seek in
+            const auto & seekColumn = std::get<0>(col); // the column to seek in
                                                       // the csv ordering
             auto columnNamesIt = columnNames.begin() + lineBufferIndex;
             size_t columnIndex;
@@ -138,13 +144,19 @@ run(const ProcedureRunConfig & run,
                     // column must always be found, otherwise me should be in a
                     // context where cells have multiple values.
                     if (columnNamesIt == columnNamesEnd) {
-                        throw ML::Exception("CSV export does not work over "
-                                            "cells having multiple values");
+                        if(runProcConf.skipDuplicateCells)
+                            return false;
+
+                        throw ML::Exception(Utf8String("CSV export does not work over "
+                                "cells having multiple values, at row '" + row.rowName.toUtf8String() +
+                                "' for column '" + seekColumn.toUtf8String() + "'").utf8String());
                     }
                 }
                 columnIndex = columnNamesIt - columnNamesBegin;
+                return true;
             };
-            updatePointers();
+            if(!updatePointers())
+                continue;
 
             if (columnIndex == lineBufferIndex) {
                 // immediate output
@@ -177,7 +189,8 @@ run(const ProcedureRunConfig & run,
                     // find the next index where to store, collision are not
                     // possible
                     ++ columnNamesIt;
-                    updatePointers();
+                    if(!updatePointers())
+                        continue;
                 }
                 ExcAssert(lineBuffer[columnIndex] == "");
                 lineBuffer[columnIndex] =

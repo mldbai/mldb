@@ -382,6 +382,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
     OrderByExpression newOrderBy;
+    size_t numDistinctOnClauses_;
 
     OrderedExecutor(const Dataset & dataset,
                     GenerateRowsWhereFunction whereGenerator,
@@ -389,14 +390,16 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                     BoundWhenExpression whenBound,
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
-                    OrderByExpression newOrderBy)
+                    OrderByExpression newOrderBy,
+                    size_t numDistinctOnClauses)
         : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
           whenBound(std::move(whenBound)),
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
-          newOrderBy(std::move(newOrderBy))
+          newOrderBy(std::move(newOrderBy)),
+          numDistinctOnClauses_(numDistinctOnClauses)
     {
     }
 
@@ -538,13 +541,77 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssertGreaterEqual(offset, 0);
 
-        ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
-        ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+        if (numDistinctOnClauses_ > 0) {
 
-        for (unsigned i = begin;  i < end;  ++i) {
-            if (!doSelect(i))
-                return false;
+            std::vector<ExpressionValue> reference;
+            reference.resize(numDistinctOnClauses_);
+            ssize_t count = 0;
+
+            for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
+
+                std::vector<ExpressionValue> & mark = std::get<0>(rowsSorted[i]);
+
+                if (i == 0) {
+                    std::copy_n(mark.begin(), numDistinctOnClauses_, reference.begin());
+                }
+                else {
+
+                    bool same = true;
+                    for (int i = 0; i < numDistinctOnClauses_; ++i){
+                        if (reference[i] != mark[i]) {
+                            same = false;
+                            break;
+                        }
+                    }
+
+                    if (!same)
+                        std::copy_n(mark.begin(), numDistinctOnClauses_, reference.begin());
+                    else
+                        continue; //skip duplicates
+                }
+
+                ++count;
+
+                if (count <= offset)
+                    continue;
+
+                int rowNum = std::get<1>(rowsSorted[i]);
+                auto & row = rows[rowNum];
+                auto & calcd = std::get<2>(rowsSorted[i]);
+
+                NamedRowValue namedRow;
+                namedRow.rowName = row;
+                namedRow.rowHash = row;
+
+                /* Finally, pass to the terminator to continue. */
+                if (!processor(namedRow, calcd, i))
+                    return false;
+
+                if (count - offset == limit)
+                    break;
+            }
+
         }
+        else {
+            ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
+            ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+            for (unsigned i = begin;  i < end;  ++i) {
+
+                int rowNum = std::get<1>(rowsSorted[i]);
+                auto & row = rows[rowNum];
+                auto & calcd = std::get<2>(rowsSorted[i]);
+
+                NamedRowValue namedRow;
+                namedRow.rowName = row;
+                namedRow.rowHash = row;
+
+                /* Finally, pass to the terminator to continue. */
+                if (!processor(namedRow, calcd, i))
+                    return false;
+            }
+        }
+
+     
 
         cerr << "reduce took " << timer.elapsed() << endl;
 
@@ -1094,7 +1161,8 @@ BoundSelectQuery(const SelectExpression & select,
                                                std::move(whenBound),
                                                std::move(boundSelect),
                                                std::move(boundCalc),
-                                               std::move(newOrderBy)));
+                                               std::move(newOrderBy),
+                                               select.distinctExpr.size()));
         } else {
             executor.reset(new UnorderedExecutor(from,
                                                  std::move(whereGenerator),
@@ -1710,27 +1778,70 @@ execute(RowProcessor processor,
     // Sort our output rows
     std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
 
-    auto doSelect = [&] (int rowNum) -> bool
-        {
-            auto & row = std::get<1>(rowsSorted[rowNum]);
-
-            /* Finally, pass to the terminator to continue. */
-            return processor(row);
-        };
-
     // Now select only the required subset of sorted rows
     if (limit == -1)
         limit = rowsSorted.size();
 
     ExcAssertGreaterEqual(offset, 0);
 
-    ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
-    ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+    if (select.distinctExpr.size() > 0) {
 
-    for (unsigned i = begin;  i < end;  ++i) {
-        if (!doSelect(i))
-            return false;
-    } 
+        std::vector<ExpressionValue> reference;
+        size_t numDistinctOnClauses = select.distinctExpr.size();
+        reference.resize(numDistinctOnClauses);
+        ssize_t count = 0;
+
+        for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
+
+            std::vector<ExpressionValue> & mark = std::get<0>(rowsSorted[i]);
+
+            if (i == 0) {
+                std::copy_n(mark.begin(), numDistinctOnClauses, reference.begin());
+            }
+            else {
+
+                bool same = true;
+                for (int i = 0; i < numDistinctOnClauses; ++i){
+                    if (reference[i] != mark[i]) {
+                        same = false;
+                        break;
+                    }
+                }
+
+                if (!same)
+                    std::copy_n(mark.begin(), numDistinctOnClauses, reference.begin());
+                else
+                    continue; //skip duplicates
+            }
+            ++count;
+
+            if (count <= offset)
+                continue;
+
+            auto & row = std::get<1>(rowsSorted[i]);
+
+            /* Finally, pass to the terminator to continue. */
+            if (!processor(row))
+                return false;
+
+            if (count - offset == limit)
+                break;
+        }
+
+    }
+    else {
+
+        ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
+        ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+
+        for (unsigned i = begin;  i < end;  ++i) {
+            auto & row = std::get<1>(rowsSorted[i]);
+
+            /* Finally, pass to the terminator to continue. */
+            if (!processor(row))
+                return false;
+        } 
+    }  
 
     return true;
 }

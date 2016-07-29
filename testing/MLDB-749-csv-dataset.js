@@ -486,7 +486,7 @@ assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows o
 assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
 assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
-//MLDB-1312 specify quotechar
+//MLDB-1312 specify quoteChar
 var mldb1312Config = {
         type: "import.text",
         params: {
@@ -496,7 +496,7 @@ var mldb1312Config = {
             },
             runOnCreation: true,
             encoding: 'latin1',
-            quotechar: '#'
+            quoteChar: '#'
         }
     }
 
@@ -511,18 +511,18 @@ expected =
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb1312 order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quotechar test");
+assertEqual(res.json, expected, "quoteChar test");
 
 var mldb1312Config_b = {
         type: "import.text",
         params: {
-            dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
+            dataFileUrl : "file://mldb/testing/MLDB-1312-quoteChar.csv",
             outputDataset: {
                 id: 'mldb1312_b',
             },
             runOnCreation: true,
             encoding: 'latin1',
-            quotechar: '#',
+            quoteChar: '#',
             delimiter: ''
         }
     }
@@ -540,7 +540,7 @@ var mldb1312Config_c = {
             },
             runOnCreation: true,
             encoding: 'latin1',
-            quotechar: '',
+            quoteChar: '',
             delimiter: ',',
             ignoreBadLines: true
         }
@@ -556,6 +556,6 @@ expected =
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb1312_c order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quotechar test");
+assertEqual(res.json, expected, "quoteChar test");
 
 "success"

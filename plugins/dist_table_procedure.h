@@ -16,6 +16,7 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/string.h"
+#include <boost/thread/shared_mutex.hpp>
 
 namespace Datacratic {
 namespace MLDB {
@@ -183,10 +184,17 @@ struct DistTableProcedure: public Procedure {
     virtual Any getStatus() const;
 
     DistTableProcedureConfig procConfig;
+
+    static void persist(const Url & modelFileUrl, DistTableMode mode, 
+                        const DistTablesMap & distTablesMap);
+
+    static const int DIST_TABLE_PERSIST_VERSION = 2;
+
 };
 
+
 /*****************************************************************************/
-/* DIST TABLE FUNCTION                                                      */
+/* DIST TABLE FUNCTION                                                       */
 /*****************************************************************************/
 
 struct DistTableFunctionConfig {
@@ -219,13 +227,27 @@ struct DistTableFunction: public Function {
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
 
+    void increment(const std::vector<std::pair<Utf8String, Utf8String>> & keys,
+                   const std::vector<double> & outcomes) const;
+    
+    void persist(const Url & modelFileUrl) const;
+
+    RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const override;
+
+    mutable boost::shared_mutex _access;
+
     DistTableFunctionConfig functionConfig;
     DistTableMode mode;
 
     std::string dtStatsNames[DT_NUM_STATISTICS];
 
     std::vector<DISTTABLE_STATISTICS> activeStats;
-    DistTablesMap distTablesMap;
+    mutable DistTablesMap distTablesMap;
+
+    RestRequestRouter router;
 };
 
 } // namespace MLDB
