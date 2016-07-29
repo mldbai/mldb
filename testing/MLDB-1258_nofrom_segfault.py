@@ -27,7 +27,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "trainingData": """
                     select {* EXCLUDING(quality)} as features, quality as label
                 """,
-                "modelFileUrl": "file://my_model.cls",
+                "modelFileUrl": "file://tmp/my_model.cls",
                 "algorithm": "glz",
                 "equalizationFactor": 0.5,
                 "mode": "regression",
@@ -46,7 +46,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "trainingData": """
                     select {* EXCLUDING(quality)} as features, quality as label
                 """,
-                "modelFileUrl": "file://my_model.cls",
+                "modelFileUrl": "file://tmp/my_model.cls",
                 "runOnCreation": True
             }
         }
