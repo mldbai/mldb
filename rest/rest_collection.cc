@@ -720,9 +720,19 @@ BackgroundTaskBase::
 setProgress(const Json::Value & _progress)
 {
     state = State::_executing;
-    progress = _progress;
-    for (auto & f: onProgressFunctions) {
-        f(progress);
+    auto type = _progress.type();
+    if (type == Json::nullValue  ||  
+        type == Json::arrayValue  || 
+        type == Json::objectValue)
+        progress.clear();
+
+    ExcAssert(type != Json::stringValue);
+
+    if(!_progress.isNull()) {
+        progress = _progress;
+        for (auto & f: onProgressFunctions) {
+            f(progress);
+        }
     }
 }
 

@@ -376,9 +376,11 @@ run(const ProcedureRunConfig & run,
 
             if (num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                Json::Value progress;
+                progress["message"] = message; 
                 onProgress(progress);
-                cerr << progress << endl;
+                cerr << message << endl;
             }
 
             // we parse in advance the value for each outcome
