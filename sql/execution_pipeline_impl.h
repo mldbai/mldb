@@ -290,44 +290,6 @@ struct JoinLexicalScope: public LexicalScope {
     outputAdded() const;
 };
 
-/** An executor interface that allow backtracking to
-    previous values.  This is required to improve the efficient
-    of the equijoin executor.
-*/
-// struct ElementExecutorWithBacktrack {
-    
-//     typedef  std::list<std::shared_ptr<PipelineResults> > container_type;
-        
-//     ElementExecutorWithRewind(std::shared_ptr<ElementExecutor> source);
-
-//     /** Place one element from the pipeline in the buffer, cache it and return
-//         a pointer to it. */
-//     virtual container_type::iterator next(container_type::iterator at);
-
-//     /** Restart the executor from the start. This is flushing the buffered
-//         values therefore releasing any extra memory own by this class. */
-//     virtual void restart();
-
-//     /** Backtrack to the provided location.  If flushPrevious is set to true,
-//         the values before the pointed to value are erased. */
-//     virtual void backtrack(container_type::iterator to, bool flushPrevious);
-
-//     std::shared_ptr<ElementExecutor> source;
-      
-        
-//     /** When we find duplicate values on the left-side we save them
-//         in this vector so that we can form the cross product over matching
-//         values on the right-side.  This means that if the left-side values 
-//         are all equal we will cache all the rows.  However, for most
-//         cases where the left-side has a small amount of duplication,
-//         it is much faster to cache these values instead of a complete
-//         rewind of the left-side to the beginning in order to form the cross 
-//         product.
-//     */
-//     container_type bufferedValues;
-// };
-
-
 /*****************************************************************************/
 /* JOIN ELEMENT                                                              */
 /*****************************************************************************/
@@ -405,23 +367,19 @@ struct JoinElement: public PipelineElement {
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root;
-
-        /** Note that the left-side executor has a different type than the
-            right=side executor.  The left-side requires a richer interface
-            to allow to backtrack to a previously seen value.
-        */
         std::shared_ptr<ElementExecutor> left;
         std::shared_ptr<ElementExecutor> right;
         
         std::shared_ptr<PipelineResults> r;
         typedef std::list<std::shared_ptr<PipelineResults> > bufferType;
         bufferType bufferedLeftValues;
+        /** Note that the left-side values are buffered so that we can
+            backtrack when we need to form the cross product on matching 
+            values.
+        */
         bufferType::iterator l, firstDuplicate;
     
-        //void takeMoreInput();
-            
         virtual std::shared_ptr<PipelineResults> take();
-
         virtual void restart();
     };
 
