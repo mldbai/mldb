@@ -508,42 +508,38 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
             };
             
         auto rowsSorted = parallelMergeSort(accum.threads, compareRows);
+        size_t rowsSortedSize = rowsSorted.size();
 
         //cerr << "shuffle took " << timer.elapsed() << endl;
         timer.restart();
 
-        size_t sortedRowsSize = rowsSorted.size();
-        auto doSelect = [&] (int sortedRowNum) -> bool
-            {
-                int rowNum = std::get<1>(rowsSorted[sortedRowNum]);
-                auto & row = rows[rowNum];
-                auto & calcd = std::get<2>(rowsSorted[sortedRowNum]);
-
-                NamedRowValue outputRow;
-                outputRow.rowName = row;
-                outputRow.rowHash = row;
-
-                auto selectRowScope = context.getRowScope(
-                    row, dataset.getRowExpr(row));
-                selectRowScope.setRowInfo(sortedRowNum + 1, sortedRowsSize);
-                // Run the bound select expressions
-                ExpressionValue selectOutput = boundSelect(selectRowScope,
-                                                           GET_ALL);
-                selectOutput.mergeToRowDestructive(outputRow.columns);
-
-                /* Finally, pass to the terminator to continue. */
-                return processor(outputRow, calcd, rowNum);
-            };
-        parallelMap(0, sortedRowsSize, doSelect);
-
-        //cerr << "select took " << timer.elapsed() << endl;
-        timer.restart();
-
         // Now select only the required subset of sorted rows
         if (limit == -1)
-            limit = rowsSorted.size();
+            limit = rowsSortedSize;
 
         ExcAssertGreaterEqual(offset, 0);
+
+//         auto doSelect = [&] (uint64_t sortedRowNum)
+//         {
+//             int rowNum = std::get<1>(rowsSorted[sortedRowNum]);
+//             auto & row = rows[rowNum];
+//             //auto & calcd = std::get<2>(rowsSorted[sortedRowNum]);
+// 
+//             NamedRowValue namedRow;
+//             namedRow.rowName = row;
+//             namedRow.rowHash = row;
+// 
+//             auto selectRowScope = context.getRowScope(
+//                 row, dataset.getRowExpr(row));
+//             selectRowScope.setRowInfo(sortedRowNum + 1, rowsSortedSize);
+//             // Run the bound select expressions
+//             ExpressionValue selectOutput = boundSelect(selectRowScope,
+//                                                         GET_ALL);
+//             selectOutput.mergeToRowDestructive(namedRow.columns);
+//         };
+//         parallelMap(0, rowsSortedSize, doSelect);
+
+
 
         if (numDistinctOnClauses_ > 0) {
 
@@ -551,7 +547,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
             reference.resize(numDistinctOnClauses_);
             ssize_t count = 0;
 
-            for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
+            for (unsigned i = 0;  i < rowsSortedSize;  ++i) {
 
                 std::vector<ExpressionValue> & mark = std::get<0>(rowsSorted[i]);
 
@@ -597,25 +593,29 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         }
         else {
-            ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
-            ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+            ssize_t begin = std::min<ssize_t>(offset, rowsSortedSize);
+            ssize_t end = std::min<ssize_t>(offset + limit, rowsSortedSize);
             for (unsigned i = begin;  i < end;  ++i) {
-
-                int rowNum = std::get<1>(rowsSorted[i]);
+                auto & rowNum = std::get<1>(rowsSorted[i]);
                 auto & row = rows[rowNum];
                 auto & calcd = std::get<2>(rowsSorted[i]);
-
                 NamedRowValue namedRow;
                 namedRow.rowName = row;
                 namedRow.rowHash = row;
+
+                auto selectRowScope = context.getRowScope(
+                    row, dataset.getRowExpr(row));
+                selectRowScope.setRowInfo(i + 1, rowsSortedSize);
+                // Run the bound select expressions
+                ExpressionValue selectOutput = boundSelect(selectRowScope,
+                                                            GET_ALL);
+                selectOutput.mergeToRowDestructive(namedRow.columns);
 
                 /* Finally, pass to the terminator to continue. */
                 if (!processor(namedRow, calcd, i))
                     return false;
             }
         }
-
-     
 
         cerr << "reduce took " << timer.elapsed() << endl;
 
