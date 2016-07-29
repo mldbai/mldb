@@ -1160,12 +1160,13 @@ take()
                  }
             }
             else if (!crossWhereTrue && !outerRight && !outerLeft) {
-
                 l = takeFromBuffer(l);
                 continue;
             }
 
             l = takeFromBuffer(l);
+
+            bool updateFirstDup = false;
 
             if (l != bufferedLeftValues.end()) {
                 ExpressionValue nextLField =  (*l)->values.back().getColumn(0, GET_ALL);
@@ -1178,7 +1179,7 @@ take()
                     return std::move(result);
                 }
                 else {
-                    firstDuplicate = l;
+                    updateFirstDup = true;
                 }
             }
 
@@ -1188,7 +1189,6 @@ take()
                 if (nextRField == rField) {
                     // we have the same right-side value again
                     // backtrack to the first duplicated value we've encountered
-
                     ExcAssert(nextRField == lField);
                     l = firstDuplicate;
                     // we can free the other elements in the list since we
@@ -1196,6 +1196,9 @@ take()
                     bufferedLeftValues.erase(bufferedLeftValues.begin(), firstDuplicate);
                 }
             }
+
+            if (updateFirstDup)
+                firstDuplicate = l;
                
             return result;
         }
