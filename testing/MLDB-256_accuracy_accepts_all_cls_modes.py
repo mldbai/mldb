@@ -79,7 +79,7 @@ class Mldb256Test(MldbUnitTest):
                     "inputData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
                     "experimentName": "bool_exp_seg",
                     "keepArtifacts": True,
-                    "modelFileUrlPattern": "file://temp/mldb-256_bool_seg.cls",
+                    "modelFileUrlPattern": "file://tmp/mldb-256_bool_seg.cls",
                     "algorithm": "glz",
                     "configuration": {
                         "glz": {
@@ -105,7 +105,7 @@ class Mldb256Test(MldbUnitTest):
                 "inputData": "select {x, y} as features, label as label from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_bool.cls",
                 "algorithm": "glz",
                 "configuration": {
                     "glz": {
@@ -144,7 +144,7 @@ class Mldb256Test(MldbUnitTest):
                 "inputData": "select {x, y} as features, label as label, weight as weight from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_bool.cls",
                 "algorithm": "glz",
                 "configuration": {
                     "glz": {
@@ -268,7 +268,7 @@ class Mldb256Test(MldbUnitTest):
                 "inputData": "select {col*} as features, label as label from categorical",
                 "experimentName": "categorical_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_cat.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_cat.cls",
                 "algorithm": "glz",
                 "configuration": {
                     "glz": {
@@ -350,7 +350,7 @@ class Mldb256Test(MldbUnitTest):
                 "inputData": "select {col*} as features, label as label from regression",
                 "experimentName": "reg_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_reg.cls",
                 "algorithm": "glz_linear",
                 "configuration": {
                     "glz_linear": {
