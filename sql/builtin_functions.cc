@@ -3050,6 +3050,52 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerTryFunction(tryFct, "try");
 
+BoundFunction rowNumber(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 0);
+    auto outputInfo
+        = std::make_shared<NumericValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (!scope.isRowInfoSet()) {
+                    throw HttpReturnException(
+                        400,
+                        "function rowNumber is only available in SELECT "
+                        "expressions.");
+                }
+                return ExpressionValue(scope.getRowNum(),
+                                       Date::negativeInfinity());
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerRowNumberFunction(rowNumber, "rowNumber");
+
+BoundFunction totalRows(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 0);
+    auto outputInfo
+        = std::make_shared<NumericValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (!scope.isRowInfoSet()) {
+                    throw HttpReturnException(
+                        400,
+                        "function totalRows is only available in SELECT "
+                        "expressions.");
+                }
+                return ExpressionValue(scope.getTotalRows(),
+                                       Date::negativeInfinity());
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerTotalRowsFunction(totalRows, "totalRows");
+
 
 } // namespace Builtins
 } // namespace MLDB

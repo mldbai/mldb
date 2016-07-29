@@ -178,8 +178,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 //RowName rowName = rows[rowNum];
 
                 ExpressionValue row = dataset.getRowExpr(rows[rowNum]);
-                auto output = processRow(rows[rowNum], row, rowNum, numPerBucket,
-                                         selectStar);
+                auto output = processRow(rows[rowNum], row, rowNum,
+                                         numPerBucket, numRows, selectStar);
 
                 int bucketNumber
                     = numBuckets > 0
@@ -217,7 +217,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             return parallelMapHaltable(0, effectiveNumBucket, doBucket);
         }
         else {
-            size_t upper =  rows.size();
+            size_t rowsSize = rows.size();
+            size_t upper = rowsSize;
             if (limit != -1)
                 upper = std::min((size_t)(offset+limit), upper);
 
@@ -237,8 +238,9 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     auto copyRow = [&] (int rowNum)
                         {
                             auto row = dataset.getRowExpr(rows[rowNum]);
-                            auto outputRow = processRow(rows[rowNum], row, rowNum,
-                                                        numPerBucket, selectStar);
+                            auto outputRow = processRow(
+                                rows[rowNum], row, rowNum, numPerBucket,
+                                rowsSize, selectStar);
                             output[rowNum-offset] = std::move(outputRow);
                         };
 
@@ -303,7 +305,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     RowName rowName = stream->next();
                     auto row = dataset.getRowExpr(rowName);
 
-                    auto output = processRow(rowName, row, it, numPerBucket, selectStar);
+                    auto output = processRow(rowName, row, it, numPerBucket,
+                                             numRows, selectStar);
                     int bucketNumber
                         = numBuckets > 0 ? std::min((size_t)(it/numPerBucket),
                                                     (size_t)(numBuckets-1)) : -1;
@@ -329,6 +332,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                ExpressionValue & row,
                int rowNum,
                int numPerBucket,
+               int totalRows,
                bool selectStar)
     {
         auto rowContext = context.getRowScope(rowName, row);
@@ -356,6 +360,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         }
         else {
             // Run the select expression
+            selectRowScope.setRowInfo(rowNum + 1, totalRows);
             std::get<1>(output) = boundSelect(selectRowScope, GET_ALL);
         }
 
@@ -425,13 +430,13 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
    
         // For each one, generate the order by key
 
-        typedef std::tuple<std::vector<ExpressionValue>, NamedRowValue, std::vector<ExpressionValue> > SortedRow;
+        typedef std::tuple<std::vector<ExpressionValue>, int, std::vector<ExpressionValue> > SortedRow;
         typedef std::vector<SortedRow> SortedRows;
         
         PerThreadAccumulator<SortedRows> accum;
 
         std::atomic<int64_t> rowsAdded(0);
-
+        size_t rowsSize = rows.size();
         auto doWhere = [&] (int rowNum) -> bool
             {
                 QueryThreadTracker childTracker = parentTracker.child();
@@ -455,19 +460,17 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 NamedRowValue outputRow;
                 outputRow.rowName = rows[rowNum];
                 outputRow.rowHash = rows[rowNum];
-            
-                // A new row scope for the select, as the row may have changed
-                // due to being processed by the when.
-                auto selectRowScope = context.getRowScope(rows[rowNum], row);
-             
-                // Run the bound select expressions
-                ExpressionValue selectOutput
-                = boundSelect(selectRowScope, GET_ALL);
-                selectOutput.mergeToRowDestructive(outputRow.columns);
 
                 vector<ExpressionValue> calcd(boundCalc.size());
-                for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                    calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
+                if (!boundCalc.empty()) {
+                    // A new row scope as the row may have changed
+                    // due to being processed by the when.
+                    auto rowScope = context.getRowScope(rows[rowNum], row);
+
+                    for (unsigned i = 0;  i < boundCalc.size();  ++i) {
+                        calcd[i] = std::move(boundCalc[i](rowScope,
+                                                          GET_LATEST));
+                    }
                 }
 
                 // Get the order by context, which can read from both the result
@@ -480,7 +483,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
                 SortedRows * sortedRows = &accum.get();
                 sortedRows->emplace_back(std::move(sortFields),
-                                         std::move(outputRow),
+                                         rowNum,
                                          std::move(calcd));
 
                 ++rowsAdded;
@@ -489,7 +492,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ML::Timer timer;
 
-        parallelMap(0, rows.size(), doWhere);
+        parallelMap(0, rowsSize, doWhere);
 
         //cerr << "map took " << timer.elapsed() << endl;
         timer.restart();
@@ -506,13 +509,27 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         //cerr << "shuffle took " << timer.elapsed() << endl;
         timer.restart();
 
-        auto doSelect = [&] (int rowNum) -> bool
+        size_t sortedRowsSize = rowsSorted.size();
+        auto doSelect = [&] (int sortedRowNum) -> bool
             {
-                auto & row = std::get<1>(rowsSorted[rowNum]);
-                auto & calcd = std::get<2>(rowsSorted[rowNum]);
+                int rowNum = std::get<1>(rowsSorted[sortedRowNum]);
+                auto & row = rows[rowNum];
+                auto & calcd = std::get<2>(rowsSorted[sortedRowNum]);
+
+                NamedRowValue outputRow;
+                outputRow.rowName = row;
+                outputRow.rowHash = row;
+
+                auto selectRowScope = context.getRowScope(
+                    row, dataset.getRowExpr(row));
+                selectRowScope.setRowInfo(sortedRowNum + 1, sortedRowsSize);
+                // Run the bound select expressions
+                ExpressionValue selectOutput = boundSelect(selectRowScope,
+                                                           GET_ALL);
+                selectOutput.mergeToRowDestructive(outputRow.columns);
 
                 /* Finally, pass to the terminator to continue. */
-                return processor(row, calcd, rowNum);
+                return processor(outputRow, calcd, rowNum);
             };
 
         // Now select only the required subset of sorted rows

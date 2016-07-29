@@ -804,7 +804,7 @@ DECLARE_STRUCTURE_DESCRIPTION(UnboundEntities);
 /** Context in which a row expression is executed.  This is to allow access
     to the columns in the row, etc.
 
-    This is an empty class; any implementation must derive from it.
+    This is an almost empty class; any implementation must derive from it.
 */
 
 struct SqlRowScope {
@@ -865,6 +865,37 @@ struct SqlRowScope {
             return *cast;
         throwBadNestingError(typeid(T), typeid(*this));
     }
+
+    void setRowInfo(int64_t num, uint64_t total) {
+        if (num == std::numeric_limits<uint64_t>::max()) {
+            throw ML::Exception("num too high - max uint64_t reached");
+        }
+        rowInfo_.num = num;
+        rowInfo_.total = total;
+    }
+
+    uint64_t getRowNum() const {
+        ExcAssert(isRowInfoSet());
+        return rowInfo_.num;
+    }
+
+    uint64_t getTotalRows() const {
+        ExcAssert(isRowInfoSet());
+        return rowInfo_.total;
+    }
+
+    bool isRowInfoSet() const {
+        return rowInfo_.num != std::numeric_limits<uint64_t>::max();
+    }
+
+private:
+    struct RowInfo {
+        uint64_t num;   // row number, 1 to n based
+        uint64_t total; // total of rows
+
+        RowInfo() : num(std::numeric_limits<uint64_t>::max()) {}
+
+    } rowInfo_;
 };
 
 
