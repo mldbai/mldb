@@ -345,6 +345,8 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 
     MatrixNamedRow row;
     if (stm.offset < 1 && stm.limit != 0) {
+        // Fast path when there is no possibility of result since
+        // queryWithoutDataset produces at most single row results.
         SqlRowScope context;
         ExpressionValue val = boundSelect(context, GET_ALL);
         auto boundRowName = stm.rowName->bind(scope);
