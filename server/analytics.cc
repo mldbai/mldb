@@ -531,8 +531,6 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
              "value", rowNameEV);
     }
 
-    static const Path empty;
-
     if (name.empty()) {
         throw HttpReturnException(400, "Can't create a row with a null name.");
     }
