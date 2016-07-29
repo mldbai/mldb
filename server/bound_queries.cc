@@ -519,25 +519,24 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssertGreaterEqual(offset, 0);
 
-//         auto doSelect = [&] (uint64_t sortedRowNum)
-//         {
-//             int rowNum = std::get<1>(rowsSorted[sortedRowNum]);
-//             auto & row = rows[rowNum];
-//             //auto & calcd = std::get<2>(rowsSorted[sortedRowNum]);
-// 
-//             NamedRowValue namedRow;
-//             namedRow.rowName = row;
-//             namedRow.rowHash = row;
-// 
-//             auto selectRowScope = context.getRowScope(
-//                 row, dataset.getRowExpr(row));
-//             selectRowScope.setRowInfo(sortedRowNum + 1, rowsSortedSize);
-//             // Run the bound select expressions
-//             ExpressionValue selectOutput = boundSelect(selectRowScope,
-//                                                         GET_ALL);
-//             selectOutput.mergeToRowDestructive(namedRow.columns);
-//         };
-//         parallelMap(0, rowsSortedSize, doSelect);
+        vector<NamedRowValue> sortedSelectedRows(rowsSortedSize);
+        auto doSelect = [&] (uint64_t sortedRowNum)
+        {
+            int rowNum = std::get<1>(rowsSorted[sortedRowNum]);
+            auto row = dataset.getRowExpr(rows[rowNum]);
+
+            auto & namedRow = sortedSelectedRows[sortedRowNum];
+            namedRow.rowName = rows[rowNum];
+            namedRow.rowHash = rows[rowNum];
+
+            auto selectRowScope = context.getRowScope(rows[rowNum], row);
+            selectRowScope.setRowInfo(sortedRowNum + 1, rowsSortedSize);
+            // Run the bound select expressions
+            ExpressionValue selectOutput = boundSelect(selectRowScope,
+                                                       GET_ALL);
+            selectOutput.mergeToRowDestructive(namedRow.columns);
+        };
+        parallelMap(0, rowsSortedSize, doSelect);
 
 
 
@@ -596,23 +595,11 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
             ssize_t begin = std::min<ssize_t>(offset, rowsSortedSize);
             ssize_t end = std::min<ssize_t>(offset + limit, rowsSortedSize);
             for (unsigned i = begin;  i < end;  ++i) {
-                auto & rowNum = std::get<1>(rowsSorted[i]);
-                auto & row = rows[rowNum];
+                auto & row = sortedSelectedRows[i];
                 auto & calcd = std::get<2>(rowsSorted[i]);
-                NamedRowValue namedRow;
-                namedRow.rowName = row;
-                namedRow.rowHash = row;
-
-                auto selectRowScope = context.getRowScope(
-                    row, dataset.getRowExpr(row));
-                selectRowScope.setRowInfo(i + 1, rowsSortedSize);
-                // Run the bound select expressions
-                ExpressionValue selectOutput = boundSelect(selectRowScope,
-                                                            GET_ALL);
-                selectOutput.mergeToRowDestructive(namedRow.columns);
 
                 /* Finally, pass to the terminator to continue. */
-                if (!processor(namedRow, calcd, i))
+                if (!processor(row, calcd, i))
                     return false;
             }
         }
