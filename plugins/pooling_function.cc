@@ -157,7 +157,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
         }
         
         ExcAssertEqual(outputEmbedding.size(), num_embed_cols);
-    }   
+    }
 
     return {ExpressionValue(std::move(outputEmbedding), outputTs)};
 }
