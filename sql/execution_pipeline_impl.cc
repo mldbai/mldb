@@ -1269,6 +1269,7 @@ restart()
     auto lresult = this->left->take();
     bufferedLeftValues.push_back(lresult);
     l = bufferedLeftValues.begin();
+    firstDuplicate = l;
     r = right->take();
 }
 

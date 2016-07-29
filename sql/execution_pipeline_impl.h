@@ -290,6 +290,7 @@ struct JoinLexicalScope: public LexicalScope {
     outputAdded() const;
 };
 
+
 /*****************************************************************************/
 /* JOIN ELEMENT                                                              */
 /*****************************************************************************/
@@ -366,9 +367,7 @@ struct JoinElement: public PipelineElement {
                          std::shared_ptr<ElementExecutor> right);
 
         const Bound * parent;
-        std::shared_ptr<ElementExecutor> root;
-        std::shared_ptr<ElementExecutor> left;
-        std::shared_ptr<ElementExecutor> right;
+        std::shared_ptr<ElementExecutor> root, left, right;
         
         std::shared_ptr<PipelineResults> r;
         typedef std::list<std::shared_ptr<PipelineResults> > bufferType;
@@ -380,6 +379,7 @@ struct JoinElement: public PipelineElement {
         bufferType::iterator l, firstDuplicate;
     
         virtual std::shared_ptr<PipelineResults> take();
+
         virtual void restart();
     };
 
