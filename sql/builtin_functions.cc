@@ -2480,20 +2480,24 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 const auto target = args[1].getAtom().toUtf8String().rawString();
 
                 // start by testing easy edge cases
+                int maxSize = max(query.size(), target.size());
                 int bestScore = -1;
                 if(query.size() == 0 && target.size() == 0)
                     bestScore = 0;
                 else if(query.size() == 0 || target.size() == 0)
-                    bestScore = max(query.size(), target.size());
+                    bestScore = maxSize;
 
                 if(bestScore != -1)
                     return ExpressionValue(bestScore,
                                            args[0].getEffectiveTimestamp());
 
+                auto conf = edlibDefaultAlignConfig();
+                conf.k = maxSize;
+
                 EdlibAlignResult alignRes = 
                     edlibAlign(query.c_str(), query.size(),
-                               target.c_str(), target.size(),
-                               edlibDefaultAlignConfig());
+                               target.c_str(), target.size(), conf);
+                               //edlibDefaultAlignConfig());
                 
                 bestScore = alignRes.editDistance;
                 edlibFreeAlignResult(alignRes);
