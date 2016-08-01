@@ -701,14 +701,11 @@ SqlExpression::
 namespace {
 
 // Match a non-scoped identifier
-static Utf8String matchIdentifier(ML::Parse_Context & context,
-                                  bool allowUtf8, bool & gotMatch)
+static bool matchIdentifier(ML::Parse_Context & context,
+                            bool allowUtf8, Utf8String & result)
 {
-    Utf8String result;
-
     if (context.eof()) {
-        gotMatch = false;
-        return result;
+        return false;
     }
 
     if (context.match_literal('"')) {
@@ -722,8 +719,7 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
                 }
                 else if (context.match_literal('"')) {
                     token.ignore();
-                    gotMatch = true;
-                    return result;
+                    return true;
                 }
                 else if (!context) {
                     break;
@@ -741,19 +737,19 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
 
         // An identifier can't start with a digit (MLDB-200)
         if (isdigit(*context))
-            return result;
+            return false;
 
         while (context && (isalnum(*context) || *context == '_'))
             result += *context++;
     }
-    gotMatch = !result.empty();
-    return result;
+    return !result.empty();
 }
 
 static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
 {
-    bool gotMatch;
-    return matchIdentifier(context, allowUtf8, gotMatch);
+    Utf8String result;
+    matchIdentifier(context, allowUtf8, result);
+    return result;
 }
 
 static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
@@ -764,9 +760,8 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
         return result;
     }
 
-    bool gotMatch;
-    Utf8String first = matchIdentifier(context, allowUtf8, gotMatch);
-    if (!gotMatch) {
+    Utf8String first;
+    if (!matchIdentifier(context, allowUtf8, first)) {
         return result;
     }
 
