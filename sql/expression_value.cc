@@ -7,6 +7,7 @@
     Code for the type that holds the value of an expression.
 */
 
+#include <unordered_set>
 #include "expression_value.h"
 #include "sql_expression.h"
 #include "path.h"
@@ -15,7 +16,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/compact_vector_description.h"
 #include "mldb/types/tuple_description.h"
-#include "ml/value_descriptions.h"
+#include "mldb/ml/value_descriptions.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/utils/json_utils.h"
@@ -23,6 +24,7 @@
 #include "mldb/jml/utils/less.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/utils/compact_vector.h"
+#include "mldb/base/optimized_path.h"
 
 using namespace std;
 
@@ -1878,7 +1880,8 @@ ExpressionValue(RowValue row) noexcept
             return rowOut;
         };
 
-    initStructured(doLevel(row.begin(), row.end(), 0 /* level */));
+    initStructured(doLevel(row.begin(), row.end(), 0 /* level */),
+                   false /* needs sorting */, true /* has duplicates (TODO) */);
 }
 
 void
@@ -1945,10 +1948,27 @@ ExpressionValue(ExpressionValue && other) noexcept
 #endif
 
 ExpressionValue::
-ExpressionValue(StructValue vals) noexcept
+ExpressionValue(StructValue vals,
+                Sorting sorting,
+                Duplicates duplicates) noexcept
     : type_(Type::NONE)
 {
-    initStructured(std::move(vals));
+    bool needsSorting = (sorting == NOT_SORTED);
+    bool hasDuplicates = (duplicates == HAS_DUPLICATES);
+
+    if (sorting == MAY_BE_SORTED || duplicates == MAY_HAVE_DUPLICATES) {
+
+        for (size_t i = 1;  i < vals.size() && (!needsSorting || !hasDuplicates);
+             ++i) {
+            int cmp = std::get<0>(vals[i - 1]).compare(std::get<0>(vals[i]));
+            if (cmp == 0)
+                hasDuplicates = true;
+            else if (cmp > 0)
+                needsSorting = true;
+        }
+    }
+    
+    initStructured(std::move(vals), needsSorting, hasDuplicates);
 }
 
 ExpressionValue &
@@ -3776,6 +3796,65 @@ getFilteredDestructive(const VariableFilter & filter)
     return std::move(rows);
 }
 
+static OptimizedPath optimizeUniqueAtomCount("mldb.sql.getUniqueAtomCount");
+
+size_t
+ExpressionValue::
+getUniqueAtomCount() const
+{
+    if (optimizeUniqueAtomCount(true)) {
+        switch (type_) {
+        case Type::STRUCTURED: {
+            size_t result = 0;
+            bool hasSuperpositionElements = false;
+            for (auto & s: *structured_) {
+                if (std::get<0>(s).empty())
+                    hasSuperpositionElements = true;
+                else result += std::get<1>(s).getUniqueAtomCount();
+            }
+            return result + hasSuperpositionElements;
+        }
+        case Type::ATOM:
+        case Type::NONE:
+            return 1;
+        case Type::EMBEDDING: {
+            uint64_t result = 1;
+            for (auto & s: getEmbeddingShape()) {
+                result *= s;
+            }
+            return result;
+        }
+        case Type::SUPERPOSITION:
+            break;
+        }
+        
+        throw HttpReturnException(500, "Unknown expression type",
+                                  "expression", *this,
+                                  "type", (int)type_);
+    }
+    else {
+        std::unordered_set<ColumnName> columns;
+        
+        auto onAtom = [&] (const Path & columnName,
+                           const Path & prefix,
+                           const CellValue & val,
+                           Date ts)
+            {
+                if (prefix.empty()) {
+                    columns.insert(columnName);
+                }
+                else {
+                    columns.insert(prefix + columnName);
+                }
+                return true;
+            };
+        
+        forEachAtom(onAtom);
+        
+        return columns.size();
+    }
+}
+
 bool
 ExpressionValue::
 joinColumns(const ExpressionValue & val1,
@@ -4040,29 +4119,37 @@ ExpressionValue::
 initStructured(Structured value) noexcept
 {
     // Do we need sorting, or to collapse duplicate keys into one?
-    bool needsSorting = false;  // TODO: detect this; it will make things much faster
-    bool duplicates = false;
+    bool needsSorting = false;
+    bool hasDuplicates = false;
 
     for (size_t i = 1;  i < value.size() && !needsSorting;  ++i) {
         int cmp = std::get<0>(value[i - 1]).compare(std::get<0>(value[i]));
         if (cmp == 0)
-            duplicates = true;
+            hasDuplicates = true;
         else if (cmp > 0)
             needsSorting = true;
     }
 
-    if (needsSorting || duplicates) {
+    initStructured(std::move(value), needsSorting, hasDuplicates);
+}
+
+void
+ExpressionValue::
+initStructured(Structured value, bool needsSorting, bool hasDuplicates) noexcept
+{
+
+    if (needsSorting || hasDuplicates) {
         // Sort by row name then value
         if (needsSorting) {
             std::sort(value.begin(), value.end());
-            for (size_t i = 1;  i < value.size() && !duplicates;  ++i) {
+            for (size_t i = 1;  i < value.size() && !hasDuplicates;  ++i) {
                 if (std::get<0>(value[i - 1]) == std::get<0>(value[i]))
-                    duplicates = true;
+                    hasDuplicates = true;
             }
         }
 
         // Deduplicate if necessary
-        if (duplicates) {
+        if (hasDuplicates) {
             Structured newValue;
             newValue.reserve(value.size());
 

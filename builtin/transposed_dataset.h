@@ -47,6 +47,7 @@ struct TransposedDataset: public Dataset {
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
     virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual ExpressionValue getRowExpr(const RowName & row) const;
 
 private:
     TransposedDatasetConfig datasetConfig;
