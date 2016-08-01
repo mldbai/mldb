@@ -53,7 +53,12 @@ class Mldb1667(MldbUnitTest):
             "episodes.")
         mldb.log(len(text))
         doTestWords(text, text2, 10)
-
+        
+        
+        
+        for i in xrange(500000):
+            doTestWords(text, text2, 10)
+        
 
     def test_wrong_type(self):
         def doWrongTypeQuery(a, b):
