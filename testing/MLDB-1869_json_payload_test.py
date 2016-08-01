@@ -19,17 +19,23 @@ class Mldb1869JsonPayloadTest(MldbUnitTest):  # noqa
 
     def test_clean_put(self):
         r = requests.put(url + '/v1/datasets/ds1',
-                          data=json.dumps({'type' : 'sparse.mutable'}))
+                         data='{"type" : "sparse.mutable"}')
         self.assertEqual(r.status_code, 201, r.text)
 
     def test_put_with_linux_new_line(self):
-        r = requests.put(url + '/v1/datasets/ds2',
-                         data=json.dumps({'type' : 'sparse.mutable'}) + '\n')
+        r = requests.put(url + '/v1/datasets/ds_linux1',
+                         data='{"type" : "sparse.mutable"}\n')
+        self.assertEqual(r.status_code, 201, r.text)
+
+        r = requests.put(url + '/v1/datasets/ds_linux2',
+                         data='{\n"type" : "sparse.mutable"\n}\n')
         self.assertEqual(r.status_code, 201, r.text)
 
     def test_put_with_dos_new_line(self):
-        r = requests.put(url + '/v1/datasets/ds2',
-                         data=json.dumps({'type' : 'sparse.mutable'}) + '\r\n')
+        r = requests.put(url + '/v1/datasets/ds_dos1',
+                         data='{"type" : "sparse.mutable"}\r\n')
+        r = requests.put(url + '/v1/datasets/ds_dos2',
+                         data='{\r\n"type" : "sparse.mutable"\r\n}\r\n')
         self.assertEqual(r.status_code, 201, r.text)
 
 if __name__ == '__main__':
