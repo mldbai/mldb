@@ -7,6 +7,7 @@
     Code for the type that holds the value of an expression.
 */
 
+#include <unordered_set>
 #include "expression_value.h"
 #include "sql_expression.h"
 #include "path.h"
@@ -23,6 +24,7 @@
 #include "mldb/jml/utils/less.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/utils/compact_vector.h"
+#include "mldb/base/optimized_path.h"
 
 using namespace std;
 
@@ -3792,6 +3794,65 @@ getFilteredDestructive(const VariableFilter & filter)
     }
     
     return std::move(rows);
+}
+
+static OptimizedPath optimizeUniqueAtomCount("mldb.sql.getUniqueAtomCount");
+
+size_t
+ExpressionValue::
+getUniqueAtomCount() const
+{
+    if (optimizeUniqueAtomCount(true)) {
+        switch (type_) {
+        case Type::STRUCTURED: {
+            size_t result = 0;
+            bool hasSuperpositionElements = false;
+            for (auto & s: *structured_) {
+                if (std::get<0>(s).empty())
+                    hasSuperpositionElements = true;
+                else result += std::get<1>(s).getUniqueAtomCount();
+            }
+            return result + hasSuperpositionElements;
+        }
+        case Type::ATOM:
+        case Type::NONE:
+            return 1;
+        case Type::EMBEDDING: {
+            uint64_t result = 1;
+            for (auto & s: getEmbeddingShape()) {
+                result *= s;
+            }
+            return result;
+        }
+        case Type::SUPERPOSITION:
+            break;
+        }
+        
+        throw HttpReturnException(500, "Unknown expression type",
+                                  "expression", *this,
+                                  "type", (int)type_);
+    }
+    else {
+        std::unordered_set<ColumnName> columns;
+        
+        auto onAtom = [&] (const Path & columnName,
+                           const Path & prefix,
+                           const CellValue & val,
+                           Date ts)
+            {
+                if (prefix.empty()) {
+                    columns.insert(columnName);
+                }
+                else {
+                    columns.insert(prefix + columnName);
+                }
+                return true;
+            };
+        
+        forEachAtom(onAtom);
+        
+        return columns.size();
+    }
 }
 
 bool

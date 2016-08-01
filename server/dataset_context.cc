@@ -210,21 +210,8 @@ getColumnCount() const
         }
     }
     else {
-        auto onAtom = [&] (const Path & columnName,
-                           const Path & prefix,
-                           const CellValue & val,
-                           Date ts)
-            {
-                if (prefix.empty()) {
-                    columns.insert(columnName);
-                }
-                else {
-                    columns.insert(prefix + columnName);
-                }
-                return true;
-            };
-
-        expr->forEachAtom(onAtom);
+        return ExpressionValue(expr->getUniqueAtomCount(),
+                               expr->getEffectiveTimestamp());
     }
     
     return ExpressionValue(columns.size(), ts);

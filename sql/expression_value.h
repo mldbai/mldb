@@ -982,6 +982,19 @@ struct ExpressionValue {
     */
     ExpressionValue getFilteredDestructive(const VariableFilter & filter);
 
+    /** Returns the number of times that forEachAtom() will return a
+        value to the callback.  In other words, the total number of
+        distinct atoms in this object.  Atoms will return one.
+    */
+    size_t getAtomCount() const;
+
+    /** Returns the number of unique column names that forEachAtom()
+        will return.  In other words, the total number of distinct
+        elements in the flattened representation of the object.
+        Atoms will return one.
+    */
+    size_t getUniqueAtomCount() const;
+    
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,
                                 std::pair<CellValue, Date> * vals2,
