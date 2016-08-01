@@ -3039,7 +3039,9 @@ BoundFunction rowNumber(const std::vector<BoundSqlExpression> & args)
                 return ExpressionValue(scope.getRowNum(),
                                        Date::negativeInfinity());
             },
-            outputInfo
+            outputInfo,
+            GET_LATEST, // no effetct
+            true // should be run after ORDER BY clause
         };
 }
 

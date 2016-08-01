@@ -323,7 +323,8 @@ struct BoundFunction {
                   std::shared_ptr<ExpressionValueInfo> resultInfo)
         : exec(std::move(exec)),
           resultInfo(std::move(resultInfo)),
-          filter(GET_LATEST)
+          filter(GET_LATEST),
+          postOrderBy(false)
     {
     }
 
@@ -332,7 +333,19 @@ struct BoundFunction {
                   VariableFilter filter)
         : exec(std::move(exec)),
           resultInfo(std::move(resultInfo)),
-          filter(filter)
+          filter(filter),
+          postOrderBy(false)
+    {
+    }
+
+    BoundFunction(Exec exec,
+                  std::shared_ptr<ExpressionValueInfo> resultInfo,
+                  VariableFilter filter,
+                  bool postOrderBy)
+        : exec(std::move(exec)),
+          resultInfo(std::move(resultInfo)),
+          filter(filter),
+          postOrderBy(postOrderBy)
     {
     }
 
@@ -351,6 +364,9 @@ struct BoundFunction {
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
+    bool postOrderBy; // For functions available only in SELECT expressions,
+                      // indicates that it should be run after the ORDER BY
+                      // clause instead of before as it is usually the case.
 
     // If defined, overrides the default bindFunction call.
     BindFunction bindFunction;
