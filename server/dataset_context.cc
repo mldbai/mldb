@@ -126,7 +126,18 @@ SqlExpressionMldbScope::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" with no dataset.");
+    throw HttpReturnException(
+        400,
+        "Cannot read column \"" + columnName.toUtf8String()
+        + "\" with no FROM clause.");
+}
+
+GetAllColumnsOutput
+SqlExpressionMldbScope::
+doGetAllColumns(const Utf8String & tableName,
+                function<ColumnName (const ColumnName &)> keep)
+{
+    throw HttpReturnException(400, "Cannot use wildcards with no FROM clause.");
 }
 
 /*****************************************************************************/
@@ -199,21 +210,8 @@ getColumnCount() const
         }
     }
     else {
-        auto onAtom = [&] (const Path & columnName,
-                           const Path & prefix,
-                           const CellValue & val,
-                           Date ts)
-            {
-                if (prefix.empty()) {
-                    columns.insert(columnName);
-                }
-                else {
-                    columns.insert(prefix + columnName);
-                }
-                return true;
-            };
-
-        expr->forEachAtom(onAtom);
+        return ExpressionValue(expr->getUniqueAtomCount(),
+                               expr->getEffectiveTimestamp());
     }
     
     return ExpressionValue(columns.size(), ts);

@@ -19,7 +19,7 @@ var importConfig = {
         outputDataset: { id: 'reddit_text_file' },
         limit: 1000,
         delimiter: "",
-        quotechar: "",
+        quoteChar: "",
         runOnCreation: true
     },
 };

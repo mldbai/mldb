@@ -549,11 +549,11 @@ See also the ![](%%doclink http.useragent function) that can be used to parse a 
 
 ### <a name="importfunctions"></a>Data import functions
 
-- `tokenize(str, {splitchars: ',', quotechar: '', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
+- `tokenize(str, {splitChars: ',', quoteChar: '', offset: 0, limit: null, value: null, minTokenLength: 1, ngramRange:[1, 1]})`
 can be used to create bag-of-tokens representations of strings, by returning a row whose
-columns are formed by tokenizing `str` by splitting along `splitchars` and whose values by default are the
-number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitchars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`.
-- `token_extract(str, n, {splitchars: ',', quotechar: '', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered, and ngram options are ignored.
+columns are formed by tokenizing `str` by splitting along `splitChars` and whose values by default are the
+number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitChars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`.
+- `token_extract(str, n, {splitChars: ',', quoteChar: '', offset: 0, limit: null, minTokenLength: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `minTokenLength` will be considered, and ngram options are ignored.
 
 Parameters to `tokenize` and `token_extract` are as follows:
 

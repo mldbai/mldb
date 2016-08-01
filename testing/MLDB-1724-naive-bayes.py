@@ -66,7 +66,7 @@ female 5.75 150 9""")
                         "update_alg": "prob"
                     }
                 },
-                'modelFileUrl': 'file://model.cls.gz',
+                'modelFileUrl': 'file://tmp/model.cls.gz',
                 'functionName': 'classify',
                 'runOnCreation': True
             }

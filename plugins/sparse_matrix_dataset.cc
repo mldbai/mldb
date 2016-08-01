@@ -613,7 +613,8 @@ struct SparseMatrixDataset::Itl
                 Date ts = decodeTs(entry.timestamp);
                 ColumnHash col(entry.rowcol);
                 CellValue v = decodeVal(entry.val, entry.tag, *trans);
-                result.emplace_back(getColumnNameTrans(col, *trans), v, ts);
+                result.emplace_back(getColumnNameTrans(col, *trans),
+                                    std::move(v), ts);
                 return true;
             };
 
@@ -629,7 +630,8 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = RowName::parse(entry.metadata.at(0));
+                result = RowName::parse(entry.metadata.at(0).data(),
+                                        entry.metadata.at(0).length());
                 return false;
             };
             
@@ -658,7 +660,8 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = ColumnName::parse(entry.metadata.at(0));
+                result = ColumnName::parse(entry.metadata.at(0).data(),
+                                           entry.metadata.at(0).length());
                 return false;  // return false to short circuit
             };
             

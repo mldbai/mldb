@@ -56,7 +56,7 @@ int calcDigits(const char * begin, size_t len)
     return calcDigits(begin, begin + len);
 }
 
-std::pair<size_t, size_t>
+inline std::pair<size_t, size_t>
 countDigits(const char * p, size_t len)
 {
     // Count leading zeros
@@ -848,7 +848,7 @@ PathBuilder &
 PathBuilder::
 add(PathElement && element)
 {
-    if (bytes.empty()) {
+    if (bytes.empty() && element.hasExternalStorage()) {
         bytes = element.stealBytes();
     }
     else {
@@ -943,7 +943,13 @@ Path::Path(PathElement && path)
         length_ = 0;
         return;
     }
-    bytes_ = path.stealBytes();
+    if (path.hasExternalStorage()) {
+        bytes_ = path.stealBytes();
+    }
+    else {
+        auto v = path.getStringView();
+        bytes_.append(v.first, v.first + v.second);
+    }
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
         ofsPtr_[0] = 0;
@@ -963,7 +969,13 @@ Path::Path(const PathElement & path)
         length_ = 0;
         return;
     }
-    bytes_ = path.getBytes();
+    if (path.hasExternalStorage()) {
+        bytes_ = path.getBytes();
+    }
+    else {
+        auto v = path.getStringView();
+        bytes_.append(v.first, v.first + v.second);
+    }
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
         ofsPtr_[0] = 0;
@@ -1353,7 +1365,7 @@ compareElement(size_t el, const Path & other, size_t otherEl) const
     int d0 = digits(el);
     int d1 = other.digits(otherEl);
 
-    if (d0 == PathElement::NO_DIGITS && d1 == PathElement::NO_DIGITS) {
+    if (JML_LIKELY(d0 == d1 && d0 != PathElement::SOME_DIGITS)) {
         int res = std::memcmp(s0, s1, std::min(l0, l1));
         if (res)
             return res;

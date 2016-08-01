@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* tokenize.cc
    Mathieu Marquis Bolduc, October 5th 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Generic delimiter-token parsing.
 */
@@ -23,12 +21,12 @@ DEFINE_STRUCTURE_DESCRIPTION(TokenizeOptions);
 TokenizeOptionsDescription::
 TokenizeOptionsDescription()
 {
-    addAuto("splitchars", &TokenizeOptions::splitchar,
+    addAuto("splitChars", &TokenizeOptions::splitchar,
             "Characters to split on in the tokenization.");
-    addAuto("quotechar", &TokenizeOptions::quotechar,
+    addAuto("quoteChar", &TokenizeOptions::quotechar,
             "a single character to delimit tokens which may contain the "
             "`splitchars`, so by default "
-            "`tokenize('a,\"b,c\"', {quotechar:'\"'})` will return the row "
+            "`tokenize('a,\"b,c\"', {quoteChar:'\"'})` will return the row "
             "`{'a':1,'b,c':1}`.  By default no quoting character is used.");
     addAuto("offset", &TokenizeOptions::offset,
             "Skip the first `offset` tokens of the output (default 0).");
@@ -38,28 +36,52 @@ TokenizeOptionsDescription()
     addAuto("value", &TokenizeOptions::value,
             "`value` (if not set to `null`) will be used instead of "
             "token counts for the values of the columns in the output row.");
-    addAuto("min_token_length", &TokenizeOptions::min_token_length,
+    addAuto("minTokenLength", &TokenizeOptions::minTokenLength,
             "Minimum number of characters in a token for it to be output or "
             "included as part of an ngram");
-    addAuto("ngram_range", &TokenizeOptions::ngram_range,
+    addAuto("ngramRange", &TokenizeOptions::ngramRange,
             "Specifies the complexity of n-grams to return, with the "
             "first element corresponding to minimum length and the "
             "second to maximum length.  "
             "`[1, 1]` will return only unigrams, while `[2, 3]` will "
             "return bigrams and trigrams, where tokens are joined by "
             "underscores. For example, "
-            "`tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})`"
+            "`tokenize('Good day world', {splitChars:' ', ngramRange:[2,3]})`"
             "will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`");
+
+    onUnknownField = [] (TokenizeOptions * options,
+                         JsonParsingContext & context)
+    {
+        if(context.fieldName() == "min_token_length") {
+            context.exception("The 'min_token_length' argument has been "
+                    "renamed to 'minTokenLength'");
+        }
+        else if(context.fieldName() == "ngram_range") {
+            context.exception("The 'ngram_range' argument has been "
+                    "renamed to 'ngramRange'");
+        }
+        else if(context.fieldName() == "splitchars") {
+            context.exception("The 'splitchars' argument has been "
+                    "renamed to 'splitChars'");
+        }
+        else if(context.fieldName() == "quotechar") {
+            context.exception("The 'quotechar' argument has been "
+                    "renamed to 'quoteChar'");
+        }
+        else {
+            context.exception("Unknown field '" + context.fieldName()
+                    + " parsing tokenize configuration");
+          }
+    };
 }
 
 struct NGramer {
-
-    NGramer(int min_range, int max_range) 
+    NGramer(int min_range, int max_range)
         : min_range(min_range), max_range(max_range),
           count(0), buffer_pos(0)
     {
         if(max_range<min_range || min_range<1 || max_range<1)
-            throw ML::Exception("ngram_range values must be bigger than 0 "
+            throw ML::Exception("ngramRange values must be bigger than 0 "
                     "and the second value needs to be equal or bigger than the first");
     
         buffer.resize(max_range);
@@ -185,7 +207,7 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
               ML::Parse_Context& context,
               const Utf8String& splitchars,
               const Utf8String& quotechar,
-              int min_token_length)
+              int minTokenLength)
 {
     auto expect_token = [=] (ML::Parse_Context& context, bool& another) -> Utf8String
         {
@@ -240,7 +262,7 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
 
         Utf8String word = std::move(expect_token(context, another));
 
-        if(word.length() < min_token_length)
+        if(word.length() < minTokenLength)
             continue;
 
         if (!exec(word))
@@ -256,7 +278,7 @@ bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
 {
     int count = 0;
  
-    NGramer nGramer(options.ngram_range.first, options.ngram_range.second);
+    NGramer nGramer(options.ngramRange.first, options.ngramRange.second);
 
     auto onGram = [&](Utf8String& word) -> bool
     {
@@ -290,7 +312,7 @@ bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
     tokenize_exec(aggregate, pcontext,
                   options.splitchar,
                   options.quotechar,
-                  options.min_token_length);
+                  options.minTokenLength);
 
     return !bagOfWords.empty();
 }
@@ -323,7 +345,7 @@ Utf8String token_extract(ML::Parse_Context& context,
 
         tokenize_exec(aggregate_positive, context,
                       options.splitchar, options.quotechar,
-                      options.min_token_length);
+                      options.minTokenLength);
     }
     else {
         std::queue<Utf8String> tokens;
@@ -347,7 +369,7 @@ Utf8String token_extract(ML::Parse_Context& context,
 
         tokenize_exec(aggregate_negative, context,
                       options.splitchar, options.quotechar,
-                      options.min_token_length);
+                      options.minTokenLength);
         if (tokens.size() == -nth)
             result = std::move(tokens.front());
     }

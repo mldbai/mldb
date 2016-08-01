@@ -40,7 +40,7 @@ TableLexicalScope(std::shared_ptr<RowValueInfo> rowInfo,
                   return first.columnName < second.columnName;
               });
     
-    hasUnknownColumns = rowInfo->getSchemaCompleteness() == SCHEMA_OPEN;
+    hasUnknownColumns = rowInfo->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
 }
 
 ColumnGetter
@@ -107,7 +107,8 @@ doGetAllColumns(const Utf8String & tableName,
         index[column.columnName] = ColumnName(outputName);
     }
 
-    auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter) -> ExpressionValue
+    auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter)
+        -> ExpressionValue
     {
         auto & row = rowScope.as<PipelineResults>();
 
@@ -123,8 +124,14 @@ doGetAllColumns(const Utf8String & tableName,
         {
             ColumnName newColumnName = prefix + columnName;
             auto it = index.find(newColumnName);
-            if (it == index.end())
+            if (it == index.end()) {
+                if (hasUnknownColumns) {
+                    ColumnName outputName = keep(newColumnName);
+                    if (!outputName.empty())
+                        result.emplace_back(std::move(outputName), val, ts);
+                }
                 return true;
+            }
             result.emplace_back(it->second, val, ts);
             return true;
         };
@@ -136,7 +143,8 @@ doGetAllColumns(const Utf8String & tableName,
     };
 
     GetAllColumnsOutput result;
-    result.info = std::make_shared<RowValueInfo>(columnsWithInfo, SCHEMA_CLOSED);
+    result.info = std::make_shared<RowValueInfo>
+        (columnsWithInfo, hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED);
     result.exec = exec;
     return result;
 }

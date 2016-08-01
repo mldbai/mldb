@@ -215,6 +215,12 @@ struct ExpressionValueInfo {
     /// it's not a row.
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    /// Return whether the schema for a row is closed (only those columns are
+    /// there) or open (other columns may be present).  Will return closed
+    /// for atoms, and open for rows with any open schema inside them at any
+    /// recursive depth.
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     /// Return the set of known columns for a row.  Default throws that it's not
     /// a row.
     virtual std::vector<KnownColumn> getKnownColumns() const;
@@ -653,8 +659,23 @@ struct ExpressionValue {
     ExpressionValue(CellValue atom, Date ts) noexcept;
     ExpressionValue(RowValue row) noexcept;
 
+    enum Sorting {
+        SORTED,
+        MAY_BE_SORTED,
+        NOT_SORTED
+    };
+
+    enum Duplicates {
+        NO_DUPLICATES,
+        MAY_HAVE_DUPLICATES,
+        HAS_DUPLICATES
+    };
+
     // Construct from a set of named values as a row
-    ExpressionValue(StructValue vals) noexcept;
+    ExpressionValue(StructValue vals,
+                    Sorting sorting = MAY_BE_SORTED,
+                    Duplicates duplicates = MAY_HAVE_DUPLICATES) noexcept;
+
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -961,6 +982,19 @@ struct ExpressionValue {
     */
     ExpressionValue getFilteredDestructive(const VariableFilter & filter);
 
+    /** Returns the number of times that forEachAtom() will return a
+        value to the callback.  In other words, the total number of
+        distinct atoms in this object.  Atoms will return one.
+    */
+    size_t getAtomCount() const;
+
+    /** Returns the number of unique column names that forEachAtom()
+        will return.  In other words, the total number of distinct
+        elements in the flattened representation of the object.
+        Atoms will return one.
+    */
+    size_t getUniqueAtomCount() const;
+    
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,
                                 std::pair<CellValue, Date> * vals2,
@@ -1058,6 +1092,7 @@ private:
         type_ = Type::ATOM;
     }
     void initStructured(Structured row) noexcept;
+    void initStructured(Structured value, bool needsSorting, bool hasDuplicates) noexcept;
     void initStructured(std::shared_ptr<const Structured> row) noexcept;
     const Structured & getStructured() const;
 
@@ -1339,6 +1374,8 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
     virtual bool couldBeRow() const
@@ -1398,6 +1435,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
 
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
     virtual std::vector<ColumnName> allColumnNames() const;
@@ -1437,9 +1476,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
     virtual SchemaCompleteness getSchemaCompleteness() const override;
-
-    std::vector<KnownColumn> columns;
-    SchemaCompleteness completeness;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
 
     virtual bool isCompatible(const ExpressionValue & value) const override
     {
@@ -1460,6 +1497,11 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     {
         return false;
     }
+
+protected:
+    std::vector<KnownColumn> columns;
+    SchemaCompleteness completeness;
+    SchemaCompleteness completenessRecursive;
 };
 
 /// For a row.  This may have information about columns within that row.

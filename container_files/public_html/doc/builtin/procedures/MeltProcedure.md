@@ -1,11 +1,11 @@
 # Melt Procedure
 
-This procedure type allows you to perform a melt operation on a dataset. Melting 
+This procedure type allows you to perform a melt operation on a dataset. Melting
 a dataset takes a set of columns to keep fixed and a set of columns to melt and
-creates a new rows, one per column to melt, while copying as is the columns to 
+creates a new rows, one per column to melt, while copying as is the columns to
 keep fixed.
 
-An example usage is importing JSON data where some fields contain an array of 
+An example usage is importing JSON data where some fields contain an array of
 objects and the way we want to process it is one object per row.
 
 ## Configuration
@@ -22,7 +22,7 @@ Suppose the following dataset `data` with the `friends` column containing string
 |-----------|--------|-------|-----------|
 | row1 | bill | 25 | [{"name": "mich", "age": 20}, {"name": "jean", "age": 18}] |
 
-We may want to perform operations on the contents of the JSON object in the 
+We may want to perform operations on the contents of the JSON object in the
 `friends` column. To do so, we can perform a `melt` operation on the output
 of the `parse_json()` function.
 
@@ -76,7 +76,7 @@ mldb.put("/v1/procedures/melt", {
     "params": {
         "inputData": """
             SELECT {rowName() as rowName} as to_fix,
-                   {tokenize(text, {splitchars: ' '}) as *} as to_melt
+                   {tokenize(text, {splitChars: ' '}) as *} as to_melt
             FROM data
         """,
         "outputDataset": "melted_data"
@@ -99,6 +99,6 @@ This gives us the following dataset:
 
 ## See also
 
-* The [parse_json](../sql/ValueExpression.md.html#parse_json) builtin function can perform 
+* The [parse_json](../sql/ValueExpression.md.html#parse_json) builtin function can perform
 JSON unpacking to a text cell in an SQL query
 
