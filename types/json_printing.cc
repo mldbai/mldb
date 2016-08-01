@@ -845,6 +845,7 @@ StructuredJsonPrintingContext::
 StructuredJsonPrintingContext(Json::Value & output)
     : output(output), current(&output)
 {
+    path.reserve(8);
 }
 
 void
