@@ -15,7 +15,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/compact_vector_description.h"
 #include "mldb/types/tuple_description.h"
-#include "ml/value_descriptions.h"
+#include "mldb/ml/value_descriptions.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/utils/json_utils.h"
@@ -1878,7 +1878,8 @@ ExpressionValue(RowValue row) noexcept
             return rowOut;
         };
 
-    initStructured(doLevel(row.begin(), row.end(), 0 /* level */));
+    initStructured(doLevel(row.begin(), row.end(), 0 /* level */),
+                   false /* needs sorting */, true /* has duplicates (TODO) */);
 }
 
 void
