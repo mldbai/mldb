@@ -69,4 +69,19 @@ res = mldb.query("select * from out")
 
 mldb.log(res)
 
+mldb.log("Query Function")
+mldb.put('/v1/functions/query_from_postgres', {
+    'type': 'postgresql.query',
+    'params': {
+        'databaseName' : 'mldb',
+        'port' : 5432,
+        'userName' : 'mldb',
+        'query': 'select * from mytable order by a'
+    }
+})
+
+res = mldb.query("select query_from_postgres()")
+
+mldb.log(res)
+
 mldb.script.set_return("success")

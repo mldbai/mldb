@@ -525,6 +525,171 @@ struct PostgresqlImportProcedure: public Procedure {
     }
 };
 
+/*****************************************************************************/
+/* POSTGRES QUERY FUNCTION                                                   */
+/*****************************************************************************/
+
+struct PostgresqlQueryFunctionConfig
+{
+    string databaseName;
+    string userName;
+    int port;
+    string host;
+
+    string query;
+
+    PostgresqlQueryFunctionConfig() {
+        databaseName = "database";
+        userName = "user";
+        port = 1234;
+        host = "localhost";
+        query = "";
+    }
+};
+
+DEFINE_STRUCTURE_DESCRIPTION(PostgresqlQueryFunctionConfig);
+
+PostgresqlQueryFunctionConfigDescription::
+PostgresqlQueryFunctionConfigDescription()
+{
+    addField("databaseName", &PostgresqlQueryFunctionConfig::databaseName, "Name of the database to connect to.");
+    addField("userName", &PostgresqlQueryFunctionConfig::userName, "User name in postgresql database");
+    addField("port", &PostgresqlQueryFunctionConfig::port, "Port of the database to connect to.", 1234);
+    addField("host", &PostgresqlQueryFunctionConfig::host, "Address of the database to connect to ");    
+
+    addField("query", &PostgresqlQueryFunctionConfig::query,
+             "SQL query to run.  The values in the dataset, as "
+             "well as the input values, will be available for the expression "
+             "calculation");
+}
+
+struct PostgresqlQueryFunction : public Function
+{
+    PostgresqlQueryFunctionConfig functionConfig;
+
+    PostgresqlQueryFunction(MldbServer * owner,
+                     PolyConfig config,
+                     const std::function<bool (const Json::Value &)> & onProgress)
+        : Function(owner)
+    {
+        functionConfig = config.params.convert<PostgresqlQueryFunctionConfig>();
+    }
+
+    Any
+    getStatus() const
+    {
+        Json::Value result;
+        result["expression"]["query"] = functionConfig.query;
+        return result;
+    }
+
+    /** Structure that does all the work of the SQL expression function. */
+    struct PostgresqlQueryFunctionApplier: public FunctionApplier {
+
+        const PostgresqlQueryFunction * function;
+        PostgresqlQueryFunctionConfig config;
+
+        PostgresqlQueryFunctionApplier(const PostgresqlQueryFunction * function,
+                                const PostgresqlQueryFunctionConfig & config)
+            : FunctionApplier(function), function(function), config(config)
+        {
+           std::vector<KnownColumn> noColumns;
+
+           this->info.input = std::make_shared<RowValueInfo>(noColumns, SCHEMA_CLOSED);
+           
+           this->info.output.reset(new RowValueInfo(std::move(noColumns),
+                                                    SCHEMA_OPEN));
+        }
+
+        pg_conn* startConnection(const PostgresqlQueryFunctionConfig & config_) const
+        {
+            string connString;
+            connString += "dbname=" + config_.databaseName 
+                       + " host=" + config_.host 
+                       + " port=" + std::to_string(config_.port)
+                       + " user=" + config_.userName
+                       + " password=" + "mldb";
+
+            cerr << connString << endl;
+
+            auto conn = PQconnectdb(connString.c_str());
+            if (PQstatus(conn) != CONNECTION_OK)
+            {
+                cerr << "Connection to the database failed: " << PQerrorMessage(conn) << endl;
+                PQfinish(conn);
+                throw HttpReturnException(400, "Could not connect to Postgresql database");
+            }
+
+            cerr << "connection successful!" << endl;
+            return conn;
+        }
+
+        virtual ~PostgresqlQueryFunctionApplier()
+        {
+        }
+
+        ExpressionValue apply(const ExpressionValue & context) const
+        {
+            // Connect to Postgresl database
+            auto conn = startConnection(config);
+
+            //query the rows
+            auto res = PQexec(conn, config.query.c_str());
+            if (PQresultStatus(res) != PGRES_TUPLES_OK)
+            {
+                cerr << PQresultErrorMessage(res) << endl;
+                PQclear(res);
+                PQfinish(conn);
+                throw HttpReturnException(400, "Could not query database");
+            }
+
+            int nfields = PQnfields(res);
+            int ntuples = PQntuples(res);
+
+            //cerr << nfields << " fields in " << ntuples << " tuples" << endl; 
+            std::vector<std::tuple<ColumnName, CellValue, Date> > row;
+            if (ntuples > 0) {
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+                for(int j = 0; j < nfields; j++) {
+                    row.emplace_back(ColumnName(PQfname(res, j)), CellValue(PQgetvalue(res, 0, j)), Date::Date::notADate());
+                    //printf("[%d,%d] %s\n", i, j, PQgetvalue(res, i, j));
+                }       
+            }
+
+            PQclear(res);
+            PQfinish(conn);
+            return ExpressionValue(row);
+        }        
+    };
+
+    std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const std::shared_ptr<RowValueInfo> & input) const
+    {
+        std::unique_ptr<PostgresqlQueryFunctionApplier> result
+            (new PostgresqlQueryFunctionApplier(this, functionConfig));
+
+        result->info.checkInputCompatibility(*input);
+
+        return std::move(result);
+    }
+
+    ExpressionValue
+    apply(const FunctionApplier & applier,
+          const ExpressionValue & context) const
+    {
+        return static_cast<const PostgresqlQueryFunctionApplier &>(applier)
+            .apply(context);
+    }
+
+    FunctionInfo
+    getFunctionInfo() const
+    {
+        PostgresqlQueryFunctionApplier applier(this, functionConfig);
+        return applier.info;
+    }
+};
+
 static RegisterDatasetType<PostgresqlRecorderDataset, PostgresqlRecorderDatasetConfig>
 regPostgresqlRecorderDataset(//postgresqlPackage(),
                  builtinPackage(),
@@ -544,6 +709,12 @@ regPostgresqlImport(//postgresqlPackage(),
                 builtinPackage(),
                  "Import a dataset from Postgresql",
                  "Postgresql.md.html");
+
+static RegisterFunctionType<PostgresqlQueryFunction, PostgresqlQueryFunctionConfig>
+regSqlQueryFunction(builtinPackage(),
+                    "postgresql.query",
+                    "Run a single row SQL query against a Postgresql dataset",
+                    "Postgresql.md.html");
 
 } // namespace MLDB
 } // namespace Datacratic
