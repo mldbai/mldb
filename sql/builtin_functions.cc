@@ -20,7 +20,7 @@
 #include "mldb/sql/join_utils.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
-#include "mldb/ext/edlib/src/edlib.h"
+#include "mldb/ext/edlib/edlib/include/edlib.h"
 #include "mldb/types/structure_description.h"
 
 #include <boost/regex/icu.hpp>
@@ -2480,76 +2480,28 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 const auto target = args[1].getAtom().toUtf8String().rawString();
 
                 // start by testing easy edge cases
+                int maxSize = max(query.size(), target.size());
                 int bestScore = -1;
                 if(query.size() == 0 && target.size() == 0)
                     bestScore = 0;
                 else if(query.size() == 0 || target.size() == 0)
-                    bestScore = max(query.size(), target.size());
+                    bestScore = maxSize;
 
                 if(bestScore != -1)
                     return ExpressionValue(bestScore,
                                            args[0].getEffectiveTimestamp());
 
+                auto conf = edlibDefaultAlignConfig();
+                conf.k = maxSize;
 
-                // We convert the strings to ints (from 0 to n, where n is the number
-                // of unique chars) because edlib requires we give it the input in that format
-                unsigned char convQuery[query.size()];
-                unsigned char convTarget[target.size()];
+                EdlibAlignResult alignRes = 
+                    edlibAlign(query.c_str(), query.size(),
+                               target.c_str(), target.size(), conf);
 
-                int idx = 0;
-                map<char, int> charIdx;
+                bestScore = alignRes.editDistance;
+                edlibFreeAlignResult(alignRes);
 
-                auto fct = [&] (const string & in, unsigned char * out) {
-                    auto strLen = in.size();
-                    for (int i = 0; i < strLen; ++i) {
-                        auto & currChar = in[i];
-                        auto it = charIdx.find(currChar);
-                        if (it == charIdx.end()) {
-                            auto res = charIdx.emplace(currChar, idx ++);
-                            ExcAssert(std::get<1>(res));
-                            it = std::get<0>(res);
-                        }
-                        out[i] = it->second;
-                    }
-                };
-
-                fct(query, &convQuery[0]);
-                fct(target, &convTarget[0]);
-
-                // DEBUG OUTPUT------------------
-                /*
-                cerr << "AFTER JOIN" << endl;
-                cerr << query << endl;
-                for (int i = 0; i < query.size(); ++i) {
-                    cerr << (int)convQuery[i];
-                }
-                cerr << endl << endl << target << endl;
-                for (int i = 0; i < target.size(); ++i) {
-                    cerr << (int)convTarget[i];
-                }
-                cerr << endl;
-                for (const auto & it: charIdx) {
-                    cerr << it.first << " - " << it.second << endl;
-                }
-                */
-                // ------------------------------
-
-                int numLocations = -1;
-                int* endLocations1, * startLocations1;
-                unsigned char* alignment;
-                int alignmentLength = -1;
-
-                int rtn = edlibCalcEditDistance(
-                    convQuery, query.size(),
-                    convTarget, target.size(),
-                    (int)idx + 1,
-                    -1, EDLIB_MODE_NW, false, false,
-                    &bestScore, 
-                    &endLocations1, &startLocations1, &numLocations,
-                    &alignment, &alignmentLength);
-
-
-                if(rtn != 0)
+                if(bestScore == -1)
                     throw ML::Exception("Error computing Levenshtein distance");
 
                 return std::move(ExpressionValue(bestScore,
