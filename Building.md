@@ -30,8 +30,6 @@ ssh -T git@github.com
 
 **Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest) which is tracked by the `release_latest` branch.
 
-Some submodules require the [Git Large File Storage](https://git-lfs.github.com) extension. Make sure it is installed prior to cloning the repository.
-
 ```bash
 git clone git@github.com:mldbai/mldb.git
 cd mldb
