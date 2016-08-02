@@ -724,9 +724,6 @@ apply(const FunctionApplier & applier,
         if (st == distTablesMap.end())
             return true;
 
-        if (val.empty())
-            return true;
-
         const DistTable & distTable = st->second;
         const auto & stats = distTable.getStats(val.toUtf8String());
         for (int i=0; i < distTable.outcome_names.size(); ++i) {

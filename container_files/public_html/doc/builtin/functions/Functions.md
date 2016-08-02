@@ -15,6 +15,8 @@ Functions have a fixed set of input values and output values. Input and output v
 
 All MLDB Functions are automatically accessible as [REST Endpoints](Application.md), which can be used to apply machine learning models in a streaming/real-time process. Functions can be applied via a REST API call like `GET /v1/functions/<id>/application?input={<values>}`.
 
+Functions support input values passed in as query string parameters or as a JSON payload. In both cases, the REST call must be a GET.
+
 ## Applying Function via SQL
 
 In MLDB SQL, Functions can be  [applied much like built-in functions](../sql/ValueExpression.md): they accept a row as input and return a row as output.

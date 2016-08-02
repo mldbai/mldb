@@ -557,7 +557,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 ],
                 'mode': 'boolean',
                 'algorithm': 'dt',
-                'modelFileUrlPattern': 'file://test_orderby_$runid',
+                'modelFileUrlPattern': 'file://tmp/test_orderby_$runid',
                 "configuration": {
                     "dt": {
                         "type": "decision_tree",
