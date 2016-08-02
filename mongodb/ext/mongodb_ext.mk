@@ -4,15 +4,19 @@
 
 ifneq ($(PREMAKE),1)
 
-LIBBSON:=$(CWD)/mongo-c-driver/src/libbson
+LIBBSON:=$(CWD)/libbson
 ###############################################################################
 # First, the BSON C library
 BSON_SRC_FILES:=$(shell find $(LIBBSON)/src -name "*.c")
 BSON_SRC_BUILD:=$(BSON_SRC_FILES:$(CWD)/%=%)
-$(BSON_SRC_FILES): $(LIBBSON)/src/bson/bson-config.h
+$(BSON_SRC_FILES): \
+	$(LIBBSON)/src/bson/bson-config.h \
+	$(LIBBSON)/src/bson/bson-version.h
 
 # Rather than run automake and autoconf, etc we simply copy the file in
 $(LIBBSON)/src/bson/bson-config.h: $(CWD)/bson-config.h
+	@cp $< $@~ && mv $@~ $@
+$(LIBBSON)/src/bson/bson-version.h: $(CWD)/bson-version.h
 	@cp $< $@~ && mv $@~ $@
 
 $(eval $(call set_compile_option,$(BSON_SRC_BUILD),-I$(LIBBSON)/src/bson -I$(LIBBSON)/src -I$(LIBBSON)/build/cmake/bson -DBSON_COMPILATION -Wno-maybe-uninitialized))
@@ -58,7 +62,7 @@ $(eval $(call mldb_plugin_library,mongodb,bsoncxx,$(BSONCXX_SRC_BUILD),bson))
 
 
 ###############################################################################
-# Finally, the C++ wrapper for the BSON library
+# Finally, the C++ mongo driver
 
 
 MONGOCXX_SRC_FILES:=$(shell find $(CWD)/mongo-cxx-driver/src/mongocxx -name "*.cpp" | grep -v test)
@@ -66,9 +70,17 @@ MONGOCXX_SRC_BUILD:=$(MONGOCXX_SRC_FILES:$(CWD)/%=%)
 $(MONGOCXX_SRC_FILES): \
 	$(CWD)/mongo-cxx-driver/src/mongocxx/config/config.hpp \
 	$(CWD)/mongo-cxx-driver/src/mongocxx/config/version.hpp \
-	$(CWD)/mongo-cxx-driver/src/mongocxx/config/export.hpp
+	$(CWD)/mongo-cxx-driver/src/mongocxx/config/export.hpp \
+	$(CWD)/mongo-cxx-driver/src/mongocxx/config/private/config.hpp \
+	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp \
+	$(CWD)/mongo-c-driver/src/mongoc/mongoc-config.h \
+	$(CWD)/mongo-c-driver/src/mongoc/mongoc-version.h
 
 $(CWD)/mongo-cxx-driver/src/mongocxx/config/%.hpp: $(CWD)/mongocxx-%.hpp
+	@cp $< $@~ && mv $@~ $@
+$(CWD)/mongo-cxx-driver/src/mongocxx/config/private/config.hpp: $(CWD)/mongo-cxx-driver/src/mongocxx/config/private/config.hpp.in
+	@cp $< $@~ && mv $@~ $@
+$(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp: $(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp.in
 	@cp $< $@~ && mv $@~ $@
 
 $(eval $(call set_compile_option,$(MONGOCXX_SRC_BUILD),-I$(CWD)/mongo-cxx-driver/src -I$(CWD)/mongo-c-driver/src -I$(LIBBSON)/src -I$(CWD)/mongo-cxx-driver  -I$(CWD)/mnmlstc/include -I$(LIBBSON)/src/bson -I$(LIBBSON)/build/cmake/bson -I$(CWD)/mongo-c-driver/src/mongoc -DMONGO_CXX_DRIVER_COMPILING))
