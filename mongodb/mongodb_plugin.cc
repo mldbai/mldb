@@ -9,6 +9,7 @@
 #include "mldb/core/function.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/rest/rest_request_router.h"
 
 #include "bsoncxx/builder/stream/document.hpp"
 #include "bsoncxx/json.hpp"
@@ -27,13 +28,6 @@ using bsoncxx::builder::stream::close_document;
 using bsoncxx::builder::stream::open_array;
 using bsoncxx::builder::stream::close_array;
 using bsoncxx::builder::stream::finalize;
-
-
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
-{
-    return nullptr;
-}
 
 namespace Datacratic {
 namespace MLDB {
@@ -157,10 +151,11 @@ MongoImportConfigDescription()
 
 struct MongoImportProcedure: public Procedure {
     MongoImportProcedure(MldbServer * server,
-                         const PolyConfig & config,
+                         const PolyConfig & config_,
                          std::function<bool (Json::Value)> onProgress)
         : Procedure(server)
     {
+        config = config_.params.convert<MongoImportConfig>();
     }
 
     virtual Any getStatus() const
@@ -169,6 +164,7 @@ struct MongoImportProcedure: public Procedure {
         result["ok"] = true;
         return result;
     }
+    MongoImportConfig config;
 
     static ExpressionValue bsonToExpression(const bsoncxx::types::value & val,
                                             Date ts)
