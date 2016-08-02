@@ -2497,11 +2497,9 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 EdlibAlignResult alignRes = 
                     edlibAlign(query.c_str(), query.size(),
                                target.c_str(), target.size(), conf);
-                               //edlibDefaultAlignConfig());
-                
+
                 bestScore = alignRes.editDistance;
                 edlibFreeAlignResult(alignRes);
-
 
                 if(bestScore == -1)
                     throw ML::Exception("Error computing Levenshtein distance");
