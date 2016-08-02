@@ -74,7 +74,9 @@ $(MONGOCXX_SRC_FILES): \
 	$(CWD)/mongo-cxx-driver/src/mongocxx/config/private/config.hpp \
 	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp \
 	$(CWD)/mongo-c-driver/src/mongoc/mongoc-config.h \
-	$(CWD)/mongo-c-driver/src/mongoc/mongoc-version.h
+	$(CWD)/mongo-c-driver/src/mongoc/mongoc-version.h \
+	$(LIBBSON)/src/bson/bson-config.h \
+	$(LIBBSON)/src/bson/bson-version.h
 
 $(CWD)/mongo-cxx-driver/src/mongocxx/config/%.hpp: $(CWD)/mongocxx-%.hpp
 	@cp $< $@~ && mv $@~ $@
@@ -85,7 +87,7 @@ $(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp: $(CWD)/mongo-cxx-
 
 $(eval $(call set_compile_option,$(MONGOCXX_SRC_BUILD),-I$(CWD)/mongo-cxx-driver/src -I$(CWD)/mongo-c-driver/src -I$(LIBBSON)/src -I$(CWD)/mongo-cxx-driver  -I$(CWD)/mnmlstc/include -I$(LIBBSON)/src/bson -I$(LIBBSON)/build/cmake/bson -I$(CWD)/mongo-c-driver/src/mongoc -DMONGO_CXX_DRIVER_COMPILING))
 
-$(eval $(call mldb_plugin_library,mongodb,mongocxx,$(MONGOCXX_SRC_BUILD),bsoncxx mongoc))
+$(eval $(call mldb_plugin_library,mongodb,mongocxx,$(MONGOCXX_SRC_BUILD),bson bsoncxx mongoc))
 
 
 ###############################################################################
