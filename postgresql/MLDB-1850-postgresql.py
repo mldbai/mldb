@@ -22,22 +22,7 @@ dataset.record_row("row2", [["x", 2, now], ["y", "brigade", now]])
 
 dataset.commit()
 
-#create postgresql proxy
-#dataset_config2 = {
-#    'type'    : 'postgresql.recorder',
-#    'id'      : 'postgresql',
-#    'params': {
-#        'createTable' : True,
-#       'databaseName' : 'mldb',
-#        'port' : 5432,
-#        'userName' : 'mldb',
-#        'tableName' : 'mytable',
-#        'createTableColumns' : 'a VARCHAR(32), b integer'
-#    }
-#}
-
-#dataset2 = mldb.create_dataset(dataset_config2)
-
+mldb.log("From MLDB to Postgres")
 res = mldb.post('/v1/procedures', {
     'type': 'transform',
     'params': {
@@ -57,6 +42,30 @@ res = mldb.post('/v1/procedures', {
         'runOnCreation': True
     }
 })
+
+mldb.log(res)
+
+mldb.log("From Postgres to MLDB")
+
+res = mldb.post('/v1/procedures', {
+    'type': 'postgresql.import',
+    'params': {
+        'databaseName' : 'mldb',
+        'port' : 5432,
+        'userName' : 'mldb',
+        'postgresqlQuery' : 'select * from mytable order by a',
+        'runOnCreation': True,
+        'outputDataset' : {
+                    'id' : 'out',
+                    'type' : 'sparse.mutable'
+                }
+    }
+})
+
+mldb.log(res)
+
+mldb.log("Re-Query")
+res = mldb.query("select * from out")
 
 mldb.log(res)
 

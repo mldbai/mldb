@@ -385,9 +385,30 @@ struct PostgresqlRecorderDataset: public Dataset {
 /* POSTGRESQL IMPORT PROCEDURE                                               */
 /*****************************************************************************/
 
-/*struct PostgresqlImportConfig: public ProcedureConfig {
+struct PostgresqlImportConfig: public ProcedureConfig {
 
     static constexpr const char * name = "postgresql.import";
+
+    string databaseName;
+    string userName;
+    int port;
+    string host;
+    string tableName;
+    string postgresqlQuery;
+
+    /// The output dataset.  Rows will be dumped into here via insertRows.
+    PolyConfigT<Dataset> outputDataset;
+
+    PostgresqlImportConfig() {
+        databaseName = "database";
+        userName = "user";
+        port = 1234;
+        host = "localhost";
+        tableName = "mytable";
+        postgresqlQuery = "";
+
+        outputDataset.withType("sparse.mutable");
+    }
 
 };
 
@@ -398,17 +419,55 @@ PostgresqlImportConfigDescription::
 PostgresqlImportConfigDescription()
 {
     addParent<ProcedureConfig>();
+
+    addField("databaseName", &PostgresqlImportConfig::databaseName, "Name of the database to connect to.");
+    addField("userName", &PostgresqlImportConfig::userName, "User name in postgresql database");
+    addField("port", &PostgresqlImportConfig::port, "Port of the database to connect to.", 1234);
+    addField("host", &PostgresqlImportConfig::host, "Address of the database to connect to ");
+    addField("postgresqlQuery", &PostgresqlImportConfig::postgresqlQuery, "Query to run in postgresql to get rows");
+
+    addField("outputDataset", &PostgresqlImportConfig::outputDataset,
+             "Output dataset configuration.  This may refer either to an "
+             "existing dataset, or a fully specified but non-existing dataset "
+             "which will be created by the procedure.", PolyConfigT<Dataset>().withType("sparse.mutable"));
 }
 
 struct PostgresqlImportProcedure: public Procedure {
+
+    PostgresqlImportConfig procedureConfig;
+
     PostgresqlImportProcedure(MldbServer * server,
                          const PolyConfig & config,
                          std::function<bool (Json::Value)> onProgress)
         : Procedure(server)
     {
+        procedureConfig = config.params.convert<PostgresqlImportConfig>();
     }
 
-    virtual Any getStatus() const
+    pg_conn* startConnection(const PostgresqlImportConfig & config_) const
+    {
+        string connString;
+        connString += "dbname=" + config_.databaseName 
+                   + " host=" + config_.host 
+                   + " port=" + std::to_string(config_.port)
+                   + " user=" + config_.userName
+                   + " password=" + "mldb";
+
+        cerr << connString << endl;
+
+        auto conn = PQconnectdb(connString.c_str());
+        if (PQstatus(conn) != CONNECTION_OK)
+        {
+            cerr << "Connection to the database failed: " << PQerrorMessage(conn) << endl;
+            PQfinish(conn);
+            throw HttpReturnException(400, "Could not connect to Postgresql database");
+        }
+
+        cerr << "connection successful!" << endl;
+        return conn;
+    }
+
+    virtual Any getStatus() const override
     {
         Json::Value result;
         result["ok"] = true;
@@ -416,13 +475,56 @@ struct PostgresqlImportProcedure: public Procedure {
     }   
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const
+                          const std::function<bool (const Json::Value &)> & onProgress) const override
     {        
         RunOutput result;
+
+        auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
+
+        // Connect to Postgresl database
+        auto conn = startConnection(runProcConf);
+
+        // Create the output
+        std::shared_ptr<Dataset> output =
+        createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
+
+        //query the rows
+        auto res = PQexec(conn, runProcConf.postgresqlQuery.c_str());
+        if (PQresultStatus(res) != PGRES_TUPLES_OK)
+        {
+            cerr << PQresultErrorMessage(res) << endl;
+            PQclear(res);
+            PQfinish(conn);
+            throw HttpReturnException(400, "Could not query database");
+        }
+
+        int nfields = PQnfields(res);
+        int ntuples = PQntuples(res);
+
+        //cerr << nfields << " fields in " << ntuples << " tuples" << endl; 
+        std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+        for(int i = 0; i < ntuples; i++) {
+            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            for(int j = 0; j < nfields; j++) {
+                cols.emplace_back(ColumnName(PQfname(res, j)), CellValue(PQgetvalue(res, i, j)), Date::Date::notADate());
+                //printf("[%d,%d] %s\n", i, j, PQgetvalue(res, i, j));
+            }
+            rows.emplace_back(Path(string("row_" + std::to_string(i))), std::move(cols));            
+        }
+
+        output->recordRows(rows);
+
+        // Save the dataset we created
+        output->commit();
+
+        result = output->getStatus();
+
+        PQclear(res);
+        PQfinish(conn);
         return result;
     }
 };
-*/
+
 static RegisterDatasetType<PostgresqlRecorderDataset, PostgresqlRecorderDatasetConfig>
 regPostgresqlRecorderDataset(//postgresqlPackage(),
                  builtinPackage(),
@@ -437,11 +539,11 @@ regPostgresqlDataset(//postgresqlPackage(),
                  "Dataset type that reads from a Postgresql database",
                  "Postgresql.md.html");
 
-/*static RegisterProcedureType<PostgresqlImportProcedure, PostgresqlImportConfig>
+static RegisterProcedureType<PostgresqlImportProcedure, PostgresqlImportConfig>
 regPostgresqlImport(//postgresqlPackage(),
                 builtinPackage(),
                  "Import a dataset from Postgresql",
                  "Postgresql.md.html");
-*/
+
 } // namespace MLDB
 } // namespace Datacratic
