@@ -14,6 +14,7 @@
 #include "mldb/base/optimized_path.h"
 #include <array>
 #include <unordered_set>
+#include "mldb/jml/math/xdiv.h"
 
 using namespace std;
 
@@ -446,7 +447,7 @@ struct AggregatorT {
 
         if (!state->isDetermined) {
             state->isDetermined = true;
-            checkArgsSize(nargs, 1);
+            checkArgsSize(nargs, State::nargs);
             state->isRow = args[0].isRow();
         }
 
@@ -504,10 +505,9 @@ struct RegisterAggregatorT: public RegisterAggregator {
     }
 };
 
-struct AverageAccum {
-    static constexpr int nargs = 1;
-    
-    AverageAccum()
+struct AverageAccumBase {
+
+    AverageAccumBase()
         : total(0.0), n(0.0), ts(Date::negativeInfinity())
     {
     }
@@ -518,35 +518,74 @@ struct AverageAccum {
         return std::make_shared<Float64ValueInfo>();
     }
 
+    ExpressionValue extract()
+    {
+        return ExpressionValue(ML::xdiv(total, n), ts);
+    }
+
+    void merge(AverageAccumBase* from)
+    {
+        total += from->total;
+        n += from->n;
+        ts.setMax(from->ts);
+    }
+
+    double total;
+    double n;
+    Date ts;
+};
+
+struct AverageAccum : public AverageAccumBase {
+    static constexpr int nargs = 1;
+
+    AverageAccum()
+        : AverageAccumBase()
+    {
+    }
+
     void process(const ExpressionValue * args, size_t nargs)
     {
         checkArgsSize(nargs, 1);
         const ExpressionValue & val = args[0];
         if (val.empty())
             return;
+
         total += val.toDouble();
         n += 1;
         ts.setMax(val.getEffectiveTimestamp());
     }
-     
-    ExpressionValue extract()
+};
+
+struct WeightedAverageAccum : public AverageAccumBase {
+    static constexpr int nargs = 2;
+
+    WeightedAverageAccum()
+        : AverageAccumBase()
     {
-        return ExpressionValue(total / n, ts);
     }
 
-    void merge(AverageAccum* from)
+    void process(const ExpressionValue * args, size_t nargs)
     {
-        total += from->total;
-        n += from->n;
-        ts.setMax(from->ts);
+        checkArgsSize(nargs, 2);
+        const ExpressionValue & val = args[0];
+        if (val.empty())
+            return;
+
+        double weight = 1;
+        if(nargs == 2) {
+            const ExpressionValue & ev_weight = args[1];
+            if (!val.empty())
+                weight = ev_weight.toDouble();
+        }
+
+        total += val.toDouble() * weight;
+        n += weight;
+        ts.setMax(val.getEffectiveTimestamp());
     }
-    
-    double total;
-    double n;
-    Date ts;
 };
-        
+
 static RegisterAggregatorT<AverageAccum> registerAvg("avg", "vertical_avg");
+static RegisterAggregatorT<WeightedAverageAccum> registerWAvg("weighted_avg", "vertical_weighted_avg");
 
 template<typename Op, int Init>
 struct ValueAccum {
@@ -571,7 +610,7 @@ struct ValueAccum {
         value = Op()(value, val.toDouble());
         ts.setMax(val.getEffectiveTimestamp());
     }
-     
+
     ExpressionValue extract()
     {
         return ExpressionValue(value, ts);
@@ -621,12 +660,12 @@ struct StringAggAccum {
             value += separator.coerceToString().toUtf8String();
         }
         first = false;
-        
+
         value += val.coerceToString().toUtf8String();
 
         ts.setMax(val.getEffectiveTimestamp());
     }
-     
+
     ExpressionValue extract()
     {
         return ExpressionValue(value, ts);
@@ -693,7 +732,7 @@ struct MinMaxAccum {
         }
         //cerr << "ts now " << ts << endl;
     }
-    
+
     ExpressionValue extract()
     {
         return ExpressionValue(value, ts);

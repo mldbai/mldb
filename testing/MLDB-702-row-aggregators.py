@@ -34,6 +34,19 @@ class RowAggregatorTest(MldbUnitTest):
 
         ds.commit()
 
+
+
+        ds = mldb.create_dataset({ "id": "test_weight", "type": "sparse.mutable" })
+
+        def recordExample(row, x, y, ts):
+            ds.record_row(row, [ [ "x", x, ts], ["y", y, ts] ]);
+
+        recordExample("ex1", 25, 0, 0);
+        recordExample("ex2", 1,  5, 0);
+        recordExample("ex3", 10, 2, 0);
+
+        ds.commit()
+
         
     def test_min_max(self):
         resp = mldb.get("/v1/query", q = "SELECT min({*}) AS min, max({*}) AS max FROM test GROUP BY label");
@@ -101,6 +114,18 @@ class RowAggregatorTest(MldbUnitTest):
         resp = mldb.get("/v1/query", q = "SELECT avg(x) AS avg FROM test GROUP BY x");
         resp2 = mldb.get("/v1/query", q = "SELECT vertical_avg(x) AS avg FROM test GROUP BY x");
         self.assertFullResultEquals(resp.json(), resp2.json())
+    
+    def test_weighted_avg(self):
+
+        wavg = mldb.query("SELECT weighted_avg(x, y) AS avg FROM test_weight")
+
+        self.assertTableResultEquals(
+            wavg,
+            [["_rowName","avg"],
+             ["[]",(1*5 + 10*2) / 7.]])
+
+        self.assertTableResultEquals(wavg,
+                mldb.query("SELECT vertical_weighted_avg(x, y) AS avg FROM test_weight"))
 
     def test_vertical_earliest_is_earliest(self):
         resp = mldb.get("/v1/query", q = "SELECT earliest({*}) AS count FROM test GROUP BY x");
