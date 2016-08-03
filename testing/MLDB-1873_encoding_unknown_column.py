@@ -41,17 +41,19 @@ class MLDB1873EncodingUnknownColumn(MldbUnitTest):  # noqa
         })
 
     def test_it(self):
-        res = mldb.post('/v1/procedures', {
+        # make sure training can run
+        mldb.post('/v1/procedures', {
             'type': 'classifier.experiment',
             'params': {
                 'experimentName': 'enron_experiment1',
                 'inputData': '''
-                    select 
+                    select
                         {* excluding(message_is_spam)} as features, 
                         message_is_spam as label 
                     from enron_features''',
                 'modelFileUrlPattern': 'file://enron_model_$runid.cls',
-                'algorithm': 'bbdt'
+                'configurationFile': 'file://mldb/container_files/classifiers.json',
+                'algorithm': 'dt'
             }
         })
 
