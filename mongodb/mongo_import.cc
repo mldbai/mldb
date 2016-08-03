@@ -11,7 +11,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/any_impl.h"
-//#include "mongo_dataset.h"
+#include "mldb/utils/log.h"
 #include "mongo_package.h"
 
 #include "bsoncxx/builder/stream/document.hpp"
@@ -35,10 +35,12 @@ using bsoncxx::builder::stream::finalize;
 namespace Datacratic {
 namespace MLDB {
 
+typedef tuple<ColumnName, CellValue, Date> Cell;
+
 struct MongoImportConfig: ProcedureConfig {
     static constexpr const char * name = "mongodb.import";
-    Utf8String connectionScheme;
-    Utf8String collection;
+    string connectionScheme;
+    string collection;
     PolyConfigT<Dataset> outputDataset;
 
     MongoImportConfig() {
@@ -74,7 +76,7 @@ struct MongoImportProcedure: public Procedure {
         config = config_.params.convert<MongoImportConfig>();
     }
 
-    virtual Any getStatus() const
+    Any getStatus() const override
     {
         Json::Value result;
         result["ok"] = true;
@@ -82,40 +84,39 @@ struct MongoImportProcedure: public Procedure {
     }
     MongoImportConfig config;
 
-    static ExpressionValue bsonToExpression(const bsoncxx::types::value & val,
-                                            Date ts)
+    static CellValue bsonToCell(const bsoncxx::types::value & val)
     {
         switch (val.type()) {
         case bsoncxx::type::k_undefined:
         case bsoncxx::type::k_null:
-            return ExpressionValue::null(ts);
+            return CellValue{};
         case bsoncxx::type::k_double:
-            return ExpressionValue(val.get_double().value, ts);
+            return CellValue(val.get_double().value);
         case bsoncxx::type::k_utf8:
-            return ExpressionValue(val.get_utf8().value.to_string(), ts);
+            return CellValue(val.get_utf8().value.to_string());
         case bsoncxx::type::k_document: {
-            auto doc = val.get_document();
-            return bsonToExpression(doc.view());
+            //auto doc = val.get_document();
+            //return bsonToCell(doc.view());
+            throw HttpReturnException(500, "BSON doc conversion not done");
         }
         case bsoncxx::type::k_binary: {
             auto bin = val.get_binary();
-            return ExpressionValue(CellValue::blob((const char *)bin.bytes, bin.size),
-                                   ts);
+            return CellValue::blob((const char *)bin.bytes, bin.size);
         }
         case bsoncxx::type::k_oid:
-            return ExpressionValue(val.get_oid().value.to_string(), ts);
+            return CellValue(val.get_oid().value.to_string());
         case bsoncxx::type::k_bool:
-            return ExpressionValue(val.get_bool().value, ts);
+            return CellValue(val.get_bool().value);
         case bsoncxx::type::k_date:
-            return ExpressionValue(val.get_date().value, ts);
+            return CellValue(val.get_date().value);
         case bsoncxx::type::k_timestamp:
-            return ExpressionValue(val.get_timestamp().timestamp, ts);
+            return CellValue(val.get_timestamp().timestamp);
         case bsoncxx::type::k_int32:
-            return ExpressionValue(val.get_int32().value, ts);
+            return CellValue(val.get_int32().value);
         case bsoncxx::type::k_int64:
-            return ExpressionValue(val.get_int64().value, ts);
+            return CellValue(val.get_int64().value);
         case bsoncxx::type::k_symbol:
-            return ExpressionValue(val.get_symbol().symbol.to_string(), ts);
+            return CellValue(val.get_symbol().symbol.to_string());
             
         case bsoncxx::type::k_array:
             throw HttpReturnException(500, "BSON array conversion not done");
@@ -134,37 +135,75 @@ struct MongoImportProcedure: public Procedure {
         throw HttpReturnException(500, "Unknown bson expression type");
     }
 
-    static ExpressionValue bsonToExpression(const bsoncxx::document::view & doc)
+//     static ExpressionValue bsonToExpression(const bsoncxx::document::view & doc)
+//     {
+//         auto ts = Date::fromSecondsSinceEpoch(
+//                 doc["_oid"].get_oid().value.get_time_t());
+//         StructValue cols;
+//         for (auto & el: doc) {
+//             cols.emplace_back(PathElement(std::move(el.key().to_string())),
+//                               bsonToExpression(el.get_value(), ts));
+//         }
+//         return std::move(cols);
+//     }
+
+    RunOutput run(const ProcedureRunConfig & run,
+                  const std::function<bool (const Json::Value &)> & onProgress) const override
     {
-        auto ts = Date::fromSecondsSinceEpoch(doc["_oid"].get_oid().value.get_time_t());
-        StructValue cols;
-        for (auto & el: doc) {
-            cols.emplace_back(PathElement(std::move(el.key().to_string())),
-                              bsonToExpression(el.get_value(), ts));
-        }
-        return std::move(cols);
-    }
+        const auto runConfig = applyRunConfOverProcConf(config, run);
+        mongocxx::client conn{mongocxx::uri{runConfig.connectionScheme}};
+        int idx = runConfig.connectionScheme.rfind('/');
+        string dbName = runConfig.connectionScheme.substr(idx + 1);
+        auto db = conn[dbName];
 
-    virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const
-    {
-        const char * uri = getenv("MONGO_DB_URI");
-        if (!uri)
-            uri = "mongodb://localhost:27017";
-        //cerr << "importing mongodb dataset" << endl;
+        auto logger = MLDB::getMldbLog("MongoDbPluginLogger");
+        logger->set_level(spdlog::level::debug);
 
-        mongocxx::client conn{mongocxx::uri{uri}};
+        logger->debug() << "\n"
+            << "Db name:    " << dbName << "\n"
+            << "Collection: " << runConfig.collection;
 
-        auto db = conn["tutorial"];
+        auto output = createDataset(server, runConfig.outputDataset,
+                                    nullptr, true /*overwrite*/);
 
-        cerr << "connected to " << db.name() << endl;
-
-        // Query for all the documents in a collection.
+        typedef std::function<void (vector<Cell> &, const Date &, Path,
+                                    bsoncxx::document::view)> PopulateRowFct;
+                
+        PopulateRowFct populateRow = [&] (
+            vector<Cell> & row, const Date & ts,
+            Path currPath,
+            bsoncxx::document::view doc)
         {
-            auto cursor = db["users"].find({});
+            for (auto & el: doc) {
+                if (currPath.empty() && el.key().to_string() == "_id") {
+                    // top level _id, skip
+                    continue;
+                }
+                if (el.type() == bsoncxx::type::k_document) {
+                    populateRow(row,
+                                ts,
+                                currPath + std::move(el.key().to_string()),
+                                el.get_document().view());
+                    continue;
+                }
+                row.emplace_back(
+                    currPath + PathElement(std::move(el.key().to_string())),
+                    bsonToCell(el.get_value()),
+                    ts);
+            }
+        };
+
+        {
+            auto cursor = db[runConfig.collection].find({});
             for (auto&& doc : cursor) {
-                //auto expr = bsonToExpression(doc);
-                std::cout << bsoncxx::to_json(doc) << std::endl;
+                auto oid = doc["_id"].get_oid();
+                auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
+                vector<Cell> row;
+                Path curr;
+                populateRow(row, ts, curr, doc);
+                //cerr << bsoncxx::to_json(oid.get_value()) << endl;
+                Path p(oid.value.to_string());
+                output->recordRow(p, row);
             }
         }
 
@@ -198,8 +237,8 @@ struct MongoImportProcedure: public Procedure {
             }
         }
 #endif
-        RunOutput result;
-        return result;
+        output->commit();
+        return output->getStatus();
     }
 };
 
