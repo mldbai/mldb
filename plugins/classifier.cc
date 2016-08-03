@@ -406,7 +406,17 @@ run(const ProcedureRunConfig & run,
 
             unordered_set<Path> unique_known_features;
             for (auto & c: row.columns) {
-                featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                try {
+                    featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                } JML_CATCH_ALL {
+                    rethrowHttpException
+                        (KEEP_HTTP_CODE,
+                         "Error processing row '" + row.rowName.toUtf8String()
+                         + "' column '" + std::get<0>(c).toUtf8String()
+                         + "': " + ML::getExceptionString(),
+                         "rowName", row.rowName,
+                         "columns", row.columns);
+                }
 
                 if (unique_known_features.count(std::get<0>(c)) != 0) {
                     throw HttpReturnException
