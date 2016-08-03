@@ -25,3 +25,7 @@ Mixed or non numeric columns are treated as categorical and the statistics are:
 
 ![](%%config procedure summary.statistics)
 
+## Examples
+
+* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
+
