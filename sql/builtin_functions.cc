@@ -2769,6 +2769,54 @@ BoundFunction stringify_path(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerStringifyPath(stringify_path, "stringify_path");
 
+BoundFunction flatten_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                checkArgsSize(args.size(), 1);
+                ExpressionValue result(Path(PathElement(args[0].coerceToPath().toUtf8String())),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerFlattenPath(flatten_path, "flatten_path");
+
+BoundFunction unflatten_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                Path path = args[0].coerceToPath();
+                if (path.size() != 1) {
+                    throw HttpReturnException
+                        (400, "Attempt to pass non-flattened "
+                         "path with length " + std::to_string(path.size())
+                         + " to unflatten_path().  Must have length of one.",
+                         "path", path);
+                }
+                ExpressionValue result(Path::parse(path[0].toUtf8String()),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerUnflattenPath(unflatten_path, "unflatten_path");
+
+
 BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
 {
     // Return the given element of a path
@@ -2788,6 +2836,26 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerPathElement(path_element, "path_element");
+
+BoundFunction path_length(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the length of a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                ExpressionValue result(CellValue(args[0].coerceToPath().size()),
+                                       calcTs(args[0], args[1]));
+                return result;
+            },
+            std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerPathLength(path_length, "path_length");
+
 
 /*****************************************************************************/
 /* DIAGNOSTIC FUNCTIONS                                                      */

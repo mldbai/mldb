@@ -332,6 +332,18 @@ will change values on each row under consideration. See the [Intro to Datasets](
   which may be used for example as the result of a `NAMED` clause.  This is the
   inverse of `stringify_path` (above).
 - `path_element(path, n)` will return element `n` of the given `path`.
+- `path_length(path)` will return the number of elements in the given `path`.
+- `flatten_path(path)` will return a path with a single element that encodes
+  the entire `path` passed in, in the same manner as `stringify_path`.  This
+  is useful where a series of nested values need to be turned into a flat set
+  of columns for another function or a vector aggregator.  By using
+  `COLUMN EXPR (AS flatten_path(columnPath()))` an entire object can be
+  flattened in this manner.
+- `unflatten_path(path)` is the inverse of `flatten_path`.  It requires that
+  the input path have a single element, and will turn it back into a variable
+  sized path.  Using `COLUMN EXPR (AS unflatten_path(columnPath()))` an entire
+  object can be unflattened in this manner.
+
 
 ### Encoding and decoding functions
 

@@ -90,6 +90,8 @@ The following functions are available in the context of a column expression:
   will be `x`, `columnPathElement(1)` will be `y` and `columnPathElement(2)` is equivalent 
   to `columnPathElement(-1)` which will be `2`. If n is bigger than the number 
   of elements in the column path, NULL will be returned.
+- `columnPathLength()` is the number of elements in the column path.
+- `value()` is the value of the column.
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.
 
 ## Filtering duplicated rows based on an expression

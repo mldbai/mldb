@@ -14,13 +14,6 @@
 
 namespace Datacratic {
 namespace MLDB {
-namespace Builtins {
-
-void
-unpackJson(RowValue & row,
-           const std::string & id,
-           const Json::Value & val,
-           const Date & ts);
 
 inline void checkArgsSize(size_t number, size_t expected,
                           std::string fctName="")
@@ -64,6 +57,14 @@ inline Date calcTs(const ExpressionValue & v1,
                              v3.getEffectiveTimestamp()),
                     v4.getEffectiveTimestamp());
 }
+
+namespace Builtins {
+
+void
+unpackJson(RowValue & row,
+           const std::string & id,
+           const Json::Value & val,
+           const Date & ts);
 
 typedef BoundFunction (*BuiltinFunction) (const std::vector<BoundSqlExpression> &);
 
