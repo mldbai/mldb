@@ -1,15 +1,18 @@
-/* mongodb_plugin.cc
-   Jeremy Barnes, 23 February 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-
-*/
-
+/**
+ * mongo_import.cc
+ * Jeremy Barnes, 23 February 2015
+ * Mich, 2016-08-02
+ * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ **/
 #include "mldb/core/plugin.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/rest/rest_request_router.h"
+#include "mldb/types/any_impl.h"
+//#include "mongo_dataset.h"
+#include "mongo_package.h"
 
 #include "bsoncxx/builder/stream/document.hpp"
 #include "bsoncxx/json.hpp"
@@ -32,112 +35,15 @@ using bsoncxx::builder::stream::finalize;
 namespace Datacratic {
 namespace MLDB {
 
-const Package & mongodbPackage()
-{
-    static const Package result("mongodb");
-    return result;
-}
-
-struct MldbMongoLogger: public mongocxx::logger {
-    virtual void operator()(mongocxx::log_level level, mongocxx::stdx::string_view domain,
-                            mongocxx::stdx::string_view message) noexcept
-    {
-        cerr << "mongodb log " << (int)level << " " << domain << " "
-             << message << endl;
-    }
-};
-
-mongocxx::instance inst{std::unique_ptr<MldbMongoLogger>(new MldbMongoLogger())};
-
-
-/*****************************************************************************/
-/* MONGO DATASET                                                             */
-/*****************************************************************************/
-
-struct MongoDatasetConfig {
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(MongoDatasetConfig);
-DEFINE_STRUCTURE_DESCRIPTION(MongoDatasetConfig);
-
-MongoDatasetConfigDescription::
-MongoDatasetConfigDescription()
-{
-}
-
-struct MongoDataset: public Dataset {
-
-    MongoDataset(MldbServer * owner,
-                 PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
-        : Dataset(owner)
-    {
-    }
-    
-    virtual ~MongoDataset()
-    {
-    }
-
-    virtual Any getStatus() const
-    {
-        return string("ok");
-    }
-
-    virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
-    {
-    }
-    
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
-    {
-    }
-
-    /** Commit changes to the database.  Default is a no-op. */
-    virtual void commit()
-    {
-    }
-
-    virtual std::pair<Date, Date> getTimestampRange() const
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-
-    virtual Date quantizeTimestamp(Date timestamp) const
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-
-    virtual std::shared_ptr<MatrixView> getMatrixView() const
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-
-    virtual std::shared_ptr<RowStream> getRowStream() const
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-
-    virtual RestRequestMatchResult
-    handleRequest(RestConnection & connection,
-                  const RestRequest & request,
-                  RestRequestParsingContext & context) const
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-};
-
-
-/*****************************************************************************/
-/* MONGO IMPORT PROCEDURE                                                    */
-/*****************************************************************************/
-
-struct MongoImportConfig: public ProcedureConfig {
+struct MongoImportConfig: ProcedureConfig {
     static constexpr const char * name = "mongodb.import";
+    Utf8String connectionScheme;
+    Utf8String collection;
+    PolyConfigT<Dataset> outputDataset;
+
+    MongoImportConfig() {
+        outputDataset.withType("sparse.mutable");
+    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MongoImportConfig);
@@ -147,11 +53,21 @@ MongoImportConfigDescription::
 MongoImportConfigDescription()
 {
     addParent<ProcedureConfig>();
+    addField("connectionScheme", &MongoImportConfig::connectionScheme,
+             "MongoDB connection scheme. "
+             "[mongodb://][username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database]]");
+    addField("collection", &MongoImportConfig::collection,
+             "The collection to import");
+    addField("outputDataset", &MongoImportConfig::outputDataset,
+             "Output dataset configuration. This may refer either to an "
+             "existing dataset, or a fully specified but non-existing dataset "
+             "which will be created by the procedure.",
+             PolyConfigT<Dataset>().withType("sparse.mutable"));
 }
 
 struct MongoImportProcedure: public Procedure {
     MongoImportProcedure(MldbServer * server,
-                         const PolyConfig & config_,
+                         PolyConfig config_,
                          std::function<bool (Json::Value)> onProgress)
         : Procedure(server)
     {
@@ -239,15 +155,15 @@ struct MongoImportProcedure: public Procedure {
 
         mongocxx::client conn{mongocxx::uri{uri}};
 
-        auto db = conn[""];
+        auto db = conn["tutorial"];
 
         cerr << "connected to " << db.name() << endl;
 
         // Query for all the documents in a collection.
         {
-            auto cursor = db["restaurants"].find({});
+            auto cursor = db["users"].find({});
             for (auto&& doc : cursor) {
-                auto expr = bsonToExpression(doc);
+                //auto expr = bsonToExpression(doc);
                 std::cout << bsoncxx::to_json(doc) << std::endl;
             }
         }
@@ -286,12 +202,6 @@ struct MongoImportProcedure: public Procedure {
         return result;
     }
 };
-
-static RegisterDatasetType<MongoDataset, MongoDatasetConfig>
-regMongodbDataset(mongodbPackage(),
-                 "mongodb.record",
-                 "Dataset type that forwards records to a mongodb database",
-                 "MongoRecord.md.html");
 
 static RegisterProcedureType<MongoImportProcedure, MongoImportConfig>
 regMongodbImport(mongodbPackage(),
