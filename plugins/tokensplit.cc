@@ -37,6 +37,24 @@ TokenSplitConfigDescription()
              "A string containing the split character to insert if none of the characters "
              "in 'splitchars' are already present.",
              Utf8String("&lt;space&gt;"));
+
+    onUnknownField = [] (TokenSplitConfig * options,
+                         JsonParsingContext & context)
+    {
+        if(context.fieldName() == "splitcharToInsert") {
+            options->splitcharToInsert = context.expectStringUtf8();
+            cerr << "The 'splitcharToInsert' argument has been renamed to 'splitCharToInsert'" << endl;
+        }
+        else if(context.fieldName() == "splitchars") {
+            options->splitchars = context.expectStringUtf8();
+            cerr << "The 'splitchars' argument has been renamed to 'splitChars'" << endl;
+        }
+        else {
+            context.exception("Unknown field '" + context.fieldName()
+                    + " parsing TokenSplit configuration");
+          }
+        return false;
+    };
 }
 
 /*****************************************************************************/
@@ -49,7 +67,7 @@ TokenSplit(MldbServer * owner,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
 {
-    functionConfig = config.params.convert<TokenSplitConfig>();   
+    functionConfig = config.params.convert<TokenSplitConfig>();
     SqlExpressionMldbScope context(owner);
  
     //get all values from the dataset and add them to our dictionary of tokens
@@ -265,9 +283,9 @@ namespace {
 
 RegisterFunctionType<TokenSplit, TokenSplitConfig>
 regSvdEmbedRow(builtinPackage(),
-	       "tokensplit",
-               "Insert spaces after tokens from a dictionary",
-               "functions/TokenSplit.md.html");
+                "tokensplit",
+                "Insert spaces after tokens from a dictionary",
+                "functions/TokenSplit.md.html");
 
 } // file scope
 
