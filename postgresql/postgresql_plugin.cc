@@ -12,6 +12,8 @@
 
 #include "ext/postgresql/src/interfaces/libpq/libpq-fe.h"
 
+#include <unordered_set>
+
 using namespace std;
 
 Datacratic::MLDB::Plugin *
@@ -27,6 +29,25 @@ const Package & postgresqlPackage()
 {
     static const Package result("postgresql");
     return result;
+}
+
+/*****************************************************************************/
+/* POSTGRESQL UTILS                                                          */
+/*****************************************************************************/
+namespace {
+CellValue getCellValueFromPostgres(const PGresult *res, int i, int j)
+{
+    int postgrestype = PQftype(res, j);
+    if (postgrestype == 23) {
+        return CellValue(atoi(PQgetvalue(res, i, j)));
+    }
+    else if (postgrestype == 701) {
+        return CellValue(atof(PQgetvalue(res, i, j)));
+    }
+    else {
+        return CellValue(PQgetvalue(res, i, j));
+    }
+}
 }
 
 /*****************************************************************************/
@@ -174,7 +195,6 @@ struct PostgresqlRecorderDatasetConfig {
     string host;
     string tableName;
     bool createTable;
-    string createTableColumns;
 
     PostgresqlRecorderDatasetConfig() {
         databaseName = "database";
@@ -198,12 +218,12 @@ PostgresqlRecorderDatasetConfigDescription()
     addField("host", &PostgresqlRecorderDatasetConfig::host, "Address of the database to connect to ");
     addField("tableName", &PostgresqlRecorderDatasetConfig::tableName, "Name of the table to be recorded into");
     addField("createTable", &PostgresqlRecorderDatasetConfig::createTable, "Should we create the table when the dataset is created", true);
-    addField("createTableColumns", &PostgresqlRecorderDatasetConfig::createTableColumns, "Columns in the created table");
 }
 
 struct PostgresqlRecorderDataset: public Dataset {
 
     PostgresqlRecorderDatasetConfig config_;
+    std::unordered_set<ColumnName> insertedColumns;
 
     pg_conn* startConnection() 
     {
@@ -255,7 +275,7 @@ struct PostgresqlRecorderDataset: public Dataset {
             PQclear(res);
             //
 
-            string tableDescription = "CREATE TABLE " + config_.tableName + " (" + config_.createTableColumns + ")";
+            string tableDescription = "CREATE TABLE " + config_.tableName + " (" + ")";
             cerr << tableDescription << endl;
             res = PQexec(conn, tableDescription.c_str());
             if (PQresultStatus(res) != PGRES_COMMAND_OK) {
@@ -280,8 +300,61 @@ struct PostgresqlRecorderDataset: public Dataset {
         return string("ok");
     }
 
+    string getPostgresTypeString(CellValue v)
+    {
+        switch (v.cellType())
+        {
+            case CellValue::EMPTY:
+            case CellValue::INTEGER:
+                return "integer";
+            case CellValue::FLOAT:
+                return "float8";
+            case CellValue::ASCII_STRING:
+            case CellValue::UTF8_STRING:
+            case CellValue::PATH:
+                return "varchar";
+            case CellValue::TIMESTAMP:
+                return "timestamptz";
+            case CellValue::TIMEINTERVAL:
+                return "interval";
+            case CellValue::BLOB:
+                return "varbit";
+            default:
+                throw HttpReturnException(500, "Unknown cell type in getPostgresTypeString");
+        }
+    }
+
+    void alterColumns(pg_conn* conn, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    {
+        for (auto& p : vals) {
+            ColumnName column = std::get<0>(p);
+            if (insertedColumns.count(column) == 0){
+                insertedColumns.insert(column);
+                string alterString = "ALTER TABLE " +
+                                     config_.tableName +
+                                     " ADD COLUMN " +
+                                     column.toUtf8String().rawString() + 
+                                     " "
+                                     + getPostgresTypeString(std::get<1>(p));
+
+                cerr << alterString << endl;
+
+                auto res = PQexec(conn, alterString.c_str());
+                if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+                    cerr << "could not alter table " << PQresultErrorMessage(res);
+                    //throw HttpReturnException(400, "Could not insert data in Postgresql database");
+                }
+
+                PQclear(res);
+
+            }
+        }
+    }
+
     void insertRowPostgresql(pg_conn* conn, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) 
     {
+        alterColumns(conn, vals);
+
         string insertString = "INSERT INTO " + config_.tableName + " (";
 
         bool first = true;
@@ -472,7 +545,7 @@ struct PostgresqlImportProcedure: public Procedure {
         Json::Value result;
         result["ok"] = true;
         return result;
-    }   
+    }
 
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const override
@@ -506,8 +579,9 @@ struct PostgresqlImportProcedure: public Procedure {
         for(int i = 0; i < ntuples; i++) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
             for(int j = 0; j < nfields; j++) {
-                cols.emplace_back(ColumnName(PQfname(res, j)), CellValue(PQgetvalue(res, i, j)), Date::Date::notADate());
-                //printf("[%d,%d] %s\n", i, j, PQgetvalue(res, i, j));
+                cols.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, i, j)/*CellValue(PQgetvalue(res, i, j))*/, Date::Date::notADate());
+                printf("[%d,%d] %s\n", i, j, PQgetvalue(res, i, j));
+                cerr << "of type: " << (int)PQftype(res, j) << endl;
             }
             rows.emplace_back(Path(string("row_" + std::to_string(i))), std::move(cols));            
         }
@@ -651,7 +725,7 @@ struct PostgresqlQueryFunction : public Function
             if (ntuples > 0) {
                 std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
                 for(int j = 0; j < nfields; j++) {
-                    row.emplace_back(ColumnName(PQfname(res, j)), CellValue(PQgetvalue(res, 0, j)), Date::Date::notADate());
+                    row.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
                     //printf("[%d,%d] %s\n", i, j, PQgetvalue(res, i, j));
                 }       
             }

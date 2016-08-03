@@ -17,8 +17,8 @@ dataset_config = {
 dataset = mldb.create_dataset(dataset_config)
 
 now = datetime.datetime.now()
-dataset.record_row("row1", [["x", 1, now], ["y", "alfalfa", now]])
-dataset.record_row("row2", [["x", 2, now], ["y", "brigade", now]])
+dataset.record_row("row1", [["x", 1, now], ["y", "alfalfa", now], ["z", 3.5, now]])
+dataset.record_row("row2", [["x", 2, now], ["y", "brigade", now], ["z", 5.7, now]])
 
 dataset.commit()
 
@@ -26,7 +26,7 @@ mldb.log("From MLDB to Postgres")
 res = mldb.post('/v1/procedures', {
     'type': 'transform',
     'params': {
-        'inputData': 'SELECT y as a, x as b from input',
+        'inputData': 'SELECT y as a, x as b, z as c from input',
         'outputDataset': {
                             'type'    : 'postgresql.recorder',
                             'id'      : 'postgresql',
@@ -35,8 +35,7 @@ res = mldb.post('/v1/procedures', {
                                 'databaseName' : 'mldb',
                                 'port' : 5432,
                                 'userName' : 'mldb',
-                                'tableName' : 'mytable',
-                                'createTableColumns' : 'a VARCHAR(32), b integer'
+                                'tableName' : 'mytable'
                             }
                         },
         'runOnCreation': True
