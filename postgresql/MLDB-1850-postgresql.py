@@ -83,4 +83,27 @@ res = mldb.query("select query_from_postgres()")
 
 mldb.log(res)
 
+#postgresql dataset
+dataset_config = {
+    'type'    : 'postgresql.dataset',
+    'id'      : 'postgresqldataset',
+    'params': {
+                'databaseName' : 'mldb',
+                'port' : 5432,
+                'userName' : 'mldb',
+                'tableName' : 'mytable',
+                'primaryKey' : 'a'
+            }
+    }
+
+postgresqldataset = mldb.create_dataset(dataset_config)
+
+res = mldb.query("select b from postgresqldataset")
+
+mldb.log(res)
+
+res = mldb.query("select * from postgresqldataset")
+
+mldb.log(res)
+
 mldb.script.set_return("success")

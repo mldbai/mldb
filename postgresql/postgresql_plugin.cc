@@ -55,6 +55,21 @@ CellValue getCellValueFromPostgres(const PGresult *res, int i, int j)
 /*****************************************************************************/
 
 struct PostgresqlDatasetConfig {
+    string databaseName;
+    string userName;
+    int port;
+    string host;
+    string tableName;
+    string primaryKey;
+
+    PostgresqlDatasetConfig() {
+        databaseName = "database";
+        userName = "user";
+        port = 1234;
+        host = "localhost";
+        tableName = "mytable";
+        primaryKey = "key";
+    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(PostgresqlDatasetConfig);
@@ -63,79 +78,51 @@ DEFINE_STRUCTURE_DESCRIPTION(PostgresqlDatasetConfig);
 PostgresqlDatasetConfigDescription::
 PostgresqlDatasetConfigDescription()
 {
+    addField("databaseName", &PostgresqlDatasetConfig::databaseName, "Name of the database to connect to.");
+    addField("userName", &PostgresqlDatasetConfig::userName, "User name in postgresql database");
+    addField("port", &PostgresqlDatasetConfig::port, "Port of the database to connect to.", 1234);
+    addField("host", &PostgresqlDatasetConfig::host, "Address of the database to connect to ");
+    addField("tableName", &PostgresqlDatasetConfig::tableName, "Name of the table to be recorded into");
+    addField("primaryKey", &PostgresqlDatasetConfig::primaryKey, "Primary key used to access progress table");
 }
 
 struct PostgresqlDataset: public Dataset {
+
+    PostgresqlDatasetConfig config_;
 
     PostgresqlDataset(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
         : Dataset(owner)
     {
-        //auto keywords = "";
-        //auto values = "";
-        //int expand_dbname = 0;
-
-       // PGconn* conn = makeEmptyPGconn();
-        //const char *conninfo = "hostaddr=spock.datacratic.com dbname = mldb port=5432 user=mldb password=mldb";
-        const char *conninfo = "dbname = mldb port=5432 user=mldb password=mldb";
-
-       // connectOptions1(conn, conninfo);
-
-       /* if (conn->dbName == NULL)
-            cerr << "no db name" << endl;
-        else
-            cerr << conn->dbName << endl;*/
-
-        auto conn = PQconnectdb(conninfo);
-
-
-        if (PQstatus(conn) != CONNECTION_OK)
-        {
-            cerr << "Connection to the database failed: " << PQerrorMessage(conn) << endl;
-            PQfinish(conn);
-            return;
-        }
-        else {
-            cerr << "connection successful!" << endl;
-        }
-
-        PGresult *res = nullptr;
-
-        //create a table
-       /* PGresult *res = PQexec(conn, "CREATE TABLE hello (message VARCHAR(32))");
-        if (PQresultStatus(res) != PGRES_COMMAND_OK)
-            cerr << "could not create table" << PQresultErrorMessage(res);
-        PQclear(res);*/
-
-          //insert data
-        /*res = PQexec(conn, "INSERT INTO hello VALUES ('Hello World!')");
-        if (PQresultStatus(res) != PGRES_COMMAND_OK)
-            cerr << "could not insert data" << PQresultErrorMessage(res);
-        PQclear(res);*/
-
-        //query the db
-          res = PQexec(conn, "SELECT * FROM hello");
-          if (PQresultStatus(res) != PGRES_TUPLES_OK)
-             cerr << "could not query table: " << PQresultErrorMessage(res);
-         else 
-            cerr << "query successful" << endl;
-
-          int nfields = PQnfields(res);
-          int ntuples = PQntuples(res);
-
-          for(int i = 0; i < ntuples; i++)
-            for(int j = 0; j < nfields; j++)
-              cerr << i << "," << j << ": " << PQgetvalue(res, i, j) << endl;
-          PQclear(res);
-
-
-        // close the connection to the database and cleanup
-        PQfinish(conn);
+        config_ = config.params.convert<PostgresqlDatasetConfig>();
     }
     
     virtual ~PostgresqlDataset()
     {
+    }
+
+    pg_conn* startConnection() const
+    {
+        string connString;
+        connString += "dbname=" + config_.databaseName 
+                   + " host=" + config_.host 
+                   + " port=" + std::to_string(config_.port)
+                   + " user=" + config_.userName
+                   + " password=" + "mldb";
+
+        cerr << connString << endl;
+
+        auto conn = PQconnectdb(connString.c_str());
+        if (PQstatus(conn) != CONNECTION_OK)
+        {
+            cerr << "Connection to the database failed: " << PQerrorMessage(conn) << endl;
+            PQfinish(conn);
+            throw HttpReturnException(400, "Could not connect to Postgresql database");
+        }
+
+        cerr << "connection successful!" << endl;
+        return conn;
     }
 
     virtual Any getStatus() const
@@ -157,29 +144,142 @@ struct PostgresqlDataset: public Dataset {
     {
     }
 
-    virtual std::pair<Date, Date> getTimestampRange() const
+    virtual std::pair<Date, Date> getTimestampRange() const override
     {
-        throw HttpReturnException(400, "Postgresql dataset is record-only");
+        throw HttpReturnException(400, "getTimestampRange : Postgresql dataset is read-only");
     }
 
-    virtual Date quantizeTimestamp(Date timestamp) const
+    virtual Date quantizeTimestamp(Date timestamp) const override
     {
-        throw HttpReturnException(400, "Postgresql dataset is record-only");
+        throw HttpReturnException(400, "quantizeTimestamp : Postgresql dataset is read-only");
     }
 
-    virtual std::shared_ptr<MatrixView> getMatrixView() const
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override
     {
-        throw HttpReturnException(400, "Postgresql dataset is record-only");
+        throw HttpReturnException(400, "getMatrixView: Postgresql dataset is read-only");
     }
 
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        throw HttpReturnException(400, "Postgresql dataset is record-only");
+        throw HttpReturnException(400, "getColumnIndex: Postgresql dataset is read-only");
     }
 
-    virtual std::shared_ptr<RowStream> getRowStream() const
+    virtual std::shared_ptr<RowStream> getRowStream() const override
     {
-        throw HttpReturnException(400, "Postgresql dataset is record-only");
+        throw HttpReturnException(400, "getRowStream: Postgresql dataset is read-only");
+    }
+
+    virtual GenerateRowsWhereFunction
+    generateRowsWhere(const SqlBindingScope & context,
+                      const Utf8String& alias,
+                      const SqlExpression & where,
+                      ssize_t offset,
+                      ssize_t limit) const override
+    {
+
+        auto conn = startConnection();
+        string selectString = "SELECT ";
+        selectString += config_.primaryKey + 
+                        " FROM " + 
+                        config_.tableName +
+                        " WHERE " + 
+                        where.surface.rawString();
+
+        cerr << "postgress where select: " << endl;
+        cerr << selectString << endl;
+
+        auto res = PQexec(conn, selectString.c_str());
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            cerr << "could not select from postgress " << PQresultErrorMessage(res);
+        }
+        else {
+            cerr << "keys fetched from " << config_.tableName << " sucessfully!" << endl;
+        }
+
+        std::vector<RowName> rowsToKeep;
+
+        int nfields = PQnfields(res);
+        int ntuples = PQntuples(res);
+
+        cerr << ntuples << "," << nfields << endl;
+
+        if (nfields == 1) {
+            for(int i = 0; i < ntuples; i++) {
+                rowsToKeep.emplace_back(PQgetvalue(res, i, 0));        
+            }
+        }
+
+        PQclear(res);
+        PQfinish(conn);
+
+        return {[=] (ssize_t numToGenerate, Any token,
+             const BoundParameters & params)
+        {
+            ssize_t start = 0;
+            ssize_t limit = numToGenerate;
+
+            ExcAssertNotEqual(limit, 0);
+            
+            if (!token.empty())
+                start = token.convert<size_t>();
+
+            
+
+            start += rowsToKeep.size();
+            Any newToken;
+            if (rowsToKeep.size() == limit)
+                newToken = start;
+
+            return std::move(make_pair(std::move(rowsToKeep),
+                                       std::move(newToken)));
+        },
+        "PostgresqlDataset row generation"};
+
+    }
+
+    /** Return a row as an expression value.  Default forwards to the matrix
+    view's getRow() function.
+    */
+    virtual ExpressionValue getRowExpr(const RowName & row) const override
+    {
+        auto conn = startConnection();
+        string selectString = "SELECT * FROM ";
+        selectString += config_.tableName +
+                        " WHERE " + 
+                        config_.primaryKey + 
+                        " = '" + 
+                        row.toUtf8String().rawString()
+                        + "'";
+
+        cerr << "postgress row select: " << endl;
+        cerr << selectString << endl;
+
+        auto res = PQexec(conn, selectString.c_str());
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            cerr << "could not select from postgress " << PQresultErrorMessage(res);
+        }
+        else {
+            cerr << "row fetched from " << config_.tableName << " successfully!" << endl;
+        }
+
+        int nfields = PQnfields(res);
+        int ntuples = PQntuples(res);
+
+        cerr << ntuples << "," << nfields << endl;
+
+        std::vector<std::tuple<ColumnName, CellValue, Date> > rowValues;
+        if (ntuples > 0) {
+            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            for(int j = 0; j < nfields; j++) {
+                rowValues.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
+                printf("[%d,%d] %s %s\n", 0, j, PQgetvalue(res, 0, j), PQfname(res, j));
+            }       
+        }
+
+        PQfinish(conn);
+
+        return ExpressionValue(rowValues);
+
     }
 
 };
@@ -388,11 +488,13 @@ struct PostgresqlRecorderDataset: public Dataset {
 
         auto res = PQexec(conn, insertString.c_str());
         if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            cerr << "could not insert data" << PQresultErrorMessage(res);
+            cerr << PQresultStatus(res) << endl;
+            cerr << "could not insert data" << PQresultErrorMessage(res) << endl;
             throw HttpReturnException(400, "Could not insert data in Postgresql database");
         }
 
         PQclear(res);
+        //PQfinish(conn);
 
         cerr << "insertion completed!" << endl;
     }
