@@ -225,7 +225,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
         createPluginDir();
 
-        filter_istream istream(url.toString());
+        filter_istream istream(url);
         filter_ostream ostream(getElementLocation(MAIN));
         string line;
         while(getline(istream, line)) {
@@ -239,6 +239,13 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     else if(url.scheme() == "gist" || url.scheme() == "git") {
         pluginLocation = GIT;
         string urlToClone = "https:" + url.path();
+
+        string commitHash;
+        size_t hashLocation = urlToClone.find('#');
+        if(hashLocation != -1) {
+            commitHash = urlToClone.substr(hashLocation + 1);
+            urlToClone = urlToClone.substr(0, hashLocation);
+        }
 
         cerr << ML::format("Cloning GIST %s -> %s", urlToClone, plugin_working_dir.string()) << endl;
 
@@ -266,6 +273,19 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
             if (err) throw ML::Exception(ML::format("Git ERROR %d for %s: %s\n",
                                             err->klass, urlToClone, err->message));
             else throw ML::Exception("Git ERROR %d: no detailed info\n", rtn);
+        }
+
+        if(commitHash != "") {
+            git_object *treeish = NULL;
+
+            int error = git_revparse_single(&treeish, repo, commitHash.c_str());
+            if(error != 0 || !treeish) {
+                throw ML::Exception(ML::format("Error checking out commit '%s' for "
+                            "repository '%s'", commitHash, urlToClone));
+            }
+
+            error = git_checkout_tree(repo, treeish, &checkout_opts);
+            git_object_free(treeish);
         }
 
 
@@ -302,6 +322,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
         version.message = git_commit_message(commit);
 
         // Cleanup
+        git_object_free(head_commit);
         git_commit_free(commit);
 
         git_libgit2_shutdown();

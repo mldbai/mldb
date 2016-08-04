@@ -12,7 +12,6 @@
 #include "mldb/rest/rest_entity.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/utils/log.h"
 #include <set>
 #include <iostream>
 #include <typeinfo>
@@ -297,6 +296,12 @@ struct CreateEntityProcedure: public Procedure {
 /*****************************************************************************/
 /* UTILITIES                                                                 */
 /*****************************************************************************/
+
+std::shared_ptr<Procedure>
+createProcedure(MldbServer * server,
+                const PolyConfig & config,
+                const std::function<bool (const Json::Value & progress)> & onProgress,
+                bool overwrite);
 
 std::shared_ptr<Procedure>
 obtainProcedure(MldbServer * server,

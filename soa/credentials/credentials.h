@@ -8,8 +8,9 @@
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/date.h"
+#include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/periodic_utils.h"
 
 namespace Datacratic {

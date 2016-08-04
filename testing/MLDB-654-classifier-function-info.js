@@ -74,7 +74,7 @@ var trainClassifierProcedureConfig = {
                 verbosity: 3,
                 normalize: false,
                 link_function: 'linear',
-                ridge_regression: false
+                regularization: 'none'
             }
         },
         algorithm: "glz",
@@ -116,6 +116,7 @@ plugin.log(functionInfo.json);
 var expected = {
     "input" : {
         "hasUnknownColumns" : false,
+        "hasUnknownColumnsRecursive" : false,
         "kind" : "row",
         "knownColumns" : [
             {
@@ -123,6 +124,7 @@ var expected = {
                 "sparsity" : "dense",
                 "valueInfo" : {
                     "hasUnknownColumns" : false,
+                    "hasUnknownColumnsRecursive" : false,
                     "kind" : "row",
                     "knownColumns" : [
                         {
@@ -170,6 +172,7 @@ var expected = {
     },
     "output" : {
         "hasUnknownColumns" : false,
+        "hasUnknownColumnsRecursive" : false,
         "kind" : "row",
         "knownColumns" : [
             {
@@ -178,6 +181,7 @@ var expected = {
                 "sparsity" : "dense",
                 "valueInfo" : {
                     "hasUnknownColumns" : false,
+                    "hasUnknownColumnsRecursive" : false,
                     "kind" : "row",
                     "knownColumns" : [
                         {

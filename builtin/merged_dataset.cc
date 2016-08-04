@@ -212,6 +212,12 @@ struct MergedDataset::Itl
             return source->getRowName(RowHash(hash));
         }
 
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            uint64_t hash = (*it).first;
+            return source->getRowName(RowHash(hash));
+        }
+
         const MergedDataset::Itl* source;
         IdHashes::const_iterator it;
 
@@ -402,7 +408,7 @@ struct MergedDataset::Itl
         if (bitmap)
         {
             int bit = ML::lowest_bit(bitmap, -1);
-            result = std::move(datasets[bit]->getColumnIndex()->getColumnValues(columnName));
+            result = std::move(datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter));
 
             bitmap = bitmap & ~(1 << bit);
             bool sorted = std::is_sorted(result.begin(), result.end());  // true
@@ -410,16 +416,17 @@ struct MergedDataset::Itl
             while (bitmap) {
                 int bit = ML::lowest_bit(bitmap, -1);
                 auto column = datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter);
-                if (column.empty())
-                    continue;
+                if (!column.empty())
+                {
+                    if (!result.empty())
+                        sorted = false;
 
-                if (!result.empty())
-                    sorted = false;
+                    result.insert(result.end(),
+                                  std::make_move_iterator(column.begin()),
+                                  std::make_move_iterator(column.end()));
 
-                result.insert(result.end(),
-                              std::make_move_iterator(column.begin()),
-                              std::make_move_iterator(column.end()));
-
+                }
+             
                 bitmap = bitmap & ~(1 << bit);
             }
 

@@ -110,3 +110,8 @@ x       |  1
 y       |  2
 z       |  "three"
 
+## See also
+
+* The ![](%%nblink _tutorials/Virtual Manipulation of Datasets Tutorial) for examples of `sample` and `transpose`
+* The ![](%%nblink _demos/Investigating the Panama Papers) demo for examples of `join`
+

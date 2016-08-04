@@ -82,6 +82,72 @@ struct NoGroupByHaving
 };
 
 /**
+ *  Accept any select statement with empty WHERE clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+struct NoWhere
+{
+    void operator()(const InputQuery & query, const std::string & name) const
+    {
+        if (query.stm) {
+            if (!query.stm->where->isConstantTrue()) {
+                throw ML::Exception(name + " does not support where");
+            }
+        }
+    }
+
+    void operator()(const Optional<InputQuery> & query,
+                    const std::string & name) const
+    {
+        if (query) operator()(*query, name);
+    }
+};
+
+/**
+ *  Accept any select statement with empty LIMIT clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+struct NoLimit
+{
+    void operator()(const InputQuery & query, const std::string & name) const
+    {
+        if (query.stm) {
+            if (query.stm->limit != -1) {
+                throw ML::Exception(name + " does not support limit");
+            }
+        }
+    }
+
+    void operator()(const Optional<InputQuery> & query,
+                    const std::string & name) const
+    {
+        if (query) operator()(*query, name);
+    }
+};
+
+/**
+ *  Accept any select statement with empty OFFSET clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+struct NoOffset
+{
+    void operator()(const InputQuery & query, const std::string & name) const
+    {
+        if (query.stm) {
+            if (query.stm->offset > 0) {
+                throw ML::Exception(name + " does not support offset");
+            }
+        }
+    }
+
+    void operator()(const Optional<InputQuery> & query,
+                    const std::string & name) const
+    {
+        if (query) operator()(*query, name);
+    }
+};
+
+/**
   *  Must contain a FROM clause
  */
 struct MustContainFrom
@@ -107,6 +173,10 @@ struct PlainColumnSelect
 {
     void operator()(const InputQuery & query, const std::string & name) const
     {
+        if (!query.stm) {
+            return;
+        }
+
         auto getWildcard = [] (const std::shared_ptr<SqlRowExpression> expression)
             -> std::shared_ptr<const WildcardExpression>
             {
@@ -173,60 +243,58 @@ struct PlainColumnSelect
                 return std::dynamic_pointer_cast<const ConstantExpression>(expression);
             };
 
-        if (query.stm) {
-            auto & select = query.stm->select;
-            for (const auto & clause : select.clauses) {
+        auto & select = query.stm->select;
+        for (const auto & clause : select.clauses) {
 
-                auto wildcard = getWildcard(clause);
-                if (wildcard)
+            auto wildcard = getWildcard(clause);
+            if (wildcard)
+                continue;
+
+            auto columnExpression = getColumnExpression(clause);
+            if (columnExpression)
+                continue;
+
+            auto computedVariable = getNamedColumnExpression(clause);
+
+            if (computedVariable) {
+                auto readVariable = getReadVariable(computedVariable->expression);
+                if (readVariable)
+                    continue;
+                // {x, y}
+                auto withinExpression = getWithinExpression(computedVariable->expression);
+                if (withinExpression)
+                    continue;
+                // x is not null
+                auto isTypeExpression = getIsTypeExpression(computedVariable->expression);
+                if (isTypeExpression)
+                    continue;
+                // x = 'true'
+                auto comparisonExpression = getComparisonExpression(computedVariable->expression);
+                if (comparisonExpression)
+                    continue;
+                // NOT x
+                auto booleanExpression = getBooleanExpression(computedVariable->expression);
+                if (booleanExpression)
+                    continue;
+                // function(args)
+                auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
+                if (functionCallExpression)
                     continue;
 
-                auto columnExpression = getColumnExpression(clause);
-                if (columnExpression)
+                // (...)[extract]
+                auto extractExpression = getExtractExpression(computedVariable->expression);
+                if (extractExpression)
                     continue;
 
-                auto computedVariable = getNamedColumnExpression(clause);
-
-                if (computedVariable) {
-                    auto readVariable = getReadVariable(computedVariable->expression);
-                    if (readVariable)
-                        continue;
-                    // {x, y}
-                    auto withinExpression = getWithinExpression(computedVariable->expression);
-                    if (withinExpression)
-                        continue;
-                    // x is not null
-                    auto isTypeExpression = getIsTypeExpression(computedVariable->expression);
-                    if (isTypeExpression)
-                        continue;
-                    // x = 'true'
-                    auto comparisonExpression = getComparisonExpression(computedVariable->expression);
-                    if (comparisonExpression)
-                        continue;
-                    // NOT x
-                    auto booleanExpression = getBooleanExpression(computedVariable->expression);
-                    if (booleanExpression)
-                        continue;
-                    // function(args)
-                    auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
-                    if (functionCallExpression)
-                        continue;
-
-                    // (...)[extract]
-                    auto extractExpression = getExtractExpression(computedVariable->expression);
-                    if (extractExpression)
-                        continue;
-
-                     // 1.0
-                    auto constantExpression = getConstantExpression(computedVariable->expression);
-                    if (constantExpression)
-                        continue;
-                }
-
-                throw ML::Exception(name +
-                                    " only accepts wildcard and column names at " +
-                                    clause->surface.rawString());
+                // 1.0
+                auto constantExpression = getConstantExpression(computedVariable->expression);
+                if (constantExpression)
+                    continue;
             }
+
+            throw ML::Exception(name +
+                                " only accepts wildcard and column names at " +
+                                clause->surface.rawString());
         }
     }
 

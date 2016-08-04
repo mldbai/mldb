@@ -36,7 +36,7 @@ class Mldb1212(MldbUnitTest):
 
         result = mldb.get(
             "/v1/query",
-            q="select tokenize(b, {splitchars: ' '}) as cnt "
+            q="select tokenize(b, {splitChars: ' '}) as cnt "
             "from x order by rowName() ASC")
         js_rez = result.json()
         mldb.log(js_rez)

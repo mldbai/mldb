@@ -76,10 +76,10 @@ class Mldb256Test(MldbUnitTest):
             rez = mldb.put("/v1/procedures/bool_cls_seg", {
                 "type": "classifier.experiment",
                 "params": {
-                    "trainingData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
+                    "inputData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
                     "experimentName": "bool_exp_seg",
                     "keepArtifacts": True,
-                    "modelFileUrlPattern": "file://temp/mldb-256_bool_seg.cls",
+                    "modelFileUrlPattern": "file://tmp/mldb-256_bool_seg.cls",
                     "algorithm": "glz",
                     "configuration": {
                         "glz": {
@@ -87,7 +87,7 @@ class Mldb256Test(MldbUnitTest):
                             "verbosity": 3,
                             "normalize": True,
                             "link_function": "logit",
-                            "ridge_regression": True
+                            "regularization": 'l2'
                         }
                     },
                     "kfold": 2,
@@ -102,10 +102,10 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/bool_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {x, y} as features, label as label from boolean",
+                "inputData": "select {x, y} as features, label as label from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_bool.cls",
                 "algorithm": "glz",
                 "configuration": {
                     "glz": {
@@ -113,7 +113,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": True,
                         "link_function": "logit",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     },
                     "dt": {
                         "type": "decision_tree",
@@ -124,8 +124,8 @@ class Mldb256Test(MldbUnitTest):
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "boolean",
                 "outputAccuracyDataset": True,
@@ -141,10 +141,10 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/bool_cls_weighted", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {x, y} as features, label as label, weight as weight from boolean",
+                "inputData": "select {x, y} as features, label as label, weight as weight from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_bool.cls",
                 "algorithm": "glz",
                 "configuration": {
                     "glz": {
@@ -152,7 +152,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": True,
                         "link_function": "logit",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     },
                     "dt": {
                         "type": "decision_tree",
@@ -163,8 +163,8 @@ class Mldb256Test(MldbUnitTest):
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "boolean",
                 "outputAccuracyDataset": True,
@@ -183,7 +183,12 @@ class Mldb256Test(MldbUnitTest):
         })
         jsRez = rez.json()
         self.assertGreater(jsRez["status"]["folds"][0]["resultsTest"]["auc"], 0.65)
-    
+
+        bestF = jsRez["status"]["folds"][0]["resultsTest"]["bestF"]
+        accuracy = (bestF["counts"]["truePositives"] + bestF["counts"]["trueNegatives"]) / \
+                        (bestF["population"]["included"] + bestF["population"]["excluded"])
+        self.assertEqual(bestF["pr"]["accuracy"], accuracy)
+
 
     def test_toy_categorical_eval_works(self):
 
@@ -195,9 +200,9 @@ class Mldb256Test(MldbUnitTest):
             "params": {
                 "mode": "categorical",
                 "testingData": """
-
-                    SELECT {* EXCLUDING(label)} as score, label as label from toy_categorical
-
+                    SELECT {* EXCLUDING(label)} as score, 
+                           label as label
+                    FROM toy_categorical
                 """,
                 "runOnCreation": True
             }
@@ -211,31 +216,37 @@ class Mldb256Test(MldbUnitTest):
                         "f": 0.0,
                         "recall": 0.0,
                         "support": 1,
-                        "precision": 0.0
+                        "precision": 0.0,
+                        "accuracy": 0.0
                     },
                     "0": {
                         "f": 0.8000000143051146,
                         "recall": 1.0,
                         "support": 2,
-                        "precision": 0.6666666865348816
+                        "precision": 0.6666666865348816,
+                        "accuracy": 1.0
                     },
                     "2": {
                         "f": 1.0,
                         "recall": 1.0,
                         "support": 2,
-                        "precision": 1.0
+                        "precision": 1.0,
+                        "accuracy": 1.0
                     }
                 }
+
 
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["labelStatistics"],
                          goodLabelStatistics)
 
         total_f1 = 0
         total_recall = 0
+        total_accuracy = 0
         total_support = 0
         total_precision = 0
         for val in goodLabelStatistics.itervalues():
             total_f1 += val["f"] * val["support"]
+            total_accuracy += val["accuracy"] * val["support"]
             total_recall += val["recall"] * val["support"]
             total_precision += val["precision"] * val["support"]
             total_support += val["support"]
@@ -244,6 +255,7 @@ class Mldb256Test(MldbUnitTest):
                 {
                     "f": total_f1 / total_support,
                     "recall": total_recall / total_support,
+                    "accuracy": total_accuracy / total_support,
                     "support": total_support,
                     "precision": total_precision / total_support
                 })
@@ -253,10 +265,10 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/categorical_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {col*} as features, label as label from categorical",
+                "inputData": "select {col*} as features, label as label from categorical",
                 "experimentName": "categorical_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_cat.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_cat.cls",
                 "algorithm": "glz",
                 "configuration": {
                     "glz": {
@@ -264,13 +276,13 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": "linear",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     }
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "categorical",
                 "outputAccuracyDataset": True,
@@ -335,10 +347,10 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/regression_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {col*} as features, label as label from regression",
+                "inputData": "select {col*} as features, label as label from regression",
                 "experimentName": "reg_exp",
                 "keepArtifacts": True,
-                "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
+                "modelFileUrlPattern": "file://tmp/mldb-256_reg.cls",
                 "algorithm": "glz_linear",
                 "configuration": {
                     "glz_linear": {
@@ -346,7 +358,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": "linear",
-                        "ridge_regression": False
+                        "regularization": 'none'
                     },
                     "dt": {
                         "type": "decision_tree",

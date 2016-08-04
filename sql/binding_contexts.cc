@@ -9,6 +9,7 @@
 
 #include "binding_contexts.h"
 #include "http/http_exception.h"
+#include "builtin_functions.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include <unordered_map>
 
@@ -165,6 +166,7 @@ doGetFunction(const Utf8String & tableName,
 {
 
     if (functionName == "columnName") {
+        checkArgsSize(args.size(), 0, "columnName()");
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope)
                 {
@@ -176,6 +178,7 @@ doGetFunction(const Utf8String & tableName,
     }
 
     if (functionName == "columnPath") {
+        checkArgsSize(args.size(), 0, "columnPath()");
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope)
                 {
@@ -184,6 +187,58 @@ doGetFunction(const Utf8String & tableName,
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()};
+    }
+
+    if (functionName == "columnPathElement") {
+        checkArgsSize(args.size(), 1, "columnPathElement()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    ExcAssertEqual(args.size(), 1);
+                    auto elementNum = args[0].getAtom().toInt();
+                    auto & col = scope.as<ColumnScope>();
+                    size_t index
+                        = elementNum < 0
+                        ? col.columnName.size() + elementNum
+                        : elementNum;
+
+                    if (index < 0 || index >= col.columnName.size()) {
+                        return ExpressionValue::null(Date::negativeInfinity());
+                    }
+
+                    return ExpressionValue(col.columnName.at(index)
+                                           .toUtf8String(),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()};
+    }
+
+    if (functionName == "columnPathLength") {
+        checkArgsSize(args.size(), 0, "columnPathLength()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & col = scope.as<ColumnScope>();
+                    return ExpressionValue(col.columnName.size(),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<IntegerValueInfo>()};
+    }
+
+    if (functionName == "value") {
+        checkArgsSize(args.size(), 0, "value()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & col = scope.as<ColumnScope>();
+                    if (!col.columnValue)
+                        throw HttpReturnException
+                            (400,
+                             "Evaluation value() in column "
+                             "expression without columns");
+                    return *col.columnValue;
+                },
+                std::make_shared<AnyValueInfo>()};
     }
 
     auto fn = outer.doGetColumnFunction(functionName);
@@ -363,7 +418,8 @@ doGetColumn(const Utf8String & tableName,
     if (!info) {
         // Don't know the column.  Is it because it never exists, or because
         // the schema is dynamic, or because its deeper?
-        if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED || columnName.size() > 1) {
+        if (inputInfo->getSchemaCompletenessRecursive() != SCHEMA_CLOSED
+            || columnName.size() > 1) {
             // Dynamic columns; be prepared to do either depending upon
             // what we find
 
@@ -410,7 +466,7 @@ doGetAllColumns(const Utf8String & tableName,
 {
     GetAllColumnsOutput result;
 
-    if (!inputInfo || inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED) {
+    if (!inputInfo || inputInfo->getSchemaCompletenessRecursive() != SCHEMA_CLOSED) {
         // In recording mode, or with dynamic columns; we filter once we have the
         // value
 
@@ -485,6 +541,14 @@ doGetAllColumns(const Utf8String & tableName,
                     output.emplace_back(it->second,
                                         std::move(val),
                                         ts);
+                }
+                else if (!prefix.empty()){
+                    it = toKeep.find(prefix);
+                    if (it != toKeep.end()) {
+                        output.emplace_back(prefix + columnName,
+                                            std::move(val),
+                                            ts);
+                    }
                 }
                 return true;
             };
@@ -580,15 +644,13 @@ getDatasetDerivedFunction(const Utf8String & tableName,
                     ExpressionValue rowPath = rowPathFn(args, context);
                     Path asPath = rowPath.coerceToPath();
                     int64_t firstElement = args[0].getAtom().toInt();
+
                     if (firstElement < 0)
                         firstElement = asPath.size() + firstElement;
-                    if (firstElement < 0 || firstElement >= asPath.size()) {
-                        throw HttpReturnException
-                            (400, "Couldn't extract element '"
-                             + to_string(firstElement) + "' of path '"
-                             + asPath.toUtf8String() + "' with length "
-                             + to_string(asPath.size()));
-                    }
+
+                    if (firstElement < 0 || firstElement >= asPath.size())
+                        return ExpressionValue::null(args[0].getEffectiveTimestamp());
+
                     return ExpressionValue(asPath.at(firstElement).toUtf8String(),
                                            std::max(rowPath.getEffectiveTimestamp(),
                                                     args[0].getEffectiveTimestamp()));

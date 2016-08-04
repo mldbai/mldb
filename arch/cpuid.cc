@@ -44,12 +44,10 @@ enum {
     CPUID_EXT_SVM_INFO =   0x8000000A
 };
 
-struct Regs {
-    uint32_t eax, ebx, ecx, edx;
-};
+} // file scope
 
 Regs
-cpuid(uint32_t request, uint32_t ecx = 0)
+cpuid(uint32_t request, uint32_t ecx)
 {
     Regs result = {0, 0, 0, 0};
     asm volatile
@@ -84,8 +82,6 @@ cpuid(uint32_t request, uint32_t ecx = 0)
          );
     return result;
 }
-
-} // file scope
 
 uint32_t cpuid_flags()
 {

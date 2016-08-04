@@ -8,6 +8,7 @@
 #include "mldb/builtin/sub_dataset.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/sql/execution_pipeline.h"
+#include "mldb/types/value_description.h"
 
 using namespace std;
 
@@ -629,8 +630,8 @@ std::vector<NamedRowValue>
                       const SqlExpression & where,
                       const OrderByExpression & orderBy,
                       const TupleExpression & groupBy,
-                      const SqlExpression & having,
-                      const SqlExpression & named,
+                      const std::shared_ptr<SqlExpression> having,
+                      const std::shared_ptr<SqlExpression> named,
                       uint64_t offset,
                       int64_t limit,
                       const Utf8String & tableAlias,
@@ -729,8 +730,8 @@ bind(SqlBindingScope & context) const
                 return querySubDatasetFn(server, std::move(rows),
                                          select, when, *where, orderBy,
                                          TupleExpression(),
-                                         *SqlExpression::TRUE,
-                                         *SqlExpression::parse("rowPath()"),
+                                         SqlExpression::TRUE,
+                                         SqlExpression::parse("rowPath()"),
                                          offset, limit, "" /* dataset alias */,
                                          false /* allow multithreading */);
             };

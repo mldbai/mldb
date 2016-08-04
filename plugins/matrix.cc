@@ -65,7 +65,7 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
     std::vector<ColumnName> selectedColumnsVec = boundSelect.info->allColumnNames();
     std::set<ColumnName> selectedColumns(selectedColumnsVec.begin(),
                                          selectedColumnsVec.end());
-    if (boundSelect.info->getSchemaCompleteness() == SCHEMA_OPEN)
+    if (boundSelect.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN)
         cerr << "WARNING: non-enumerated columns will not be used "
             "in correlation training" << endl;
     

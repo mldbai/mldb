@@ -15,9 +15,9 @@ class RedditTest(MldbUnitTest):
             "params": { 
                 "dataFileUrl": "http://public.mldb.ai/reddit.csv.gz",
                 'delimiter':'', 
-                'quotechar':'',
+                'quoteChar':'',
                 'outputDataset': 'reddit_raw',
-                'limit': 5000,
+                'limit': 2000,
                 'runOnCreation': True
             } 
         })
@@ -44,7 +44,16 @@ class RedditTest(MldbUnitTest):
                             columnName() LIMIT 4000) 
                     FROM reddit_dataset
                 """,
-                "columnOutputDataset" : "reddit_svd_embedding",
+                "columnOutputDataset" : {
+                    "id": "reddit_svd_embedding", 
+                    "type":"embedding",
+                    "params": {"metric":"euclidean"}
+                },
+                "rowOutputDataset" : {
+                    "id": "reddit_svd_embedding_rows", 
+                    "type":"embedding",
+                    "params": {"metric":"cosine"} #test that cosine doesn't crash
+                },
                 "modelFileUrl": "file://tmp/MLDB-466.svd",
                 "functionName": "embedder",
                 "runOnCreation": True
@@ -73,11 +82,33 @@ class RedditTest(MldbUnitTest):
 
         mldb.log("querying for nearest subreddit")
         
-        mldb.query("""
-            select nearest_subreddit({ coords: 
-                embedder({ row: {HongKong: 1} })[embedding]
-            })
-        """)
+        result = mldb.get("/v1/query", format="aos", q="""
+            select 
+                embedder({ row: {soccer: 1} })[embedding] as soccer,
+                neighbour.* as *, 
+                x.distance
+            from transpose(( 
+                select nearest_subreddit({ coords: 
+                    embedder({ row: {soccer: 1} })[embedding]
+                })[distances] as *
+                named 'distance'
+            )) as x
+            join reddit_svd_embedding as neighbour
+            on (x.rowName() = neighbour.rowName())
+        """).json()[0]
+
+        #result now contains a vector and its nearest neighbour
+        #plus distance from the nearest-neighbour function
+        #let's independently reconfirm that the distance is correct
+
+        dist_accum = 0
+        for i in range(100):
+            diff = result["embedding.%d" % i]-result["soccer.%d" % i]
+            dist_accum += diff*diff
+
+        import math
+        # MLDB-1677
+        self.assertLess(abs(math.sqrt(dist_accum) - result["x.distance"]), 0.00001)
 
         mldb.put('/v1/procedures/reddit_kmeans', {
             "type" : "kmeans.train",

@@ -106,14 +106,14 @@ std::vector<std::shared_ptr<const ValueDescription> >
 ValueDescription::
 getTupleElementDescriptions() const
 {
-    throw ML::Exception("type '" + typeName + "' is not a tuple");
+    throw ML::Exception("type '" + typeName + "' is not a tuple " + ML::type_name(*this));
 }
 
 size_t
 ValueDescription::
 getTupleLength() const
 {
-    throw ML::Exception("type '" + typeName + "' is not a tuple");
+    throw ML::Exception("type '" + typeName + "' is not a tuple " + ML::type_name(*this));
 }
 
 const void *
@@ -370,9 +370,9 @@ operator = (const StructureDescriptionBase & other)
 
     // Don't set owner
     for (auto & f: other.orderedFields) {
-        string s = f->first;
-        fieldNames.push_back(s);
-        auto it = fields.insert(make_pair(fieldNames.back().c_str(), f->second))
+        const char * s = f->first;
+        fieldNames.emplace_back(::strdup(s));
+        auto it = fields.insert(make_pair(fieldNames.back().get(), f->second))
             .first;
         orderedFields.push_back(it);
     }
@@ -639,6 +639,22 @@ getArrayElementDescription(const void * val, uint32_t element) const
 {
     ExcAssert(impl);
     return impl->getArrayElementDescription(val, element);
+}
+
+size_t
+BridgedValueDescription::
+getTupleLength() const
+{
+    ExcAssert(impl);
+    return impl->getTupleLength();
+}
+
+std::vector<std::shared_ptr<const ValueDescription> >
+BridgedValueDescription::
+getTupleElementDescriptions() const
+{
+    ExcAssert(impl);
+    return impl->getTupleElementDescriptions();
 }
 
 void

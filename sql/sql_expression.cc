@@ -15,6 +15,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/jml/utils/environment.h"
 #include "sql_expression_operations.h"
 #include "table_expression_operations.h"
 #include "interval.h"
@@ -23,6 +24,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/value_description.h"
+#include "mldb/jml/utils/string_functions.h"
 
 #include <mutex>
 
@@ -117,8 +119,9 @@ ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
+    return expr->constantValue();
+
     if (!metadata.isConstant) {
-        cerr << "surface = " << expr->surface << endl;
         throw HttpReturnException
             (400, "Attempt to extract constant from non-constant expression.  "
              "One of the elements of the expression requires a constant "
@@ -222,8 +225,20 @@ doGetFunction(const Utf8String & tableName,
     if (factory) {
         return factory(functionName, args, argScope);
     }
+
+    if (functionName == "leftRowName")
+        throw HttpReturnException(400, "Function 'leftRowName' is not available outside of a join");
+
+    if (functionName == "rightRowName")
+        throw HttpReturnException(400, "Function 'rightRowName' is not available outside of a join");
+
+    if (functionName == "leftRowPath")
+        throw HttpReturnException(400, "Function 'leftRowPath' is not available outside of a join");
+
+    if (functionName == "rightRowPath")
+        throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
     
-    return {nullptr, nullptr};
+    return BoundFunction();
 }
 
 //These are functions in table expression, i.e. in FROM clauses
@@ -331,7 +346,7 @@ ColumnGetter
 SqlBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " must override getColumn: wanted "
                               + columnName.toUtf8String());
 }
@@ -341,7 +356,7 @@ SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override getAllColumns: wanted "
                         + tableName);
 }
@@ -352,7 +367,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doCreateRowsWhereGenerator");
 }
 
@@ -360,7 +375,7 @@ ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override doGetColumnFunction");
 }
 
@@ -368,7 +383,7 @@ ColumnGetter
 SqlBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support bound parameters ($1... or $name)");
 }
 
@@ -376,7 +391,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -384,7 +399,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -392,7 +407,7 @@ TableOperations
 SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " does not support getting tables");
 }
 
@@ -401,8 +416,8 @@ SqlBindingScope::
 doResolveTableName(const ColumnName & fullColumnName,
                    Utf8String &tableName) const
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-                              + " does not support resolving table names");
+    //default behaviour is there is no dataset so return the full column name
+    return fullColumnName;
 }
 
 MldbServer *
@@ -607,6 +622,18 @@ hasUnboundVariables() const
     return false;
 }
 
+bool
+UnboundEntities::
+hasRowFunctions() const
+{
+    // False coupling to improve. See MLDB-1769
+    return funcs.find("columnCount") != funcs.end()
+        || funcs.find("rowHash") != funcs.end()
+        || funcs.find("rowPath") != funcs.end()
+        || funcs.find("leftRowHash") != funcs.end()
+        || funcs.find("rightRowHash") != funcs.end();
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(UnboundEntities);
 
 UnboundEntitiesDescription::
@@ -628,6 +655,25 @@ UnboundEntitiesDescription()
 /*****************************************************************************/
 /* SQL ROW SCOPE                                                             */
 /*****************************************************************************/
+
+// Environment variable that tells us whether we check the row scope types
+// or not, which may be more expensive.
+ML::Env_Option<bool> MLDB_CHECK_ROW_SCOPE_TYPES
+("MLDB_CHECK_ROW_SCOPE_TYPES", false);
+
+// Visible manifestation of that variable.  We statically initialize it here
+// so that it can still be accessed before shared library initialization.
+bool SqlRowScope::checkRowScopeTypes = false;
+
+namespace {
+// Initialize with the final value once the library loads
+struct InitializeCheckRowScopeTypes {
+    InitializeCheckRowScopeTypes()
+    {
+        SqlRowScope::checkRowScopeTypes = MLDB_CHECK_ROW_SCOPE_TYPES;
+    }
+};
+} // file scope
 
 void
 SqlRowScope::
@@ -664,16 +710,27 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
         return result;
 
     if (context.match_literal('"')) {
-        //read until the single quote closes.
-        for (;;) {
-            if (context.match_literal("\"\"")) {
-                result += '"';
+        //read until the double quote closes.
+        {
+            ML::Parse_Context::Revert_Token token(context);
+
+            for (;;) {
+                if (context.match_literal("\"\"")) {
+                    result += '"';
+                }
+                else if (context.match_literal('"')) {
+                    token.ignore();
+                    return result;
+                }
+                else if (!context) {
+                    break;
+                }
+                else result += expectUtf8Char(context);           
             }
-            else if (context.match_literal('"')) {
-                break;
-            }
-            else result += expectUtf8Char(context);           
         }
+        
+        // If we get here, we had EOF inside a string
+        context.exception("No closing quote character for string");
     }
     else {
 
@@ -860,26 +917,50 @@ static bool peekKeyword(ML::Parse_Context & context, const char * keyword)
 
 void matchSingleQuoteStringAscii(ML::Parse_Context & context, std::string& resultStr)
 {
-    for (;;) {
-        if (context.match_literal("\'\'"))
-            resultStr += '\'';
-        else if (context.match_literal('\''))
-            break;
-        else if (*context < 0 || *context > 127)
-            context.exception("Non-ASCII character in ASCII context");
-        else resultStr += *context++;
+    {
+        ML::Parse_Context::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\'\'"))
+                resultStr += '\'';
+            else if (context.match_literal('\'')) {
+                token.ignore();
+                return;
+            }
+            else if (!context)
+                break;  // eof inside string
+            else if (*context < 0 || *context > 127)
+                context.exception("Non-ASCII character in ASCII context");
+            else resultStr += *context++;
+        }
     }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
 }
 
-void matchSingleQuoteStringUTF8(ML::Parse_Context & context, std::basic_string<char32_t>& resultStr)
+void matchSingleQuoteStringUTF8(ML::Parse_Context & context,
+                                std::basic_string<char32_t>& resultStr)
 {
-   for (;;) {
-       if (context.match_literal("\'\'"))
-          resultStr += '\'';
-       else if (context.match_literal('\''))
-          break;
-       else resultStr += expectUtf8Char(context);
-   }
+    {
+        ML::Parse_Context::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\'\'"))
+                resultStr += '\'';
+            else if (context.match_literal('\'')) {
+                token.ignore();
+                return;
+            }
+            else if (!context) {
+                break;  // eof inside string
+            }
+            else resultStr += expectUtf8Char(context);
+        }
+    }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
 }
 
 bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
@@ -1421,7 +1502,8 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         bool negative = false;
         // IN and NOT IN precedence is the same as the NOT operator
         if (currentPrecedence > 5) {
-            if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN")) {
+            if ((negative = matchKeyword(context, "NOT IN")) ||
+                (!peekKeyword(context, "INNER") && matchKeyword(context, "IN"))) {
                 expect_whitespace(context);
 
                 context.expect_literal('(');
@@ -1440,14 +1522,14 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     lhs->surface = ML::trim(token.captured());
                 }
                 else if (matchKeyword(context, "KEYS OF")) {
-                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
                     lhs->surface = ML::trim(token.captured());                
                 }
                 else if (matchKeyword(context, "VALUES OF")) {
-                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
@@ -1466,13 +1548,15 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         }
 
         // 'LIKE' expression
-        if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
-            expect_whitespace(context);
+        if (currentPrecedence > 5) {
+            if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
+                expect_whitespace(context);
 
-            auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                auto rhs = SqlExpression::parse(context, 5, allowUtf8);
 
-            lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
-            lhs->surface = ML::trim(token.captured());
+                lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
+                lhs->surface = ML::trim(token.captured());
+            }
         }
 
         // Now look for an operator
@@ -1480,12 +1564,12 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         for (const Operator & op: operators) {
             if (op.unary)
                 continue;
-            if (op.precedence > currentPrecedence) {
+            if (op.precedence >= currentPrecedence) {
                 /* Will need to be bound outside our expression, since the precence is wrong. */
                 break;
             }
             if (matchOperator(context, op.token)) {
-                auto rhs = parse(context, op.precedence - 1, allowUtf8);
+                auto rhs = parse(context, op.precedence, allowUtf8);
                 lhs = op.handler(lhs, rhs, op.token);
                 lhs->surface = ML::trim(token.captured());
                 found = true;
@@ -1812,29 +1896,14 @@ unimp(std::shared_ptr<SqlExpression> lhs,
 }
 
 //Find aggregators for any class implementing getChildren.
-template <class T>
+
 std::vector<std::shared_ptr<SqlExpression> >
-findAggregatorsT(const T* expression, bool withGroupBy)
+findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
     std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
     
-     // collect aggregators
-    for (auto iter = children.begin(); iter != children.end(); ++iter)
-    {
-        auto child = *iter;
-        if (child->isAggregator())
-            output.push_back(child);
-        else {
-            //we dont look for aggregators in aggregator - its not legal - this check above
-            //order MUST be preserved
-            std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
-            int pos = iter - children.begin();
-            children.insert(iter+1, subchildren.begin(), subchildren.end());
-            iter = children.begin() + pos;
-        }
-    }
+    //Collect aggregators AND verify validity at the same time.
 
     std::vector<Utf8String> culprit;
 
@@ -1852,13 +1921,16 @@ findAggregatorsT(const T* expression, bool withGroupBy)
     */
     std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
         for (IterType it = begin; it < end; ++it) {
-            if (!(*it)->isAggregator()) {
-                auto children = (*it)->getChildren();
-                if (children.size() == 0  && (*it)->isWildcard()) {
+            if ((*it)->isAggregator()) {
+                output.push_back(*it);
+            }
+            else {
+                auto subchildren = (*it)->getChildren();
+                if (subchildren.size() == 0  && (*it)->isWildcard()) {
                     return false;
                 }
                 culprit.push_back((*it)->surface);
-                bool result = wildcardNestedInAggregator(children.begin(), children.end());
+                bool result = wildcardNestedInAggregator(subchildren.begin(), subchildren.end());
                 culprit.pop_back();
                 if (!result) return result;
             }
@@ -1879,11 +1951,22 @@ findAggregatorsT(const T* expression, bool withGroupBy)
     return std::move(output);
 }
 
+template <class T>
 std::vector<std::shared_ptr<SqlExpression> >
-SqlExpression::
-findAggregators(bool withGroupBy) const
+findAggregatorsT(const T* expression, bool withGroupBy)
 {
-    return findAggregatorsT<SqlExpression>(this, withGroupBy);
+    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
+    return findAggregators(children, withGroupBy);
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+findAggregators(std::shared_ptr<SqlExpression> expr, bool withGroupBy)
+{
+    std::vector<std::shared_ptr<SqlExpression> > children;
+    children.push_back(expr);
+    return findAggregators(children, withGroupBy);
+
+    return children;
 }
 
 struct SqlExpressionDescription
@@ -2008,7 +2091,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             as = SqlExpression::parse(context, 10, allowUtf8);
             // As eats whitespace
         }
-        else as = SqlExpression::parse("columnName()");
+        else as = SqlExpression::parse("columnPath()");
         
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
@@ -2933,14 +3016,33 @@ SelectExpression
 SelectExpression::
 parse(ML::Parse_Context & context, bool allowUtf8)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(context, allowUtf8);
-    // concatenate all the surfaces with spaces
-    result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
-                                     [](const Utf8String & prefix,
-                                        std::shared_ptr<SqlRowExpression> & next) {
-                                         return prefix.empty() ? next->surface : prefix + ", " + next->surface;
-                                     });;
+    ML::Parse_Context::Hold_Token token(context);
+    std::vector<std::shared_ptr<SqlExpression>> distinctExpr;
+
+    if (matchKeyword(context, "DISTINCT ON ")) {
+        context.skip_whitespace();
+        context.expect_literal('(');
+        do {       
+            auto expr = SqlExpression::parse(context, 10, allowUtf8);
+            distinctExpr.push_back(expr);
+            context.skip_whitespace();
+        } while (context.match_literal(','));
+
+        context.expect_literal(')');
+
+    }
+    else if (matchKeyword(context, "DISTINCT ")) {
+        throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
+    }
+
+    SelectExpression result;
+
+    result.clauses = SqlRowExpression::parseList(context, allowUtf8);
+
+    result.distinctExpr = std::move(distinctExpr);
+
+    result.surface = ML::trim(token.captured()); 
+
     return result;
 }
 
@@ -2949,10 +3051,16 @@ SelectExpression::
 parse(const std::string & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ML::Parse_Context context(filename.empty() ? expr : filename,
+                              expr.c_str(),
+                              expr.length(), row, col);
+
+    auto select = parse(context, false);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 SelectExpression
@@ -2968,10 +3076,16 @@ SelectExpression::
 parse(const Utf8String & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ML::Parse_Context context(filename.empty() ? expr.rawData() : filename,
+                              expr.rawData(),
+                              expr.rawLength(), row, col);
+   
+    auto select = parse(context, true);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 BoundSqlExpression
@@ -3011,9 +3125,13 @@ bind(SqlBindingScope & context) const
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             StructValue result;
+            result.reserve(boundClauses.size());
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context, filter);
-                v.mergeToRowDestructive(result);
+                ExpressionValue storage;
+                const ExpressionValue & v = c(context, storage, filter);
+                if (&v == &storage)
+                    storage.mergeToRowDestructive(result);
+                else v.appendToRow(Path(), result);
             }
             
             return storage = std::move(ExpressionValue(std::move(result)));
@@ -3032,6 +3150,22 @@ print() const
             result += ", ";
         result += clauses[i]->print();
     }
+
+    if (distinctExpr.size() > 0) {
+
+        if (clauses.size() > 0)
+            result += ", ";
+
+        result += "distinct on(";
+
+        for (unsigned i = 0; i < distinctExpr.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += distinctExpr[i]->print();
+        } 
+
+        result += ")";
+    }   
 
     result += "]";
     
@@ -3089,6 +3223,24 @@ isIdentitySelect(SqlExpressionDatasetScope & context) const
     // execution of some expressions.
     return clauses.size() == 1
         && clauses[0]->isIdentitySelect(context);
+}
+
+bool
+SelectExpression::
+isConstant() const
+{
+    for (auto & c: clauses) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+SelectExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<SelectExpression>(this, withGroupBy);
 }
 
 struct SelectExpressionDescription
@@ -3511,6 +3663,50 @@ parse(ML::Parse_Context & context, bool allowUtf8) {
     return WhenExpression(result);
 }
 
+static bool filterWhen(ExpressionValue & val,
+                       const SqlRowScope & rowScope,
+                       const BoundSqlExpression & boundWhen)
+{
+    auto passValue = [&] (Date timestamp)
+        {
+            auto tupleScope
+                = SqlExpressionWhenScope
+                ::getRowScope(rowScope, timestamp);
+
+            return boundWhen(tupleScope, GET_LATEST).isTrue();
+        };
+
+    if (val.isEmbedding() || val.isAtom() || val.empty()) {
+        // Don't deconstruct an embedding or an atom; either pass or not
+        // based upon the timestamp (there is only a single timestamp)
+        return passValue(val.getEffectiveTimestamp());
+    }
+
+    StructValue kept;
+    kept.reserve(val.rowLength());
+
+    // TODO: we should do two passes to first mark and then extract
+    // destructively.  Performance enhancement for later.
+    auto onColumn = [&] (const PathElement & columnName,
+                         ExpressionValue val)
+        {
+            bool keepThisOne = filterWhen(val, rowScope, boundWhen);
+            if (keepThisOne) {
+                kept.emplace_back(std::move(columnName), std::move(val));
+            }
+            return true;
+        };
+
+    val.forEachColumn(onColumn);
+
+    bool noTimestamp = kept.empty();
+    val = std::move(kept);
+    if (!noTimestamp)
+        val.setEffectiveTimestamp(Date::notADate());
+
+    return !val.empty();
+}
+
 BoundWhenExpression
 WhenExpression::
 bind(SqlBindingScope & scope) const
@@ -3519,7 +3715,7 @@ bind(SqlBindingScope & scope) const
     if (when->isConstant()) {
         if (when->constantValue().isTrue()) {
             // keep everything, filter is a no-op
-            auto filterInPlace = [] (MatrixNamedRow & row,
+            auto filterInPlace = [] (ExpressionValue & row,
                                      const SqlRowScope & rowScope)
                 {
                 };
@@ -3528,10 +3724,10 @@ bind(SqlBindingScope & scope) const
         }
         else {
             // remove everything; filter is a clear
-            auto filterInPlace = [] (MatrixNamedRow & row,
+            auto filterInPlace = [] (ExpressionValue & row,
                                      const SqlRowScope & rowScope)
                 {
-                    row.columns.clear();
+                    row = ExpressionValue::null(Date::notADate());
                 };
 
             return { filterInPlace, this };
@@ -3549,12 +3745,14 @@ bind(SqlBindingScope & scope) const
     // Second, check for an expression that do not depend on tuples
     if (!whenScope.isTupleDependent) {
         // cerr << "not tuple dependent" << endl;
-        auto filterInPlace = [=] (MatrixNamedRow & row,
-                              const SqlRowScope & rowScope)
+        auto filterInPlace = [=] (ExpressionValue & row,
+                                  const SqlRowScope & rowScope)
             {
-                auto tupleScope = SqlExpressionWhenScope::getRowScope(rowScope, Date());
+                auto tupleScope = SqlExpressionWhenScope
+                    ::getRowScope(rowScope, Date());
                 if (!boundWhen(tupleScope, GET_LATEST).isTrue()) {
-                    row.columns.clear();
+                    StructValue vals;
+                    row = std::move(vals);
                 }
             };
         return { filterInPlace, this };
@@ -3562,49 +3760,11 @@ bind(SqlBindingScope & scope) const
 
     // Executing a when expression will filter the row by the expression,
     // applying it to each of the tuples
-    auto filterInPlace = [=] (MatrixNamedRow & row,
-                              const SqlRowScope & rowScope)
+    std::function<void (ExpressionValue &, const SqlRowScope &)>
+        filterInPlace = [=] (ExpressionValue & row,
+                             const SqlRowScope & rowScope)
         {
-            // Figure out which ones we keep.  We need to perform all of the
-            // scanning before we extract any output, as we want the row
-            // to remain intact (it's used by the rowScope) until we've
-            // evaluated our when expression.
-
-            std::vector<char> keep;  // not bool to avoid bitmap
-            keep.reserve(row.columns.size());
-
-            // How many columns do we output?
-            size_t numOutput = 0;
-
-            for (const auto & col: row.columns) {
-                auto tupleScope
-                    = SqlExpressionWhenScope
-                    ::getRowScope(rowScope, std::get<2>(col));
-
-                auto whenExpressionValue = boundWhen(tupleScope, GET_LATEST);
-                bool keepThisCol = whenExpressionValue.isTrue();
-                keep.emplace_back(keepThisCol);
-                numOutput += keepThisCol;
-            }
-
-            // Now we create our output
-            std::vector<std::tuple<ColumnName, CellValue, Date> > output;
-
-            // If we keep them all, no need to copy
-            if (numOutput == row.columns.size()) {
-                return;
-            }
-
-            // Move the kept elements into the output
-            for (unsigned i = 0;  i < row.columns.size();  ++i) {
-                if (!keep[i])
-                    continue;
-
-                output.emplace_back(std::move(row.columns[i]));
-            }
-            
-            // Swap them back in
-            row.columns.swap(output);
+            filterWhen(row, rowScope, boundWhen);
         };
 
     return { filterInPlace, this };
@@ -3820,12 +3980,21 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         statement.offset = 0;
     }
 
+    if (statement.select.distinctExpr.size() > 0) {
+        if (statement.orderBy.clauses.size() < statement.select.distinctExpr.size())
+            throw HttpReturnException(400, "DISTINCT ON expression cannot have more clauses than ORDER BY expression");
+
+        for (size_t i = 0; i < statement.select.distinctExpr.size(); ++i) {
+            if (statement.select.distinctExpr[i]->print() != statement.orderBy.clauses[i].first->print())
+                throw HttpReturnException(400, "DISTINCT ON expression must match leftmost(s) ORDER BY clause(s)");
+        }
+    }
+
     statement.surface = ML::trim(token.captured());
 
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-    
     return std::move(statement);
 }
 

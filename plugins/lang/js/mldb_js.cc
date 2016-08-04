@@ -13,6 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
+#include "mldb/base/optimized_path.h"
 #include "procedure_js.h"
 #include "function_js.h"
 #include "dataset_js.h"
@@ -1049,6 +1050,35 @@ struct MldbJS::Methods {
             return scope.Close(JS::toJS(server->httpBoundAddress));
         } HANDLE_JS_EXCEPTIONS;
     }
+
+    static v8::Handle<v8::Value>
+    setPathOptimizationLevel(const v8::Arguments & args)
+    {
+        using namespace v8;
+        try {
+            std::string val = JS::getArg<std::string>(args, 0, "level");
+            std::string valLc;
+            for (auto c: val)
+                valLc += tolower(c);
+            int level = -1;
+            if (valLc == "always") {
+                level = OptimizedPath::ALWAYS;
+            }
+            else if (valLc == "never") {
+                level = OptimizedPath::NEVER;
+            }
+            else if (valLc == "sometimes") {
+                level = OptimizedPath::SOMETIMES;
+            }
+            else throw ML::Exception("Couldn't parse path optimization level '"
+                                     + val + "': accepted are 'always', 'never' "
+                                     "and 'sometimes'");
+
+            OptimizedPath::setDefault(level);
+            
+            return args.This();
+        } HANDLE_JS_EXCEPTIONS;
+    }
 };
 
 MldbServer *
@@ -1115,6 +1145,9 @@ registerMe()
     result->Set(String::New("ls"), FunctionTemplate::New(Methods::ls));
     result->Set(String::New("getHttpBoundAddress"),
                 FunctionTemplate::New(Methods::getHttpBoundAddress));
+
+    result->Set(String::New("debugSetPathOptimizationLevel"),
+                FunctionTemplate::New(Methods::setPathOptimizationLevel));
 
     return scope.Close(result);
 }

@@ -21,6 +21,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/server/dataset_context.h"
 
 using namespace std;
 
@@ -40,8 +41,13 @@ struct JSONImporterConfig : ProcedureConfig {
     JSONImporterConfig() :
           limit(-1),
           offset(0),
-          ignoreBadLines(false)
-    {}
+          ignoreBadLines(false),
+          select(SelectExpression::STAR),
+          where(SqlExpression::TRUE),
+          named(SqlExpression::TRUE) // Trick to ease comparison
+    {
+        outputDataset.withType("tabular");
+    }
 
     Url dataFileUrl;
     PolyConfigT<Dataset> outputDataset;
@@ -49,6 +55,9 @@ struct JSONImporterConfig : ProcedureConfig {
     int64_t limit;
     int64_t offset;
     bool ignoreBadLines;
+    SelectExpression select;
+    std::shared_ptr<SqlExpression> where;
+    std::shared_ptr<SqlExpression> named;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JSONImporterConfig);
@@ -62,18 +71,122 @@ JSONImporterConfigDescription()
              "URL to load text file from");
     addField("outputDataset", &JSONImporterConfig::outputDataset,
              "Configuration for output dataset",
-             PolyConfigT<Dataset>().withType("sparse.mutable"));
+             PolyConfigT<Dataset>().withType("tabular"));
     addField("limit", &JSONImporterConfig::limit,
              "Maximum number of lines to process");
     addField("offset", &JSONImporterConfig::offset,
-            "Skip the first n lines.", int64_t(0));
+             "Skip the first n lines.", int64_t(0));
     addField("ignoreBadLines", &JSONImporterConfig::ignoreBadLines,
              "If true, any line causing an error will be skipped. Any line "
              "with an invalid JSON object will cause an error.", false);
+    addField("select", &JSONImporterConfig::select,
+             "Which columns to use.",
+             SelectExpression::STAR);
+    addField("where", &JSONImporterConfig::where,
+             "Which lines to use to create rows.",
+             SqlExpression::TRUE);
+    addField("named", &JSONImporterConfig::named,
+             "Row name expression for output dataset. Note that each row "
+             "must have a unique name and that names cannot be objects.",
+             SqlExpression::parse("lineNumber()"));
 
     addParent<ProcedureConfig>();
+
+    onPostValidate = [] (JSONImporterConfig * config,
+                         JsonParsingContext & context)
+    {
+        if (config->dataFileUrl.empty()) {
+            throw HttpReturnException(
+                400,
+                "dataFileUrl is a required property and must not be empty");
+        }
+    };
 }
 
+struct JsonRowScope : SqlRowScope {
+    JsonRowScope(const ExpressionValue & expr, ssize_t lineNumber)
+        : expr(expr), lineNumber(lineNumber) {}
+    const ExpressionValue & expr;
+    ssize_t lineNumber;
+};
+
+struct JsonScope : SqlExpressionMldbScope {
+
+
+    JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
+
+    ColumnGetter doGetColumn(const Utf8String & tableName,
+                                const ColumnName & columnName) override
+    {
+        return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+            {
+                const auto & row = scope.as<JsonRowScope>();
+                const ExpressionValue * res =
+                    row.expr.tryGetNestedColumn(columnName, storage, filter);
+                if (res) {
+                    return *res;
+                }
+                return storage = ExpressionValue();
+            },
+            std::make_shared<AtomValueInfo>()
+        };
+    }
+
+    GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep) override
+    {
+        std::vector<KnownColumn> columnsWithInfo;
+
+        auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
+        {
+            const auto & row = scope.as<JsonRowScope>();
+            StructValue result;
+            result.reserve(row.expr.rowLength());
+
+            const auto onCol = [&] (const PathElement & columnName,
+                                    const ExpressionValue & val)
+            {
+                const auto & newColName = keep(columnName);
+                if (!newColName.empty()) {
+                    result.emplace_back(newColName.front(), val);
+                }
+                return true;
+            };
+            row.expr.forEachColumnDestructive(onCol);
+            result.shrink_to_fit();
+            return result;
+        };
+        GetAllColumnsOutput result;
+        result.exec = exec;
+        result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
+                                                     SCHEMA_OPEN);
+        return result;
+    }
+
+    BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope) override
+    {
+        if (functionName == "lineNumber") {
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope)
+                {
+                    const auto & row = scope.as<JsonRowScope>();
+                    return ExpressionValue(row.lineNumber,
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<IntegerValueInfo>()
+            };
+        }
+        return SqlBindingScope::doGetFunction(tableName, functionName, args,
+                                              argScope);
+    }
+
+};
 
 struct JSONImporter: public Procedure {
 
@@ -95,10 +208,23 @@ struct JSONImporter: public Procedure {
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
 
-        if (!runProcConf.outputDataset.type.empty()
-            || !runProcConf.outputDataset.id.empty()) {
-            outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true);
+        if (runProcConf.outputDataset.type == "tabular") {
+            if (runProcConf.outputDataset.params == nullptr) {
+                 Json::Value params;
+                 params["unknownColumns"] = "add";
+                 runProcConf.outputDataset.params = params;
+            }
+            else {
+                auto params =
+                    runProcConf.outputDataset.params.as<Json::Value>();
+                if (!params.isMember("unknownColumns")) {
+                    params["unknownColumns"] = "add";
+                    runProcConf.outputDataset.params = params;
+                }
+            }
         }
+        outputDataset = createDataset(server, runProcConf.outputDataset,
+                                      onProgress, true);
 
         if(!outputDataset) {
             throw ML::Exception("Unable to obtain output dataset");
@@ -110,7 +236,7 @@ struct JSONImporter: public Procedure {
         std::atomic<int64_t> recordedLines(0);
         int64_t lineOffset = 1;
         std::string line;
-        std::string filename = runProcConf.dataFileUrl.toString();
+        std::string filename = runProcConf.dataFileUrl.toDecodedString();
 
         filter_istream stream(filename);
 
@@ -165,6 +291,18 @@ struct JSONImporter: public Procedure {
                 return true;
             };
 
+        bool useSelect = config.select != SelectExpression::STAR;
+        bool useWhere = config.where != SqlExpression::TRUE;
+
+        // using incorrect default value to ease check
+        bool useNamed = config.named != SqlExpression::TRUE;
+
+        JsonScope jsonScope(server);
+        ExpressionValue storage;
+        const auto whereBound = config.where->bind(jsonScope);
+        const auto selectBound = config.select.bind(jsonScope);
+        const auto namedBound = config.named->bind(jsonScope);
+
         auto onLine = [&] (const char * line,
                            size_t lineLength,
                            int64_t blockNumber,
@@ -172,7 +310,7 @@ struct JSONImporter: public Procedure {
         {
             auto & threadAccum = accum.get();
 
-            int64_t actualLineNum = lineNumber + lineOffset;
+            uint64_t actualLineNum = lineNumber + lineOffset;
 
             // MLDB-1111 empty lines are treated as error
             if(lineLength == 0)
@@ -201,10 +339,31 @@ struct JSONImporter: public Procedure {
                 return handleError("extra characters at end of line", actualLineNum, "");
             }
 
+            RowName rowName(actualLineNum);
+            if (useWhere || useSelect || useNamed) {
+                JsonRowScope row(expr, actualLineNum);
+                if (useWhere) {
+                    if (!whereBound(row, storage, GET_ALL).isTrue()) {
+                        return true;
+                    }
+                }
+
+                if (useNamed) {
+                    rowName = RowName(
+                        namedBound(row, storage, GET_ALL).toUtf8String());
+                }
+
+                if (useSelect) {
+                    expr = selectBound(row, storage, GET_ALL);
+                    storage = expr;
+                }
+
+            }
+
             recordedLines++;
 
-            RowName rowName(actualLineNum);
-            threadAccum.threadRecorder->recordRowExprDestructive(RowName(actualLineNum), std::move(expr));
+            threadAccum.threadRecorder->recordRowExprDestructive(
+                std::move(rowName), std::move(expr));
 
             return true;
         };

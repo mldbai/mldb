@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "mldb/jml/utils/compact_vector.h"
-#include "mldb/types/value_description.h"
+#include "mldb/utils/compact_vector.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -28,8 +28,8 @@ struct BaseEntry {
               uint64_t timestamp = 0,
               uint64_t val = 0,
               uint64_t tag = 0,
-              ML::compact_vector<std::string, 0, uint32_t> metadata
-                = ML::compact_vector<std::string, 0, uint32_t>())
+              compact_vector<std::string, 0, uint32_t> metadata
+                = compact_vector<std::string, 0, uint32_t>())
         : rowcol(rowcol),
           timestamp(timestamp),
           val(val),
@@ -65,20 +65,22 @@ struct BaseEntry {
     uint64_t timestamp;
     uint64_t val;
     uint32_t tag;
-    ML::compact_vector<std::string, 0, uint32_t> metadata;
+    compact_vector<std::string, 0, uint32_t> metadata;
 };
 
 struct MatrixWriteTransaction;
 
 struct MatrixReadTransaction {
 
-      struct Stream {       
+    struct Stream {       
 
         virtual std::shared_ptr<MatrixReadTransaction::Stream> clone() const = 0;
 
         virtual void initAt(size_t start) = 0;
 
         virtual uint64_t next() = 0;
+
+        virtual uint64_t current() const = 0;
     };
 
     virtual ~MatrixReadTransaction()

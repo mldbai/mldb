@@ -977,7 +977,7 @@
 "<h3>Credentials</h3>",
 "<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/Url.md.html\">Credentials documentation</a> for details.</p>",
       [
-         "GET {{HTTP_BASE_URL}}/v1/creds/rules",
+         "GET {{HTTP_BASE_URL}}/v1/credentials",
          {
             "docstring" : "Get a list of rules",
             "in" : {
@@ -999,7 +999,7 @@
          }
       ],
       [
-         "POST {{HTTP_BASE_URL}}/v1/creds/rules",
+         "POST {{HTTP_BASE_URL}}/v1/credentials",
          {
             "docstring" : "Create a new rule",
             "in" : {
@@ -1022,7 +1022,7 @@
          }
       ],
       [
-         "DELETE {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
+         "DELETE {{HTTP_BASE_URL}}/v1/credentials/<id>",
          {
             "docstring" : "Delete the rule",
             "in" : {
@@ -1044,7 +1044,7 @@
          }
       ],
       [
-         "GET {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
+         "GET {{HTTP_BASE_URL}}/v1/credentials/<id>",
          {
             "docstring" : "Get the status of a rule",
             "in" : {
@@ -1066,7 +1066,7 @@
          }
       ],
       [
-         "PUT {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
+         "PUT {{HTTP_BASE_URL}}/v1/credentials/<id>",
          {
             "docstring" : "Create a new rule",
             "in" : {

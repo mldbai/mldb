@@ -14,7 +14,7 @@ With `PackageElementSources` defined as:
 If the `address` parameter is used, it may contain:
 
 * `file:///mldb_data/<directory_within_mldb_data>`: a directory within the Docker container's mapped directory (the directory you specified with your `docker run` command) will be copied and its `main.py` file will be run, and `routes.py` will be run to handle REST requests.
-* `git://` or `gist://`: the repo will be cloned and its `main.py` file will be run to initialize the plugin, and `routes.py` will be run to handle REST requests.
+* `git://` or `gist://`: the repo will be cloned and its `main.py` file will be run to initialize the plugin, and `routes.py` will be run to handle REST requests. To checkout a specific commit, add the following at the end of the address: `#hash`.
 * `file:///mldb_data/<file_within_mldb_data>`: a Python file will be run from the Docker container's mapped directory.
 * `http://<url>` or `https://<url>`: a Python file will be downloaded via HTTP(S) and executed.
 
@@ -65,7 +65,7 @@ There are two functions that allow access to the virtual filesystem of MLDB:
 ### `mldb.plugin` object (available to plugins)
 
 * `mldb.plugin.args` contains the value of the `args` key in the JSON payload of the HTTP request
-* `mldb.plugin.serve_static_folder(route, dir)` serve up static content under `dir` on the given plugin route `GET /v1/plugins/<id>/route`.
+* `mldb.plugin.serve_static_folder(route, dir)` serve up static content under `dir` on the given plugin route `GET /v1/plugins/<id>/routes/<route>`.
 * `mldb.plugin.serve_documentation_folder(dir)` serve up documentation under `dir` on the plugin's documentation route (`GET /v1/plugins/<id>/doc`).  This will render files with a `.md` extension as HTML.See the [Documentation Serving](../DocumentationServing.md) page for more details.
 * `mldb.plugin.rest_params`: object available within `routes.py` which represents an HTTP REST call. It has the following fields and methods:
     * `verb`, `remaining`, `rest_params`: route and query-string details such that for `GET /v1/plugins/X/routes/hello?who=you`
@@ -77,6 +77,7 @@ There are two functions that allow access to the virtual filesystem of MLDB:
     * `contentType`: content type of HTTP body
     * `contentLength`: content length of HTTP body
 * `mldb.plugin.set_return(body)`: available within `routes.py`, function called to write to HTTP response body and HTTP return code
+* `mldb.plugin.get_plugin_dir()`: returns the absolute path of the plugin's installation directory on disk
     
 ### Handling a custom route
 
@@ -124,4 +125,17 @@ with stack frames like
 Note that the Python plugin only fills in the `where` field of stack frame
 entries.
 
+## Debugging
 
+The following are useful for debugging MLDB, but should not be used in normal
+use of MLDB:
+
+- `mldb.debugSetPathOptimizationLevel(level)` controls whether MLDB takes
+  optimized or generic paths.  It can be used to unit-test the equivalence
+  of optimized and non-optimized paths.  Setting to `"always"` (the default)
+  will make MLDB always use optimized implementations when possible.  Setting
+  to `"never"` has the opposite effect.  Setting to `"sometimes"` will
+  randomly and non-deterministically choose whether or not to use an
+  optimized path each time that one is encountered (50% probability of each).
+  Note that this setting applies to the entire MLDB instance, and so should
+  not be used in production.

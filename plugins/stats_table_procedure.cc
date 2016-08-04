@@ -35,6 +35,7 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
@@ -64,7 +65,6 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
     coords = Path::parse(str);
     return store;
 }
-
 
 /*****************************************************************************/
 /* STATS TABLE                                                               */
@@ -107,7 +107,6 @@ getCounts(const CellValue & val) const
     if(it == counts.end()) {
         return zeroCounts;
     }
-
     return it->second;
 }
 
@@ -255,9 +254,11 @@ run(const ProcedureRunConfig & run,
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                Json::Value progress;
+                progress["message"] = message;
                 onProgress(progress);
-                cerr << progress << endl;
+                cerr << message << endl;
             }
 
             vector<uint> encodedLabels;
@@ -344,7 +345,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTables;
     }
@@ -389,7 +390,7 @@ StatsTableFunction(MldbServer * owner,
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> statsTables;
 }
@@ -436,7 +437,7 @@ apply(const FunctionApplier & applier,
                 if(st == statsTables.end())
                     return true;
 
-                auto counts = st->second.getCounts(val);
+                const auto & counts = st->second.getCounts(val);
 
                 rtnRow.emplace_back(PathElement("trial") + columnName, counts.first, ts);
 
@@ -446,7 +447,7 @@ apply(const FunctionApplier & applier,
                                         counts.second[lbl_idx],
                                         ts);
                 }
-                
+
                 return true;
             };
 
@@ -472,10 +473,10 @@ getFunctionInfo() const
                               COLUMN_IS_DENSE, 0);
     outputColumns.emplace_back(PathElement("counts"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
-    
+
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
+
     return result;
 }
 
@@ -525,7 +526,7 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     // Load saved stats tables
-    filter_istream stream(runProcConf.modelFileUrl.toString());
+    filter_istream stream(runProcConf.modelFileUrl);
     ML::DB::Store_Reader store(stream);
 
     StatsTablesMap statsTables;
@@ -659,7 +660,7 @@ run(const ProcedureRunConfig & run,
 
     BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
-    
+
     if(!runProcConf.functionName.empty() && runProcConf.functionOutcomeToUse.empty()) {
         throw ML::Exception("The 'functionOutcomeToUse' parameter must be set when the "
                 "'functionName' parameter is set.");
@@ -690,9 +691,11 @@ run(const ProcedureRunConfig & run,
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 10000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                Json::Value progress;
+                progress["message"] = message;
                 onProgress2(progress);
-                cerr << progress << endl;
+                cerr << message << endl;
             }
 
             vector<uint> encodedLabels;
@@ -778,14 +781,13 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         ML::DB::Store_Writer store(stream);
         store << statsTable;
     }
-    
+
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty() &&
             !runProcConf.functionOutcomeToUse.empty()) {
-        cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
         clsFuncPC.type = "statsTable.bagOfWords.posneg";
         clsFuncPC.id = runProcConf.functionName;
@@ -794,7 +796,7 @@ run(const ProcedureRunConfig & run,
 
         createFunction(server, clsFuncPC, onProgress, true);
     }
-    
+
     return RunOutput();
 }
 
@@ -834,7 +836,7 @@ StatsTablePosNegFunction(MldbServer * owner,
     StatsTable statsTable;
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     ML::DB::Store_Reader store(stream);
     store >> statsTable;
 
@@ -941,10 +943,9 @@ apply(const FunctionApplier & applier,
         result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        cerr << jsonEncode(arg) << endl;
         throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
-    
+
     return std::move(result);
 }
 
@@ -953,16 +954,16 @@ StatsTablePosNegFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    
+
     std::vector<KnownColumn> inputColumns, outputColumns;
     inputColumns.emplace_back(PathElement("words"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
     outputColumns.emplace_back(PathElement("probs"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
-    
+
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
+
     return result;
 }
 

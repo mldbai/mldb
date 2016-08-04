@@ -44,19 +44,54 @@ __thread int QueryThreadTracker::depth = 0;
 /*****************************************************************************/
 
 struct BoundSelectQuery::Executor {
-    virtual void execute(std::function<bool (NamedRowValue & output,
+    virtual bool execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int bucketNum)> processor,
                          bool processInParallel,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress) = 0;
+                         std::function<bool (const Json::Value &)> onProgress)
+    {
+        auto newProcessor = [&] (Path & rowName,
+                                 ExpressionValue & val,
+                                 std::vector<ExpressionValue> & calcd,
+                                 int bucketNum)
+            {
+                NamedRowValue output;
+                output.rowName = std::move(rowName);
+                output.rowHash = output.rowName;
+                val.appendToRowDestructive(Path(), output.columns);
+                return processor(output, calcd, bucketNum);
+            };
+
+        return executeExpr(newProcessor, processInParallel, offset, limit, onProgress);
+    }
+
+    virtual bool executeExpr(std::function<bool (Path & rowName,
+                                                 ExpressionValue & val,
+                                                 std::vector<ExpressionValue> & calcd,
+                                                 int bucketNum)> processor,
+                             bool processInParallel,
+                             ssize_t offset,
+                             ssize_t limit,
+                             std::function<bool (const Json::Value &)> onProgress)
+    {
+        auto newProcessor = [&] (NamedRowValue & output,
+                                 std::vector<ExpressionValue> & calcd,
+                                 int bucketNum)
+            {
+                ExpressionValue val(std::move(output.columns));
+                return processor(output.rowName, val, calcd, bucketNum);
+            };
+
+        return execute(newProcessor, processInParallel, offset, limit, onProgress);
+    }
 
     virtual std::shared_ptr<ExpressionValueInfo> getOutputInfo() const = 0;
 };
 
 struct UnorderedExecutor: public BoundSelectQuery::Executor {
-    std::shared_ptr<MatrixView> matrix;
+    const Dataset & dataset;
     GenerateRowsWhereFunction whereGenerator;
     SqlExpressionDatasetScope & context;
     BoundSqlExpression whereBound;
@@ -68,7 +103,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> ExecutorAggregator;
 
-    UnorderedExecutor(std::shared_ptr<MatrixView> matrix,
+    UnorderedExecutor(const Dataset & dataset,
                       GenerateRowsWhereFunction whereGenerator,
                       SqlExpressionDatasetScope & context,
                       BoundWhenExpression whenBound,
@@ -76,7 +111,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                       std::vector<BoundSqlExpression> boundCalc,
                       OrderByExpression newOrderBy,
                       int numBuckets)
-        : matrix(std::move(matrix)),
+        : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
           whenBound(std::move(whenBound)),
@@ -86,25 +121,27 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
     {
     }
 
-     virtual void execute(std::function<bool (NamedRowValue & output,
-                                             std::vector<ExpressionValue> & calcd,
-                                             int rowNum)> processor,
-                         bool processInParallel,
-                         ssize_t offset,
-                         ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
-     {
+    virtual bool executeExpr(std::function<bool (Path & rowName,
+                                                 ExpressionValue & output,
+                                                 std::vector<ExpressionValue> & calcd,
+                                                 int rowNum)> processor,
+                             bool processInParallel,
+                             ssize_t offset,
+                             ssize_t limit,
+                             std::function<bool (const Json::Value &)> onProgress)
+    {
         //There are two variations on how to generate the rows, 
         //but most of the output code is the same
         if (numBuckets > 1 && whereGenerator.rowStream)
-          return execute_iterative(processor, processInParallel, offset, limit, onProgress);
+            return execute_iterative(processor, processInParallel, offset, limit, onProgress);
         else
             return execute_bloc(processor, processInParallel, offset, limit, onProgress);
-     }
-
+    }
+    
     /* execute_bloc will query all the relevant rowNames in advance
        using the whereGenerator()                                  */
-    void execute_bloc(std::function<bool (NamedRowValue & output,
+    bool execute_bloc(std::function<bool (Path & rowName,
+                                          ExpressionValue & output,
                                           std::vector<ExpressionValue> & calcd,
                                           int rowNum)> processor,
                       bool processInParallel,
@@ -133,26 +170,32 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, numRows);
 
-        auto doRow = [&] (int rowNum) -> bool
+        auto doRow = [&] (size_t rowNum) -> bool
             {
                 //if (rowNum % 1000 == 0)
                 //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
                 //RowName rowName = rows[rowNum];
 
-                auto row = matrix->getRow(rows[rowNum]);
-                auto output = processRow(row, rowNum, numPerBucket, selectStar);
+                ExpressionValue row = dataset.getRowExpr(rows[rowNum]);
+                auto output = processRow(rows[rowNum], row, rowNum, numPerBucket,
+                                         selectStar);
 
-                int bucketNumber = numBuckets > 0 ? std::min((size_t)(rowNum/numPerBucket), (size_t)(numBuckets-1)) : -1;
+                int bucketNumber
+                    = numBuckets > 0
+                    ? std::min((size_t)(rowNum/numPerBucket), (size_t)(numBuckets-1))
+                    : -1;
 
                 /* Finally, pass to the terminator to continue. */
-                return processor(std::get<0>(output), std::get<1>(output), bucketNumber);
+                return processor(std::get<0>(output), std::get<1>(output),
+                                 std::get<2>(output), bucketNumber);
             };
 
         if (numBuckets > 0) {
             ExcAssert(processInParallel);
             ExcAssertEqual(limit, -1);
             ExcAssertEqual(offset, 0);
+            std::atomic_ulong bucketCount(0);
             auto doBucket = [&] (int bucketNumber) -> bool
                 {
                     size_t it = bucketNumber * numPerBucket;
@@ -162,57 +205,69 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                         if (!doRow(it))
                             return false;
                     }
+
+                    if (onProgress) {
+                        Json::Value progress;
+                        progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
+                        onProgress(progress);
+                    }
                     return true;
                 };
 
-            parallelMap(0, effectiveNumBucket, doBucket);
+            return parallelMapHaltable(0, effectiveNumBucket, doBucket);
         }
         else {
             size_t upper =  rows.size();
             if (limit != -1)
                 upper = std::min((size_t)(offset+limit), upper);
 
-            if (processInParallel) {
-
-                parallelMap(offset, upper, doRow);
-            }
-            else if (offset <= upper)
-            {
-                //Todo: to reduce memory usage, we should fill blocks of output on worker threads
-                // in order as much as possible
-                // while calling the aggregator on the caller thread.
-                ExcAssert(offset >= 0 && offset <= upper);
-                std::vector<std::tuple<NamedRowValue, std::vector<ExpressionValue> > > output(upper-offset);
-
-                auto copyRow = [&] (int rowNum)
-                {
-                   auto row = matrix->getRow(rows[rowNum]);
-
-                   auto outputRow = processRow(row, rowNum, numPerBucket, selectStar);
-                   output[rowNum-offset] = std::move(outputRow);
-                };
-
-                parallelMap(offset, upper, copyRow);
-
-                for (size_t i = offset; i < upper; ++i) {
-                    auto& outputRow = output[i-offset];
-                    if (!processor(std::get<0>(outputRow), std::get<1>(outputRow), -1))
-                        break;
+            if (offset <= upper) {
+                if (processInParallel) {
+                    return parallelMapHaltable(offset, upper, doRow);
                 }
-            }            
+                else {
+                    // TODO: to reduce memory usage, we should fill blocks of
+                    // output on worker threads
+                    // in order as much as possible
+                    // while calling the aggregator on the caller thread.
+                    ExcAssert(offset >= 0 && offset <= upper);
+                    std::vector<std::tuple<Path, ExpressionValue, std::vector<ExpressionValue> > >
+                        output(upper-offset);
+                
+                    auto copyRow = [&] (int rowNum)
+                        {
+                            auto row = dataset.getRowExpr(rows[rowNum]);
+                            auto outputRow = processRow(rows[rowNum], row, rowNum,
+                                                        numPerBucket, selectStar);
+                            output[rowNum-offset] = std::move(outputRow);
+                        };
+
+
+                    parallelMap(offset, upper, copyRow);
+
+                    for (size_t i = offset; i < upper; ++i) {
+                        auto& outputRow = output[i-offset];
+                        if (!processor(std::get<0>(outputRow), std::get<1>(outputRow),
+                                       std::get<2>(outputRow), -1))
+                            return false;
+                    }
+                }
+            }
+            return true;
         }
     }
 
     /* execute_iterative will use the whereGenerator rowStream to get the rowNames one by one
        in order to avoid having a big array of all the relevant rowNames                    */
-     void execute_iterative(std::function<bool (NamedRowValue & output,
-                                             std::vector<ExpressionValue> & calcd,
-                                             int rowNum)> processor,
-                         bool processInParallel,
-                         ssize_t offset,
-                         ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
-    {   
+    bool execute_iterative(std::function<bool (Path & rowName,
+                                               ExpressionValue & output,
+                                               std::vector<ExpressionValue> & calcd,
+                                               int rowNum)> processor,
+                           bool processInParallel,
+                           ssize_t offset,
+                           ssize_t limit,
+                           std::function<bool (const Json::Value &)> onProgress)
+    {
         //STACK_PROFILE(UnorderedExecutor_optimized);
         //cerr << "UnorderedIterExecutor num buckets: " << numBuckets << " allowMT " << allowMT << endl;
         QueryThreadTracker parentTracker;
@@ -226,7 +281,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
-        int numRows = whereGenerator.upperBound;
+        int64_t numRows = whereGenerator.rowStreamTotalRows;
         
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)numRows);
@@ -237,67 +292,71 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssert(processInParallel);
 
+        std::atomic_ulong bucketCount(0);
         auto doBucket = [&] (int bucketNumber) -> bool
-            {                
+            {
                 size_t it = bucketNumber * numPerBucket;
                 int stopIt = bucketNumber == numBuckets - 1 ? numRows : it + numPerBucket;
                 auto stream = whereGenerator.rowStream->clone();
                 stream->initAt(it);
-                for (;  it < stopIt; ++it)
-                {
+                for (;  it < stopIt; ++it) {
                     RowName rowName = stream->next();
-                    auto row = matrix->getRow(rowName);
+                    auto row = dataset.getRowExpr(rowName);
 
-                    auto output = processRow(row, it, numPerBucket, selectStar);
-                    int bucketNumber = numBuckets > 0 ? std::min((size_t)(it/numPerBucket), (size_t)(numBuckets-1)) : -1;
+                    auto output = processRow(rowName, row, it, numPerBucket, selectStar);
+                    int bucketNumber
+                        = numBuckets > 0 ? std::min((size_t)(it/numPerBucket),
+                                                    (size_t)(numBuckets-1)) : -1;
 
                     /* Finally, pass to the terminator to continue. */
-                    if (!processor(std::get<0>(output), std::get<1>(output), bucketNumber))
+                    if (!processor(std::get<0>(output), std::get<1>(output),
+                                   std::get<2>(output), bucketNumber))
                         return false;
+                }
+                if (onProgress) {
+                    Json::Value progress;
+                    progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
+                    onProgress(progress);
                 }
                 return true;
             };
 
-            parallelMap(0, effectiveNumBucket, doBucket);
+        return parallelMapHaltable(0, effectiveNumBucket, doBucket);
     }
 
-    std::tuple<NamedRowValue, std::vector<ExpressionValue> >
-    processRow(MatrixNamedRow& row,
+    std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
+    processRow(const RowName & rowName,
+               ExpressionValue & row,
                int rowNum,
                int numPerBucket,
                bool selectStar)
     {
-        auto rowContext = context.getRowScope(row);
+        auto rowContext = context.getRowScope(rowName, row);
 
         whenBound.filterInPlace(row, rowContext);
 
-        std::tuple<NamedRowValue, std::vector<ExpressionValue> > output;
+        std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> > output;
 
-        NamedRowValue& outputRow = std::get<0>(output);
-        outputRow.rowName = row.rowName;
-        outputRow.rowHash = row.rowName;
-    
-        auto selectRowScope = context.getRowScope(row);
-        vector<ExpressionValue>& calcd = std::get<1>(output);
+        std::get<0>(output) = rowName;
+
+        auto selectRowScope = context.getRowScope(rowName, row);
+
+        vector<ExpressionValue>& calcd = std::get<2>(output);
         calcd.resize(boundCalc.size());
 
-        // Run the extra calculations
+        // Run the extra calculations before the select, as the select may
+        // destroy the input if it's a select star.
         for (unsigned i = 0;  i < boundCalc.size();  ++i) {
             calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
         }
-        
+
         if (selectStar) {
             // Move into place, since we know we're selecting *
-            // This is more complicated than it looks, because the input is
-            // flattened but the output is structured, so we have to go
-            // through the ExpressionValue to add the structure in first.
-            ExpressionValue structured(std::move(row.columns));
-            structured.mergeToRowDestructive(outputRow.columns);
+            std::get<1>(output) = std::move(row);
         }
         else {
             // Run the select expression
-            ExpressionValue selectOutput = boundSelect(selectRowScope, GET_ALL);
-            selectOutput.mergeToRowDestructive(outputRow.columns);
+            std::get<1>(output) = boundSelect(selectRowScope, GET_ALL);
         }
 
         return output;
@@ -311,32 +370,35 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
 struct OrderedExecutor: public BoundSelectQuery::Executor {
 
-    std::shared_ptr<MatrixView> matrix;
+    const Dataset & dataset;
     GenerateRowsWhereFunction whereGenerator;
     SqlExpressionDatasetScope & context;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
     OrderByExpression newOrderBy;
+    size_t numDistinctOnClauses_;
 
-    OrderedExecutor(std::shared_ptr<MatrixView> matrix,
+    OrderedExecutor(const Dataset & dataset,
                     GenerateRowsWhereFunction whereGenerator,
                     SqlExpressionDatasetScope & context,
                     BoundWhenExpression whenBound,
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
-                    OrderByExpression newOrderBy)
-        : matrix(std::move(matrix)),
+                    OrderByExpression newOrderBy,
+                    size_t numDistinctOnClauses)
+        : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
           whenBound(std::move(whenBound)),
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
-          newOrderBy(std::move(newOrderBy))
+          newOrderBy(std::move(newOrderBy)),
+          numDistinctOnClauses_(numDistinctOnClauses)
     {
     }
 
-    virtual void execute(std::function<bool (NamedRowValue & output,
+    virtual bool execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd, 
                                              int rowNum)> processor,
         bool processInParallel,
@@ -344,6 +406,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         ssize_t limit,
         std::function<bool (const Json::Value &)> onProgress)
     {
+        //STACK_PROFILE(OrderedExecutor);
+
         QueryThreadTracker parentTracker;
 
         // Get a list of rows that we run over
@@ -375,24 +439,29 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
             {
                 QueryThreadTracker childTracker = parentTracker.child();
 
-                auto row = matrix->getRow(rows[rowNum]);
+                auto row = dataset.getRowExpr(rows[rowNum]);
 
-                //if (rowNum % 1000 == 0)
-                //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
+                if (onProgress && rowsAdded % 1000 == 0) {
+                    Json::Value progress;
+                    progress["percent"] = (float) rowsAdded / rows.size();
+                    onProgress(progress);
+                }
 
                 // Check it matches the where expression.  If not, we don't process
                 // it.
-                auto rowContext = context.getRowScope(row);
+                auto rowContext = context.getRowScope(rows[rowNum], row);
 
                 //where already checked in whereGenerator
 
                 whenBound.filterInPlace(row, rowContext);
 
                 NamedRowValue outputRow;
-                outputRow.rowName = row.rowName;
-                outputRow.rowHash = row.rowName;
+                outputRow.rowName = rows[rowNum];
+                outputRow.rowHash = rows[rowNum];
             
-                auto selectRowScope = context.getRowScope(row);
+                // A new row scope for the select, as the row may have changed
+                // due to being processed by the when.
+                auto selectRowScope = context.getRowScope(rows[rowNum], row);
              
                 // Run the bound select expressions
                 ExpressionValue selectOutput
@@ -425,7 +494,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         parallelMap(0, rows.size(), doWhere);
 
-        cerr << "map took " << timer.elapsed() << endl;
+        //cerr << "map took " << timer.elapsed() << endl;
         timer.restart();
         
         // Compare two rows according to the sort criteria
@@ -437,17 +506,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
             
         auto rowsSorted = parallelMergeSort(accum.threads, compareRows);
 
-        cerr << "shuffle took " << timer.elapsed() << endl;
-        timer.restart();
-
-        auto doSelect = [&] (int rowNum) -> bool
-            {
-                auto & row = std::get<1>(rowsSorted[rowNum]);
-                auto & calcd = std::get<2>(rowsSorted[rowNum]);
-
-                /* Finally, pass to the terminator to continue. */
-                return processor(row, calcd, rowNum);
-            };
+        //cerr << "shuffle took " << timer.elapsed() << endl;
+        timer.restart(); 
 
         // Now select only the required subset of sorted rows
         if (limit == -1)
@@ -455,14 +515,71 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssertGreaterEqual(offset, 0);
 
-        ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
-        ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+        if (numDistinctOnClauses_ > 0) {
 
-        for (unsigned i = begin;  i < end;  ++i) {
-            doSelect(i);
+            std::vector<ExpressionValue> reference;
+            reference.resize(numDistinctOnClauses_);
+            ssize_t count = 0;
+
+            for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
+
+                std::vector<ExpressionValue> & mark = std::get<0>(rowsSorted[i]);
+
+                if (i == 0) {
+                    std::copy_n(mark.begin(), numDistinctOnClauses_, reference.begin());
+                }
+                else {
+
+                    bool same = true;
+                    for (int i = 0; i < numDistinctOnClauses_; ++i){
+                        if (reference[i] != mark[i]) {
+                            same = false;
+                            break;
+                        }
+                    }
+
+                    if (!same)
+                        std::copy_n(mark.begin(), numDistinctOnClauses_, reference.begin());
+                    else
+                        continue; //skip duplicates
+                }
+
+                ++count;
+
+                if (count <= offset)
+                    continue;
+
+                auto & row = std::get<1>(rowsSorted[i]);
+                auto & calcd = std::get<2>(rowsSorted[i]);
+
+                /* Finally, pass to the terminator to continue. */
+                if (!processor(row, calcd, i))
+                    return false;
+
+                if (count - offset == limit)
+                    break;
+            }
+
+        }
+        else {
+            ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
+            ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+            for (unsigned i = begin;  i < end;  ++i) {
+
+                auto & row = std::get<1>(rowsSorted[i]);
+                auto & calcd = std::get<2>(rowsSorted[i]);
+
+                /* Finally, pass to the terminator to continue. */
+                if (!processor(row, calcd, i))
+                    return false;
+            }
         }
 
+     
+
         cerr << "reduce took " << timer.elapsed() << endl;
+
+        return true;
     }
 
     virtual std::shared_ptr<ExpressionValueInfo> getOutputInfo() const
@@ -485,7 +602,7 @@ struct SortByRowHash {
 } // file scope
 
 struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
-    std::shared_ptr<MatrixView> matrix;
+    const Dataset & dataset;
     GenerateRowsWhereFunction whereGenerator;
     SqlExpressionDatasetScope & context;
     BoundWhenExpression whenBound;
@@ -494,7 +611,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
     OrderByExpression newOrderBy;
     bool allowParallelOutput;
 
-    RowHashOrderedExecutor(std::shared_ptr<MatrixView> matrix,
+    RowHashOrderedExecutor(const Dataset & dataset,
                            GenerateRowsWhereFunction whereGenerator,
                            SqlExpressionDatasetScope & context,
                            BoundWhenExpression whenBound,
@@ -502,7 +619,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                            std::vector<BoundSqlExpression> boundCalc,
                            OrderByExpression newOrderBy,
                            bool allowParallelOutput)
-        : matrix(std::move(matrix)),
+        : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
           whenBound(std::move(whenBound)),
@@ -513,7 +630,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
     {
     }
 
-     virtual void execute(std::function<bool (NamedRowValue & output,
+     virtual bool execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> processor,
                          bool processInParallel,
@@ -522,21 +639,21 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                          std::function<bool (const Json::Value &)> onProgress)
     {
         if (limit < 0 || !(whereGenerator.rowStream))
-          return execute_bloc(processor, offset, limit, onProgress);
+            return execute_bloc(processor, offset, limit, onProgress);
         else
-          return execute_iter(processor, offset, limit, onProgress);
+            return execute_iter(processor, offset, limit, onProgress);
     }
 
      /* execute_bloc will query all the relevant rowNames in advance
-       using the whereGenerator()                                           */          
-     virtual void execute_bloc(std::function<bool (NamedRowValue & output,
+        using the whereGenerator()                                           */
+     virtual bool execute_bloc(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> processor,
                          ssize_t offset,
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress)
     {
-//        STACK_PROFILE(RowHashOrderedExecutor.execute_bloc);
+        //STACK_PROFILE(RowHashOrderedExecutor_execute_bloc);
 
         QueryThreadTracker parentTracker;
 
@@ -585,7 +702,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 QueryThreadTracker childTracker
                     = std::move(parentTracker.child());
 
-                MatrixNamedRow row;
+                ExpressionValue row;
                 try {
                     // If we've gotten all past the maxRowNumNeeded, then we can stop
                     // otherwise push it up
@@ -612,18 +729,19 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     //RowName rowName = rows[rowNum];
 
-                    row = std::move(matrix->getRow(rows[rowNum]));
+                    row = dataset.getRowExpr(rows[rowNum]);
 
                     // Check it matches the where expression.  If not, we don't process
                     // it.
-                    auto rowContext = context.getRowScope(row);
+                    auto rowContext = context.getRowScope(rows[rowNum], row);
 
                     //where was already filtered by the where generator
 
                     whenBound.filterInPlace(row, rowContext);
+
                     NamedRowValue outputRow;
-                    outputRow.rowName = row.rowName;
-                    outputRow.rowHash = row.rowName;
+                    outputRow.rowName = rows[rowNum];
+                    outputRow.rowHash = rows[rowNum];
 
                     vector<ExpressionValue> calcd(boundCalc.size());
                     for (unsigned i = 0;  i < boundCalc.size();  ++i) {
@@ -635,8 +753,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                         // This is more complicated than it looks, because the input is
                         // flattened but the output is structured, so we have to go
                         // through the ExpressionValue to add the structure in first.
-                        ExpressionValue structured(std::move(row.columns));
-                        structured.mergeToRowDestructive(outputRow.columns);
+                        row.mergeToRowDestructive(outputRow.columns);
                     }
                     else {
                         // Run the select expression
@@ -645,7 +762,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     }
 
                     std::unique_lock<ML::Spinlock> guard(mutex);
-                    sorted.emplace_back(row.rowHash,
+                    sorted.emplace_back(outputRow.rowHash,
                                         std::move(outputRow),
                                         std::move(calcd));
 
@@ -656,7 +773,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     return true;
                 } catch (...) {
-                    rethrowHttpException(-1, "Executing non-grouped query bound to row: " + ML::getExceptionString(),
+                    rethrowHttpException(KEEP_HTTP_CODE,
+                                         "Executing non-grouped query bound to row: " + ML::getExceptionString(),
                                          "row", row,
                                          "rowHash", rows[rowNum],
                                          "rowNum", rowNum);
@@ -752,7 +870,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
             for (unsigned i = begin;  i < end;  ++i) {
                 if (!processor(std::get<1>(sorted[i]), std::get<2>(sorted[i]), i - begin))
-                    return;
+                    return false;
             }
         }
         else {
@@ -760,15 +878,18 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
             auto onOutput = [&] (size_t i)
                 {
                     if (stop)
-                        return;
+                        return false;
 
                     if (!processor(std::get<1>(sorted[i]), std::get<2>(sorted[i]), i - begin)) {
                         stop = true;
-                        return;
+                        return false;
                     }
+
+                    return true;
                 };
 
-            parallelMap(begin, end, onOutput);
+            if (!parallelMapHaltable(begin, end, onOutput))
+                return false;
         }
 
         cerr << "Output " << sorted.size() << " in " << scanTimer.elapsed()
@@ -776,12 +897,12 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
              << " at " << sorted.size() / scanTimer.elapsed_wall() << "/second and "
              << sorted.size() / scanTimer.elapsed_cpu() << " /cpu-second" << endl;
 
-        return;
+        return true;
     }
 
    /* execute_iterative will use the whereGenerator rowStream to get the rowNames one by one
        in order to avoid having a big array of all the relevant rowNames                    */
-    virtual void execute_iter(std::function<bool (NamedRowValue & output,
+    virtual bool execute_iter(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> processor,
                          ssize_t offset,
@@ -803,7 +924,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         int numNeeded = offset + limit;
 
-        int upperBound = whereGenerator.upperBound;
+        int64_t upperBound = whereGenerator.rowStreamTotalRows;
         int maxNumTask = numCpus() * TASK_PER_THREAD;
         //try to have at least MIN_ROW_PER_TASK element per task
         int numChunk = upperBound < maxNumTask*MIN_ROW_PER_TASK ? (upperBound / maxNumTask) : maxNumTask;
@@ -864,30 +985,31 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
             };
             
         auto rowsMerged = parallelMergeSort(accum.threads, compareRows);
-
+        
         if (rowsMerged.size() < offset )
-          return;
+            return true;
 
         rowsMerged.erase(rowsMerged.begin(), rowsMerged.begin() + offset);
-
+        
         if (rowsMerged.size() > limit)
-          rowsMerged.erase(rowsMerged.begin() + limit, rowsMerged.end());
+            rowsMerged.erase(rowsMerged.begin() + limit, rowsMerged.end());
 
         //Assuming the limit is small enough we can output the rows in order
 
          // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
+        // TODO: parallel...
         int count = 0;
         for (auto & r : rowsMerged) {
 
-            MatrixNamedRow row = std::move(matrix->getRow(r));
-            auto rowContext = context.getRowScope(row);
+            ExpressionValue row = dataset.getRowExpr(r);
+            auto rowContext = context.getRowScope(r, row);
 
             whenBound.filterInPlace(row, rowContext);
             NamedRowValue outputRow;
-            outputRow.rowName = row.rowName;
-            outputRow.rowHash = row.rowName;
+            outputRow.rowName = r;
+            outputRow.rowHash = r;
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
@@ -899,8 +1021,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 // This is more complicated than it looks, because the input is
                 // flattened but the output is structured, so we have to go
                 // through the ExpressionValue to add the structure in first.
-                ExpressionValue structured(std::move(row.columns));
-                structured.mergeToRowDestructive(outputRow.columns);
+                row.mergeToRowDestructive(outputRow.columns);
             }
             else {
                 // Run the select expression
@@ -908,10 +1029,12 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 selectOutput.mergeToRowDestructive(outputRow.columns);
             }
             if (!processor(outputRow, calcd, count))
-              break;
+                return false;
 
             ++count;
         }      
+
+        return true;
     }
 
     virtual std::shared_ptr<ExpressionValueInfo> getOutputInfo() const
@@ -928,7 +1051,7 @@ BoundSelectQuery(const SelectExpression & select,
                  const SqlExpression & where,
                  const OrderByExpression & orderBy,
                  std::vector<std::shared_ptr<SqlExpression> > calc,
-                 int  numBuckets)
+                 int numBuckets)
     : select(select), from(from), when(when), where(where), calc(calc),
       orderBy(orderBy), context(new SqlExpressionDatasetScope(from, std::move(alias)))
 {
@@ -952,12 +1075,14 @@ BoundSelectQuery(const SelectExpression & select,
         // Get a generator rows from the for the ordered, limited where expression
 
         // Remove any constants from the order by clauses
+
         OrderByExpression newOrderBy;
         for (auto & x: orderBy.clauses) {
 
             // TODO: Better constant detection
-            if (x.first->getType() == "constant")
+            if (x.first->getType() == "constant") {
                 continue;  
+            }
 
             newOrderBy.clauses.push_back(x);
         }
@@ -967,12 +1092,22 @@ BoundSelectQuery(const SelectExpression & select,
         if (newOrderBy.clauses.size() == 1
             && newOrderBy.clauses[0].second == ASC
             && newOrderBy.clauses[0].first->getType() == "function"
-            && newOrderBy.clauses[0].first->getOperation() == "rowHash")
-            orderByRowHash = true;
+            && newOrderBy.clauses[0].first->getOperation() == "rowHash") {
+
+            Utf8String datasetName = static_pointer_cast<FunctionCallExpression>(newOrderBy.clauses[0].first)->tableName;
+
+            if (datasetName.empty() || datasetName.empty() == alias)
+                orderByRowHash = true;
+        }
+
+        if (!orderByRowHash && newOrderBy.clauses.size() > 0) {
+            //if we have an order by, always add a rowHash() to make sure we have a fully deterministic sorting order
+            newOrderBy.clauses.emplace_back(SqlExpression::parse("rowHash()"), ASC);
+        }
  
         if (orderByRowHash) {
             ExcAssert(numBuckets < 0);
-            executor.reset(new RowHashOrderedExecutor(std::move(matrix),
+            executor.reset(new RowHashOrderedExecutor(from,
                                                       std::move(whereGenerator),
                                                       *context,
                                                       std::move(whenBound),
@@ -984,15 +1119,16 @@ BoundSelectQuery(const SelectExpression & select,
         }
         else if (!newOrderBy.clauses.empty()) {
             ExcAssert(numBuckets < 0);
-            executor.reset(new OrderedExecutor(std::move(matrix),
+            executor.reset(new OrderedExecutor(from,
                                                std::move(whereGenerator),
                                                *context,
                                                std::move(whenBound),
                                                std::move(boundSelect),
                                                std::move(boundCalc),
-                                               std::move(newOrderBy)));
+                                               std::move(newOrderBy),
+                                               select.distinctExpr.size()));
         } else {
-            executor.reset(new UnorderedExecutor(std::move(matrix),
+            executor.reset(new UnorderedExecutor(from,
                                                  std::move(whereGenerator),
                                                 *context,
                                                  std::move(whenBound),
@@ -1003,7 +1139,7 @@ BoundSelectQuery(const SelectExpression & select,
         }
 
     } JML_CATCH_ALL {
-        rethrowHttpException(-1, "Binding error: "
+        rethrowHttpException(KEEP_HTTP_CODE, "Binding error: "
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
@@ -1013,7 +1149,7 @@ BoundSelectQuery(const SelectExpression & select,
     }
 }
 
-void
+bool
 BoundSelectQuery::
 execute(RowProcessorEx processor,
         ssize_t offset,
@@ -1023,17 +1159,16 @@ execute(RowProcessorEx processor,
     //STACK_PROFILE(BoundSelectQuery);
 
     auto subProcessor = [&] (NamedRowValue & row,
-                              std::vector<ExpressionValue> & calc,
-                              int groupNum)
-    {
-       return processor(row, calc);
+                             std::vector<ExpressionValue> & calc,
+                             int groupNum) {
+        return processor(row, calc);
     };
 
     return execute(subProcessor, processor.processInParallel, offset, limit, onProgress);
 
 }
 
-void
+bool
 BoundSelectQuery::
 execute(std::function<bool (NamedRowValue & output,
                             std::vector<ExpressionValue> & calcd,
@@ -1048,9 +1183,59 @@ execute(std::function<bool (NamedRowValue & output,
     ExcAssert(processor);
 
     try {
-        executor->execute(processor, processInParallel, offset, limit, onProgress);
+        return executor->execute(processor, processInParallel, offset, limit, onProgress);
     } JML_CATCH_ALL {
-        rethrowHttpException(-1, "Execution error: "
+        rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
+                             + ML::getExceptionString(),
+                             "select", select.surface,
+                             "from", from.getStatus(),
+                             "where", where.shallowCopy(),
+                             "calc", calc,
+                             "orderBy", orderBy,
+                             "offset", offset,
+                             "limit", limit);
+    }
+}
+
+bool
+BoundSelectQuery::
+executeExpr(RowProcessorExpr processor,
+            ssize_t offset,
+            ssize_t limit,
+            std::function<bool (const Json::Value &)> onProgress)
+{
+    auto subProcessor = [&] (Path & rowName,
+                             ExpressionValue & row,
+                             std::vector<ExpressionValue> & calc,
+                             int groupNum)
+        {
+            return processor(rowName, row, calc);
+        };
+    
+    return executeExpr(subProcessor, processor.processInParallel,
+                       offset, limit, onProgress);
+}
+
+bool
+BoundSelectQuery::
+executeExpr(std::function<bool (Path & rowName,
+                                ExpressionValue & output,
+                                std::vector<ExpressionValue> & calcd,
+                                int groupNum)> processor,
+            bool processInParallel,
+            ssize_t offset,
+            ssize_t limit,
+            std::function<bool (const Json::Value &)> onProgress)
+{
+    //STACK_PROFILE(BoundSelectQuery);
+
+    ExcAssert(processor);
+
+    try {
+        return executor->executeExpr(processor, processInParallel,
+                                     offset, limit, onProgress);
+    } JML_CATCH_ALL {
+        rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
@@ -1317,6 +1502,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
                       const std::vector<ExpressionValue>& row)
     {
         for (size_t i = 0;  i < outputAgg.size();  ++i) {
+            ExcAssert(argOffset + outputAgg[i].inputIndex + outputAgg[i].numInputs <= row.size());
             outputAgg[i].aggregate
                 .process(&row[argOffset + outputAgg[i].inputIndex],
                          outputAgg[i].numInputs,
@@ -1378,7 +1564,6 @@ BoundGroupByQuery(const SelectExpression & select,
     for (auto & expr : aggregatorsExpr)
     {
         auto fn = dynamic_cast<const FunctionCallExpression *>(expr.get());
-
         //Important: This assumes they are in the same order as in the group context
         for (auto & a: fn->args) {
            calc.emplace_back(a);
@@ -1400,12 +1585,12 @@ BoundGroupByQuery(const SelectExpression & select,
 
 }
 
-void
+bool
 BoundGroupByQuery::
 execute(RowProcessor processor,
-             ssize_t offset,
-             ssize_t limit,
-             std::function<bool (const Json::Value &)> onProgress)
+        ssize_t offset,
+        ssize_t limit,
+        std::function<bool (const Json::Value &)> onProgress)
 {
     //STACK_PROFILE(BoundGroupByQuery);
 
@@ -1420,6 +1605,13 @@ execute(RowProcessor processor,
     typedef std::vector<ExpressionValue> RowKey;
     typedef std::map<RowKey, GroupMapValue> GroupByMapType;
     std::vector<GroupByMapType> accum(numBuckets);
+
+    for (const auto & c: select.clauses) {
+        if (c->isWildcard()) {
+            throw HttpReturnException(
+                400, "Wildcard cannot be used with GROUP BY");
+        }
+    }
 
     //bind the selectexpression, this will create the bound aggregators (which we wont use, ah!)
     auto boundSelect = select.bind(*groupContext);
@@ -1537,7 +1729,7 @@ execute(RowProcessor processor,
     }
 
     if (boundOrderBy.empty())
-        return;
+        return true;
 
     // Compare two rows according to the sort criteria
     auto compareRows = [&] (const SortedRow & row1,
@@ -1550,26 +1742,72 @@ execute(RowProcessor processor,
     // Sort our output rows
     std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
 
-    auto doSelect = [&] (int rowNum) -> bool
-        {
-            auto & row = std::get<1>(rowsSorted[rowNum]);
-
-            /* Finally, pass to the terminator to continue. */
-            return processor(row);
-        };
-
     // Now select only the required subset of sorted rows
     if (limit == -1)
         limit = rowsSorted.size();
 
     ExcAssertGreaterEqual(offset, 0);
 
-    ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
-    ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+    if (select.distinctExpr.size() > 0) {
 
-    for (unsigned i = begin;  i < end;  ++i) {
-        doSelect(i);
-    } 
+        std::vector<ExpressionValue> reference;
+        size_t numDistinctOnClauses = select.distinctExpr.size();
+        reference.resize(numDistinctOnClauses);
+        ssize_t count = 0;
+
+        for (unsigned i = 0;  i < rowsSorted.size();  ++i) {
+
+            std::vector<ExpressionValue> & mark = std::get<0>(rowsSorted[i]);
+
+            if (i == 0) {
+                std::copy_n(mark.begin(), numDistinctOnClauses, reference.begin());
+            }
+            else {
+
+                bool same = true;
+                for (int i = 0; i < numDistinctOnClauses; ++i){
+                    if (reference[i] != mark[i]) {
+                        same = false;
+                        break;
+                    }
+                }
+
+                if (!same)
+                    std::copy_n(mark.begin(), numDistinctOnClauses, reference.begin());
+                else
+                    continue; //skip duplicates
+            }
+            ++count;
+
+            if (count <= offset)
+                continue;
+
+            auto & row = std::get<1>(rowsSorted[i]);
+
+            /* Finally, pass to the terminator to continue. */
+            if (!processor(row))
+                return false;
+
+            if (count - offset == limit)
+                break;
+        }
+
+    }
+    else {
+
+        ssize_t begin = std::min<ssize_t>(offset, rowsSorted.size());
+        ssize_t end = std::min<ssize_t>(offset + limit, rowsSorted.size());
+
+        for (unsigned i = begin;  i < end;  ++i) {
+            auto & row = std::get<1>(rowsSorted[i]);
+
+            /* Finally, pass to the terminator to continue. */
+            if (!processor(row))
+                return false;
+        } 
+    }  
+
+    return true;
 }
 
 } // namespace MLDB

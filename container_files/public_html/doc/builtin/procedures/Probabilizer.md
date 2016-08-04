@@ -33,8 +33,6 @@ be used for value calculations.  It is used for five main purposes:
     into the same business logic or a subsequent processing step that
     is retrained less frequently).
 
-The probabilizer.train procedure allows for a probabilizer to be trained.
-
 ## Algorithm
 
 The probabilizer training uses a generalized linear model to learn a monotonic
@@ -47,9 +45,11 @@ transformation of the output of the classifier onto a probability space.
 
 ![](%%type ML::Link_Function)
 
+### Important note
+
 A probabilizer is trained on the output of a classifier applied over a
-dataset.  The dataset should *not* have been used to train the classifier,
-or a biased probabilizer will result.
+dataset. The dataset should *not* have been used to train the classifier,
+as this will result in a biased probabilizer.
 
 ## See also
 

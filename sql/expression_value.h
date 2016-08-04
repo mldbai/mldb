@@ -14,6 +14,7 @@
 #include "mldb/types/date.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/utils/compact_vector.h"
 #include "cell_value.h"
 #include <cstdint>
 
@@ -71,6 +72,11 @@ enum JsonArrayHandling {
     PARSE_ARRAYS, ///< Arrays are parsed into nested expression values
     ENCODE_ARRAYS ///< Arrays are encoded as one-hot or JSON literals
 };
+
+DECLARE_ENUM_DESCRIPTION(JsonArrayHandling);
+
+/** Vector of dimensions for an embedding. */
+typedef compact_vector<size_t, 4> DimsVector;
 
 /*****************************************************************************/
 /* STORAGE TYPE                                                              */
@@ -208,6 +214,12 @@ struct ExpressionValueInfo {
     /// there) or open (other columns may be present).  Default throws that
     /// it's not a row.
     virtual SchemaCompleteness getSchemaCompleteness() const;
+
+    /// Return whether the schema for a row is closed (only those columns are
+    /// there) or open (other columns may be present).  Will return closed
+    /// for atoms, and open for rows with any open schema inside them at any
+    /// recursive depth.
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
 
     /// Return the set of known columns for a row.  Default throws that it's not
     /// a row.
@@ -594,17 +606,17 @@ struct ExpressionValue {
     */
     ExpressionValue(std::vector<CellValue> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<float> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<double> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
     
     /** Construct from a generalized uniform embedding, which is stored as
         a contiguous (flat), column-major array (ie, standard c storage).
@@ -626,7 +638,7 @@ struct ExpressionValue {
     embedding(Date ts,
               std::shared_ptr<const void> data,
               StorageType storage,
-              std::vector<size_t> dims,
+              DimsVector dims,
               std::shared_ptr<const EmbeddingMetadata> md = nullptr);
 
     /** Create a single ExpressionValue that is the superposition of several
@@ -647,8 +659,23 @@ struct ExpressionValue {
     ExpressionValue(CellValue atom, Date ts) noexcept;
     ExpressionValue(RowValue row) noexcept;
 
+    enum Sorting {
+        SORTED,
+        MAY_BE_SORTED,
+        NOT_SORTED
+    };
+
+    enum Duplicates {
+        NO_DUPLICATES,
+        MAY_HAVE_DUPLICATES,
+        HAS_DUPLICATES
+    };
+
     // Construct from a set of named values as a row
-    ExpressionValue(StructValue vals) noexcept;
+    ExpressionValue(StructValue vals,
+                    Sorting sorting = MAY_BE_SORTED,
+                    Duplicates duplicates = MAY_HAVE_DUPLICATES) noexcept;
+
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -658,14 +685,43 @@ struct ExpressionValue {
               Date timestamp,
               JsonArrayHandling arrays = PARSE_ARRAYS);
 
-    ~ExpressionValue();
+    ~ExpressionValue()
+    {
+        if (type_ == Type::NONE)
+            return;
+        destroy();
+    }
+
     ExpressionValue(const ExpressionValue & other);
-    ExpressionValue(ExpressionValue && other) noexcept;
+
+    JML_ALWAYS_INLINE ExpressionValue(ExpressionValue && other) noexcept
+    {
+        // Dodgy as hell.  But none of them have self referential pointers, and so it
+        // works and with no possibility of an exception.
+        std::memcpy(this, &other, sizeof(ExpressionValue));
+        other.type_ = Type::NONE;
+    }
 
     ExpressionValue & operator = (const ExpressionValue & other);
-    ExpressionValue & operator = (ExpressionValue && other) noexcept;
 
-    void swap(ExpressionValue & other) noexcept;
+    JML_ALWAYS_INLINE ExpressionValue &
+    operator = (ExpressionValue && other) noexcept
+    {
+        ExpressionValue newMe(std::move(other));
+        swap(newMe);
+        return *this;
+    }
+
+    JML_ALWAYS_INLINE
+    void swap(ExpressionValue & other) noexcept
+    {
+        // Dodgy as hell.  But none of them have self referential pointers, and so it
+        // works and with no possibility of an exception.
+        std::swap(type_,    other.type_);
+        std::swap(storage_[0], other.storage_[0]);
+        std::swap(storage_[1], other.storage_[1]);
+        std::swap(ts_, other.ts_);
+    }
 
     double toDouble() const;
     int64_t toInt() const;
@@ -702,6 +758,8 @@ struct ExpressionValue {
 
     bool isRow() const;
 
+    // isNull() -> use empty()
+
     /// Is this a superposition?  Meaning that there are multiple values
     /// superposed.
     bool isSuperposition() const;
@@ -720,13 +778,6 @@ struct ExpressionValue {
 
     /// Destructive getAtom() call, that moves it into the result
     CellValue stealAtom();
-
-    const Structured & getStructured() const;
-
-#if 0
-    // like getRow, but it actually moves it out so no copying is required
-    Structured stealStructured();
-#endif
 
     CellValue coerceToString() const;
     CellValue coerceToInteger() const;
@@ -810,7 +861,7 @@ struct ExpressionValue {
     getEmbeddingCell(ssize_t knownLength = -1) const;
 
     /** Return the shape of the embedding. */
-    std::vector<size_t>
+    DimsVector
     getEmbeddingShape() const;
 
     /** Reshape the embedding into a new shape.  The total number of
@@ -818,7 +869,7 @@ struct ExpressionValue {
 
         This will throw an exception if the shape doesn't match.
     */
-    ExpressionValue reshape(std::vector<size_t> newShape) const;
+    ExpressionValue reshape(DimsVector newShape) const;
 
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
@@ -830,6 +881,13 @@ struct ExpressionValue {
     */
     ML::distribution<double, std::vector<double> >
     getEmbedding(const ColumnName * knownNames, size_t len) const;
+
+    /** Convert an embedding to an array of the given storage type.  The
+        elements will be filled in to the existing memory.  Throws an
+        exception if len is not correct to cover the exact amount of
+        memory required.
+    */
+    void convertEmbedding(void * buf, size_t len, StorageType bufType) const;
 
     /** Iterate over the child expression, with an ExpressionValue at each
         level.  Note that if isRow() is false, than this function will
@@ -924,6 +982,19 @@ struct ExpressionValue {
     */
     ExpressionValue getFilteredDestructive(const VariableFilter & filter);
 
+    /** Returns the number of times that forEachAtom() will return a
+        value to the callback.  In other words, the total number of
+        distinct atoms in this object.  Atoms will return one.
+    */
+    size_t getAtomCount() const;
+
+    /** Returns the number of unique column names that forEachAtom()
+        will return.  In other words, the total number of distinct
+        elements in the flattened representation of the object.
+        Atoms will return one.
+    */
+    size_t getUniqueAtomCount() const;
+    
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,
                                 std::pair<CellValue, Date> * vals2,
@@ -991,12 +1062,24 @@ struct ExpressionValue {
     /** Same, but return the JSON directly. */
     Json::Value extractJson() const;
 
+    /** Convert to the given type described by its ValueDescription. */
+    template<typename T>
+    T extractT(const ValueDescription & desc
+               = *getDefaultDescriptionSharedT<T>()) const
+    {
+        T result;
+        extractImpl(&result, desc);
+        return result;
+    }
+
     /** Return a hash of the value.  Note the the timestamps are NOT and MUST
         NOT BE incorporated into the calculated value.
     */
     size_t hash() const;
 
 private:
+    void extractImpl(void * obj, const ValueDescription & desc) const;
+
     void initInt(int64_t intValue, Date ts);
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept
@@ -1009,7 +1092,9 @@ private:
         type_ = Type::ATOM;
     }
     void initStructured(Structured row) noexcept;
+    void initStructured(Structured value, bool needsSorting, bool hasDuplicates) noexcept;
     void initStructured(std::shared_ptr<const Structured> row) noexcept;
+    const Structured & getStructured() const;
 
     void setAtom(CellValue value, Date ts);
 
@@ -1024,6 +1109,9 @@ private:
     */
     template<typename Fn>
     bool forEachAtomDestructiveT(Fn && onColumn);
+
+    /** Destroy complex value, leaving an empty value. */
+    void destroy();
 
     enum class Type : uint8_t {
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
@@ -1075,6 +1163,18 @@ PREDECLARE_VALUE_DESCRIPTION(ExpressionValue);
 */
 std::shared_ptr<ValueDescriptionT<ExpressionValue> >
 getExpressionValueDescriptionNoTimestamp();
+
+/** Create an expression value description specialized to the given type.
+    This can be used to extract the specialized info for a type.
+*/
+std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
+makeExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info);
+
+/** Get the expression value description from this value description.  If
+    it's not an expression value, returns a null pointer.
+*/
+std::shared_ptr<ExpressionValueInfo>
+extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc);
 
 
 /*****************************************************************************/
@@ -1274,6 +1374,8 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
     virtual bool couldBeRow() const
@@ -1333,6 +1435,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
 
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
     virtual std::vector<ColumnName> allColumnNames() const;
@@ -1372,9 +1476,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
     virtual SchemaCompleteness getSchemaCompleteness() const override;
-
-    std::vector<KnownColumn> columns;
-    SchemaCompleteness completeness;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
 
     virtual bool isCompatible(const ExpressionValue & value) const override
     {
@@ -1395,6 +1497,11 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     {
         return false;
     }
+
+protected:
+    std::vector<KnownColumn> columns;
+    SchemaCompleteness completeness;
+    SchemaCompleteness completenessRecursive;
 };
 
 /// For a row.  This may have information about columns within that row.

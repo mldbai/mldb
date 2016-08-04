@@ -146,7 +146,8 @@ struct EmbeddingDatasetRepr {
 
     struct Row {
         Row(RowName rowName, ML::distribution<float> coords, Date timestamp)
-            : rowName(std::move(rowName)), coords(std::move(coords))
+            : rowName(std::move(rowName)), coords(std::move(coords)),
+              timestamp(timestamp)
         {
         }
 
@@ -320,6 +321,12 @@ struct EmbeddingDataset::Itl
         virtual RowName next() {
             auto repr = source->committed();     
             return repr->rows[index++].rowName;
+        }
+
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            auto repr = source->committed();     
+            return repr->rows[index].rowName;
         }
 
         size_t index;
@@ -1176,6 +1183,8 @@ NearestNeighborsOutputDescription::
 NearestNeighborsOutputDescription()
 {
     addField("neighbors", &NearestNeighborsOutput::neighbors,
+             "Row containing the row names of the nearest neighbors in rank order");
+    addField("distances", &NearestNeighborsOutput::distances,
              "Row containing the nearest neighbors, each with its distance");
 }
 
@@ -1236,20 +1245,24 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
     else if(inputRow.isEmbedding() || inputRow.isRow()) {
         auto embedding = applier.getEmbeddingFromExpr(inputRow);
         neighbors = applier.embeddingDataset
-            ->getNeighbors(inputRow.getEmbedding(-1),
-                           numNeighbors, maxDistance);
+            ->getNeighbors(embedding.cast<float>(), numNeighbors, maxDistance);
     }
     else {
         throw ML::Exception("Input row must be either a row name or an embedding");
     }
 
-    RowValue rtnRow;
-    rtnRow.reserve(neighbors.size());
+    std::vector<CellValue> neighborsOut;
+    RowValue distances;
+
+    distances.reserve(neighbors.size());
+    neighborsOut.reserve(neighbors.size());
     for(auto & neighbor : neighbors) {
-        rtnRow.emplace_back(get<0>(neighbor), get<2>(neighbor), ts);
+        distances.emplace_back(get<0>(neighbor), get<2>(neighbor), ts);
+        neighborsOut.emplace_back(std::move(std::get<0>(neighbor)));
     }
-    
-    return {ExpressionValue(rtnRow)};
+
+    return {ExpressionValue(std::move(neighborsOut), ts),
+            ExpressionValue(std::move(distances))};
 }
     
 std::unique_ptr<FunctionApplierT<NearestNeighborsInput, NearestNeighborsOutput> >
@@ -1296,9 +1309,8 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
 
             for (auto & c: columnNames) {
                 if (!c.empty() || c.back().isIndex()) {
-                    ColumnName knownEmbedding = c;
-                    knownEmbedding.pop_back();
-                    knownEmbeddings.insert(c);
+                    ColumnName knownEmbedding(c.begin(), c.end() - 1);
+                    knownEmbeddings.insert(knownEmbedding);
                 }
             }
 

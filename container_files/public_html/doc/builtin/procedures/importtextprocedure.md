@@ -12,6 +12,7 @@ This procedure is used to import data from text files with each line in the file
 The following functions are available in the `select`, `named`, `where` and `timestamp` expressions:
 
 - `lineNumber()`: returns the line number in the file
+- `rowHash()`: returns the internal hash value of the current row, useful for random sampling
 - `fileTimestamp()`: returns the timestamp (last modified time) of the file
 - `dataFileUrl()`: returns the URL of the file, from the configuration
 

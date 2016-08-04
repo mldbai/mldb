@@ -12,37 +12,48 @@
 #include <string>
 #include <unordered_map>
 #include <functional>
+#include <vector>
 #include "types/string.h"
-#include "jml/stats/distribution.h"
+#include "mldb/types/value_description_fwd.h"
+#include "cell_value.h"
 
 namespace ML {
-    struct Parse_Context;
+struct Parse_Context;
 }
 
 namespace Datacratic {
 
-    void
-    tokenize_exec(std::function<bool (Utf8String&)> exec,
+/** Common options for the tokenize function. */
+struct TokenizeOptions {
+    Utf8String splitchar = ",";
+    Utf8String quotechar = "";
+    int offset = 0, limit = -1;
+    MLDB::CellValue value;
+    int minTokenLength = 1;
+    std::pair<int, int> ngramRange = { 1, 1};
+};
+
+/** Allow these options to be accessed and documented via the ValueDescription
+    system.
+*/
+DECLARE_STRUCTURE_DESCRIPTION(TokenizeOptions);
+
+void
+tokenize_exec(std::function<bool (Utf8String&)> exec,
               ML::Parse_Context& context,
               const Utf8String& splitchars,
               const Utf8String& quotechar,
-              int min_token_length);
+              int minTokenLength);
 
-    char32_t expectUtf8Char(ML::Parse_Context & context);
+char32_t expectUtf8Char(ML::Parse_Context & context);
 
-    bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
-                  ML::Parse_Context& pcontext,
-                  const Utf8String& splitchars,
-                  const Utf8String& quotechar,
-                  int offset, int limit,
-                  int min_token_length,
-                  ML::distribution<float, std::vector<float> > & ngram_range);
+bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
+              ML::Parse_Context& pcontext,
+              const TokenizeOptions & options);
 
-    Utf8String token_extract(ML::Parse_Context& context,
-                             const Utf8String& splitchars,
-                             const Utf8String& quotechar,
-                             int offset, int limit, int nth,
-                             int min_token_length);
+Utf8String token_extract(ML::Parse_Context& context,
+                         int nth,
+                         const TokenizeOptions & options);
 
-}
+} // namespace Datacratic
 

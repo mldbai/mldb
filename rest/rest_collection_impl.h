@@ -559,14 +559,7 @@ addBackgroundJobInThread(Key key,
         auto onProgressFn = [=] (const Json::Value & progress)
             {
                 std::unique_lock<std::mutex> guard(task->mutex);
-                task->progress.clear();
-
-                if (!progress.isNull()) {
-                    task->progress["progress"] = progress;
-                    for (auto & f: task->onProgressFunctions)
-                        f(progress);
-                }
-
+                task->setProgress(progress);
                 return !task->cancelled;
             };
 
@@ -582,6 +575,10 @@ addBackgroundJobInThread(Key key,
                     task->value = fn(onProgressFn, std::move(cancelled));
                     task->setFinished();
                 } catch (const std::exception & exc) {
+                    // MDLB-1863 progress must be a json object
+                    ExcAssert(task->progress.type() == Json::nullValue ||
+                              task->progress.type() == Json::objectValue);
+
                     task->progress["exception"] = extractException(exc, 500);
                     task->setError(std::current_exception());
                 }
@@ -601,8 +598,6 @@ addBackgroundJobInThread(Key key,
 
         if (impl->entries.cmp_xchg(oldEntries, newEntries, true)) {
             // Now we can start the task, since the commit succeeded
-            onProgressFn(Json::Value());
-
             std::thread thread(toRun);
 
             auto handle = thread.native_handle();

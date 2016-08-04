@@ -39,6 +39,14 @@ void parallelMap(size_t first, size_t last,
                  const std::function<void (size_t)> & doWork,
                  int occupancyLimit = -1);
 
+/** Same as parallelMap(), but takes a lambda which will short-circuit the
+    work if it returns false.  Returns false if and only if a doWork()
+    call returned false.
+*/
+bool parallelMapHaltable(size_t first, size_t last,
+                         const std::function<bool (size_t)> & doWork,
+                         int occupancyLimit = -1);
+
 /** Same as parallelMap, except that each doWork() call will be passed
     a chunk of work of chunkSize.  This is useful to reduce the amount
     of calling overhead on a very fine-grained job.

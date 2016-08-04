@@ -344,7 +344,7 @@ train_one_mode1(const boost::multi_array<double, 2> & outputs,
     //cerr << "dest = " << dest << endl;
 
     distribution<double> param(3, 0.0);
-    param = run_irls(correct, outputs2, w, link);
+    param = run_irls(correct, outputs2, w,  link);
     
     /* Put the 3 columns back into ol columns, so that the output is
        still compatible. */

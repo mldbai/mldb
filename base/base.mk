@@ -4,7 +4,8 @@
 LIBBASE_SOURCES := \
         parse_context.cc \
 	thread_pool.cc \
-	parallel.cc
+	parallel.cc \
+	optimized_path.cc
 
 LIBBASE_LINK :=	arch boost_thread gc
 

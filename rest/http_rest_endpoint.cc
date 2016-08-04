@@ -10,7 +10,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
 #include <boost/lexical_cast.hpp>
-#include "mldb/http/tcp_acceptor.h"
+#include "mldb/io/tcp_acceptor.h"
 #include "http_rest_endpoint.h"
 #include "mldb/utils/log.h"
 #include <iomanip>

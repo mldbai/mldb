@@ -16,6 +16,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/ml/algebra/matrix_ops.h"
 #include "mldb/ml/algebra/lapack.h"
+#include "mldb/ml/algebra/least_squares.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 
@@ -50,7 +51,10 @@ configure(const Configuration & config)
     config.find(link_function, "link_function");
     config.find(normalize, "normalize");
     config.find(condition, "condition");
-    config.find(ridge_regression, "ridge_regression");
+    config.find(regularization, "regularization");
+    config.find(regularization_factor, "regularization_factor");
+    config.find(max_regularization_iteration, "max_regularization_iteration");
+    config.find(regularization_epsilon, "regularization_epsilon");
     config.find(feature_proportion, "feature_proportion");
 }
 
@@ -64,7 +68,10 @@ defaults()
     do_decode = true;
     normalize = true;
     condition = false;
-    ridge_regression = true;
+    regularization = Regularization_l2;
+    regularization_factor = 1e-5;
+    max_regularization_iteration = 1000;
+    regularization_epsilon = 1e-4;
     feature_proportion = 1.0;
 }
 
@@ -80,15 +87,29 @@ options() const
              "run the decoder (link function) after classification?")
         .add("link_function", link_function,
              "which link function to use for the output function")
-        .add("ridge_regression", ridge_regression,
-             "use a regularized regression with smaller coefficients")
+        .add("regularization", regularization,
+             "type of regularization on the weights (L1 is slower due to an"
+             " iterative algorithm)")
+        .add("regularization_factor", regularization_factor, "-1 to infinite",
+             "regularization factor to use. auto-determined if negative"
+             " (slower). the bigger this value is, the more regularization on"
+             " the weights")
+        .add("max_regularization_iteration", max_regularization_iteration,
+             "1 to infinite", "maximum number of iterations for the L1"
+             " regularization")
+        .add("regularization_epsilon", regularization_epsilon,
+             "positive number", "smallest weight update before assuming"
+             " convergence for the L1 iterative algorithm")
         .add("normalize", normalize,
-             "normalize features to have zero mean and unit variance for greater numeric stability (but slower training)")
+             "normalize features to have zero mean and unit variance for"
+             " greater numeric stability (slower training but recommended with"
+             " L1 regularization)")
         .add("condition", condition,
-             "condition features to have no correlation for greater numeric stability (but much slower training)")
+             "condition features to have no correlation for greater numeric"
+             " stability (but much slower training)")
         .add("feature_proportion", feature_proportion, "0 to 1",
-             "use only a (random) portion of available features when training classifier");
-    
+             "use only a (random) portion of available features when training"
+             " classifier");
 
     return result;
 }
@@ -263,7 +284,7 @@ train_weighted(Thread_Context & thread_context,
     size_t nx2 = indexes.size();
 
     //cerr << "nx = " << nx << " nv = " << nv << " nx * nv = " << nx * nv
-    //     << endl;
+    //    << endl;
 
     Timer t;
 
@@ -324,6 +345,7 @@ train_weighted(Thread_Context & thread_context,
 
     /* Scale */
     for (unsigned v = 0;  v < nv && normalize;  ++v) {
+
         double total = 0.0;
 
         for (unsigned x = 0;  x < nx2;  ++x)
@@ -348,7 +370,6 @@ train_weighted(Thread_Context & thread_context,
             std = 1.0;
             
         double std_recip = 1.0 / std;
-
         for (unsigned x = 0;  x < nx2;  ++x)
             dense_data[v][x] = (dense_data[v][x] - mean) * std_recip;
 
@@ -371,9 +392,11 @@ train_weighted(Thread_Context & thread_context,
             
         distribution<double> trained
             = perform_irls(correct[l], dense_data, w[l], link_function,
-                           ridge_regression, condition);
+                           regularization, regularization_factor, max_regularization_iteration, regularization_epsilon, 
+                           condition);
 
         trained /= stds;
+
         extra_bias = - (trained.dotprod(means));
 
         if (extra_bias != 0.0) {

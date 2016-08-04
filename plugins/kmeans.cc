@@ -151,7 +151,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if (!runProcConf.modelFileUrl.empty()) {
-        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+        checkWritability(runProcConf.modelFileUrl.toDecodedString(), "modelFileUrl");
     }
 
     auto onProgress2 = [&] (const Json::Value & progress)
@@ -203,13 +203,13 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toDecodedString());
             Json::Value md;
             md["algorithm"] = "MLDB k-Means model";
             md["version"] = 1;
             md["columnNames"] = jsonEncode(columnNames);
 
-            filter_ostream stream(runProcConf.modelFileUrl.toString());
+            filter_ostream stream(runProcConf.modelFileUrl);
             stream << md.toString();
             ML::DB::Store_Writer writer(stream);
             kmeans.serialize(writer);
@@ -340,7 +340,7 @@ struct KmeansFunction::Impl {
 
     Impl(const Url & modelFileUrl)
     {
-        filter_istream stream(modelFileUrl.toString());
+        filter_istream stream(modelFileUrl);
         std::string firstLine;
         std::getline(stream, firstLine);
         Json::Value md = Json::parse(firstLine);

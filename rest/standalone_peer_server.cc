@@ -6,10 +6,10 @@
 */
 
 #include "standalone_peer_server.h"
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/asio_timer.h"
-#include "mldb/http/event_loop.h"
-#include "mldb/http/event_loop_impl.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/asio_timer.h"
+#include "mldb/io/event_loop.h"
+#include "mldb/io/event_loop_impl.h"
 #include "mldb/jml/utils/string_functions.h"
 #include <atomic>
 

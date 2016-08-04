@@ -4,10 +4,9 @@
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
-import unittest, json
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class LikeTest(unittest.TestCase):
+class LikeTest(MldbUnitTest):  # noqa
 
     def test_like_select(self):
 
@@ -62,7 +61,7 @@ class LikeTest(unittest.TestCase):
         res = mldb.query('''
             select x LIKE '%t_' as v
             from sample
-        ''')        
+        ''')
 
         expected = [["_rowName","v"],["d",0],["e",1],["c",0],["b",0],["a",0]]
         self.assertEqual(res, expected)
@@ -96,7 +95,7 @@ class LikeTest(unittest.TestCase):
         ds.record_row("e",[["x", "eg(ro)te", 0]])
         ds.record_row("f",[["x", "famelico$e", 0]])
         ds.record_row("g",[["x", "gardev^iance", 0]])
-        ds.commit()       
+        ds.commit()
 
         res = mldb.query('''
             select x
@@ -168,7 +167,7 @@ class LikeTest(unittest.TestCase):
         ds.record_row("a",[["x", 0, 0]])
         ds.record_row("b",[["x", 12345, 0]])
         ds.record_row("c",[["x", 12345.00, 0]])
-        ds.commit()       
+        ds.commit()
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             res = mldb.query('''
@@ -192,5 +191,35 @@ class LikeTest(unittest.TestCase):
 
         expected = [["_rowName","x"],["a","hyometer"]]
         self.assertEqual(res, expected)
+
+    def test_null_like(self):
+        """
+        MLDB-1727 test null like
+        """
+        res = mldb.get('/v1/query',
+                       q="SELECT NULL LIKE 'abc' AS res NAMED 'row'")
+        self.assertFullResultEquals(res.json(), [{
+            'rowName' : "row",
+            'columns' : [['res', None, "-Inf"]]
+        }])
+
+    def test_like_null(self):
+        msg = ("LIKE expression expected its right hand value to be a string, "
+               "got empty")
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.query("SELECT 'abc' LIKE NULL AS res NAMED 'row'")
+
+    def test_join_no_on_clause(self):
+        """
+        MLDB-1617
+        """
+        res1 = mldb.query("select 'apple' like ('%'+'p'+'%')")
+        mldb.log(res1)
+
+        res2 = mldb.query("select 'apple' like '%'+'p'+'%'")
+        mldb.log(res2)
+
+        self.assertEqual(res1[1], res2[1]);
+
 
 mldb.run_tests()

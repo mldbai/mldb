@@ -167,7 +167,7 @@ getRunDetails(const ProcedureRun * run) const
 /*****************************************************************************/
 
 ProcedureConfig::
-ProcedureConfig() : runOnCreation(false)
+ProcedureConfig() : runOnCreation(true)
 {
 }
 
@@ -180,7 +180,7 @@ ProcedureConfigDescription()
     addField("runOnCreation", &ProcedureConfig::runOnCreation,
              "If true, the procedure will be run immediately. The response will contain an "
              "extra field called `firstRun` pointing to the URL of the run.",
-             false);
+             true);
 
     // ignore unknown fields
     onUnknownField = [] (const ProcedureConfig * conf, JsonParsingContext & ctx) { };

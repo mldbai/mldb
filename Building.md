@@ -4,7 +4,7 @@ These instructions are designed for a vanilla installation of **Ubuntu 14.04** a
 
 It will take around **45 minutes on a 32-core machine with 244GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license, which can be obtained instantly by filling out [this form](http://mldb.ai/licensing.html).
 
-## System dependencies
+## Installing system dependencies via `apt-get`
 
 For C++ code to compile and the Python modules to install correctly, the following system packages need to be installed:
 
@@ -14,12 +14,13 @@ libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
 libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en
+language-pack-en libyaml-cpp-dev
 ```
+## Installing Docker
 
 To build and run the Docker image, you will need to install Docker: https://docs.docker.com/engine/installation/ubuntulinux/
 
-## Cloning, compiling and test
+## Cloning, compiling and testing
 
 You will first need to have a Github account with [SSH keys](https://help.github.com/categories/ssh/) set up because the repo uses SSH paths in its submodule configuration. You can test that keys are correctly set up by running the following command and seeing "successfully authenticated":
 
@@ -27,12 +28,12 @@ You will first need to have a Github account with [SSH keys](https://help.github
 ssh -T git@github.com
 ```
 
-**Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest).
+**Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest) which is tracked by the `release_latest` branch.
 
 ```bash
 git clone git@github.com:mldbai/mldb.git
 cd mldb
-# git checkout < tag from https://github.com/mldbai/mldb/releases/latest >
+git checkout release_latest
 git submodule update --init --recursive
 make dependencies
 make -k compile
@@ -69,6 +70,12 @@ COMPILER_CACHE:=ccache
 *N.B.* To use `ccache` to maximum effect, you should set the cache size to something like 10GB if you have the disk space with `ccache -M 10G`.
 
 ## Building a Docker image
+
+You'll need to add your user to the `docker` group otherwise you'll need to `sudo` to build the Docker image:
+
+```bash
+sudo usermod -a -G docker `whoami`
+```
 
 To *build* a development Docker image just run the following command from the top level of this repo:
 
@@ -171,8 +178,10 @@ make mldb_base IMG_NAME=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
 
 make docker_mldb DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
 # When convinced things are ok:
+docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
 docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:14.04
-docker push -f quay.io/datacratic/mldb_base:14.04
+docker push quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
+docker push quay.io/datacratic/mldb_base:14.04
 ```
 
 The script used to build this layer is `mldb_base/docker_create_mldb_base.sh`
@@ -258,3 +267,87 @@ sudo apt-get install clang-3.5
 
 You can then add `toolchain=clang` to compile with the clang compiler.
 
+## Environment variables
+
+* `MLDB_CHECK_ROW_SCOPE_TYPES` is a boolean (default 0) that tells MLDB
+  whether to do extra type checking of row scopes.  Setting to 1 will
+  do so, at the expense of slightly slower code.  It may be helpful in
+  debugging of segmentation faults.
+* `MLDB_DEFAULT_PATH_OPTIMIZATION_LEVEL` controls how MLDB handles
+  optimized code-paths for specific situations.  When set to 'always'
+  (the default), optimized paths are always used when available.  This
+  leads to maximum speed.  When set to 'never', the base (unoptimized)
+  path is used.  When set to 'sometimes', the optimized path is taken
+  50% of the time.  This can be used when unit testing to ensure the
+  equivalence of optimized and non-optimized versions of code and thus
+  verify the correctness of the optimized versions.
+
+
+## CUDA support
+
+In order to run on a Nvidia GPU, CUDA needs to be enabled and the CUDA
+drivers set up on the machine.
+
+### Machine setup
+
+See here: [http://www.r-tutor.com/gpu-computing/cuda-installation/cuda7.5-ubuntu]
+The machine needs to have the Nvidia CUDA packages installed on the
+machine.
+
+Note that the machine may need to be restarted before the GPUs will be
+usable.
+
+```
+sudo apt-get install linux-image-generic linux-headers-generic
+wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-repo-ubuntu1404_7.5-18_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu1404_7.5-18_amd64.deb
+sudo apt-get update
+sudo apt-get install cuda
+nvidia-smi -q | head  // should print Driver Version: 352.68
+```
+
+You will also need cudnn version 5.5 in order to run most models on
+GPUS.  To get this you first need to sign up at the Nvidia page
+here: [https://developer.nvidia.com/accelerated-computing-developer].
+
+Once the registration is done, you can download the two deb files
+for cudnn:
+
+```
+31899464 libcudnn5_5.1.3-1+cuda7.5_amd64.deb
+28456606 libcudnn5-dev_5.1.3-1+cuda7.5_amd64.deb
+```
+
+and install them as follows:
+
+```
+sudo dpkg -i libcudnn5_5.1.3-1+cuda7.5_amd64.deb libcudnn5-dev_5.1.3-1+cuda7.5_amd64.deb
+```
+
+Note that since cudnn can't be distributed with MLDB, it will need to
+be installed inside the MLDB container (but only the first deb file)
+so that it can be found at runtime by MLDB.
+
+### Hardware compatibility
+
+Note that MLDB requires cards with shader model > 3.0 in order to run
+on CUDA.  You can identify the shader model of your card using the
+command
+
+```
+nvidia-smi -q
+```
+
+### Enabling CUDA in the build
+
+The following should be added to `local.mk`:
+
+```
+WITH_CUDA:=1
+```
+
+Or the following to the Make command-line:
+
+```
+make ... WITH_CUDA=1
+```

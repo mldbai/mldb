@@ -4,11 +4,11 @@ import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb1597Test(MldbUnitTest):  
+class Mldb1597Test(MldbUnitTest):
 
     @classmethod
     def setUpClass(cls):
-        
+
         # the raw data
         mldb.post("/v1/procedures", {
             "type": "import.text",
@@ -21,7 +21,7 @@ class Mldb1597Test(MldbUnitTest):
                     c_1 as c,
                     d_1+d_2-c_2 as d,
                     e_1, e_2, e_1/e_2 as e,
-                    c_1+c_2-d_1-d_2 as p, 
+                    c_1+c_2-d_1-d_2 as p,
                     1-(d_1+d_2-c_2)/c_1 as r
                 """,
                 "limit" : 100,
@@ -35,11 +35,11 @@ class Mldb1597Test(MldbUnitTest):
             "type": "transform",
             "params":{
                 "inputData": """
-                select 
-                    dow, a_int, 
-                    sum(e_1)/sum(e_2) as e, 
+                select
+                    dow, a_int,
+                    sum(e_1)/sum(e_2) as e,
                     avg({b_1, b_2}) as *,
-                    avg(b_1)/avg(b_2) as b_ratio, 
+                    avg(b_1)/avg(b_2) as b_ratio,
                     1-sum(d_1+d_2-c_2)/sum(c_1) as r
                 from ds
                 group by dow, a_int
@@ -114,18 +114,18 @@ class Mldb1597Test(MldbUnitTest):
 
     def test_order_by_with_aggregate(self):
         mldb.query("""
-        select 
+        select
             sum(c) as s
-        from ds 
+        from ds
         group by dow
         order by sum(c)
         """)
 
         mldb.query("""
-        select 
+        select
             1-(0.001+sum(d))/(0.001+sum(c)) as r,
             sum(c - d) as p
-        from ds 
+        from ds
         group by dow
         order by 1-(0.001+sum(d))/(0.001+sum(c))
         """)
@@ -135,7 +135,7 @@ class Mldb1597Test(MldbUnitTest):
         mldb.log(resp)
         # expecting the header + 10 lines
         self.assertEqual(len(resp), 10 + 1)
-        
+
         # columns in the same order as the input
         mldb.log(resp[1])
         self.assertEqual(resp[0], [
@@ -147,7 +147,7 @@ class Mldb1597Test(MldbUnitTest):
             "right_table.index",
             "right_table.mod"
         ], "following asserts depend on this layout")
-    
+
         for line in resp[1:]:
             self.assertEqual(line[1], line[5], "expected equal values on these fields")
             self.assertEqual(line[2], line[4], "expected equal values on these fields")
@@ -164,19 +164,20 @@ class Mldb1597Test(MldbUnitTest):
         right.commit()
 
         self.run_query_and_compare("""
-        select * 
-        from left_table left join right_table 
+        select *
+        from left_table left join right_table
         on (left_table.asc = right_table.index
         and left_table.const = right_table.const)
         """)
 
         self.run_query_and_compare("""
-        select * 
-        from left_table left join right_table 
-        on (left_table.asc + left_table.const = 
+        select *
+        from left_table left join right_table
+        on (left_table.asc + left_table.const =
         right_table.index + right_table.const)
         """)
-            
+
+    @unittest.expectedFailure # MLDB-1803
     def test_join_with_and(self):
 
         resp = mldb.query('select * from ds_train')
@@ -211,7 +212,7 @@ class Mldb1597Test(MldbUnitTest):
         result = mldb.post("/v1/procedures", {
             "type": "classifier.test",
             "params": {
-                "testingData": "select 11.0 as score, ds.c as label from ds",
+                "testingDataOverride": "select 11.0 as score, ds.c as label from ds",
                 "mode": "regression",
                 "runOnCreation": True
             }
@@ -219,7 +220,6 @@ class Mldb1597Test(MldbUnitTest):
         r2 = result.json()["status"]["firstRun"]["status"]["r2"]
         self.assertTrue( r2 is not None )
 
-    @unittest.skip("awaiting MLDB-1660")
     def test_function_creation_bug(self):
         mldb.post("/v1/procedures", {
             "type": "import.text",
@@ -240,11 +240,11 @@ class Mldb1597Test(MldbUnitTest):
             "type": "classifier.experiment",
             "params": {
                 "experimentName": "x",
-                "trainingData": "select {a} as features, b as label from narrow",
+                "inputData": "select {a} as features, b as label from narrow",
                 "algorithm": "dt",
                 "mode": "regression",
                 "configurationFile": "./mldb/container_files/classifiers.json",
-                "modelFileUrlPattern": "file:///tmp/MLDB-1597-creation$runid.cls",
+                "modelFileUrlPattern": "file://tmp/MLDB-1597-creation$runid.cls",
                 "runOnCreation": True
             }
         })
@@ -257,7 +257,7 @@ class Mldb1597Test(MldbUnitTest):
                     "type": "classifier.experiment",
                     "params": {
                         "experimentName": "ds",
-                        "trainingData": 
+                        "inputData":
                             "select { %s } as features, %s as label from ds_train" % (
                                 ",".join(features), label),
                         "algorithm": algo,

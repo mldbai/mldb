@@ -13,7 +13,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "matrix.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
 #include "mldb/plugins/classifier.h"
 
@@ -28,7 +28,7 @@ struct AccuracyConfig : public ProcedureConfig {
     static constexpr const char * name = "classifier.test";
 
     AccuracyConfig()
-          : mode(CM_BOOLEAN)
+          : mode(CM_BOOLEAN), uniqueScoresOnly(false)
     {
     }
 
@@ -37,6 +37,8 @@ struct AccuracyConfig : public ProcedureConfig {
 
     /// What mode to run in
     ClassifierMode mode;
+
+    bool uniqueScoresOnly;
 
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;

@@ -8,10 +8,15 @@ MLDB's atomic types are the following:
 
 - A null value
     - Null values can appear in queries as `null` (case-insensitive)
+    - Null takes its standard SQL significance meaning "unknown". This means that the vast majority of expressions which contain a null value as an argument will evaluate to `null`, unless it is impossible for its value to be unknown. Cases of note:
+      - `null = null` will evaluate to `null` as neither value is known, so the equality is unknown. The way to check for null values is to use the `IS` operator: `null IS NULL` will evaluate to `true`.
+      - `false AND x` cannot evaluate to `true` for any value of `x` so this will evaluate to `false` even if `x` is `null`.
+      - `true OR x` cannot evaluate to `false` for any value of `x` so this will evaluate to `true` even if `x` is `null`.
 - An integer, which can take any value of a signed or unsigned 64 bit integer
     - Integers can appear in queries directly i.e. `1` or `-3`
+    - `true` is a synonym for `1` and `false` is a synonym for `0`
 - A double precision floating point value, including infinity, negative infinity
-and NaN
+and NaN (not a number)
     - Doubles can appear in queries directly, optionally in exponential notation: `12.2`, `1.22e1`, `inf`, `nan` (case-insensitive)
 - A string, which is any UTF8 encoded sequence of characters.
     - String literals can appear in queries surrounded in single-quote characters (i.e. `'`). Single-quote characters within string literals must be doubled (i.e. `''`). Strings are *always* encoded as UTF-8 Unicode characters.
@@ -36,7 +41,10 @@ A single leading `-` in the string will reverse the direction of the interval, e
   used as row and column names.  For example, the value `3` inside
   `{ "x": [ 1, 2, 3 ] }` will be represented by the path `x.2`, ie the structure
   `x` with the 3rd (zero-based) element.  Paths are in some ways similar to
-  strings, but are internally structured as arrays of elements.
+  strings, but are internally structured as arrays of elements.  See the
+  [Intro to Datasets](../datasets/Datasets.md) documentation for more
+   information about names and paths.  A path may contain any UTF-8 or ASCII
+   characters, including control characters, apart from the null character `\0`.
 
 ## Data Point Timestamps
 

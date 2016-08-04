@@ -52,6 +52,8 @@ struct TabularDataset : public Dataset {
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
 
     virtual std::shared_ptr<RowStream> getRowStream() const;
+
+    virtual ExpressionValue getRowExpr(const RowName & row) const;
     
     virtual std::pair<Date, Date> getTimestampRange() const;
 

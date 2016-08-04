@@ -31,7 +31,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 // Defined in static_content_handler.cc
-std::string renderMarkdown(const std::string & str, MacroData & macroData);
+std::string renderMarkdown(const std::string & str, const MacroData & macroData);
 
 using namespace Json;
 
@@ -201,6 +201,13 @@ MacroContext::
 writeText(const Utf8String & text)
 {
     hoedown_escape_html(output, (uint8_t *)text.rawData(), text.rawLength(), 0);
+}
+
+void
+MacroContext::
+writeMarkdown(const Utf8String & markdown)
+{
+    writeHtml(renderMarkdown(markdown.rawString(), *macroData));
 }
 
 Utf8String

@@ -17,6 +17,7 @@
 #include <fstream>
 #include <memory>
 #include <map>
+#include "types/url.h"
 
 namespace Datacratic {
 
@@ -102,6 +103,10 @@ public:
                    std::ios_base::openmode mode = std::ios_base::out,
                    const std::string & compression = "",
                    int compressionLevel = -1);
+    filter_ostream(const Url & uri,
+                   std::ios_base::openmode mode = std::ios_base::out,
+                   const std::string & compression = "",
+                   int compressionLevel = -1);
     filter_ostream(int fd,
                    std::ios_base::openmode mode = std::ios_base::out,
                    const std::string & compression = "",
@@ -112,6 +117,8 @@ public:
 
     filter_ostream(const std::string & uri,
                    const std::map<std::string, std::string> & options);
+    filter_ostream(const Url & uri,
+                   const std::map<std::string, std::string> & options);
 
     filter_ostream(filter_ostream && other) noexcept;
 
@@ -120,6 +127,10 @@ public:
     ~filter_ostream();
 
     void open(const std::string & uri,
+              std::ios_base::openmode mode = std::ios_base::out,
+              const std::string & compression = "",
+              int level = -1);
+    void open(const Url & uri,
               std::ios_base::openmode mode = std::ios_base::out,
               const std::string & compression = "",
               int level = -1);
@@ -148,6 +159,8 @@ public:
         resource = string to be used in error messages
     */
     void open(const std::string & uri,
+              const std::map<std::string, std::string> & options);
+    void open(const Url & uri,
               const std::map<std::string, std::string> & options);
 
     void open(int fd,
@@ -186,6 +199,9 @@ public:
     filter_istream(const std::string & uri,
                    std::ios_base::openmode mode = std::ios_base::in,
                    const std::string & compression = "");
+    filter_istream(const Url & uri,
+                   std::ios_base::openmode mode = std::ios_base::in,
+                   const std::string & compression = "");
     /** Open with options.  The options available depend upon the scheme of
         the URI.
 
@@ -198,6 +214,8 @@ public:
           be set to a compression scheme to force that scheme to be used.
     */
     filter_istream(const std::string & uri,
+                   const std::map<std::string, std::string> & options);
+    filter_istream(const Url & uri,
                    const std::map<std::string, std::string> & options);
     
     filter_istream(filter_istream && other) noexcept;
@@ -213,11 +231,16 @@ public:
     void open(const std::string & uri,
               std::ios_base::openmode mode = std::ios_base::in,
               const std::string & compression = "");
+    void open(const Url & uri,
+              std::ios_base::openmode mode = std::ios_base::in,
+              const std::string & compression = "");
 
     /** Open.  See the documentation from the constructor with similar
         arguments.
     */
     void open(const std::string & uri,
+              const std::map<std::string, std::string> & options);
+    void open(const Url & uri,
               const std::map<std::string, std::string> & options);
 
     void openFromStreambuf(std::streambuf * buf,

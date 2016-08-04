@@ -223,7 +223,7 @@ struct IdHashes {
                     bucketIter = source->buckets[bucket].begin();
             }
         }
-        IdHashBucket operator *()
+        IdHashBucket operator *() const
         {
             return bucketIter.dereference();
         }

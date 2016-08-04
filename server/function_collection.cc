@@ -147,7 +147,8 @@ FunctionCollection::
 applyFunction(const Function * function,
               const std::map<Utf8String, ExpressionValue> & input,
               const std::vector<Utf8String> & keepValues,
-              RestConnection & connection) const
+              RestConnection & connection
+              ) const
 {
     StructValue inputExpr;
     inputExpr.reserve(input.size());
@@ -214,16 +215,29 @@ initRoutes(RouteManager & manager)
     auto mapDesc = std::make_shared<MapDescription<Utf8String, ExpressionValue> >
         (getExpressionValueDescriptionNoTimestamp());
 
+    const auto inputDefStr = "Object with input values. "
+                             "Must be defined either as a query string "
+                             "parameter or the json body.";
+    const auto keepValuesDefStr = "Keep only these values for the output. "
+                                  "Must be defined either as a query string "
+                                  "parameter or the json body.";
+
     addRouteAsync(*manager.valueNode, "/application", { "GET" },
                   "Apply a function to a given set of input values and return the output",
                   //"Output of all values or those selected in the keepValues parameter",
                   &FunctionCollection::applyFunction,
                   manager.getCollection,
                   getFunction,
-                  RestParamJson<std::map<Utf8String, ExpressionValue> >("input", "Object with input values", JsonStrCodec<MapType>(mapDesc)),
-                  RestParamJsonDefault<std::vector<Utf8String> >
-                  ("keepValues", "Keep only these values for the output", {}),
-                  PassConnectionId());
+                  HybridParamJsonDefault<MapType>(
+                      "input", inputDefStr, {}, "",
+                      JsonStrCodec<MapType>(mapDesc)),
+                  HybridParamJsonDefault<std::vector<Utf8String>>(
+                      "keepValues", keepValuesDefStr, {}),
+                  PassConnectionId()
+                  );
+
+
+
 
     addRouteSyncJsonReturn(*manager.valueNode, "/info", { "GET" },
                            "Return information about the values and metadata of the function",
@@ -270,6 +284,17 @@ FunctionCollection::
 getEntityStatus(const Function & function) const
 {
     return function.getStatus();
+}
+
+std::shared_ptr<PolyEntity>
+FunctionCollection::
+construct(PolyConfig config, const OnProgress & onProgress) const
+{
+    auto factory = tryLookupFunction(config.id);
+    if (factory)
+        throw HttpReturnException(400, "Cannot add function: MLDB already has a built-in function named " + config.id);
+
+    return PolyCollection<Function>::construct(config, onProgress);
 }
 
 } // namespace MLDB

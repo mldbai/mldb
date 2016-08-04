@@ -40,7 +40,7 @@ SubDatasetConfigDescription()
 
 
 /*****************************************************************************/
-/* SUB INTERNAL REPRESENTATION                                            */
+/* SUB INTERNAL REPRESENTATION                                               */
 /*****************************************************************************/
 
 
@@ -111,7 +111,7 @@ struct SubDataset::Itl
 
     ~Itl() { }
 
-     struct SubRowStream : public RowStream {
+    struct SubRowStream : public RowStream {
 
         SubRowStream(SubDataset::Itl* source) : source(source)
         {
@@ -129,6 +129,11 @@ struct SubDataset::Itl
 
         virtual RowName next() {
             return (iter++)->rowName;
+        }
+
+        virtual const RowName & rowName(RowName & storage) const
+        {
+            return iter->rowName;
         }
 
         std::vector<MatrixNamedRow>::const_iterator iter;
@@ -375,8 +380,8 @@ querySubDataset(MldbServer * server,
                 const SqlExpression & where,
                 const OrderByExpression & orderBy,
                 const TupleExpression & groupBy,
-                const SqlExpression & having,
-                const SqlExpression & named,
+                const std::shared_ptr<SqlExpression> having,
+                const std::shared_ptr<SqlExpression> named,
                 uint64_t offset,
                 int64_t limit,
                 const Utf8String & tableAlias,
@@ -417,8 +422,8 @@ extern std::vector<NamedRowValue>
                       const SqlExpression & where,
                       const OrderByExpression & orderBy,
                       const TupleExpression & groupBy,
-                      const SqlExpression & having,
-                      const SqlExpression & named,
+                      const std::shared_ptr<SqlExpression> having,
+                      const std::shared_ptr<SqlExpression> named,
                       uint64_t offset,
                       int64_t limit,
                       const Utf8String & tableAlias,

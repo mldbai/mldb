@@ -9,7 +9,6 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class PushNonPrintableCharCantReadTest(MldbUnitTest):  # noqa
 
-    @unittest.expectedFailure
     def test_unprintable_row_name(self):
         ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
         barbarous_name = 'coco' + chr(17)
@@ -19,7 +18,6 @@ class PushNonPrintableCharCantReadTest(MldbUnitTest):  # noqa
         # http status 400
         mldb.log(mldb.query("SELECT * FROM ds1"))
 
-    @unittest.expectedFailure
     def test_unprintable_col_name(self):
         ds = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
         barbarous_name = 'coco' + chr(17)
@@ -29,7 +27,6 @@ class PushNonPrintableCharCantReadTest(MldbUnitTest):  # noqa
         # http status 400
         mldb.log(mldb.query("SELECT * FROM ds2"))
 
-    @unittest.expectedFailure
     def test_unprintable_cell_value(self):
         ds = mldb.create_dataset({'id' : 'ds3', 'type' : 'sparse.mutable'})
         barbarous_name = 'coco' + chr(17)

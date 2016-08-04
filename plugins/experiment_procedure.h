@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** experiment_procedure.h                                                   -*- C++ -*-
     Francois Maillet, 8 septembre 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Experiment procedure. This is used to train and test a classifier in a
     single step. It abstracts away the need to create a classifier.train/test
@@ -11,7 +10,7 @@
 
 #pragma once
 
-#include "types/value_description.h"
+#include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
 #include "server/mldb_server.h"
 #include "mldb/core/procedure.h"
@@ -30,30 +29,32 @@ namespace MLDB {
 
 struct DatasetFoldConfig {
     DatasetFoldConfig(
-            std::shared_ptr<SqlExpression> training_where = SqlExpression::parse("true"),
-            std::shared_ptr<SqlExpression> testing_where = SqlExpression::parse("true"))
-        : training_where(training_where),
-          testing_where(testing_where),
-          orderBy(OrderByExpression::parse("rowHash()")),
-          training_offset(0), testing_offset(0),
-          training_limit(-1), testing_limit(-1)
+            std::shared_ptr<SqlExpression> trainingWhere = SqlExpression::parse("rowHash()"),
+            std::shared_ptr<SqlExpression> testingWhere = SqlExpression::parse("rowHash()"))
+        : trainingWhere(trainingWhere),
+          testingWhere(testingWhere),
+          trainingOrderBy(OrderByExpression::parse("true")),
+          testingOrderBy(OrderByExpression::parse("true")),
+          trainingOffset(0), testingOffset(0),
+          trainingLimit(-1), testingLimit(-1)
     {
     }
 
     /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> training_where;
-    std::shared_ptr<SqlExpression> testing_where;
+    std::shared_ptr<SqlExpression> trainingWhere;
+    std::shared_ptr<SqlExpression> testingWhere;
 
     /// How to order the rows when using an offset and a limit
-    OrderByExpression orderBy;
+    OrderByExpression trainingOrderBy;
+    OrderByExpression testingOrderBy;
 
     /// Where to start running
-    ssize_t training_offset;
-    ssize_t testing_offset;
+    ssize_t trainingOffset;
+    ssize_t testingOffset;
 
     /// Maximum number of rows to use
-    ssize_t training_limit;
-    ssize_t testing_limit;
+    ssize_t trainingLimit;
+    ssize_t testingLimit;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(DatasetFoldConfig);
@@ -69,6 +70,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
           equalizationFactor(0.5),
           mode(CM_BOOLEAN),
           outputAccuracyDataset(true),
+          uniqueScoresOnly(false),
           evalTrain(false)
     {
     }
@@ -78,8 +80,8 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
     bool keepArtifacts;
 
     /// SQL query to select the training data
-    InputQuery trainingData;
-    Optional<InputQuery> testingData;
+    InputQuery inputData;
+    Optional<InputQuery> testingDataOverride;
 
     ssize_t kfold;
     std::vector<DatasetFoldConfig> datasetFolds;
@@ -106,6 +108,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
     ClassifierMode mode;
 
     bool outputAccuracyDataset;
+    bool uniqueScoresOnly;
     bool evalTrain;
 };
 

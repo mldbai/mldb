@@ -46,12 +46,13 @@ struct TabularDatasetChunk {
         columns.swap(other.columns);
         sparseColumns.swap(other.sparseColumns);
         rowNames.swap(other.rowNames);
+        integerRowNames.swap(other.integerRowNames);
         std::swap(timestamps, other.timestamps);
     }
 
     size_t rowCount() const
     {
-        return rowNames.size();
+        return std::max(rowNames.size(), integerRowNames.size());
     }
 
     size_t memusage() const
@@ -74,6 +75,7 @@ struct TabularDatasetChunk {
 
         for (auto & r: rowNames)
             result += r.memusage();
+        result += integerRowNames.capacity() * sizeof(uint64_t);
 
         //cerr << rowNames.size() << " row names took "
         //     << result - before << endl;
@@ -102,19 +104,54 @@ struct TabularDatasetChunk {
         }
     }
 
+    /// Return an owned version of the rowname
+    RowName getRowName(size_t index) const
+    {
+        if (rowNames.empty()) {
+            return PathElement(integerRowNames.at(index));
+        }
+        else return rowNames.at(index);
+    }
+
+    /// Return a reference to the rowName, stored in storage if it's a temp
+    const RowName & getRowName(size_t index, RowName & storage) const
+    {
+        if (rowNames.empty()) {
+            return storage = PathElement(integerRowNames.at(index));
+        }
+        else return rowNames.at(index);
+    }
+
+    const FrozenColumn *
+    maybeGetColumn(size_t columnIndex, const Path & columnName) const
+    {
+        if (columnIndex < columns.size()) {
+            return columns.at(columnIndex).get();
+        }
+        else {
+            auto it = sparseColumns.find(columnName);
+            if (it == sparseColumns.end())
+                return nullptr;
+            return it->second.get();
+        }
+    }
+
     std::vector<std::shared_ptr<FrozenColumn> > columns;
     std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
+private:
     std::vector<RowName> rowNames;
+    std::vector<uint64_t> integerRowNames;
+public:
     std::shared_ptr<FrozenColumn> timestamps;
 
     /// Get the row with the given index
     std::vector<std::tuple<ColumnName, CellValue, Date> >
     getRow(size_t index, const std::vector<ColumnName> & fixedColumnNames) const
     {
-        ExcAssertLess(index, rowNames.size());
+        ExcAssertLess(index, rowCount());
         std::vector<std::tuple<ColumnName, CellValue, Date> > result;
         result.reserve(columns.size());
-        Date ts = timestamps->get(index).toTimestamp();
+        Date ts = timestamps->get(index).mustCoerceToTimestamp();
         for (size_t i = 0;  i < columns.size();  ++i) {
             CellValue val = columns[i]->get(index);
             if (val.empty())
@@ -132,6 +169,31 @@ struct TabularDatasetChunk {
         return result;
     }
 
+    /// Get the row with the given index
+    ExpressionValue
+    getRowExpr(size_t index, const std::vector<ColumnName> & fixedColumnNames) const
+    {
+        ExcAssertLess(index, rowCount());
+        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        result.reserve(columns.size());
+        Date ts = timestamps->get(index).mustCoerceToTimestamp();
+        for (size_t i = 0;  i < columns.size();  ++i) {
+            CellValue val = columns[i]->get(index);
+            if (val.empty())
+                continue;
+            result.emplace_back(fixedColumnNames[i], std::move(val), ts);
+        }
+
+        for (auto & c: sparseColumns) {
+            CellValue val = c.second->get(index);
+            if (val.empty())
+                continue;
+            result.emplace_back(c.first, std::move(val), ts);
+
+        }
+        return std::move(result);
+    }
+
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
                      const ColumnName & colName,
@@ -145,10 +207,10 @@ struct TabularDatasetChunk {
             auto it = sparseColumns.find(colName);
             if (it == sparseColumns.end()) {
                 if (dense) {
-                    for (unsigned i = 0;  i < rowNames.size();  ++i) {
-                        rows.emplace_back(rowNames[i],
+                    for (unsigned i = 0;  i < rowCount();  ++i) {
+                        rows.emplace_back(getRowName(i),
                                           CellValue(),
-                                          timestamps->get(i).toTimestamp());
+                                          timestamps->get(i).mustCoerceToTimestamp());
                     }
                 }
                 return;
@@ -156,25 +218,28 @@ struct TabularDatasetChunk {
             col = it->second.get();
         }
 
-        for (unsigned i = 0;  i < rowNames.size();  ++i) {
+        for (unsigned i = 0;  i < rowCount();  ++i) {
             CellValue val = col->get(i);
             if (dense || !val.empty()) {
-                rows.emplace_back(rowNames[i],
+                rows.emplace_back(getRowName(i),
                                   std::move(val),
-                                  timestamps->get(i).toTimestamp());
+                                  timestamps->get(i).mustCoerceToTimestamp());
             }
         }
     }
+
+    friend class MutableTabularDatasetChunk;
 };
 
 struct MutableTabularDatasetChunk {
 
     MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
-        : maxSize(maxSize), columns(numColumns), isFrozen(false),
+        : maxSize(maxSize), rowCount_(0),
+          columns(numColumns), isFrozen(false),
           addFailureNotified(false)
     {
-        rowNames.reserve(maxSize);
         timestamps.reserve(maxSize);
+        integerRowNames.reserve(maxSize);
         for (unsigned i = 0;  i < numColumns;  ++i)
             columns[i].reserve(maxSize);
     }
@@ -198,7 +263,9 @@ struct MutableTabularDatasetChunk {
             result.sparseColumns.emplace(c.first, c.second.freeze());
 
         result.timestamps = timestamps.freeze();
+
         result.rowNames = std::move(rowNames);
+        result.integerRowNames = std::move(integerRowNames);
 
         isFrozen = true;
 
@@ -211,9 +278,12 @@ struct MutableTabularDatasetChunk {
     /// Maximum size
     size_t maxSize;
 
+    /// Number of rows added so far
+    size_t rowCount_;
+
     size_t rowCount() const
     {
-        return rowNames.size();
+        return rowCount_;
     }
 
     /// Set of known, dense valued columns
@@ -224,9 +294,12 @@ struct MutableTabularDatasetChunk {
     /// Set of sparse columns
     std::unordered_map<ColumnName, TabularDatasetColumn> sparseColumns;
 
-    /// One per row
+    /// One per row, or empty if all are simple integers
     std::vector<RowName> rowNames;
 
+    /// One per row, or empty if there is any non-integer row names
+    std::vector<uint64_t> integerRowNames;
+    
     /// One per row; however these are all date valued
     TabularDatasetColumn timestamps;
 
@@ -268,7 +341,7 @@ struct MutableTabularDatasetChunk {
         std::unique_lock<std::mutex> guard(mutex);
         if (isFrozen)
             return ADD_AWAIT_ROTATION;
-        size_t numRows = rowNames.size();
+        size_t numRows = rowCount_;
 
         if (numRows == maxSize) {
             if (addFailureNotified)
@@ -281,8 +354,23 @@ struct MutableTabularDatasetChunk {
 
         ExcAssertEqual(columns.size(), numVals);
 
-        rowNames.emplace_back(std::move(rowName));
-        timestamps.add(numRows, ts);
+        uint64_t intRowName;
+
+        if (!rowNames.empty() || (intRowName = rowName.toIndex()) == -1) {
+            // Non-integer row name
+            if (rowNames.empty()) {
+                rowNames.reserve(maxSize);
+                for (auto & n: integerRowNames)
+                    rowNames.emplace_back(n);
+                integerRowNames.clear();
+            }
+            rowNames.emplace_back(std::move(rowName));
+        }
+        else {
+            // Still integer row names
+            integerRowNames.emplace_back(intRowName);
+        }
+        timestamps.add(numRows, ts.secondsSinceEpoch());
 
         for (unsigned i = 0;  i < columns.size();  ++i) {
             columns[i].add(numRows, std::move(vals[i]));
@@ -292,6 +380,8 @@ struct MutableTabularDatasetChunk {
             auto it = sparseColumns.emplace(std::move(e.first), TabularDatasetColumn()).first;
             it->second.add(numRows, std::move(e.second));
         }
+
+        ++rowCount_;
 
         return ADD_SUCCEEDED;
     }

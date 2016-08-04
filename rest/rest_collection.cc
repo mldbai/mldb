@@ -646,7 +646,7 @@ initRoutes(RouteManager & manager)
 
 BackgroundTaskBase::
 BackgroundTaskBase()
-    : cancelled(false), error(false), finished(false)
+    : cancelled(false), error(false), finished(false), state(State::_initializing)
 {
 }
 
@@ -673,6 +673,7 @@ cancel()
     bool wasCancelled = this->cancelled.exchange(true);
     if (!wasCancelled) {
         cancelledWatches.trigger(true);
+        state = State::_cancelled;
     }
 
 #if 0
@@ -703,6 +704,7 @@ setError(std::exception_ptr exc)
 {
     error = true;
     this->exc = std::move(exc);
+    state = State::_error;
 }
 
 void
@@ -710,19 +712,48 @@ BackgroundTaskBase::
 setFinished()
 {
     finished = true;
+    state = State::_finished;
+}
+
+void
+BackgroundTaskBase::
+setProgress(const Json::Value & _progress)
+{
+    state = State::_executing;
+    auto type = _progress.type();
+    if (type == Json::nullValue  ||  
+        type == Json::arrayValue  || 
+        type == Json::objectValue)
+        progress.clear();
+
+    ExcAssert(type != Json::stringValue);
+
+    if(!_progress.isNull()) {
+        progress = _progress;
+        for (auto & f: onProgressFunctions) {
+            f(progress);
+        }
+    }
 }
 
 Utf8String
 BackgroundTaskBase::
 getState() const
 {
-    if (cancelled)
+    switch (state.load()) {
+    case State::_cancelled:
         return L"cancelled";
-    else if (error)
+    case State::_error:
         return L"error";
-    else if (finished)
+    case State::_finished:
         return L"finished";
-    else return L"initializing";
+    case State::_initializing:
+        return L"initializing";
+    case State::_executing:
+        return L"executing";
+    default:
+        return L"unknown state";
+    }
 }
 
 void validatePayloadForPut(const RestRequest & req,

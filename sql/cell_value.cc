@@ -6,7 +6,7 @@
 */
 
 #include "cell_value.h"
-#include "mldb/ext/siphash/csiphash.h"
+#include "mldb/ext/highwayhash.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/dtoa.h"
 #include "mldb/http/http_exception.h"
@@ -34,9 +34,39 @@ namespace MLDB {
 CellValue::
 CellValue(const Path & path)
 {
+    // Optimized path for when we have just one simple element
+    if (path.size() == 1) {
+
+        const char * p;
+        size_t l;
+        std::tie(p, l) = path.getStringView(0);
+
+        strLength = l;
+        strFlags = 1;  // length of path
+
+        if (strLength <= INTERNAL_LENGTH) {
+            std::copy(p, p + strLength, shortString);
+            type = ST_SHORT_PATH;
+        }
+        else {
+            // NOTE: once the malloc has succeeded, the rest is
+            // noexcept.
+            void * mem = malloc(sizeof(StringRepr) + strLength);
+            if (!mem)
+                throw std::bad_alloc();
+
+            longString = new (mem) StringRepr;  // placement new noexcept
+            std::copy(p, p + strLength, longString->repr); // copy char noexcept
+            type = ST_LONG_PATH;
+        }
+
+        return;
+    }
+
     Utf8String u = path.toUtf8String();
 
     strLength = u.rawLength();
+    strFlags = path.size() > 15 ? 15 : path.size();
 
     if (strLength <= INTERNAL_LENGTH) {
         std::copy(u.rawData(), u.rawData() + strLength, shortString);
@@ -310,13 +340,13 @@ toUtf8String() const
     case ST_ASCII_LONG_STRING:
     case ST_LONG_BLOB:
     case ST_LONG_PATH:
-         try {
+        try {
             return Utf8String(longString->repr, (size_t)strLength);
         } catch (...) {
-            for (unsigned i = 0;  i < strLength;  ++i) {
-                cerr << "char at index " << i << " of " << strLength << " is "
-                     << (int)longString->repr[i] << endl;
-            }
+            //for (unsigned i = 0;  i < strLength;  ++i) {
+            //    cerr << "char at index " << i << " of " << strLength << " is "
+            //         << (int)longString->repr[i] << endl;
+            //}
             throw;
         }
     default:
@@ -569,6 +599,25 @@ coerceToTimestamp() const
     return CellValue();
 }
 
+Date
+CellValue::
+mustCoerceToTimestamp() const
+{
+    if (type == ST_EMPTY)
+        return Date::notADate();
+    if (isAsciiString()) {
+        return Date::parseIso8601DateTime(toString());
+    }
+    if (type == ST_TIMESTAMP)
+        return toTimestamp();
+    if (isNumber()) {
+        return Date::fromSecondsSinceEpoch(toDouble());
+    }
+    throw HttpReturnException(400, "Couldn't convert value '" + toUtf8String()
+                              + "' to timestamp",
+                              "value", *this);
+}
+
 CellValue
 CellValue::
 coerceToBlob() const
@@ -599,7 +648,17 @@ coerceToPath() const
     if (type == ST_EMPTY)
         return Path();
     else if (type == ST_SHORT_PATH || type == ST_LONG_PATH) {
-        return Path::parse(toUtf8String());
+        if (strFlags == 1) {
+            // Single-element; fast path
+            PathBuilder builder;
+            return builder.add(stringChars(), toStringLength()).extract();
+        }
+        return Path::parse(stringChars(), toStringLength());
+    }
+    else if (type == ST_ASCII_SHORT_STRING || type == ST_ASCII_LONG_STRING
+             || type == ST_UTF8_SHORT_STRING || type == ST_UTF8_LONG_STRING) {
+        PathBuilder builder;
+        return builder.add(stringChars(), toStringLength()).extract();
     }
     else return Path(toUtf8String());
 }
@@ -696,9 +755,11 @@ isFalse() const
 const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 template<typename T>
-static uint64_t siphash24_bin(const T & v, HashSeed key)
+static uint64_t highwayhash_bin(const T & v, const HashSeed & key)
 {
-    return ::mldb_siphash24(&v, sizeof(v), key.b);
+    char c[sizeof(v)];
+    std::memcpy(c, &v, sizeof(v));
+    return highwayHash(key.u64, c, sizeof(v));
 }
 
 CellValueHash
@@ -709,16 +770,16 @@ hash() const
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_SHORT_BLOB:
-        return CellValueHash(mldb_siphash24(shortString, strLength, defaultSeedStable.b));
+        return CellValueHash(highwayHash(defaultSeedStable.u64, shortString, strLength));
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
     case ST_LONG_BLOB:
         if (!longString->hash) {
-            longString->hash = mldb_siphash24(longString->repr, strLength, defaultSeedStable.b);
+            longString->hash = highwayHash(defaultSeedStable.u64, longString->repr, strLength);
         }
         return CellValueHash(longString->hash);
     case ST_TIMEINTERVAL:
-        return CellValueHash(mldb_siphash24(shortString, 12, defaultSeedStable.b));
+        return CellValueHash(highwayHash(defaultSeedStable.u64, shortString, 12));
     case ST_SHORT_PATH:
     case ST_LONG_PATH:
         return CellValueHash(coerceToPath().hash());
@@ -726,7 +787,7 @@ hash() const
         if (bits2 != 0)
             cerr << "hashing " << jsonEncodeStr(*this) << endl;
         ExcAssertEqual(bits2, 0);
-        return CellValueHash(siphash24_bin(bits1, defaultSeedStable));
+        return CellValueHash(highwayhash_bin(bits1, defaultSeedStable));
     }
 }
 
@@ -1235,7 +1296,7 @@ extractStructuredJson(JsonPrintingContext & context) const
         context.startMember("path");
         context.startArray();
 
-        for (auto & p: coerceToPath()) {
+        for (auto p: coerceToPath()) {
             context.newArrayElement();
             context.writeStringUtf8(p.toUtf8String());
         }

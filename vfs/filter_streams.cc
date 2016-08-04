@@ -98,6 +98,15 @@ filter_ostream(const std::string & file, std::ios_base::openmode mode,
 }
 
 filter_ostream::
+filter_ostream(const Url & file, std::ios_base::openmode mode,
+               const std::string & compression, int level)
+    : ostream(std::cout.rdbuf()), deferredFailure(false)
+{
+    open(file, mode, compression, level);
+}
+
+
+filter_ostream::
 filter_ostream(int fd, std::ios_base::openmode mode,
                const std::string & compression, int level)
     : ostream(std::cout.rdbuf()), deferredFailure(false)
@@ -115,6 +124,14 @@ filter_ostream(int fd,
 
 filter_ostream::
 filter_ostream(const std::string & uri,
+               const std::map<std::string, std::string> & options)
+    : ostream(std::cout.rdbuf()), deferredFailure(false)
+{
+    open(uri, options);
+}
+
+filter_ostream::
+filter_ostream(const Url & uri,
                const std::map<std::string, std::string> & options)
     : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
@@ -313,6 +330,14 @@ open(const std::string & uri, std::ios_base::openmode mode,
 
 void
 filter_ostream::
+open(const Url & uri, std::ios_base::openmode mode,
+     const std::string & compression, int compressionLevel)
+{
+    open(uri.toDecodedString(), mode, compression, compressionLevel);
+}
+
+void
+filter_ostream::
 open(const std::string & uri,
      const std::map<std::string, std::string> & options)
 {
@@ -333,6 +358,14 @@ open(const std::string & uri,
     UriHandler res = handler(scheme, resource, mode, options, onException);
     
     return openFromHandler(res, resource, options);
+}
+
+void
+filter_ostream::
+open(const Url & uri,
+     const std::map<std::string, std::string> & options)
+{
+    open(uri.toDecodedString(), options);
 }
 
 void
@@ -481,6 +514,16 @@ filter_istream(const std::string & file, std::ios_base::openmode mode,
 }
 
 filter_istream::
+filter_istream(const Url & file, std::ios_base::openmode mode,
+               const string & compression)
+    : istream(std::cin.rdbuf()),
+      deferredFailure(false)
+{
+    open(file, mode, compression);
+}
+
+
+filter_istream::
 filter_istream(const std::string & uri,
                const std::map<std::string, std::string> & options)
     : istream(std::cin.rdbuf()),
@@ -488,6 +531,16 @@ filter_istream(const std::string & uri,
 {
     open(uri, options);
 }
+
+filter_istream::
+filter_istream(const Url & uri,
+               const std::map<std::string, std::string> & options)
+    : istream(std::cin.rdbuf()),
+      deferredFailure(false)
+{
+    open(uri, options);
+}
+
 
 filter_istream::
 filter_istream(filter_istream && other) noexcept
@@ -558,6 +611,15 @@ open(const std::string & uri,
 
 void
 filter_istream::
+open(const Url & uri,
+     std::ios_base::openmode mode,
+     const std::string & compression)
+{
+    open(uri.toDecodedString(), mode, compression);
+}
+
+void
+filter_istream::
 open(const std::string & uri,
      const std::map<std::string, std::string> & options)
 {
@@ -570,6 +632,14 @@ open(const std::string & uri,
     auto onException = [&]() { this->deferredFailure = true; };
     UriHandler handler = handlerFactory(scheme, resource, ios::in, options, onException);
     openFromHandler(handler, resource, options);
+}
+
+void
+filter_istream::
+open(const Url & uri,
+     const std::map<std::string, std::string> & options)
+{
+    open(uri.toDecodedString(), options);
 }
 
 void

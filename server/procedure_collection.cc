@@ -7,6 +7,7 @@
     Collection of procedures.
 */
 
+#include "mldb/types/value_description.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/server/mldb_server.h"
@@ -35,6 +36,15 @@ obtainProcedure(MldbServer * server,
                 const MldbServer::OnProgress & onProgress)
 {
     return server->procedures->obtainEntitySync(config, onProgress);
+}
+
+std::shared_ptr<Procedure>
+createProcedure(MldbServer * server,
+                const PolyConfig & config,
+                const std::function<bool (const Json::Value & progress)> & onProgress,
+                bool overwrite)
+{
+    return server->procedures->createEntitySync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<ProcedureType>

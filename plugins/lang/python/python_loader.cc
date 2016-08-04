@@ -35,7 +35,7 @@
 #include "mldb/types/dtoa.h"
 
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb_python_converters.h"
 #include "mldb/types/any_impl.h"
 
@@ -171,6 +171,7 @@ PythonPlugin(MldbServer * server,
     }
 
     try {
+        injectMldbWrapper(pyControl);
         boost::python::object obj = boost::python::exec(boost::python::str(scriptSource.rawString()),
                                                         pyControl.main_namespace);
     } catch (const boost::python::error_already_set & exc) {
@@ -357,7 +358,7 @@ handleTypeRoute(RestDirectory * server,
         auto scriptConfig = jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
 
         std::shared_ptr<PythonScriptContext> titl;
-        auto pluginRez = 
+        auto pluginRez =
             std::make_shared<LoadedPluginResource>(PYTHON,
                                                    LoadedPluginResource::SCRIPT,
                                                    "", scriptConfig);
@@ -511,10 +512,6 @@ class mldb_wrapper(object):
 
     import json as jsonlib
 
-    @staticmethod
-    def wrap(mldb):
-        return Wrapped(mldb)
-
     class MldbBaseException(Exception):
         pass
 
@@ -616,13 +613,13 @@ class mldb_wrapper(object):
         def get_http_bound_address(self):
             return self._mldb.get_http_bound_address()
 
-        def get(self, url, **kwargs):
+        def get(self, url, data=None, **kwargs):
             query_string = []
             for k, v in kwargs.iteritems():
                 if type(v) in [list, dict]:
                     v = mldb_wrapper.jsonlib.dumps(v)
                 query_string.append([unicode(k), unicode(v)])
-            return self._perform('GET', url, query_string)
+            return self._perform('GET', url, query_string, data)
 
         def _post_put(self, verb, url, data=None, async=False):
             if async:
@@ -636,10 +633,8 @@ class mldb_wrapper(object):
             return self._perform('DELETE', url, [], {}, [['async', 'true']])
 
         def query(self, query):
-            return self._perform('GET', '/v1/query', [
-                ['q', query],
-                ['format', 'table']
-            ]).json()
+            return self._perform('GET', '/v1/query', [['format', 'table']],
+                                 {'q' : query}).json()
 
         def run_tests(self):
             import StringIO
@@ -720,11 +715,16 @@ class MldbUnitTest(unittest.TestCase):
         expected_keys = sorted(expected[0])
         self.assertEqual(res_keys, expected_keys, msg)
 
-        expected_order = {
-            key: index for index, key in enumerate(expected[0])}
+        # we'll make the order of `res` match the order of `expected`
+        # this is a map that gives us the index in `res` of a column name
+        colname_to_idx = {
+            colname: index for index, colname in enumerate(res[0])}
+        # this gives us the permutation we need to apply to `res`
+        res_perm = [colname_to_idx[colname]
+            for i, colname in enumerate(expected[0])]
 
-        reorder_directives = [expected_order[key] for key in res[0]]
-        ordered_res = [[v[pos] for pos in reorder_directives] for v in res[1:]]
+        ordered_res = [[row[i] for i in res_perm] for row in res[1:]]
+
         for res_row, expected_row in zip(ordered_res, expected[1:]):
             self.assertEqual(res_row, expected_row)
 
@@ -856,6 +856,8 @@ struct AtInit {
 
         bp::to_python_converter<std::pair<string, string>,
                         PairConverter<string, string> >();
+        
+        from_python_converter< Path, PathConverter>();
 
         from_python_converter< RestParams, RestParamsConverter>();
         bp::to_python_converter< RestParams, RestParamsConverter>();
@@ -945,6 +947,9 @@ struct AtInit {
 
         mldb.add_property("script", &MldbPythonContext::getScript);
         mldb.add_property("plugin", &MldbPythonContext::getPlugin);
+
+        mldb.def("debugSetPathOptimizationLevel",
+                 &MldbPythonContext::setPathOptimizationLevel);
 
         /****
          *  Functions

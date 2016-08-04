@@ -18,9 +18,9 @@ A Value expression can include [literal representations of constants](TypeSystem
 
 ## <a name="Columnreferences"></a>Column references
 
-To refer to a column, you use its name, in accordance with the [quoting rules](Sql.md).  So to read the value of the column `x` and add one, use `x + 1`.
+To refer to a column, you use its name, which is the string representation of its path, as explained in the [Intro to Datasets](../datasets/Datasets.md) and must be used in accordance with the [quoting rules](Sql.md).  So to read the value of the column `x` and add one, use `x + 1`.
 
-*N.B. References to non-existent columns are always evaluated as `NULL`.*
+> **Unlike in conventional SQL,** references to non-existent columns are always evaluated as `NULL`. A common mistake is to use double-quotes to represent a string, which usually results in a reference to a non-existent column, and therefore `NULL`.
 
 ### Referring to columns by dataset
 
@@ -31,35 +31,19 @@ For example, to refer the column `y` from a dataset whose name or alias is `x`, 
 
 If the dataset has been aliased (e.g. `FROM dataset AS x`), you **must** use the alias `x` instead of the original name `dataset`.
 
-In cases where the name or alias of the column or the name or alias of the dataset contains a `.`, you can use double-quotes to resolve any ambiguity.
-For example, if you have a join between a dataset named `x` with a column `y.z` and a dataset named `x.y` with column `z` :
-
-
-* `x.y.z`       will refer to dataset x column y.z
-* `"x.y".z`     will refer to dataset x.y column z
-* `"z".x.y`     will return an error because there is no dataset named z
-
-
-Alternatively, you can alias the conflicting dataset's name to something unambiguous. In the previous example, if we alias the datasets with
-`FROM x AS blue JOIN y as red` then:
-
-* `x.y.z`       will return an error because neither x, x.y nor x.y.z refer to a dataset's alias
-* `"x.y".z`     will return an error because the dataset x.y as been aliased to 'red'
-* `blue.y.z`    will refer to dataset blue (x) column y.z
-* `red.z`       will refer to dataset red (y.z) column z
-
-
 ## <a name="operators"></a>Operators
 
 The following standard SQL operators are supported by MLDB.  An
 operator with lower precedence binds tighter than one with a
 higher predecence, so for example `x + y * z` is the same as
-`x + (y * z)`.  Expressions at the same precendence level are 
-always are left associative, that is the expression
+`x + (y * z)`.  Expressions at the same precedence level are 
+always left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
   Operator  |  Type              | Precedence 
-:----------:|--------------------|:------------:
+:----------:|:--------------------:|:------------:
+     `.`      |  indirection  |          0 
+     `@`      |  timestamp association  |          0 
      `~`      |  unary arithmetic  |          1 
      `*` , `/` , `%`      |  binary arithmetic |          2 
      `+` , `-`      |  unary arithmetic  |          3 
@@ -67,7 +51,8 @@ always are left associative, that is the expression
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
      `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
-     `AND` , `OR`     |  binary boolean    |          7 
+     `AND`    |  binary boolean    |          6 
+     `OR`     |  binary boolean    |          7 
 
 <!--
      ALL      unary unimp                 7  All true 
@@ -105,6 +90,7 @@ Note that the operators `+` and `*` are commutative in all cases.
 
 SQL `BETWEEN` expressions are a shorthand way of testing for an
 open interval.  The expression `x BETWEEN y AND z` is the same as `x >= y AND x <= z` except that the `x` expression will only be evaluated once.
+It has the same precedence as binary comparisons (`=` , `!=`, `>` , `<` , `>=` , `<=`).
 
 
 ### `CASE` expressions
@@ -175,6 +161,7 @@ following:
   - number
   - boolean
   - timestamp
+  - path
 
 The integer, number and boolean conversions will work with strings
 and other numbers.
@@ -214,7 +201,7 @@ in a set of values on the right hand side.  There are four ways to specify the s
 4.  As the values of a row expression (`x IN (VALUES OF expr)`)
 
 The first two are standard SQL; the second two are MLDB extensions and are
-made possible by MLDB's sparse data model.
+made possible by MLDB's sparse data model. It has the same precedence as the unary not (`NOT`).
 
 #### IN expression with sub-select
 
@@ -251,6 +238,8 @@ The `%` character will substitute for 0 or more characters. For example: `x LIKE
 The `_` character will substitute for a single character. For example: `x LIKE 'a_a'` will test if x is a string that has 3 characters that starts and ends with `a`.
 
 For more intricate patterns, you can use the `regex_match` function.
+
+This expression has the same precedence as the unary not (`NOT`).
 
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
@@ -311,18 +300,50 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 ### Dataset-provided functions
 
 These functions are always available when processing rows from a dataset, and
-will change values on each row under consideration.
+will change values on each row under consideration. See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
+
+<a name="rowHash"></a>
 
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
 - `rowPath()` is the structured path to the row under consideration.
 - `rowPathElement(n)` is the nth element of the `rowPath()` of the row
-  under consideration.  If n is less than zero, it will be a distance from the
-  end (for example, -1 is the last element).  For a rowName of `x.y.2`, then
-  `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
-  `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
-  be `2`. 
-- `columnCount()`: returns the number of columns with explicit values set in the current row 
+   under consideration.  Negative indexing is supported, meaning that if n is less than zero, 
+   it will be a distance from the end (for example, -1 is the last element, -2 is the second to last). 
+   For a rowName of `x.y.2`, then `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` 
+   and `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will be `2`. If n is 
+   bigger than the number of elements in the row path, NULL will be returned.
+- `columnCount()`: returns the number of columns with explicit values set in the current row
+- `leftRowName()` and `rightRowName()`: in the context of a join, returns the name of the row that was joined on the left or right side respectively.
+
+
+### Path manipulation functions
+
+ See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
+
+- `stringify_path(path)` will return a string representation its argument, with the
+  elements separated by periods and any elements with periods or quotes
+  quoted (and internal quotes doubled).  This is what is used by the `rowName()`
+  function to convert from the structured `rowPath()` representation.  For
+  example, the path `['x', 'hello.world']` when passed through would
+  return the string `'x."hello.world"'`.  This is the inverse of `parse_path`
+  (below).
+- `parse_path(string)` will return its argument as a structured path
+  which may be used for example as the result of a `NAMED` clause.  This is the
+  inverse of `stringify_path` (above).
+- `path_element(path, n)` will return element `n` of the given `path`.
+- `path_length(path)` will return the number of elements in the given `path`.
+- `flatten_path(path)` will return a path with a single element that encodes
+  the entire `path` passed in, in the same manner as `stringify_path`.  This
+  is useful where a series of nested values need to be turned into a flat set
+  of columns for another function or a vector aggregator.  By using
+  `COLUMN EXPR (AS flatten_path(columnPath()))` an entire object can be
+  flattened in this manner.
+- `unflatten_path(path)` is the inverse of `flatten_path`.  It requires that
+  the input path have a single element, and will turn it back into a variable
+  sized path.  Using `COLUMN EXPR (AS unflatten_path(columnPath()))` an entire
+  object can be unflattened in this manner.
+
 
 ### Encoding and decoding functions
 
@@ -331,6 +352,11 @@ will change values on each row under consideration.
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
+- `hash(expr)` returns a hash of the value of            `expr`.  Hashing a `null`
+  value will always return a `null`.  Internally, this uses
+  the [Highway Tree Hash](https://github.com/google/highwayhash) which is
+  claimed to be likely secure whilst retaining good speed.  See also
+  [`rowHash()`](#rowHash).
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
@@ -341,8 +367,9 @@ will change values on each row under consideration.
   there is ambiguity in the expression (for example, the same key with multiple
   values), then one of the values of the key will be chosen to represent the value
   of the key.
-- <a name="parse_json"></a>`parse_json(string, {arrays: string})` returns a row with the JSON decoding of the
-  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
+- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse', ignoreErrors: false})` returns a row with the JSON decoding of the
+  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. If the `ignoreErrors` option is set to `true`, the function will return NULL for strings that do not parse
+  as valid JSON. It will throw an exception otherwise.
 
   Here are examples with the following JSON string:
 
@@ -368,6 +395,14 @@ With `{arrays: 'encode'}` the output will be:
 |:---:|:---:|:---:|:-----:|:------:|:------:
 | 'b' | 'e' | 1 | 1   | '{"j":"k"}' | '{"l":"m"}'
 
+The full set of options to the `parse_json` function are as follows:
+
+![](%%type Datacratic::MLDB::Builtins::ParseJsonOptions)
+
+and the possible values for the `arrays` field are:
+
+![](%%type Datacratic::MLDB::JsonArrayHandling)
+
 
 ### Numeric functions
 
@@ -376,11 +411,12 @@ With `{arrays: 'encode'}` the output will be:
 - `ln(x)`: returns the natural logarithm of x.
 - `ceil(x)`: returns the smaller integer not less than x.
 - `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
+- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
+- `sign(x)`: returns the sign of x (-1, 0, +1).
 - `isnan(x)`: return true if x is 'NaN' in the floating point representation.
-- `isinf(x)`: return true if x is infinity in the floating point representation.
+- `isinf(x)`: return true if x is +/- infinity in the floating point representation.
 - `isfinite(x)`: return true if x is neither infinite nor not-a-number.
 
 - `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
@@ -405,9 +441,9 @@ expression|result
 - `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
 - `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
 - `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
+- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
-- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
@@ -417,6 +453,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   system locale.
 - `upper(string)` returns the uppercase version of the string, according to the
   system locale.
+- `length(string)` returns the length of the string.
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
   expressions are supported.  It is normally preferable that the `regex` be a
@@ -432,6 +469,8 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   It is normally preferable that the `regex` be a
   constant string; performance will be very poor if not as the regular expression
   will need to be recompiled on every application.
+- `levenshtein_distance(string, string)` will return the [Levenshtein distance](https://en.wikipedia.org/wiki/Levenshtein_distance), 
+  or the *edit distance*, between the two strings.
 
 ### Timestamp functions
 
@@ -468,26 +507,13 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
 
+### Set operation functions
 
-### Path manipulation functions
-
-MLDB represents structured data as a collection of distinct atoms, with each
-one having a path to where in the structure the atom lived.  The paths are
-used as row and column names.  The following functions are available to
-manipulate them:
-
-- `print_path(path)` will return a string representation of a path, with the
-  elements separated by periods and any elements with periods or quotes
-  quoted (and internal quotes doubled).  This is what is used by the `rowName()`
-  function to convert from the structured `rowPath()` representation.  For
-  example, a path with elements 'x' and 'hello.world' when passed through would
-  return the string `x."hello.world"`.  This is the inverse of `parse_path`
-  (below).
-- `parse_path(string)` will turn the string argument into a structured path
-  which may be used for example as the result of a `NAMED` clause.  This is the
-  inverse of `print_path` (above).
-- `path_element(path, n)` will return element `n` of the given path.
-
+- `jaccard_index(expr, expr)` will return the [Jaccard index](https://en.wikipedia.org/wiki/Jaccard_index), also
+  known as the *Jaccard similarity coefficient*, on two sets. The sets are specified using two row expressions.
+  The column names will be used as values, meaning this function can be used
+  on the output of the [`tokenize`](#importfunctions) function. The function will return 1 if the sets are equal, and 0 if they are 
+  completely different.
 
 ### Vector space functions
 
@@ -509,7 +535,7 @@ manipulate them:
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
-### Geographical functions
+### <a name="geofunctions"></a>Geographical functions
 
 The following functions operate on latitudes and longtitudes and can be used to
 calculate
@@ -520,36 +546,47 @@ calculate
   accurate to within 0.3% anywhere on earth, apart from near the North or South
   Poles.
 
+### <a name="httpfunctions"></a>Web data functions
+
+The following functions are used to extract and process web data.
+
+- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+
+The full set of options to the `extract_domain` function are as follows:
+
+![](%%type Datacratic::MLDB::Builtins::ExtractDomainOptions)
+
+
+See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
+
 ### <a name="importfunctions"></a>Data import functions
 
-- `tokenize(str, {splitchars: ',', quotechar: '', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
+- `tokenize(str, {splitChars: ',', quoteChar: '', offset: 0, limit: null, value: null, minTokenLength: 1, ngramRange:[1, 1]})`
 can be used to create bag-of-tokens representations of strings, by returning a row whose
-columns are formed by tokenizing `str` by splitting along `splitchars` and whose values by default are the
-number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitchars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`
-  - `offset` and `limit` are used to skip the first `offset` tokens and only generate `limit` tokens
-  - `value` (if not set to `null`) will be used instead of token-counts for the values of the columns in the output row
-  - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"', {quotechar:'"'})` will return the row `{'a':1,'b,c':1}`
-  - `min_token_length` is used to specify the minimum length of tokens that are returned
-  - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
-- `token_extract(str, n, {splitchars: ',', quotechar: '', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
+columns are formed by tokenizing `str` by splitting along `splitChars` and whose values by default are the
+number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitChars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`.
+- `token_extract(str, n, {splitChars: ',', quoteChar: '', offset: 0, limit: null, minTokenLength: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `minTokenLength` will be considered, and ngram options are ignored.
 
+Parameters to `tokenize` and `token_extract` are as follows:
+
+![](%%type Datacratic::TokenizeOptions)
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions
 
 The following standard SQL aggregation functions are supported. They may only be used in SELECT and HAVING clauses. If an aggregation function appears in the SELECT clause and no GROUP BY clause is used, an empty GROUP BY clause will be inferred.
 
-- `avg` calculates the average of all values in the group.  It works in
+- `avg` returns the average of all values in the group.  It works in
   double precision floating point only.
-- `sum` calculates the sum of all values in the group.  It works in
+- `sum` returns the sum of all values in the group.  It works in
   double precision floating point only.
-- `min` calculates the minimum of all values in the group.
-- `max` calculates the maximum of all values in the group.
-- `count` calculates the number of non-null values in the group.
+- `min` returns the minimum of all values in the group.
+- `max` returns the maximum of all values in the group.
+- `count` returns the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
-- 'count_distinct' calculates the number of unique, distinct non-null values in the group.
+- `count_distinct` returns the number of unique, distinct non-null values in the group.
 
-The following useful non-standard aggregation functions is also supported:
+The following useful non-standard aggregation functions are also supported:
 
 - `latest`, `earliest` will return the values with the latest or earliest timestamp in the group
 - `pivot(columnName, value)` will accumulate a single row per group, with the
@@ -608,7 +645,7 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `temporal_latest(<row>)` returns the non-null value with the latest timestamp per cell.
   - `temporal_earliest(<row>)` returns the non-null value with the earliest timestamp per cell.
 
-## Evaluating a JS function from SQL (Experimental)
+## <a name="jseval"></a>Evaluating a JavaScript function from SQL
 
 The SQL function `jseval` allows for the inline definition of functions using Javascript. This function takes the following arguments:
 
@@ -668,3 +705,50 @@ The `mldb` Javascript object is available from the function; this can notably us
 log to the console to aid debugging. Documentation for this object can be found with the
 ![](%%doclink javascript plugin) documentation.
 
+You can also take a look at the ![](%%nblink _tutorials/Executing JavaScript Code Directly in SQL Queries Using the jseval Function Tutorial) for examples of how to use the `jseval` function.
+
+## <a name="try"></a>Handling errors line by line
+
+When processing a query and an error occurs, the whole query fails and no 
+result is returned, even if only a single line caused the error. The `try` function is 
+meant to handle this type of situation. The first argument is the expression to 
+*try* to apply. The optional second argument is what will be returned if an error 
+is encountered. It can be any value expression, including other functions and 
+other `try` functions. If no second argument is given, the error is returned as a string.
+The `try` function is analogous to a try/catch block in other programming languages.
+
+### Example usage
+
+```sql
+SELECT try(parse_json('foo'), 'err')
+```
+
+Here, `parse_json('foo')` will fail. Since the second argument is provided, the
+value "err" will be returned.
+
+```sql
+SELECT try(parse_json('foo'))
+```
+
+Again, `parse_json('foo')` will fail. Since the second argument was left blank,
+the error message generated by MLDB will be returned.
+
+If the result of the `try` function is expected to be a row expression, then 
+both arguments supplied must return row expressions, like in the following
+example:
+
+```sql
+SELECT try(parse_json('foo'), {}) AS *
+```
+
+As a counter example, the following two calls will both fail 
+when an error is encoutered because the function will
+return a string, and strings cannot be used with `AS *`.
+
+```sql
+SELECT try(parse_json('foo')) AS *
+SELECT try(parse_json('foo'), 'err') AS *
+```
+
+Note that the `try` function only applies to runtime exceptions, not to syntax
+errors or bind-time failures.

@@ -126,12 +126,151 @@ SqlExpressionMldbScope::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" with no dataset.");
+    throw HttpReturnException(
+        400,
+        "Cannot read column \"" + columnName.toUtf8String()
+        + "\" with no FROM clause.");
+}
+
+GetAllColumnsOutput
+SqlExpressionMldbScope::
+doGetAllColumns(const Utf8String & tableName,
+                function<ColumnName (const ColumnName &)> keep)
+{
+    throw HttpReturnException(400, "Cannot use wildcards with no FROM clause.");
 }
 
 /*****************************************************************************/
 /* ROW EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
+
+RowName
+SqlExpressionDatasetScope::RowScope::
+getRowName() const
+{
+    if (rowName) return *rowName;
+    else {
+        ExcAssert(row);
+        return row->rowName;
+    }
+}
+
+const RowName &
+SqlExpressionDatasetScope::RowScope::
+getRowName(RowName & storage) const
+{
+    if (rowName) return *rowName;
+    else return row->rowName;
+}
+
+RowHash
+SqlExpressionDatasetScope::RowScope::
+getRowHash() const
+{
+    if (rowName) return *rowName;
+    else return row->rowHash;
+}
+
+const ExpressionValue &
+SqlExpressionDatasetScope::RowScope::
+getColumn(const ColumnName & columnName,
+          const VariableFilter & filter,
+          ExpressionValue & storage,
+          ssize_t knownOffset) const
+{
+    if (expr) {
+        const ExpressionValue * val
+            = expr->tryGetNestedColumn(columnName, storage, filter);
+        if (!val)
+            return storage = ExpressionValue::null(Date::negativeInfinity());
+        else return *val;
+    }
+    else {
+        const ExpressionValue * fromOutput
+            = searchRow(row->columns, columnName, filter, storage);
+        if (fromOutput)
+            return *fromOutput;
+        
+        return storage = std::move(ExpressionValue::null(Date::negativeInfinity()));
+    }
+}
+
+ExpressionValue
+SqlExpressionDatasetScope::RowScope::
+getColumnCount() const
+{
+    ML::Lightweight_Hash_Set<ColumnHash> columns;
+    Date ts = Date::negativeInfinity();
+
+    if (row) {
+        
+        for (auto & c: row->columns) {
+            columns.insert(std::get<0>(c));
+            ts.setMax(std::get<2>(c));
+        }
+    }
+    else {
+        return ExpressionValue(expr->getUniqueAtomCount(),
+                               expr->getEffectiveTimestamp());
+    }
+    
+    return ExpressionValue(columns.size(), ts);
+}
+        
+const ExpressionValue &
+SqlExpressionDatasetScope::RowScope::
+getFilteredValue(const VariableFilter & filter,
+                 ExpressionValue & storage) const
+{
+    if (row) {
+        // TODO: if one day we are able to prove that this is
+        // the only expression that touches the row, we could
+        // move it into place
+        ExpressionValue val(row->columns);
+        return storage = val.getFilteredDestructive(filter);
+    }
+    else {
+        return expr->getFiltered(filter, storage);
+    }
+}
+
+ExpressionValue
+SqlExpressionDatasetScope::RowScope::
+getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
+            const VariableFilter & filter) const
+{
+    RowValue result;
+
+    if (row) {
+        for (auto & c: row->columns) {
+            auto it = index.find(std::get<0>(c));
+            if (it == index.end()) {
+                continue;
+            }
+            
+            result.emplace_back(it->second, std::get<1>(c), std::get<2>(c));
+        }
+    }
+    else {
+        auto onAtom = [&] (const Path & columnName,
+                           const Path & prefix,
+                           const CellValue & val,
+                           Date ts)
+            {
+                ColumnName newColumnName = prefix + columnName;
+                auto it = index.find(newColumnName);
+                if (it == index.end())
+                    return true;
+                result.emplace_back(it->second, val, ts);
+                return true;
+            };
+
+        expr->forEachAtom(onAtom);
+    }
+
+    ExpressionValue val(std::move(result));
+    return  val.getFilteredDestructive(filter);
+}
 
 SqlExpressionDatasetScope::
 SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias)
@@ -182,13 +321,7 @@ doGetColumn(const Utf8String & tableName,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto & row = context.as<RowScope>();
-
-                const ExpressionValue * fromOutput
-                    = searchRow(row.row.columns, simplified, filter, storage);
-                if (fromOutput)
-                    return *fromOutput;
-
-                return storage = std::move(ExpressionValue::null(Date::negativeInfinity()));
+                return row.getColumn(simplified, filter, storage);
             },
             std::make_shared<AtomValueInfo>()};
 }
@@ -207,20 +340,12 @@ doGetFunction(const Utf8String & tableName,
     if (fnoverride)
         return fnoverride;
 
-    // Look for a derived function
-    auto fnderived
-        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
-                                    *this, "row");
-
-    if (fnderived)
-        return fnderived;
-
     if (functionName == "rowName") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(row.row.rowName.toUtf8String(),
+                    return ExpressionValue(row.getRowName().toUtf8String(),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -232,7 +357,7 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(CellValue(row.row.rowName),
+                    return ExpressionValue(CellValue(row.getRowName()),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()
@@ -244,12 +369,21 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(row.row.rowHash,
+                    return ExpressionValue(row.getRowHash().hash(),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<Uint64ValueInfo>()
                 };
     }
+
+    // Look for a derived function.  We do it here so that it's only done
+    // if the function can't be found higher up.
+    auto fnderived
+        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
+                                    *this, "row");
+
+    if (fnderived)
+        return fnderived;
 
     /* columnCount function: return number of columns with explicit values set
        in the current row.
@@ -259,22 +393,13 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    ML::Lightweight_Hash_Set<ColumnHash> columns;
-                    Date ts = Date::negativeInfinity();
-                    
-                    for (auto & c: row.row.columns) {
-                        columns.insert(std::get<0>(c));
-                        ts.setMax(std::get<2>(c));
-                    }
-                    
-                    return ExpressionValue(columns.size(), ts);
+                    return row.getColumnCount();
                 },
                 std::make_shared<Uint64ValueInfo>()};
     }
 
     return SqlExpressionMldbScope
-        ::doGetFunction(tableName, functionName,
-                        args, argScope);
+        ::doGetFunction(tableName, functionName, args, argScope);
 }
 
 ColumnGetter
@@ -311,9 +436,18 @@ doGetAllColumns(const Utf8String & tableName,
     auto filterColumnName = [&] (const ColumnName & inputColumnName)
         -> ColumnName
     {
-        if (!tableName.empty() && !childaliases.empty()
-            && !inputColumnName.startsWith(tableName)) {
-            return ColumnName();
+        if (!tableName.empty() && !childaliases.empty()) {
+            // We're in a join.  The columns will all be prefixed with their
+            // child table name, but we don't want to use that.
+            // eg, in x inner join y, we will have variables like
+            // x.a and y.b, but when we select them we want them to be
+            // like a and b.
+            if (!inputColumnName.startsWith(tableName)) {
+                return ColumnName();
+            }
+            // Otherwise, check if we need it
+            ColumnName result = keep(inputColumnName);
+            return std::move(result);
         }
 
         return keep(inputColumnName);
@@ -357,20 +491,17 @@ doGetAllColumns(const Utf8String & tableName,
         columnsWithInfo[i].columnName = std::move(outputName);
     }
 
-    std::function<ExpressionValue (const SqlRowScope &,  const VariableFilter &)> exec;
+    std::function<ExpressionValue (const SqlRowScope &, const VariableFilter &)> exec;
 
     if (allWereKept && noneWereRenamed) {
         // We can pass right through; we have a select *
 
-        exec = [=] (const SqlRowScope & context, const VariableFilter & filter) -> ExpressionValue
+        exec = [=] (const SqlRowScope & context,
+                    const VariableFilter & filter) -> ExpressionValue
             {
+                ExpressionValue storage;
                 auto & row = context.as<RowScope>();
-
-                // TODO: if one day we are able to prove that this is
-                // the only expression that touches the row, we could
-                // move it into place
-                ExpressionValue val(row.row.columns);
-                return val.getFilteredDestructive(filter);
+                return row.getFilteredValue(filter, storage);
             };
     }
     else {
@@ -378,20 +509,7 @@ doGetAllColumns(const Utf8String & tableName,
         exec = [=] (const SqlRowScope & context, const VariableFilter & filter)
             {
                 auto & row = context.as<RowScope>();
-
-                RowValue result;
-
-                for (auto & c: row.row.columns) {
-                    auto it = index.find(std::get<0>(c));
-                    if (it == index.end()) {
-                        continue;
-                    }
-                
-                    result.emplace_back(it->second, std::get<1>(c), std::get<2>(c));
-                }
-
-                ExpressionValue val(std::move(result));
-                return  val.getFilteredDestructive(filter);
+                return row.getReshaped(index, filter);
             };
 
     }
@@ -505,7 +623,9 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
                     }
                     else {
                         ColumnName tail = columnName.removePrefix();
-                        return storage = fromOutput->getNestedColumn(tail, filter);
+                        auto value = fromOutput->getNestedColumn(tail, filter);
+                        if (!value.empty())
+                            return storage = std::move(value);
                     }
                 }
                 

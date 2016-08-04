@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/value_function.h"
 #include "mldb/sql/sql_expression.h"

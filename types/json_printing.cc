@@ -26,6 +26,13 @@ namespace {
 static char * BUFFER_TOO_SMALL = reinterpret_cast<char *>(0);
 static char * NO_ESCAPING = reinterpret_cast<char *>(1);
 
+static char hexDigit(uint32_t c)
+{
+    if (c < 10)
+        return '0' + c;
+    else return 'a' + c - 10;
+}
+
 /** Escape JSON in an existing buffer.  Will return BUFFER_TOO_SMALL if the
     underlying buffer is too small.  Will return NO_ESCAPING 1 (as a char *)
     if the output was identical to the input, in other words no escaping was
@@ -57,10 +64,27 @@ char * jsonEscapeCore(const char * str, size_t strLen, char * p, char * end)
             case '\\':
             case '\"': *p++ = (c);  break;
             default:
-                for (auto & c: string(str, str + strLen))
-                    cerr << "char " << (int)c << " " << c << endl;
-                throw ML::Exception("Invalid character in JSON string %d: %s", (int)c,
-                                    str);
+                if (c > 0 && c < 32) {
+                    // ASCII control code
+                    if (p + 6 >= end)
+                        return BUFFER_TOO_SMALL;
+                    *p++ = '\\';
+                    *p++ = 'u';
+                    *p++ = '0';
+                    *p++ = '0';
+                    *p++ = hexDigit((c >> 4) & 15);
+                    *p++ = hexDigit((c >> 0) & 15);
+                    break;
+                }
+                else if (c == 0) {
+                    throw ML::Exception("JSON strings cannot contain null characters");
+                }
+                else {
+                    for (auto & c: string(str, str + strLen))
+                        cerr << "char " << (int)c << " " << c << endl;
+                    throw ML::Exception("Invalid character in JSON string %d: %s", (int)c,
+                                        str);
+                }
             }
         }
     }
@@ -71,6 +95,11 @@ char * jsonEscapeCore(const char * str, size_t strLen, char * p, char * end)
 static constexpr size_t MAX_STACK_CHARS = 16384;
 
 } // file scope
+
+bool isJsonValidAscii(char c)
+{
+    return (c > 0 && c < 127);
+}
 
 std::string
 jsonEscape(const std::string & str)
@@ -220,6 +249,8 @@ writeStringUtf8(const Utf8String & s)
             stream << (char)c;
         else {
             switch (c) {
+            case '\0':
+                throw ML::Exception("JSON strings may not contain embedded nulls");
             case '\t': stream << "\\t";  break;
             case '\n': stream << "\\n";  break;
             case '\r': stream << "\\r";  break;
@@ -235,7 +266,7 @@ writeStringUtf8(const Utf8String & s)
                     stream.write(buf, p - buf);
                 }
                 else {
-                    ExcAssert(c >= 0 && c < 65536);
+                    ExcAssert(c > 0 && c < 65536);
                     stream << ML::format("\\u%04x", (unsigned)c);
                 }
             }
@@ -259,6 +290,8 @@ writeStringUtf8(const char * p, size_t len)
             stream << (char)c;
         else {
             switch (c) {
+            case '\0':
+                throw ML::Exception("JSON strings may not contain embedded nulls");
             case '\t': stream << "\\t";  break;
             case '\n': stream << "\\n";  break;
             case '\r': stream << "\\r";  break;
@@ -274,7 +307,7 @@ writeStringUtf8(const char * p, size_t len)
                     stream.write(buf, p - buf);
                 }
                 else {
-                    ExcAssert(c >= 0 && c < 65536);
+                    ExcAssert(c > 0 && c < 65536);
                     stream << ML::format("\\u%04x", (unsigned)c);
                 }
             }
@@ -793,6 +826,18 @@ writeBool(bool b)
 
 
 /*****************************************************************************/
+/* UTF8 STRING JSON PRINTING CONTEXT                                         */
+/*****************************************************************************/
+
+Utf8StringJsonPrintingContext::
+Utf8StringJsonPrintingContext(Utf8String & str)
+    : StringJsonPrintingContext(const_cast<std::string &>(str.rawString())),
+      str(str)
+{
+}
+
+
+/*****************************************************************************/
 /* STRUCTURED JSON PRINTING CONTEXT                                          */
 /*****************************************************************************/
 
@@ -800,6 +845,7 @@ StructuredJsonPrintingContext::
 StructuredJsonPrintingContext(Json::Value & output)
     : output(output), current(&output)
 {
+    path.reserve(8);
 }
 
 void

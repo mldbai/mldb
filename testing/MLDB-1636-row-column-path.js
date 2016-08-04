@@ -36,6 +36,30 @@ mldb.log(resp);
 
 assertEqual(resp.length, 5);
 
+
+var resp = mldb.query('select rowPath(), rowPathElement(2) from test limit 1');
+mldb.log(resp);
+
+var expected = [
+   {
+      "columns" : [
+         [
+            "rowPath()",
+            {
+               "path" : [ "examples", "4" ]
+            },
+            "-Inf"
+         ],
+         [ "rowPathElement(2)", null, "-Inf" ]
+      ],
+      "rowHash" : "dec1ca216cd01079",
+      "rowName" : "examples.4"
+   }
+];
+mldb.log(resp);
+assertEqual(resp, expected);
+
+
 var resp = mldb.query('select rowPath(), * from (select 1) as x join row_dataset({x:1}) as y');
 mldb.log(resp);
 
@@ -47,13 +71,14 @@ var expected = [
             {
                "path" : [ "[result]-[0]" ]
             },
-            "NaD"
+            "-Inf"
          ],
          [ "x.1", 1, "-Inf" ],
          [ "y.column", "x", "-Inf" ],
          [ "y.value", 1, "-Inf" ]
       ],
-      "rowName" : "[result]-[0]"
+       "rowHash" : "77a5d17e0b01f7cb",
+       "rowName" : "[result]-[0]"
    }
 ];
 

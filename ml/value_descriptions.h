@@ -55,6 +55,7 @@ PREDECLARE_VALUE_DESCRIPTION(ML::Feature_Info);
 
 DECLARE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, ML::Feature_Type);
 DECLARE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, ML::Link_Function);
+DECLARE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, ML::Regularization);
 
 PREDECLARE_VALUE_DESCRIPTION(ML::Configuration);
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<ML::Classifier_Impl>);

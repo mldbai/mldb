@@ -56,7 +56,7 @@ for cls in ["bdt", "glz", "bs"]:
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": 'linear',
-                        "ridge_regression": False
+                        "regularization": 'none'
                     },
                     "bs": {
                         "type": "boosted_stumps",

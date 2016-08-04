@@ -30,10 +30,14 @@ struct FunctionCollection: public PolyCollection<Function> {
 
     virtual Any getEntityStatus(const Function & function) const;
 
+    virtual std::shared_ptr<PolyEntity>
+    construct(PolyConfig config, const OnProgress & onProgress) const;
+
     void applyFunction(const Function * function,
-                       const std::map<Utf8String, ExpressionValue> & input,
-                       const std::vector<Utf8String> & keepPins,
-                       RestConnection & connection) const;
+                       const std::map<Utf8String, ExpressionValue> & qsInput,
+                       const std::vector<Utf8String> & qsKeepPins,
+                       RestConnection & connection
+                       ) const;
     
     static ExpressionValue call(MldbServer * server,
                                const Function * function,

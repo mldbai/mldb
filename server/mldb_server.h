@@ -10,6 +10,7 @@
 #pragma once
 
 #include "mldb/rest/service_peer.h"
+#include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/string.h"
 #include "mldb/soa/service/event_service.h"
 #include "mldb/utils/log_fwd.h"
@@ -114,13 +115,14 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     /** Parse and perform an SQL query, returning the results
         on the given HTTP connection.
     */
-    void runHttpQuery(const Utf8String& query,
+    void runHttpQuery(const Utf8String& qsQuery,
                       RestConnection & connection,
                       const std::string & format,
                       bool createHeaders,
                       bool rowNames,
                       bool rowHashes,
-                      bool sortColumns) const;
+                      bool sortColumns,
+                      const Utf8String & bQuery) const;
 
     /** Get a type info structure for the given type. */
     Json::Value
@@ -142,6 +144,28 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     Utf8String prefixUrl(Utf8String url) const;
     std::string prefixUrl(std::string url) const;
     std::string prefixUrl(const char* url) const;
+    
+    InProcessRestConnection restPerform(
+        const std::string & verb,
+        const Utf8String & resource,
+        const RestParams & params = RestParams(),
+        Json::Value payload = Json::Value(),
+        const RestParams & headers = RestParams()) const;
+    InProcessRestConnection restGet(
+        const Utf8String & resource,
+        const RestParams & params = RestParams()) const;
+
+    InProcessRestConnection restDelete(
+        const Utf8String & resource,
+        const RestParams & params = RestParams()) const;
+    InProcessRestConnection restPut(
+        const Utf8String & resource,
+        const RestParams & params = RestParams(),
+        const Json::Value payload = Json::Value()) const;
+    InProcessRestConnection restPost(
+        const Utf8String & resource,
+        const RestParams & params = RestParams(),
+        const Json::Value payload = Json::Value()) const;
 
 private:
     void preInit();

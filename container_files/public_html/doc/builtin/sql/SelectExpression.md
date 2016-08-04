@@ -79,12 +79,40 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 The following functions are available in the context of a column expression:
 
 - `columnName()` is the name of the column under consideration.  It is the same
-  as the `columnPath()` elements concatenated with a `.` character.
+  as the `columnPath()` elements concatenated with a `.` character. Note that
+  using `columnName()` in an `ORDER BY` clause is only useful when combined
+  with `LIMIT` and/or `OFFSET`. It does not order the columns of the output.
 - `columnPath()` is the structured path to the column under consideration.
 - `columnPathElement(n)` is the nth element of the column path of the column
-  under consideration.  If n is less than zero, it will be a distance from the
-  end (for example, -1 is the last element).  For a columnName of `x.y.2`, then
-  `columnPathElement(0)` will be `x`, `columnPathElement(1)` will be `y` and
-  `columnPathElement(2)` is equivalent to `columnPathElement(-1)` which will
-  be `2`. 
+  under consideration.  Negative indexing is supported, meaning that if n is less than 
+  zero, it will be a distance from the end (for example, -1 is the last element, -2 
+  is the second to last element). For a columnName of `x.y.2`, then `columnPathElement(0)` 
+  will be `x`, `columnPathElement(1)` will be `y` and `columnPathElement(2)` is equivalent 
+  to `columnPathElement(-1)` which will be `2`. If n is bigger than the number 
+  of elements in the column path, NULL will be returned.
+- `columnPathLength()` is the number of elements in the column path.
+- `value()` is the value of the column.
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.
+
+## Filtering duplicated rows based on an expression
+
+It is possible to filter out rows based on the value of an expression using the `DISTINCT ON` optional
+clause. The syntax is as follows: 
+
+```
+SELECT DISTINCT ON (<value-expr>) <value-expr>, <value-expr>, [...] FROM <from-expression> ORDER BY <order-by-expr>
+```
+
+The value expression of the `DISTINCT ON` clause must match the left-most clause of the `ORDER BY` expression. This will
+filter out rows so that no two rows have the same value for the `DISTINCT ON` clause. For example:
+
+```
+SELECT DISTINCT ON (x) x,y FROM dataset ORDER BY x,y
+```
+
+will return the values `x` and `y` of each row in `dataset`, but will only return the first row for each unique value of 
+`x`.
+
+## See also
+
+* ![](%%nblink _tutorials/Selecting Columns Programmatically Using Column Expressions Tutorial)

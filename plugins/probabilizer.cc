@@ -1,8 +1,6 @@
 /** probabilizer.cc
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
-
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2014 Datacratic. All rights reserved.
 
     Implementation of an algorithm to transform an arbitrary score into a
     calibrated probability.
@@ -48,18 +46,26 @@ ProbabilizerConfigDescription::
 ProbabilizerConfigDescription()
 {
     addField("trainingData", &ProbabilizerConfig::trainingData,
-             "Specification of the data for input to the probabilizer procedure. "
-             "The select expression is used to calculate the score for a given dataset row. "
-             "Normally this will be the output of a classifier function applied to that row. "
-             "The select expression is also used to generate the label.  The label is used to "
-             "know the correctness of the probabilizer. "
-             "The select expression can also contain an optional weight sub-expression. "
+             "SQL query that specifies the scores, labels and optional weights for "
+             "the probabilizer training procedure. "
+             "The query should be of the form `select x as score, y as label from ds`.\n\n"
+             "The select expression must contain these two columns: \n\n"
+             "  * `score`: output of a classifier function applied to that row\n"
+             "  * `label`: one boolean (0 or 1), so training a probabilizer only works "
+             "for a classifier trained with mode `boolean`. Rows with null labels will be ignored.\n"
+             " * `weight`: relative importance of examples. It must be a real number. "
              "A weight of 2.0 is equivalent "
              "to including the identical row twice in the training dataset.  "
+             "If the `weight` is not specified each row will have "
+             "a weight of 1. Rows with a null weight will cause a training error. "
              "This can be used to counteract the effect of sampling or weighting "
-             "over the dataset that the probabilizer is trained on.  The "
-             "default will weight each example the same."
-             "The select statement does not support groupby and having clauses. ");
+             "over the dataset that the probabilizer is trained on. The "
+             "default will weight each example the same.\n\n"
+             "The query must not contain `GROUP BY` or `HAVING` clauses and, "
+             "unlike most select expressions, this one can only select whole columns, "
+             "not expressions involving columns. So `X` will work, but not `X + 1`. "
+             "If you need derived values in the query, create a dataset with "
+             "the derived columns as a previous step and use a query on that dataset instead.");
     addField("link", &ProbabilizerConfig::link,
              "Link function to use.",
              ML::LOGIT);
@@ -68,13 +74,15 @@ ProbabilizerConfigDescription()
              "This file can be loaded by the ![](%%doclink probabilizer function). "
              "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &ProbabilizerConfig::functionName,
-             "If specified, an instance of the ![](%%doclink probabilizer function) of this name will be created using "
+             "If specified, an instance of the ![](%%doclink probabilizer function) of "
+             "this name will be created using "
              "the trained model. Note that to use this parameter, the `modelFileUrl` must "
              "also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = chain(validateQuery(&ProbabilizerConfig::trainingData,
                                          MustContainFrom(),
+                                         ScoreLabelSelect(),
                                          NoGroupByHaving()),
                            validateFunction<ProbabilizerConfig>());
 }
@@ -263,7 +271,7 @@ run(const ProcedureRunConfig & run,
     repr.params = probParams;
 
     if (!runProcConf.modelFileUrl.toString().empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl);
         stream << jsonEncode(repr);
         stream.close();
 
@@ -314,7 +322,7 @@ ProbabilizeFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<ProbabilizeFunctionConfig>();
     itl.reset(new Itl());
-    filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl);
     auto repr = jsonDecodeStream<ProbabilizerRepr>(stream);
     itl->probabilizer.link = repr.link;
     itl->probabilizer.params.resize(1);
@@ -372,7 +380,7 @@ getFunctionInfo() const
                                     std::make_shared<NumericValueInfo>(),
                                     COLUMN_IS_DENSE,
                                     0 /* position */);
-    
+
     FunctionInfo result;
     result.input.reset(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(knownOutputColumns, SCHEMA_CLOSED));

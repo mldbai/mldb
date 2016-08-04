@@ -53,7 +53,7 @@ function createDataset()
             outputDataset: { id: 'reddit_text_file' },
             limit: 1000,
             delimiter: "",
-            quotechar: ""
+            quoteChar: ""
         }
     };
 
@@ -81,10 +81,11 @@ function createDataset()
 
 createDataset();
 
-res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 2' });
+res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc, rowName() limit 2' });
 
 //Check that we get largest value first and second largest second
 expected = [
+
       {
          "columns" : [
             [ "width", 780, "2016-03-09T02:33:24Z" ]
@@ -106,25 +107,25 @@ mldb.log(res)
 assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
             "output was not the same as expected output in batch executor desc");
 
-res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) asc limit 2' });
+res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) asc, rowName() limit 2' });
 
 //Check that we get smallest value first and second smallest second
 expected = [
-      {
-         "columns" : [
+    {
+        "columns" : [
             [ "width", 1, "2016-03-09T02:33:24Z" ]
-         ],
-         "rowHash" : "eb2bdafd2845aedc",
-         "rowName" : "\"[\"\"NBASpurs\"\"]\""
-      },
-      {
-         "columns" : [
+        ],
+        "rowHash" : "bdf764190569d24d",
+        "rowName" : "\"[\"\"1000\"\"]\""
+    },
+    {
+        "columns" : [
             [ "width", 1, "2016-03-09T02:33:24Z" ]
-         ],
-         "rowHash" : "d8a98107674ca65f",
-         "rowName" : "\"[\"\"MvC3\"\"]\""
-      }
-   ];
+        ],
+        "rowHash" : "e23a0ba6c8420e79",
+        "rowName" : "\"[\"\"1000words\"\"]\""
+    }
+];
 
 mldb.log(res)
 
@@ -135,7 +136,7 @@ assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
 mldb.put('/v1/functions/bop', {
     'type': 'sql.query',
     'params': {
-        'query': 'select rowName(), sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 2'
+        'query': 'select rowName(), sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc, rowName() limit 2'
     }
 })
 
@@ -144,7 +145,7 @@ res = mldb.get('/v1/query', {q: 'select bop()', format: 'table'});
 //check that we get biggest value, should be the same as in the batch executor
 expected = [
       [ "_rowName", "bop().rowName()", "bop().width" ],
-      [ "result", "AskReddit", 780 ]
+      [ "result", "[\"AskReddit\"]", 780 ]
    ]
 
 
@@ -157,7 +158,7 @@ assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
 mldb.put('/v1/functions/bop2', {
     'type': 'sql.query',
     'params': {
-        'query': 'select rowName(), sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) asc limit 2'
+        'query': 'select rowName(), sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) asc, rowName() limit 2'
     }
 })
 
@@ -165,9 +166,9 @@ res = mldb.get('/v1/query', {q: 'select bop2()', format: 'table'});
 
 //check that we get smallest value, should be the same (value) as in the batch executor
 expected = [
-      [ "_rowName", "bop2().rowName()", "bop2().width" ],
-      [ "result", "NBASpurs", 1 ]
-   ]
+    [ "_rowName", "bop2().rowName()", "bop2().width" ],
+    [ "result", "[\"1000\"]", 1 ]
+];
 
 mldb.log(res)
 

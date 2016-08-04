@@ -32,6 +32,8 @@ struct Url {
 
     Utf8String toUtf8String() const;
     std::string toString() const;  // should be Utf8 by default
+    Utf8String toDecodedUtf8String() const;
+    std::string toDecodedString() const;
 
     const char * c_str() const;
 
@@ -56,6 +58,11 @@ struct Url {
     std::string original;
 
     static Utf8String decodeUri(Utf8String str);
+
+    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI
+    static Utf8String encodeUri(const Utf8String & str);
+    static std::string encodeUri(const std::string & str);
+    static std::string encodeUri(const char * str);
 };
 
 inline std::ostream & operator << (std::ostream & stream, const Url & url)

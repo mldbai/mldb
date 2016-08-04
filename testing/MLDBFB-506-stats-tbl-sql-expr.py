@@ -67,7 +67,7 @@ class BowSqlExprTest(MldbUnitTest):
             "params": {
                 "trainingData": 'select bow({txt})[bow] as * from veggies',
                 "outcomes": [['label', 'label']],
-                "statsTableFileUrl": 'file://bow.st',
+                "statsTableFileUrl": 'file://tmp/bow.st',
                 "runOnCreation": True,
                 'outputDataset': 'patate'
             }
@@ -80,7 +80,7 @@ class BowSqlExprTest(MldbUnitTest):
                 'numNeg': 2,
                 'minTrials': 1,
                 'outcomeToUse': 'label',
-                'statsTableFileUrl': 'file://bow.st'
+                'statsTableFileUrl': 'file://tmp/bow.st'
             }
         })
 

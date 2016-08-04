@@ -12,6 +12,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/types/url.h"
 #include "mldb/types/string.h"
+#include "ext/googleurl/src/url_util.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -155,5 +156,39 @@ BOOST_AUTO_TEST_CASE(test_4_bytes)
     Utf8String in("%F0%90%8D%88");
     Utf8String expected("𐍈");
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+}
+#endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_encode_uri)
+{
+    string res = Url::encodeUri("http://a b c.com");
+    BOOST_CHECK_EQUAL(res, "http://a%20b%20c.com");
+
+    res = Url::encodeUri("http://a%20b.com?1+2=3##𐍈");
+    BOOST_CHECK_EQUAL(res, "http://a%2520b.com?1+2=3##%F0%90%8D%88");
+
+    res = Url::encodeUri("http://a/b/c/d");
+    BOOST_CHECK_EQUAL(res, "http://a/b/c/d");
+}
+#endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_url_round_tripping)
+{
+    string org = "file://./with%20whitespace.py";
+    Url url(org);
+    BOOST_CHECK_EQUAL(url.toDecodedString(), org);
+    BOOST_CHECK_EQUAL(url.toString(), "file://./with%2520whitespace.py");
+
+    org = "file://./with whitespace.py";
+    url = Url(org);
+    BOOST_CHECK_EQUAL(url.toDecodedString(), org);
+    BOOST_CHECK_EQUAL(url.toString(), "file://./with%20whitespace.py");
+
+    org = "file://./with%20white space.py";
+    url = Url(org);
+    BOOST_CHECK_EQUAL(url.toDecodedString(), org);
+    BOOST_CHECK_EQUAL(url.toString(), "file://./with%2520white%20space.py");
 }
 #endif
