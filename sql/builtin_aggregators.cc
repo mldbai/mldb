@@ -1043,14 +1043,14 @@ struct VarAccum {
     
     double variance() const
     {
+        if (n < 2)
+            return std::nan("");
+
         return M2 / (n - 1);
     }
 
     ExpressionValue extract()
     {
-        if (n < 2) {
-            return ExpressionValue(std::nan(""), ts);
-        }
         return ExpressionValue(variance(), ts);
     }
 
@@ -1072,9 +1072,6 @@ struct StdDevAccum : public VarAccum {
 
     ExpressionValue extract()
     {
-        if (n < 2) {
-            return ExpressionValue(std::nan(""), ts);
-        }
         return ExpressionValue(sqrt(variance()), ts);
     }
 };

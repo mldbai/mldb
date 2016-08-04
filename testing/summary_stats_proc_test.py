@@ -60,7 +60,7 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
              "NaN", None, None],
 
             ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2,
-             27, 1, None]
+             5.196152422706632, 1, None]
         ])
 
     def test_dottest_col_names(self):
