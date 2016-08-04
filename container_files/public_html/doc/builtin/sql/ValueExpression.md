@@ -623,6 +623,8 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `vertical_count(<row>)` alias of `count()`, operates on columns.
   - `vertical_sum(<row>)` alias of `sum()`, operates on columns.
   - `vertical_avg(<row>)` alias of `avg()`, operates on columns.
+  - `vertical_stddev(<row>)` alias of `stddev()`, operates on columns.
+  - `vertical_variance(<row>)` alias of `variance()`, operates on columns.
   - `vertical_min(<row>)` alias of `min()`, operates on columns.
   - `vertical_max(<row>)` alias of `max()`, operates on columns.
   - `vertical_latest(<row>)` alias of `latest()`, operates on columns.
