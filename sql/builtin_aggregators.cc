@@ -1007,14 +1007,14 @@ struct LaterAccum {
 static RegisterAggregatorT<EarliestLatestAccum<EarlierAccum> > registerEarliest("earliest", "vertical_earliest");
 static RegisterAggregatorT<EarliestLatestAccum<LaterAccum> > registerLatest("latest", "vertical_latest");
 
-struct StdAggAccum {
+struct VarAccum {
     static constexpr int nargs = 1;
     int64_t n;
     double mean;
     double M2;
     Date ts;
 
-    StdAggAccum() : n(0), mean(0), M2(0), ts(Date::negativeInfinity())
+    VarAccum() : n(0), mean(0), M2(0), ts(Date::negativeInfinity())
     {
     }
 
@@ -1040,16 +1040,21 @@ struct StdAggAccum {
 
         ts.setMax(val.getEffectiveTimestamp());
     }
-     
+    
+    double variance() const
+    {
+        return M2 / (n - 1);
+    }
+
     ExpressionValue extract()
     {
         if (n < 2) {
             return ExpressionValue(std::nan(""), ts);
         }
-        return ExpressionValue(M2 / (n - 1), ts);
+        return ExpressionValue(variance(), ts);
     }
 
-    void merge(StdAggAccum* src)
+    void merge(VarAccum* src)
     {
         double delta = src->mean - mean;
         M2 = M2 + src->M2 + delta * delta * n * src->n / (n + src->n);
@@ -1059,8 +1064,24 @@ struct StdAggAccum {
     }
 };
 
-static RegisterAggregatorT<StdAggAccum>
-registerStdAgg("stddev", "vertical_stddev");
+struct StdDevAccum : public VarAccum {
+
+    StdDevAccum(): VarAccum()
+    {
+    }
+
+    ExpressionValue extract()
+    {
+        if (n < 2) {
+            return ExpressionValue(std::nan(""), ts);
+        }
+        return ExpressionValue(sqrt(variance()), ts);
+    }
+};
+
+
+static RegisterAggregatorT<VarAccum> registerVarAgg("variance", "vertical_variance");
+static RegisterAggregatorT<StdDevAccum> registerStdDevAgg("stddev", "vertical_stddev");
 
 
 } // namespace Builtins
