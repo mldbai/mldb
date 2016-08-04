@@ -135,17 +135,48 @@ struct MongoImportProcedure: public Procedure {
         throw HttpReturnException(500, "Unknown bson expression type");
     }
 
-//     static ExpressionValue bsonToExpression(const bsoncxx::document::view & doc)
-//     {
-//         auto ts = Date::fromSecondsSinceEpoch(
-//                 doc["_oid"].get_oid().value.get_time_t());
-//         StructValue cols;
-//         for (auto & el: doc) {
-//             cols.emplace_back(PathElement(std::move(el.key().to_string())),
-//                               bsonToExpression(el.get_value(), ts));
-//         }
-//         return std::move(cols);
-//     }
+    static void populateRow(vector<Cell> & row, const Date & ts,
+                            const Path & path,
+                            const bsoncxx::document::view & doc)
+    {
+        for (auto & el: doc) {
+            if (path.empty() && el.key().to_string() == "_id") {
+                // top level _id, skip
+                continue;
+            }
+            Path newPath = path + std::move(el.key().to_string());
+            if (el.type() == bsoncxx::type::k_document) {
+                populateRow(row, ts, newPath, el.get_document().view());
+            }
+            else if (el.type() == bsoncxx::type::k_array) {
+                populateRow(row, ts, newPath, el.get_array());
+            }
+            else {
+                row.emplace_back(newPath, bsonToCell(el.get_value()), ts);
+            }
+        }
+    }
+
+    static void populateRow(vector<Cell> & row, const Date & ts,
+                            const Path & path,
+                            const bsoncxx::array::view & arr)
+    {
+        int i = 0;
+        for (auto it = arr.begin(); it != arr.end(); ++it, ++i) {
+            Path newPath = path + i;
+            bsoncxx::array::element el = *it;
+            if (el.type() == bsoncxx::type::k_document) {
+                populateRow(row, ts, newPath, el.get_document().view());
+            }
+            else if (el.type() == bsoncxx::type::k_array) {
+                populateRow(row, ts, newPath, el.get_array());
+            }
+            else {
+                row.emplace_back(newPath, bsonToCell(el.get_value()), ts);
+            }
+        }
+    }
+
 
     RunOutput run(const ProcedureRunConfig & run,
                   const std::function<bool (const Json::Value &)> & onProgress) const override
@@ -166,33 +197,6 @@ struct MongoImportProcedure: public Procedure {
         auto output = createDataset(server, runConfig.outputDataset,
                                     nullptr, true /*overwrite*/);
 
-        typedef std::function<void (vector<Cell> &, const Date &, Path,
-                                    bsoncxx::document::view)> PopulateRowFct;
-                
-        PopulateRowFct populateRow = [&] (
-            vector<Cell> & row, const Date & ts,
-            Path currPath,
-            bsoncxx::document::view doc)
-        {
-            for (auto & el: doc) {
-                if (currPath.empty() && el.key().to_string() == "_id") {
-                    // top level _id, skip
-                    continue;
-                }
-                if (el.type() == bsoncxx::type::k_document) {
-                    populateRow(row,
-                                ts,
-                                currPath + std::move(el.key().to_string()),
-                                el.get_document().view());
-                    continue;
-                }
-                row.emplace_back(
-                    currPath + PathElement(std::move(el.key().to_string())),
-                    bsonToCell(el.get_value()),
-                    ts);
-            }
-        };
-
         {
             auto cursor = db[runConfig.collection].find({});
             for (auto&& doc : cursor) {
@@ -201,7 +205,6 @@ struct MongoImportProcedure: public Procedure {
                 vector<Cell> row;
                 Path curr;
                 populateRow(row, ts, curr, doc);
-                //cerr << bsoncxx::to_json(oid.get_value()) << endl;
                 Path p(oid.value.to_string());
                 output->recordRow(p, row);
             }
