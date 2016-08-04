@@ -130,7 +130,7 @@ struct MongoImportConfig: ProcedureConfig {
 
     int64_t limit;
     int64_t offset;
-    bool ignoreBadLines; // TODO
+    bool ignoreParsingErrors;
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
     std::shared_ptr<SqlExpression> named;
@@ -138,7 +138,7 @@ struct MongoImportConfig: ProcedureConfig {
     MongoImportConfig() :
           limit(-1),
           offset(0),
-          ignoreBadLines(false),
+          ignoreParsingErrors(false),
           select(SelectExpression::STAR),
           where(SqlExpression::TRUE),
           named(SqlExpression::TRUE)
@@ -168,9 +168,10 @@ MongoImportConfigDescription()
              "Maximum number of lines to process");
     addField("offset", &MongoImportConfig::offset,
              "Skip the first n lines.", int64_t(0));
-    addField("ignoreBadLines", &MongoImportConfig::ignoreBadLines,
-             "If true, any line causing an error will be skipped. Any line "
-             "with an invalid JSON object will cause an error.", false);
+    addField("ignoreParsingErrors", &MongoImportConfig::ignoreParsingErrors,
+             "If true, any record causing an error will be skipped. Any "
+             "record with BSON regex or BSON internal data type will cause an "
+             "error.", false);
     addField("select", &MongoImportConfig::select,
              "Which columns to use.",
              SelectExpression::STAR);
@@ -354,7 +355,7 @@ struct MongoImportProcedure: public Procedure {
 
         auto offset = runConfig.offset;
         auto limit = runConfig.limit;
-
+        int errors = 0;
         {
             auto cursor = db[runConfig.collection].find({});
             int i = 0;
@@ -372,12 +373,25 @@ struct MongoImportProcedure: public Procedure {
                 if (++i % 1000 == 0) {
                     logger->debug() << "Processing " << i << "th document";
                 }
-                processor(*output.get(), doc);
+                if (runConfig.ignoreParsingErrors) {
+                    try {
+                        processor(*output.get(), doc);
+                    }
+                    catch (const ML::Exception & exc) {
+                        ++ errors;
+                        logger->error() << exc.what();
+                    }
+                }
+                else {
+                    processor(*output.get(), doc);
+                }
             }
             logger->debug() << "Fetched " << i << " documents";
         }
         output->commit();
-        return output->getStatus();
+        Json::Value res = jsonEncode(output->getStatus());
+        res["numParsingErrors"] = errors;
+        return RunOutput(res);
     }
 };
 
