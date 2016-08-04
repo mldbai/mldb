@@ -1,8 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// 
 
 /** list_description_base.h                                        -*- C++ -*-
     Jeremy Barnes, 21 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Base class for a list (array, list, vector, ...).
 */
@@ -12,6 +14,13 @@
 #include "value_description.h"
 
 namespace Datacratic {
+
+template<typename T>
+void clearList(T & list)
+{
+    list.clear();
+}
+
 
 /*****************************************************************************/
 /* LIST DESCRIPTION                                                          */
@@ -40,7 +49,7 @@ struct ListDescriptionBase {
     template<typename List>
     void parseJsonTypedList(List * val, JsonParsingContext & context) const
     {
-        val->clear();
+        clearList(*val);
 
         if (!context.isArray())
             context.exception("expected array of " + inner->typeName);
