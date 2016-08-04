@@ -346,6 +346,39 @@ doGetBoundParameter(const Utf8String & paramName)
 
 
 /*****************************************************************************/
+/* SQL EXPRESSION EVAL SCOPE                                                 */
+/*****************************************************************************/
+
+ColumnGetter
+SqlExpressionEvalScope::
+doGetBoundParameter(const Utf8String & paramName)
+{
+    size_t argNum = jsonDecodeStr<size_t>(paramName);
+
+    if (argNum == 0) {
+        throw HttpReturnException
+            (400, "Arguments start at 1, not 0, in SQL evaluate expression");
+    }
+    if (argNum > argInfo.size()) {
+        throw HttpReturnException
+            (400, "Attempt to obtain more arguments than exist when binding "
+             "SQL evaluate expression");
+    }
+        
+    return {[=] (const SqlRowScope & scope,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                auto & row = scope.as<RowScope>();
+                ExcAssertLessEqual(argNum, row.numArgs);
+                return storage = row.args[argNum - 1];
+            },
+            argInfo[argNum - 1]};
+}
+
+
+/*****************************************************************************/
 /* SQL EXPRESSION EXTRACT SCOPE                                              */
 /*****************************************************************************/
 

@@ -4662,6 +4662,13 @@ makeExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info)
     return std::make_shared<ExpressionValueDescription>(std::move(info));
 }
 
+std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
+makeExpressionValueDescription(ExpressionValueInfo * infoPtr)
+{
+    std::shared_ptr<ExpressionValueInfo> info(infoPtr);
+    return std::make_shared<ExpressionValueDescription>(std::move(info));
+}
+
 std::shared_ptr<ExpressionValueInfo>
 extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc)
 {
