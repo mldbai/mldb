@@ -131,6 +131,13 @@ run(const ProcedureRunConfig & run,
 
     //1.0 find core distance. We should optimize with space partitioning
 
+    cerr << "CORE DISTANCE (K): " << runProcConf.coreDistance << endl;
+    cerr << "MIN CLUSTER SIZE: " << runProcConf.minClusterSize << endl;
+
+    cerr << "Vertices:" << endl;
+    for (int i = 0; i < vecs.size(); ++i)
+        cerr << i << ":" << vecs[i] << endl;
+
     int coreDistance = runProcConf.coreDistance;
     std::vector<double> coreDistances;
    // std::vector<std::vector<std::pair<int, double>>> reachability;
@@ -175,6 +182,11 @@ run(const ProcedureRunConfig & run,
        // reachability.push_back(std::move(kclosest));
     }
 
+    cerr << "core distances" << endl;
+    for (auto& c : coreDistances) {
+        cerr << c << endl;
+    }
+
     //2.0 mutual reachability. max(core(x), core(y), d(x,y))
 
  /*   for (unsigned i = 0;  i < vecs.size();  ++i) {
@@ -200,7 +212,7 @@ run(const ProcedureRunConfig & run,
     std::vector<std::tuple<int, int, double> > edges;
     std::vector<int> used;
     used.push_back(0);
-
+    cerr << "PRIM" << endl;
     while (used.size() < vecs.size()) {
     //    cerr << "NEW ITERATION" << endl;
         int minI = 0;
@@ -233,6 +245,7 @@ run(const ProcedureRunConfig & run,
         ExcAssert(minJ != 0);
 
         used.push_back(minJ);
+        cerr << "Adding edge " << minI << "-" << minJ << ", " << minDistance << endl;
         edges.emplace_back(minI, minJ, minDistance);
     }
 
@@ -310,7 +323,7 @@ run(const ProcedureRunConfig & run,
 
     struct MetaCluster {
 
-        MetaCluster(double lambda_) {parent = -1; lambda = lambda_; stability = 0; /*leftoversCount = 0;*/ selected = false;}
+        MetaCluster(double lambda_, int topCluster) {parent = -1; lambda = lambda_; stability = 0; /*leftoversCount = 0;*/ selected = false; topMostCluster = topCluster;}
 
         std::vector<ssize_t> childs;
         //std::std::vector<ssize_t> parents;
@@ -320,6 +333,8 @@ run(const ProcedureRunConfig & run,
         double stability;
        // size_t leftoversCount;
         bool selected;
+
+        int topMostCluster;
     };
 
     std::vector<MetaCluster> metaClusters;
@@ -335,7 +350,7 @@ run(const ProcedureRunConfig & run,
         ssize_t childSize2 = clusterSizes[childIndex2];
 
         if (metaIndex < 0) {
-            metaClusters.emplace_back(lambda);
+            metaClusters.emplace_back(lambda, i);
             metaIndex = metaClusters.size() - 1;
         }
 
@@ -344,8 +359,10 @@ run(const ProcedureRunConfig & run,
         if (childSize1 < minClusterSize && childSize2 < minClusterSize) {
             //Add the leftovers from both side
             MetaCluster & metacluster =  metaClusters[metaIndex];
-            double lambda1 = (1.0/clusterDistances[childIndex1]) - lambda;
-            double lambda2 = (1.0/clusterDistances[childIndex2]) - lambda;
+            double lambda1 = clusterDistances[childIndex1] == 0 ? 0 : (1.0/clusterDistances[childIndex1]) - lambda;
+            double lambda2 = clusterDistances[childIndex2] == 0 ? 0 : (1.0/clusterDistances[childIndex2]) - lambda;
+            cerr << "1 " << metacluster.stability << " " << lambda1 << " " << childSize1 << " " << clusterDistances[childIndex1] << endl;
+            cerr << "1 " << metacluster.stability << " " << lambda2 << " " << childSize2 << " " << clusterDistances[childIndex2] << endl;
             metacluster.stability += lambda1*childSize1;
             metacluster.stability += lambda2*childSize2;
         }
@@ -354,7 +371,8 @@ run(const ProcedureRunConfig & run,
             condenseClusterRecursive(childIndex2, metaIndex, lambda);
             //and add the "leftovers" from child1
             MetaCluster & metacluster =  metaClusters[metaIndex];
-            double lambda1 = (1.0/clusterDistances[childIndex1]) - lambda;
+            double lambda1 = clusterDistances[childIndex1] == 0 ? 0 : (1.0/clusterDistances[childIndex1]) - lambda;
+            cerr << "2 " << metacluster.stability << " " << lambda1 << " " << childSize1 << endl;
             metacluster.stability += lambda1*childSize1;
         }
         else if (childSize2 < minClusterSize) {
@@ -362,7 +380,8 @@ run(const ProcedureRunConfig & run,
             condenseClusterRecursive(childIndex1, metaIndex, lambda);
             //and add the "leftovers" from child2
             MetaCluster & metacluster =  metaClusters[metaIndex];
-            double lambda2 = (1.0/clusterDistances[childIndex2]) - lambda;
+            double lambda2 = clusterDistances[childIndex2] == 0 ? 0 : (1.0/clusterDistances[childIndex2]) - lambda;
+            cerr << "3 " << metacluster.stability << " " << lambda2 << " " << childSize2 << endl;
             metacluster.stability += lambda2*childSize2;
         }
         else {
@@ -432,11 +451,25 @@ run(const ProcedureRunConfig & run,
 
     //6.0 Finalize
 
+    std::function<void(ssize_t)> listRecursive = [&] (ssize_t clusterIndex) {
+        auto& childs = clusterChilds[clusterIndex];
+        if (childs.first >= 0) {
+            listRecursive(childs.first);
+            listRecursive(childs.second);
+        }
+        else {
+            ExcAssert(clusterIndex < vecs.size());
+            cerr << vecs[clusterIndex] << endl;
+        }
+    };
+
     std::function<void(ssize_t)> finalizeRecursive = [&] (ssize_t i) {
 
         MetaCluster & metacluster =  metaClusters[i];
         if (metacluster.selected) {
             cerr << "MetaCluster " << i << " is a true cluster" << endl;
+            cerr << "Vertices:" << endl;
+            listRecursive(metacluster.topMostCluster);
         }
         else if (metacluster.childs.size() > 0) {
             finalizeRecursive(metacluster.childs[0]);

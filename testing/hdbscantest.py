@@ -7,7 +7,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 csv_conf = {
     "type": "import.text",
     "params": {
-        'dataFileUrl' : 'file://mldb/testing/dataset/iris.data',
+        'dataFileUrl' : 'file://mldb/testing/dataset/iris_small.data',
         "outputDataset": {
             "id": "iris",
         },
@@ -26,14 +26,14 @@ mldb.put('/v1/procedures/hdbscan_train_iris', {
     }
 })
 
-res = mldb.query("""
-    select pivot(class, num) as *
-    from (
-        select cluster, class, count(*) as num
-        from merge(iris_clusters, iris)
-        group by cluster, class
-    )
-    group by cluster
-""")
+#res = mldb.query("""
+#    select pivot(class, num) as *
+#    from (
+#        select cluster, class, count(*) as num
+#        from merge(iris_clusters, iris)
+#        group by cluster, class
+#    )
+#    group by cluster
+#""")
 
 # mldb.log(res)

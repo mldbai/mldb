@@ -32,8 +32,8 @@ struct HDBSCANConfig : public ProcedureConfig  {
 
     HDBSCANConfig()
         : numInputDimensions(-1),
-          coreDistance(5),
-          minClusterSize(5)
+          coreDistance(2),
+          minClusterSize(3)
     {
     }
 
