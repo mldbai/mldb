@@ -49,4 +49,13 @@ var op = mldb.get("/v1/plugins/tensorflow/routes/ops/EncodePng");
 
 mldb.log(op);
 
+var png = mldb.query("SELECT tf_EncodePng([[[0,0,0,0]]], {T: { type: 'DT_UINT8'}}) AS png NAMED 'png'");
+mldb.log(png);
+
+var png = mldb.query("SELECT tf_EncodePng([[[1,1,1,0]]], {}) AS png NAMED 'png'");
+mldb.log(png);
+
+var png = mldb.query("SELECT tf_EncodePng([[[1,1,1,0]]]) AS png NAMED 'png'");
+mldb.log(png);
+
 "success"
