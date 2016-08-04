@@ -1170,6 +1170,14 @@ getExpressionValueDescriptionNoTimestamp();
 std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
 makeExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info);
 
+/** Create an expression value description specialized to the given type.
+    This can be used to extract the specialized info for a type.
+
+    It will take ownership of the object in info.
+*/
+std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
+makeExpressionValueDescription(ExpressionValueInfo * info);
+
 /** Get the expression value description from this value description.  If
     it's not an expression value, returns a null pointer.
 */

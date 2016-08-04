@@ -120,6 +120,38 @@ struct RegisterBuiltin {
     std::vector<std::shared_ptr<void> > handles;
 };
 
+
+/*****************************************************************************/
+/* SQL BUILTIN                                                               */
+/*****************************************************************************/
+
+/** Allows a builtin function to be defined in SQL.
+
+    Example:
+
+    DEF_SQL_BUILTIN(sincos, 2, "[sin($1), cos($1)]");
+
+    This will add a builtin function called sincos that is essentially a
+    macro for the given implementation.
+*/
+
+struct SqlBuiltin {
+    SqlBuiltin(const std::string & name,
+               const Utf8String & expr,
+               size_t arity);
+
+    BoundFunction bind(const std::vector<BoundSqlExpression> & args,
+                       SqlBindingScope & scope) const;
+
+    Utf8String functionName;
+    size_t arity;
+    std::shared_ptr<SqlExpression> parsed;
+    std::shared_ptr<void> handle;
+};
+
+#define DEF_SQL_BUILTIN(op, arity, expr) \
+    static Datacratic::MLDB::Builtins::SqlBuiltin register_##op(#op, expr, arity);
+
 } // namespace Builtins
 } // namespace MLDB
 } // namespace Datacratic
