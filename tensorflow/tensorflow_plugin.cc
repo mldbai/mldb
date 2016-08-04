@@ -1317,16 +1317,11 @@ struct TensorflowGraphBase: public Function {
 /*****************************************************************************/
 
 struct TensorflowOpConfig {
-    TensorflowOpConfig()
-        : inputType(tensorflow::DT_DOUBLE)
-    {
-    }
-
     Utf8String op;
     std::map<Utf8String, tensorflow::AttrValue> attr;
     SelectExpression inputs;
     SelectExpression outputs;
-    tensorflow::DataType inputType;
+    tensorflow::DataType inputType = tensorflow::DT_INVALID;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(TensorflowOpConfig);
@@ -1343,8 +1338,9 @@ TensorflowOpConfigDescription()
     addField("inputs", &TensorflowOpConfig::inputs,
              "Input values for graph");
     addField("inputType", &TensorflowOpConfig::inputType,
-             "Input type for graph nodes.",
-             tensorflow::DT_DOUBLE);
+             "Input type for graph nodes.  Default ('DT_INVALID') means "
+             "infer it from the types on the operation.",
+             tensorflow::DT_INVALID);
 }
 
 struct TensorflowOp: public TensorflowGraphBase {
@@ -1378,7 +1374,8 @@ struct TensorflowOp: public TensorflowGraphBase {
             inode->set_op("Placeholder");
             inode->set_device("/cpu:0");
             // TODO: generalize
-            (*inode->mutable_attr())["dtype"].set_type(functionConfig.inputType);
+            if (functionConfig.inputType != tensorflow::DT_INVALID)
+                (*inode->mutable_attr())["dtype"].set_type(functionConfig.inputType);
         }
 
         tensorflow::NodeDef * node = graph->add_node();
@@ -1784,14 +1781,16 @@ struct TensorflowPlugin: public Plugin {
                 tensorflow::Status status;
                 auto * opDef = tensorflow::OpRegistry::Global()->LookUp(op, &status);
 
-                if (args.size() != 2)
+                if (args.size() < 1 || args.size() > 2)
                     throw HttpReturnException
-                        (400, "Tensorflow builtin functions take two arguments");
+                        (400, "Tensorflow builtin functions take one or two arguments");
 
                 TensorflowOpConfig config;
                 config.op = op;
-                config.attr = jsonDecode<decltype(config.attr)>
-                    (args[1].constantValue().extractJson());
+                if (args.size() > 1) {
+                    config.attr = jsonDecode<decltype(config.attr)>
+                        (args[1].constantValue().extractJson());
+                }
 
                 for (const auto & input: opDef->input_arg()) {
                     config.inputs.clauses.emplace_back
@@ -1818,8 +1817,27 @@ struct TensorflowPlugin: public Plugin {
                                              COLUMN_IS_DENSE,
                                              0 /* index */);
                         inputInfo.reset(new RowValueInfo(columns, SCHEMA_CLOSED));
-                        if (opDef->input_arg(0).type())
+
+                        if (opDef->input_arg(0).type()) {
                             config.inputType = opDef->input_arg(0).type();
+                        }
+                        else if (!opDef->input_arg(0).type_attr().empty()) {
+                            std::string attrName = opDef->input_arg(0).type_attr();
+                            auto it = config.attr.find(attrName);
+                            if (it == config.attr.end()) {
+                                // We didn't find the attribute
+                                // Set it to the default value
+                                for (auto & attr: opDef->attr()) {
+                                    if (attr.name() == attrName) {
+                                        // found it
+                                        config.inputType = attr.default_value().type();
+                                    }
+                                }
+                                // Can't do it
+                            } else {
+                                config.inputType = it->second.type();
+                            }
+                        }
                     }
                     else {
                         throw HttpReturnException
@@ -1838,8 +1856,6 @@ struct TensorflowPlugin: public Plugin {
                 pconfig.params = config;
                 auto fn = std::make_shared<TensorflowOp>
                     (server, pconfig, nullptr /* progress */);
-
-                
 
                 std::shared_ptr<FunctionApplier> applier
                     (fn->bind(context, inputInfo)
