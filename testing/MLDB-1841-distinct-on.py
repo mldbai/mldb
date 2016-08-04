@@ -22,7 +22,6 @@ class DistinctOnTest(MldbUnitTest):
         ds.commit()
 
     def test_distincton(self):
-
         res = mldb.query("SELECT DISTINCT ON (x) x, y FROM dataset1 ORDER BY x,y")
 
         expected = [["_rowName","x","y"],
@@ -30,7 +29,18 @@ class DistinctOnTest(MldbUnitTest):
                     ["row2", 2,  2 ]]
 
         self.assertEqual(res, expected)
+   
+    def test_order(self):
+        res = mldb.query("""
+                SELECT DISTINCT ON (x) x, z
+                FROM dataset1 
+                ORDER BY x,y DESC""")
+        expected = [["_rowName","x","z"],
+                    ["row4",1,2],
+                    ["row5",2,3]]
 
+        self.assertEqual(res, expected)
+    
     def test_distincton_where(self):
 
         res = mldb.query("SELECT DISTINCT ON (x) x, y FROM dataset1 WHERE y % 2 = 0 ORDER BY x,y")
