@@ -110,7 +110,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ReadThroughBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                ColumnFilter& keep)
 {
     GetAllColumnsOutput result = outer.doGetAllColumns(tableName, keep);
     auto outerFn = result.exec;
@@ -283,7 +283,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput
 ColumnExpressionBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                ColumnFilter& keep)
 {
     throw HttpReturnException(400, "Cannot use wildcard inside COLUMN EXPR");
 }
@@ -495,7 +495,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 SqlExpressionExtractScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                ColumnFilter& keep)
 {
     GetAllColumnsOutput result;
 

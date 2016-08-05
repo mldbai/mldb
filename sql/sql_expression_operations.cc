@@ -3469,7 +3469,7 @@ bind(SqlBindingScope & scope) const
 
     // This function figures out the new name of the column.  If it's excluded,
     // then it returns the empty column name
-    auto newColumnName = [=] (const ColumnName & inputColumnName) -> ColumnName
+    ColumnFilter newColumnName([=] (const ColumnName & inputColumnName) -> ColumnName
         {
             //cerr << "input column name " << inputColumnName << endl;
 
@@ -3512,7 +3512,7 @@ bind(SqlBindingScope & scope) const
 
             //cerr << "kept" << endl;
             return inputColumnName;
-        };
+        });
 
     auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
 
@@ -3733,9 +3733,10 @@ SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
+    ColumnFilter filter;
     auto allColumns
         = scope.doGetAllColumns("" /* table name */,
-                                  [] (ColumnName n) { return std::move(n); });
+                                filter);
     
     bool hasDynamicColumns
         = allColumns.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
@@ -3871,14 +3872,14 @@ bind(SqlBindingScope & scope) const
     
     if (selectValue && asColumnPath && !hasDynamicColumns) {
 
-        auto filterColumns = [=] (const ColumnName & name) -> ColumnName
+        ColumnFilter filterColumns([=] (const ColumnName & name) -> ColumnName
             {
                 auto it = keepColumns.find(name);
                 if (it == keepColumns.end()) {
                     return ColumnName();
                 }
                 return it->second;
-            };
+            });
     
         // Finally, return a filtered set from the underlying dataset
         auto outputColumns
@@ -3897,10 +3898,7 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
-        auto filterColumns = [=] (const ColumnName & name) -> ColumnName
-            {
-                return name;
-            };
+        ColumnFilter filterColumns;
 
         auto outputColumns
             = scope.doGetAllColumns("" /* prefix */, filterColumns);

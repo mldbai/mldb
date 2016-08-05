@@ -76,7 +76,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 GetAllColumnsOutput
 TableLexicalScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep,
+                ColumnFilter& keep,
                 int fieldOffset)
 {
     //cerr << "dataset lexical scope get columns: fieldOffset = "
@@ -389,7 +389,7 @@ SubSelectLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::share
 GetAllColumnsOutput
 SubSelectLexicalScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep,
+                ColumnFilter& keep,
                 int fieldOffset)
 {
     //We want the last two that were added by the sub pipeline.
@@ -616,7 +616,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 GetAllColumnsOutput
 JoinLexicalScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep,
+                ColumnFilter& keep,
                 int fieldOffset)
 {
     //cerr << "doGetAllColums for join with field offset " << fieldOffset << "table name" << tableName << endl;
@@ -1946,7 +1946,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 GetAllColumnsOutput
 AggregateLexicalScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep,
+                ColumnFilter& keep,
                 int fieldOffset)
 {
     return inner->doGetAllColumns("" /* table name */, keep);
