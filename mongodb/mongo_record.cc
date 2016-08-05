@@ -22,38 +22,38 @@ namespace Datacratic {
 namespace MLDB {
 namespace Mongo {
 
-struct MongoDatasetConfig {
+struct MongoRecordConfig {
     static constexpr const char * name = "mongodb.record";
-    MongoDatasetConfig() {}
+    MongoRecordConfig() {}
     string connectionScheme;
     string collection;
 };
-DECLARE_STRUCTURE_DESCRIPTION(MongoDatasetConfig);
-DEFINE_STRUCTURE_DESCRIPTION(MongoDatasetConfig);
+DECLARE_STRUCTURE_DESCRIPTION(MongoRecordConfig);
+DEFINE_STRUCTURE_DESCRIPTION(MongoRecordConfig);
 
-MongoDatasetConfigDescription::
-MongoDatasetConfigDescription()
+MongoRecordConfigDescription::
+MongoRecordConfigDescription()
 {
-    addField("connectionScheme", &MongoDatasetConfig::connectionScheme,
+    addField("connectionScheme", &MongoRecordConfig::connectionScheme,
              mongoScheme);
-    addField("collection", &MongoDatasetConfig::collection,
+    addField("collection", &MongoRecordConfig::collection,
              "The collection to import");
 }
 
 typedef tuple<ColumnName, CellValue, Date> Cell;
 
-struct MongoDataset: Dataset {
+struct MongoRecord: Dataset {
 
     mongocxx::client conn;
     mongocxx::database db;
     string collection;
 
-    MongoDataset(MldbServer * owner,
+    MongoRecord(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
         : Dataset(owner)
     {
-        auto dsConfig = config.params.convert<MongoDatasetConfig>();
+        auto dsConfig = config.params.convert<MongoRecordConfig>();
         mongocxx::uri mongoUri(dsConfig.connectionScheme);
         conn = mongocxx::client(mongoUri);
         db = conn[mongoUri.database()];
@@ -99,24 +99,9 @@ struct MongoDataset: Dataset {
     void recordRows(
         const std::vector<std::pair<Path, std::vector<Cell>>> & rows) override
     {
-        for (const auto row: rows) {
+        for (const auto & row: rows) {
             recordRowItl(row.first, row.second);
         }
-    }
-
-    /** Commit changes to the database.  Default is a no-op. */
-    void commit() override
-    {
-    }
-
-    std::pair<Date, Date> getTimestampRange() const override
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-
-    Date quantizeTimestamp(Date timestamp) const override
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
     }
 
     std::shared_ptr<MatrixView> getMatrixView() const override
@@ -128,21 +113,8 @@ struct MongoDataset: Dataset {
     {
         throw HttpReturnException(400, "Mongo dataset is record-only");
     }
-
-    std::shared_ptr<RowStream> getRowStream() const override
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
-
-    RestRequestMatchResult
-    handleRequest(RestConnection & connection,
-                  const RestRequest & request,
-                  RestRequestParsingContext & context) const override
-    {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
-    }
 };
-static RegisterDatasetType<MongoDataset, MongoDatasetConfig>
+static RegisterDatasetType<MongoRecord, MongoRecordConfig>
 regMongodbDataset(mongodbPackage(),
                  "mongodb.record",
                  "Dataset type that forwards records to a mongodb database",

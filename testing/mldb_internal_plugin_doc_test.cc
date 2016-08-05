@@ -42,10 +42,12 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     // For each instance of each plugin, we try to get the documentation
     for (string typeClass: { "plugins", "datasets", "functions", "procedures" }) {
         for (auto type: proxy.get("/v1/types/" + typeClass).jsonBody()) {
+            string url = "/v1/types/" + typeClass + "/" + type.asString() + "/doc";
             auto doc = proxy.get("/v1/types/" + typeClass + "/" + type.asString() + "/doc",
                                  {}, {}, -1, true, nullptr, nullptr, true /* redirect */);
             string error;
             if (doc.code() != 200) {
+                cerr << url << endl;
                 error = ML::trim(doc.body());
             }
             //BOOST_CHECK_EQUAL(doc.code(), 200);

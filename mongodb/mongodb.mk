@@ -9,6 +9,7 @@ LIBMLDB_MONGODB_PLUGIN_SOURCES:= \
 	mongo_record.cc \
 	mongo_import.cc \
 	mongo_query.cc \
+	mongo_dataset.cc \
 
 $(eval $(call set_compile_option,$(LIBMLDB_MONGODB_PLUGIN_SOURCES),$(MONGOCXX_INCLUDE_FLAGS)))
 

@@ -1062,8 +1062,6 @@ BoundSelectQuery(const SelectExpression & select,
         // Get a generator for the rows that match 
         auto whereGenerator = context->doCreateRowsWhereGenerator(where, 0, -1);
 
-        auto matrix = from.getMatrixView();
-
         auto boundSelect = select.bind(*context);
 
         std::vector<BoundSqlExpression> boundCalc;
