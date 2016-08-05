@@ -107,6 +107,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
+    // std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+  //   std::vector<KnownColumn> >
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
                                         runProcConf.numInputDimensions,
@@ -265,6 +267,7 @@ run(const ProcedureRunConfig & run,
     clusterDistances.reserve(edges.size());
   //  std::vector<int> clusterIndex(vecs.size(), -1);
     std::vector<int> clusterParent(vecs.size(), -1);
+    std::vector<int> vecCluster(vecs.size(), -1);
     std::vector<std::pair<int, int> > clusterChilds;
     clusterChilds.reserve(edges.size());
 
@@ -451,17 +454,20 @@ run(const ProcedureRunConfig & run,
 
     //6.0 Finalize
 
-    std::function<void(ssize_t)> listRecursive = [&] (ssize_t clusterIndex) {
+    std::function<void(ssize_t, ssize_t)> listRecursive = [&] (ssize_t clusterIndex, size_t finalCluster) {
         auto& childs = clusterChilds[clusterIndex];
         if (childs.first >= 0) {
-            listRecursive(childs.first);
-            listRecursive(childs.second);
+            listRecursive(childs.first, finalCluster);
+            listRecursive(childs.second, finalCluster);
         }
         else {
             ExcAssert(clusterIndex < vecs.size());
-            cerr << vecs[clusterIndex] << endl;
+            cerr << clusterIndex << " " << vecs[clusterIndex] << endl;
+            vecCluster[clusterIndex] = finalCluster;
         }
     };
+
+    int count;
 
     std::function<void(ssize_t)> finalizeRecursive = [&] (ssize_t i) {
 
@@ -469,7 +475,8 @@ run(const ProcedureRunConfig & run,
         if (metacluster.selected) {
             cerr << "MetaCluster " << i << " is a true cluster" << endl;
             cerr << "Vertices:" << endl;
-            listRecursive(metacluster.topMostCluster);
+            listRecursive(metacluster.topMostCluster, count);
+            ++count;
         }
         else if (metacluster.childs.size() > 0) {
             finalizeRecursive(metacluster.childs[0]);
@@ -478,6 +485,27 @@ run(const ProcedureRunConfig & run,
     };
 
     finalizeRecursive(0);
+
+    /* OUTPUT DATASET *************************************/
+    if (runProcConf.output.get()) {
+
+        PolyConfigT<Dataset> outputDataset = *runProcConf.output;
+        if (outputDataset.type.empty())
+            outputDataset.type = HDBSCANConfig::defaultOutputDatasetType;
+
+        auto output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
+
+        Date applyDate = Date::now();
+
+        for (unsigned i = 0;  i < rows.size();  ++i) {
+            RowName rowName = std::get<1>(rows[i]);
+            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            cols.emplace_back(ColumnName("cluster"), vecCluster[i], applyDate);
+            output->recordRow(std::get<1>(rows[i]), cols);
+        }
+
+        output->commit();
+    }
 
     return Any();
 }
