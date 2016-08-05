@@ -9,6 +9,11 @@ from math import sqrt
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
+def get_temporary_file():
+    return tempfile.NamedTemporaryFile(prefix=os.getcwd() + '/build/x86_64/tmp')
+
+NaN = 'NaN'
+
 class MLDB1750DistTables(MldbUnitTest):  # noqa
 
     @classmethod
@@ -32,7 +37,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 'columns': [[k,v,0] for k,v in zip(headers, row)]
             })
         mldb.post('/v1/datasets/bid_req/commit')
-        
+
         # data for bag of words test
         headers = ['tag_a', 'tag_b', 'tag_c', 'price', 'target2', 'order_']
         data = [
@@ -55,8 +60,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
         mldb.post('/v1/datasets/tags/commit')
 
     def test_it(self):
-        _dt_file = tempfile.NamedTemporaryFile(
-            prefix=os.getcwd() + '/build/x86_64/tmp')
+        _dt_file = get_temporary_file()
         dt_file = 'file:///' + _dt_file.name
 
         # call the distTable.train procedure
@@ -78,7 +82,6 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
         # check that the running stats (the features for a bid request) are as
         # expected
         stats = ['count', 'avg', 'std', 'min', 'max']
-        NaN = 'NaN'
         expected = [
             ['_rowName']
             + ['price.host.' + s for s in stats]
@@ -241,7 +244,11 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             ])
 
         self.assertTableResultEquals(
-            mldb.query("select get_stats({features: {host, region}})[stats] as * from bid_req where rowName() = 'row4'"),
+            mldb.query("""
+                select get_stats({features: {host, region}})[stats] as *
+                from bid_req
+                where rowName() = 'row4'
+            """),
             [["_rowName", "price.host.last", "price.host.min", "price.host.sum",
                           "price.region.last", "price.region.min", "price.region.sum"],
              ["row4", 11, 3, 21, # values: [3,7,11]
@@ -284,9 +291,10 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 }
             })
 
+
+
     def test_bow_dist_tables(self):
-        _dt_file = tempfile.NamedTemporaryFile(
-            prefix=os.getcwd() + '/build/x86_64/tmp')
+        _dt_file = get_temporary_file()
         dt_file = 'file:///' + _dt_file.name
 
         # call the distTable.train procedure
@@ -337,6 +345,141 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             """),
             [["_rowName", "price.tag_z.avg", "price.tag_z.max"],
              ["result", 'NaN', 'NaN']])
+
+    def test_null_col(self):
+        """ when a column is NULL, it is treated as if NULL was a value
+        """
+        headers = ['host', 'patate', 'price', 'order']
+        data = [
+            ('patate.com', None, 1, 1),
+            ('poil.com',   None, 3, 2),
+            ('patate.com', None, 8, 3),
+        ]
+
+        mldb.put('/v1/datasets/poil', {
+            'type': 'sparse.mutable'
+        })
+
+        for i,row in enumerate(data):
+            mldb.post('/v1/datasets/poil/rows', {
+                'rowName': 'row' + str(i),
+                'columns': [[k,v,0] for k,v in zip(headers, row)]
+            })
+        mldb.post('/v1/datasets/poil/commit')
+
+        _dt_file = get_temporary_file()
+        dt_file = 'file:///' + _dt_file.name
+
+        mldb.post('/v1/procedures', {
+            'type': 'experimental.distTable.train',
+            'params': {
+                'trainingData': """ SELECT * EXCLUDING(price, order)
+                                    FROM poil
+                                    ORDER BY order
+                                """,
+                'outcomes': [['price', 'price']],
+                'distTableFileUrl': dt_file,
+                'statistics': ["avg"],
+                'functionName': 'get_bow_stats',
+                'runOnCreation': True,
+                'outputDataset': 'poil_dt',
+            }
+        })
+
+        res = mldb.query("""
+            SELECT price.host.avg, price.patate.avg
+            FROM merge(poil_dt, poil)
+            ORDER BY order
+        """)
+        truth = [
+            ['_rowName', 'price.host.avg', 'price.patate.avg'],
+            ['row0', NaN, NaN],
+            ['row1', NaN, 1],
+            ['row2', 1, 2],
+        ]
+        self.assertTableResultEquals(res, truth)
+
+        res = mldb.query("""
+            SELECT get_bow_stats({features: {host:'patate.com', patate:NULL}})[stats] as *
+        """)
+        truth = [
+            ['_rowName', 'price.host.avg', 'price.patate.avg'],
+            ['result', 4.5, 4],
+        ]
+        self.assertTableResultEquals(res, truth)
+
+        res = mldb.query("""
+            SELECT get_bow_stats({features: {host:'poil.com', patate:NULL}})[stats] as *
+        """)
+        truth = [
+            ['_rowName', 'price.host.avg', 'price.patate.avg'],
+            ['result', 3, 4],
+        ]
+        self.assertTableResultEquals(res, truth)
+
+
+    def test_real_time(self):
+        # call the distTable.train procedure
+        mldb.post('/v1/procedures', {
+            'type': 'experimental.distTable.train',
+            'params': {
+                'trainingData': """ SELECT host, region
+                                    FROM bid_req
+                                    ORDER BY order_
+                                """,
+                'outcomes': [['price', 'price']],
+                'distTableFileUrl': "file://tmp/mldb-1750_non_default_stats_rt.dt",
+                'functionName': 'get_stats_rt',
+                'statistics': ['last', 'min', 'sum'],
+                'runOnCreation': True
+            }
+        })
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                'Unknown dist table \'hosti234234\''):
+            mldb.post("/v1/functions/get_stats/routes/increment", {
+                'keys': [
+                    ['hosti234234', 'pwet']
+                ],
+                'outcomes': [50]
+            })
+
+        mldb.log(mldb.query("""
+            SELECT get_stats({features: {host: 'pwet'}})[stats] AS *
+        """))
+
+        def incrementAndTest(keys, outcomes, expected, fnct="get_stats"):
+            if outcomes:
+                mldb.log(mldb.post("/v1/functions/get_stats/routes/increment", {
+                        'keys': keys,
+                        'outcomes': outcomes
+                    }))
+
+            self.assertTableResultEquals(
+                mldb.query("SELECT %s({features: {host: '%s'}})[stats] AS *" % (fnct, keys[0][1])),
+                [["_rowName", "price.host.last", "price.host.min", "price.host.sum"],
+                 ["result"] + expected])
+
+        incrementAndTest([['host', 'patate']], None, ["NaN", "NaN", 0])
+        incrementAndTest([['host', 'patate']], [50], [50, 50, 50])
+        incrementAndTest([['host', 'patate']], [150], [150, 50, 200])
+
+        # dump to disk with the updated counts
+        mldb.post("/v1/functions/get_stats/routes/persist", {
+                'modelFileUrl': "file://tmp/mldb-1750_stats_rt_persist.dt"
+            })
+
+        # reload in new function
+        mldb.put('/v1/functions/get_stats_reloaded', {
+            'type': 'experimental.distTable.getStats',
+            'params': {
+                'distTableFileUrl': "file://tmp/mldb-1750_stats_rt_persist.dt",
+                'statistics': ['last', 'min', 'sum']
+            }
+        })
+        # make sure the counts are the updated counts
+        incrementAndTest([['host', 'patate']], None, [150, 50, 200], "get_stats_reloaded")
+
 
 
 if __name__ == '__main__':

@@ -56,7 +56,7 @@ int calcDigits(const char * begin, size_t len)
     return calcDigits(begin, begin + len);
 }
 
-std::pair<size_t, size_t>
+inline std::pair<size_t, size_t>
 countDigits(const char * p, size_t len)
 {
     // Count leading zeros
@@ -1365,11 +1365,25 @@ compareElement(size_t el, const Path & other, size_t otherEl) const
     int d0 = digits(el);
     int d1 = other.digits(otherEl);
 
-    if (d0 == PathElement::NO_DIGITS && d1 == PathElement::NO_DIGITS) {
-        int res = std::memcmp(s0, s1, std::min(l0, l1));
-        if (res)
+    if (JML_LIKELY(d0 == d1)) {
+        if (d0 == PathElement::NO_DIGITS) {
+            int res = std::memcmp(s0, s1, std::min(l0, l1));
+            if (res == 0)
+                res = l0 - l1;
             return res;
-        return l0 - l1;
+        }
+        else if (d0 == PathElement::DIGITS_ONLY
+                 && JML_LIKELY(s0[0] != '0' && s1[0] != '0')) {
+            int res = 0;
+            if (l0 != l1)
+                res = l0 - l1;
+            else {
+                res = std::memcmp(s0, s1, l0);
+                if (res == 0)
+                    res = l0 - l1;
+            }
+            return res;
+        }
     }
 
     return compareNatural(s0, l0, s1, l1);
@@ -1395,8 +1409,8 @@ operator == (const Path & other) const
     if (length_ != other.length_) {
         return false;
     }
-    //if (digits_ != other.digits_)
-    //    return false;
+    if (digits_ != other.digits_)
+        return false;
 
     // Short circuit (currently offset(0) is always 0, so always taken.
     if (PATH_OFFSET_ZERO_IS_ALWAYS_ZERO

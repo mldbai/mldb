@@ -9,6 +9,7 @@
 
 #include "binding_contexts.h"
 #include "http/http_exception.h"
+#include "builtin_functions.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include <unordered_map>
 
@@ -165,6 +166,7 @@ doGetFunction(const Utf8String & tableName,
 {
 
     if (functionName == "columnName") {
+        checkArgsSize(args.size(), 0, "columnName()");
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope)
                 {
@@ -176,6 +178,7 @@ doGetFunction(const Utf8String & tableName,
     }
 
     if (functionName == "columnPath") {
+        checkArgsSize(args.size(), 0, "columnPath()");
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope)
                 {
@@ -186,7 +189,44 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<PathValueInfo>()};
     }
 
+    if (functionName == "columnPathElement") {
+        checkArgsSize(args.size(), 1, "columnPathElement()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    ExcAssertEqual(args.size(), 1);
+                    auto elementNum = args[0].getAtom().toInt();
+                    auto & col = scope.as<ColumnScope>();
+                    size_t index
+                        = elementNum < 0
+                        ? col.columnName.size() + elementNum
+                        : elementNum;
+
+                    if (index < 0 || index >= col.columnName.size()) {
+                        return ExpressionValue::null(Date::negativeInfinity());
+                    }
+
+                    return ExpressionValue(col.columnName.at(index)
+                                           .toUtf8String(),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()};
+    }
+
+    if (functionName == "columnPathLength") {
+        checkArgsSize(args.size(), 0, "columnPathLength()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & col = scope.as<ColumnScope>();
+                    return ExpressionValue(col.columnName.size(),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<IntegerValueInfo>()};
+    }
+
     if (functionName == "value") {
+        checkArgsSize(args.size(), 0, "value()");
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope)
                 {
@@ -302,6 +342,39 @@ doGetBoundParameter(const Utf8String & paramName)
                 return storage = row.params(paramName);
             },
             std::make_shared<AnyValueInfo>() };
+}
+
+
+/*****************************************************************************/
+/* SQL EXPRESSION EVAL SCOPE                                                 */
+/*****************************************************************************/
+
+ColumnGetter
+SqlExpressionEvalScope::
+doGetBoundParameter(const Utf8String & paramName)
+{
+    size_t argNum = jsonDecodeStr<size_t>(paramName);
+
+    if (argNum == 0) {
+        throw HttpReturnException
+            (400, "Arguments start at 1, not 0, in SQL evaluate expression");
+    }
+    if (argNum > argInfo.size()) {
+        throw HttpReturnException
+            (400, "Attempt to obtain more arguments than exist when binding "
+             "SQL evaluate expression");
+    }
+        
+    return {[=] (const SqlRowScope & scope,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                auto & row = scope.as<RowScope>();
+                ExcAssertLessEqual(argNum, row.numArgs);
+                return storage = row.args[argNum - 1];
+            },
+            argInfo[argNum - 1]};
 }
 
 

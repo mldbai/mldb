@@ -7,13 +7,16 @@
 
 #include "dist_table_procedure.h"
 #include "types/basic_value_descriptions.h"
-#include "types/distribution_description.h"
-#include "types/map_description.h"
+#include "ml/value_descriptions.h"
+#include "mldb/types/optional_description.h"
+#include "mldb/types/distribution_description.h"
+#include "mldb/types/pair_description.h"
+#include "mldb/types/vector_description.h"
+#include "mldb/types/map_description.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "server/dataset_context.h"
 #include "plugins/matrix.h"
 #include "server/analytics.h"
-#include "ml/value_descriptions.h"
 #include "types/any_impl.h"
 #include "jml/utils/string_functions.h"
 #include "plugins/sql_functions.h"
@@ -25,7 +28,6 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/base/parallel.h"
-#include "mldb/types/optional_description.h"
 
 
 using namespace std;
@@ -64,7 +66,7 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 }
 
 /*****************************************************************************/
-/* DIST TABLE                                                                */
+/* DIST TABLE STATS                                                          */
 /*****************************************************************************/
 
 inline ML::DB::Store_Writer &
@@ -126,6 +128,11 @@ getStat(DISTTABLE_STATISTICS stat) const
             throw ML::Exception("Unknown DistTable_Stat");
     }
 }
+
+
+/*****************************************************************************/
+/* DIST TABLE                                                                */
+/*****************************************************************************/
 
 DistTable::
 DistTable(const std::string & filename):
@@ -267,7 +274,7 @@ DistTableProcedureConfigDescription()
 /*****************************************************************************/
 /* DIST TABLE PROCEDURE                                                     */
 /*****************************************************************************/
-
+    
 DistTableProcedure::
 DistTableProcedure(MldbServer * owner,
             PolyConfig config,
@@ -369,15 +376,17 @@ run(const ProcedureRunConfig & run,
 
             if (num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                Json::Value progress;
+                progress["message"] = message; 
                 onProgress(progress);
-                cerr << progress << endl;
+                cerr << message << endl;
             }
 
             // we parse in advance the value for each outcome
             vector<double> targets(nbOutcomes);
             for (int i=0; i < nbOutcomes; i++) {
-                CellValue outcome = extraVals.at(i).getAtom();
+                const CellValue & outcome = extraVals.at(i).getAtom();
                 targets[i] = outcome.toDouble();
             }
 
@@ -473,10 +482,8 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
-        filter_ostream stream(runProcConf.modelFileUrl);
-        ML::DB::Store_Writer store(stream);
-        int VERSION = 2;
-        store << VERSION << runProcConf.mode << distTablesMap;
+        DistTableProcedure::persist(runProcConf.modelFileUrl,
+                runProcConf.mode, distTablesMap);
     }
 
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
@@ -492,13 +499,56 @@ run(const ProcedureRunConfig & run,
     return RunOutput();
 }
 
+void DistTableProcedure::
+persist(const Url & modelFileUrl, DistTableMode mode, 
+        const DistTablesMap & distTablesMap)
+{
+    filter_ostream stream(modelFileUrl);
+    ML::DB::Store_Writer store(stream);
+    store << DistTableProcedure::DIST_TABLE_PERSIST_VERSION << mode << distTablesMap;
+}
 
+
+
+/*****************************************************************************/
+/* DIST TABLE FUNCTION FUNCTIONS ENDPOINT PAYLOAD                            */
+/*****************************************************************************/
+
+struct IncrementPayload {
+    std::vector<std::pair<Utf8String, Utf8String>> keys;
+    std::vector<double> outcomes;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(IncrementPayload);
+DEFINE_STRUCTURE_DESCRIPTION(IncrementPayload);
+
+IncrementPayloadDescription::
+IncrementPayloadDescription()
+{
+    addField("keys",   &IncrementPayload::keys, "");
+    addField("outcomes", &IncrementPayload::outcomes, "");
+}
+
+
+struct PersistPayload {
+    Url modelFileUrl;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(PersistPayload);
+DEFINE_STRUCTURE_DESCRIPTION(PersistPayload);
+
+PersistPayloadDescription::
+PersistPayloadDescription()
+{
+    addField("modelFileUrl", &PersistPayload::modelFileUrl, "");
+}
 
 
 
 /*****************************************************************************/
 /* DIST TABLE FUNCTION                                                       */
 /*****************************************************************************/
+
 DEFINE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
 DistTableFunctionConfigDescription::
@@ -538,7 +588,7 @@ DistTableFunction(MldbServer * owner,
     if(mode != DT_MODE_BAG_OF_WORDS && mode != DT_MODE_FIXED_COLUMNS)
         throw ML::Exception("Unsupported DistTable mode");
 
-    store >>distTablesMap;
+    store >> distTablesMap;
 
     // build a cache of the names for quick access
     for(int i=0; i<DT_NUM_STATISTICS; i++)
@@ -551,6 +601,81 @@ DistTableFunction(MldbServer * owner,
     for(auto & stat : functionConfig.statistics) {
         activeStats.push_back(parseDistTableStatistic(stat));
     }
+}
+
+RestRequestMatchResult
+DistTableFunction::
+handleRequest(RestConnection & connection,
+              const RestRequest & request,
+              RestRequestParsingContext & context) const
+{
+    if (context.remaining == "/increment") {
+
+        StreamingJsonParsingContext jsonContext("input",
+                request.payload.c_str(), request.payload.size());
+
+        auto descPtr = getDefaultDescriptionSharedT<IncrementPayload>();
+        auto & desc = *descPtr;
+        IncrementPayload result;
+        desc.parseJsonTyped(&result, jsonContext);
+
+        increment(result.keys, result.outcomes);
+
+        connection.sendResponse(200, Json::Value("OK"), "application/json");
+        return RestRequestRouter::MR_YES;
+    }
+    else if (context.remaining == "/persist") {
+        StreamingJsonParsingContext jsonContext("input",
+                request.payload.c_str(), request.payload.size());
+
+        auto descPtr = getDefaultDescriptionSharedT<PersistPayload>();
+        auto & desc = *descPtr;
+        PersistPayload result;
+        desc.parseJsonTyped(&result, jsonContext);
+
+        persist(result.modelFileUrl);
+
+        connection.sendResponse(200, Json::Value("OK"), "application/json");
+        return RestRequestRouter::MR_YES;
+
+    }
+
+    return Function::handleRequest(connection, request, context);
+}
+
+void
+DistTableFunction::
+increment(const vector<pair<Utf8String, Utf8String>> & keys,
+          const vector<double> & outcomes) const
+{
+    // get exclusive access
+    boost::unique_lock<boost::shared_mutex> uniqueLock(_access);
+
+    for(const auto & key : keys) {
+        Path pKey(key.first);
+        auto table_it = distTablesMap.find(pKey);
+        if(table_it == distTablesMap.end())
+            throw ML::Exception("Unknown dist table '"+
+                        key.first.utf8String()+"'");
+
+        //for(double outcome : outcomes)
+        (*table_it).second.increment(key.second, outcomes);
+    }
+}
+
+void
+DistTableFunction::
+persist(const Url & modelFileUrl) const
+{
+    // get exclusive access
+    DistTablesMap copiedMap;
+    {
+        boost::shared_lock<boost::shared_mutex> uniqueLock(_access);
+        copiedMap = DistTablesMap(distTablesMap);
+    }
+
+    DistTableProcedure::persist(modelFileUrl,
+            mode, copiedMap);
 }
 
 DistTableFunction::
@@ -589,7 +714,7 @@ apply(const FunctionApplier & applier,
 
     RowValue rtnRow;
     // TODO should we cache column names
-    auto onAtomFixedColumns = 
+    auto onAtomFixedColumns =
         [&] (const ColumnName & columnName,
              const ColumnName & prefix,
              const CellValue & val,
@@ -597,9 +722,6 @@ apply(const FunctionApplier & applier,
     {
         auto st = distTablesMap.find(columnName);
         if (st == distTablesMap.end())
-            return true;
-
-        if (val.empty())
             return true;
 
         const DistTable & distTable = st->second;
@@ -617,7 +739,7 @@ apply(const FunctionApplier & applier,
         return true;
     };
 
-    auto onAtomBow = 
+    auto onAtomBow =
         [&] (const ColumnName & columnName,
              const ColumnName & prefix,
              const CellValue & val,
@@ -641,14 +763,17 @@ apply(const FunctionApplier & applier,
         return true;
     };
 
-
-    switch(mode) {
-        case DT_MODE_FIXED_COLUMNS:
-            arg.forEachAtom(onAtomFixedColumns);
-            break;
-        case DT_MODE_BAG_OF_WORDS:
-            arg.forEachAtom(onAtomBow);
-            break;
+    // get reader lock
+    {
+        boost::shared_lock<boost::shared_mutex> lock(_access);
+        switch(mode) {
+            case DT_MODE_FIXED_COLUMNS:
+                arg.forEachAtom(onAtomFixedColumns);
+                break;
+            case DT_MODE_BAG_OF_WORDS:
+                arg.forEachAtom(onAtomBow);
+                break;
+        }
     }
 
     result.emplace_back("stats", ExpressionValue(std::move(rtnRow)));

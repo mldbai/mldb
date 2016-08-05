@@ -105,8 +105,8 @@ ImportTextConfigDescription::ImportTextConfigDescription()
                                   "'select * as prefix* ' to rename columns");
             }
             else if (context.fieldName() == "quotechar") {
-                context.exception("'quotechar' has been removed.  Please use "
-                                  "'quoteChar' instead");
+                config->quoter = context.expectStringAscii();
+                cerr << "The 'quotechar' argument has been renamed to 'quoteChar'" << endl;
             }
             else {
                 context.exception("Unknown field '" + context.fieldName()

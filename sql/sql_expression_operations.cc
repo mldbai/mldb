@@ -3869,22 +3869,20 @@ bind(SqlBindingScope & scope) const
         keepColumns[c.inputColumnName]
             = c.columnName;
     
-    auto filterColumns = [=] (const ColumnName & name) -> ColumnName
-        {
-            if (hasDynamicColumns)
-                return name;
-            auto it = keepColumns.find(name);
-            if (it == keepColumns.end()) {
-                return ColumnName();
-            }
-            return it->second;
-        };
-    
-    // Finally, return a filtered set from the underlying dataset
-    auto outputColumns
-        = scope.doGetAllColumns("" /* prefix */, filterColumns);
-
     if (selectValue && asColumnPath && !hasDynamicColumns) {
+
+        auto filterColumns = [=] (const ColumnName & name) -> ColumnName
+            {
+                auto it = keepColumns.find(name);
+                if (it == keepColumns.end()) {
+                    return ColumnName();
+                }
+                return it->second;
+            };
+    
+        // Finally, return a filtered set from the underlying dataset
+        auto outputColumns
+            = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
         auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
@@ -3899,6 +3897,13 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
+        auto filterColumns = [=] (const ColumnName & name) -> ColumnName
+            {
+                return name;
+            };
+
+        auto outputColumns
+            = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
         BoundSqlExpression boundSelect = select->bind(colScope);
 

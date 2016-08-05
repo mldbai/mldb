@@ -41,10 +41,31 @@ class TokenizeTest(MldbUnitTest):  # noqa
     def test_splitChars(self):
         result = mldb.get(
             '/v1/query',
-            q="SELECT tokenize('a b c a', {' ' AS splitChars}) AS tokens")
+            q=u"SELECT tokenize('a b c a', {' …' AS splitChars}) AS tokens")
         self.find_column(result, 'tokens.a', 2)
         self.find_column(result, 'tokens.c', 1)
         self.find_column(result, 'tokens.b', 1)
+
+    def test_in_transform(self):
+        mldb.post('/v1/procedures', {
+            'type': 'transform',
+            'params': {
+                'inputData': u"""
+                    SELECT
+                        tokenize(
+                            'abouyayaa adsf 2 ; sdv, sdf',
+                            {splitChars: ',; …', minTokenLength: 3} 
+                        ) as *
+                    """,
+                'outputDataset': 'bag_of_words',
+                'runOnCreation': True
+            }
+        })
+
+        self.assertTableResultEquals(
+            mldb.query("select * from bag_of_words"),
+            [["_rowName","abouyayaa","adsf","sdf","sdv"],
+             ["result",1,1,1,1]])
 
     def test_splitChars_and_str_value(self):
         result = mldb.get(
@@ -125,21 +146,14 @@ class TokenizeTest(MldbUnitTest):  # noqa
         self.find_column(result, unicode('tokens.day', encoding='utf-8'), 1)
 
     def test_tokenize_legacy_args(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'min_token_length' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {min_token_length:2})")
-
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'ngram_range' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {ngram_range: [1, 3]})")
-        
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'splitchars' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {splitchars: ','}) AS tokens")
-        
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'quotechar' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {quotechar: ','})")
+        self.assertTableResultEquals(
+            mldb.query("""
+                SELECT tokenize('s y z hoho bouya "pwet zou"', 
+                            {min_token_length:2, ngram_range:[1, 2], 
+                             splitchars:' ', quotechar: '"'}) as *
+                """),
+            [["_rowName","bouya","bouya_pwet zou","hoho","hoho_bouya","pwet zou"],
+             ["result",1,1,1,1,1]])
 
     def test_tokenize_min_token_length(self):
         result = mldb.get(

@@ -282,6 +282,13 @@ class Mldb878Test(MldbUnitTest):  # noqa
             js_rez["status"]["folds"][0]["resultsTest"]["auc"],
             delta=0.05)
 
+
+        # make sure we have the expected results
+        self.assertEqual(js_rez["status"]["folds"][0]["functionName"], "my_test_exp_scorer_0")
+        mldb.get("/v1/functions/"+js_rez["status"]["folds"][0]["functionName"]) # make sure it exists
+
+        self.assertEqual(js_rez["status"]["folds"][0]["modelFileUrl"], "file://build/x86_64/tmp/bouya-my_test_exp-0.cls")
+
     def test_no_cls_write_perms(self):
         conf = {
             "type": "classifier.experiment",
@@ -557,7 +564,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 ],
                 'mode': 'boolean',
                 'algorithm': 'dt',
-                'modelFileUrlPattern': 'file://test_orderby_$runid',
+                'modelFileUrlPattern': 'file://tmp/test_orderby_$runid',
                 "configuration": {
                     "dt": {
                         "type": "decision_tree",
