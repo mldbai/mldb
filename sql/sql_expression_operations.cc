@@ -3461,58 +3461,66 @@ bind(SqlBindingScope & scope) const
     //cerr << "prefix = " << prefix << endl;
     //cerr << "asPrefix = " << asPrefix << endl;
 
-    if (!prefix.empty())
-        simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
+    ColumnFilter newColumnName;
 
-    //cerr << "tableName = " << resolvedTableName << endl;
-    //cerr << "simplifiedPrefix = " << simplifiedPrefix << endl;
+    if (prefix.empty() && excluding.empty() && asPrefix.empty()){
+        newColumnName = ColumnFilter::identity();
+    }
+    else {
+        
+        if (!prefix.empty())
+            simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
 
-    // This function figures out the new name of the column.  If it's excluded,
-    // then it returns the empty column name
-    ColumnFilter newColumnName([=] (const ColumnName & inputColumnName) -> ColumnName
-        {
-            //cerr << "input column name " << inputColumnName << endl;
+        //cerr << "tableName = " << resolvedTableName << endl;
+        //cerr << "simplifiedPrefix = " << simplifiedPrefix << endl;
 
-            // First, check it matches the prefix
-            // We have to check the simplified prefix for regular datasets
-            // i.e select x.a.* from x returns a.b
-            // But we have to check the initial prefix for joins
-            // i.e select x.a.* from x join y returns x.a.b
-            if (!inputColumnName.matchWildcard(simplifiedPrefix)
-                && !inputColumnName.matchWildcard(prefix)) {
-                //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
-                return ColumnName();
-            }
+        // This function figures out the new name of the column.  If it's excluded,
+        // then it returns the empty column name
+        ColumnFilter newColumnName([=] (const ColumnName & inputColumnName) -> ColumnName
+            {
+                //cerr << "input column name " << inputColumnName << endl;
 
-            // Second, check it doesn't match an exclusion
-            for (auto & ex: excluding) {
-                if (ex.second) {
-                    // prefix
-                    if (inputColumnName.matchWildcard(ex.first))
-                        return ColumnName();
+                // First, check it matches the prefix
+                // We have to check the simplified prefix for regular datasets
+                // i.e select x.a.* from x returns a.b
+                // But we have to check the initial prefix for joins
+                // i.e select x.a.* from x join y returns x.a.b
+                if (!inputColumnName.matchWildcard(simplifiedPrefix)
+                    && !inputColumnName.matchWildcard(prefix)) {
+                    //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
+                    return ColumnName();
                 }
-                else {
-                    // exact match
-                    if (inputColumnName == ex.first)
-                        return ColumnName();
+
+                // Second, check it doesn't match an exclusion
+                for (auto & ex: excluding) {
+                    if (ex.second) {
+                        // prefix
+                        if (inputColumnName.matchWildcard(ex.first))
+                            return ColumnName();
+                    }
+                    else {
+                        // exact match
+                        if (inputColumnName == ex.first)
+                            return ColumnName();
+                    }
                 }
-            }
 
-            // Finally, replace the prefix with the new prefix
-            if (!simplifiedPrefix.empty() || (prefix != asPrefix)) {
+                // Finally, replace the prefix with the new prefix
+                if (!simplifiedPrefix.empty() || (prefix != asPrefix)) {
 
-                if (prefix != asPrefix) {
-                    //cerr << "replacing wildcard " << prefix
-                    // << " with " << asPrefix << " on " << inputColumnName << endl;
-                    //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
+                    if (prefix != asPrefix) {
+                        //cerr << "replacing wildcard " << prefix
+                        // << " with " << asPrefix << " on " << inputColumnName << endl;
+                        //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
 
-                    return inputColumnName.replaceWildcard(prefix, asPrefix);
+                        return inputColumnName.replaceWildcard(prefix, asPrefix);
+                    }
                 }
-            }
 
-            //cerr << "kept" << endl;
-            return inputColumnName;
-        });
+                //cerr << "kept" << endl;
+                return inputColumnName;
+            });
+    }   
 
     auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
 
