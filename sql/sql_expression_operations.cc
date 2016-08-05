@@ -3733,7 +3733,7 @@ SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
-    ColumnFilter filter;
+    ColumnFilter filter = ColumnFilter::identity();
     auto allColumns
         = scope.doGetAllColumns("" /* table name */,
                                 filter);
@@ -3898,7 +3898,7 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
-        ColumnFilter filterColumns;
+        ColumnFilter filterColumns = ColumnFilter::identity();
 
         auto outputColumns
             = scope.doGetAllColumns("" /* prefix */, filterColumns);

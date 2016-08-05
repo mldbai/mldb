@@ -70,7 +70,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ColumnScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException
         (400, "Attempt to bind expression with wildcard in column scope");
