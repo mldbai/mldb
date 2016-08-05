@@ -1,7 +1,7 @@
 {
     "config": {
         "type": "sharedLibrary",
-        "id": "tensorflow",
+        "id": "mongodb",
         "params": {
             "library": "lib/libmldb_mongodb_plugin.so",
             "doc": "doc",

@@ -1,28 +1,26 @@
-/**
- * mongo_dataset.cc
+/**                                                                 -*- C++ -*-
+ * mongo_record.cc
  * Jeremy Barnes, 23 February 2015
  * Mich, 2016-08-02
  * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
+#include "bsoncxx/builder/stream/document.hpp"
+#include "bsoncxx/builder/stream/array.hpp"
+#include "mongocxx/client.hpp"
 
-#include "mongo_package.h"
-#include "mldb/core/plugin.h"
-#include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/any_impl.h"
 
-#include "bsoncxx/builder/stream/document.hpp"
-#include "bsoncxx/builder/stream/array.hpp"
-
-#include "mongocxx/client.hpp"
+#include "mongo_common.h"
 
 using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
+namespace Mongo {
 
 struct MongoDatasetConfig {
     static constexpr const char * name = "mongodb.record";
@@ -150,5 +148,6 @@ regMongodbDataset(mongodbPackage(),
                  "Dataset type that forwards records to a mongodb database",
                  "MongoRecord.md.html");
 
+} // namespace Mongo
 } // namespace MLDB
 } // namespace Datacratic

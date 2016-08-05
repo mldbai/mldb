@@ -5,9 +5,10 @@ $(eval $(call include_sub_make,mongodb_ext,ext,mongodb_ext.mk))
 
 # Mongodb plugin
 LIBMLDB_MONGODB_PLUGIN_SOURCES:= \
-	mongo_package.cc \
-	mongo_dataset.cc \
+	mongo_common.cc \
+	mongo_record.cc \
 	mongo_import.cc \
+	mongo_query.cc \
 
 $(eval $(call set_compile_option,$(LIBMLDB_MONGODB_PLUGIN_SOURCES),$(MONGOCXX_INCLUDE_FLAGS)))
 
