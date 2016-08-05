@@ -3463,11 +3463,8 @@ bind(SqlBindingScope & scope) const
 
     ColumnFilter newColumnName;
 
-    if (prefix.empty() && excluding.empty() && asPrefix.empty()){
-        newColumnName = ColumnFilter::identity();
-    }
-    else {
-        
+    if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()){
+       
         if (!prefix.empty())
             simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
 
