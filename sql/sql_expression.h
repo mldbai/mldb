@@ -495,6 +495,39 @@ struct GetAllColumnsOutput {
     std::shared_ptr<RowValueInfo> info;
 };
 
+/*****************************************************************************/
+/* COLUMN FILTER                                                             */
+/*****************************************************************************/
+
+/** Filter that rejects, accepts and or/modify a columns name.
+*/
+
+struct ColumnFilter {
+    typedef std::function<ColumnName (const ColumnName &)> Exec;
+   
+    ColumnFilter() 
+    {
+
+    }    
+
+    ColumnFilter(Exec exec)
+        : exec(std::move(exec))
+    {
+    }
+   
+    operator bool () const { return !!exec; }
+
+    Exec exec;
+
+    ColumnName operator () (const ColumnName & columnName) const
+    {
+        if (exec)
+            return exec(columnName);
+        else
+            return columnName;
+    }
+};
+
 
 /*****************************************************************************/
 /* COLUMN FUNCTION                                                           */
@@ -614,7 +647,7 @@ struct SqlBindingScope {
     */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    ColumnFilter& keep);
 
     // Function used to create a generator for an expression
     virtual GenerateRowsWhereFunction
