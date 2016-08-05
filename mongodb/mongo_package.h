@@ -13,5 +13,9 @@ namespace MLDB {
 
 const Package & mongodbPackage();
 
+const static std::string mongoScheme =
+    "MongoDB connection scheme. "
+    "mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database]]";
+
 } // namespace MLDB
 } // namespace Datacratic

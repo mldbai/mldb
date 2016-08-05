@@ -113,7 +113,7 @@ struct MongoScope : SqlExpressionMldbScope {
                     return ExpressionValue(row.oid,
                                            Date::negativeInfinity());
                 },
-                std::make_shared<IntegerValueInfo>() // TODO
+                std::make_shared<StringValueInfo>()
             };
         }
         return SqlBindingScope::doGetFunction(tableName, functionName, args,
@@ -155,8 +155,7 @@ MongoImportConfigDescription()
 {
     addParent<ProcedureConfig>();
     addField("connectionScheme", &MongoImportConfig::connectionScheme,
-             "MongoDB connection scheme. "
-             "mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database]]");
+             mongoScheme);
     addField("collection", &MongoImportConfig::collection,
              "The collection to import");
     addField("outputDataset", &MongoImportConfig::outputDataset,
