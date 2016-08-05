@@ -883,6 +883,7 @@ EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & in
         }
 
         shape.push_back(input.size());
+        storageType = info->getEmbeddingType();
         return;
     }
 
@@ -894,6 +895,7 @@ EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & in
         shape.push_back(input.size());
         for (auto & d: emb->shape)
             shape.push_back(d);
+        storageType = emb->getEmbeddingType();
         return;
     }
 
@@ -961,7 +963,7 @@ StorageType
 EmbeddingValueInfo::
 getEmbeddingType() const
 {
-    return ST_ATOM;
+    return storageType;
 }
 
 size_t
@@ -2102,10 +2104,10 @@ ExpressionValue(std::vector<double> values, Date ts,
 ExpressionValue
 ExpressionValue::
 embedding(Date ts,
-       std::shared_ptr<const void> data,
-       StorageType storageType,
-       DimsVector dims,
-       std::shared_ptr<const EmbeddingMetadata> md)
+          std::shared_ptr<const void> data,
+          StorageType storageType,
+          DimsVector dims,
+          std::shared_ptr<const EmbeddingMetadata> md)
 {
     auto embeddingData = std::make_shared<Embedding>();
     embeddingData->data_ = std::move(data);
@@ -4468,8 +4470,34 @@ getSpecializedValueInfo() const
     case Type::NONE:
         return std::make_shared<EmptyValueInfo>();
     case Type::ATOM:
-        // TODO: specialize for concrete type
-        return std::make_shared<AtomValueInfo>();
+        switch (getAtom().cellType()) {
+        case CellValue::EMPTY:
+            return std::make_shared<EmptyValueInfo>();
+        case CellValue::INTEGER:
+            if (getAtom().isInt64()) {
+                return std::make_shared<IntegerValueInfo>();
+            }
+            else {
+                return std::make_shared<Uint64ValueInfo>();
+            }
+        case CellValue::FLOAT:
+            return std::make_shared<Float64ValueInfo>();
+        case CellValue::ASCII_STRING:
+            return std::make_shared<StringValueInfo>();
+        case CellValue::UTF8_STRING:
+            return std::make_shared<Utf8StringValueInfo>();
+        case CellValue::TIMESTAMP:
+            return std::make_shared<TimestampValueInfo>();
+        case CellValue::TIMEINTERVAL:
+            return std::make_shared<AtomValueInfo>();
+        case CellValue::BLOB:
+            return std::make_shared<BlobValueInfo>();
+        case CellValue::PATH:
+            return std::make_shared<PathValueInfo>();
+        case CellValue::NUM_CELL_TYPES:
+            throw HttpReturnException(500, "Can't specialize unknown cell type");
+        }
+        throw HttpReturnException(500, "Can't specialize unknown cell type");
     case Type::STRUCTURED:
         // TODO: specialize for concrete value.  Currently we just say
         // "it's a row with some values we don't know about yet"
@@ -4631,6 +4659,13 @@ getExpressionValueDescriptionNoTimestamp()
 std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
 makeExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info)
 {
+    return std::make_shared<ExpressionValueDescription>(std::move(info));
+}
+
+std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
+makeExpressionValueDescription(ExpressionValueInfo * infoPtr)
+{
+    std::shared_ptr<ExpressionValueInfo> info(infoPtr);
     return std::make_shared<ExpressionValueDescription>(std::move(info));
 }
 

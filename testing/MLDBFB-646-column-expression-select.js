@@ -48,4 +48,37 @@ expected = [
 
 assertEqual(resp, expected);
 
+resp = mldb.query("select column expr(as parse_path(parse_path(columnName()))) named 'res' from (select \"x.y.z\":1, \"x.y.y\":2)");
+
+mldb.log(resp);
+
+expected = [
+   {
+      "columns" : [
+         [ "x.y.y", 2, "-Inf" ],
+         [ "x.y.z", 1, "-Inf" ]
+      ],
+      "rowHash" : "4ba25cf9b5244b88",
+      "rowName" : "res"
+   }
+];
+
+assertEqual(resp, expected);
+
+resp = mldb.query("select column expr(as columnPathElement(0)) named 'res' from (select \"x.y.z\":1, \"x.y.y\":2)");
+
+mldb.log(resp);
+
+resp = mldb.query("select column expr(as parse_path(columnPathElement(0))) named 'res' from (select \"x.y.z\":1, \"x.y.y\":2)");
+
+mldb.log(resp);
+
+assertEqual(resp, expected);
+
+resp = mldb.query("select column expr(as unflatten_path(columnPath())) named 'res' from (select \"x.y.z\":1, \"x.y.y\":2)");
+
+mldb.log(resp);
+
+assertEqual(resp, expected);
+
 "success"

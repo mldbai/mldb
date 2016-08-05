@@ -45,28 +45,25 @@ mldb.put("/v1/procedures/w2vimport", {
     }
 })
 
-mldb.get("/v1/datasets/w2v/routes/rowNeighbours", row = "France")
+mldb.put("/v1/functions/w2v_neighbors", {
+    "type": "embedding.neighbors",
+    "params": {
+        "dataset": "w2v"
+    }
+})
+
+mldb.query("SELECT w2v_neighbors({coords: 'France'})[neighbors] as *")
 ```
 
-This gives the output
+This gives the output:
 
-```python
-[
-   [ "France", "831e552f87fd6717", 0 ],
-   [ "Belgium", "c62d860abed63cdd", 2.110022783279419 ],
-   [ "French", "4a917df790d78d44", 2.111140489578247 ],
-   [ "Germany", "23b23b4204547855", 2.321765184402466 ],
-   [ "Paris", "30acad9c6b45cf9c", 2.366143226623535 ],
-   [ "Spain", "e044f19832a6ddc9", 2.4046993255615234 ],
-   [ "Italy", "01c2c9320702ac05", 2.4250826835632324 ],
-   [ "Europe", "3d4c11e2fb4a8ed6", 2.558151960372925 ],
-   [ "Morocco", "3f5fa5676bb7fb61", 2.567964553833008 ],
-   [ "Switzerland", "e782a5ae091644c9", 2.5763208866119385 ]
-]
-```
+|*rowName*| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---------|---|---|---|---|---|---|---|---|---|---|
+| result | France | Belgium | French | Germany | Paris | Spain| Italy|Europe| Morocco | Switzerland |
 
 # See also
 
+* The ![](%%doclink embedding.neighbors function) is used to get the nearest neighbor rows in an existing embedding dataset
 * The ![](%%doclink pooling function) is used to embed a bag of words in a vector space like Word2Vec
 * The ![](%%doclink embedding dataset) is the perfect dataset to hold
   the output of the word2vec tool.

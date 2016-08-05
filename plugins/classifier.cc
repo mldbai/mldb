@@ -26,6 +26,7 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
+#include "mldb/types/tuple_description.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/ml/jml/training_data.h"
@@ -38,7 +39,6 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/ml/jml/feature_info.h"
-#include "ml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/static_content_macro.h"
@@ -406,7 +406,17 @@ run(const ProcedureRunConfig & run,
 
             unordered_set<Path> unique_known_features;
             for (auto & c: row.columns) {
-                featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                try {
+                    featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                } JML_CATCH_ALL {
+                    rethrowHttpException
+                        (KEEP_HTTP_CODE,
+                         "Error processing row '" + row.rowName.toUtf8String()
+                         + "' column '" + std::get<0>(c).toUtf8String()
+                         + "': " + ML::getExceptionString(),
+                         "rowName", row.rowName,
+                         "columns", row.columns);
+                }
 
                 if (unique_known_features.count(std::get<0>(c)) != 0) {
                     throw HttpReturnException

@@ -53,25 +53,33 @@ TokenizeOptionsDescription()
                          JsonParsingContext & context)
     {
         if(context.fieldName() == "min_token_length") {
-            context.exception("The 'min_token_length' argument has been "
-                    "renamed to 'minTokenLength'");
+            options->minTokenLength = context.expectInt();
+            cerr << "The 'min_token_length' argument has been renamed to 'minTokenLength'" << endl;
         }
         else if(context.fieldName() == "ngram_range") {
-            context.exception("The 'ngram_range' argument has been "
-                    "renamed to 'ngramRange'");
+            int i=0;
+            context.forEachElement([&] () 
+                {
+                    if(i++==0)
+                        options->ngramRange.first = context.expectInt();
+                    else
+                        options->ngramRange.second = context.expectInt();
+                });
+            cerr << "The 'ngram_range' argument has been renamed to 'ngramRange'" << endl;
         }
         else if(context.fieldName() == "splitchars") {
-            context.exception("The 'splitchars' argument has been "
-                    "renamed to 'splitChars'");
+            options->splitchar = context.expectStringUtf8();
+            cerr << "The 'splitchars' argument has been renamed to 'splitChars'" << endl;
         }
         else if(context.fieldName() == "quotechar") {
-            context.exception("The 'quotechar' argument has been "
-                    "renamed to 'quoteChar'");
+            options->quotechar = context.expectStringUtf8();
+            cerr << "The 'quotechar' argument has been renamed to 'quoteChar'" << endl;
         }
         else {
             context.exception("Unknown field '" + context.fieldName()
                     + " parsing tokenize configuration");
           }
+        return false;
     };
 }
 
