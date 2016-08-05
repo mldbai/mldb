@@ -70,7 +70,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ColumnScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                ColumnFilter& keep)
 {
     throw HttpReturnException
         (400, "Attempt to bind expression with wildcard in column scope");
