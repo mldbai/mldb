@@ -4,6 +4,8 @@
  * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
 #include <memory>
+#include <thread>
+#include <mutex>
 
 #include "bsoncxx/oid.hpp"
 #include "bsoncxx/builder/stream/document.hpp"
@@ -131,11 +133,17 @@ MongoDatasetConfigDescription()
     addField("collection", &MongoDatasetConfig::collection,
              "The collection to import");
 }
-struct MongoDataset: Dataset {
 
+struct MongoConnHolder {
     mongocxx::client conn;
     mongocxx::database db;
+};
+
+struct MongoDataset: Dataset {
+    MongoConnHolder connFindAll; // For the "find all where"
+    MongoConnHolder connFindRow; // For the "find where rowName"
     string collection;
+    mutable mutex mut;
 
     MongoDataset(MldbServer * owner,
                  PolyConfig config,
@@ -144,11 +152,18 @@ struct MongoDataset: Dataset {
     {
         auto dsConfig = config.params.convert<MongoDatasetConfig>();
         mongocxx::uri mongoUri(dsConfig.connectionScheme);
-        conn = mongocxx::client(mongoUri);
-        db = conn[mongoUri.database()];
+
+        // We make 2 connections because we can't have 2 cursors on the same
+        // one.
+        connFindAll.conn = mongocxx::client(mongoUri);
+        connFindAll.db = connFindAll.conn[mongoUri.database()];
+
+        connFindRow.conn = mongocxx::client(mongoUri);
+        connFindRow.db = connFindRow.conn[mongoUri.database()];
+
         collection = dsConfig.collection;
     }
-    
+
     Any getStatus() const override
     {
         return std::string("ok");
@@ -156,11 +171,13 @@ struct MongoDataset: Dataset {
 
     shared_ptr<MatrixView> getMatrixView() const override
     {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
         return make_shared<MongoMatrixView>();
     }
 
     shared_ptr<ColumnIndex> getColumnIndex() const override
     {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
         return make_shared<MongoColumnIndex>();
     }
 
@@ -171,21 +188,30 @@ struct MongoDataset: Dataset {
                       ssize_t offset,
                       ssize_t limit) const override
     {
-        //bool useWhere = where != SqlExpression::TRUE;
-        SqlBindingScope scope2(scope);
-        const auto whereBound = where.bind(scope2);
+        bool useWhere = !where.isConstantTrue();
+        MongoScope mongoScope(server);
+        const auto whereBound = where.bind(mongoScope);
 
         using mongocxx::cursor;
-        shared_ptr<cursor> res(new cursor(db[collection].find({})));
-        shared_ptr<cursor::iterator> el(new cursor::iterator(res->begin()));
+        shared_ptr<cursor> res(new cursor(connFindAll.db[collection].find({})));
+        shared_ptr<cursor::iterator> it(new cursor::iterator(res->begin()));
 
         return {[=] (ssize_t numToGenerate, Any token,
                      const BoundParameters & params)
             {
                 std::vector<Path> rowsToKeep;
-                for (;*el != res->end(), numToGenerate > 0; --numToGenerate, ++*el) {
-                    rowsToKeep.emplace_back((**el)["_id"].get_oid().value.to_string());
-                    // TODO apply where
+                for (; *it != res->end() && numToGenerate != 0; ++*it, --numToGenerate) {
+                    auto oid = (**it)["_id"].get_oid();
+                    if (useWhere) {
+                        auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
+                        ExpressionValue expr(extract(ts, **it));
+                        MongoRowScope row(expr, oid.value.to_string());
+                        ExpressionValue storage;
+                        if (!whereBound(row, storage, GET_ALL).isTrue()) {
+                            continue;
+                        }
+                    }
+                    rowsToKeep.emplace_back(oid.value.to_string());
                 }
                 return make_pair(rowsToKeep, Any{});
             },
@@ -195,12 +221,15 @@ struct MongoDataset: Dataset {
 
     ExpressionValue getRowExpr(const Path & rowName) const override
     {
+        // This function is called by multiple threads. Connections are
+        // allergic to threads so we must lock.
+        unique_lock<mutex> lock(mut);
         using bsoncxx::builder::stream::document;
 
         document queryDoc;
         queryDoc << "_id" << bsoncxx::oid(rowName.toUtf8String().rawString());
         {
-            auto cursor = db[collection].find(queryDoc.view());
+            auto cursor = connFindRow.db[collection].find(queryDoc.view());
             for (auto&& doc : cursor) {
                 auto oid = doc["_id"].get_oid();
                 Path rowName(oid.value.to_string());

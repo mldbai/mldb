@@ -8,6 +8,9 @@
 #pragma once
 #include "bsoncxx/builder/stream/document.hpp"
 
+#include "sql/sql_expression.h"
+#include "server/dataset_context.h"
+
 namespace Datacratic {
 
 struct Date;
@@ -30,6 +33,33 @@ const static std::string mongoScheme =
 CellValue bsonToCell(const bsoncxx::types::value & val);
 StructValue extract(const Date & ts, const bsoncxx::document::view & doc);
 StructValue extract(const Date & ts, const bsoncxx::array::view & arr);
+
+struct MongoRowScope : SqlRowScope {
+    MongoRowScope(const ExpressionValue & expr, const std::string & oid)
+        : expr(expr), oid(oid) {}
+    const ExpressionValue & expr;
+    const std::string oid;
+};
+
+struct MongoScope : SqlExpressionMldbScope {
+
+    MongoScope(MldbServer * server) : SqlExpressionMldbScope(server){}
+
+    ColumnGetter doGetColumn(const Utf8String & tableName,
+                             const ColumnName & columnName) override;
+
+    GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    ColumnFilter & keep) override;
+
+    BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope) override;
+};
+
+
 
 } // namespace Mongo
 } // namespace MLDB

@@ -14,7 +14,6 @@
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/utils/log.h"
-#include "mldb/server/dataset_context.h"
 
 #include "mongo_common.h"
 
@@ -26,89 +25,6 @@ namespace MLDB {
 namespace Mongo {
 
 typedef tuple<ColumnName, CellValue, Date> Cell;
-
-struct MongoRowScope : SqlRowScope {
-    MongoRowScope(const ExpressionValue & expr, const string & oid)
-        : expr(expr), oid(oid) {}
-    const ExpressionValue & expr;
-    const string oid;
-};
-
-struct MongoScope : SqlExpressionMldbScope {
-
-    MongoScope(MldbServer * server) : SqlExpressionMldbScope(server){}
-
-    ColumnGetter doGetColumn(const Utf8String & tableName,
-                             const ColumnName & columnName) override
-    {
-        return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &
-            {
-                const auto & row = scope.as<MongoRowScope>();
-                const ExpressionValue * res =
-                    row.expr.tryGetNestedColumn(columnName, storage, filter);
-                if (res) {
-                    return *res;
-                }
-                return storage = ExpressionValue();
-            },
-            std::make_shared<AtomValueInfo>()
-        };
-    }
-
-    GetAllColumnsOutput
-    doGetAllColumns(const Utf8String & tableName, ColumnFilter & keep) override
-    {
-        std::vector<KnownColumn> columnsWithInfo;
-
-        auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
-        {
-            const auto & row = scope.as<MongoRowScope>();
-            StructValue result;
-            result.reserve(row.expr.rowLength());
-
-            const auto onCol = [&] (const PathElement & columnName,
-                                    const ExpressionValue & val)
-            {
-                const auto & newColName = keep(columnName);
-                if (!newColName.empty()) {
-                    result.emplace_back(newColName.front(), val);
-                }
-                return true;
-            };
-            row.expr.forEachColumnDestructive(onCol);
-            result.shrink_to_fit();
-            return result;
-        };
-        GetAllColumnsOutput result;
-        result.exec = exec;
-        result.info = std::make_shared<RowValueInfo>(
-            std::move(columnsWithInfo), SCHEMA_OPEN);
-        return result;
-    }
-
-    BoundFunction
-    doGetFunction(const Utf8String & tableName,
-                  const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args,
-                  SqlBindingScope & argScope) override
-    {
-        if (functionName == "oid") {
-            return {[=] (const std::vector<ExpressionValue> & args,
-                         const SqlRowScope & scope)
-                {
-                    const auto & row = scope.as<MongoRowScope>();
-                    return ExpressionValue(row.oid,
-                                           Date::negativeInfinity());
-                },
-                std::make_shared<StringValueInfo>()
-            };
-        }
-        return SqlBindingScope::doGetFunction(tableName, functionName, args,
-                                              argScope);
-    }
-
-};
 
 struct MongoImportConfig: ProcedureConfig {
     static constexpr const char * name = "mongodb.import";
@@ -213,7 +129,7 @@ struct MongoImportProcedure: public Procedure {
         const auto namedBound  = runConfig.named->bind(mongoScope);
 
         bool useSelect = config.select != SelectExpression::STAR;
-        bool useWhere = config.where != SqlExpression::TRUE;
+        bool useWhere = !config.where->isConstantTrue();
 
         // using incorrect default value to ease check
         bool useNamed = config.named != SqlExpression::TRUE;

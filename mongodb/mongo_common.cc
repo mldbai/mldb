@@ -115,7 +115,79 @@ StructValue extract(const Date & ts, const bsoncxx::array::view & arr)
     return row;
 }
 
+ColumnGetter
+MongoScope::
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
+{
+    return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
+        {
+            const auto & row = scope.as<MongoRowScope>();
+            const ExpressionValue * res =
+                row.expr.tryGetNestedColumn(columnName, storage, filter);
+            if (res) {
+                return *res;
+            }
+            return storage = ExpressionValue();
+        },
+        std::make_shared<AtomValueInfo>()
+    };
+}
 
+GetAllColumnsOutput
+MongoScope::
+doGetAllColumns(const Utf8String & tableName, ColumnFilter & keep)
+{
+    std::vector<KnownColumn> columnsWithInfo;
+
+    auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
+    {
+        const auto & row = scope.as<MongoRowScope>();
+        StructValue result;
+        result.reserve(row.expr.rowLength());
+
+        const auto onCol = [&] (const PathElement & columnName,
+                                const ExpressionValue & val)
+        {
+            const auto & newColName = keep(columnName);
+            if (!newColName.empty()) {
+                result.emplace_back(newColName.front(), val);
+            }
+            return true;
+        };
+        row.expr.forEachColumnDestructive(onCol);
+        result.shrink_to_fit();
+        return result;
+    };
+    GetAllColumnsOutput result;
+    result.exec = exec;
+    result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
+                                                 SCHEMA_OPEN);
+    return result;
+}
+
+BoundFunction
+MongoScope::
+doGetFunction(const Utf8String & tableName,
+              const Utf8String & functionName,
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
+{
+    if (functionName == "oid") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+            {
+                const auto & row = scope.as<MongoRowScope>();
+                return ExpressionValue(row.oid,
+                                       Date::negativeInfinity());
+            },
+            std::make_shared<StringValueInfo>()
+        };
+    }
+    return SqlBindingScope::doGetFunction(tableName, functionName, args,
+                                          argScope);
+}
 
 } // namespace Mongo
 } // namespace MLDB
