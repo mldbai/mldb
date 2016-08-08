@@ -282,6 +282,10 @@ struct PostgresqlDataset: public Dataset {
 
     }
 
+    /** Return wheter or not all columns names and info are known.
+    */
+    virtual bool hasColumnNames() const { return false; }
+
 };
 
 /*****************************************************************************/

@@ -3457,9 +3457,9 @@ bind(SqlBindingScope & scope) const
     ColumnName simplifiedPrefix = prefix;
     Utf8String resolvedTableName;
 
-    //cerr << "binding wildcard expression " << print() << endl;
-    //cerr << "prefix = " << prefix << endl;
-    //cerr << "asPrefix = " << asPrefix << endl;
+    cerr << "binding wildcard expression " << print() << endl;
+    cerr << "prefix = " << prefix << endl;
+    cerr << "asPrefix = " << asPrefix << endl;
 
     ColumnFilter newColumnName;
 
@@ -3473,7 +3473,7 @@ bind(SqlBindingScope & scope) const
 
         // This function figures out the new name of the column.  If it's excluded,
         // then it returns the empty column name
-        ColumnFilter newColumnName([=] (const ColumnName & inputColumnName) -> ColumnName
+        newColumnName = ColumnFilter([=] (const ColumnName & inputColumnName) -> ColumnName
             {
                 //cerr << "input column name " << inputColumnName << endl;
 

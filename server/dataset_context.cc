@@ -438,6 +438,9 @@ doGetAllColumns(const Utf8String & tableName,
     SchemaCompleteness schema = SCHEMA_OPEN;
 
     if (keep.exec) {
+
+        cerr << "has exec " << endl;
+
         auto columns = dataset.getMatrixView()->getColumnNames();
 
         auto filterColumnName = [&] (const ColumnName & inputColumnName)
@@ -482,6 +485,34 @@ doGetAllColumns(const Utf8String & tableName,
 
             // Change the name to the output name
             //columnsWithInfo.back().columnName = outputName;
+        }
+
+        auto allInfo = dataset.getKnownColumnInfos(columnsNeedingInfo);
+
+        // Now put in the value info
+        for (unsigned i = 0;  i < allInfo.size();  ++i) {
+            ColumnName outputName = columnsWithInfo[i].columnName;
+            columnsWithInfo[i] = allInfo[i];
+            columnsWithInfo[i].columnName = std::move(outputName);
+        }
+
+        schema = SCHEMA_CLOSED;
+    }
+    else if (dataset.hasColumnNames()) {
+
+        cerr << "NO exec but columns names" << endl;
+
+        auto columns = dataset.getMatrixView()->getColumnNames();
+
+        vector<ColumnName> columnsNeedingInfo;
+
+        for (auto & columnName: columns) {
+
+            columnsNeedingInfo.push_back(columnName);
+
+            // Ask the dataset to describe this column later, null ptr for now
+            columnsWithInfo.emplace_back(columnName, nullptr,
+                                         COLUMN_IS_DENSE);
         }
 
         auto allInfo = dataset.getKnownColumnInfos(columnsNeedingInfo);
