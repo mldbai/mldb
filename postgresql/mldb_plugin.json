@@ -3,7 +3,7 @@
         "type": "sharedLibrary",
         "id": "postgresql",
         "params": {
-            "library": "lib/libpostgresql.so",
+            "library": "lib/libmldb_postgresql_plugin.so",
             "doc": "doc",
             "version": "0.9",
             "apiVersion": "1.0.0"

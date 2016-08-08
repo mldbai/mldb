@@ -10,7 +10,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 
-#include "ext/postgresql/src/interfaces/libpq/libpq-fe.h"
+#include "mldb/postgresql/ext/postgresql/src/interfaces/libpq/libpq-fe.h"
 
 #include <unordered_set>
 
@@ -867,27 +867,24 @@ struct PostgresqlQueryFunction : public Function
 };
 
 static RegisterDatasetType<PostgresqlRecorderDataset, PostgresqlRecorderDatasetConfig>
-regPostgresqlRecorderDataset(//postgresqlPackage(),
-                 builtinPackage(),
+regPostgresqlRecorderDataset(postgresqlPackage(),
                  "postgresql.recorder",
                  "Dataset type that record to a Postgresql database",
                  "Postgresql.md.html");
 
 static RegisterDatasetType<PostgresqlDataset, PostgresqlDatasetConfig>
-regPostgresqlDataset(//postgresqlPackage(),
-                 builtinPackage(),
+regPostgresqlDataset(postgresqlPackage(),
                  "postgresql.dataset",
                  "Dataset type that reads from a Postgresql database",
                  "Postgresql.md.html");
 
 static RegisterProcedureType<PostgresqlImportProcedure, PostgresqlImportConfig>
-regPostgresqlImport(//postgresqlPackage(),
-                builtinPackage(),
+regPostgresqlImport(postgresqlPackage(),
                  "Import a dataset from Postgresql",
                  "Postgresql.md.html");
 
 static RegisterFunctionType<PostgresqlQueryFunction, PostgresqlQueryFunctionConfig>
-regSqlQueryFunction(builtinPackage(),
+regSqlQueryFunction(postgresqlPackage(),
                     "postgresql.query",
                     "Run a single row SQL query against a Postgresql dataset",
                     "Postgresql.md.html");

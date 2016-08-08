@@ -11,7 +11,6 @@ $(eval $(call include_sub_make,protobuf,protobuf,../protobuf.mk))
 $(eval $(call include_sub_make,farmhash,farmhash,../farmhash.mk))
 $(eval $(call include_sub_make,highwayhash,highwayhash,../highwayhash.mk))
 $(eval $(call include_sub_make,tensorflow,tensorflow,../tensorflow.mk))
-$(eval $(call include_sub_make,postgresqlext,postgresql,postgresqlext.mk))
 
 EDLIB_CC_FILES:= edlib/edlib/src/edlib.cpp
 EDLIB_WARNING_OPTIONS:=-Wno-char-subscripts
