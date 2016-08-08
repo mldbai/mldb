@@ -33,6 +33,8 @@ const static std::string mongoScheme =
 CellValue bsonToCell(const bsoncxx::types::value & val);
 StructValue extract(const Date & ts, const bsoncxx::document::view & doc);
 StructValue extract(const Date & ts, const bsoncxx::array::view & arr);
+void validateConnectionScheme(const std::string & connectionScheme);
+void validateCollection(const std::string & collection);
 
 struct MongoRowScope : SqlRowScope {
     MongoRowScope(const ExpressionValue & expr, const std::string & oid)

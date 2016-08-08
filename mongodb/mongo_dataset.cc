@@ -132,6 +132,13 @@ MongoDatasetConfigDescription()
              mongoScheme);
     addField("collection", &MongoDatasetConfig::collection,
              "The collection to import");
+
+    onPostValidate = [] (MongoDatasetConfig * config,
+                         JsonParsingContext & context)
+    {
+        validateConnectionScheme(config->connectionScheme);
+        validateCollection(config->collection);
+    };
 }
 
 struct MongoConnHolder {

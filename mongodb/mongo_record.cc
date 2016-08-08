@@ -37,7 +37,14 @@ MongoRecordConfigDescription()
     addField("connectionScheme", &MongoRecordConfig::connectionScheme,
              mongoScheme);
     addField("collection", &MongoRecordConfig::collection,
-             "The collection to import");
+             "The collection to record to.");
+
+    onPostValidate = [] (MongoRecordConfig * config,
+                         JsonParsingContext & context)
+    {
+        validateConnectionScheme(config->connectionScheme);
+        validateCollection(config->collection);
+    };
 }
 
 typedef tuple<ColumnName, CellValue, Date> Cell;

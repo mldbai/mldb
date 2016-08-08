@@ -40,12 +40,13 @@ struct MongoImportConfig: ProcedureConfig {
     std::shared_ptr<SqlExpression> named;
 
     MongoImportConfig() :
-          limit(-1),
-          offset(0),
-          ignoreParsingErrors(false),
-          select(SelectExpression::STAR),
-          where(SqlExpression::TRUE),
-          named(SqlExpression::TRUE)
+        connectionScheme(""),
+        limit(-1),
+        offset(0),
+        ignoreParsingErrors(false),
+        select(SelectExpression::STAR),
+        where(SqlExpression::TRUE),
+        named(SqlExpression::TRUE)
     {
         outputDataset.withType("sparse.mutable");
     }
@@ -85,6 +86,13 @@ MongoImportConfigDescription()
              "Row name expression for output dataset. Note that each row "
              "must have a unique name and that names cannot be objects.",
              SqlExpression::parse("oid()"));
+
+    onPostValidate = [] (MongoImportConfig * config,
+                         JsonParsingContext & context)
+    {
+        validateConnectionScheme(config->connectionScheme);
+        validateCollection(config->collection);
+    };
 }
 
 struct MongoImportProcedure: public Procedure {
@@ -108,6 +116,7 @@ struct MongoImportProcedure: public Procedure {
                   const std::function<bool (const Json::Value &)> & onProgress) const override
     {
         const auto runConfig = applyRunConfOverProcConf(config, run);
+
         mongocxx::uri mongoUri(runConfig.connectionScheme);
         mongocxx::client conn(mongoUri);
         auto db = conn[mongoUri.database()];

@@ -115,6 +115,28 @@ StructValue extract(const Date & ts, const bsoncxx::array::view & arr)
     return row;
 }
 
+void validateConnectionScheme(const std::string & connectionScheme)
+{
+    // Mongo driver is very sensitive regarding uris.
+    // Bad ones may provoke aborts.
+    if (connectionScheme.empty() || connectionScheme.find("mongodb://") != 0
+            || connectionScheme.size() < 11)
+    {
+        throw HttpReturnException(
+            400,
+            "connectionScheme is a required property and the minimal "
+            "connectionScheme format is mongodb://<host>");
+    }
+}
+
+void validateCollection(const std::string & collection)
+{
+    if (collection.empty()) {
+        throw HttpReturnException(
+            400, "collection is a required property and must not be empty");
+    }
+}
+
 ColumnGetter
 MongoScope::
 doGetColumn(const Utf8String & tableName,

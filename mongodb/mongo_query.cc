@@ -13,6 +13,7 @@
 #include "mldb/core/function.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/plugins/sql_functions.h"
 
 #include "mongo_common.h"
 
@@ -28,6 +29,9 @@ struct MongoQueryConfig {
     string connectionScheme;
     string collection;
     string query;
+    SqlQueryOutput outputType;
+
+    MongoQueryConfig() : outputType(FIRST_ROW) {}
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MongoQueryConfig);
@@ -39,7 +43,24 @@ MongoQueryConfigDescription()
     addField("connectionScheme", &MongoQueryConfig::connectionScheme,
              mongoScheme);
     addField("collection", &MongoQueryConfig::collection,
-             "The collection to query");
+             "The collection to query.");
+
+    // TODO extract help string
+    addField("output", &MongoQueryConfig::outputType,
+             "Controls how the query output is converted into a row. "
+             "`FIRST_ROW` (the default) will return only the first row produced "
+             "by the query.  `NAMED_COLUMNS` will construct a row from the "
+             "whole returned table, which must have a 'value' column "
+             "containing the value.  If there is a 'column' column, it will "
+             "be used as a column name, otherwise the row name will be used.",
+             FIRST_ROW);
+
+    onPostValidate = [] (MongoQueryConfig * config,
+                         JsonParsingContext & context)
+    {
+        validateConnectionScheme(config->connectionScheme);
+        validateCollection(config->collection);
+    };
 }
 
 struct MongoQueryFunction: Function {
@@ -73,12 +94,32 @@ struct MongoQueryFunction: Function {
         auto db = conn[mongoUri.database()];
 
         {
-            auto cursor = db[queryConfig.collection].find(queryDoc.view());
-            for (auto&& doc : cursor) {
-                auto oid = doc["_id"].get_oid();
-                Path rowName(oid.value.to_string());
-                auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
-                return ExpressionValue(extract(ts, doc));
+            if (queryConfig.outputType == FIRST_ROW) {
+                mongocxx::options::find opts;
+                opts.limit(2); // Limit 1 yields error unset document::element
+                auto cursor = db[queryConfig.collection].find(queryDoc.view(), opts);
+                if (cursor.begin() != cursor.end()) {
+                    auto it = cursor.begin();
+                    auto oid = (*it)["_id"].get_oid();
+                    auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
+                    return ExpressionValue(extract(ts, *it));
+                }
+            }
+            else if (queryConfig.outputType == NAMED_COLUMNS) {
+                auto cursor = db[queryConfig.collection].find(queryDoc.view());
+                StructValue row;
+                Date d = Date::negativeInfinity();
+                for (auto && el: cursor) {
+                    auto oid = el["_id"].get_oid();
+                    PathElement rowName(oid.value.to_string());
+                    auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
+                    ExpressionValue expr(extract(ts, el));
+                    row.emplace_back(std::move(rowName), std::move(expr));
+                }
+                return std::move(row);
+            }
+            else {
+                throw ML::Exception("Unknown outputType");
             }
         }
 
