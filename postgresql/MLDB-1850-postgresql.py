@@ -79,6 +79,12 @@ res = mldb.query("select * from out")
 
 mldb.log(res)
 
+expected = [["_rowName","a","b","c"],
+            ["row_0","alfalfa",1,3.5],
+            ["row_1","brigade",2,5.7]]
+
+assert res == expected
+
 mldb.log("Query Function")
 mldb.put('/v1/functions/query_from_postgres', {
     'type': 'postgresql.query',
@@ -93,7 +99,12 @@ res = mldb.query("select query_from_postgres()")
 
 mldb.log(res)
 
-#postgresql dataset
+expected = [["_rowName","query_from_postgres().a","query_from_postgres().b","query_from_postgres().c"],
+            ["result","alfalfa",1,3.5]]
+
+assert res == expected
+
+mldb.log("Postgresql Dataset")
 dataset_config = {
     'type'    : 'postgresql.dataset',
     'id'      : 'postgresqldataset',
@@ -111,8 +122,20 @@ res = mldb.query("select b from postgresqldataset")
 
 mldb.log(res)
 
+expected = [["_rowName","b"],
+            ["brigade",2],
+            ["alfalfa",1]]
+
+assert res == expected
+
 res = mldb.query("select * from postgresqldataset")
 
 mldb.log(res)
+
+expected = [["_rowName","a","b","c"],
+            ["brigade","brigade",2,5.7],
+            ["alfalfa","alfalfa",1,3.5]]
+
+assert res == expected
 
 mldb.script.set_return("success")
