@@ -646,8 +646,6 @@ PQconnectStart(const char *conninfo)
 {
 	PGconn	   *conn;
 
-    printf("0\n");
-
 	/*
 	 * Allocate memory for the conn structure
 	 */
@@ -655,28 +653,17 @@ PQconnectStart(const char *conninfo)
 	if (conn == NULL)
 		return NULL;
 
-    printf("1\n");
-
 	/*
 	 * Parse the conninfo string
 	 */
 	if (!connectOptions1(conn, conninfo))
 		return conn;
 
-    printf("2\n");
-
 	/*
 	 * Compute derived options
 	 */
 	if (!connectOptions2(conn))
 		return conn;
-
-    printf("3\n");
-
-    if (conn->dbName == NULL)
-        printf("no db name\n");
-    else
-        printf("%s\n",conn->dbName);
 
 	/*
 	 * Connect to the database
@@ -686,9 +673,6 @@ PQconnectStart(const char *conninfo)
 		/* Just in case we failed to set it in connectDBStart */
 		conn->status = CONNECTION_BAD;
 	}
-
-    printf("4\n");
-
 
 	return conn;
 }

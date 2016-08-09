@@ -22,6 +22,19 @@ dataset.record_row("row2", [["x", 2, now], ["y", "brigade", now], ["z", 5.7, now
 
 dataset.commit()
 
+mldb.put("/v1/credentials/postgresqltest", {
+  "store":{
+    "resource":"localhost",
+    "resourceType":"postgresql",
+    "credential":{
+      "id":"mldb",
+      "secret":"mldb",
+      "location":"mldb",
+      "validUntil":"2030-01-01T00:00:00Z"
+    }
+  }
+})
+
 mldb.log("From MLDB to Postgres")
 res = mldb.post('/v1/procedures', {
     'type': 'transform',
@@ -34,7 +47,6 @@ res = mldb.post('/v1/procedures', {
                                 'createTable' : True,
                                 'databaseName' : 'mldb',
                                 'port' : 5432,
-                                'userName' : 'mldb',
                                 'tableName' : 'mytable'
                             }
                         },
@@ -51,7 +63,6 @@ res = mldb.post('/v1/procedures', {
     'params': {
         'databaseName' : 'mldb',
         'port' : 5432,
-        'userName' : 'mldb',
         'postgresqlQuery' : 'select * from mytable order by a',
         'runOnCreation': True,
         'outputDataset' : {
@@ -74,7 +85,6 @@ mldb.put('/v1/functions/query_from_postgres', {
     'params': {
         'databaseName' : 'mldb',
         'port' : 5432,
-        'userName' : 'mldb',
         'query': 'select * from mytable order by a'
     }
 })
@@ -90,7 +100,6 @@ dataset_config = {
     'params': {
                 'databaseName' : 'mldb',
                 'port' : 5432,
-                'userName' : 'mldb',
                 'tableName' : 'mytable',
                 'primaryKey' : 'a'
             }

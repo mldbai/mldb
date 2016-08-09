@@ -500,8 +500,6 @@ doGetAllColumns(const Utf8String & tableName,
     }
     else if (dataset.hasColumnNames()) {
 
-        cerr << "NO exec but columns names" << endl;
-
         auto columns = dataset.getMatrixView()->getColumnNames();
 
         vector<ColumnName> columnsNeedingInfo;

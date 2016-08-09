@@ -3457,9 +3457,9 @@ bind(SqlBindingScope & scope) const
     ColumnName simplifiedPrefix = prefix;
     Utf8String resolvedTableName;
 
-    cerr << "binding wildcard expression " << print() << endl;
-    cerr << "prefix = " << prefix << endl;
-    cerr << "asPrefix = " << asPrefix << endl;
+    //cerr << "binding wildcard expression " << print() << endl;
+    //cerr << "prefix = " << prefix << endl;
+    //cerr << "asPrefix = " << asPrefix << endl;
 
     ColumnFilter newColumnName;
 
