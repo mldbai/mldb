@@ -220,7 +220,7 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 #   time as the code is pre-optimized for them.
 # - Xcompiler -fPIC,-g,-O3 to control the flags passed to the host compiler
 #   to make things properly integrate.
-TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_30 -code=sm_30 -g -O3 -Xcompiler -fPIC 
+TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_30 -code=sm_30 -g $(OPTIM_FLAG) -Xcompiler -fPIC 
 
 # When compiling the cuda kernels we need to use the include flags and
 # some of our own
