@@ -40,8 +40,8 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             cls.connection_scheme = \
                 'mongodb://localhost:{}/test_db'.format(cls.port)
             cls.collection_name = 'test_collection'
-
-            coll = cls.pymongo.test_db.test_collection
+            cls.pymongo_db = cls.pymongo.test_db
+            coll = cls.pymongo_db.test_collection
             coll.insert_one({
                 'type' : 'simple'
             })
@@ -63,6 +63,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
     @classmethod
     def tearDownClass(cls):
         if got_mongod:
+            del cls.pymongo_db
             del cls.mongo_tmp_server
             cls.pymongo.close()
             del cls.pymongo
@@ -231,18 +232,46 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
 
     @unittest.skipIf(not got_mongod, "mongod not available")
     def test_record(self):
-        # Example of dataset mongodb.record.
-        # Pymongo should be used to assert the test wrote properly.
+        """
+        Example of dataset mongodb.record.
+        """
         res = mldb.create_dataset({
             'id' : 'ds_record',
             'type' : 'mongodb.record',
             'params' : {
-                'connectionScheme' : 'mongodb://localhost:27017/tutorial',
-                'collection' : 'newb',
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'record'
             }
         })
-        res.record_row('monNom', [['colA', 'valeur sure', 34]])
-        res.commit()
+        res.record_row('row1', [['colA', 'valeur sure', 34]])
+        res.record_row('dotted.row2', [
+            ['colA', 'other valeur sure', 3],
+            ['dotted.colB', 43, 4]
+        ])
+
+        res = self.pymongo_db.record.find()
+        rows = [r for r in res]
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]['rowName'], 'row1')
+        self.assertEqual(rows[0]['columns'], [{
+            'columnName' : 'colA',
+            'data' : '"valeur sure"',
+            'ts' : 34.0
+        }])
+        self.assertEqual(rows[1]['rowName'], '"dotted.row2"')
+        self.assertEqual(rows[1]['columns'], [
+            {
+                'columnName' : 'colA',
+                'data' : '"other valeur sure"',
+                'ts' : 3.0
+            },
+            {
+                'columnName' : '"dotted.colB"',
+                'data' : '43',
+                'ts' : 4.0
+            }
+        ])
+
 
     def test_record_missing_params(self):
         msg = 'connectionScheme is a required property'

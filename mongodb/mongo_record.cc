@@ -88,10 +88,6 @@ struct MongoRecord: Dataset {
         topDoc << "rowName" << rowName.toUtf8String().rawString();
         for (const Cell & col: row) {
             auto & colName = std::get<0>(col);
-            if (colName.toUtf8String().rawString().find(".") != string::npos) {
-                throw HttpReturnException(
-                    400, "Cannot push dotted keys into MongoDB.");
-            }
             topArray
                 << open_document
                 << "columnName" << colName.toUtf8String().rawString()
