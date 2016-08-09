@@ -61,7 +61,7 @@ struct PairDescription
     }
 
     virtual void parseJsonTyped(std::pair<T, U> * val,
-                                JsonParsingContext & context) const JML_OVERRIDE
+                                JsonParsingContext & context) const override
     {
         int el = 0;
         auto onElement = [&] ()
@@ -82,7 +82,7 @@ struct PairDescription
     }
 
     virtual void printJsonTyped(const std::pair<T, U> * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE
+                                JsonPrintingContext & context) const override
     {
         context.startArray(2);
         context.newArrayElement();
@@ -92,13 +92,13 @@ struct PairDescription
         context.endArray();
     }
 
-    virtual bool isDefaultTyped(const std::pair<T, U> * val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(const std::pair<T, U> * val) const override
     {
         return inner1->isDefaultTyped(&val->first)
             && inner2->isDefaultTyped(&val->second);
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner1 = getDefaultDescriptionSharedT<T>();
         this->inner2 = getDefaultDescriptionSharedT<U>();

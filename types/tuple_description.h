@@ -176,7 +176,7 @@ struct TupleDescription
         throw ML::Exception("tuple type set not done");
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         addTupleTypes<T...>(elements);
     }
