@@ -1130,7 +1130,7 @@ take()
             //cerr << "*** got row match on " << jsonEncode(lField) << endl;
 
             // return a copy since we are buffering the original left value
-            auto result = shared_ptr<PipelineResults>(new PipelineResults(**l));
+            auto result = make_shared<PipelineResults>(**l);
             // Pop the selected join conditions from left
             result->values.pop_back();
 
@@ -1166,7 +1166,7 @@ take()
 
             l = takeFromBuffer(l);
 
-            bool updateFirstDup = false;
+            bool updateFirstDuplicate = false;
 
             if (l != bufferedLeftValues.end()) {
                 ExpressionValue nextLField =  (*l)->values.back().getColumn(0, GET_ALL);
@@ -1179,7 +1179,7 @@ take()
                     return std::move(result);
                 }
                 else {
-                    updateFirstDup = true;
+                    updateFirstDuplicate = true;
                 }
             }
 
@@ -1197,7 +1197,7 @@ take()
                 }
             }
 
-            if (updateFirstDup)
+            if (updateFirstDuplicate)
                 firstDuplicate = l;
                
             return result;
