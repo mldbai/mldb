@@ -13,7 +13,7 @@ class Mldb1594(MldbUnitTest):
     def test_simple(self):
         res1 = mldb.query("select {}")
         res2 = mldb.query("select sum({*}) named 'result' from (select {})")
-        self.assertTrue(res1 == res2)
+        self.assertEqual(res1,res2)
 
 
     def test_multi_row(self):
