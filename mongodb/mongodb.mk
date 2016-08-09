@@ -17,4 +17,13 @@ $(eval $(call mldb_plugin_library,mongodb,mldb_mongodb_plugin,$(LIBMLDB_MONGODB_
 
 $(eval $(call mldb_builtin_plugin,mongodb,mldb_mongodb_plugin,doc))
 
-$(eval $(call mldb_unit_test,mongodb_plugin_test.py,mongodb))
+$(eval $(call library,mongo_tmp_server,mongo_temporary_server.cc, services runner))
+
+$(eval $(call python_addon,python_mongo_temp_server_wrapping,mongo_temp_server_wrapping.cc,mongo_tmp_server boost_filesystem))
+$(eval $(call python_module,mongo_temp_server_wrapping,$(notdir $(wildcard $(CWD)/*.py)),python_mongo_temp_server_wrapping))
+
+# Cheat! Makes sure we build the temp server + wrapping so the tests work
+mldb/mongodb/mldb_plugin.json: \
+	$(TMP)/mongo_temp_server_wrapping_pymod
+
+$(eval $(call include_sub_make,testing))

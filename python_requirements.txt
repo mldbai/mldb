@@ -39,3 +39,6 @@ psutil==3.4.2
 
 # MLDBFB-499
 boto==2.39.0
+
+# Mongo plugin
+pymongo==3.3.0
