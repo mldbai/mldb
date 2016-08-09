@@ -138,6 +138,9 @@ struct AggregatorT {
             checkArgsSize(nargs, 1);
             const ExpressionValue & val = args[0];
 
+            if (val.empty())
+                return;
+
             // This must be a row...
             auto onColumn = [&] (const PathElement & columnName,
                                  const ExpressionValue & val)
