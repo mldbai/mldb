@@ -11,7 +11,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 
-#include "mldb/postgresql/ext/postgresql/src/interfaces/libpq/libpq-fe.h"
+#include <postgresql/libpq-fe.h>
 
 #include <unordered_set>
 
