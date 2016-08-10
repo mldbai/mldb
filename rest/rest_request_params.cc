@@ -90,5 +90,4 @@ std::string encodeUriComponent(const std::string & in)
     return std::string(buffer.data(), buffer.length());
 }
 
-
 } // namespace Datacratic
