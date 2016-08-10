@@ -25,7 +25,7 @@ using namespace Datacratic;
 
 
 #define ENABLE_LONG_TESTS 1
-string bucket = "dev.mldb.datacratic.com";
+string bucket = "private-mldb-ai";
 
 
 /* ensures that reduced redundancy is properly set when specified for S3 objects

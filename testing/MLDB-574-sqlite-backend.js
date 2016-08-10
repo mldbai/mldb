@@ -11,7 +11,7 @@ function createDataset()
         id: 'reddit_dataset',
         params: {
             //dataFileUrl: 'file:///mnt/s3cache/jeremy/MLDB-574-reddit.sqlite'
-            dataFileUrl: 'file://tmp/MLDB-574-reddit.sqlite'
+            dataFileUrl: 'file:///tmp/MLDB-574-reddit.sqlite'
         }
     };
 
@@ -20,7 +20,7 @@ function createDataset()
 
     //return dataset;
 
-    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+    var dataset_address = 'https://s3.amazonaws.com/public-mldb-ai/reddit.csv.gz'
     //var dataset_address = 'file://reddit_user_posting_behavior.csv';
     var now = new Date("2015-01-01");
 
