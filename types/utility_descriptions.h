@@ -39,11 +39,11 @@ struct BridgedValueDescription: public ValueDescription {
     virtual void * getArrayElement(void * val, uint32_t element) const override;
     virtual const void * getArrayElement(const void * val, uint32_t element) const override;
     virtual const ValueDescription &
-        getArrayElementDescription(const void * val, uint32_t element) const override;
+    getArrayElementDescription(const void * val, uint32_t element) const override;
     virtual void setArrayLength(void * val, size_t newLength) const override;
     virtual size_t getTupleLength() const override;
-    virtual std::vector<std::shared_ptr<const ValueDescription>>
-        getTupleElementDescriptions() const override;
+    virtual std::vector<std::shared_ptr<const ValueDescription> >
+    getTupleElementDescriptions() const override;
     virtual const ValueDescription & getKeyValueDescription() const override;
     virtual const ValueDescription & contained() const override;
     virtual OwnershipModel getOwnershipModel() const override;

@@ -188,9 +188,7 @@ struct DistTableProcedure: public Procedure {
     static void persist(const Url & modelFileUrl, DistTableMode mode,
                         const DistTablesMap & distTablesMap);
 
-    static constexpr int DIST_TABLE_PERSIST_VERSION() {
-        return 2;
-    }
+    enum { DIST_TABLE_PERSIST_VERSION=2 };
 
 };
 

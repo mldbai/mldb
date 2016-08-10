@@ -505,7 +505,7 @@ persist(const Url & modelFileUrl, DistTableMode mode,
 {
     filter_ostream stream(modelFileUrl);
     ML::DB::Store_Writer store(stream);
-    store << DistTableProcedure::DIST_TABLE_PERSIST_VERSION() << mode << distTablesMap;
+    store << DistTableProcedure::DIST_TABLE_PERSIST_VERSION << mode << distTablesMap;
 }
 
 
