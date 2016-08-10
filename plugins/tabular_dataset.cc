@@ -118,17 +118,17 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             return streams;
         }
 
-        virtual bool supportsExtendedInterface() const override
+        bool supportsExtendedInterface() const override
         {
             return true;
         }
 
-        virtual const RowName & rowName(RowName & storage) const override
+        const RowName & rowName(RowName & storage) const override
         {
             return chunkiter->getRowName(rowIndex, storage);
         }
 
-        virtual RowName next() override
+        RowName next() override
         {
             RowName storage;
             const RowName & row = rowName(storage);
@@ -138,7 +138,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             else return row;
         }
 
-        virtual void advance()
+        void advance() override
         {
             ExcAssert(rowIndex < rowCount);
             rowIndex++;

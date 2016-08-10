@@ -509,7 +509,6 @@ persist(const Url & modelFileUrl, DistTableMode mode,
 }
 
 
-
 /*****************************************************************************/
 /* DIST TABLE FUNCTION FUNCTIONS ENDPOINT PAYLOAD                            */
 /*****************************************************************************/

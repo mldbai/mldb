@@ -39,51 +39,51 @@ struct SetDescription
     {
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const
+    void parseJson(void * val, JsonParsingContext & context) const override
     {
         std::set<T> * val2 = reinterpret_cast<std::set<T> *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(std::set<T> * val, JsonParsingContext & context) const
+    void parseJsonTyped(std::set<T> * val, JsonParsingContext & context) const override
     {
         this->parseJsonTypedSet(val, context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    void printJson(const void * val, JsonPrintingContext & context) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         return printJsonTyped(val2, context);
     }
 
-    virtual void printJsonTyped(const std::set<T> * val, JsonPrintingContext & context) const
+    void printJsonTyped(const std::set<T> * val, JsonPrintingContext & context) const override
     {
         this->printJsonTypedList(val, context);
     }
 
-    virtual bool isDefault(const void * val) const
+    bool isDefault(const void * val) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         return isDefaultTyped(val2);
     }
 
-    virtual bool isDefaultTyped(const std::set<T> * val) const
+    bool isDefaultTyped(const std::set<T> * val) const override
     {
         return val->empty();
     }
 
-    virtual size_t getArrayLength(void * val) const
+    size_t getArrayLength(void * val) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         return val2->size();
     }
 
-    virtual void * getArrayElement(void * val, uint32_t element) const
+    void * getArrayElement(void * val, uint32_t element) const override
     {
         throw ML::Exception("can't mutate set elements");
     }
 
-    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    const void * getArrayElement(const void * val, uint32_t element) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         if (element >= val2->size())
@@ -93,17 +93,17 @@ struct SetDescription
         return &*it;
     }
 
-    virtual void setArrayLength(void * val, size_t newLength) const
+    void setArrayLength(void * val, size_t newLength) const override
     {
         throw ML::Exception("cannot adjust length of a set");
     }
     
-    virtual const ValueDescription & contained() const
+    const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
-    virtual void initialize() override
+    void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }

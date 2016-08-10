@@ -215,7 +215,8 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                     
                 size_t numRows = endOffset - startOffset;
 
-                Val results[exprs.size()];
+                std::unique_ptr<Val[]> resultsPtr(new Val[exprs.size()]);
+                Val * results = resultsPtr.get();
                 
                 for (size_t i = 0;  i < numRows;  i += ROWS_AT_ONCE) {
                     size_t startRow = i + startOffset;
@@ -286,7 +287,8 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     // Apply the expression to everything
     auto doRow = [&] (size_t first, size_t last)
         {
-            Val results[exprs.size()];
+            unique_ptr<Val[]> resultsPtr(new Val[exprs.size()]);
+            Val * results = resultsPtr.get();
             for (size_t i = first;  i < last
                      && !stop.load(std::memory_order_relaxed);  ++i) {
                 RowScope scope(i, inputs);

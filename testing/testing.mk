@@ -14,7 +14,7 @@ $(eval $(call include_sub_make,cookbook))
 #$(warning HAS_S3_CREDENTIALS=$(HAS_S3_CREDENTIALS))
 #$(warning MANUAL_IF_NO_S3=$(MANUAL_IF_NO_S3))
 
-$(eval $(call library,mldb_test_function,test_function.cc,mldb))
+$(eval $(call library,mldb_test_function,test_function.cc,mldb mldb_builtin_plugins))
 
 
 $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))

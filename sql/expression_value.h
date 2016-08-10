@@ -1484,7 +1484,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
     virtual SchemaCompleteness getSchemaCompleteness() const override;
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
 
     virtual bool isCompatible(const ExpressionValue & value) const override
     {

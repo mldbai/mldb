@@ -159,8 +159,10 @@ struct SparseMatrixDataset::Itl
         }
 
         virtual const RowName & rowName(RowName & storage) const {
-            uint64_t i = internalStream->current();
-            return source->getRowNameTrans(RowHash(i), *trans);
+            throw HttpReturnException(500, "FIXME");
+            // This returns a reference to a local object and is hence invalid
+            //uint64_t i = internalStream->current();
+            //return source->getRowNameTrans(RowHash(i), *trans);
         }
 
         std::shared_ptr<MatrixReadTransaction::Stream> internalStream;
@@ -539,8 +541,8 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual std::vector<RowHash>
-    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
+    std::vector<RowHash>
+    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
         std::vector<RowHash> result;
         auto trans = getReadTransaction();

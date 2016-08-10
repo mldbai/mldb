@@ -185,10 +185,10 @@ struct DistTableProcedure: public Procedure {
 
     DistTableProcedureConfig procConfig;
 
-    static void persist(const Url & modelFileUrl, DistTableMode mode, 
+    static void persist(const Url & modelFileUrl, DistTableMode mode,
                         const DistTablesMap & distTablesMap);
 
-    static const int DIST_TABLE_PERSIST_VERSION = 2;
+    static constexpr int DIST_TABLE_PERSIST_VERSION = 2;
 
 };
 
@@ -217,15 +217,15 @@ struct DistTableFunction: public Function {
 
     ~DistTableFunction();
 
-    virtual Any getStatus() const;
+    Any getStatus() const override;
 
-    virtual Any getDetails() const;
+    Any getDetails() const override;
 
-    virtual ExpressionValue apply(const FunctionApplier & applier,
-                              const ExpressionValue & context) const;
+    ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const override;
 
     /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    FunctionInfo getFunctionInfo() const override;
 
     void increment(const std::vector<std::pair<Utf8String, Utf8String>> & keys,
                    const std::vector<double> & outcomes) const;

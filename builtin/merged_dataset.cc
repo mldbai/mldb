@@ -13,6 +13,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/http/http_exception.h"
 #include <thread>
 
 
@@ -214,8 +215,10 @@ struct MergedDataset::Itl
 
         virtual const RowName & rowName(RowName & storage) const
         {
-            uint64_t hash = (*it).first;
-            return source->getRowName(RowHash(hash));
+            throw HttpReturnException(500, "FIXME");
+            // This returns a reference to a local object and is hence invalid
+            //uint64_t hash = (*it).first;
+            //return source->getRowName(RowHash(hash));
         }
 
         const MergedDataset::Itl* source;
