@@ -33,31 +33,31 @@ struct PointerDescription
 
     std::shared_ptr<const ValueDescriptionT<T> > inner;
 
-    virtual void parseJsonTyped(T** val, JsonParsingContext & context) const JML_OVERRIDE
+    virtual void parseJsonTyped(T** val, JsonParsingContext & context) const override
     {
         *val = new T();
         inner->parseJsonTyped(*val, context);
     }
 
-    virtual void printJsonTyped(T* const* val, JsonPrintingContext & context) const JML_OVERRIDE
+    virtual void printJsonTyped(T* const* val, JsonPrintingContext & context) const override
     {
         if (!*val)
             context.skip();
         else inner->printJsonTyped(*val, context);
     }
 
-    virtual bool isDefaultTyped(T* const* val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(T* const* val) const override
     {
         return !*val;
     }
 
-    virtual const ValueDescription & contained() const JML_OVERRIDE
+    virtual const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
 
-    virtual OwnershipModel getOwnershipModel() const JML_OVERRIDE
+    virtual OwnershipModel getOwnershipModel() const override
     {
         return OwnershipModel::NONE;
     }
@@ -67,13 +67,13 @@ struct PointerDescription
         return *static_cast<T**>(obj);
     }
 
-    virtual void* getLink(void* obj) const JML_OVERRIDE
+    virtual void* getLink(void* obj) const override
     {
         return cast(obj);
     }
 
     virtual void set(
-            void* obj, void* value, const ValueDescription* valueDesc) const JML_OVERRIDE
+            void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         if (valueDesc->kind != ValueKind::LINK)
             throw ML::Exception("assignment of non-link type to link type");
@@ -82,7 +82,7 @@ struct PointerDescription
         cast(obj) = static_cast<T*>(valueDesc->getLink(value));
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }
@@ -131,31 +131,31 @@ struct UniquePtrDescription
     std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::unique_ptr<T> * val,
-                                JsonParsingContext & context) const JML_OVERRIDE
+                                JsonParsingContext & context) const override
     {
         val->reset(new T());
         inner->parseJsonTyped(val->get(), context);
     }
 
     virtual void printJsonTyped(const std::unique_ptr<T> * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE
+                                JsonPrintingContext & context) const override
     {
         if (!val->get())
             context.skip();
         else inner->printJsonTyped(val->get(), context);
     }
 
-    virtual bool isDefaultTyped(const std::unique_ptr<T> * val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(const std::unique_ptr<T> * val) const override
     {
         return !val->get();
     }
 
-    virtual const ValueDescription & contained() const JML_OVERRIDE
+    virtual const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
-    virtual OwnershipModel getOwnershipModel() const JML_OVERRIDE
+    virtual OwnershipModel getOwnershipModel() const override
     {
         return OwnershipModel::UNIQUE;
     }
@@ -165,13 +165,13 @@ struct UniquePtrDescription
         return *static_cast< std::unique_ptr<T>* >(obj);
     }
 
-    virtual void* getLink(void* obj) const JML_OVERRIDE
+    virtual void* getLink(void* obj) const override
     {
         return cast(obj).get();
     }
 
     virtual void set(
-            void* obj, void* value, const ValueDescription* valueDesc) const JML_OVERRIDE
+            void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         if (valueDesc->kind != ValueKind::LINK)
             throw ML::Exception("assignment of non-link type to link type");
@@ -183,7 +183,7 @@ struct UniquePtrDescription
         cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }
@@ -214,7 +214,7 @@ struct SharedPtrDescription
     std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::shared_ptr<T> * val,
-                                JsonParsingContext & context) const JML_OVERRIDE
+                                JsonParsingContext & context) const override
     {
         if (context.isNull()) {
             val->reset();
@@ -226,24 +226,24 @@ struct SharedPtrDescription
     }
 
     virtual void printJsonTyped(const std::shared_ptr<T> * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE
+                                JsonPrintingContext & context) const override
     {
         if (!val->get())
             context.skip();
         else inner->printJsonTyped(val->get(), context);
     }
 
-    virtual bool isDefaultTyped(const std::shared_ptr<T> * val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(const std::shared_ptr<T> * val) const override
     {
         return !val->get();
     }
 
-    virtual const ValueDescription & contained() const JML_OVERRIDE
+    virtual const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
-    virtual OwnershipModel getOwnershipModel() const JML_OVERRIDE
+    virtual OwnershipModel getOwnershipModel() const override
     {
         return OwnershipModel::SHARED;
     }
@@ -254,13 +254,13 @@ struct SharedPtrDescription
         return *static_cast< std::shared_ptr<T>* >(obj);
     }
 
-    virtual void* getLink(void* obj) const JML_OVERRIDE
+    virtual void* getLink(void* obj) const override
     {
         return cast(obj).get();
     }
 
     virtual void set(
-            void* obj, void* value, const ValueDescription* valueDesc) const JML_OVERRIDE
+            void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         if (valueDesc->kind != ValueKind::LINK)
             throw ML::Exception("assignment of non-link type to link type");
@@ -276,7 +276,7 @@ struct SharedPtrDescription
         else cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }

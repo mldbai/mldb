@@ -37,14 +37,10 @@
 
 #if __GNUC__ == 4
 #  if __CNUC_MINOR__ < 8
-#     define JML_OVERRIDE 
 #     define JML_NO_MOVE_IF_NOEXCEPT
 #  else
-#     define JML_OVERRIDE override
 #     undef  JML_NO_MOVE_IF_NOECEPT
 #  endif
-#elif __GNUC__ > 4
-#  define JML_OVERRIDE override
 #endif
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
