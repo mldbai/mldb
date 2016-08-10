@@ -135,7 +135,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 SqlExpressionMldbScope::
 doGetAllColumns(const Utf8String & tableName,
-                function<ColumnName (const ColumnName &)> keep)
+                ColumnFilter& keep)
 {
     throw HttpReturnException(400, "Cannot use wildcards with no FROM clause.");
 }
@@ -423,7 +423,7 @@ doGetBoundParameter(const Utf8String & paramName)
 GetAllColumnsOutput
 SqlExpressionDatasetScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                ColumnFilter& keep)
 {
     if (!tableName.empty()
         && std::find(childaliases.begin(), childaliases.end(), tableName)

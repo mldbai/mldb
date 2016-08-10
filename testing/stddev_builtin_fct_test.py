@@ -5,6 +5,7 @@
 #
 import unittest
 import random
+import math
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
@@ -13,19 +14,27 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
-        ds.record_row('1', [['a', 1, 0]])
-        ds.record_row('2', [['a', 2, 0]])
-        ds.record_row('3', [['a', 3, 0]])
-        ds.record_row('4', [['a', 10, 0]])
-        ds.record_row('5', [['b', 10, 0]])
+        for i in xrange(100):
+            ds.record_row('a%d-1' % i, [['a', 1, 0]])
+            ds.record_row('a%d-2' % i, [['a', 2, 0]])
+            ds.record_row('a%d-3' % i, [['a', 3, 0]])
+            ds.record_row('a%d-4' % i, [['a', 10, 0]])
+            ds.record_row('a%d-5' % i, [['a', 10, 0]])
         ds.commit()
 
     def test_base(self):
+        var = 15.791583166332668
+        res = mldb.query("SELECT variance(a) FROM ds")[1][1]
+        self.assertAlmostEqual(res, var)
+
+        res = mldb.query("SELECT vertical_variance(a) FROM ds")[1][1]
+        self.assertAlmostEqual(res, var)
+
         res = mldb.query("SELECT stddev(a) FROM ds")[1][1]
-        self.assertAlmostEqual(res, 16.6666666667)
+        self.assertAlmostEqual(res, math.sqrt(var))
 
         res = mldb.query("SELECT vertical_stddev(a) FROM ds")[1][1]
-        self.assertAlmostEqual(res, 16.6666666667)
+        self.assertAlmostEqual(res, math.sqrt(var))
 
     def test_nan(self):
         ds = mldb.create_dataset({'id' : 'null_ds', 'type' : 'tabular'})
@@ -35,6 +44,12 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
         self.assertEqual(res[1][1], "NaN")
 
         res = mldb.query("SELECT stddev(c) FROM null_ds")
+        self.assertEqual(res[1][1], "NaN")
+
+        res = mldb.query("SELECT variance(b) FROM null_ds")
+        self.assertEqual(res[1][1], "NaN")
+
+        res = mldb.query("SELECT variance(c) FROM null_ds")
         self.assertEqual(res[1][1], "NaN")
 
     @unittest.skip("Run manually if you want numpy comparison test")
@@ -59,7 +74,7 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
                 mldb.log(sequence)
 
             mldb_res = mldb.query("SELECT stddev(a) FROM rand")[1][1]
-            numpy_res = float(numpy.var(sequence, ddof=1))
+            numpy_res = float(numpy.std(sequence, ddof=1))
             if (numpy_res == 0):
                 mldb.log("Skipping case where numpy_re == 0")
             else:
@@ -99,7 +114,7 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
 
         ds.commit()
         res = mldb.query("SELECT stddev(col) FROM pre_gen_seq_input")
-        self.assertEqual(res[1][1],  62294040173.716774)
+        self.assertAlmostEqual(res[1][1], 249587.74043152996)
 
 if __name__ == '__main__':
     mldb.run_tests()

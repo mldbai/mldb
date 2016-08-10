@@ -30,8 +30,8 @@ var expected = [
    [
       "result",
       "scalar",
-      "Datacratic::MLDB::CellValue",
-      "Datacratic::MLDB::AtomValueInfo"
+      "long",
+      "Datacratic::MLDB::IntegerValueInfo"
    ]
 ];
 

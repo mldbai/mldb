@@ -103,7 +103,7 @@ struct DistributionValueDescription
         return *this->inner;
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }

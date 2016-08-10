@@ -51,9 +51,7 @@ SummaryStatisticsProcedureConfigDescription()
              "the derived columns as a previous step and use a query on that "
              "dataset instead.");
     addField("outputDataset", &SummaryStatisticsProcedureConfig::outputDataset,
-             "Output dataset configuration. This may refer either to an "
-             "existing dataset, or a fully specified but non-existing dataset "
-             "which will be created by the procedure.",
+             GENERIC_OUTPUT_DS_DESC,
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addParent<ProcedureConfig>();
 
