@@ -30,8 +30,8 @@ This endpoint accepts the following query-string parameters:
 - `rowHashes`: boolean (default `false`), if `true` an implicit column called
   `_rowHash` will be added. Forced to `true` when `format=full`.
 
-Note that instead of passing `q` in the query string, you can alternatively pass it in
-the body. This is useful whenever your query becomes too long to be put in the query string.
+Note that instead of passing the parameters in the query string, you can
+alternatively pass them in the body.
 
 ### Cell value representation
 
