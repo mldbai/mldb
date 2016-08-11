@@ -81,7 +81,9 @@ struct TupleDescription
 
     std::vector<TupleElementDescription> elements;
 
-    virtual void parseJsonTyped(std::tuple<T...> * val, JsonParsingContext & context) const
+    virtual void
+    parseJsonTyped(std::tuple<T...> * val,
+                   JsonParsingContext & context) const override
     {
         if (!context.isArray())
             context.exception("expected array for tuple representation");
@@ -104,7 +106,9 @@ struct TupleDescription
         }
     }
 
-    virtual void printJsonTyped(const std::tuple<T...> * val, JsonPrintingContext & context) const
+    virtual void
+    printJsonTyped(const std::tuple<T...> * val,
+                   JsonPrintingContext & context) const override
     {
         context.startArray(sizeof...(T));
 
@@ -117,34 +121,35 @@ struct TupleDescription
         context.endArray();
     }
 
-    virtual bool isDefaultTyped(const std::tuple<T...> * val) const
+    virtual bool isDefaultTyped(const std::tuple<T...> * val) const override
     {
         return false;
     }
 
-    virtual size_t getArrayLength(void * val) const
+    virtual size_t getArrayLength(void * val) const override
     {
         return sizeof...(T);
     }
 
-    virtual void * getArrayElement(void * val, uint32_t element) const
+    virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         return ((char*) val) + elements.at(element).offset;
     }
 
-    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    virtual const
+    void * getArrayElement(const void * val, uint32_t element) const override
     {
         return ((char*) val) + elements.at(element).offset;
         
     }
 
-    virtual size_t getTupleLength() const
+    virtual size_t getTupleLength() const override
     {
         return sizeof...(T);
     }
 
     virtual std::vector<std::shared_ptr<const ValueDescription> >
-    getTupleElementDescriptions() const
+    getTupleElementDescriptions() const override
     {
         std::vector<std::shared_ptr<const ValueDescription> > result;
         for (auto & e: elements)
@@ -153,25 +158,26 @@ struct TupleDescription
     }
 
     virtual const ValueDescription &
-    getArrayElementDescription(const void * val, uint32_t element) const
+    getArrayElementDescription(const void * val,
+                               uint32_t element) const override
     {
         auto res = elements.at(element).desc.get();
         ExcAssert(res);
         return *res;
     }
 
-    virtual void setArrayLength(void * val, size_t newLength) const
+    virtual void setArrayLength(void * val, size_t newLength) const override
     {
         throw ML::Exception("tuple array lengths can't be set");
     }
     
-    virtual const ValueDescription & contained() const
+    virtual const ValueDescription & contained() const override
     {
         throw ML::Exception("tuple does not have a consistent contained type");
     }
 
     virtual void set(void* obj, void* value,
-                     const ValueDescription* valueDesc) const
+                     const ValueDescription* valueDesc) const override
     {
         throw ML::Exception("tuple type set not done");
     }

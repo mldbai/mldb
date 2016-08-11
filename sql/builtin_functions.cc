@@ -1819,14 +1819,6 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                 if(val.empty())
                     return ExpressionValue::null(val.getEffectiveTimestamp());
 
-                bool check[] = {false, false};
-                auto assertArg = [&] (size_t field, const string & name)
-                    {
-                        if (check[field])
-                            throw HttpReturnException(400, "Argument " + name + " is specified more than once");
-                        check[field] = true;
-                    };
- 
                 ParseJsonOptions options;
 
                 if(args.size() == 2) {

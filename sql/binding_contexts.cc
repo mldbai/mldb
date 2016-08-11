@@ -202,7 +202,7 @@ doGetFunction(const Utf8String & tableName,
                         ? col.columnName.size() + elementNum
                         : elementNum;
 
-                    if (index < 0 || index >= col.columnName.size()) {
+                    if (index >= col.columnName.size()) {
                         return ExpressionValue::null(Date::negativeInfinity());
                     }
 
