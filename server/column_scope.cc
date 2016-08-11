@@ -145,6 +145,29 @@ static CellValue extractVal(const CellValue & val, CellValue *)
     return val;
 }
 
+namespace {
+    // Made to init and hold a non POD array of dynamic size in a memory safe
+    // way.
+    template<typename T>
+    struct Holder {
+        T * holded;
+        size_t size;
+        Holder(T * holded, size_t size) : holded(holded), size(size) {
+            uninitialized_fill(holded, holded + size, T{});
+        }
+
+        ~Holder() {
+            for (int i = 0; i < size; ++i) {
+                holded[i].~T();
+            }
+        }
+
+        private:
+            Holder(const Holder & other);
+            Holder & operator=(Holder & other);
+    };
+}
+
 template<typename Val>
 bool
 ColumnScope::
@@ -215,9 +238,11 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                     
                 size_t numRows = endOffset - startOffset;
 
-                std::unique_ptr<Val[]> resultsPtr(new Val[exprs.size()]);
-                Val * results = resultsPtr.get();
-                
+                char resultsStackMemBuffer[exprs.size() * sizeof(Val)];
+                Val * results =
+                    reinterpret_cast<Val*>(&resultsStackMemBuffer[0]);
+                Holder<Val> resultsHolder(results, exprs.size());
+
                 for (size_t i = 0;  i < numRows;  i += ROWS_AT_ONCE) {
                     size_t startRow = i + startOffset;
                     size_t endRow
@@ -287,8 +312,10 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     // Apply the expression to everything
     auto doRow = [&] (size_t first, size_t last)
         {
-            unique_ptr<Val[]> resultsPtr(new Val[exprs.size()]);
-            Val * results = resultsPtr.get();
+            char resultsStackMemBuffer[exprs.size() * sizeof(Val)];
+            Val * results =
+                reinterpret_cast<Val*>(&resultsStackMemBuffer[0]);
+            Holder<Val> resultsHolder(results, exprs.size());
             for (size_t i = first;  i < last
                      && !stop.load(std::memory_order_relaxed);  ++i) {
                 RowScope scope(i, inputs);
