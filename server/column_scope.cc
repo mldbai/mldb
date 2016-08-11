@@ -177,7 +177,7 @@ namespace {
 
         bool onStack() const { return size_ <= MAX_STACK_ENTRIES; }
 
-        T * data() const { return onStack() ? stackEntries: heapEntries; }
+        T * data() { return onStack() ? stackEntries: heapEntries; }
         size_t size() const { return size_; }
 
         union {
