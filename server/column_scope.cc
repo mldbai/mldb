@@ -150,15 +150,15 @@ namespace {
     // way.
     template<typename T>
     struct Holder {
-        T * holded;
+        T * held;
         size_t size;
-        Holder(T * holded, size_t size) : holded(holded), size(size) {
-            uninitialized_fill(holded, holded + size, T{});
+        Holder(T * held, size_t size) : held(held), size(size) {
+            uninitialized_fill(held, held + size, T{});
         }
 
         ~Holder() {
             for (int i = 0; i < size; ++i) {
-                holded[i].~T();
+                held[i].~T();
             }
         }
 
