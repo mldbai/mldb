@@ -227,9 +227,12 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
 
         auto onChunk = [&] (size_t chunkNum)
             {
-                std::unique_ptr<Val[]> ptr(new Val[requiredColumns.size()
-                                                   * ROWS_AT_ONCE]);
-                Val * values = ptr.get();
+                ssize_t valuesStackMemBufferSize =
+                    requiredColumns.size() * ROWS_AT_ONCE;
+                char valuesStackMemBuffer[
+                    valuesStackMemBufferSize * sizeof(Val)];
+                Val * values = reinterpret_cast<Val*>(valuesStackMemBuffer);
+                Holder<Val> valuesHolder(values, valuesStackMemBufferSize);
 
                 RowStream & stream = *chunks[chunkNum];
 
@@ -239,8 +242,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                 size_t numRows = endOffset - startOffset;
 
                 char resultsStackMemBuffer[exprs.size() * sizeof(Val)];
-                Val * results =
-                    reinterpret_cast<Val*>(&resultsStackMemBuffer[0]);
+                Val * results = reinterpret_cast<Val*>(resultsStackMemBuffer);
                 Holder<Val> resultsHolder(results, exprs.size());
 
                 for (size_t i = 0;  i < numRows;  i += ROWS_AT_ONCE) {
@@ -313,8 +315,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     auto doRow = [&] (size_t first, size_t last)
         {
             char resultsStackMemBuffer[exprs.size() * sizeof(Val)];
-            Val * results =
-                reinterpret_cast<Val*>(&resultsStackMemBuffer[0]);
+            Val * results = reinterpret_cast<Val*>(resultsStackMemBuffer);
             Holder<Val> resultsHolder(results, exprs.size());
             for (size_t i = first;  i < last
                      && !stop.load(std::memory_order_relaxed);  ++i) {
