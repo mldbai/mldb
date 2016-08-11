@@ -215,10 +215,8 @@ struct MergedDataset::Itl
 
         virtual const RowName & rowName(RowName & storage) const
         {
-            throw HttpReturnException(500, "FIXME");
-            // This returns a reference to a local object and is hence invalid
-            //uint64_t hash = (*it).first;
-            //return source->getRowName(RowHash(hash));
+            uint64_t hash = (*it).first;
+            return storage = source->getRowName(RowHash(hash));
         }
 
         const MergedDataset::Itl* source;

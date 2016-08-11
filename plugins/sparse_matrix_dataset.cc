@@ -159,10 +159,8 @@ struct SparseMatrixDataset::Itl
         }
 
         virtual const RowName & rowName(RowName & storage) const {
-            throw HttpReturnException(500, "FIXME");
-            // This returns a reference to a local object and is hence invalid
-            //uint64_t i = internalStream->current();
-            //return source->getRowNameTrans(RowHash(i), *trans);
+            uint64_t i = internalStream->current();
+            return storage = source->getRowNameTrans(RowHash(i), *trans);
         }
 
         std::shared_ptr<MatrixReadTransaction::Stream> internalStream;
