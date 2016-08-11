@@ -217,22 +217,22 @@ struct DistTableFunction: public Function {
 
     ~DistTableFunction();
 
-    Any getStatus() const override;
+    virtual Any getStatus() const override;
 
-    Any getDetails() const override;
+    virtual Any getDetails() const override;
 
     ExpressionValue apply(const FunctionApplier & applier,
                               const ExpressionValue & context) const override;
 
     /** Describe what the input and output is for this function. */
-    FunctionInfo getFunctionInfo() const override;
+    virtual FunctionInfo getFunctionInfo() const override;
 
     void increment(const std::vector<std::pair<Utf8String, Utf8String>> & keys,
                    const std::vector<double> & outcomes) const;
     
     void persist(const Url & modelFileUrl) const;
 
-    RestRequestMatchResult
+    virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
                   const RestRequest & request,
                   RestRequestParsingContext & context) const override;
