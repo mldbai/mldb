@@ -29,6 +29,7 @@
 #include "jml/utils/smart_ptr_utils.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/jml/utils/profile.h"
 
 
 using namespace std;
@@ -96,6 +97,7 @@ HDBSCANProcedure::
 run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
+    STACK_PROFILE(HDBSCANProcedure);
     auto runProcConf = applyRunConfOverProcConf(hdbscanConfig, run);
 
     auto onProgress2 = [&] (const Json::Value & progress)
@@ -107,15 +109,12 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    // std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
-  //   std::vector<KnownColumn> >
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
                                         runProcConf.numInputDimensions,
                                         onProgress2);
 
     auto rows = embeddingOutput.first;
-    //std::vector<KnownColumn> & vars = embeddingOutput.second;
 
     std::vector<ML::distribution<double> > vecs;
 
@@ -136,9 +135,9 @@ run(const ProcedureRunConfig & run,
     cerr << "CORE DISTANCE (K): " << runProcConf.coreDistance << endl;
     cerr << "MIN CLUSTER SIZE: " << runProcConf.minClusterSize << endl;
 
-    cerr << "Vertices:" << endl;
+ /*   cerr << "Vertices:" << endl;
     for (int i = 0; i < vecs.size(); ++i)
-        cerr << i << ":" << vecs[i] << endl;
+        cerr << i << ":" << vecs[i] << endl;*/
 
     int coreDistance = runProcConf.coreDistance;
     std::vector<double> coreDistances;
@@ -184,21 +183,14 @@ run(const ProcedureRunConfig & run,
        // reachability.push_back(std::move(kclosest));
     }
 
-    cerr << "core distances" << endl;
+    STACK_PROFILE(HDBSCANProcedure_after_coreDistance);
+
+/*    cerr << "core distances" << endl;
     for (auto& c : coreDistances) {
         cerr << c << endl;
-    }
+    }*/
 
     //2.0 mutual reachability. max(core(x), core(y), d(x,y))
-
- /*   for (unsigned i = 0;  i < vecs.size();  ++i) {
-        double myCoreDistance = coreDistances[i];
-        for (auto& pair : reachability[i]) {
-            int j = pair.first;
-            double otherCoreDistance = coreDistances[j];
-            pair.second = std::max(pair.second, std::max(myCoreDistance, otherCoreDistance));
-        }
-    }*/
 
     auto getMutualReachability = [&] (int i, int j) {
         double myCoreDistance = coreDistances[i];
@@ -232,7 +224,7 @@ run(const ProcedureRunConfig & run,
 
                // cerr << j << endl; 
                 if (std::find(used.begin(), used.end(), j) == used.end()) {
-                    double mutualReachability = getMutualReachability(i, j);//pair.second ;
+                    double mutualReachability = getMutualReachability(i, j);
                  //   cerr << "distance " << mutualReachability << " vs " << minDistance << endl; 
                     if (minJ == 0 || mutualReachability < minDistance) {
                    //     cerr << "new minimum" << endl;
@@ -247,19 +239,21 @@ run(const ProcedureRunConfig & run,
         ExcAssert(minJ != 0);
 
         used.push_back(minJ);
-        cerr << "Adding edge " << minI << "-" << minJ << ", " << minDistance << endl;
+      //  cerr << "Adding edge " << minI << "-" << minJ << ", " << minDistance << endl;
         edges.emplace_back(minI, minJ, minDistance);
     }
+
+    STACK_PROFILE(HDBSCANProcedure_after_PRIM);
 
     //4.0 Build the cluster hierarchy. Not optimized, etc, etc.
     std::sort(edges.begin(), edges.end(), [] (const std::tuple<int, int, double>& a, const std::tuple<int, int, double>& b) {
         return std::get<2>(a) < std::get<2>(b);
     });
 
-    cerr << "sorted edges" << endl;
+  /*  cerr << "sorted edges" << endl;
     for (auto& edge : edges) {
         cerr << std::get<0>(edge) << " -> " << std::get<1>(edge) << "   , " << std::get<2>(edge) << endl;
-    }
+    }*/
 
     std::vector<int> clusterSizes;
     clusterSizes.reserve(edges.size());
@@ -315,10 +309,12 @@ run(const ProcedureRunConfig & run,
         clusterDistances.push_back(std::get<2>(edge));
     }   
 
-    cerr << "cluster sizes" << endl;
+ /*   cerr << "cluster sizes" << endl;
     for (auto& size : clusterSizes) {
         cerr << size << endl;
-    }
+    }*/
+
+    STACK_PROFILE(HDBSCANProcedure_after_buildclusters);
 
     //5.0 Condense the clusters
 
@@ -364,8 +360,6 @@ run(const ProcedureRunConfig & run,
             MetaCluster & metacluster =  metaClusters[metaIndex];
             double lambda1 = clusterDistances[childIndex1] == 0 ? 0 : (1.0/clusterDistances[childIndex1]) - lambda;
             double lambda2 = clusterDistances[childIndex2] == 0 ? 0 : (1.0/clusterDistances[childIndex2]) - lambda;
-            cerr << "1 " << metacluster.stability << " " << lambda1 << " " << childSize1 << " " << clusterDistances[childIndex1] << endl;
-            cerr << "1 " << metacluster.stability << " " << lambda2 << " " << childSize2 << " " << clusterDistances[childIndex2] << endl;
             metacluster.stability += lambda1*childSize1;
             metacluster.stability += lambda2*childSize2;
         }
@@ -375,7 +369,6 @@ run(const ProcedureRunConfig & run,
             //and add the "leftovers" from child1
             MetaCluster & metacluster =  metaClusters[metaIndex];
             double lambda1 = clusterDistances[childIndex1] == 0 ? 0 : (1.0/clusterDistances[childIndex1]) - lambda;
-            cerr << "2 " << metacluster.stability << " " << lambda1 << " " << childSize1 << endl;
             metacluster.stability += lambda1*childSize1;
         }
         else if (childSize2 < minClusterSize) {
@@ -384,7 +377,6 @@ run(const ProcedureRunConfig & run,
             //and add the "leftovers" from child2
             MetaCluster & metacluster =  metaClusters[metaIndex];
             double lambda2 = clusterDistances[childIndex2] == 0 ? 0 : (1.0/clusterDistances[childIndex2]) - lambda;
-            cerr << "3 " << metacluster.stability << " " << lambda2 << " " << childSize2 << endl;
             metacluster.stability += lambda2*childSize2;
         }
         else {
@@ -396,10 +388,6 @@ run(const ProcedureRunConfig & run,
             auto child1 = condenseClusterRecursive(childIndex1, -1, childLambda);
             auto child2 = condenseClusterRecursive(childIndex2, -1, childLambda);
 
-            cerr << metaIndex << ",";
-            cerr << child1 << ",";
-            cerr << child2 << endl;
-
             MetaCluster & metacluster =  metaClusters[metaIndex];
 
             metacluster.childs.push_back(child1);
@@ -409,7 +397,6 @@ run(const ProcedureRunConfig & run,
             metaClusters[child2].parent = metaIndex;
         } 
 
-        cerr << "returning meta index: " << metaIndex << endl;
         return metaIndex;
 
     };
@@ -427,22 +414,14 @@ run(const ProcedureRunConfig & run,
 
         if (metacluster.childs.size() > 0) {
 
-            cerr << "Parent Meta Cluster: " << i << endl;
-
             double childStability1 = getStabilityRecursive(metacluster.childs[0]);
             double childStability2 = getStabilityRecursive(metacluster.childs[1]);
-
-            
-            cerr << "child stabilities: " << childStability1 << " , " << childStability2 << endl;
-            cerr << "vs own: " << metacluster.stability << endl;
 
             metacluster.selected = metacluster.stability > childStability1 + childStability2;
             return metacluster.stability;
         }
         else
         {
-            cerr << "Meta Cluster: " << i << endl;
-            cerr << "   is a leaf " << endl;
             metacluster.selected = true;
             return metacluster.stability;
         }
@@ -462,7 +441,6 @@ run(const ProcedureRunConfig & run,
         }
         else {
             ExcAssert(clusterIndex < vecs.size());
-            cerr << clusterIndex << " " << vecs[clusterIndex] << endl;
             vecCluster[clusterIndex] = finalCluster;
         }
     };
@@ -473,8 +451,6 @@ run(const ProcedureRunConfig & run,
 
         MetaCluster & metacluster =  metaClusters[i];
         if (metacluster.selected) {
-            cerr << "MetaCluster " << i << " is a true cluster" << endl;
-            cerr << "Vertices:" << endl;
             listRecursive(metacluster.topMostCluster, count);
             ++count;
         }
