@@ -243,54 +243,7 @@ run(const ProcedureRunConfig & run,
         current = best;
         best = -1;
         minDistance = 99999999.0f;
-    }
-   
-    //update distance array
-  /*  current = best;
-    for (int i = 1; i < vecs.size(); ++i) {
-        double distance = getMutualReachability(current, i);
-        distances[i] = distance;
-        if (minDistanceIndex < 0 || distance < minDistance) {
-            best = i;
-            minDistance = distance;
-        }
-    }*/
-
-  /*  while (used.size() < vecs.size()) {
-    //    cerr << "NEW ITERATION" << endl;
-        int minI = 0;
-        int minJ = 0;
-        double minDistance = 0.0f;
-
-        for (int i : used) {       
-           // cerr << "from " <<  i << " to " << endl; 
-            //for (const auto& pair : reachability[i]) {
-              //  int j = pair.first;
-            for (int j = 0; j < vecs.size(); ++j) {
-
-                if (i == j )
-                    continue;
-
-               // cerr << j << endl; 
-                if (std::find(used.begin(), used.end(), j) == used.end()) {
-                    double mutualReachability = getMutualReachability(i, j);
-                 //   cerr << "distance " << mutualReachability << " vs " << minDistance << endl; 
-                    if (minJ == 0 || mutualReachability < minDistance) {
-                   //     cerr << "new minimum" << endl;
-                        minI = i;
-                        minJ = j;
-                        minDistance = mutualReachability;
-                    }
-                }
-            }
-        }
-
-        ExcAssert(minJ != 0);
-
-        used.push_back(minJ);
-      //  cerr << "Adding edge " << minI << "-" << minJ << ", " << minDistance << endl;
-        edges.emplace_back(minI, minJ, minDistance);
-    }*/
+    } 
 
     STACK_PROFILE(HDBSCANProcedure_after_PRIM);
 
