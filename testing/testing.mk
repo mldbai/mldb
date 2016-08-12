@@ -117,7 +117,7 @@ $(eval $(call mldb_unit_test,MLDB-537-hang-on-put-error.js))
 $(eval $(call mldb_unit_test,MLDB-102-select-formats.js))
 $(eval $(call mldb_unit_test,MLDB-543-column-named-zero.js))
 
-$(shell rm -f tmp/MLDB-574-reddit.sqlite) # MLDB-574 fail if the file is already present
+$(shell rm -f tmp/MLDB-574-reddit.sqlite) # MLDB-574 fails if the file is already present
 $(eval $(call mldb_unit_test,MLDB-574-sqlite-backend.js))
 
 $(eval $(call mldb_unit_test,MLDB-541-record-column.js))
