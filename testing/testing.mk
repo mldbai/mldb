@@ -14,7 +14,7 @@ $(eval $(call include_sub_make,cookbook))
 #$(warning HAS_S3_CREDENTIALS=$(HAS_S3_CREDENTIALS))
 #$(warning MANUAL_IF_NO_S3=$(MANUAL_IF_NO_S3))
 
-$(eval $(call library,mldb_test_function,test_function.cc,mldb))
+$(eval $(call library,mldb_test_function,test_function.cc,mldb mldb_builtin_plugins))
 
 
 $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
@@ -419,3 +419,5 @@ $(eval $(call mldb_unit_test,MLDB-1827_operator_null_propagation_test.py))
 $(eval $(call mldb_unit_test,MLDB-1840_empty_str_paths.py))
 $(eval $(call mldb_unit_test,MLDB-1834_select_row_expr_star_err_msg.py))
 $(eval $(call mldb_unit_test,MLDB-1869_json_payload_test.py))
+$(eval $(call mldb_unit_test,MLDB-1873_encoding_unknown_column.py))
+$(eval $(call mldb_unit_test,MLDB-1893_get_params_mixin.py))

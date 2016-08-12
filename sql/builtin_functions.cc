@@ -18,6 +18,7 @@
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/join_utils.h"
+#include "mldb/sql/binding_contexts.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
 #include "mldb/ext/edlib/edlib/include/edlib.h"
@@ -1818,14 +1819,6 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                 if(val.empty())
                     return ExpressionValue::null(val.getEffectiveTimestamp());
 
-                bool check[] = {false, false};
-                auto assertArg = [&] (size_t field, const string & name)
-                    {
-                        if (check[field])
-                            throw HttpReturnException(400, "Argument " + name + " is specified more than once");
-                        check[field] = true;
-                    };
- 
                 ParseJsonOptions options;
 
                 if(args.size() == 2) {
@@ -2769,6 +2762,54 @@ BoundFunction stringify_path(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerStringifyPath(stringify_path, "stringify_path");
 
+BoundFunction flatten_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                checkArgsSize(args.size(), 1);
+                ExpressionValue result(Path(PathElement(args[0].coerceToPath().toUtf8String())),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerFlattenPath(flatten_path, "flatten_path");
+
+BoundFunction unflatten_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                Path path = args[0].coerceToPath();
+                if (path.size() != 1) {
+                    throw HttpReturnException
+                        (400, "Attempt to pass non-flattened "
+                         "path with length " + std::to_string(path.size())
+                         + " to unflatten_path().  Must have length of one.",
+                         "path", path);
+                }
+                ExpressionValue result(Path::parse(path[0].toUtf8String()),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerUnflattenPath(unflatten_path, "unflatten_path");
+
+
 BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
 {
     // Return the given element of a path
@@ -2788,6 +2829,26 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerPathElement(path_element, "path_element");
+
+BoundFunction path_length(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the length of a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                ExpressionValue result(CellValue(args[0].coerceToPath().size()),
+                                       calcTs(args[0], args[1]));
+                return result;
+            },
+            std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerPathLength(path_length, "path_length");
+
 
 /*****************************************************************************/
 /* DIAGNOSTIC FUNCTIONS                                                      */
@@ -2974,6 +3035,75 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerTryFunction(tryFct, "try");
 
+
+/*****************************************************************************/
+/* SQL BUILTINS                                                              */
+/*****************************************************************************/
+
+SqlBuiltin::
+SqlBuiltin(const std::string & name,
+           const Utf8String & expr,
+           size_t arity)
+    : functionName(name), arity(arity)
+{
+    parsed = SqlExpression::parse(expr);
+    this->arity = arity;
+    handle = registerFunction(functionName, std::bind(&SqlBuiltin::bind,
+                                                      this,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3));
+}
+
+BoundFunction
+SqlBuiltin::
+bind(const std::vector<BoundSqlExpression> & args,
+     SqlBindingScope & scope) const
+{
+    try {
+        if (arity != args.size()) {
+            throw HttpReturnException
+                (400, "Called builtin function '" + functionName
+                 + "' with " + std::to_string(args.size())
+                 + " parameters instead of " + std::to_string(arity)
+                 + " expected parameters");
+        }
+        std::vector<std::shared_ptr<ExpressionValueInfo> > info;
+        for (auto & a: args) {
+            info.emplace_back(a.info);
+        }
+
+        SqlExpressionEvalScope evalScope(scope, info);
+
+        BoundSqlExpression bound = parsed->bind(evalScope);
+
+        BoundFunction result;
+
+        result.exec = [=] (const std::vector<ExpressionValue> & args,
+                           const SqlRowScope & scope)
+            -> ExpressionValue
+            {
+                auto rowScope = evalScope.getRowScope(args);
+    
+                try {
+                    return bound(rowScope, GET_ALL);
+                } JML_CATCH_ALL {
+                    rethrowHttpException(-1, "Executing builtin function "
+                                         + functionName + ": " + ML::getExceptionString(),
+                                         "functionName", functionName,
+                                         "functionArgs", args);
+                }
+            };
+
+        result.resultInfo = std::move(bound.info);
+        
+        return result;
+    } JML_CATCH_ALL {
+        rethrowHttpException(-1, "Binding builtin function "
+                             + functionName + ": " + ML::getExceptionString(),
+                             "functionName", functionName,
+                             "functionArgs", args);
+    }
+}
 
 } // namespace Builtins
 } // namespace MLDB

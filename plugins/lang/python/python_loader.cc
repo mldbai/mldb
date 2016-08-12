@@ -633,8 +633,10 @@ class mldb_wrapper(object):
             return self._perform('DELETE', url, [], {}, [['async', 'true']])
 
         def query(self, query):
-            return self._perform('GET', '/v1/query', [['format', 'table']],
-                                 {'q' : query}).json()
+            return self._perform('GET', '/v1/query', [], {
+                'q' : query,
+                'format' : 'table'
+            }).json()
 
         def run_tests(self):
             import StringIO

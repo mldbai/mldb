@@ -48,7 +48,7 @@ function createAndRunProcedure(config, name)
 var config = {
     type: 'import.git',
     params: {
-        repository: 'file://.',
+        repository: 'file://./mldb',
         importStats: true,
         importTree: true,
         outputDataset: {

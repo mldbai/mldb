@@ -70,7 +70,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ColumnScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                ColumnFilter& keep)
 {
     throw HttpReturnException
         (400, "Attempt to bind expression with wildcard in column scope");
@@ -145,6 +145,52 @@ static CellValue extractVal(const CellValue & val, CellValue *)
     return val;
 }
 
+namespace {
+    // Made to init and hold a non POD array of dynamic size in a memory safe
+    // way.
+    template<typename T, size_t MAX_STACK_ENTRIES=4096/sizeof(T)>
+    struct PossiblyDynamicBuffer {
+        PossiblyDynamicBuffer(size_t sz)
+            : size_(sz)
+        {
+            if (onStack()) {
+                std::uninitialized_fill(stackEntries, stackEntries + size_, T());
+            }
+            else {
+                heapEntries = new T[size_];
+            }
+        }
+
+        ~PossiblyDynamicBuffer()
+        {
+            if (onStack()) {
+                for (size_t i = 0; i < size_;  ++i) {
+                    stackEntries[i].~T();
+                }
+            }
+            else {
+                delete[] heapEntries;
+            }
+        }
+
+        size_t size_;
+
+        bool onStack() const { return size_ <= MAX_STACK_ENTRIES; }
+
+        T * data() { return onStack() ? stackEntries: heapEntries; }
+        size_t size() const { return size_; }
+
+        union {
+            T stackEntries[MAX_STACK_ENTRIES];
+            T * heapEntries;
+        };
+
+        private:
+            PossiblyDynamicBuffer(const PossiblyDynamicBuffer & other);
+            PossiblyDynamicBuffer & operator=(PossiblyDynamicBuffer & other);
+    };
+}
+
 template<typename Val>
 bool
 ColumnScope::
@@ -204,9 +250,9 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
 
         auto onChunk = [&] (size_t chunkNum)
             {
-                std::unique_ptr<Val[]> ptr(new Val[requiredColumns.size()
-                                                   * ROWS_AT_ONCE]);
-                Val * values = ptr.get();
+                PossiblyDynamicBuffer<Val> valuesHolder(
+                    requiredColumns.size() * ROWS_AT_ONCE);
+                Val * values = valuesHolder.data();
 
                 RowStream & stream = *chunks[chunkNum];
 
@@ -215,8 +261,9 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                     
                 size_t numRows = endOffset - startOffset;
 
-                Val results[exprs.size()];
-                
+                PossiblyDynamicBuffer<Val> resultsHolder(exprs.size());
+                Val * results = resultsHolder.data();
+
                 for (size_t i = 0;  i < numRows;  i += ROWS_AT_ONCE) {
                     size_t startRow = i + startOffset;
                     size_t endRow
@@ -286,7 +333,8 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     // Apply the expression to everything
     auto doRow = [&] (size_t first, size_t last)
         {
-            Val results[exprs.size()];
+            PossiblyDynamicBuffer<Val> resultsHolder(exprs.size());
+            Val * results = resultsHolder.data();
             for (size_t i = first;  i < last
                      && !stop.load(std::memory_order_relaxed);  ++i) {
                 RowScope scope(i, inputs);

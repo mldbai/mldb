@@ -211,12 +211,31 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
     case ValueKind::TUPLE:
     case ValueKind::VARIANT:
     case ValueKind::MAP:
-    case ValueKind::ANY:
-        break;
-    };
-        throw HttpReturnException(500, "Can't convert value info of this kind: "
-                                  + jsonEncodeStr(desc->kind) + " "
-                                  + desc->typeName);
+    case ValueKind::ANY: {
+        // Go through JSON
+        auto info = std::make_shared<AnyValueInfo>();
+
+        FromInput fromInput = [desc] (void * obj, const ExpressionValue & input)
+            {
+                Json::Value val = input.extractJson();
+                StructuredJsonParsingContext context(val);
+                desc->parseJson(obj, context);
+            };
+            
+        ToOutput toOutput = [desc] (const void * obj) -> ExpressionValue
+            {
+                Json::Value val;
+                StructuredJsonPrintingContext context(val);
+                desc->printJson(obj, context);
+                return ExpressionValue(val, Date::notADate());
+            };
+        return std::make_tuple(info, fromInput, toOutput);
+    }
+    }
+
+    throw HttpReturnException(500, "Can't convert value info of this kind: "
+                              + jsonEncodeStr(desc->kind) + " "
+                              + desc->typeName);
 }
 
 } // file scope
