@@ -1,6 +1,6 @@
 #
 # MLDB-1850-postgresql.py
-# Datacratic, 2016
+# Mathieu Marquis Bolduc, August 12th 2016
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
