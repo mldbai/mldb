@@ -1613,7 +1613,7 @@ static_assert(sizeof(ExpressionValue::Structured) <= 24, "Structured is too big 
 
 ExpressionValue::
 ExpressionValue()
-    : type_(Type::NONE)
+    : type_(Type::NONE), ts_(Date::negativeInfinity())
 {
 }
 
