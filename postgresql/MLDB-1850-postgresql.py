@@ -47,7 +47,8 @@ res = mldb.post('/v1/procedures', {
                                 'createTable' : True,
                                 'databaseName' : 'mldb',
                                 'port' : 5432,
-                                'tableName' : 'mytable'
+                                'tableName' : 'mytable',
+                                'dropTableIfExist' : True
                             }
                         },
         'runOnCreation': True

@@ -439,8 +439,6 @@ doGetAllColumns(const Utf8String & tableName,
 
     if (keep.exec) {
 
-        cerr << "has exec " << endl;
-
         auto columns = dataset.getMatrixView()->getColumnNames();
 
         auto filterColumnName = [&] (const ColumnName & inputColumnName)

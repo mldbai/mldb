@@ -1,6 +1,6 @@
 /* postgresql_plugin.cc
    Mathieu Marquis Bolduc, 16 July 2016
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 */
 
 #include "mldb/core/plugin.h"
@@ -32,6 +32,8 @@ const Package & postgresqlPackage()
     return result;
 }
 
+const int postgresqlDefaultPort = 5432;
+
 //#define POSTGRESQL_VERBOSE(x) x
 #define POSTGRESQL_VERBOSE(x)
 
@@ -53,7 +55,7 @@ CellValue getCellValueFromPostgres(const PGresult *res, int i, int j)
     }
 }
 
-pg_conn* startPostgresqlConnection(string databaseName, string host, int port)
+pg_conn* startPostgresqlConnection(const string& databaseName, const string& host, int port)
 {
     auto creds = getCredential("postgresql", host);
 
@@ -64,7 +66,7 @@ pg_conn* startPostgresqlConnection(string databaseName, string host, int port)
                + " user=" + creds.id
                + " password=" + creds.secret;
 
-    POSTGRESQL_VERBOSE(cerr << connString << endl;)
+    //POSTGRESQL_VERBOSE(cerr << connString << endl;) //careful about logging the username and password
 
     auto conn = PQconnectdb(connString.c_str());
     if (PQstatus(conn) != CONNECTION_OK)
@@ -93,7 +95,7 @@ struct PostgresqlDatasetConfig {
 
     PostgresqlDatasetConfig() {
         databaseName = "database";
-        port = 1234;
+        port = postgresqlDefaultPort;
         host = "localhost";
         tableName = "mytable";
         primaryKey = "key";
@@ -106,11 +108,11 @@ DEFINE_STRUCTURE_DESCRIPTION(PostgresqlDatasetConfig);
 PostgresqlDatasetConfigDescription::
 PostgresqlDatasetConfigDescription()
 {
-    addField("databaseName", &PostgresqlDatasetConfig::databaseName, "Name of the database to connect to.");
-    addField("port", &PostgresqlDatasetConfig::port, "Port of the database to connect to.", 1234);
-    addField("host", &PostgresqlDatasetConfig::host, "Address of the database to connect to ");
-    addField("tableName", &PostgresqlDatasetConfig::tableName, "Name of the table to be recorded into");
-    addField("primaryKey", &PostgresqlDatasetConfig::primaryKey, "Primary key used to access progress table");
+    addField("databaseName", &PostgresqlDatasetConfig::databaseName, "Name of PostgreSQL the database to connect to.");
+    addField("port", &PostgresqlDatasetConfig::port, "Port of the PostgreSQL database to connect to.", postgresqlDefaultPort);
+    addField("host", &PostgresqlDatasetConfig::host, "Address of the PostgreSQL database to connect to.");
+    addField("tableName", &PostgresqlDatasetConfig::tableName, "Name of the PostgreSQL table to be recorded into.");
+    addField("primaryKey", &PostgresqlDatasetConfig::primaryKey, "Primary key used to access PostgreSQL table.");
 }
 
 struct PostgresqlDataset: public Dataset {
@@ -142,40 +144,43 @@ struct PostgresqlDataset: public Dataset {
     virtual void recordRowItl(const RowName & rowName,
                               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
     
     virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
     {
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     /** Commit changes to the database.  Default is a no-op. */
     virtual void commit()
     {
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::pair<Date, Date> getTimestampRange() const override
     {
-        throw HttpReturnException(400, "getTimestampRange : Postgresql dataset is read-only");
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual Date quantizeTimestamp(Date timestamp) const override
     {
-        throw HttpReturnException(400, "quantizeTimestamp : Postgresql dataset is read-only");
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const override
     {
-        throw HttpReturnException(400, "getMatrixView: Postgresql dataset is read-only");
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        throw HttpReturnException(400, "getColumnIndex: Postgresql dataset is read-only");
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::shared_ptr<RowStream> getRowStream() const override
     {
-        throw HttpReturnException(400, "getRowStream: Postgresql dataset is read-only");
+        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual GenerateRowsWhereFunction
@@ -310,13 +315,15 @@ struct PostgresqlRecorderDatasetConfig {
     string host;
     string tableName;
     bool createTable;
+    bool dropTableIfExist;
 
     PostgresqlRecorderDatasetConfig() {
         databaseName = "database";
-        port = 1234;
+        port = postgresqlDefaultPort;
         host = "localhost";
         tableName = "mytable";
         createTable = false;
+        dropTableIfExist = false;
     }
 };
 
@@ -327,10 +334,11 @@ PostgresqlRecorderDatasetConfigDescription::
 PostgresqlRecorderDatasetConfigDescription()
 {
     addField("databaseName", &PostgresqlRecorderDatasetConfig::databaseName, "Name of the database to connect to.");
-    addField("port", &PostgresqlRecorderDatasetConfig::port, "Port of the database to connect to.", 1234);
+    addField("port", &PostgresqlRecorderDatasetConfig::port, "Port of the database to connect to.", postgresqlDefaultPort);
     addField("host", &PostgresqlRecorderDatasetConfig::host, "Address of the database to connect to ");
     addField("tableName", &PostgresqlRecorderDatasetConfig::tableName, "Name of the table to be recorded into");
-    addField("createTable", &PostgresqlRecorderDatasetConfig::createTable, "Should we create the table when the dataset is created", true);
+    addField("createTable", &PostgresqlRecorderDatasetConfig::createTable, "Should we create the table when the dataset is created", false);
+    addField("dropTableIfExist", &PostgresqlRecorderDatasetConfig::dropTableIfExist, "Should we drop an existing PostgreSQL table when creating it", false);
 }
 
 struct PostgresqlRecorderDataset: public Dataset {
@@ -355,22 +363,25 @@ struct PostgresqlRecorderDataset: public Dataset {
             auto conn = startConnection();
 
             //Drop table if exist
-            string dropDescription = "DROP TABLE IF EXISTS " + config_.tableName;
-            POSTGRESQL_VERBOSE(cerr << dropDescription << endl;)
-            PGresult *res = PQexec(conn, dropDescription.c_str());
-            if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-                 string errorMsg(PQresultErrorMessage(res));
-                 PQclear(res);
-                 PQfinish(conn);
-                 throw HttpReturnException(400, "Could not drop PostgreSQL table:  ", errorMsg);
-            }
+            if (config_.dropTableIfExist) {
+                string dropDescription = "DROP TABLE IF EXISTS " + config_.tableName;
+                POSTGRESQL_VERBOSE(cerr << dropDescription << endl;)
+                PGresult *res = PQexec(conn, dropDescription.c_str());
+                if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+                     string errorMsg(PQresultErrorMessage(res));
+                     PQclear(res);
+                     PQfinish(conn);
+                     throw HttpReturnException(400, "Could not drop PostgreSQL table:  ", errorMsg);
+                }
 
-            POSTGRESQL_VERBOSE(cerr << "table " << config_.tableName << " dropped!" << endl;)
-            PQclear(res);
+                POSTGRESQL_VERBOSE(cerr << "table " << config_.tableName << " dropped!" << endl;)
+                PQclear(res);
+            }
+            
 
             string tableDescription = "CREATE TABLE " + config_.tableName + " (" + ")";
             POSTGRESQL_VERBOSE(cerr << tableDescription << endl;)
-            res = PQexec(conn, tableDescription.c_str());
+            PGresult *res = PQexec(conn, tableDescription.c_str());
             if (PQresultStatus(res) != PGRES_COMMAND_OK) {
                 string errorMsg(PQresultErrorMessage(res));
                 PQclear(res);
@@ -518,27 +529,27 @@ struct PostgresqlRecorderDataset: public Dataset {
 
     virtual std::pair<Date, Date> getTimestampRange() const override
     {
-        throw HttpReturnException(400, "Postgresql recorder dataset is record-only");
+        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual Date quantizeTimestamp(Date timestamp) const override
     {
-        throw HttpReturnException(400, "Postgresql recorder dataset is record-only");
+        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const override
     {
-        throw HttpReturnException(400, "Postgresql recorder dataset is record-only");
+        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        throw HttpReturnException(400, "Postgresql recorder dataset is record-only");
+        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual std::shared_ptr<RowStream> getRowStream() const override
     {
-        throw HttpReturnException(400, "Postgresql recorder dataset is record-only");
+        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
     }    
 
 };
@@ -561,8 +572,8 @@ struct PostgresqlImportConfig: public ProcedureConfig {
     PolyConfigT<Dataset> outputDataset;
 
     PostgresqlImportConfig() {
-        databaseName = "database";
-        port = 1234;
+        databaseName = "";
+        port = postgresqlDefaultPort;
         host = "localhost";
         postgresqlQuery = "";
 
@@ -577,10 +588,8 @@ DEFINE_STRUCTURE_DESCRIPTION(PostgresqlImportConfig);
 PostgresqlImportConfigDescription::
 PostgresqlImportConfigDescription()
 {
-    addParent<ProcedureConfig>();
-
     addField("databaseName", &PostgresqlImportConfig::databaseName, "Name of the database to connect to.");
-    addField("port", &PostgresqlImportConfig::port, "Port of the database to connect to.", 1234);
+    addField("port", &PostgresqlImportConfig::port, "Port of the database to connect to.", postgresqlDefaultPort);
     addField("host", &PostgresqlImportConfig::host, "Address of the database to connect to ");
     addField("postgresqlQuery", &PostgresqlImportConfig::postgresqlQuery, "Query to run in postgresql to get rows");
 
@@ -588,6 +597,8 @@ PostgresqlImportConfigDescription()
              "Output dataset configuration.  This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
              "which will be created by the procedure.", PolyConfigT<Dataset>().withType("sparse.mutable"));
+
+    addParent<ProcedureConfig>();
 }
 
 struct PostgresqlImportProcedure: public Procedure {
@@ -676,8 +687,8 @@ struct PostgresqlQueryFunctionConfig
     string query;
 
     PostgresqlQueryFunctionConfig() {
-        databaseName = "database";
-        port = 1234;
+        databaseName = "";
+        port = postgresqlDefaultPort;
         host = "localhost";
         query = "";
     }
@@ -689,7 +700,7 @@ PostgresqlQueryFunctionConfigDescription::
 PostgresqlQueryFunctionConfigDescription()
 {
     addField("databaseName", &PostgresqlQueryFunctionConfig::databaseName, "Name of the database to connect to.");
-    addField("port", &PostgresqlQueryFunctionConfig::port, "Port of the database to connect to.", 1234);
+    addField("port", &PostgresqlQueryFunctionConfig::port, "Port of the database to connect to.", postgresqlDefaultPort);
     addField("host", &PostgresqlQueryFunctionConfig::host, "Address of the database to connect to ");    
 
     addField("query", &PostgresqlQueryFunctionConfig::query,
@@ -808,24 +819,24 @@ struct PostgresqlQueryFunction : public Function
 static RegisterDatasetType<PostgresqlRecorderDataset, PostgresqlRecorderDatasetConfig>
 regPostgresqlRecorderDataset(postgresqlPackage(),
                  "postgresql.recorder",
-                 "Dataset type that record to a Postgresql database",
+                 "Dataset type that records to a PostgreSQL database",
                  "Postgresql.md.html");
 
 static RegisterDatasetType<PostgresqlDataset, PostgresqlDatasetConfig>
 regPostgresqlDataset(postgresqlPackage(),
                  "postgresql.dataset",
-                 "Dataset type that reads from a Postgresql database",
+                 "Dataset type that reads from a PostgreSQL database",
                  "Postgresql.md.html");
 
 static RegisterProcedureType<PostgresqlImportProcedure, PostgresqlImportConfig>
 regPostgresqlImport(postgresqlPackage(),
-                 "Import a dataset from Postgresql",
+                 "Import a dataset from PostgreSQL",
                  "Postgresql.md.html");
 
 static RegisterFunctionType<PostgresqlQueryFunction, PostgresqlQueryFunctionConfig>
 regSqlQueryFunction(postgresqlPackage(),
                     "postgresql.query",
-                    "Run a single row SQL query against a Postgresql dataset",
+                    "Run a single row SQL query against a PostgreSQL dataset",
                     "Postgresql.md.html");
 
 } // namespace MLDB

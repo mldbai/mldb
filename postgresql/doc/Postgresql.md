@@ -3,6 +3,12 @@
 This plugin allows MLDB to interact with a PostgreSQL database.
 For more information about PostgreSQL: <https://www.postgresql.org/>
 
+## Postgresql plugin documentation
+
+Postgresql databases require a username and a password. You can provide
+these by registering credentials of type "postgresql" in MLDB. See the credentials 
+documentation [Url](Url.md) page.
+
 ## PostgreSQL import procedure
 
 This procedure allows to import data from a PostgreSQL database into 
