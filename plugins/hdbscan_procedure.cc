@@ -204,10 +204,59 @@ run(const ProcedureRunConfig & run,
     //3.0 build the minimum spanning tree via Prim's algorithm.
     //    should do a more efficient implementation
     std::vector<std::tuple<int, int, double> > edges;
-    std::vector<int> used;
-    used.push_back(0);
+//    std::vector<int> used;
+  //  used.push_back(0);
     cerr << "PRIM" << endl;
-    while (used.size() < vecs.size()) {
+    float minDistance = 99999999.0f;
+    std::vector<double> distances(vecs.size(), minDistance);
+    std::vector<int> previous(vecs.size(), 0);
+    distances[0] = -1;
+    int current = 0;
+    int best = -1;
+    int bestPrevious = 0;
+    //init
+    while (edges.size() + 1 < vecs.size())
+    {
+        for (int i = 1; i < vecs.size(); ++i) {
+            if (distances[i] >= 0) {
+                double distance = getMutualReachability(current, i);
+                if (current == 0 || distance < distances[i]) {
+                    distances[i] = distance;
+                    previous[i] = current;
+                }
+                else {
+                    distance = distances[i];
+                }
+
+                if (best < 0 || distance < minDistance) {
+                    best = i;
+                    minDistance = distance;
+                    bestPrevious = previous[i];
+                }  
+            }            
+        }
+        //add new one
+        ExcAssert(bestPrevious >= 0);
+        ExcAssert(best > 0);
+        distances[best] = -1;
+        edges.emplace_back(bestPrevious, best, minDistance);
+        current = best;
+        best = -1;
+        minDistance = 99999999.0f;
+    }
+   
+    //update distance array
+  /*  current = best;
+    for (int i = 1; i < vecs.size(); ++i) {
+        double distance = getMutualReachability(current, i);
+        distances[i] = distance;
+        if (minDistanceIndex < 0 || distance < minDistance) {
+            best = i;
+            minDistance = distance;
+        }
+    }*/
+
+  /*  while (used.size() < vecs.size()) {
     //    cerr << "NEW ITERATION" << endl;
         int minI = 0;
         int minJ = 0;
@@ -241,7 +290,7 @@ run(const ProcedureRunConfig & run,
         used.push_back(minJ);
       //  cerr << "Adding edge " << minI << "-" << minJ << ", " << minDistance << endl;
         edges.emplace_back(minI, minJ, minDistance);
-    }
+    }*/
 
     STACK_PROFILE(HDBSCANProcedure_after_PRIM);
 
