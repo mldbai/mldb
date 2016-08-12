@@ -33,9 +33,9 @@ class CredentialTest(MldbUnitTest):
         })
 
         mldb.log(resp)
-        
+
         mldb.get("/v1/credentials/s3cred")
-        
+
         resp = mldb.delete("/v1/credentials/s3cred")
 
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
@@ -146,5 +146,53 @@ class CredentialTest(MldbUnitTest):
         # this is expected to pick the most specific but invalid credentials
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put("/v1/procedures/import", csv_conf)
+
+    def test_delete(self):
+        "MLDB-1468"
+        url = '/v1/credentials/test_delete'
+        mldb.put(url, {
+            "store" : {
+                "resourceType" : "aws:s3",
+                "resource" : "s3://dev.mldb.datacratic.com/test_delete",
+                "credential" : {
+                    "provider" : "Credential collections",
+                    "protocol" : "http",
+                    "location" : "s3.amazonaws.com",
+                    "id" : "dummy",
+                    "secret" : "dummy"
+                }
+            }
+        })
+
+        msg = "entry 'test_delete' already exists"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.put(url, {
+                "store" : {
+                    "resourceType" : "aws:s3",
+                    "resource" : "s3://dev.mldb.datacratic.com/test_delete",
+                    "credential" : {
+                        "provider" : "Credential collections",
+                        "protocol" : "http",
+                        "location" : "s3.amazonaws.com",
+                        "id" : "dummy",
+                        "secret" : "dummy"
+                    }
+                }
+            })
+
+        mldb.delete(url)
+        mldb.put(url, {
+            "store" : {
+                "resourceType" : "aws:s3",
+                "resource" : "s3://dev.mldb.datacratic.com/test_delete",
+                "credential" : {
+                    "provider" : "Credential collections",
+                    "protocol" : "http",
+                    "location" : "s3.amazonaws.com",
+                    "id" : "dummy",
+                    "secret" : "dummy"
+                }
+            }
+        })
 
 mldb.run_tests()
