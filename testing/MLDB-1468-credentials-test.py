@@ -150,7 +150,7 @@ class CredentialTest(MldbUnitTest):
     def test_delete(self):
         "MLDB-1468"
         url = '/v1/credentials/test_delete'
-        mldb.put(url, {
+        config = {
             "store" : {
                 "resourceType" : "aws:s3",
                 "resource" : "s3://dev.mldb.datacratic.com/test_delete",
@@ -162,37 +162,14 @@ class CredentialTest(MldbUnitTest):
                     "secret" : "dummy"
                 }
             }
-        })
+        }
+        mldb.put(url, config)
 
         msg = "entry 'test_delete' already exists"
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
-            mldb.put(url, {
-                "store" : {
-                    "resourceType" : "aws:s3",
-                    "resource" : "s3://dev.mldb.datacratic.com/test_delete",
-                    "credential" : {
-                        "provider" : "Credential collections",
-                        "protocol" : "http",
-                        "location" : "s3.amazonaws.com",
-                        "id" : "dummy",
-                        "secret" : "dummy"
-                    }
-                }
-            })
+            mldb.put(url, config)
 
         mldb.delete(url)
-        mldb.put(url, {
-            "store" : {
-                "resourceType" : "aws:s3",
-                "resource" : "s3://dev.mldb.datacratic.com/test_delete",
-                "credential" : {
-                    "provider" : "Credential collections",
-                    "protocol" : "http",
-                    "location" : "s3.amazonaws.com",
-                    "id" : "dummy",
-                    "secret" : "dummy"
-                }
-            }
-        })
+        mldb.put(url, config)
 
 mldb.run_tests()
