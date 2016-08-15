@@ -12,6 +12,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include <mutex>
+#include <smmintrin.h>
 
 using namespace std;
 

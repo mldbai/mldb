@@ -1084,7 +1084,7 @@ private:
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept
     {
-        ExcAssertEqual((int)type_, (int)Type::NONE);
+        //ExcAssertEqual((int)type_, (int)Type::NONE);
         ts_ = ts;
         if (value.empty())
             return;

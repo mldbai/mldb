@@ -512,8 +512,10 @@ private:
 
         // Move the objects across into the uninitialized memory
         for (; first != last;  ++first, ++p, ++size_) {
-            if (Safe && size_ > to_alloc)
-                throw ML::Exception("compact_vector: internal logic error in init()");
+            if (Safe && size_ > to_alloc) {
+                ::fprintf(stderr, "compact_vector: internal logic error in init()");
+                std::terminate();
+            }
             new (p) Data(std::move_if_noexcept(*first));
         }
     }

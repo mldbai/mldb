@@ -85,8 +85,10 @@ public:
             /* We are not in a speculative critical section, check if
              * Gc has been left locked
              */
-            if (!specLocked && !specUnlocked && (readLocked || writeLocked))
-                ExcCheck(false, "Thread died but GcLock is still locked");
+            if (!specLocked && !specUnlocked && (readLocked || writeLocked)) {
+                ::fprintf(stderr, "Thread diad but GcLock is still locked");
+                std::terminate();
+            }
 
             /* We are in a speculative CS but Gc has not beed unlocked
              */
