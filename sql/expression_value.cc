@@ -1285,6 +1285,53 @@ getColumn(const PathElement & columnName) const
 
 
 /*****************************************************************************/
+/* OR Expression Value Info                                                  */
+/*****************************************************************************/
+
+/** Expression Value info when we dont know which of two value info we will get 
+    With a Case for Example.
+*/
+
+std::shared_ptr<RowValueInfo> 
+ORExpressionValueInfo::
+getFlattenedInfo() const 
+{
+    throw HttpReturnException(500, "ORExpressionValueInfo::getFlattenedInfo()");
+}
+
+void 
+ORExpressionValueInfo::
+flatten(const ExpressionValue & value,
+        const std::function<void (const ColumnName & columnName,
+                                  const CellValue & value,
+                                  Date timestamp)> & write) const 
+{
+     throw HttpReturnException(500, "ORExpressionValueInfo::flatten()");
+}
+
+std::vector<KnownColumn> 
+ORExpressionValueInfo::
+getKnownColumns() const 
+{
+
+    if (!left_->isRow() || !right_->isRow()) {
+        return std::vector<KnownColumn>();
+    }
+
+    std::vector<KnownColumn> leftcolumns = left_->getKnownColumns();
+    std::vector<KnownColumn> rightcolumns = right_->getKnownColumns();
+
+    sort(leftcolumns.begin(), leftcolumns.end());
+    sort(rightcolumns.begin(), rightcolumns.end());
+
+    std::vector<KnownColumn> result;
+
+    set_intersection(leftcolumns.begin(),leftcolumns.end(),rightcolumns.begin(),rightcolumns.end(),back_inserter(result));
+
+    return result;
+}
+
+/*****************************************************************************/
 /* EXPRESSION VALUE                                                          */
 /*****************************************************************************/
 

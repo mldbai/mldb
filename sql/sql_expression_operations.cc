@@ -2505,14 +2505,22 @@ BoundSqlExpression
 CaseExpression::
 bind(SqlBindingScope & scope) const
 {
+    std::shared_ptr<ExpressionValueInfo> info;
+
     BoundSqlExpression boundElse;
-    if (elseExpr)
+    if (elseExpr) {
         boundElse = elseExpr->bind(scope);
+        info = boundElse.info;
+    }
 
     std::vector<std::pair<BoundSqlExpression, BoundSqlExpression> > boundWhen;
 
     for (auto & w: when) {
         boundWhen.emplace_back(w.first->bind(scope), w.second->bind(scope));
+        if (info)
+            info = std::make_shared<ORExpressionValueInfo>(info, boundWhen.back().second.info);
+        else
+            info = boundWhen.back().second.info;
     }
 
     if (expr) {
@@ -2553,8 +2561,7 @@ bind(SqlBindingScope & scope) const
                     return storage = std::move(ExpressionValue());
                 },
                 this,
-                // TODO: infer the type
-                std::make_shared<AnyValueInfo>()};
+                info};
     }
     else {
         // Searched CASE expression
@@ -2575,7 +2582,7 @@ bind(SqlBindingScope & scope) const
                     else return storage = std::move(ExpressionValue());
                 },
                 this,
-                std::make_shared<AnyValueInfo>()};
+                info};
     }
 }
 

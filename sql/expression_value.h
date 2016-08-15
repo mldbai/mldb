@@ -420,6 +420,10 @@ struct KnownColumn {
           offset(offset)
     {
     }
+
+    bool operator < (const KnownColumn& other) const {
+        return columnName < other.columnName;
+    }
     
     ColumnName columnName;
     std::shared_ptr<ExpressionValueInfo> valueInfo;
@@ -1524,6 +1528,60 @@ struct UnknownRowValueInfo: public RowValueInfo {
     {
         return true;
     }
+};
+
+/*****************************************************************************/
+/* OR Expression Value Info                                                  */
+/*****************************************************************************/
+
+/** Expression Value info when we dont know which of two value info we will get 
+    With a Case for Example.
+*/
+
+struct ORExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
+
+    ORExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right) {
+        left_ = left;
+        right_ = right;
+    }
+
+    virtual bool isScalar() const { return left_->isScalar() && right_->isScalar(); }
+
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+
+    virtual void flatten(const ExpressionValue & value,
+                         const std::function<void (const ColumnName & columnName,
+                                                   const CellValue & value,
+                                                   Date timestamp)> & write)
+        const;
+
+    virtual bool isCompatible(const ExpressionValue & value) const
+    {
+        return left_->isCompatible(value) && right_->isCompatible(value);
+    }
+
+    virtual SchemaCompleteness getSchemaCompleteness() const {
+        return std::min(left_->getSchemaCompleteness(), right_->getSchemaCompleteness());
+    }
+
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const {
+        return std::min(left_->getSchemaCompletenessRecursive(), right_->getSchemaCompletenessRecursive());
+    }
+
+    virtual std::vector<KnownColumn> getKnownColumns() const;
+
+    virtual bool couldBeRow() const
+    {
+        return left_->couldBeRow() || right_->couldBeRow();
+    }
+
+    virtual bool couldBeScalar() const
+    {
+        return left_->couldBeScalar() || right_->couldBeScalar();
+    }
+
+    std::shared_ptr<ExpressionValueInfo> left_;
+    std::shared_ptr<ExpressionValueInfo> right_;
 };
 
 
