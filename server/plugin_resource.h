@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /**                                                   -*- C++ -*-
   plugin_resource.cc
   Francois Maillet, 18 fevrier 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Transparent resource getter for plugins
 */
@@ -167,6 +167,7 @@ struct LoadedPluginResource {
     std::string getElementLocation(PackageElement elem) const;
     bool packageElementExists(PackageElement elem) const;
     Utf8String getScript(PackageElement elem) const;
+    Utf8String getScriptUri(PackageElement elem) const;
     std::string getFilenameForErrorMessages() const;
 
     boost::filesystem::path getPluginDir() const;
