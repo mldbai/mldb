@@ -1,18 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* distribution.h                                                  -*- C++ -*-
    Jeremy Barnes, 27 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    ---
 
    An algebraic class, which can be used to hold a distribution.
 */
 
-#ifndef __stats__distribution_h__
-#define __stats__distribution_h__
+#pragma once
 
 #include <vector>
 #include "mldb/jml/utils/float_traits.h"
@@ -21,11 +17,11 @@
 #include <numeric>
 #include <limits>
 #include <algorithm>
+#include <cmath>
 #include <ostream>
 #include "mldb/jml/utils/string_functions.h"
 
-#include <boost/type_traits/is_convertible.hpp>
-#include <boost/type_traits/is_same.hpp>
+#include <type_traits>
 
 namespace ML {
 
@@ -189,7 +185,7 @@ public:
 
     double two_norm() const
     {
-        return sqrt(dotprod(*this));
+    return std::sqrt(dotprod(*this));
     }
 
     void normalize()
@@ -336,7 +332,7 @@ DIST_DIST_OP(||);
 
 #define SCALAR_DIST_OP(op) \
 template<typename F1, typename F2, class Underlying>                 \
- typename std::enable_if<boost::is_convertible<F1, F2>::value, \
+ typename std::enable_if<std::is_convertible<F1, F2>::value, \
                          distribution<F2> >::type                  \
 operator op (F1 val, const distribution<F2, Underlying> & d2)       \
 { \
@@ -416,7 +412,7 @@ operator << (std::ostream & stream, const distribution<F, Underlying> & dist)
     return stream << " }";
 }
 
-// TODO: replace with boost::enable_if<>
+// TODO: replace with std::enable_if<>
 template<>
 inline
 distribution<float>
@@ -426,7 +422,7 @@ operator & (float f) const
     throw Exception("distribibution<float> doesn't support operator &");
 }
 
-// TODO: replace with boost::enable_if<>
+// TODO: replace with std::enable_if<>
 template<>
 inline
 distribution<double>
@@ -436,7 +432,7 @@ operator & (double f) const
     throw Exception("distribibution<double> doesn't support operator &");
 }
 
-// TODO: replace with boost::enable_if<>
+// TODO: replace with std::enable_if<>
 template<>
 inline
 distribution<float>
@@ -446,7 +442,7 @@ operator | (float f) const
     throw Exception("distribibution<float> doesn't support operator &");
 }
 
-// TODO: replace with boost::enable_if<>
+// TODO: replace with std::enable_if<>
 template<>
 inline
 distribution<double>
@@ -502,6 +498,3 @@ bool equal_impl(const distribution<T, U> & d1,
 }
 
 } // namespace ML
-
-
-#endif /* __stats__distribution_h__ */

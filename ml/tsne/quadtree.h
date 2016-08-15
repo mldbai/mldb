@@ -14,6 +14,7 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include <memory>
 #include <iostream>
+#include <cmath>
 
 namespace ML {
 
