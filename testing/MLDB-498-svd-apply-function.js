@@ -106,7 +106,9 @@ var svdConfig = {
 
 createAndTrainProcedure(svdConfig, 'reddit_svd');
 
-plugin.log(mldb.get("/v1/datasets/svd_output/query", {select:'rowName()', limit:100}));
+plugin.log(mldb.get("/v1/query",
+                      { q: 'select rowName() from svd_output limit 100'
+                      }));
 
 var svdFunctionConfig = {
     type: "svd.embedRow",
@@ -118,7 +120,10 @@ var svdFunctionConfig = {
 var createFunctionOutput = mldb.put("/v1/functions/svd", svdFunctionConfig);
 assertSucceeded("creating SVD", createFunctionOutput);
 
-var vals = mldb.get("/v1/datasets/reddit_dataset/query", {limit:2}).json;
+var vals = mldb.get("/v1/query",
+                      { q: 'select * from reddit_dataset limit 2'
+                      }).json;
+
 plugin.log(vals);
 
 function getQueryString(vals, n)
