@@ -504,23 +504,31 @@ struct GetAllColumnsOutput {
 
 struct ColumnFilter {
     typedef std::function<ColumnName (const ColumnName &)> Exec;
+    bool init;
    
-    ColumnFilter() 
+    ColumnFilter() : init(false)
     {
-
     }    
 
-    ColumnFilter(Exec exec)
-        : exec(std::move(exec))
+    ColumnFilter(Exec exec_)
+        : exec(std::move(exec_))
     {
+        init = true;
+    }
+
+    static ColumnFilter identity() {
+        ColumnFilter filter;
+        filter.init = true;
+        return filter;
     }
    
-    operator bool () const { return !!exec; }
+    operator bool () const { return !!exec && init; }
 
     Exec exec;
 
     ColumnName operator () (const ColumnName & columnName) const
     {
+        ExcAssert(init); //check that we dont unintentionally use an uninitialized filter.
         if (exec)
             return exec(columnName);
         else
@@ -647,7 +655,7 @@ struct SqlBindingScope {
     */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep);
+                    const ColumnFilter& keep);
 
     // Function used to create a generator for an expression
     virtual GenerateRowsWhereFunction

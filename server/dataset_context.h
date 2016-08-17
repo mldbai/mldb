@@ -62,7 +62,7 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep) override;
+                    const ColumnFilter& keep) override;
 
 };
 
@@ -177,7 +177,7 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep);
+                    const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,

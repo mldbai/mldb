@@ -205,7 +205,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep)
+                    const ColumnFilter& keep)
     {
         vector<ColumnName> toKeep;
         std::vector<KnownColumn> columnsWithInfo;
