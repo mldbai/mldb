@@ -1561,11 +1561,13 @@ struct ORExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
     }
 
     virtual SchemaCompleteness getSchemaCompleteness() const {
-        return std::min(left_->getSchemaCompleteness(), right_->getSchemaCompleteness());
+        return left_->getSchemaCompleteness() == SCHEMA_CLOSED && 
+          right_->getSchemaCompleteness() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
     }
 
     virtual SchemaCompleteness getSchemaCompletenessRecursive() const {
-        return std::min(left_->getSchemaCompletenessRecursive(), right_->getSchemaCompletenessRecursive());
+        return left_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED && 
+          right_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
     }
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
