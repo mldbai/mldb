@@ -1321,12 +1321,46 @@ getKnownColumns() const
     std::vector<KnownColumn> leftcolumns = left_->getKnownColumns();
     std::vector<KnownColumn> rightcolumns = right_->getKnownColumns();
 
-    sort(leftcolumns.begin(), leftcolumns.end());
-    sort(rightcolumns.begin(), rightcolumns.end());
-
     std::vector<KnownColumn> result;
 
-    set_intersection(leftcolumns.begin(),leftcolumns.end(),rightcolumns.begin(),rightcolumns.end(),back_inserter(result));
+    auto findKnownColumn = [] (const ColumnName& column, const std::vector<KnownColumn>& columnList) -> std::vector<KnownColumn>::const_iterator  {
+        for (auto iter = columnList.begin(); iter != columnList.end(); ++iter) {
+            if (iter->columnName == column) {
+                return iter;
+            }
+        }
+
+        return columnList.end();
+    };
+
+    //check if columns from the left exist on the right
+    for (auto& left : leftcolumns) {
+
+        auto rightIter = findKnownColumn(left.columnName, rightcolumns);
+
+        if (rightIter != rightcolumns.end()) {
+            auto sparsity = left.sparsity == COLUMN_IS_DENSE && rightIter->sparsity == COLUMN_IS_DENSE ?
+                            COLUMN_IS_DENSE : COLUMN_IS_SPARSE;
+
+            result.emplace_back(left.columnName, 
+                                make_shared<ORExpressionValueInfo>(left.valueInfo, rightIter->valueInfo),
+                                sparsity);
+        }
+        else {
+            result.emplace_back(left.columnName, left.valueInfo, COLUMN_IS_SPARSE);
+        }       
+    }
+
+    //check remainder columns on the right
+    for (auto& right : rightcolumns) {
+
+        auto leftIter = findKnownColumn(right.columnName, leftcolumns);
+
+        if (leftIter == leftcolumns.end()) {
+            result.emplace_back(right.columnName, right.valueInfo, COLUMN_IS_SPARSE);
+        }
+    }
+
 
     return result;
 }
