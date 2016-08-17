@@ -1,12 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* gc_lock.cc
    Jeremy Barnes, 19 November 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "mldb/arch/gc_lock.h"
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/arch/spinlock.h"
 #include "mldb/arch/futex.h"
@@ -25,6 +24,22 @@ using namespace ML;
 namespace ipc = boost::interprocess;
 
 namespace Datacratic {
+
+template<class X>
+JML_ALWAYS_INLINE bool cmp_xchg_16b(X & val, X & old, const X & new_val)
+{
+    /* Split new_val into low and high parts. */
+    uint64_t * pold = reinterpret_cast<uint64_t *>(&old);
+    const uint64_t * pnew = reinterpret_cast<const uint64_t *>(&new_val);
+
+    uint8_t result;
+    asm volatile ("lock cmpxchg16b  %[val]\n\t"
+                  "     setz       %[result]\n\t"
+                  : "+a" (pold[0]), "+d" (pold[1]), [result] "=c" (result)
+                  : [val] "m" (val), "b" (pnew[0]), "c" (pnew[1])
+                  : "cc");
+    return result;
+}
 
 
 /*****************************************************************************/
@@ -370,7 +385,7 @@ updateData(Data & oldValue, Data & newValue, RunDefer runDefer)
     }
 #endif
 
-    if (!ML::cmp_xchg(data->q, oldValue.q, newValue.q)) return false;
+    if (!cmp_xchg_16b(data->q, oldValue.q, newValue.q)) return false;
 
     if (wake) {
         // We updated the current visible epoch.  We can now wake up
@@ -617,15 +632,13 @@ exitCSExclusive(ThreadGcInfoEntry * entry)
     }
 #endif
 
-    ML::memory_barrier();
-
-    int old = 1;
-    if (!ML::cmp_xchg(data->exclusive, old, 0))
+    if (!__sync_bool_compare_and_swap(&data->exclusive, 1, 0)) {
         throw ML::Exception("error exiting exclusive mode");
-
+    }    
+    
     // Wake everything waiting on the exclusive lock
     futex_wake(data->exclusive);
-
+    
     entry->inEpoch = -1;
 }
 
@@ -633,7 +646,7 @@ void
 GcLockBase::
 visibleBarrier()
 {
-    ML::memory_barrier();
+    std::atomic_thread_fence(std::memory_order_seq_cst);
     
     ThreadGcInfoEntry & entry = getEntry();
 
@@ -697,13 +710,18 @@ deferBarrier()
         // TODO: this is a very inefficient implementation... we could do a lot
         // better especially in the non-contended case
         
-        int lock = 0;
+        union {
+            std::atomic<int> a;
+            int i;
+        } lock;
         
-        defer(futex_unlock, &lock);
+        lock.i = 0;
+
+        defer(futex_unlock, &lock.i);
         
-        ML::atomic_add(lock, -1);
+        lock.a -= 1;
         
-        futex_wait(lock, -1);
+        futex_wait(lock.i, -1);
     }
 
     // If certain threads aren't allowed to execute deferred work

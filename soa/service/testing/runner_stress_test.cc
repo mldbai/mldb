@@ -12,7 +12,6 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/futex.h"
 #include "mldb/base/exc_assert.h"
@@ -102,12 +101,12 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
 {
     ML::Watchdog wd(120);
     vector<thread> threads;
-    int nThreads(20), activeThreads;
+    int nThreads(20);
     vector<pid_t> childPids(nThreads);
     int msgsToSend(10000);
     atomic<int> nRunning(0);
 
-    activeThreads = nThreads;
+    std::atomic<int> activeThreads(nThreads);
 
     auto onTerminate = [&] (const RunResult &) {
     };
@@ -201,7 +200,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
         BOOST_CHECK_EQUAL(receivedStdErr, expectedStdErr);
 
-        ML::atomic_dec(activeThreads);
+        --activeThreads;
         // cerr << "activeThreads now: " + to_string(activeThreads) + "\n";
         if (activeThreads == 0) {
             ML::futex_wake(activeThreads);
@@ -215,13 +214,13 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         childPids[i] = 0xdeadface;
     }
 
-    ML::memory_barrier();
+    std::atomic_thread_fence(std::memory_order_seq_cst);
 
     for (int i = 0; i < nThreads; i++) {
         threads.emplace_back(runThread, i);
     }
 
-    ML::memory_barrier();
+    std::atomic_thread_fence(std::memory_order_seq_cst);
 
     /* attempting to interfere with stdout/stderr as long as all thread have
      * not redirected their output channels yet (are not running) */
