@@ -138,9 +138,8 @@ class InputDataSpecTest(unittest.TestCase):
             "from iris_dataset"))
 
         result = mldb.get(
-            "/v1/datasets/iris_dataset/query",
-            select='classifier_apply({{label, labels} as features}) as *, '
-                   'features')
+            "/v1/query",
+            q="SELECT classifier_apply({{label, labels} as features}) as *, features from iris_dataset")
         rows = result.json()
         mldb.log("-------------------------------");
         mldb.log(rows)
