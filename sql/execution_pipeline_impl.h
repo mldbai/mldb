@@ -41,7 +41,7 @@ struct TableLexicalScope: public LexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -152,7 +152,7 @@ struct SubSelectLexicalScope: public TableLexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual std::set<Utf8String> tableNames() const;
@@ -271,7 +271,7 @@ struct JoinLexicalScope: public LexicalScope {
     */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -688,7 +688,7 @@ struct AggregateLexicalScope: public LexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction

@@ -175,7 +175,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput 
 PipelineExpressionScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     if (tableName.empty()) {
         if (defaultTables.empty())
@@ -357,7 +357,7 @@ doGetColumn(const ColumnName & columnName) const
     
 GetAllColumnsOutput
 PipelineExpressionScope::TableEntry::
-doGetAllColumns(const Utf8String & tableName, ColumnFilter& keep) const
+doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const
 {
     return scope->doGetAllColumns(tableName, keep, fieldOffset);
 }
