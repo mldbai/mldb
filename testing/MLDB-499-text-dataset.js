@@ -75,7 +75,10 @@ function createDataset(datasetType)
 
 createDataset("tabular");
 
-var resp = mldb.get('/v1/datasets/tabular/query', {format:'table', orderBy:'rowName()', limit:20});
+var resp = mldb.get("/v1/query",
+                      { q: 'select * from tabular order by rowName() limit 20',
+                        format:'table'
+                      });
 
 //plugin.log(resp.json);
 
@@ -86,7 +89,10 @@ assertEqual(resp.json[1][1], "603,politics,trees,pics");
 
 createDataset("sparse.mutable");
 
-var resp = mldb.get('/v1/datasets/sparse.mutable/query', {format:'table', orderBy:'rowName()', limit:20});
+var resp = mldb.get("/v1/query",
+                      { q: 'select * from "sparse.mutable" order by rowName() limit 20',
+                        format:'table'
+                      });
 
 //plugin.log(resp.json);
 

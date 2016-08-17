@@ -46,8 +46,8 @@ function assertContains(str, val, msg)
 
 function callAndAssert(func, row, expected, message)
 {
-    var resp = mldb.get("/v1/datasets/test/query", {select:func, where:"rowName()='"+row+"'"});
-    assertEqual(resp.responseCode, 200, "GET /v1/dataset/test failed");
+    var resp = mldb.get("/v1/query", {q: "SELECT " + func + " FROM test WHERE rowName()='"+row+"'"});
+    assertEqual(resp.responseCode, 200, "GET failed");
     assertEqual(resp.json[0].columns[0][1], expected, func + "   " +  message);
 }
 
@@ -68,7 +68,7 @@ callAndAssert("sqrt(0)", "zero", 0, "failed on zero");
 callAndAssert("sqrt(4)", "four", 2, "failed on four");
 
 /* square root of negative number should be failing */
-var resp = mldb.get("/v1/datasets/test/query", {select:"sqrt(value)", where:"rowName()='negative'"});
+var resp = mldb.get("/v1/query", {q:"SELECT sqrt(value) from test where rowName()='negative'"});
 assertEqual(resp.responseCode, 400, "expecting 400 on invalid input");
 
 /* sqrt undo power and vice versa */
@@ -99,7 +99,7 @@ callAndAssert("ln(1)", "positive", 0, "failed on positive number");
 callAndAssert("ln(12.4343454)", "float1", 2.5204624341327104, "failed on 12.4343454");
 
 /* natural logarithm on non-positive gives an error */
-var resp = mldb.get("/v1/datasets/test/query", {select:"ln(value)", where:"rowName()='zero'"});
+var resp = mldb.get("/v1/query", {q:"SELECT ln(value) from test where rowName()='zero'"});
 assertContains(resp.json.error, "strictly positive");
 assertEqual(resp.responseCode, 400, "expecting 400 on invalid input");
 
@@ -111,8 +111,8 @@ callAndAssert("exp(-12.4343454)", "float2", 0.000003979535714980935, "failed on 
 
 function bark(func)
 {
-    var resp = mldb.get("/v1/datasets/test/query", {select:func});
-    assertEqual(resp.responseCode, 200, "GET /v1/dataset/test failed");
+    var resp = mldb.get("/v1/query", {q: "SELECT " + func + " FROM test"});
+    assertEqual(resp.responseCode, 200, "GET failed");
     assertEqual(resp.json[0].columns[0][1], true, func + " failed");
 }
 /* quantize */

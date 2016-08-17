@@ -22,5 +22,5 @@ dataset.commit()
 
 
 
-mldb.get("/v1/datasets/x/query", select='max("b")', groupBy='1')
+mldb.get("/v1/query", q='select max("b") from x group by \'1\'')
 mldb.script.set_return("success")

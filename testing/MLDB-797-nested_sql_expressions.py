@@ -33,7 +33,7 @@ res = mldb.put('/v1/functions/poil', {
 check_res(res, 201)
 
 # query calling through both
-res = mldb.get('/v1/datasets/ds1/query', select='poil({*})')
+res = mldb.get('/v1/query', q='SELECT poil({*}) from ds1')
 check_res(res, 200)
 
 

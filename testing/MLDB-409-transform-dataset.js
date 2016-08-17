@@ -70,7 +70,7 @@ var transform_config = {
 
 createAndRunProcedure(transform_config, "transform");
 
-var resp = mldb.get("/v1/datasets/transformed/query", {select: 'x,y,z,q', orderBy: 'rowHash()',format: 'table'});
+var resp = mldb.get("/v1/query", {q: 'SELECT x,y,z,q from transformed order by rowHash()',format: 'table'});
 
 plugin.log("transform limit 3 query result", resp.json);
 
@@ -100,7 +100,7 @@ var transform_config2 = {
 
 createAndRunProcedure(transform_config2, "transform2");
 
-var resp = mldb.get("/v1/datasets/transformed2/query", {select: 'x,y,z,q', format: 'table', orderBy: 'rowName()'});
+var resp = mldb.get("/v1/query", {q: 'select x,y,z,q from transformed2 order by rowName()', format: 'table'});
 
 plugin.log(resp);
 
@@ -146,7 +146,7 @@ var transform_config3 = {
 
 createAndRunProcedure(transform_config3, "transform3");
 
-var resp = mldb.get("/v1/datasets/transformed3/query", {select: '*', format: 'table', orderBy: 'rowName()'});
+var resp = mldb.get("/v1/query", {q: 'select * from transformed3 order by rowName()', format: 'table'});
 
 plugin.log(resp);
 
@@ -177,7 +177,7 @@ var transform_config4 = {
 
 createAndRunProcedure(transform_config4, "transform4");
 
-var resp = mldb.get("/v1/datasets/transformed4/query", {select: '*', format: 'table', orderBy: 'rowName()'});
+var resp = mldb.get("/v1/query", {q: 'select * from transformed4 order by rowName()', format: 'table'});
 
 plugin.log(resp);
 
@@ -202,7 +202,7 @@ function runTransformWithNoFrom(query, expected) {
 
     createAndRunProcedure(transform_config_no_from, "transform_no_from");
 
-    var resp = mldb.get("/v1/datasets/transformed_no_from/query", {select: '*', format: 'table'});
+    var resp = mldb.get("/v1/query", {q: 'select * from transformed_no_from', format: 'table'});
 
     plugin.log(resp);
 
