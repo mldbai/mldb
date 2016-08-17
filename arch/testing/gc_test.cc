@@ -14,7 +14,6 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/utils/guard.h"
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/arch/thread_specific.h"
 #include "mldb/arch/rwlock.h"
 #include "mldb/arch/spinlock.h"
@@ -62,7 +61,7 @@ BOOST_AUTO_TEST_CASE ( test_gc )
     cerr << endl << "before defer" << endl;
     gc.dump();
 
-    gc.defer([&] () { deferred = true; memory_barrier(); });
+    gc.defer([&] () { deferred = true; std::atomic_thread_fence(std::memory_order_seq_cst); });
 
     cerr << endl << "after defer" << endl;
     gc.dump();
@@ -81,31 +80,31 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
     cerr << "testing mutual exclusion" << endl;
 
     GcLock lock;
-    volatile bool finished = false;
-    volatile int numExclusive = 0;
-    volatile int numShared = 0;
-    int errors = 0;
-    int multiShared = 0;
-    uint64_t sharedIterations = 0;
-    uint64_t exclusiveIterations = 0;
+    std::atomic<bool> finished(false);
+    std::atomic<int> numExclusive(0);
+    std::atomic<int> numShared(0);
+    std::atomic<int> errors(0);
+    std::atomic<int> multiShared(0);
+    std::atomic<int> sharedIterations(0);
+    std::atomic<uint64_t> exclusiveIterations(0);
 
     auto sharedThread = [&] ()
         {
             while (!finished) {
                 GcLock::SharedGuard guard(lock);
-                ML::atomic_inc(numShared);
+                numShared += 1;
 
                 if (numExclusive > 0) {
                     cerr << "exclusive and shared" << endl;
-                    ML::atomic_inc(errors);
+                    errors += 1;
                 }
                 if (numShared > 1) {
-                    ML::atomic_inc(multiShared);
+                    multiShared += 1;
                 }
 
-                ML::atomic_dec(numShared);
-                ML::atomic_inc(sharedIterations);
-                ML::memory_barrier();
+                numShared -= 1;
+                sharedIterations += 1;
+                std::atomic_thread_fence(std::memory_order_seq_cst);
             }
         };
 
@@ -113,20 +112,20 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         {
             while (!finished) {
                 GcLock::ExclusiveGuard guard(lock);
-                ML::atomic_inc(numExclusive);
+                numExclusive += 1;
 
                 if (numExclusive > 1) {
                     cerr << "more than one exclusive" << endl;
-                    ML::atomic_inc(errors);
+                    errors += 1;
                 }
                 if (numShared > 0) {
                     cerr << "exclusive and shared" << endl;
-                    ML::atomic_inc(multiShared);
+                    multiShared += 1;
                 }
 
-                ML::atomic_dec(numExclusive);
-                ML::atomic_inc(exclusiveIterations);
-                ML::memory_barrier();
+                numExclusive -= 1;
+                exclusiveIterations += 1;
+                std::atomic_thread_fence(std::memory_order_seq_cst);
             }
         };
 
@@ -285,9 +284,9 @@ struct Allocator {
     T * blocks;
     int * free;
     int nfree;
-    int highestAlloc;
-    int nallocs;
-    int ndeallocs;
+    std::atomic<int> highestAlloc;
+    std::atomic<int> nallocs;
+    std::atomic<int> ndeallocs;
     ML::Spinlock lock;
 
     void init(int nblocks)
@@ -307,11 +306,24 @@ struct Allocator {
     T * alloc()
     {
 #if USE_MALLOC
-        ML::atomic_inc(nallocs);
-        ML::atomic_max(highestAlloc, nallocs - ndeallocs);
+        nallocs += 1;
+
+        // Atomic max operation
+        {
+            int current = highestAlloc;
+            for (;;) {
+                auto newValue = std::max(current,
+                                         nallocs.load() - ndeallocs.load());
+                if (newValue == current)
+                    break;
+                if (highestAlloc.compare_exchange_weak(current, newValue))
+                    break;
+            }
+        }
+
         return new T(def);
 #else
-        boost::lock_guard<ML::Spinlock> guard(lock);
+        std::lock_guard<ML::Spinlock> guard(lock);
         if (nfree == 0)
             throw ML::Exception("none free");
         int i = free[nfree - 1];
@@ -329,10 +341,10 @@ struct Allocator {
         *value = def;
 #if USE_MALLOC
         delete value;
-        ML::atomic_inc(ndeallocs);
+        ndeallocs += 1;
         return;
 #else
-        boost::lock_guard<ML::Spinlock> guard(lock);
+        std::lock_guard<ML::Spinlock> guard(lock);
         int i = value - blocks;
         free[nfree++] = i;
         ++ndeallocs;
@@ -345,7 +357,7 @@ struct Allocator {
         int * blockPtr = reinterpret_cast<int *>(blockPtr_);
         ExcAssertNotEqual(blockVar, blockPtr);
         //blockVar = 0;
-        //ML::memory_barrier();
+        //std::atomic_thread_fence(std::memory_order_seq_cst);
         //cerr << "blockPtr = " << blockPtr << endl;
         //int * blockPtr = reinterpret_cast<int *>(block);
         reinterpret_cast<Allocator *>(thisptr)->dealloc(blockPtr);
@@ -408,10 +420,10 @@ struct TestBase {
             delete[] allBlocks[i].load();
     }
 
-    volatile bool finished;
-    int nthreads;
-    int nblocks;
-    int nSpinThreads;
+    std::atomic<bool> finished;
+    std::atomic<int> nthreads;
+    std::atomic<int> nblocks;
+    std::atomic<int> nSpinThreads;
     Allocator<int> allocator;
     Lock gc;
     uint64_t nerrors;
@@ -439,7 +451,7 @@ struct TestBase {
                                 "from thread %d block %d: %d\n",
                                 (ticks() - start) / ticks_per_second, threadNum,
                                 i, j, atVal);
-                        ML::atomic_inc(nerrors);
+                        nerrors += 1;
                         //abort();
                     }
                 }
@@ -486,11 +498,11 @@ struct TestBase {
                         ++nErrors;
                     }
                     *block = threadNum;
-                    ML::memory_barrier();
+                    std::atomic_thread_fence(std::memory_order_seq_cst);
                     //rcu_set_pointer_sym((void **)&blocks[i], block);
                     int * oldBlock = blocks[i];
                     blocks[i] = block;
-                    ML::memory_barrier();
+                    std::atomic_thread_fence(std::memory_order_seq_cst);
                     oldBlocks[i] = oldBlock;
                 }
 
@@ -549,7 +561,7 @@ struct TestBase {
                     oldBlocks[i] = oldBlock;
                 }
 
-                ML::memory_barrier();
+                std::atomic_thread_fence(std::memory_order_seq_cst);
                 gc.visibleBarrier();
 
                 for (unsigned i = 0;  i < nblocks;  ++i)
@@ -738,17 +750,17 @@ BOOST_AUTO_TEST_CASE ( test_defer_race )
 
     int nthreads = 0;
 
-    volatile int numStarted = 0;
+    std::atomic<int> numStarted(0);
 
     auto doTestThread = [&] ()
         {
             while (!finished) {
-                ML::atomic_inc(numStarted);
+                numStarted += 1;
                 while (numStarted != nthreads) ;
 
                 gc.deferBarrier();
 
-                ML::atomic_dec(numStarted);
+                numStarted -= 1;
                 while (numStarted != 0) ;
             }
         };
