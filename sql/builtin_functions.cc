@@ -778,17 +778,56 @@ registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 double ln(double v)
 {
     if (v <= 0)
-        throw HttpReturnException(400, "the argument of the ln function must"
-                                       " be strictly positive");
+        cerr << "negative value encountered in ln" << endl;
 
     return std::log(v);
 }
 
+// log function consistent with postgresql's
+BoundFunction log(const std::vector<BoundSqlExpression> & args)
+{
+    // log(x) (base 10)
+    if (args.size() == 1) {
+        if (args[0] <= 0)
+            cerr << "non-positive value encountered in log" << endl;
+
+        return {[] (const std::vector<ExpressionValue> & args,
+                    const SqlRowScope & scope) -> ExpressionValue
+                {
+                    ExcAssertEqual(args.size(), 1);
+                    return ExpressionValue(std::log10(args[0].toDouble()),
+                                           args[0].getEffectiveTimestamp());
+                },
+                std::make_shared<Float64ValueInfo>()};
+    // log(base, x)
+    } else if (args.size() == 2) {
+        if (args[0] <= 0 || args[1] <= 0)
+            cerr << "non-positive value encountered in log" << endl;
+
+        return {[] (const std::vector<ExpressionValue> & args,
+                    const SqlRowScope & scope) -> ExpressionValue
+                {
+                    ExcAssertEqual(args.size(), 2);
+                    double base = args[0].toDouble();
+                    double x = args[1].toDouble();
+                    return ExpressionValue(std::log(x) / std::log(base),
+                                           calcTs(args[0], args[1]));
+                },
+                std::make_shared<Float64ValueInfo>()};
+    // wrong number of arguments
+    } else {
+        throw HttpReturnException(400,
+            "the log function expected 1 or 2 arguments, got "
+            + to_string(args.size()));
+    }
+}
+
+static RegisterBuiltin registerLog(log, "log");
+
 double sqrt(double v)
 {
     if (v < 0)
-        throw HttpReturnException(400, "the argument of the sqrt function must"
-                                       " be non-negative");
+        cerr << "negative value encountered in sqrt" << endl;
 
     return std::sqrt(v);
 }
