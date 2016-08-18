@@ -355,7 +355,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput
 SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                         + " must override getAllColumns: wanted "

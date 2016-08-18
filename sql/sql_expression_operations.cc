@@ -3461,7 +3461,7 @@ bind(SqlBindingScope & scope) const
     //cerr << "prefix = " << prefix << endl;
     //cerr << "asPrefix = " << asPrefix << endl;
 
-    ColumnFilter newColumnName;
+    ColumnFilter newColumnName = ColumnFilter::identity();
 
     if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()){
        
@@ -3738,7 +3738,7 @@ SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
-    ColumnFilter filter;
+    ColumnFilter filter = ColumnFilter::identity();
     auto allColumns
         = scope.doGetAllColumns("" /* table name */,
                                 filter);
@@ -3903,7 +3903,7 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
-        ColumnFilter filterColumns;
+        ColumnFilter filterColumns = ColumnFilter::identity();
 
         auto outputColumns
             = scope.doGetAllColumns("" /* prefix */, filterColumns);

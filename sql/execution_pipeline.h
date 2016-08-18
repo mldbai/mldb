@@ -59,7 +59,7 @@ struct LexicalScope {
     */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset) = 0;
 
     /** Return a function accessor for the table.  fieldOffset gives the
@@ -128,7 +128,7 @@ struct PipelineExpressionScope:
 
     virtual GetAllColumnsOutput 
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep);
+                    const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -183,7 +183,7 @@ private:
         doGetColumn(const ColumnName & variableName) const;
 
         GetAllColumnsOutput
-        doGetAllColumns(const Utf8String & tableName, ColumnFilter& keep) const;
+        doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const;
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,
