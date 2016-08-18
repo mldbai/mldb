@@ -1313,13 +1313,12 @@ std::vector<KnownColumn>
 ORExpressionValueInfo::
 getKnownColumns() const 
 {
-
-    if (!left_->isRow() || !right_->isRow()) {
+    if (!left_->isRow() && !right_->isRow()) {
         return std::vector<KnownColumn>();
     }
 
-    std::vector<KnownColumn> leftcolumns = left_->getKnownColumns();
-    std::vector<KnownColumn> rightcolumns = right_->getKnownColumns();
+    std::vector<KnownColumn> leftcolumns = left_->isRow() ? left_->getKnownColumns() : std::vector<KnownColumn>();
+    std::vector<KnownColumn> rightcolumns = right_->isRow() ? right_->getKnownColumns() : std::vector<KnownColumn>();
 
     std::vector<KnownColumn> result;
 

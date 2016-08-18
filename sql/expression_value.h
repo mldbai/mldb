@@ -1582,6 +1582,18 @@ struct ORExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
         return left_->couldBeScalar() || right_->couldBeScalar();
     }
 
+    virtual std::string getScalarDescription() const
+    {
+        ExcAssert(isScalar());
+        std::string left = left_->getScalarDescription();
+        std::string right = left_->getScalarDescription();
+
+        if (left == right)
+            return left;
+
+        return left + " or " + right;
+    }
+
     std::shared_ptr<ExpressionValueInfo> left_;
     std::shared_ptr<ExpressionValueInfo> right_;
 };
