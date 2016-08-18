@@ -3461,7 +3461,7 @@ bind(SqlBindingScope & scope) const
     //cerr << "prefix = " << prefix << endl;
     //cerr << "asPrefix = " << asPrefix << endl;
 
-    ColumnFilter newColumnName;
+    ColumnFilter newColumnName = ColumnFilter::identity();
 
     if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()){
        
