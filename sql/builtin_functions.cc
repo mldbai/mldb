@@ -777,9 +777,6 @@ registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 
 double ln(double v)
 {
-    if (v <= 0)
-        cerr << "negative value encountered in ln" << endl;
-
     return std::log(v);
 }
 
@@ -788,9 +785,6 @@ BoundFunction log(const std::vector<BoundSqlExpression> & args)
 {
     // log(x) (base 10)
     if (args.size() == 1) {
-        if (args[0] <= 0)
-            cerr << "non-positive value encountered in log" << endl;
-
         return {[] (const std::vector<ExpressionValue> & args,
                     const SqlRowScope & scope) -> ExpressionValue
                 {
@@ -805,9 +799,6 @@ BoundFunction log(const std::vector<BoundSqlExpression> & args)
                 std::make_shared<Float64ValueInfo>()};
     // log(base, x)
     } else if (args.size() == 2) {
-        if (args[0] <= 0 || args[1] <= 0)
-            cerr << "non-positive value encountered in log" << endl;
-
         return {[] (const std::vector<ExpressionValue> & args,
                     const SqlRowScope & scope) -> ExpressionValue
                 {
@@ -834,9 +825,6 @@ static RegisterBuiltin registerLog(log, "log");
 
 double sqrt(double v)
 {
-    if (v < 0)
-        cerr << "negative value encountered in sqrt" << endl;
-
     return std::sqrt(v);
 }
 
@@ -2430,8 +2418,8 @@ BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
                 auto val1 = args[0];
                 auto val2 = args[1];
                 Utf8String fieldName = val1.toUtf8String();
-                cerr << "extracting " << jsonEncodeStr(val1)
-                     << " from " << jsonEncodeStr(val2) << endl;
+                // cerr << "extracting " << jsonEncodeStr(val1)
+                //      << " from " << jsonEncodeStr(val2) << endl;
                 
                 return args[1].getColumn(fieldName);
             },
