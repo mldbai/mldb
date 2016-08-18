@@ -27,6 +27,7 @@
 #include "mldb/jml/utils/string_functions.h"
 
 #include <mutex>
+#include <numeric>
 
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/case_conv.hpp>

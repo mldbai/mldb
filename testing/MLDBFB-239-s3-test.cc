@@ -213,11 +213,6 @@ BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
         s3Api->erase(bucket, resource);
         cerr << " done\n";
     };
-    auto cleanupEscapedFn = [&] () {
-        cerr << "erasing escaped test file...";
-        s3Api->erase(bucket, escapedResource);
-        cerr << " done\n";
-    };
 
     size_t bufferSize(1024*10);
     string randomData = randomString(bufferSize);

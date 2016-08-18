@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-915-pivot-transform.py
 # Datacratic, 2015

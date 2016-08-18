@@ -46,9 +46,7 @@ BucketizeProcedureConfigDescription()
              "but has no effect.  The order by expression is used to rank the rows prior to "
              "bucketization.");
     addField("outputDataset", &BucketizeProcedureConfig::outputDataset,
-             "Output dataset configuration. This may refer either to an "
-             "existing dataset, or a fully specified but non-existing dataset "
-             "which will be created by the procedure.",
+             GENERIC_OUTPUT_DS_DESC,
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "

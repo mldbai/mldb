@@ -41,6 +41,7 @@ void addCredentialRule(const Datacratic::HttpRestProxy & conn,
     }
 }
 
+#if 0
 void deleteAllCredentials(const Datacratic::HttpRestProxy & conn)
 {
     auto res = conn.perform("DELETE", "/v1/credentials");
@@ -50,6 +51,7 @@ void deleteAllCredentials(const Datacratic::HttpRestProxy & conn)
                             res.code());
     }
 }
+#endif
 
 void deleteCredentialRule(const Datacratic::HttpRestProxy & conn,
                 const std::string & ruleName)

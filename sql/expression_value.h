@@ -1084,7 +1084,7 @@ private:
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept
     {
-        ExcAssertEqual((int)type_, (int)Type::NONE);
+        //ExcAssertEqual((int)type_, (int)Type::NONE);
         ts_ = ts;
         if (value.empty())
             return;
@@ -1484,7 +1484,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
     virtual SchemaCompleteness getSchemaCompleteness() const override;
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
 
     virtual bool isCompatible(const ExpressionValue & value) const override
     {

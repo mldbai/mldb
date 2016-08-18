@@ -36,7 +36,7 @@ struct OptionalDescription
     std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(Optional<T> * val,
-                                JsonParsingContext & context) const
+                                JsonParsingContext & context) const override
     {
         if (context.isNull()) {
             context.expectNull();
@@ -48,38 +48,39 @@ struct OptionalDescription
     }
 
     virtual void printJsonTyped(const Optional<T> * val,
-                                JsonPrintingContext & context) const
+                                JsonPrintingContext & context) const override
     {
         if (!val->get())
             context.skip();
         else inner->printJsonTyped(val->get(), context);
     }
 
-    virtual bool isDefaultTyped(const Optional<T> * val) const
+    virtual bool isDefaultTyped(const Optional<T> * val) const override
     {
         return !val->get();
     }
 
-    virtual void * optionalMakeValueTyped(Optional<T> * val) const
+    virtual void * optionalMakeValueTyped(Optional<T> * val) const override
     {
         if (!val->get())
             val->reset(new T());
         return val->get();
     }
 
-    virtual const void * optionalGetValueTyped(const Optional<T> * val) const
+    virtual const void *
+    optionalGetValueTyped(const Optional<T> * val) const override
     {
         if (!val->get())
             throw ML::Exception("no value in optional field");
         return val->get();
     }
 
-    virtual const ValueDescription & contained() const
+    virtual const ValueDescription & contained() const override
     {
         return *inner;
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }
