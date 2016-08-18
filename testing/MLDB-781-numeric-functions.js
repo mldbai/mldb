@@ -18,6 +18,12 @@ function callAndAssert(func, expected, message)
     assertEqual(resp.json[0].columns[0][1], expected, func + "   " +  message);
 }
 
+function assertError(select, code, error) {
+    var resp = mldb.get('/v1/query', {q:"SELECT " + select});
+    assertEqual(resp.responseCode, code, "wrong code");
+    assertEqual(resp.json.error, error, "wrong error");
+}
+
 /* abs */
 callAndAssert("abs(1)", 1, "failed on positive number");
 callAndAssert("abs(0)", 0, "failed on zero");
@@ -63,17 +69,24 @@ callAndAssert("ln(-1)", {"num":"NaN"}, "failed on positive number");
 callAndAssert("ln(0)", {"num":"-Inf"}, "failed on positive number");
 callAndAssert("ln(1)", 0, "failed on positive number");
 callAndAssert("ln(2)", 0.6931471805599453094172 , "failed on 12.4343454"); 
+callAndAssert("ln(NULL)", null, "failed on null"); 
 
 callAndAssert("log(-1)", {"num":"NaN"}, "log(b,x) failed");
 callAndAssert("log(0)", {"num":"-Inf"}, "log(b,0) failed");
 callAndAssert("log(1)", 0, "log(1) failed");
 callAndAssert("log(1000)", 3, "log(1000) failed");
+callAndAssert("log(NULL)", null, "failed on null"); 
 
 callAndAssert("log(2, -1)", {"num":"NaN"}, "log(b,x) failed");
 callAndAssert("log(2, 0)", {"num":"-Inf"}, "log(b,0) failed");
 callAndAssert("log(2, 1)", 0, "log(b,1) failed");
 callAndAssert("log(2, 16)", 4, "log(b,16) failed");
 callAndAssert("log(2, sqrt(2))", 0.5000000000000001, "log(b,x) failed");
+callAndAssert("log(2, NULL)", null, "failed on null"); 
+callAndAssert("log(NULL, 2)", null, "failed on null"); 
+
+assertError("log(1,2,3)", 400, "Binding builtin function log: the log"
+                               + " function expected 1 or 2 arguments, got 3");
 
 /* exp */
 callAndAssert("exp(1)", 2.718281828459045, "failed on positive number");

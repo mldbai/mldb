@@ -795,6 +795,10 @@ BoundFunction log(const std::vector<BoundSqlExpression> & args)
                     const SqlRowScope & scope) -> ExpressionValue
                 {
                     ExcAssertEqual(args.size(), 1);
+
+                    if (args[0].empty())
+                        return ExpressionValue();
+
                     return ExpressionValue(std::log10(args[0].toDouble()),
                                            args[0].getEffectiveTimestamp());
                 },
@@ -808,6 +812,10 @@ BoundFunction log(const std::vector<BoundSqlExpression> & args)
                     const SqlRowScope & scope) -> ExpressionValue
                 {
                     ExcAssertEqual(args.size(), 2);
+
+                    if (args[0].empty() || args[1].empty())
+                        return ExpressionValue();
+
                     double base = args[0].toDouble();
                     double x = args[1].toDouble();
                     return ExpressionValue(std::log(x) / std::log(base),
