@@ -7,6 +7,7 @@
     Server for MLDB.
 */
 
+#include "mldb/arch/arch.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/rest/etcd_peer_discovery.h"
 #include "mldb/rest/asio_peer_server.h"
@@ -38,7 +39,11 @@ using namespace std;
 
 namespace {
 bool supportsSystemRequirements() {
+#if JML_INTEL_ISA
     return ML::has_sse42();
+#else
+    return true;
+#endif
 }
 } // anonymous
 

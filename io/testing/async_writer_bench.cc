@@ -197,7 +197,7 @@ void doBench(const string & label,
     }
 
     double totalTime = lastRead - start;
-    ::printf("%s,%d,%lu,%lu,%d,%f,%f,%f,%f,%f\n",
+    ::printf("%s,%d,%zu,%zu,%d,%f,%f,%f,%f,%f\n",
              label.c_str(),
              numMessages, msgSize, bytesRead, numMissed,
              (lastWrite - start),
