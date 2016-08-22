@@ -31,6 +31,9 @@ using namespace ML;
 
 namespace Datacratic {
 
+// Fix GCC error message about unused function
+auto __fixGccError = &CryptoPP::StringNarrow;
+
 template<class Hash>
 std::string
 AwsApi::

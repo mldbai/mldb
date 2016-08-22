@@ -281,7 +281,7 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
 {
     int result = 0;
 
-#if 1
+#if JML_INTEL_ISA
     typedef char v16qi __attribute__((__vector_size__(16)));
                                               
     constexpr int8_t mode
@@ -375,25 +375,20 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
         result += __builtin_popcount(mask);
     }
 
-#else
+#else  // JML_INTEL_ISA
     while (it1 < end1 && it2 < end2) {
-        int eq = 0, le = 0, ge = 0;
-        
-        __asm__
-            ("cmp     %[val2], %[val1]    \n\t"
-             "cmovz   %[one], %[eq] \n\t"
-             "cmovle  %[one], %[le] \n\t"
-             "cmovge  %[one], %[ge] \n\t"
-             : [eq] "+r" (eq), [le] "+r" (le), [ge] "+r" (ge)
-             : [val1] "r" (*it1), [val2] "r" (*it2), [one] "r" (1)
-             : "cc"
-             );
-        
+
+        int val1 = *it1;
+        int val2 = *it2;
+        int eq = val1 == val2;
+        int le = val1 <= val2;
+        int ge = val1 >= val2;
+
         result += eq;
         it1 += le;
         it2 += ge;
     }
-#endif
+#endif // JML_INTEL_ISA
 
     return result;
 }
@@ -416,8 +411,10 @@ intersectionCountOptimized(const uint32_t * it1, const uint32_t * end1,
     int result = 0;
     
     while (it1 != end1 && it2 != end2) {
-        int eq = 0, le = 0, ge = 0;
         
+#if JML_INTEL_ISA
+        int eq = 0, le = 0, ge = 0;
+
         __asm__
             ("cmp     %[val2], %[val1]    \n\t"
              "cmovz   %[one], %[eq] \n\t"
@@ -427,6 +424,13 @@ intersectionCountOptimized(const uint32_t * it1, const uint32_t * end1,
              : [val1] "r" (*it1), [val2] "r" (*it2), [one] "r" (1)
              : "cc"
              );
+#else // JML_INTEL_ISA
+        int val1 = *it1;
+        int val2 = *it2;
+        int eq = val1 == val2;
+        int le = val1 <= val2;
+        int ge = val1 >= val2;
+#endif // JML_INTEL_ISA
         
         result += eq;
         it1 += le;
