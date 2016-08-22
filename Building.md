@@ -358,5 +358,16 @@ make ... WITH_CUDA=1
 
 ### Building for ARM64
 
+```
 sudo apt-get install libc6-arm64-cross libc6-dev-arm64-cross linux-libc-dev-arm64-cross g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+sudo dpkg --add-architecture arm64
+sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted'
+sudo apt-get update
+apt-get download libicu-dev:arm64 libpython2.7-dev:arm64 libcurl-dev:arm64 libcrypo++-dev
+ls *.deb
+mkdir build/arm64/osdeps
+cd build/arm64/osdeps/
+ar p ../../../libicu-dev_52.1-3ubuntu0.4_arm64.deb data.tar.xz | tar Jxv
+ar p ../../../libpython2.7-dev_2.7.6-8ubuntu0.2_arm64.deb data.tar.xz | tar Jxv
 
+```

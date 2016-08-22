@@ -12,6 +12,7 @@ DIST_CODENAME:=$(shell lsb_release -sc)
 MACHINE_NAME:=$(shell uname -n)
 
 V8_LIB:=v8
+HOSTARCH    ?= $(shell uname -m)
 
 
 -include local.mk
@@ -30,7 +31,7 @@ default: all
 
 PWD     := $(shell pwd)
 BUILD   ?= build
-ARCH    ?= $(shell uname -m)
+ARCH    ?= $(HOSTARCH)
 OBJ     := $(BUILD)/$(ARCH)/obj
 BIN     := $(BUILD)/$(ARCH)/bin
 LIB	:= $(BUILD)/$(ARCH)/lib

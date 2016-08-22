@@ -244,7 +244,7 @@ intersectionCountBasic(const uint16_t * it1, const uint16_t * end1,
     int result = 0;
     
     while (it1 != end1 && it2 != end2) {
-#if 1
+#if JML_INTEL_ISA
         int eq = 0, le = 0, ge = 0;
         
         __asm__
