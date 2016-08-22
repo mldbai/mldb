@@ -103,7 +103,7 @@ class CredentialTest(MldbUnitTest):
                 resp = mldb.put("/v1/credentials/testcred" + str(idx), {
                     "store" : {
                         "resourceType" : "aws:s3",
-                        "resource" : "s3://dev.mldb.datacratic.com/testing",
+                        "resource" : "s3://private-mldb-ai/testing",
                         "credential" : {
                             "provider" : "Credential collections",
                             "protocol" : "http",
@@ -117,7 +117,7 @@ class CredentialTest(MldbUnitTest):
         csv_conf = {
             "type": "import.text",
             "params": {
-                'dataFileUrl' : 's3://dev.mldb.datacratic.com/testing/MLDB-1468/test.csv',
+                'dataFileUrl' : 's3://private-mldb-ai/testing/MLDB-1468/test.csv',
                 "outputDataset": {
                     "id": "test"
                 },
@@ -125,14 +125,14 @@ class CredentialTest(MldbUnitTest):
             }
         }
 
-        # this is expecting to pick key for path s3://dev.mldb.datacratic.com/testing
+        # this is expecting to pick key for path s3://private-mldb-ai/testing
         mldb.put("/v1/procedures/import", csv_conf)
 
         # store the credential for a specific path
         resp = mldb.put("/v1/credentials/testcredwrong", {
             "store" : {
                 "resourceType" : "aws:s3",
-                "resource" : "s3://dev.mldb.datacratic.com/testing/MLDB-1468",
+                "resource" : "s3://private-mldb-ai/testing/MLDB-1468",
                 "credential" : {
                     "provider" : "Credential collections",
                     "protocol" : "http",
