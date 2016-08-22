@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* gc_lock.h                                                       -*- C++ -*-
    Jeremy Barnes, 19 November 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    "Lock" that works by deferring the destruction of objects into a garbage collection
    process which is only run when nothing could be using them.
 */
 
-#ifndef __mmap__gc_lock_h__
-#define __mmap__gc_lock_h__
+#pragma once
 
 #define GC_LOCK_DEBUG 0
 
@@ -85,8 +83,10 @@ public:
             /* We are not in a speculative critical section, check if
              * Gc has been left locked
              */
-            if (!specLocked && !specUnlocked && (readLocked || writeLocked))
-                ExcCheck(false, "Thread died but GcLock is still locked");
+            if (!specLocked && !specUnlocked && (readLocked || writeLocked)) {
+                ::fprintf(stderr, "Thread diad but GcLock is still locked");
+                std::terminate();
+            }
 
             /* We are in a speculative CS but Gc has not beed unlocked
              */
@@ -199,7 +199,7 @@ public:
                 int32_t epoch;       ///< Current epoch number (could be smaller).
                 int16_t in[2];       ///< How many threads in each epoch
                 int32_t visibleEpoch;///< Lowest epoch number that's visible
-                int32_t exclusive;   ///< Mutex value to lock exclusively
+                int32_t exclusive; ///< Mutex value to lock exclusively
             };
             struct {
                 uint64_t bits;
@@ -647,6 +647,3 @@ private:
 };
 
 } // namespace Datacratic
-
-#endif /* __mmap__gc_lock_h__ */
-

@@ -777,19 +777,54 @@ registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 
 double ln(double v)
 {
-    if (v <= 0)
-        throw HttpReturnException(400, "the argument of the ln function must"
-                                       " be strictly positive");
-
     return std::log(v);
 }
 
+// log function consistent with postgresql's
+BoundFunction log(const std::vector<BoundSqlExpression> & args)
+{
+    // log(x) (base 10)
+    if (args.size() == 1) {
+        return {[] (const std::vector<ExpressionValue> & args,
+                    const SqlRowScope & scope) -> ExpressionValue
+                {
+                    ExcAssertEqual(args.size(), 1);
+
+                    if (args[0].empty())
+                        return ExpressionValue();
+
+                    return ExpressionValue(std::log10(args[0].toDouble()),
+                                           args[0].getEffectiveTimestamp());
+                },
+                std::make_shared<Float64ValueInfo>()};
+    // log(base, x)
+    } else if (args.size() == 2) {
+        return {[] (const std::vector<ExpressionValue> & args,
+                    const SqlRowScope & scope) -> ExpressionValue
+                {
+                    ExcAssertEqual(args.size(), 2);
+
+                    if (args[0].empty() || args[1].empty())
+                        return ExpressionValue();
+
+                    double base = args[0].toDouble();
+                    double x = args[1].toDouble();
+                    return ExpressionValue(std::log(x) / std::log(base),
+                                           calcTs(args[0], args[1]));
+                },
+                std::make_shared<Float64ValueInfo>()};
+    // wrong number of arguments
+    } else {
+        throw HttpReturnException(400,
+            "the log function expected 1 or 2 arguments, got "
+            + to_string(args.size()));
+    }
+}
+
+static RegisterBuiltin registerLog(log, "log");
+
 double sqrt(double v)
 {
-    if (v < 0)
-        throw HttpReturnException(400, "the argument of the sqrt function must"
-                                       " be non-negative");
-
     return std::sqrt(v);
 }
 
@@ -1819,14 +1854,6 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                 if(val.empty())
                     return ExpressionValue::null(val.getEffectiveTimestamp());
 
-                bool check[] = {false, false};
-                auto assertArg = [&] (size_t field, const string & name)
-                    {
-                        if (check[field])
-                            throw HttpReturnException(400, "Argument " + name + " is specified more than once");
-                        check[field] = true;
-                    };
- 
                 ParseJsonOptions options;
 
                 if(args.size() == 2) {
@@ -2391,8 +2418,8 @@ BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
                 auto val1 = args[0];
                 auto val2 = args[1];
                 Utf8String fieldName = val1.toUtf8String();
-                cerr << "extracting " << jsonEncodeStr(val1)
-                     << " from " << jsonEncodeStr(val2) << endl;
+                // cerr << "extracting " << jsonEncodeStr(val1)
+                //      << " from " << jsonEncodeStr(val2) << endl;
                 
                 return args[1].getColumn(fieldName);
             },

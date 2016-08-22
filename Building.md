@@ -242,18 +242,19 @@ not officially supported
 MLDB is compiled by default using the GCC compiler, version 4.8.
 
 
-#### Compiling with GCC 5.x
+#### Compiling with GCC 5.x or 6.x
 
-In order to use GCC version 5.x, the following commands should be used to
-install the compiler (currently GCC 5.3):
+In order to use GCC version 5.x or 6.x, the following commands should be used to
+install the compiler:
 
 ```
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 sudo apt-get update
 sudo apt-get install gcc-5 g++-5
+sudo apt-get install gcc-6 g++-6
 ```
 
-You can then add `toolchain=gcc5` to the make command line to use the
+You can then add `toolchain=gcc5` or `toolchain=gcc6` to the make command line to use the
 newly installed compiler.
 
 #### Compiling with clang
@@ -262,7 +263,7 @@ In order to compile with the clang compiler, you will firstly need to
 install it:
 
 ```
-sudo apt-get install clang-3.5
+sudo apt-get install clang-3.6
 ```
 
 You can then add `toolchain=clang` to compile with the clang compiler.
@@ -351,3 +352,11 @@ Or the following to the Make command-line:
 ```
 make ... WITH_CUDA=1
 ```
+
+
+### Building for ARM
+
+### Building for ARM64
+
+sudo apt-get install libc6-arm64-cross libc6-dev-arm64-cross linux-libc-dev-arm64-cross g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+

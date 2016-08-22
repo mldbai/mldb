@@ -23,7 +23,7 @@ class Mldb1827OperatorNullPropagationTest(MldbUnitTest):  # noqa
         res = mldb.get('/v1/query', q="SELECT NULL {} NULL FROM ds"
                        .format(operator)).json()[0]['columns'][0]
         self.assertEqual(res[1], None)
-        self.assertEqual(res[2], '1970-01-01T00:00:00Z')
+        self.assertEqual(res[2], '-Inf')
 
         res = mldb.get('/v1/query', q="SELECT NULL {} val FROM ds"
                        .format(operator)).json()[0]['columns'][0]

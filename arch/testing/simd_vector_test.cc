@@ -28,7 +28,9 @@ using boost::unit_test::test_suite;
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
+#if JML_INTEL_ISA
     BOOST_CHECK(cpuid_flags() != 0);
+#endif
 }
 
 void vec_scale_k_test_case(int nvals)

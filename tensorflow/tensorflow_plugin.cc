@@ -562,7 +562,7 @@ struct TensorflowGraphBase: public Function {
 
         GetAllColumnsOutput
         doGetAllColumns(const Utf8String & tableName,
-                        ColumnFilter& keep)
+                        const ColumnFilter& keep)
         {
             if (!tableName.empty())
                 return ReadThroughBindingScope

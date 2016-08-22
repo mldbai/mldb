@@ -58,7 +58,13 @@ class Mldb1597Test(MldbUnitTest):
                         from ds left join ds_stats on (ds.dow + ds.a_int = ds_stats.dow + ds_stats.a_int)
                         limit 10
                     """,
-                    "outputDataset": {"id":"ds_train", "type":"tabular"},
+                    "outputDataset": {
+                        "id":"ds_train",
+                        "type":"tabular",
+                        "params": {
+                            "unknownColumns":"add"
+                        }
+                    },
                     "runOnCreation": True
                 }
             })
@@ -177,9 +183,7 @@ class Mldb1597Test(MldbUnitTest):
         right_table.index + right_table.const)
         """)
 
-    @unittest.expectedFailure # MLDB-1803
     def test_join_with_and(self):
-
         resp = mldb.query('select * from ds_train')
         mldb.log(resp)
 
@@ -191,10 +195,17 @@ class Mldb1597Test(MldbUnitTest):
                         from ds left join ds_stats on (ds.dow=ds_stats.dow and ds.a_int=ds_stats.a_int)
                         limit 10
                     """,
-                    "outputDataset": {"id":"ds_train2", "type":"tabular"},
+                    "outputDataset": {
+                        "id":"ds_train2",
+                        "type":"tabular",
+                        "params": {
+                            "unknownColumns":"add"
+                        }
+                    },
                     "runOnCreation": True
                 }
             })
+
         resp2 = mldb.query('select * from ds_train2')
         mldb.log(resp2)
 

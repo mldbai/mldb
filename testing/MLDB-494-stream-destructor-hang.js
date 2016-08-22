@@ -99,8 +99,8 @@ var dataset2_config = {
 
 var dataset2 = mldb.createDataset(dataset2_config);
 
-assertEqual(mldb.get('/v1/datasets/test/query', {limit:10, orderBy: 'rowHash()'}).json,
-            mldb.get('/v1/datasets/test2/query', {limit:10, orderBy: 'rowHash()'}).json,
+assertEqual(mldb.get('/v1/query', {q : 'select * from test order by rowHash() limit 10'}).json,
+            mldb.get('/v1/query', {q : 'select * from test2 order by rowHash() limit 10'}).json,
            "query diff");
 
 "success"

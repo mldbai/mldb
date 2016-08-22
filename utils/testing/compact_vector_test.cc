@@ -55,7 +55,7 @@ struct Obj {
         magic = GOOD;
     }
 
-   ~Obj()
+    ~Obj() noexcept(false)
     {
         //cerr << "destroying at " << this << endl;
         ++destroyed;

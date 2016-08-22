@@ -56,16 +56,16 @@ mldb.get("/v1/query", q='''select
 iris_cls_blk({{ * EXCLUDING(class)} as features})
 from iris_dataset''')
 
-mldb.get("/v1/datasets/iris_dataset/query", select=
-'''iris_cls_blk({{* EXCLUDING(class)} as features})''')
+mldb.get("/v1/query", q=
+'''SELECT iris_cls_blk({{* EXCLUDING(class)} as features}) from iris_dataset''')
 
 mldb.get("/v1/query", q='''select
 iris_cls_blk({{* EXCLUDING(class)} as features})[scores."Iris-setosa"]
 from iris_dataset''')
 
-mldb.get("/v1/datasets/iris_dataset/query", select=
-'''iris_cls_blk({{* EXCLUDING(class)} as features})[scores."Iris-setosa"]
-   AS setosa''')
+mldb.get("/v1/query", q=
+'''SELECT iris_cls_blk({{* EXCLUDING(class)} as features})[scores."Iris-setosa"]
+   AS setosa FROM iris_dataset''')
 
 mldb.put("/v1/functions/iris_cls_exp", {
     'type' : 'classifier.explain',

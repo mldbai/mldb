@@ -10,7 +10,6 @@
 
 #include <iostream>
 
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/arch/exception.h"
 
 #include "sink.h"

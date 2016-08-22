@@ -545,7 +545,8 @@ Value::~Value()
       break;
 #endif
    default:
-      JSON_ASSERT_UNREACHABLE;
+       ::fprintf(stderr, "JSON logic error");
+       std::terminate();
    }
 
    if ( comments_ )
