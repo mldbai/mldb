@@ -242,13 +242,13 @@ endif
 # define.  First the flags to turn off warnings that the compiler
 # will output on its sourcecode
 ifeq ($(toolchain),gcc)
-TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-narrowing -Wno-strict-aliasing
 endif
 ifeq ($(toolchain),gcc5)
-TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-narrowing -Wno-strict-aliasing
 endif
 ifeq ($(toolchain),gcc6)
-TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-ignored-attributes -Wno-nonnull-compare
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-ignored-attributes -Wno-nonnull-compare -Wno-narrowing -Wno-strict-aliasing
 endif
 ifeq ($(toolchain),clang)
 # -Wno-error should not be used but so far it seems like the only way to mute
@@ -338,7 +338,7 @@ TENSORFLOW_KERNEL_CC_FILES:=$(shell find $(CWD)/tensorflow/core/kernels -name "*
 
 TENSORFLOW_KERNEL_CC_BUILD:=$(sort $(TENSORFLOW_KERNEL_CC_FILES:$(CWD)/%=%))
 
-$(eval $(call set_compile_option,$(TENSORFLOW_KERNEL_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$(TENSORFLOW_COMPILE_FLAGS) -mavx))
+$(eval $(call set_compile_option,$(TENSORFLOW_KERNEL_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$(TENSORFLOW_COMPILE_FLAGS) $(if $(call seq,$(ARCH),x84_64),-mavx)))
 
 $(TENSORFLOW_KERNEL_CC_FILES):	$(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc  $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/libpng-1.2.53
 $(eval $(call library,tensorflow-kernels,$(TENSORFLOW_KERNEL_CC_BUILD) $(TENSORFLOW_CUDA_NVCC_BUILD),tensorflow-ops $(TENSORFLOW_CUDA_LINK),,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
@@ -359,8 +359,8 @@ tensorflow_lib: $(LIB)/libtensorflow.so
 # tensorflow in-tree.  Since MLDB provides other means for extension, and we
 # don't want to modify the source tree, we put a dummy, empty header in there
 # to signify that there are no user operations available.
-$(CWD)/tensorflow/cc/ops/%_ops.cc $(CWD)/tensorflow/cc/ops/%_ops.h:	$(BIN)/cc_op_gen $(LIB)/libtensorflow_%_ops.so
-	@LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.cc 0
+$(CWD)/tensorflow/cc/ops/%_ops.cc $(CWD)/tensorflow/cc/ops/%_ops.h:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/$(LIB)/libtensorflow_%_ops.so
+	@LD_PRELOAD=$(BUILD)/$(HOSTARCH)$(LIB)/libtensorflow_$(*)_ops.so $(HOSTBIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.cc 0
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
 
 # Find the source files needed for the C++ interface.  Some are pre-packaged and

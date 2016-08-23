@@ -1,4 +1,5 @@
 toolchain ?= gcc
+port ?= host
 PYTHON_ENABLED:=1
 DOCUMENTATION_ENABLED:=1
 TCMALLOC_ENABLED?=1
@@ -28,6 +29,9 @@ export VIRTUALENV
 
 default: all
 .PHONY: default
+
+# Define our port
+include ports.mk
 
 PWD     := $(shell pwd)
 BUILD   ?= build
@@ -70,6 +74,7 @@ include $(JML_BUILD)/$(toolchain).mk
 VALGRIND ?= valgrind
 VALGRINDFLAGS := --soname-synonyms=somalloc=*tcmalloc* --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full
 
+include $(JML_BUILD)/port.mk
 include $(JML_BUILD)/functions.mk
 include $(JML_BUILD)/rules.mk
 include $(JML_BUILD)/python.mk

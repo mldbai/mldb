@@ -31,6 +31,10 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	+$(MAKE) -j -C $(BUILD)/$(1)/tmp/protobuf-build
 	$(MAKE) -j install -C $(BUILD)/$(1)/tmp/protobuf-build
 
+$(2)/libprotobuf3.so:	$(4)/protoc
+	$(if $(call sne,$(2),$(BUILD)/$(1)/lib),cp $(PWD)/$(BUILD)/$(1)/lib/libprotobuf* $(2))
+	cp $(BUILD)/$(1)/lib/libprotobuf.so.10.0.0 $$@~ && mv $$@~ $$@
+
 #		--libdir=$(PWD)/$(2) \
 #		--includedir=$(PWD)/$(3) \
 #		--bindir=$(PWD)/$(4) \
