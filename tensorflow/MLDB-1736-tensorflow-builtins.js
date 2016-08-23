@@ -58,4 +58,7 @@ mldb.log(png);
 var png = mldb.query("SELECT tf_EncodePng([[[1,1,1,0]]]) AS png NAMED 'png'");
 mldb.log(png);
 
+var conv_output = mldb.query("SELECT tf_Conv2D({input: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], filter: [[1, 2], [2, 1]]}, {T: { type: 'DT_DOUBLE'}}) AS res")
+mldb.log(conv_output)
+
 "success"
