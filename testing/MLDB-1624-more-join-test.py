@@ -1925,7 +1925,7 @@ class JoinTest(MldbUnitTest):
     def test_left_join_with_and(self):
         res1 = mldb.query("""
         select * from x
-        left join y on (x.x1 = y.y1) 
+        left join y on (x.x1 = y.y1)
         left join z on (x.x1 = z.z1 and x.x2 = z.z2)
         order by rowName()
         """)

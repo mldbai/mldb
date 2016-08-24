@@ -1102,9 +1102,9 @@ take()
         }
     };
 
-    while  (r && l != bufferedLeftValues.end()) {
-        ExpressionValue  lEmbedding = (*l)->values.back();
-        ExpressionValue  rEmbedding = r->values.back();
+    while (l != bufferedLeftValues.end() && r) {
+        ExpressionValue  & lEmbedding = (*l)->values.back();
+        ExpressionValue  & rEmbedding = r->values.back();
 
         ExpressionValue lField = lEmbedding.getColumn(0, GET_ALL);
         ExpressionValue rField = rEmbedding.getColumn(0, GET_ALL);
@@ -1128,7 +1128,7 @@ take()
 
             return false;
         };    
-            
+
         if (lField == rField) {
             auto setLastLeftValue = ScopeSuccess([&]() noexcept {lastLeftValue = lField;});
             // Got a row!

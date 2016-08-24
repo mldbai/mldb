@@ -51,23 +51,23 @@ class MLDB1899DuplicatedRowsInEquijoins(MldbUnitTest):  # noqa
         self.assertEqual(resp[1][1], 550, "expected 550 rows to be returned")
         
     def test_no_duplicate_rows_in_left_join_with_pipeline_exec(self):
-        # # the cross condition is always true
-        # resp = mldb.query("""
-        #     SELECT count(*) FROM left_table LEFT JOIN right_table 
-        #                     ON left_table.c = right_table.c AND
-        #                     left_table.const > right_table.d
-        # """)
+        # the cross condition is always true
+        resp = mldb.query("""
+            SELECT count(*) FROM left_table LEFT JOIN right_table 
+                            ON left_table.c = right_table.c AND
+                            left_table.const > right_table.d
+        """)
 
-        # self.assertEqual(resp[1][1], 1000, "expected 1000 rows to be returned")
+        self.assertEqual(resp[1][1], 1000, "expected 1000 rows to be returned")
 
-        # # the cross condition is always false     
-        # resp = mldb.query("""
-        #     SELECT count(*) FROM left_table LEFT JOIN right_table 
-        #                     ON left_table.c = right_table.c AND
-        #                     left_table.const < right_table.d
-        # """)
+        # the cross condition is always false     
+        resp = mldb.query("""
+            SELECT count(*) FROM left_table LEFT JOIN right_table 
+                            ON left_table.c = right_table.c AND
+                            left_table.const < right_table.d
+        """)
         
-        # self.assertEqual(resp[1][1], 100, "expected 100 rows to be returned")
+        self.assertEqual(resp[1][1], 100, "expected 100 rows to be returned")
 
         # the right condition is half the time true, the cross condition is always true
         resp = mldb.query("""
