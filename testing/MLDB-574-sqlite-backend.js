@@ -11,7 +11,7 @@ function createDataset()
         id: 'reddit_dataset',
         params: {
             //dataFileUrl: 'file:///mnt/s3cache/jeremy/MLDB-574-reddit.sqlite'
-            dataFileUrl: 'file:///tmp/MLDB-574-reddit.sqlite'
+            dataFileUrl: 'file://tmp/MLDB-574-reddit.sqlite'
         }
     };
 
