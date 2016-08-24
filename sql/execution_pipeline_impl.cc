@@ -825,7 +825,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
                                   "joinOn", on,
                                   "condition", condition);
     }
-
+    cerr << "LEFT " << jsonEncode(left) << endl;
     SelectExpression selectAll = SelectExpression::parse("*");
 
     // JOIN do not support when expression
@@ -843,7 +843,8 @@ JoinElement(std::shared_ptr<PipelineElement> root,
 
     auto leftCondition = condition.left.where;
     auto rightCondition = condition.right.where;
-
+    cerr << "left condition " << jsonEncode(leftCondition) << endl;
+    cerr << "right condition " << jsonEncode(rightCondition) << endl;
     // if outer join, we need to grab all rows on one or both sides  
     auto fixOuterSide = [&] (std::shared_ptr<SqlExpression>& condition,
                              AnnotatedJoinCondition::Side& side,
@@ -862,12 +863,13 @@ JoinElement(std::shared_ptr<PipelineElement> root,
             clauses.clauses.push_back(complementExpr);
         };
 
-    if (outerLeft)
+    //if (outerLeft)
         fixOuterSide(leftCondition, condition.left, leftclauses);      
 
-    if (outerRight)
+        //if (outerRight)
         fixOuterSide(rightCondition, condition.right, rightclauses);      
-
+    cerr << "left condition " << jsonEncode(leftCondition) << endl;
+    cerr << "right condition " << jsonEncode(rightCondition) << endl;
     if (outerLeft || outerRight)
         constantWhere = SqlExpression::TRUE;
 
@@ -881,7 +883,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
         ->from(left, boundLeft, when, selectAll, leftCondition,
                condition.left.orderBy)
         ->select(leftEmbedding);
-
+    cerr << "order by " << jsonEncode(condition.left.orderBy) << endl;
     rightImpl = root
         ->where(constantWhere)
         ->from(right, boundRight, when, selectAll, rightCondition,
@@ -1100,9 +1102,9 @@ take()
         }
     };
 
-    while  (r) {
-        ExpressionValue & lEmbedding = (*l)->values.back();
-        ExpressionValue & rEmbedding = r->values.back();
+    while  (r && l != bufferedLeftValues.end()) {
+        ExpressionValue  lEmbedding = (*l)->values.back();
+        ExpressionValue  rEmbedding = r->values.back();
 
         ExpressionValue lField = lEmbedding.getColumn(0, GET_ALL);
         ExpressionValue rField = rEmbedding.getColumn(0, GET_ALL);
@@ -1145,27 +1147,37 @@ take()
 
             ExpressionValue storage;
             auto crossWhereTrue = parent->crossWhere_(*result, storage, GET_LATEST).isTrue();
-
-            if (!crossWhereTrue && outerLeft) {
-                ExpressionValue where = rEmbedding.getColumn(1, GET_ALL);
-                cerr << "cross where false and outer left" << endl;
-                if (!where.asBool()) {
+            auto lWhere = lEmbedding.getColumn(1, GET_ALL).isTrue();
+            auto rWhere = rEmbedding.getColumn(1, GET_ALL).isTrue();
+            //cerr << "lWhere " << lWhere << endl;
+            //cerr << "rWhere " << rWhere << " ";
+            if ((!crossWhereTrue || !lWhere || !rWhere) && outerLeft) {
+                //ExpressionValue where = rEmbedding.getColumn(1, GET_ALL);
+                //                cerr << "cross where false and outer left" << endl;
+                //if (!where.asBool()) {
                     for (auto i = 0; i < numR; i++)
                         result->values.pop_back();
                     for (auto i = 0; i < numR; i++)
                         result->values.push_back(ExpressionValue());
-                }
+                    //}
             }
-            else if (!crossWhereTrue && outerRight) {
+            else if ((!crossWhereTrue || !lWhere || !rWhere) && outerRight) {
                 //cerr << "cross where false and outer right" << endl;
-                 ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
-                 if (!where.asBool()) {
+                //ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
+                //if (!where.asBool()) {
                      for (auto i = 0; i < numL; i++)
                          result->values[i] = ExpressionValue();
-                 }
+                     // }
             }
-            else if (!crossWhereTrue && !outerRight && !outerLeft) {
+            else if ((!crossWhereTrue || !lWhere || !rWhere) && !outerRight && !outerLeft) {
                 l = takeFromBuffer(l);
+                cerr << " skip row " << endl;
+                if (l == bufferedLeftValues.end()) {
+                    cerr << "rewind since we are at the end of the left side" << endl;
+                    r = right->take();
+                    l = firstDuplicate;
+                    alreadySeenLeftRow = true;
+                }
                 continue;
             }
 
@@ -1175,88 +1187,30 @@ take()
                 alreadySeenLeftRow = false;
             }
 
-            // if (outerLeft && alreadySeenLeftRow) {
-            //     cerr << "seen rows " << endl;
-            //     l = takeFromBuffer(l);
-            //     continue;
-            // }
-
             l = takeFromBuffer(l);
 
-
-            if (l == bufferedLeftValues.end()) {
+            bool setAlreadySeen = false;
+            if (l == bufferedLeftValues.end() && firstDuplicate != --bufferedLeftValues.end()) {
                 cerr << "rewind since we are at the end of the left side" << endl;
                 r = right->take();
                 l = firstDuplicate;
-                alreadySeenLeftRow = true;
+                setAlreadySeen = true;
             }
 
-       
+            cerr << "crossWhere " << crossWhereTrue << " left where " << lWhere << " right where " << rWhere << " alreadySeeen " << alreadySeenLeftRow << endl;
+            if (outerLeft && (!crossWhereTrue || !lWhere || !rWhere) && alreadySeenLeftRow) {
+                cerr << "seen rows " << endl;
+                continue;
+            }
 
-            cerr << "1 left " << jsonEncode(result->values.front().toString()) << " right " <<
+            if (setAlreadySeen)
+                alreadySeenLeftRow = true;
+            auto leftShit = result->values.front().empty() ? "empty" : result->values.front().toString();
+
+            cerr <<  this << "1 left " << leftShit  << " right " <<
                 jsonEncode(result->values[2].empty() ? "empty" : result->values[2].toString()) ;
             
             return std::move(result);
-
-#if 0
-            //bool updateFirstDuplicate = false;
-
-            if (l != bufferedLeftValues.end()) {
-
-                // if (alreadySeenLeftRow && outerLeft) {
-                //     // we have seen this value already
-                //     continue;
-                // }
-
-                ExpressionValue nextLField =  (*l)->values.back().getColumn(0, GET_ALL);
-                if (nextLField == lField) {
-                    // we have the same left-side value again
-                    // take the left-side but leave the right-side as-is
-                    // to generate the cross product of rows on matching
-                    // that value
-                    ExcAssert(nextLField == rField);
-                    if (alreadySeenLeftRow && outerLeft)
-                        continue;
-                    cerr << "0 " << "outer " << outerLeft << " seen " << alreadySeenLeftRow << jsonEncode(result->values.front()) << endl;
-                    return std::move(result);
-                }
-                else {
-                    cerr << "current left value " << lField << " next left value " << nextLField << endl;
-                    firstDuplicate = l;
-                    //updateFirstDuplicate = true;
-                    alreadySeenLeftRow = false;
-                }
-            }
-
-            cerr << "taking from right" << endl;
-            r = right->take();
-
-          if (r) {
-                ExpressionValue nextRField =  r->values.back().getColumn(0, GET_ALL);
-                if (nextRField == rField) {
-                    // we have the same right-side value again
-                    // backtrack to the first duplicated value we've encountered
-                    ExcAssert(nextRField == lField);
-                    cerr << "current right value " << rField << " next right value " << nextRField << endl;
-                    l = firstDuplicate;
-                    alreadySeenLeftRow = true;
-                    // we can free the other elements in the list since we
-                    // won't backtrack to it
-                    bufferedLeftValues.erase(bufferedLeftValues.begin(), firstDuplicate);
-                }
-            }
-
-            if (updateFirstDuplicate) {
-                firstDuplicate = l;
-            }
-               
-            if (alreadySeenLeftRow && outerLeft) {
-                // we have seen this value already
-                continue;
-            }
-            cerr << "1 " << "outer " << outerLeft << " seen " << alreadySeenLeftRow << jsonEncode(result->values.front()) << endl;
-            return result;
-#endif
         }
         else if (lField < rField) {
             // loop until left field value is equal to the right field value
@@ -1268,9 +1222,15 @@ take()
                     cerr << ">>> 2 " << jsonEncode(result->values.front().toString());
                     return std::move(result);
                 } else {
+                    if (l == bufferedLeftValues.end())
+                        cerr << "HERER1" << endl;
                     l = takeFromBuffer(l);
+                    if (l == bufferedLeftValues.end())
+                        cerr << "HERER2" << endl;
                 }     
             } while (l != bufferedLeftValues.end()  && (*l)->values.back().getColumn(0, GET_ALL) < rField);
+            if (l == bufferedLeftValues.end())
+                return nullptr;
         }
         else {  
             ExcAssert(lField > rField);
@@ -1302,10 +1262,10 @@ take()
             }
         }
     }
-#if 0
+
     //Return unmatched rows if we have a LEFT/RIGHT/OUTER join
     //Fill unmatched with empty values
-    if (outerLeft && l != bufferedLeftValues.end())
+    if (outerLeft && l != bufferedLeftValues.end() && !alreadySeenLeftRow)
     {
         auto result = shared_ptr<PipelineResults>(new PipelineResults(**l));
         result->values.pop_back();
@@ -1326,7 +1286,7 @@ take()
         cerr << "5 " << jsonEncode(result) << endl;
         return result;
     }
-#endif
+
     // Nothing more found
     return nullptr;
 }
