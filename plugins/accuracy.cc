@@ -420,7 +420,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     // throw if precision is zero and at least one predicted value wasn't even
     // in the labels
     if (weighted_stats["precision"].asDouble() == 0
-            && nb_predicted_no_label > 0) {
+        && nb_predicted_no_label > 0) {
         throw ML::Exception(ML::format("Weighted precision is 0 and %i"
                 "labels were predicted but not in true labels! "
                 "Are the columns of the predicted labels named properly?",
