@@ -12,47 +12,66 @@ import unittest
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 
-
-
 class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     maxDiff = None
 
-    def assert_recursive_almost_equal(self, a, b, places=7):
+    def assert_recursive_almost_equal(self, a, b, places=7, path=None):
+        if path is None:
+            path = []
         for key, item_a in a.iteritems():
+            path_key = path + [key]
             item_b = b[key]
             if isinstance(item_a, dict):
                 self.assertTrue(isinstance(item_b, dict))
                 self.assertEqual(len(item_a), len(item_b))
-                self.assert_recursive_almost_equal(item_a, item_b, places)
+                self.assert_recursive_almost_equal(item_a, item_b, places,
+                                                   path_key)
             else:
+                # if item_a != item_b:
+                #     mldb.log(path_key)
+                #     mldb.log(item_a)
+                #     mldb.log(item_b)
                 self.assertAlmostEqual(item_a, item_b, places)
+
+    @classmethod
+    def make_dataset(self, headers, data, name):
+        data = [map(float, row.strip().split())
+                for row in data.strip().split('\n')]
+
+        mldb.put('/v1/datasets/' + name, {
+            'type': 'tabular'
+        })
+        for i, row in enumerate(data):
+            # mldb.log(row)
+            mldb.post('/v1/datasets/{}/rows'.format(name), {
+                'rowName': str(i),
+                'columns': [[col,val,0] for col,val in zip(headers, row)]
+            })
+        mldb.post('/v1/datasets/{}/commit'.format(name))
+
+        mldb.log(mldb.query("""SELECT * FROM """ + name))
 
     @classmethod
     def setUpClass(cls):
         # input dataset for classifier.test
-        headers = ['score', 'bool_label', 'cat_label', 'reg_label', 'weight']
+        headers = ['score', 'bool_label', 'reg_label', 'weight']
         data = """
-            1 0 1 10 1
-            1 0 2 10 3
-            2 1 3 20 3
-            3 1 1 40 1
+            1 0 10 1
+            1 0 10 3
+            2 1 20 3
+            3 1 40 1
             """
-        data = [map(float, row.strip().split())
-                for row in data.strip().split('\n')]
+        cls.make_dataset(headers, data, 'ds')
 
-        mldb.put('/v1/datasets/ds', {
-            'type': 'tabular'
-        })
-        for i, row in enumerate(data):
-            mldb.log(row)
-            mldb.post('/v1/datasets/ds/rows', {
-                'rowName': str(i),
-                'columns': [[col,val,0] for col,val in zip(headers, row)]
-            })
-        mldb.post('/v1/datasets/ds/commit')
-
-        mldb.log(mldb.query("""SELECT * FROM ds"""))
+        headers = ['label', 'score.0', 'score.1', 'score.2', 'weight']
+        data = """
+            0  1 0 0  1
+            1  0 1 0  3
+            2  1 0 0  3
+            2  0 0 1  1
+            """
+        cls.make_dataset(headers, data, 'cat')
 
     def _get_params(self, mode, label, weight):
         return {
@@ -128,7 +147,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
         res = mldb.post('/v1/procedures',
                         self._get_params('regression', 'reg_label', '1')
                         ).json()['status']['firstRun']['status']
-        mldb.log(res)
+        # mldb.log(res)
         # https://en.wikipedia.org/wiki/Coefficient_of_determination#Definitions
         y_mean = (10 + 10 + 20 + 40) / 4
         ss_tot = (10 - y_mean)**2  * 2 + (20 - y_mean)**2 + (40 - y_mean)**2
@@ -153,7 +172,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
         res = mldb.post('/v1/procedures',
                         self._get_params('regression', 'reg_label', 'weight')
                         ).json()['status']['firstRun']['status']
-        mldb.log(res)
+        # mldb.log(res)
         # https://en.wikipedia.org/wiki/Coefficient_of_determination#Definitions
         y_mean = (10 + 10 * 3 + 20 * 3 + 40) / 8
         ss_tot = (10 - y_mean)**2  * 4 + (20 - y_mean)**2 * 3 + (40 - y_mean)**2
@@ -173,6 +192,120 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
             "r2": 1 - ss_res / ss_tot
         }
         self.assert_recursive_almost_equal(res, truth, places=10)
+
+    def test_categorical_no_weight(self):
+        res = mldb.post('/v1/procedures', {
+            'type': 'classifier.test',
+            'params': {
+                'testingData': "SELECT label, score FROM cat",
+                'outputDataset': 'out',
+                'mode': 'categorical'
+            }
+        }).json()['status']['firstRun']['status']
+        # mldb.log(res)
+        conf = res.pop('confusionMatrix')
+
+        truth = {
+            'labelStatistics': {
+                '0': {
+                    "f": 2/3,
+                    "recall": 1,
+                    "support": 1,
+                    "precision": .5,
+                    "accuracy": 0.75,
+                },
+                '1': {
+                    "f": 1,
+                    "recall": 1,
+                    "support": 1,
+                    "precision": 1,
+                    "accuracy": 1,
+                },
+                '2': {
+                    "f": 2. * .5  / 1.5,
+                    "recall": 0.5,
+                    "support": 2,
+                    "precision": 1,
+                    "accuracy": 0.75,
+                },
+            },
+            'weightedStatistics': {
+                'f': (2/3 + 1 + 2/3*2)/4,
+                'recall': (1+1+.5*2)/4,
+                'support': 4,
+                'precision': (.5+1+1*2)/4,
+                'accuracy': (.75+1+.75*2)/4
+            },
+        }
+        self.assertEqual(res, truth)
+
+        truth_conf = [
+                {'predicted': 0, 'actual': 0, 'count': 1},
+                {'predicted': 0, 'actual': 2, 'count': 1},
+                {'predicted': 1, 'actual': 1, 'count': 1},
+                {'predicted': 2, 'actual': 2, 'count': 1},
+            ]
+
+        conf.sort(key=lambda x: (x['predicted'], x['actual']))
+
+        self.assertEqual(truth_conf, conf)
+
+    def test_categorical_weight(self):
+        res = mldb.post('/v1/procedures', {
+            'type': 'classifier.test',
+            'params': {
+                'testingData': "SELECT label, score, weight FROM cat",
+                'outputDataset': 'out',
+                'mode': 'categorical'
+            }
+        }).json()['status']['firstRun']['status']
+        # mldb.log(res)
+        conf = res.pop('confusionMatrix')
+
+        truth = {
+            'labelStatistics': {
+                '0': {
+                    "f": 2/5,
+                    "recall": 1,
+                    "support": 1,
+                    "precision": .25,
+                    "accuracy": 5/8,
+                },
+                '1': {
+                    "f": 1,
+                    "recall": 1,
+                    "support": 3,
+                    "precision": 1,
+                    "accuracy": 1,
+                },
+                '2': {
+                    "f": 2/5,
+                    "recall": 0.25,
+                    "support": 4,
+                    "precision": 1,
+                    "accuracy": 5/8,
+                },
+            },
+            'weightedStatistics': {
+                'f': (2/5 + 3 + 2/5*4) / 8,
+                'recall': (1 + 3 + .25*4)/8,
+                'support': 8,
+                'precision': (.25 + 3 + 4) / 8,
+                'accuracy': (5/8 + 3 + 5/8*4) / 8
+            },
+        }
+        self.assertEqual(res, truth)
+
+        truth_conf = [
+                {'predicted': 0, 'actual': 0, 'count': 1},
+                {'predicted': 0, 'actual': 2, 'count': 3},
+                {'predicted': 1, 'actual': 1, 'count': 3},
+                {'predicted': 2, 'actual': 2, 'count': 1},
+            ]
+
+        conf.sort(key=lambda x: (x['predicted'], x['actual']))
+
+        self.assertEqual(truth_conf, conf)
 
 
 if __name__ == '__main__':

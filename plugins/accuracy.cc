@@ -225,15 +225,15 @@ runBoolean(AccuracyConfig & runAccuracyConf,
         output->commit();
     }
 
-    cerr << "stats are " << endl;
+    // cerr << "stats are " << endl;
 
-    cerr << stats.toJson();
+    // cerr << stats.toJson();
 
-    cerr << stats.atPercentile(0.50).toJson();
-    cerr << stats.atPercentile(0.20).toJson();
-    cerr << stats.atPercentile(0.10).toJson();
-    cerr << stats.atPercentile(0.05).toJson();
-    cerr << stats.atPercentile(0.01).toJson();
+    // cerr << stats.atPercentile(0.50).toJson();
+    // cerr << stats.atPercentile(0.20).toJson();
+    // cerr << stats.atPercentile(0.10).toJson();
+    // cerr << stats.atPercentile(0.05).toJson();
+    // cerr << stats.atPercentile(0.01).toJson();
 
     return Any(stats.toJson());
 
@@ -315,10 +315,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     }
 
 
-    // Create confusion matrix
-    map<CellValue, map<CellValue, unsigned>> confusion_matrix;
-    map<CellValue, unsigned> predicted_sums;
-    map<CellValue, unsigned> real_sums;
+    // Create confusion matrix (actual / predicted)
+    map<CellValue, map<CellValue, double>> confusion_matrix;
+    map<CellValue, double> predicted_sums;
+    map<CellValue, double> real_sums;
+    double conf_mat_sum = 0;
     bool gotStuff = false;
     accum.forEach([&] (AccumBucket * thrBucket)
             {
@@ -326,9 +327,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
-                    confusion_matrix[label][predicted] += 1;
-                    real_sums[label] += 1;
-                    predicted_sums[predicted] += 1;
+                    const double & weight = std::get<3>(elem);
+                    confusion_matrix[label][predicted] += weight;
+                    real_sums[label] += weight;
+                    predicted_sums[predicted] += weight;
+                    conf_mat_sum += weight;
                 }
             });
 
@@ -343,20 +346,14 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     double total_precision = 0;
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
-    unsigned total_support = 0;
+    double total_support = 0;
+
+    int nb_predicted_no_label = 0;
 
     results["confusionMatrix"] = Json::Value(Json::arrayValue);
     for(const auto & actual_it : confusion_matrix) {
-        unsigned fn = 0;
-        unsigned tp = 0;
 
         for(const auto & predicted_it : actual_it.second) {
-            if(predicted_it.first == actual_it.first)  {
-                tp += predicted_it.second;
-            } else{
-                fn += predicted_it.second;
-            }
-
             Json::Value conf_mat_elem;
             conf_mat_elem["predicted"] = jsonEncode(predicted_it.first);
             conf_mat_elem["actual"] = jsonEncode(actual_it.first);
@@ -364,16 +361,38 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             results["confusionMatrix"].append(conf_mat_elem);
         }
 
+        double tp = confusion_matrix[actual_it.first][actual_it.first];
+        double fp = predicted_sums[actual_it.first] - tp;
+        double fn = real_sums[actual_it.first] - tp;
+        double tn = conf_mat_sum - fn - fp - tp;
+
+        /*
+        cerr << "\nlabel: " << actual_it.first << endl;
+        cerr << "TP: " << tp << endl;
+        cerr << "FP: " << fp << endl;
+        cerr << "TN: " << tn << endl;
+        cerr << "FN: " << fn << endl;
+        */
+
+        // if our class was (wrongfully) predicted (fp) but was never actually
+        // there (tp + fn == 0), then this is strange
+        if (tp + fn == 0 && fp > 0) {
+            nb_predicted_no_label++;
+            cerr << "WARNING!! Label '" << actual_it.first
+                 << "' was predicted but not in known labels!" << endl;
+        }
+
         Json::Value class_stats;
 
-        double accuracy = ML::xdiv(tp, float(real_sums[actual_it.first]));
-        double precision = ML::xdiv(tp, float(predicted_sums[actual_it.first]));
-        double recall = ML::xdiv(tp, float(tp + fn));
-        unsigned support = real_sums[actual_it.first];
+        double accuracy = ML::xdiv(tp + tn, conf_mat_sum);
+        double precision = ML::xdiv(tp, tp + fp);
+        double support = tp + fn;
+        double recall = ML::xdiv(tp, support);
         class_stats["accuracy"] = accuracy;
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
-        class_stats["f"] = 2 * ML::xdiv((precision * recall), (precision + recall));
+        class_stats["f"] = 2 * ML::xdiv(precision * recall,
+                                        precision + recall);
         class_stats["support"] = support;
         results["labelStatistics"][actual_it.first.toString()] = class_stats;
 
@@ -397,22 +416,18 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     // TODO maybe this should always return an error? The problem is it is not impossible that because
     // of the way the dataset is split, it is a normal situation. But it can also point to
     // misalignment in the way columns are named
-
-    // for all predicted labels
-    for(const auto & predicted_it : predicted_sums) {
-        // if it is not a true label
-        if(real_sums.find(predicted_it.first) == real_sums.end()) {
-            if(weighted_stats["precision"].asDouble() == 0) {
-                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' "
-                        "was predicted but not in true labels! Are the columns of the predicted "
-                        "labels named properly?", predicted_it.first.toString()));
-            }
-            cerr << "WARNING!! Label '" << predicted_it.first << "' was predicted but not in known labels!" << endl;
-        }
+    
+    // throw if precision is zero and at least one predicted value wasn't even
+    // in the labels
+    if (weighted_stats["precision"].asDouble() == 0
+            && nb_predicted_no_label > 0) {
+        throw ML::Exception(ML::format("Weighted precision is 0 and %i"
+                "labels were predicted but not in true labels! "
+                "Are the columns of the predicted labels named properly?",
+                nb_predicted_no_label));
     }
-
-
-    cout << results.toStyledString() << endl;
+    
+    // cout << results.toStyledString() << endl;
 
     return Any(results);
 }
