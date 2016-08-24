@@ -491,6 +491,15 @@ isScalar() const
     return true;
 }
 
+std::string 
+EmptyValueInfo::
+getScalarDescription() const
+{
+    return "null";
+}
+
+
+
 
 /*****************************************************************************/
 /* EMBEDDING VALUE INFO                                                      */

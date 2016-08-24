@@ -1297,6 +1297,7 @@ struct EmptyValueInfo: public ExpressionValueInfo {
     virtual void copyFromCell(void * data, const void * fromData) const;
 
     virtual bool isScalar() const;
+    virtual std::string getScalarDescription() const;
 
     virtual bool isCompatible(const ExpressionValue & value) const
     {
