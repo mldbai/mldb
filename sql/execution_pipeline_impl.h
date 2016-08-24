@@ -377,6 +377,10 @@ struct JoinElement: public PipelineElement {
             values.
         */
         bufferType::iterator l, firstDuplicate;
+        /** True if we have already seen this left row, ie, if we have rewinded 
+            the left side. */
+        ExpressionValue lastLeftValue;
+        bool alreadySeenLeftRow;
     
         virtual std::shared_ptr<PipelineResults> take();
 
