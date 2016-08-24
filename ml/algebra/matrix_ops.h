@@ -1,14 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* matrix_ops.h                                                    -*- C++ -*-
    Jeremy Barnes, 15 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Operations on matrices.
 */
 
-#ifndef __algebra__matrix_ops_h__
-#define __algebra__matrix_ops_h__
+#pragma once
+
 
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/arch/exception.h"
@@ -37,8 +36,25 @@ operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
 
 } // namespace boost
 
-namespace ML {
+inline void warmup_cache_all_levels(const float * mem, size_t n)
+{
+    // TODO: assumes 64 byte cache lines
+    // TODO: prefetch?
+    float total JML_UNUSED = 0.0;
+    for (unsigned i = 0;  i < n;  i += 16)
+        total += mem[n];
+}
 
+inline void warmup_cache_all_levels(const double * mem, size_t n)
+{
+    // TODO: assumes 64 byte cache lines
+    // TODO: prefetch?
+    double total JML_UNUSED = 0.0;
+    for (unsigned i = 0;  i < n;  i += 8)
+        total += mem[n];
+}
+
+namespace ML {
 // Copy a chunk of a matrix transposed to another place
 template<typename Float>
 void copy_transposed(boost::multi_array<Float, 2> & A,
@@ -500,7 +516,3 @@ operator / (const boost::multi_array<Float1, 2> & A,
 
 
 } // namespace ML
-
-
-#endif /* __algebra__matrix_ops_h__ */
-

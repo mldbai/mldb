@@ -352,3 +352,11 @@ Or the following to the Make command-line:
 ```
 make ... WITH_CUDA=1
 ```
+
+
+### Building for ARM
+
+### Building for ARM64
+
+sudo apt-get install libc6-arm64-cross libc6-dev-arm64-cross linux-libc-dev-arm64-cross g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+

@@ -12,7 +12,6 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/futex.h"
 #include "mldb/arch/threads.h"
@@ -537,7 +536,7 @@ BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
 {
     volatile bool shutdown = false;
     
-    int doneIterations = 0;
+    std::atomic<int> doneIterations(0);
 
     auto doThread = [&] (int threadNum)
         {
@@ -549,7 +548,7 @@ BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
                 ExcAssertEqual(result.returnCode, 0);
                 cerr << threadNum;
 
-                ML::atomic_inc(doneIterations);
+                ++doneIterations;
             }
         };
 

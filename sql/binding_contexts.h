@@ -64,7 +64,7 @@ struct ReadThroughBindingScope: public SqlBindingScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep);
+                    const ColumnFilter& keep);
 
     virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
     
@@ -144,7 +144,7 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
     // Only so we can return a good error message
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep);
+                    const ColumnFilter& keep);
 
     // Only so we can return a good error message
     virtual ColumnName
@@ -371,7 +371,7 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep);
+                    const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,

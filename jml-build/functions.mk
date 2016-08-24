@@ -179,7 +179,7 @@ ifneq ($(PREMAKE),1)
 $(if $(trace),$(warning called add_cuda_source "$(1)" "$(2)"))
 $(OBJ)/$(CWD)/$(2).d: $(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	@($(NVCC) $(NVCCFLAGS) $$(OPTIONS_$(CWD)/$(1)) -M $$< | awk 'NR == 1 { print "$$(BUILD_$(CWD)/$(1).lo_OBJ)", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } /\/ \\$$$$/ { next; } { files[$$$$1] = 1; print; } END { print("\n"); for (file in files) { printf("%s: \n\n", file); } }') > $$@~
-	$mv $$@~ $$@
+	@mv $$@~ $$@
 
 BUILD_$(CWD)/$(1).lo_COMMAND:=$(NVCC) $(NVCCFLAGS) -c -o __OBJECT_FILE_PLACEHOLDER__ $$(OPTIONS_$(CWD)/$(1)) $(SRC)/$(CWD)/$(1) --x cu
 $(if $(trace),$$(warning BUILD_$(CWD)/$(1).lo_COMMAND := $$(BUILD_$(CWD)/$(1).lo_COMMAND)))
