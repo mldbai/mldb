@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* cell_value_test.cc                                              -*- C++ -*-
    Jeremy Barnes, 24 December 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test of cell values.
 */
@@ -233,7 +233,44 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
                                   STRING_IS_VALID_ASCII);
 
     BOOST_CHECK_EQUAL(cell2.cellType(), CellValue::FLOAT);
+
     BOOST_CHECK_EQUAL(cell1, cell2);
+
+    constexpr const char * veryLongFloat = 
+        "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000023942190";
+
+    auto cell3 = CellValue::parse(veryLongFloat, 
+                                  strlen(veryLongFloat),
+                                  STRING_IS_VALID_ASCII);
+    cerr << "HERE " << cell3.toString() << endl;
+    BOOST_CHECK_EQUAL(cell3.cellType(), CellValue::FLOAT);
+
+    constexpr const char * veryVeryLongFloat = 
+        "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "00000000000023942190";
+
+    auto cell4 = CellValue::parse(veryVeryLongFloat, 
+                                  strlen(veryVeryLongFloat),
+                                  STRING_IS_VALID_ASCII);
+    cerr << "HERE " << cell4.toString() << endl;
+    BOOST_CHECK_EQUAL(cell4.cellType(), CellValue::FLOAT);
+
+    constexpr const char * veryVeryVeryLongFloat = 
+        "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "23942190";
+
+    auto cell5 = CellValue::parse(veryVeryVeryLongFloat, 
+                                  strlen(veryVeryVeryLongFloat),
+                                  STRING_IS_VALID_ASCII);
+    cerr << "HERE " << cell5.toString() << endl;
+    // the value is rounded to 0
+    BOOST_CHECK_EQUAL(cell5.cellType(), CellValue::INTEGER);
 }
 
 BOOST_AUTO_TEST_CASE (test_realistic_int)

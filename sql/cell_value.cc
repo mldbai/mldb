@@ -20,6 +20,7 @@
 #include "interval.h"
 #include "path.h"
 #include "mldb/ext/s2/s2.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 using namespace std;
 
@@ -252,20 +253,15 @@ CellValue
 CellValue::
 parse(const char * s_, size_t len, StringCharacteristics characteristics)
 {
-    static constexpr size_t NUMERICAL_BUFFER = 64;
-
-    // if the string is longer than 64 characters it can't realistically
-    // be a numerical value
-    if (len > NUMERICAL_BUFFER)
-        return CellValue(s_, len, characteristics);
-
     if (len == 0)
         return CellValue();
 
     // this ensures that our buffer is null terminated as required below
-    char s[NUMERICAL_BUFFER + 1];
-    memcpy(s, s_, len);
+    PossiblyDynamicBuffer<char, 256> sv(len + 1);
+    memcpy(sv.data(), s_, len);
+    auto s = sv.data();
     s[len] = 0;
+
 
     // First try as an int
     char * e = s + len;
