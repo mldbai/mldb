@@ -370,6 +370,8 @@ endef
 # $(3): name of files to include in the program.  If not included or empty,
 #       $(1).cc assumed
 # $(4): list of targets to add this program to
+# $(5): directory in which the program lives, default $(BIN)
+
 define program
 ifneq ($(PREMAKE),1)
 $$(if $(trace4),$$(warning called program "$(1)" "$(2)" "$(3)"))
@@ -382,24 +384,26 @@ $$(eval $$(call add_sources,$$($(1)_PROGFILES)))
 
 $(1)_OBJFILES:=$$(foreach file,$$($(1)_PROGFILES:%=$(CWD)/%.lo),$$(BUILD_$$(file)_OBJ))
 
+$$(eval bindir := $(if $(5),$(5),$(BIN)))
+
 #$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(BIN)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $$(bindir)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) -Wl,--rpath,$(LIB) $$(CXXEXEPOSTFLAGS)
 
 
-$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
+$$(bindir)/$(1):	$$(bindir)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET)                   	$(1)")
 	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(1)")
 
-$$(foreach target,$(4) programs,$$(eval $$(target): $(BIN)/$(1)))
+$$(foreach target,$(4) programs,$$(eval $$(target): $$(bindir)/$(1)))
 
-$(1): $(BIN)/$(1)
+$(1): $$(bindir)/$(1)
 .PHONY:	$(1)
 
-run_$(1): $(BIN)/$(1)
-	$(PREARGS) $(BIN)/$(1) $($(1)_ARGS) $(ARGS)
+run_$(1): $$(bindir)/$(1)
+	$(PREARGS) $$(bindir)/$(1) $($(1)_ARGS) $(ARGS)
 
 endif
 endef
