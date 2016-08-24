@@ -1822,18 +1822,19 @@ struct RegisterS3CredProvider {
                         continue;
 
                     if (fields.size() < 4) {
-                        cerr << "warning: skipping invalid line in ~/.cloud_credentials: "
-                             << line << endl;
+                        cerr << "warning: skipping invalid line in ~/.cloud_credentials at line "
+                             << lineNum << endl;
                         continue;
                     }
 
                     fields.resize(7);
 
+                    static constexpr auto V1 = "1";
                     string version = fields[1];
-                    if (version != "1") {
-                        cerr << "warning: ignoring unknown version "
-                             << version <<  " in ~/.cloud_credentials: "
-                             << line << endl;
+                    if (version != V1) {
+                        cerr << "warning: ignoring unknown version at line "
+                             << lineNum <<  " in ~/.cloud_credentials. "
+                             << "Version " << V1 << " is supported." << endl;
                         continue;
                     }
 
