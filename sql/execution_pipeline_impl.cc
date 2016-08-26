@@ -17,6 +17,7 @@
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/base/scope.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -1049,7 +1050,8 @@ EquiJoinExecutor(const Bound * parent,
       root(std::move(root)),
       left(std::move(left)),
       right(std::move(right)),
-      alreadySeenLeftRow(false)
+      alreadySeenLeftRow(false),
+      logger(getMldbLog<EquiJoinExecutor>())
 {
     auto lresult = this->left->take();
     bufferedLeftValues.push_back(lresult);
@@ -1108,7 +1110,10 @@ take()
 
         ExpressionValue lField = lEmbedding.getColumn(0, GET_ALL);
         ExpressionValue rField = rEmbedding.getColumn(0, GET_ALL);
-        //cerr << "right row " << r->values.front().toString();
+        DEBUG_MSG(logger) << "++++++";
+        DEBUG_MSG(logger) << "comparing left row [" << (*l)->values[0].coerceToPath() << 
+            "] with right row [" << r->values[0].coerceToPath() << "]";
+
         //in case of outer join
         //check the where condition that we took out and put in the embedding instead
         auto checkOuterWhere = [] ( std::shared_ptr<PipelineResults>& s,
@@ -1132,7 +1137,7 @@ take()
         if (lField == rField) {
             auto setLastLeftValue = ScopeSuccess([&]() noexcept {lastLeftValue = lField;});
             // Got a row!
-            //cerr << "*** got row match on " << jsonEncode(lField) << endl;
+            DEBUG_MSG(logger) << "left and right rows are matching on value " << lField.toString();
          
             // return a copy since we are buffering the original left value
             auto result = make_shared<PipelineResults>(**l);
@@ -1149,11 +1154,10 @@ take()
             auto crossWhereTrue = parent->crossWhere_(*result, storage, GET_LATEST).isTrue();
             auto lWhere = lEmbedding.getColumn(1, GET_ALL).isTrue();
             auto rWhere = rEmbedding.getColumn(1, GET_ALL).isTrue();
-            //cerr << "lWhere " << lWhere << endl;
-            //cerr << "rWhere " << rWhere << " ";
+
             if ((!crossWhereTrue || !lWhere || !rWhere) && outerLeft) {
                 //ExpressionValue where = rEmbedding.getColumn(1, GET_ALL);
-                //                cerr << "cross where false and outer left" << endl;
+                //                DEBUG_MSG(logger) << "cross where false and outer left";
                 //if (!where.asBool()) {
                     for (auto i = 0; i < numR; i++)
                         result->values.pop_back();
@@ -1162,7 +1166,7 @@ take()
                     //}
             }
             else if ((!crossWhereTrue || !lWhere || !rWhere) && outerRight) {
-                //cerr << "cross where false and outer right" << endl;
+                //DEBUG_MSG(logger) << "cross where false and outer right";
                 //ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
                 //if (!where.asBool()) {
                      for (auto i = 0; i < numL; i++)
@@ -1171,9 +1175,9 @@ take()
             }
             else if ((!crossWhereTrue || !lWhere || !rWhere) && !outerRight && !outerLeft) {
                 l = takeFromBuffer(l);
-                cerr << " skip row " << endl;
+                DEBUG_MSG(logger) << "skipping row - the where condition is false";
                 if (l == bufferedLeftValues.end()) {
-                    cerr << "rewind since we are at the end of the left side" << endl;
+                    DEBUG_MSG(logger) << "reached the left-side end - rewinding";
                     r = right->take();
                     l = firstDuplicate;
                     alreadySeenLeftRow = true;
@@ -1182,7 +1186,6 @@ take()
             }
 
             if (lastLeftValue != lField) {
-                cerr << "lastLeftValue " << lastLeftValue << " lField " << lField << endl;
                 firstDuplicate = l;
                 alreadySeenLeftRow = false;
             }
@@ -1191,25 +1194,21 @@ take()
 
             bool setAlreadySeen = false;
             if (l == bufferedLeftValues.end() && firstDuplicate != --bufferedLeftValues.end()) {
-                cerr << "rewind since we are at the end of the left side" << endl;
+                DEBUG_MSG(logger) << "reached the left-side end - rewinding";
                 r = right->take();
                 l = firstDuplicate;
                 setAlreadySeen = true;
             }
 
-            cerr << "crossWhere " << crossWhereTrue << " left where " << lWhere << " right where " << rWhere << " alreadySeeen " << alreadySeenLeftRow << endl;
             if (outerLeft && (!crossWhereTrue || !lWhere || !rWhere) && alreadySeenLeftRow) {
-                cerr << "seen rows " << endl;
+                DEBUG_MSG(logger) << "skipping row - this row was already outputed";
                 continue;
             }
 
             if (setAlreadySeen)
                 alreadySeenLeftRow = true;
-            auto leftShit = result->values.front().empty() ? "empty" : result->values.front().toString();
 
-            cerr <<  this << "1 left " << leftShit  << " right " <<
-                jsonEncode(result->values[2].empty() ? "empty" : result->values[2].toString()) ;
-            
+            DEBUG_MSG(logger) << "returning the row";
             return std::move(result);
         }
         else if (lField < rField) {
@@ -1217,16 +1216,20 @@ take()
             // returning nulls if left outer
             do {
                 auto result = make_shared<PipelineResults>(**l);
+                DEBUG_MSG(logger) << "++++++";
+                DEBUG_MSG(logger) << "comparing left row [" << result->values[0].coerceToPath() 
+                                  << "] with right row [" << r->values[0].coerceToPath() << "]";
                 if (outerLeft && checkOuterWhere(result, left, lField, rEmbedding)) {
                     l = takeFromBuffer(l);
-                    cerr << ">>> 2 " << jsonEncode(result->values.front().toString());
+                    DEBUG_MSG(logger) << "returning left outer row [" 
+                                      << result->values[0].coerceToPath()
+                                      << "]";
                     return std::move(result);
                 } else {
-                    if (l == bufferedLeftValues.end())
-                        cerr << "HERER1" << endl;
+                    DEBUG_MSG(logger) << "skipping left row [" 
+                                      << result->values[0].coerceToPath()
+                                      << "]";
                     l = takeFromBuffer(l);
-                    if (l == bufferedLeftValues.end())
-                        cerr << "HERER2" << endl;
                 }     
             } while (l != bufferedLeftValues.end()  && (*l)->values.back().getColumn(0, GET_ALL) < rField);
             if (l == bufferedLeftValues.end())
@@ -1234,11 +1237,10 @@ take()
         }
         else {  
             ExcAssert(lField > rField);
-            cerr << "1 taking from right" << endl;
             r = right->take();
             if (r) {
                 if (r->values.back().getColumn(0, GET_ALL) == lastLeftValue) {
-                    cerr << "rewind" << endl;
+                    DEBUG_MSG(logger) << "newly fetched row from the right matches the last left value - rewinding";
                     l = firstDuplicate;
                     alreadySeenLeftRow = true;
                     continue;
@@ -1247,14 +1249,20 @@ take()
                     // loop until right field value is equal or greater than the left field value
                     // returning nulls if right outer
                     while (r && r->values.back().getColumn(0, GET_ALL) < lField) {
+                        DEBUG_MSG(logger) << "++++++";
+                        DEBUG_MSG(logger) << "comparing left row [" << (*l)->values[0].coerceToPath() 
+                                          << "] with right row [" << r->values[0].coerceToPath() << "]";
                         if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
                             auto result = std::move(r);
-                            cerr << "2 taking from right" << endl;
                             r = right->take();
-                            cerr << "3 " << jsonEncode(result) << endl;
+                            DEBUG_MSG(logger) << "returning right outer row [" 
+                                              << result->values[0].coerceToPath()
+                                              << "]";
                             return std::move(result);
                         } else {
-                            cerr << " 3 taking from right" << endl;
+                            DEBUG_MSG(logger) << "skipping right row [" 
+                                              << r->values[0].coerceToPath()
+                                              << "]";
                             r = right->take();
                         }
                     }
@@ -1272,7 +1280,10 @@ take()
         result->values.emplace_back(ExpressionValue::null(Date::notADate()));
         result->values.emplace_back(ExpressionValue::null(Date::notADate()));
         l = takeFromBuffer(l);
-        cerr << "4 " << jsonEncode(result) << endl;
+        DEBUG_MSG(logger) << "++++++";
+        DEBUG_MSG(logger) << "returning left outer row [" 
+                          << result->values[0].coerceToPath()
+                          << "]";
         return result;
     }
 
@@ -1283,7 +1294,10 @@ take()
         r->values.insert(r->values.begin(), ExpressionValue::null(Date::notADate()));
         auto result = std::move(r);
         r = right->take();
-        cerr << "5 " << jsonEncode(result) << endl;
+        DEBUG_MSG(logger) << "++++++";
+        DEBUG_MSG(logger) << "returning right outer row [" 
+                          << result->values[0].coerceToPath()
+                          << "]";
         return result;
     }
 
@@ -1295,7 +1309,7 @@ void
 JoinElement::EquiJoinExecutor::
 restart()
 {
-    //cerr << "**** equijoin restart" << endl;
+    //DEBUG_MSG(logger) << "**** equijoin restart";
     left->restart();
     right->restart();
     bufferedLeftValues.resize(0);
