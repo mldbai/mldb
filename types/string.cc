@@ -7,7 +7,6 @@
 */
 
 #include "string.h"
-#include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include <iostream>
 #include "mldb/arch/exception.h"
