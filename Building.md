@@ -398,7 +398,7 @@ from Debian for arch64.  We are working on a solution.
 First, the machine needs to be set up with cross compilers:
 
 ```
-sudo apt-get install libc6-armhf-cross libc6-dev-armhf-cross linux-libc-dev-armhf-cross g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf
+sudo apt-get install libc6-armhf-cross libc6-dev-armhf-cross linux-libc-dev-armhf-cross g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf gcc-multilib g++-multilib
 ```
 
 Then we need to add armhf to Debian's multiarch support so that it can find the packages for an armhf target system:
