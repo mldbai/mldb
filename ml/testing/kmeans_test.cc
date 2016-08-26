@@ -12,7 +12,7 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/vfs/filter_streams.h"
 #include "ml/kmeans.h"
-#include "utils/testing/fixtures.h"
+#include "mldb/utils/testing/fixtures.h"
 #include <iostream>
 #include <stdlib.h>
 

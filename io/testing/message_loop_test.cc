@@ -9,7 +9,7 @@
 
 #include <chrono>
 #include <thread>
-#include "utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #include "mldb/io/typed_message_channel.h"
 #include "mldb/io/message_loop.h"

@@ -24,7 +24,7 @@
 
 #include "mldb/io/epoll_loop.h"
 #include "runner_common.h"
-#include "sink.h"
+#include "mldb/utils/sink.h"
 
 
 namespace Datacratic {

@@ -33,8 +33,8 @@
 #include "mldb/types/libc_value_descriptions.h"
 #include "mldb/ext/jsoncpp/json.h"
 
-#include "sink.h"
-#include "runner.h"
+#include "mldb/utils/sink.h"
+#include "mldb/utils/runner.h"
 
 #include <future>
 

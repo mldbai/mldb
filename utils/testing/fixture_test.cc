@@ -11,7 +11,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "utils/testing/fixtures.h"
+#include "mldb/utils/testing/fixtures.h"
 
 #include <boost/test/unit_test.hpp>
 #include <fstream>

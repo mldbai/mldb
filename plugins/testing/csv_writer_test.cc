@@ -11,7 +11,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include "mldb/arch/timers.h"
-#include "utils/testing/fixtures.h"
+#include "mldb/utils/testing/fixtures.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/soa/utils/csv_writer.h"
 

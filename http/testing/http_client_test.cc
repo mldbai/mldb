@@ -21,13 +21,13 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/ext/jsoncpp/reader.h"
 #include "mldb/arch/futex.h"
-#include "utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/event_loop.h"
 #include "mldb/io/legacy_event_loop.h"
 #include "mldb/http/http_client.h"
 #include "mldb/http/testing/test_http_services.h"
-#include "utils/testing/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 
 using namespace std;
 using namespace Datacratic;

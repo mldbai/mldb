@@ -16,7 +16,7 @@
 #include <thread>
 #include "mldb/io/message_loop.h"
 #include "mldb/io/async_writer_source.h"
-#include "utils/testing/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 
 using namespace std;
 using namespace Datacratic;

@@ -12,7 +12,7 @@
 
 #include "mldb/arch/exception.h"
 
-#include "sink.h"
+#include "mldb/utils/sink.h"
 
 
 using namespace std;

@@ -18,7 +18,7 @@
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/soa/credentials/credential_provider.h"
-#include "utils/testing/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 #include "mldb/soa/service/xml_helpers.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/fs_utils.h"

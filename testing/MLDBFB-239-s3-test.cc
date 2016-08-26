@@ -16,7 +16,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/soa/service/aws.h"
 #include "mldb/soa/service/s3.h"
-#include "utils/testing/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 #include "mldb/vfs/filter_streams.h"
 
 
