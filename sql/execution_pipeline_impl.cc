@@ -826,7 +826,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
                                   "joinOn", on,
                                   "condition", condition);
     }
-    cerr << "LEFT " << jsonEncode(left) << endl;
+
     SelectExpression selectAll = SelectExpression::parse("*");
 
     // JOIN do not support when expression
@@ -844,8 +844,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
 
     auto leftCondition = condition.left.where;
     auto rightCondition = condition.right.where;
-    cerr << "left condition " << jsonEncode(leftCondition) << endl;
-    cerr << "right condition " << jsonEncode(rightCondition) << endl;
+
     // if outer join, we need to grab all rows on one or both sides  
     auto fixOuterSide = [&] (std::shared_ptr<SqlExpression>& condition,
                              AnnotatedJoinCondition::Side& side,
@@ -864,13 +863,9 @@ JoinElement(std::shared_ptr<PipelineElement> root,
             clauses.clauses.push_back(complementExpr);
         };
 
-    //if (outerLeft)
-        fixOuterSide(leftCondition, condition.left, leftclauses);      
+    fixOuterSide(leftCondition, condition.left, leftclauses);      
+    fixOuterSide(rightCondition, condition.right, rightclauses);      
 
-        //if (outerRight)
-        fixOuterSide(rightCondition, condition.right, rightclauses);      
-    cerr << "left condition " << jsonEncode(leftCondition) << endl;
-    cerr << "right condition " << jsonEncode(rightCondition) << endl;
     if (outerLeft || outerRight)
         constantWhere = SqlExpression::TRUE;
 
@@ -884,7 +879,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
         ->from(left, boundLeft, when, selectAll, leftCondition,
                condition.left.orderBy)
         ->select(leftEmbedding);
-    cerr << "order by " << jsonEncode(condition.left.orderBy) << endl;
+
     rightImpl = root
         ->where(constantWhere)
         ->from(right, boundRight, when, selectAll, rightCondition,
@@ -1105,8 +1100,8 @@ take()
     };
 
     while (l != bufferedLeftValues.end() && r) {
-        ExpressionValue  & lEmbedding = (*l)->values.back();
-        ExpressionValue  & rEmbedding = r->values.back();
+        ExpressionValue & lEmbedding = (*l)->values.back();
+        ExpressionValue & rEmbedding = r->values.back();
 
         ExpressionValue lField = lEmbedding.getColumn(0, GET_ALL);
         ExpressionValue rField = rEmbedding.getColumn(0, GET_ALL);
@@ -1156,22 +1151,14 @@ take()
             auto rWhere = rEmbedding.getColumn(1, GET_ALL).isTrue();
 
             if ((!crossWhereTrue || !lWhere || !rWhere) && outerLeft) {
-                //ExpressionValue where = rEmbedding.getColumn(1, GET_ALL);
-                //                DEBUG_MSG(logger) << "cross where false and outer left";
-                //if (!where.asBool()) {
-                    for (auto i = 0; i < numR; i++)
-                        result->values.pop_back();
-                    for (auto i = 0; i < numR; i++)
-                        result->values.push_back(ExpressionValue());
-                    //}
+                for (auto i = 0; i < numR; i++)
+                    result->values.pop_back();
+                for (auto i = 0; i < numR; i++)
+                    result->values.push_back(ExpressionValue());
             }
             else if ((!crossWhereTrue || !lWhere || !rWhere) && outerRight) {
-                //DEBUG_MSG(logger) << "cross where false and outer right";
-                //ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
-                //if (!where.asBool()) {
-                     for (auto i = 0; i < numL; i++)
-                         result->values[i] = ExpressionValue();
-                     // }
+                for (auto i = 0; i < numL; i++)
+                    result->values[i] = ExpressionValue();
             }
             else if ((!crossWhereTrue || !lWhere || !rWhere) && !outerRight && !outerLeft) {
                 l = takeFromBuffer(l);
