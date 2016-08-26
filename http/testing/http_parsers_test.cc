@@ -8,7 +8,7 @@
 
 #include "mldb/http/http_parsers.h"
 #include "mldb/http/http_header.h"
-#include "mldb/soa/utils/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/ext/jsoncpp/json.h"

@@ -1,6 +1,6 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-#include "benchmarks.h"
+#include "mldb/utils/testing/benchmarks.h"
 
 using namespace std;
 using namespace Datacratic;

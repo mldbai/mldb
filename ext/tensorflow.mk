@@ -163,7 +163,7 @@ CUDA_HEADERS := cuda.h cublas.h cufft.h cuComplex.h vector_types.h builtin_types
 
 $(INC)/third_party/gpus/cuda/include/%: | $(CUDA_SYSTEM_HEADER_DIR)/%
 	@mkdir -p $(dir $@)
-	@ln -s $< $@
+	@ln -sf $(CUDA_SYSTEM_HEADER_DIR)/$(notdir $@) $@
 
 $(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
 	@mkdir -p $(dir $@)
@@ -178,7 +178,7 @@ $(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudn
 # up the dependency.
 
 $(TENSORFLOW_CC_FILES): \
-	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras
+	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras $(INC)/third_party/gpus/cuda/include/cudnn.h
 
 # Some of the CUDA headers include their header dependencies via <file.h>
 # instead of "file.h", which requires us to set up the system header directory
