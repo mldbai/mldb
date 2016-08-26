@@ -11,7 +11,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "mldb/soa/utils/fixtures.h"
+#include "utils/testing/fixtures.h"
 
 #include <boost/test/unit_test.hpp>
 #include <fstream>
@@ -58,7 +58,7 @@ BOOST_FIXTURE_TEST_CASE(basicTest, FixtureTest)
 
 
 // This is an input file for our test.
-namespace { const string inputFile = "mldb/soa/utils/testing/test_input.txt"; }
+namespace { const string inputFile = "mldb/utils/testing/test_input.txt"; }
 
 
 /** Test that reads and input file that sits somewhere in the repo. */

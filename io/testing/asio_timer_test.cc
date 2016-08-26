@@ -13,7 +13,7 @@
 #include "mldb/watch/watch_impl.h"
 #include <boost/asio.hpp>
 #include <thread>
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "utils/testing/watchdog.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

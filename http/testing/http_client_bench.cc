@@ -19,7 +19,7 @@
 #include "mldb/types/date.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/libc_value_descriptions.h"
-#include "mldb/soa/utils/print_utils.h"
+#include "utils/testing/print_utils.h"
 #include "mldb/soa/service/runner.h"
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/event_loop.h"

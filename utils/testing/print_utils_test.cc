@@ -9,7 +9,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "mldb/soa/utils/print_utils.h"
+#include "utils/testing/print_utils.h"
 
 #include <boost/test/unit_test.hpp>
 

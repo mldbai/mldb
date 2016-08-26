@@ -9,7 +9,7 @@
 #include "mldb/server/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "utils/testing/watchdog.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

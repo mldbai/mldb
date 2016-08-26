@@ -10,7 +10,7 @@
 #include <string>
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/soa/utils/fixtures.h"
+#include "utils/testing/fixtures.h"
 #include "mldb/vfs/filter_streams.h"
 
 #include "mldb/vfs/fs_utils.h"
