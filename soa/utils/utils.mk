@@ -18,7 +18,5 @@ LIB_TEST_UTILS_LINK := \
 
 $(eval $(call library,test_utils,$(LIB_TEST_UTILS_SOURCES),$(LIB_TEST_UTILS_LINK)))
 
-$(eval $(call library,csv_writer,csv_writer.cc,utils types))
-
 $(eval $(call include_sub_make,testing))
 

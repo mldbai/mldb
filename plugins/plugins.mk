@@ -51,7 +51,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	progress.cc \
 	useragent_function.cc \
 	summary_statistics_proc.cc \
-
+	csv_writer.cc
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,python_plugin_loader.cc,-I$(PYTHON_INCLUDE_PATH)))
