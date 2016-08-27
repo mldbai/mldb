@@ -7,6 +7,7 @@
 */
 
 #include "js_common.h"
+#include "js_utils.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -17,7 +18,6 @@
 
 using namespace std;
 
-
 namespace Datacratic {
 namespace MLDB {
 
@@ -27,7 +27,7 @@ void
 JsIsolate::
 init(bool forThisThreadOnly)
 {
-    this->isolate = v8::Isolate::New();
+    this->isolate = v8::Isolate::New({});
 
     this->isolate->Enter();
     v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, 50 /* frame limit */,
@@ -97,9 +97,10 @@ CellValue from_js(const JS::JSValue & value, CellValue *)
     else if (value->IsDate())
         return CellValue(Date::fromSecondsSinceEpoch(value->NumberValue() / 1000.0));
     else if (value->IsObject()) {
+        v8::Isolate* isolate = v8::Isolate::GetCurrent();
         // Look if it's already a CellValue
         JsPluginContext * cxt = JsContextScope::current();
-        if (cxt->CellValue->HasInstance(value)) {
+        if (cxt->CellValue.Get(isolate)->HasInstance(value)) {
             return CellValueJS::getShared(value);
         }
         else {
@@ -113,8 +114,9 @@ CellValue from_js(const JS::JSValue & value, CellValue *)
 
 void to_js(JS::JSValue & value, const CellValue & val)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (val.empty())
-        value = v8::Null();
+        value = v8::Null(isolate);
     else if (val.isExactDouble())
         to_js(value, val.toDouble());
     else if (val.isUtf8String())
@@ -148,8 +150,9 @@ PathElement from_js_ref(const JS::JSValue & value, PathElement *)
 
 void to_js(JS::JSValue & value, const PathElement & val)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (val.empty())
-        value = v8::Null();
+        value = v8::Null(isolate);
     return to_js(value, val.toUtf8String());
 }
 
@@ -171,8 +174,9 @@ Path from_js_ref(const JS::JSValue & value, Path *)
 
 void to_js(JS::JSValue & value, const Path & val)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (val.empty())
-        value = v8::Null();
+        value = v8::Null(isolate);
     return to_js(value, vector<PathElement>(val.begin(), val.end()));
 }
 
@@ -231,9 +235,9 @@ ScriptException convertException(const v8::TryCatch & trycatch,
 
     if (!trycatch.HasCaught())
         throw ML::Exception("function didn't return but no result");
-
+    
     Handle<Value> exception = trycatch.Exception();
-    String::AsciiValue exception_str(exception);
+    String::Utf8Value exception_str(exception);
     
     ScriptException result;
     result.context.push_back(context);
@@ -334,10 +338,10 @@ JsObjectBase::
         ::fprintf(stderr, "JS object is not near death");
         std::terminate();
     }
-    js_object_->SetInternalField(0, v8::Undefined());
-    js_object_->SetInternalField(1, v8::Undefined());
-    js_object_.Dispose();
-    js_object_.Clear();
+    //v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    //js_object_->SetInternalField(0, v8::Undefined(isolate));
+    //js_object_->SetInternalField(1, v8::Undefined(isolate));
+    js_object_.Reset();
 }
 
 JsPluginContext *
@@ -353,6 +357,8 @@ void
 JsObjectBase::
 wrap(v8::Handle<v8::Object> handle, JsPluginContext * context)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+
     ExcAssert(js_object_.IsEmpty());
 
     if (handle->InternalFieldCount() == 0) {
@@ -362,9 +368,10 @@ wrap(v8::Handle<v8::Object> handle, JsPluginContext * context)
 
     ExcAssertEqual(handle->InternalFieldCount(), 2);
 
-    js_object_ = v8::Persistent<v8::Object>::New(handle);
-    js_object_->SetInternalField(0, v8::External::New(this));
-    js_object_->SetInternalField(1, v8::External::New(context));
+    handle->SetInternalField(0, v8::External::New(isolate, this));
+    handle->SetInternalField(1, v8::External::New(isolate, context));
+
+    js_object_.Reset(isolate, handle);
     registerForGarbageCollection();
 }
 
@@ -374,32 +381,32 @@ void
 JsObjectBase::
 registerForGarbageCollection()
 {
-    js_object_.MakeWeak(this, garbageCollectionCallback);
+    js_object_.SetWeak(this, garbageCollectionCallback,
+                       v8::WeakCallbackType::kParameter);
 }
     
-v8::Handle<v8::Value>
+void
 JsObjectBase::
-NoConstructor(const v8::Arguments & args)
+NoConstructor(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
-    try {
-        return args.This();
-        //throw ML::Exception("Type has no constructor");
-    } HANDLE_JS_EXCEPTIONS;
+    args.GetReturnValue().Set(args.This());
 }
 
 
 v8::Handle<v8::FunctionTemplate>
 JsObjectBase::
 CreateFunctionTemplate(const char * name,
-                       v8::InvocationCallback constructor)
+                       v8::FunctionCallback constructor)
 {
     using namespace v8;
         
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+
     v8::Handle<v8::FunctionTemplate> t
-        = FunctionTemplate::New(constructor);
+        = FunctionTemplate::New(isolate, constructor);
 
     t->InstanceTemplate()->SetInternalFieldCount(2);
-    t->SetClassName(v8::String::NewSymbol(name));
+    t->SetClassName(v8::String::NewFromUtf8(isolate, name));
 
     return t;
 }
@@ -407,13 +414,10 @@ CreateFunctionTemplate(const char * name,
     
 void
 JsObjectBase::
-garbageCollectionCallback(v8::Persistent<v8::Value> value, void *data)
+garbageCollectionCallback(const v8::WeakCallbackInfo<JsObjectBase> & info)
 {
-    JsObjectBase * obj = reinterpret_cast<JsObjectBase *>(data);
-    ExcAssert(value == obj->js_object_);
-    if (value.IsNearDeath()) {
-        delete obj;
-    }
+    JsObjectBase * obj = info.GetParameter();
+    delete obj;
 }
 
 
@@ -567,6 +571,4 @@ from_js(const JSValue & val, const RestParams *)
 }
 
 } // namespace JS
-
 } // namespace Datacratic
-

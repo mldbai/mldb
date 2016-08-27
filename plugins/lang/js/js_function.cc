@@ -15,10 +15,9 @@
 
 #include <boost/algorithm/string.hpp>
 
-
 using namespace std;
 
-
+#if 0
 namespace Datacratic {
 namespace MLDB {
 
@@ -72,11 +71,11 @@ initialize(const JsFunctionData & data)
     //v8::Locker locker(this->isolate->isolate);
     v8::Isolate::Scope isolate(this->isolate->isolate);
 
-    HandleScope handle_scope;
+    HandleScope handle_scope(this->isolate->isolate);
 
     // Create a new context.
-    this->context = v8::Persistent<v8::Context>::New(Context::New());
-
+    this->context.Reset(this->isolate->isolate,
+                        Context::New(this->isolate->isolate));
 
     // Enter the created context for compiling and
     // running the hello world script. 
@@ -84,21 +83,22 @@ initialize(const JsFunctionData & data)
 
     // Add the mldb object to the context
     auto mldb = MldbJS::registerMe()->NewInstance();
-    mldb->SetInternalField(0, v8::External::New(data.server));
-    mldb->SetInternalField(1, v8::External::New(data.context.get()));
-    this->context->Global()->Set(String::New("mldb"), mldb);
+    mldb->SetInternalField(0, v8::External::New(isolate, data.server));
+    mldb->SetInternalField(1, v8::External::New(isolate, data.context.get()));
+    this->context->Global()->Set(String::NewFromUtf8(isolate, "mldb"), mldb);
 
     Utf8String jsFunctionSource = data.scriptSource;
 
     // Create a string containing the JavaScript source code.
-    Handle<String> source = String::New(jsFunctionSource.rawString().c_str());
+    Handle<String> source = String::NewFromUtf8(isolate, jsFunctionSource.rawString().c_str());
 
     TryCatch trycatch;
     //trycatch.SetVerbose(true);
 
     // This is equivalent to fntocall = new Function('arg1', ..., 'script');
     v8::Local<v8::Object> function
-        = v8::Local<v8::Object>::Cast(this->context->Global()->Get(v8::String::New("Function")));
+        = v8::Local<v8::Object>::Cast(this->context->Global()->Get(v8::String::New(isolate, "Function")));
+
     std::vector<v8::Handle<v8::Value> > argv;
     for (unsigned i = 0;  i != data.params.size();  ++i)
         argv.push_back(v8::String::New(data.params[i].c_str()));
@@ -245,3 +245,4 @@ RegisterFunction registerJs(Utf8String("jseval"), bindJsEval);
 
 } // namespace Datacratic
 } // namespace MLDB
+#endif

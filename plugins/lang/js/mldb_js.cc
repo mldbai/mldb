@@ -48,7 +48,8 @@ v8::Handle<v8::Object>
 CellValueJS::
 create(CellValue value, JsPluginContext * context)
 {
-    auto obj = context->CellValue->GetFunction()->NewInstance();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto obj = context->CellValue.Get(isolate)->GetFunction()->NewInstance();
     auto * wrapped = new CellValueJS();
     wrapped->val = std::move(value);
     wrapped->wrap(obj, context);
@@ -70,11 +71,12 @@ registerMe()
 {
     using namespace v8;
 
-    HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("Atom");
 
-    return scope.Close(fntmpl);
+    return scope.Escape(fntmpl);
 }
 
 
@@ -85,8 +87,8 @@ registerMe()
 /** Interface around an istream. */
 
 struct StreamJS::Methods {
-    static v8::Handle<v8::Value>
-    readLine(const v8::Arguments & args)
+    static void
+    readLine(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -98,24 +100,24 @@ struct StreamJS::Methods {
             while (!nextLine.empty() && nextLine[nextLine.size() - 1] == '\r')
                 nextLine.erase(nextLine.size() - 1);
 
-            return JS::toJS(nextLine);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(nextLine));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readJson(const v8::Arguments & args)
+    static void
+    readJson(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
 
             Json::Value val = Json::parse(*stream);
 
-            return JS::toJS(val);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(val));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readU8(const v8::Arguments & args)
+    static void
+    readU8(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -130,12 +132,12 @@ struct StreamJS::Methods {
             if (stream->gcount() < 1)
                 throw ML::Exception("End of file");
             
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readI8(const v8::Arguments & args)
+    static void
+    readI8(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -148,12 +150,12 @@ struct StreamJS::Methods {
             if (stream->gcount() < 1)
                 throw ML::Exception("End of file");
             
-            return JS::toJS(i);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(i));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readU32LE(const v8::Arguments & args)
+    static void
+    readU32LE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -166,12 +168,12 @@ struct StreamJS::Methods {
             if (stream->gcount() < 4)
                 throw ML::Exception("End of file");
             
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readU32BE(const v8::Arguments & args)
+    static void
+    readU32BE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -190,12 +192,12 @@ struct StreamJS::Methods {
                 | ubytes[1] << 16
                 | ubytes[0] << 24;
 
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readI32LE(const v8::Arguments & args)
+    static void
+    readI32LE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -209,12 +211,12 @@ struct StreamJS::Methods {
             if (stream->gcount() < 4)
                 throw ML::Exception("End of file");
             
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readI32BE(const v8::Arguments & args)
+    static void
+    readI32BE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -233,12 +235,12 @@ struct StreamJS::Methods {
                 | ubytes[1] << 16
                 | ubytes[0] << 24;
 
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readU16LE(const v8::Arguments & args)
+    static void
+    readU16LE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -251,12 +253,12 @@ struct StreamJS::Methods {
             if (stream->gcount() < 2)
                 throw ML::Exception("End of file");
             
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readU16BE(const v8::Arguments & args)
+    static void
+    readU16BE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -273,12 +275,12 @@ struct StreamJS::Methods {
                 = ubytes[1] << 0
                 | ubytes[0] << 8;
 
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readI16LE(const v8::Arguments & args)
+    static void
+    readI16LE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -292,12 +294,12 @@ struct StreamJS::Methods {
             if (stream->gcount() < 2)
                 throw ML::Exception("End of file");
             
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readI16BE(const v8::Arguments & args)
+    static void
+    readI16BE(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -314,12 +316,12 @@ struct StreamJS::Methods {
                 = ubytes[1] << 0
                 | ubytes[0] << 8;
 
-            return JS::toJS(u);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(u));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readBytes(const v8::Arguments & args)
+    static void
+    readBytes(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
@@ -337,21 +339,21 @@ struct StreamJS::Methods {
                 bytes.resize(stream->gcount());
             }
             
-            return JS::toJS(bytes);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(bytes));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    eof(const v8::Arguments & args)
+    static void
+    eof(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto stream = getShared(args.This());
-            return JS::toJS(stream->eof());
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(stream->eof()));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    readBlob(const v8::Arguments & args)
+    static void
+    readBlob(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             JsContextScope scope(args.This());
@@ -365,7 +367,7 @@ struct StreamJS::Methods {
                 std::ostringstream buf;
                 buf << stream->rdbuf();
 
-                return JS::toJS(CellValue::blob(std::move(buf.str())));
+                args.GetReturnValue().Set(JS::toJS(CellValue::blob(std::move(buf.str()))));
             }
             else {
                 // Load from the blob
@@ -380,11 +382,11 @@ struct StreamJS::Methods {
                                                   "bytesAvailable", bytesRead);
                 }
                     
-                return JS::toJS(CellValue::blob((const char *)&bytes[0],
-                                                bytesRead));
+                args.GetReturnValue().Set(JS::toJS(CellValue::blob((const char *)&bytes[0],
+                                                                   bytesRead)));
             }
             
-        } HANDLE_JS_EXCEPTIONS;
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 };
 
@@ -392,7 +394,8 @@ v8::Handle<v8::Object>
 StreamJS::
 create(std::shared_ptr<std::istream> stream, JsPluginContext * context)
 {
-    auto obj = context->Stream->GetFunction()->NewInstance();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto obj = context->Stream.Get(isolate)->GetFunction()->NewInstance();
     auto * wrapped = new StreamJS();
     wrapped->stream = stream;
     wrapped->wrap(obj, context);
@@ -414,34 +417,50 @@ registerMe()
 {
     using namespace v8;
 
-    HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("Stream");
     auto objtmpl = fntmpl->InstanceTemplate();
 
-    objtmpl->Set(String::New("readLine"), FunctionTemplate::New(Methods::readLine));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readLine"),
+                 FunctionTemplate::New(isolate, Methods::readLine));
 
-    objtmpl->Set(String::New("readU8"), FunctionTemplate::New(Methods::readU8));
-    objtmpl->Set(String::New("readI8"), FunctionTemplate::New(Methods::readI8));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readU8"),
+                 FunctionTemplate::New(isolate, Methods::readU8));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readI8"),
+                 FunctionTemplate::New(isolate, Methods::readI8));
 
-    objtmpl->Set(String::New("readU16LE"), FunctionTemplate::New(Methods::readU16LE));
-    objtmpl->Set(String::New("readU16BE"), FunctionTemplate::New(Methods::readU16BE));
-    objtmpl->Set(String::New("readI16LE"), FunctionTemplate::New(Methods::readI16LE));
-    objtmpl->Set(String::New("readI16BE"), FunctionTemplate::New(Methods::readI16BE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readU16LE"),
+                 FunctionTemplate::New(isolate, Methods::readU16LE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readU16BE"),
+                 FunctionTemplate::New(isolate, Methods::readU16BE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readI16LE"),
+                 FunctionTemplate::New(isolate, Methods::readI16LE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readI16BE"),
+                 FunctionTemplate::New(isolate, Methods::readI16BE));
 
-    objtmpl->Set(String::New("readU32LE"), FunctionTemplate::New(Methods::readU32LE));
-    objtmpl->Set(String::New("readU32BE"), FunctionTemplate::New(Methods::readU32BE));
-    objtmpl->Set(String::New("readI32LE"), FunctionTemplate::New(Methods::readI32LE));
-    objtmpl->Set(String::New("readI32BE"), FunctionTemplate::New(Methods::readI32BE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readU32LE"),
+                 FunctionTemplate::New(isolate, Methods::readU32LE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readU32BE"),
+                 FunctionTemplate::New(isolate, Methods::readU32BE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readI32LE"),
+                 FunctionTemplate::New(isolate, Methods::readI32LE));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readI32BE"),
+                 FunctionTemplate::New(isolate, Methods::readI32BE));
 
-    objtmpl->Set(String::New("readBytes"), FunctionTemplate::New(Methods::readBytes));
-    objtmpl->Set(String::New("readJson"), FunctionTemplate::New(Methods::readJson));
-    objtmpl->Set(String::New("readBlob"), FunctionTemplate::New(Methods::readBlob));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readBytes"),
+                 FunctionTemplate::New(isolate, Methods::readBytes));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readJson"),
+                 FunctionTemplate::New(isolate, Methods::readJson));
+    objtmpl->Set(String::NewFromUtf8(isolate, "readBlob"),
+                 FunctionTemplate::New(isolate, Methods::readBlob));
 
-    objtmpl->Set(String::New("eof"), FunctionTemplate::New(Methods::eof));
+    objtmpl->Set(String::NewFromUtf8(isolate, "eof"),
+                 FunctionTemplate::New(isolate, Methods::eof));
         
 
-    return scope.Close(fntmpl);
+    return scope.Escape(fntmpl);
 }
 
 
@@ -488,8 +507,8 @@ struct RandomNumberGenerator {
 /*****************************************************************************/
 
 struct RandomNumberGeneratorJS::Methods {
-    static v8::Handle<v8::Value>
-    seed(const v8::Arguments & args)
+    static void
+    seed(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto randomNumberGenerator = getShared(args.This());
@@ -497,12 +516,12 @@ struct RandomNumberGeneratorJS::Methods {
             while (randomSeed == 0)
                 randomSeed = random();
             randomNumberGenerator->seed(randomSeed);
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    normal(const v8::Arguments & args)
+    static void
+    normal(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto randomNumberGenerator = getShared(args.This());
@@ -510,12 +529,12 @@ struct RandomNumberGeneratorJS::Methods {
                                      "Mean of distribution");
             double stddev = JS::getArg(args, 1, 1.0,
                                        "Standard deviation of distribution");
-            return JS::toJS(randomNumberGenerator->normal(mean, stddev));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(randomNumberGenerator->normal(mean, stddev)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    uniform(const v8::Arguments & args)
+    static void
+    uniform(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             auto randomNumberGenerator = getShared(args.This());
@@ -523,8 +542,8 @@ struct RandomNumberGeneratorJS::Methods {
                                      "Minimum value of distribution");
             double max = JS::getArg(args, 1, 1.0,
                                     "Maximum value of distribution");
-            return JS::toJS(randomNumberGenerator->uniform(min, max));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(JS::toJS(randomNumberGenerator->uniform(min, max)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 };
 
@@ -533,7 +552,9 @@ RandomNumberGeneratorJS::
 create(std::shared_ptr<RandomNumberGenerator> randomNumberGenerator,
        JsPluginContext * context)
 {
-    auto obj = context->RandomNumberGenerator->GetFunction()->NewInstance();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto obj = context->RandomNumberGenerator.Get(isolate)
+        ->GetFunction()->NewInstance();
     auto * wrapped = new RandomNumberGeneratorJS();
     wrapped->randomNumberGenerator = randomNumberGenerator;
     wrapped->wrap(obj, context);
@@ -555,16 +576,20 @@ registerMe()
 {
     using namespace v8;
 
-    HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("RandomNumberGenerator");
     auto objtmpl = fntmpl->InstanceTemplate();
 
-    objtmpl->Set(String::New("seed"), FunctionTemplate::New(Methods::seed));
-    objtmpl->Set(String::New("normal"), FunctionTemplate::New(Methods::normal));
-    objtmpl->Set(String::New("uniform"), FunctionTemplate::New(Methods::uniform));
+    objtmpl->Set(String::NewFromUtf8(isolate, "seed"),
+                 FunctionTemplate::New(isolate, Methods::seed));
+    objtmpl->Set(String::NewFromUtf8(isolate, "normal"),
+                 FunctionTemplate::New(isolate, Methods::normal));
+    objtmpl->Set(String::NewFromUtf8(isolate, "uniform"),
+                 FunctionTemplate::New(isolate, Methods::uniform));
 
-    return scope.Close(fntmpl);
+    return scope.Escape(fntmpl);
 }
 
 
@@ -574,20 +599,21 @@ registerMe()
 
 struct MldbJS::Methods {
 
-    static v8::Handle<v8::Value>
-    openStream(const v8::Arguments & args)
+    static void
+    openStream(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             auto stream = std::make_shared<filter_istream>(JS::cstr(args[0]));
             
-            return StreamJS::create(stream, context);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(StreamJS::create(stream, context));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    createDataset(const v8::Arguments & args)
+    static void
+    createDataset(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
+        v8::Isolate* isolate = args.GetIsolate();
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
@@ -603,19 +629,22 @@ struct MldbJS::Methods {
 
             auto objectIn = JS::toObject(args[0]);
 
-            objectIn->Set(v8::String::New("id"), JS::toJS(configOut.id));
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"),
+                          JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
             if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::New("params"), JS::toJS(paramsOut));
+                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"),
+                              JS::toJS(paramsOut));
             }
 
-            return DatasetJS::create(dataset, context);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(DatasetJS::create(dataset, context));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    createFunction(const v8::Arguments & args)
+    static void
+    createFunction(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
+        v8::Isolate* isolate = args.GetIsolate();
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
@@ -631,19 +660,20 @@ struct MldbJS::Methods {
 
             auto objectIn = JS::toObject(args[0]);
 
-            objectIn->Set(v8::String::New("id"), JS::toJS(configOut.id));
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
             if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::New("params"), JS::toJS(paramsOut));
+                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
             }
 
-            return FunctionJS::create(function, context);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(FunctionJS::create(function, context));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    createProcedure(const v8::Arguments & args)
+    static void
+    createProcedure(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
+        v8::Isolate* isolate = args.GetIsolate();
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
@@ -659,26 +689,26 @@ struct MldbJS::Methods {
 
             auto objectIn = JS::toObject(args[0]);
 
-            objectIn->Set(v8::String::New("id"), JS::toJS(configOut.id));
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
             if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::New("params"), JS::toJS(paramsOut));
+                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
             }
 
-            return ProcedureJS::create(procedure, context);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(ProcedureJS::create(procedure, context));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    createRandomNumberGenerator(const v8::Arguments & args)
+    static void
+    createRandomNumberGenerator(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
 
             int seed = JS::getArg(args, random(), 0.0, "Seed of generator");
             auto rng = std::make_shared<RandomNumberGenerator>(seed);
-            return RandomNumberGeneratorJS::create(rng, context);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(RandomNumberGeneratorJS::create(rng, context));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
     static v8::Handle<v8::Object> doPerform(MldbServer * server,
@@ -688,6 +718,7 @@ struct MldbJS::Methods {
                                             Json::Value payload = Json::Value(),
                                             const RestParams & headers = RestParams())
     {
+        v8::Isolate* isolate = v8::Isolate::GetCurrent();
         if (payload.isString()) {
             payload = Json::parse(payload.asString());
         }
@@ -707,27 +738,33 @@ struct MldbJS::Methods {
 
         server->handleRequest(connection, request);
 
-        v8::Handle<v8::Object> result(v8::Object::New());
-        result->Set(v8::String::New("responseCode"), JS::toJS(connection.responseCode));
+        v8::Handle<v8::Object> result(v8::Object::New(isolate));
+        result->Set(v8::String::NewFromUtf8(isolate, "responseCode"),
+                    JS::toJS(connection.responseCode));
 
         if (!connection.contentType.empty())
-            result->Set(v8::String::New("contentType"), JS::toJS(connection.contentType));
+            result->Set(v8::String::NewFromUtf8(isolate, "contentType"),
+                        JS::toJS(connection.contentType));
         if (!connection.headers.empty())
-            result->Set(v8::String::New("headers"), JS::toJS(connection.headers));
+            result->Set(v8::String::NewFromUtf8(isolate, "headers"),
+                        JS::toJS(connection.headers));
         if (!connection.response.empty()) {
-            result->Set(v8::String::New("response"), JS::toJS(connection.response));
+            result->Set(v8::String::NewFromUtf8(isolate, "response"),
+                        JS::toJS(connection.response));
             if (connection.contentType == "application/json") {
-                result->Set(v8::String::New("json"), JS::toJS(Json::parse(connection.response)));
+                result->Set(v8::String::NewFromUtf8(isolate, "json"),
+                            JS::toJS(Json::parse(connection.response)));
             }
         }
 
         return result;
     }
 
-    static v8::Handle<v8::Value>
-    get(const v8::Arguments & args)
+    static void
+    get(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             MldbServer * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
@@ -736,83 +773,89 @@ struct MldbJS::Methods {
 
             RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
 
-            return scope.Close(doPerform(server, "GET", resource, params,
-                                         Json::Value(), headers));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(doPerform(server, "GET", resource, params,
+                                                             Json::Value(), headers)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    put(const v8::Arguments & args)
+    static void
+    put(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             MldbServer * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
             RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
-            return scope.Close(doPerform(server, "PUT", resource, RestParams(), std::move(payload), headers));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(doPerform(server, "PUT", resource, RestParams(), std::move(payload), headers)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    putAsync(const v8::Arguments & args)
+    static void
+    putAsync(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
-        try {
-            MldbServer * server = MldbJS::getShared(args.This());
-            Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
-            Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
-            RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
-            headers.emplace_back("async", "true");
-            return scope.Close(doPerform(server, "PUT", resource, RestParams(), std::move(payload), headers));
-        } HANDLE_JS_EXCEPTIONS;
-    }
-
-    static v8::Handle<v8::Value>
-    post(const v8::Arguments & args)
-    {
-        v8::HandleScope scope;
-        try {
-            MldbServer * server = MldbJS::getShared(args.This());
-            Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
-            Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
-            RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
-            return scope.Close(doPerform(server, "POST", resource, RestParams(), std::move(payload), headers));
-        } HANDLE_JS_EXCEPTIONS;
-    }
-
-    static v8::Handle<v8::Value>
-    postAsync(const v8::Arguments & args)
-    {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             MldbServer * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
             RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
             headers.emplace_back("async", "true");
-            return scope.Close(doPerform(server, "POST", resource, RestParams(), std::move(payload), headers));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(doPerform(server, "PUT", resource, RestParams(), std::move(payload), headers)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    del(const v8::Arguments & args)
+    static void
+    post(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
+        try {
+            MldbServer * server = MldbJS::getShared(args.This());
+            Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
+            Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
+            RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
+            args.GetReturnValue().Set(scope.Escape(doPerform(server, "POST", resource, RestParams(), std::move(payload), headers)));
+        } HANDLE_JS_EXCEPTIONS(args);
+    }
+
+    static void
+    postAsync(const v8::FunctionCallbackInfo<v8::Value> & args)
+    {
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
+        try {
+            MldbServer * server = MldbJS::getShared(args.This());
+            Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
+            Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
+            RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
+            headers.emplace_back("async", "true");
+            args.GetReturnValue().Set(scope.Escape(doPerform(server, "POST", resource, RestParams(), std::move(payload), headers)));
+        } HANDLE_JS_EXCEPTIONS(args);
+    }
+
+    static void
+    del(const v8::FunctionCallbackInfo<v8::Value> & args)
+    {
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             MldbServer * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             RestParams headers = JS::getArg<RestParams>(args, 1, RestParams(), "headers");
 
-            return scope.Close(doPerform(server, "DELETE", resource, RestParams(),
-                                         Json::Value(), headers));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(doPerform(server, "DELETE", resource, RestParams(),
+                                                             Json::Value(), headers)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    perform(const v8::Arguments & args)
+    static void
+    perform(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             MldbServer * server = MldbJS::getShared(args.This());
             string verb = JS::getArg<std::string>(args, 0, "verb");
@@ -820,14 +863,15 @@ struct MldbJS::Methods {
             RestParams params = JS::getArg<RestParams>(args, 2, {}, "params");
             Json::Value payload = JS::getArg<Json::Value>(args, 3, Json::Value(), "payload");
             RestParams headers = JS::getArg<RestParams>(args, 4, RestParams(), "headers");
-            return scope.Close(doPerform(server, verb, resource, params, std::move(payload), headers));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(doPerform(server, verb, resource, params, std::move(payload), headers)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    diff(const v8::Arguments & args)
+    static void
+    diff(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             Json::Value val1 = JS::getArg<Json::Value>(args, 0, "val1");
             Json::Value val2 = JS::getArg<Json::Value>(args, 1, "val2");
@@ -842,14 +886,15 @@ struct MldbJS::Methods {
 
             auto result = JS::toJS(jsonEncode(diff));
 
-            return scope.Close(result);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(result));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
     
-    static v8::Handle<v8::Value>
-    patch(const v8::Arguments & args)
+    static void
+    patch(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             Json::Value val = JS::getArg<Json::Value>(args, 0, "val");
             Json::Value patch = JS::getArg<Json::Value>(args, 1, "patch");
@@ -858,14 +903,15 @@ struct MldbJS::Methods {
 
             auto result = JS::toJS(jsonEncode(patched));
             
-            return scope.Close(result);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(result));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    ls(const v8::Arguments & args)
+    static void
+    ls(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
 
             string dir = JS::getArg<Utf8String>(args, 0, "dir").rawString();
@@ -895,12 +941,12 @@ struct MldbJS::Methods {
             result["dirs"] = jsonEncode(dirs);
             result["objects"] = jsonEncode(objects);
             
-            return scope.Close(JS::toJS(result));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(JS::toJS(result)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    log(const v8::Arguments & args)
+    static void
+    log(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         using namespace v8;
         JsPluginContext * context = MldbJS::getContext(args.This());
@@ -942,17 +988,18 @@ struct MldbJS::Methods {
                 context->logs.emplace_back(Date::now(), "log", Utf8String(line));
             }
 
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    createInterval(const v8::Arguments & args)
+    static void
+    createInterval(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         using namespace v8;
         JsPluginContext * context = MldbJS::getContext(args.This());
 
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             int64_t months = 0;
             int64_t days = 0;
@@ -965,7 +1012,7 @@ struct MldbJS::Methods {
                     Json::Value val2;
                     val2["interval"] = val1;
                     CellValue val = jsonDecode<CellValue>(val2);
-                    return scope.Close(CellValueJS::create(val, context));
+                    args.GetReturnValue().Set(scope.Escape(CellValueJS::create(val, context)));
                 }
                 else {
                     for (auto it = val1.begin();  it != val1.end();  ++it) {
@@ -981,7 +1028,7 @@ struct MldbJS::Methods {
                         else if (it.memberName() == "interval") {
                             ExcAssertEqual(val1.size(), 1);
                             CellValue val = jsonDecode<CellValue>(val1);
-                            return scope.Close(CellValueJS::create(val, context));
+                            args.GetReturnValue().Set(scope.Escape(CellValueJS::create(val, context)));
                         }
                         else {
                             throw ML::Exception("Unknown object field for interval: '%s'.  Accepted are months, days, seconds or interval by itself");
@@ -997,62 +1044,66 @@ struct MldbJS::Methods {
 
             CellValue val = CellValue::fromMonthDaySecond(months, days, seconds);
             
-            return scope.Close(CellValueJS::create(val, context));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(CellValueJS::create(val, context)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
     
-    static v8::Handle<v8::Value>
-    createPath(const v8::Arguments & args)
+    static void
+    createPath(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         using namespace v8;
         JsPluginContext * context = MldbJS::getContext(args.This());
 
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             Path val1 = JS::getArg<Path>(args, 0, "argument");
             CellValue val(val1);
-            return scope.Close(CellValueJS::create(val, context));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(CellValueJS::create(val, context)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
     
-    static v8::Handle<v8::Value>
-    sqlEscape(const v8::Arguments & args)
+    static void
+    sqlEscape(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             Utf8String str = JS::getArg<Utf8String>(args, 0, "str");
 
             auto result = JS::toJS(escapeSql(str));
             
-            return scope.Close(result);
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(result));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    query(const v8::Arguments & args)
+    static void
+    query(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             MldbServer * server = MldbJS::getShared(args.This());
             Utf8String query = JS::getArg<Utf8String>(args, 0, "sql");
             std::vector<MatrixNamedRow> result = server->query(query);
 
-            return scope.Close(JS::toJS(jsonEncode(result)));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(JS::toJS(jsonEncode(result))));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    getHttpBoundAddress(const v8::Arguments & args)
+    static void
+    getHttpBoundAddress(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
-        v8::HandleScope scope;
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
         try {
             MldbServer * server = MldbJS::getShared(args.This());
-            return scope.Close(JS::toJS(server->httpBoundAddress));
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(scope.Escape(JS::toJS(server->httpBoundAddress)));
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    setPathOptimizationLevel(const v8::Arguments & args)
+    static void
+    setPathOptimizationLevel(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         using namespace v8;
         try {
@@ -1076,8 +1127,8 @@ struct MldbJS::Methods {
 
             OptimizedPath::setDefault(level);
             
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 };
 
@@ -1105,60 +1156,71 @@ registerMe()
 {
     using namespace v8;
 
-    HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
 
     v8::Local<v8::ObjectTemplate> result(ObjectTemplate::New());
 
     result->SetInternalFieldCount(2);  // first is mldbServer, second is plugin cxt
 
-    result->Set(String::New("log"), FunctionTemplate::New(Methods::log));
-    result->Set(String::New("openStream"),
-                FunctionTemplate::New(Methods::openStream));
-    result->Set(String::New("createDataset"),
-                FunctionTemplate::New(Methods::createDataset));
-    result->Set(String::New("createFunction"),
-                FunctionTemplate::New(Methods::createFunction));
-    result->Set(String::New("createProcedure"),
-                FunctionTemplate::New(Methods::createProcedure));
-    result->Set(String::New("createInterval"),
-                FunctionTemplate::New(Methods::createInterval));
-    result->Set(String::New("createPath"),
-                FunctionTemplate::New(Methods::createPath));
-    result->Set(String::New("createRandomNumberGenerator"),
-                FunctionTemplate::New(Methods::createRandomNumberGenerator));
-    result->Set(String::New("perform"), FunctionTemplate::New(Methods::perform));
-    result->Set(String::New("get"), FunctionTemplate::New(Methods::get));
-    result->Set(String::New("put"), FunctionTemplate::New(Methods::put));
-    result->Set(String::New("putAsync"), FunctionTemplate::New(Methods::putAsync));
-    result->Set(String::New("post"), FunctionTemplate::New(Methods::post));
-    result->Set(String::New("postAsync"), FunctionTemplate::New(Methods::postAsync));
-    result->Set(String::New("del"), FunctionTemplate::New(Methods::del));
+    result->Set(String::NewFromUtf8(isolate, "log"), FunctionTemplate::New(isolate, Methods::log));
+    result->Set(String::NewFromUtf8(isolate, "openStream"),
+                FunctionTemplate::New(isolate, Methods::openStream));
+    result->Set(String::NewFromUtf8(isolate, "createDataset"),
+                FunctionTemplate::New(isolate, Methods::createDataset));
+    result->Set(String::NewFromUtf8(isolate, "createFunction"),
+                FunctionTemplate::New(isolate, Methods::createFunction));
+    result->Set(String::NewFromUtf8(isolate, "createProcedure"),
+                FunctionTemplate::New(isolate, Methods::createProcedure));
+    result->Set(String::NewFromUtf8(isolate, "createInterval"),
+                FunctionTemplate::New(isolate, Methods::createInterval));
+    result->Set(String::NewFromUtf8(isolate, "createPath"),
+                FunctionTemplate::New(isolate, Methods::createPath));
+    result->Set(String::NewFromUtf8(isolate, "createRandomNumberGenerator"),
+                FunctionTemplate::New(isolate, Methods::createRandomNumberGenerator));
+    result->Set(String::NewFromUtf8(isolate, "perform"),
+                FunctionTemplate::New(isolate, Methods::perform));
+    result->Set(String::NewFromUtf8(isolate, "get"),
+                FunctionTemplate::New(isolate, Methods::get));
+    result->Set(String::NewFromUtf8(isolate, "put"),
+                FunctionTemplate::New(isolate, Methods::put));
+    result->Set(String::NewFromUtf8(isolate, "putAsync"),
+                FunctionTemplate::New(isolate, Methods::putAsync));
+    result->Set(String::NewFromUtf8(isolate, "post"),
+                FunctionTemplate::New(isolate, Methods::post));
+    result->Set(String::NewFromUtf8(isolate, "postAsync"),
+                FunctionTemplate::New(isolate, Methods::postAsync));
+    result->Set(String::NewFromUtf8(isolate, "del"),
+                FunctionTemplate::New(isolate, Methods::del));
 
-    result->Set(String::New("diff"), FunctionTemplate::New(Methods::diff));
-    result->Set(String::New("patch"), FunctionTemplate::New(Methods::patch));
+    result->Set(String::NewFromUtf8(isolate, "diff"),
+                FunctionTemplate::New(isolate, Methods::diff));
+    result->Set(String::NewFromUtf8(isolate, "patch"),
+                FunctionTemplate::New(isolate, Methods::patch));
 
-    result->Set(String::New("query"),
-                FunctionTemplate::New(Methods::query));
-    result->Set(String::New("sqlEscape"),
-                FunctionTemplate::New(Methods::sqlEscape));
+    result->Set(String::NewFromUtf8(isolate, "query"),
+                FunctionTemplate::New(isolate, Methods::query));
+    result->Set(String::NewFromUtf8(isolate, "sqlEscape"),
+                FunctionTemplate::New(isolate, Methods::sqlEscape));
 
-    result->Set(String::New("ls"), FunctionTemplate::New(Methods::ls));
-    result->Set(String::New("getHttpBoundAddress"),
-                FunctionTemplate::New(Methods::getHttpBoundAddress));
+    result->Set(String::NewFromUtf8(isolate, "ls"),
+                FunctionTemplate::New(isolate, Methods::ls));
+    result->Set(String::NewFromUtf8(isolate, "getHttpBoundAddress"),
+                FunctionTemplate::New(isolate, Methods::getHttpBoundAddress));
 
-    result->Set(String::New("debugSetPathOptimizationLevel"),
-                FunctionTemplate::New(Methods::setPathOptimizationLevel));
+    result->Set(String::NewFromUtf8(isolate, "debugSetPathOptimizationLevel"),
+                FunctionTemplate::New(isolate, Methods::setPathOptimizationLevel));
 
-    return scope.Close(result);
+    return scope.Escape(result);
 }
 
-v8::Handle<v8::Value>
+void
 MldbJS::
-New(const v8::Arguments & args)
+New(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         throw ML::Exception("can't create new JS plugins");
-    } HANDLE_JS_EXCEPTIONS;
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
 } // namespace MLDB
