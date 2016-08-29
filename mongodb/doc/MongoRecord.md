@@ -1,7 +1,8 @@
 # MongoDB Record Dataset
 
-The MongoDB Record Dataset is a write-only [dataset] (Datasets.md) that writes
-to a MongoDB collection.
+The MongoDB Record Dataset is a write-only
+[dataset](/doc/builtin/datasets/Datasets.md) that writes to a MongoDB
+collection.
 
 Rows are stored in collections to the following format:
 
@@ -13,7 +14,7 @@ Rows are stored in collections to the following format:
         {
             "columnName" : <columnName>,
             "ts" : <timestamp>,
-            "data" : <cell value>
+            "data" : <cell value as a JSON string>
         },
         ...
     ]

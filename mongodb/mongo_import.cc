@@ -84,7 +84,8 @@ MongoImportConfigDescription()
              SqlExpression::TRUE);
     addField("named", &MongoImportConfig::named,
              "Row name expression for output dataset. Note that each row "
-             "must have a unique name and that names cannot be objects.",
+             "must have a unique name and that names cannot be objects. The "
+             "default value, `oid()`, refers to the MongoDB ObjectID.",
              SqlExpression::parse("oid()"));
 
     onPostValidate = [] (MongoImportConfig * config,
