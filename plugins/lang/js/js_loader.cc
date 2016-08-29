@@ -16,7 +16,6 @@
 #include "mldb/sql/cell_value.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/rest/rest_request_binding.h"
-#include "mldb/types/js/id_js.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/types/any_impl.h"
 
@@ -27,7 +26,6 @@
 #include "procedure_js.h"
 #include <v8.h>
 
-#include "mldb/soa/js/js_utils.h"
 #include "mldb/types/string.h"
 
 #include <boost/algorithm/string.hpp>

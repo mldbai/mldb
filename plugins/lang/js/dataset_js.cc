@@ -9,7 +9,6 @@
 
 #include "dataset_js.h"
 #include "mldb/core/dataset.h"
-#include "mldb/types/js/id_js.h"
 
 
 using namespace std;

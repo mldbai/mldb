@@ -9,6 +9,7 @@
 
 #include "execution_pipeline.h"
 #include "join_utils.h"
+#include <list>
 
 namespace Datacratic {
 namespace MLDB {
@@ -40,7 +41,7 @@ struct TableLexicalScope: public LexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -151,7 +152,7 @@ struct SubSelectLexicalScope: public TableLexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual std::set<Utf8String> tableNames() const;
@@ -270,7 +271,7 @@ struct JoinLexicalScope: public LexicalScope {
     */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -349,6 +350,7 @@ struct JoinElement: public PipelineElement {
         void restart();
     };
 
+
     /** Execution runs on left rows and right rows together.  This requires to
         sort the value that will be compared (ie. the pivot).  The worse case
         complexity is O(left rows) * O(right rows) when the pivot value is a
@@ -367,10 +369,15 @@ struct JoinElement: public PipelineElement {
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
         
-        std::shared_ptr<PipelineResults> l,r;
-
-        void takeMoreInput();
-            
+        std::shared_ptr<PipelineResults> r;
+        typedef std::list<std::shared_ptr<PipelineResults> > bufferType;
+        bufferType bufferedLeftValues;
+        /** Note that the left-side values are buffered so that we can
+            backtrack when we need to form the cross product on matching 
+            values.
+        */
+        bufferType::iterator l, firstDuplicate;
+    
         virtual std::shared_ptr<PipelineResults> take();
 
         virtual void restart();
@@ -681,7 +688,7 @@ struct AggregateLexicalScope: public LexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction

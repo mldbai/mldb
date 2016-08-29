@@ -95,7 +95,7 @@ ExpressionValue evalSql(SqlBindingScope & scope,
 {
     ExpressionValue argsArray[sizeof...(args)]
         = { bindSqlArg(std::forward<Args>(args))... };
-    return evalSql(scope, expr, &argsArray[0], sizeof...(args));
+    return evalSql(scope, expr, argsArray, sizeof...(args));
 }
 
 } // namespace MLDB

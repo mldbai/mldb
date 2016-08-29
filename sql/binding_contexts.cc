@@ -110,7 +110,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ReadThroughBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     GetAllColumnsOutput result = outer.doGetAllColumns(tableName, keep);
     auto outerFn = result.exec;
@@ -202,7 +202,7 @@ doGetFunction(const Utf8String & tableName,
                         ? col.columnName.size() + elementNum
                         : elementNum;
 
-                    if (index < 0 || index >= col.columnName.size()) {
+                    if (index >= col.columnName.size()) {
                         return ExpressionValue::null(Date::negativeInfinity());
                     }
 
@@ -283,7 +283,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput
 ColumnExpressionBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException(400, "Cannot use wildcard inside COLUMN EXPR");
 }
@@ -495,7 +495,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 SqlExpressionExtractScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     GetAllColumnsOutput result;
 

@@ -27,8 +27,10 @@
 #include "mldb/base/thread_pool.h"
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
-#include "mldb/arch/sse2.h"
-#include "mldb/arch/sse2_log.h"
+#if JML_INTEL_ISA
+# include "mldb/arch/sse2.h"
+# include "mldb/arch/sse2_log.h"
+#endif
 #include "mldb/arch/cache.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/environment.h"

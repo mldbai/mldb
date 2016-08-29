@@ -1,4 +1,4 @@
-#
+# -*- coding: utf-8 -*-
 # MLDB-861-character-encoding.py
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.

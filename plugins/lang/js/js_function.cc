@@ -10,7 +10,6 @@
 #include "mldb/arch/thread_specific.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/types/js/id_js.h"
 #include "mldb/sql/expression_value.h"
 #include "mldb/sql/sql_expression.h"
 

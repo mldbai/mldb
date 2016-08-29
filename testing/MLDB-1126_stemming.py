@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-1126_stemming.py
 # Francois Maillet, 2015-11-19

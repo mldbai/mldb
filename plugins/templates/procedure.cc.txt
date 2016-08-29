@@ -43,9 +43,7 @@ DEFINE_STRUCTURE_DESCRIPTION({cc_proc_name}ProcedureConfig);
 {cc_proc_name}ProcedureConfigDescription()
 {{
     addField("outputDataset", &{cc_proc_name}ProcedureConfig::outputDataset,
-             "Output dataset configuration. This may refer either to an "
-             "existing dataset, or a fully specified but non-existing dataset "
-             "which will be created by the procedure.",
+             GENERIC_OUTPUT_DS_DESC,
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addParent<ProcedureConfig>();
 

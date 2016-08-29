@@ -135,7 +135,7 @@ struct JsonScope : SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep) override
+                    const ColumnFilter& keep) override
     {
         std::vector<KnownColumn> columnsWithInfo;
 

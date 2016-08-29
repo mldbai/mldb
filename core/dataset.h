@@ -562,6 +562,11 @@ struct Dataset: public MldbEntity {
     virtual std::vector<ColumnName>
     getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
 
+    /** Return whether or not all column names and info are known.
+        Defaults to true
+    */
+    virtual bool hasColumnNames() const { return true; }
+
     /** Allow the dataset to intercept the binding of a function.  This allows
         it to use a locally defined or optimized version.  Should return a null
         function if there is no override.

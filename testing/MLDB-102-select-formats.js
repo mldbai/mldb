@@ -39,8 +39,8 @@ recordExample("ex4", 3, 0, "no");
 
 dataset.commit()
 
-var res1 = mldb.get("/v1/datasets/test/query",
-                    { select: 'x,y,z', orderBy: 'rowName()', format: "aos" }).json;
+var res1 = mldb.get("/v1/query",
+                    { q: 'SELECT x,y,z from test order by rowName()', format: "aos" }).json;
 
 plugin.log(res1);
 
@@ -74,8 +74,8 @@ var expected1 = [
 assertEqual(res1, expected1);
 
 
-var res2 = mldb.get("/v1/datasets/test/query",
-                    { select: 'x,y,z', orderBy: 'rowName()', format: "soa" }).json;
+var res2 = mldb.get("/v1/query",
+                    { q: 'select x,y,z from test order by rowName()', format: "soa" }).json;
 
 plugin.log(res2);
 
@@ -88,8 +88,8 @@ var expected2 = {
 
 assertEqual(res2, expected2);
 
-var res3 = mldb.get("/v1/datasets/test/query",
-                    { select: 'x,y,z', orderBy: 'rowName()', format: "table" }).json;
+var res3 = mldb.get("/v1/query",
+                    { q: 'select x,y,z from test order by rowName()', format: "table" }).json;
 
 plugin.log(res3);
 
@@ -103,36 +103,22 @@ var expected3 = [
 
 assertEqual(res3, expected3);
 
-var res3a = mldb.get("/v1/datasets/test/query",
-                     { select: 'x,y,z', orderBy: 'rowName()', format: "table", headers:false }).json;
-
-plugin.log(res3a);
-
-var expected3a = [
-   [ "ex1", 0, 3, null ],
-   [ "ex2", 1, 2, "yes" ],
-   [ "ex3", 2, 1, null ],
-   [ "ex4", 3, 0, "no" ]
-];
-
-assertEqual(res3a, expected3a);
-
-var res3b = mldb.get("/v1/query",
+var res3 = mldb.get("/v1/query",
                      { q: 'select x,y,z from test order by rowName()', format: "table", headers:false }).json;
 
-plugin.log(res3b);
+plugin.log(res3);
 
-var expected3b = [
+var expected3 = [
    [ "ex1", 0, 3, null ],
    [ "ex2", 1, 2, "yes" ],
    [ "ex3", 2, 1, null ],
    [ "ex4", 3, 0, "no" ]
 ];
 
-assertEqual(res3b, expected3b);
+assertEqual(res3, expected3);
 
-var res4 = mldb.get("/v1/datasets/test/query",
-                    { select: 'x,y,z', orderBy: 'rowName()', format: "sparse" }).json;
+var res4 = mldb.get("/v1/query",
+                    { q: 'select x,y,z from test order by rowName()', format: "sparse" }).json;
 
 plugin.log(res4);
 
@@ -165,8 +151,8 @@ var expected4 = [
 
 assertEqual(res4, expected4);
 
-var res5 = mldb.get("/v1/datasets/test/query",
-                    { select: 'x,y,z', orderBy: 'rowName()', format: "full" }).json;
+var res5 = mldb.get("/v1/query",
+                    { q: 'select x,y,z from test order by rowName()', format: "full" }).json;
 
 plugin.log(res5);
 
@@ -211,18 +197,11 @@ var expected5 = [
 
 assertEqual(res5, expected5);
 
-var res5a = mldb.get("/v1/datasets/test/query",
-                     { select: 'x,y,z', orderBy: 'rowName()'}).json;
-
-plugin.log(res5a);
-
-assertEqual(res5a, expected5);
-
-var res5b = mldb.get("/v1/query",
+var res5 = mldb.get("/v1/query",
                      { q: 'select x,y,z from test order by rowName()'}).json;
 
-plugin.log(res5b);
+plugin.log(res5);
 
-assertEqual(res5b, expected5);
+assertEqual(res5, expected5);
 
 "success"
