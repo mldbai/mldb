@@ -68,7 +68,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             cls.pymongo.close()
             del cls.pymongo
 
-            # Leave time to close properly, if not it causes
+            # Leave time to close properly, if not it causes the error
             # Py_EndInterpreter: not the last thread
             time.sleep(1)
 
@@ -134,30 +134,30 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             r['rowName'] = row_idx
 
         self.assertFullResultEquals(res, [
-            {"rowName": 0,
-            "columns": [["_id", 0, dates[0]],["type", "simple", dates[0]]]
+            {
+                "rowName": 0,
+                "columns": [["_id", 0, dates[0]],["type", "simple", dates[0]]]
             },
-            {"rowName": 1,
-            "columns": [
-                ["_id", 1, dates[1]],
-                ["notype", None, dates[1]]]
+            {
+                "rowName": 1,
+                "columns": [ ["_id", 1, dates[1]], ["notype", None, dates[1]]]
             },
-            {"rowName": 2,
-            "columns": [
-                ["_id", 2, dates[2]],
-                ["obj.a.b", "c", dates[2]],
-                ["obj.d", "e", dates[2]],
-                ["type", "nested_obj", dates[2]]]
+            {
+                "rowName": 2,
+                "columns": [["_id", 2, dates[2]],
+                            ["obj.a.b", "c", dates[2]],
+                            ["obj.d", "e", dates[2]],
+                            ["type", "nested_obj", dates[2]]]
             },
-            {"rowName": 3,
-            "columns": [
-                ["_id", 3, dates[3]],
-                ["arr.0", 1, dates[3]],
-                ["arr.1", 2, dates[3]],
-                ["arr.2.0", 3, dates[3]],
-                ["arr.2.1", 4, dates[3]],
-                ["arr.3", 5, dates[3]],
-                ["type", "nested_arr", dates[3]]]
+            {
+                "rowName": 3,
+                "columns": [["_id", 3, dates[3]],
+                            ["arr.0", 1, dates[3]],
+                            ["arr.1", 2, dates[3]],
+                            ["arr.2.0", 3, dates[3]],
+                            ["arr.2.1", 4, dates[3]],
+                            ["arr.3", 5, dates[3]],
+                            ["type", "nested_arr", dates[3]]]
             }
         ])
 
@@ -248,10 +248,11 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             ['colA', 'other valeur sure', 3],
             ['dotted.colB', 43, 4]
         ])
+        res.record_row('"quoted"', [['whatever', 1, 5]])
 
         res = self.pymongo_db.record.find()
         rows = [r for r in res]
-        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(rows), 3)
         self.assertEqual(rows[0]['rowName'], 'row1')
         self.assertEqual(rows[0]['columns'], [{
             'columnName' : 'colA',
@@ -272,6 +273,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             }
         ])
 
+        self.assertEqual(rows[2]['rowName'], '"""quoted"""')
 
     def test_record_missing_params(self):
         msg = 'connectionScheme is a required property'
@@ -290,6 +292,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 'id' : 'ds_err4',
                 'type' : 'mongodb.record',
                 'params' : {
+                    # TODO
                     'connectionScheme' : 'mongodb://localhost:27017/tutorial'
                 }
             })
@@ -301,6 +304,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         res = mldb.put('/v1/functions/mongo_query', {
             'type' : 'mongodb.query',
             'params' : {
+                # TODO
                 'connectionScheme' : 'mongodb://localhost:27017/tutorial',
                 'collection' : 'users'
             }
