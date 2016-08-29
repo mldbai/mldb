@@ -159,7 +159,7 @@ doGetColumn(const Utf8String & tableName,
 
 GetAllColumnsOutput
 MongoScope::
-doGetAllColumns(const Utf8String & tableName, ColumnFilter & keep)
+doGetAllColumns(const Utf8String & tableName, const ColumnFilter & keep)
 {
     std::vector<KnownColumn> columnsWithInfo;
 

@@ -11,20 +11,8 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <iostream>
-#include <linux/futex.h>
-#include <unistd.h>
 #include <sys/syscall.h>
 #include <boost/test/unit_test.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/barrier.hpp>
-#include <boost/function.hpp>
-
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/arch/atomic_ops.h"
-#include "mldb/arch/atomic_ops.h"
-#include "mldb/arch/timers.h"
-#include "mldb/arch/futex.h"
 
 #include "../mongo_temporary_server.h"
 
@@ -37,7 +25,7 @@ BOOST_AUTO_TEST_CASE( test_mongo_connection )
 {
     MongoTemporaryServer mongo;
 
-    sleep(1.0);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     cerr << "Shutting down the mongo server " << endl;
     mongo.shutdown();
 }

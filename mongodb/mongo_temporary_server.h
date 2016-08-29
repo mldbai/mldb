@@ -19,14 +19,12 @@
 #include <sys/socket.h>
 #include <sys/prctl.h>
 #include <signal.h>
-#include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 
 #include "mldb/jml/utils/environment.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/io/message_loop.h"
-#include "mldb/soa/service/runner.h"
-#include "mldb/soa/service/sink.h"
+#include "mldb/utils/runner.h"
 
 
 namespace Mongo {

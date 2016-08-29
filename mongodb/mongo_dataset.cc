@@ -253,7 +253,7 @@ static RegisterDatasetType<MongoDataset, MongoDatasetConfig>
 regMongodbDataset(mongodbPackage(),
                  "mongodb.dataset",
                  "Dataset type that forwards records to a mongodb database",
-                 "MongoRecord.md.html");
+                 "MongoDataset.md.html");
 
 } // namespace Mongo
 } // namespace MLDB

@@ -52,7 +52,7 @@ struct MongoScope : SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter & keep) override;
+                    const ColumnFilter & keep) override;
 
     BoundFunction
     doGetFunction(const Utf8String & tableName,
