@@ -16,6 +16,6 @@ JS_PLUGIN_SOURCE := \
 	mldb_js.cc \
 
 
-$(eval $(call set_compile_option,$(JS_PLUGIN_SOURCE),-I$(INC)))
+$(eval $(call set_compile_option,$(JS_PLUGIN_SOURCE),-I$(INC) -I$(INC)/v8))
 
 $(eval $(call library,mldb_js_plugin,$(JS_PLUGIN_SOURCE),value_description $(LIBJS_LINK) sql_expression))

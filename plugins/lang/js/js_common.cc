@@ -12,22 +12,178 @@
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb_js.h"
+#include "v8/libplatform/libplatform.h"
+#include "mldb/base/thread_pool.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
-
+#include <thread>
 
 using namespace std;
+
+using namespace v8;
+
 
 namespace Datacratic {
 namespace MLDB {
 
 Logging::Category mldbJsCategory("javascript");
 
+/**
+ * V8 Platform abstraction layer.
+ *
+ * The embedder has to provide an implementation of this interface before
+ * initializing the rest of V8.
+ */
+struct V8MldbPlatform: public v8::Platform {
+    V8MldbPlatform(MldbServer * server)
+        : start(std::chrono::steady_clock::now())
+    {
+    }
+
+    std::chrono::time_point<std::chrono::steady_clock> start;
+    MldbServer * server;
+
+    /**
+     * Gets the number of threads that are used to execute background tasks. Is
+     * used to estimate the number of tasks a work package should be split into.
+     * A return value of 0 means that there are no background threads available.
+     * Note that a value of 0 won't prohibit V8 from posting tasks using
+     * |CallOnBackgroundThread|.
+     */
+    virtual size_t NumberOfAvailableBackgroundThreads() override
+    {
+        return ThreadPool::instance().numThreads();
+    }
+
+    /**
+     * Schedules a task to be invoked on a background thread. |expected_runtime|
+     * indicates that the task will run a long time. The Platform implementation
+     * takes ownership of |task|. There is no guarantee about order of execution
+     * of tasks wrt order of scheduling, nor is there a guarantee about the
+     * thread the task will be run on.
+     */
+    virtual void CallOnBackgroundThread(Task* task,
+                                        ExpectedRuntime expected_runtime) override
+    {
+        std::shared_ptr<Task> taskPtr(task);
+        auto lambda = [=] ()
+            {
+                taskPtr->Run();
+            };
+
+        if (expected_runtime == Platform::kShortRunningTask) {
+            ThreadPool::instance().add(lambda);
+        }
+        else {
+            std::thread(lambda).detach();
+        }
+    }
+
+    /**
+     * Schedules a task to be invoked on a foreground thread wrt a specific
+     * |isolate|. Tasks posted for the same isolate should be execute in order of
+     * scheduling. The definition of "foreground" is opaque to V8.
+     */
+    virtual void CallOnForegroundThread(Isolate* isolate, Task* task) override
+    {
+        cerr << "CallOnForegroundThread" << endl;
+        std::terminate();
+    }
+
+    /**
+     * Schedules a task to be invoked on a foreground thread wrt a specific
+     * |isolate| after the given number of seconds |delay_in_seconds|.
+     * Tasks posted for the same isolate should be execute in order of
+     * scheduling. The definition of "foreground" is opaque to V8.
+     */
+    virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
+                                               double delay_in_seconds) override
+    {
+        cerr << "CallDelayedOnForegroundThread" << endl;
+        std::terminate();
+    }
+
+    /**
+     * Monotonically increasing time in seconds from an arbitrary fixed point in
+     * the past. This function is expected to return at least
+     * millisecond-precision values. For this reason,
+     * it is recommended that the fixed point be no further in the past than
+     * the epoch.
+     **/
+    virtual double MonotonicallyIncreasingTime() override
+    {
+        std::chrono::duration<double> diff
+            = std::chrono::steady_clock::now() - start;
+        return diff.count();
+    }
+
+    /**
+     * Called by TRACE_EVENT* macros, don't call this directly.
+     * The name parameter is a category group for example:
+     * TRACE_EVENT0("v8,parse", "V8.Parse")
+     * The pointer returned points to a value with zero or more of the bits
+     * defined in CategoryGroupEnabledFlags.
+     **/
+    virtual const uint8_t* GetCategoryGroupEnabled(const char* name) override
+    {
+        static uint8_t no = 0;
+        return &no;
+    }
+
+    /**
+     * Gets the category group name of the given category_enabled_flag pointer.
+     * Usually used while serliazing TRACE_EVENTs.
+     **/
+    virtual const char*
+    GetCategoryGroupName(const uint8_t* category_enabled_flag) override
+    {
+        static const char dummy[] = "dummy";
+        return dummy;
+    }
+
+    /**
+     * Adds a trace event to the platform tracing system. This function call is
+     * usually the result of a TRACE_* macro from trace_event_common.h when
+     * tracing and the category of the particular trace are enabled. It is not
+     * advisable to call this function on its own; it is really only meant to be
+     * used by the trace macros. The returned handle can be used by
+     * UpdateTraceEventDuration to update the duration of COMPLETE events.
+     */
+    virtual uint64_t
+    AddTraceEvent(char phase,
+                  const uint8_t* category_enabled_flag,
+                  const char* name,
+                  const char* scope,
+                  uint64_t id, uint64_t bind_id,
+                  int32_t num_args, const char** arg_names,
+                  const uint8_t* arg_types, const uint64_t* arg_values,
+                  unsigned int flags) override
+    {
+        // TODO: hook into MLDB logging framework
+        return 0;
+    }
+
+    /**
+     * Sets the duration field of a COMPLETE trace event. It must be called with
+     * the handle returned from AddTraceEvent().
+     **/
+    virtual void
+    UpdateTraceEventDuration(const uint8_t* category_enabled_flag,
+                             const char* name, uint64_t handle) override
+    {
+    }
+};
+
 void
 JsIsolate::
 init(bool forThisThreadOnly)
 {
-    this->isolate = v8::Isolate::New({});
+    Isolate::CreateParams create_params;
+    create_params.array_buffer_allocator =
+        v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+
+    this->isolate = v8::Isolate::New(create_params);
+
 
     this->isolate->Enter();
     v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, 50 /* frame limit */,
@@ -75,17 +231,36 @@ init(bool forThisThreadOnly)
 }
 
 V8Init::
-V8Init()
+V8Init(MldbServer * server)
 {
+    static std::atomic<bool> alreadyDone(false);
+    if (alreadyDone)
+        return;
+
+    static std::mutex mutex;
+    std::unique_lock<std::mutex> guard(mutex);
+
+    if (alreadyDone)
+        return;
+
     const char * v8_argv[] = {
         "--lazy", "false"
         ,"--always_opt", "true"
-        ,"--always_full_compiler", "true"
-        //,"--trace-opt", "true"
     };
     int v8_argc = sizeof(v8_argv) / sizeof(const char *);
 
     v8::V8::SetFlagsFromCommandLine(&v8_argc, (char **)&v8_argv, false);
+
+    //const char * argv0 = "build/x86_64/bin/mldb_runner";
+    //if (!v8::V8::InitializeICUDefaultLocation(argv0, "build/x86_64/lib")) {
+    //    throw HttpReturnException(500, "Couldn't initialize ICU data for v8");
+    //}
+
+    v8::V8::InitializeExternalStartupData("build/x86_64/lib/libv8.so");
+    v8::V8::InitializePlatform(new V8MldbPlatform(server));
+    v8::V8::Initialize();
+
+    alreadyDone = true;
 }
 
 CellValue from_js(const JS::JSValue & value, CellValue *)

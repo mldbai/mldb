@@ -33,6 +33,12 @@ struct LoadedPluginResource;
 extern Logging::Category mldbJsCategory;
 
 struct JsIsolate {
+    JsIsolate()
+        : isolate(nullptr)
+    {
+        // not initialized
+    }
+
     JsIsolate(bool forThisThreadOnly)
     {
         init(forThisThreadOnly);
@@ -68,7 +74,7 @@ struct JsIsolate {
 };
 
 struct V8Init {
-    V8Init();
+    V8Init(MldbServer * server);
 };
 
 void to_js(JS::JSValue & value, const CellValue & val);
