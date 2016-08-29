@@ -178,13 +178,11 @@ struct MongoDataset: Dataset {
 
     shared_ptr<MatrixView> getMatrixView() const override
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         return make_shared<MongoMatrixView>();
     }
 
     shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         return make_shared<MongoColumnIndex>();
     }
 

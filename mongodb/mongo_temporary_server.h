@@ -1,5 +1,5 @@
 /**                                                                 -*- C++ -*-
- * mongo_temporary_server.h                                        -*- C++ -*-
+ * mongo_temporary_server.h
  * Sunil Rottoo, 2 September 2014
  * This file is part of MLDB. Copyright 2014 Datacratic. All rights reserved.
  *

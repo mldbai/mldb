@@ -292,7 +292,6 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 'id' : 'ds_err4',
                 'type' : 'mongodb.record',
                 'params' : {
-                    # TODO
                     'connectionScheme' : 'mongodb://localhost:27017/tutorial'
                 }
             })
@@ -304,19 +303,19 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         res = mldb.put('/v1/functions/mongo_query', {
             'type' : 'mongodb.query',
             'params' : {
-                # TODO
-                'connectionScheme' : 'mongodb://localhost:27017/tutorial',
-                'collection' : 'users'
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'test_collection'
             }
         })
         mldb.log(res)
         query = json.dumps({
-            'username' : {
-                '$ne' : 'Finch'
+            'type' : {
+                '$ne' : 'simple'
             }
         })
         res = mldb.get('/v1/functions/mongo_query/application',
-                       input={'query' : query})
+                       input={'query' : query}).json()
+        self.assertNotEqual(res['output']['type'], 'simple')
 
     def test_query_first_row_missing_param(self):
         msg = 'connectionScheme is a required property'
@@ -344,19 +343,23 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         res = mldb.put('/v1/functions/mongo_query', {
             'type' : 'mongodb.query',
             'params' : {
-                'connectionScheme' : 'mongodb://localhost:27017/tutorial',
-                'collection' : 'users',
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'test_collection',
                 'output' : 'NAMED_COLUMNS'
             }
         }),
         mldb.log(res)
         query = json.dumps({
             'username' : {
-                '$ne' : 'Finch'
+                '$ne' : 'simple'
             }
         })
         res = mldb.get('/v1/functions/mongo_query/application',
-                       input={'query' : query})
+                       input={'query' : query}).json()
+        keys = res['output'].keys()
+        keys.sort()
+        self.assertEqual(res['output'][keys[0]][1][0], 'type')
+        self.assertEqual(res['output'][keys[0]][1][1][0], 'simple')
 
     @unittest.skipIf(not got_mongod, "mongod not available")
     def test_dataset(self):
@@ -365,15 +368,31 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/datasets/ds', {
             'type' : 'mongodb.dataset',
             'params' : {
-                'connectionScheme' : 'mongodb://localhost:27017/tutorial',
-                'collection' : 'users'
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'test_collection',
             }
         })
 
-        mldb.query("SELECT * FROM ds")
-        mldb.query("SELECT * FROM ds WHERE username='Finch'")
-        mldb.query("SELECT username FROM ds")
-        mldb.query("SELECT username FROM ds WHERE username != 'Finch'")
+        res = mldb.query("SELECT * FROM ds")
+        self.assertEqual(len(res), 5)
+
+        res = mldb.query("SELECT * FROM ds WHERE unexisting_field='Finch'")
+        self.assertEqual(len(res), 1)
+        res = mldb.query("SELECT * FROM ds WHERE type='simple'")
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[1][2], 'simple')
+
+        res = mldb.query("SELECT type FROM ds ORDER BY type")
+        self.assertEqual(res[1][1], None)
+        self.assertEqual(res[2][1], 'nested_arr')
+        self.assertEqual(res[3][1], 'nested_obj')
+        self.assertEqual(res[4][1], 'simple')
+
+        res = mldb.query("SELECT username FROM ds WHERE unexisting != 'Finch'")
+        self.assertEqual(len(res), 1)
+
+        res = mldb.query("SELECT username FROM ds WHERE type != 'simple'")
+        self.assertEqual(len(res), 3)
 
     def test_dataset_missing_param(self):
         msg = 'connectionScheme is a required property'
