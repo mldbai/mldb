@@ -43,8 +43,8 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     for (string typeClass: { "plugins", "datasets", "functions", "procedures" }) {
         for (auto type: proxy.get("/v1/types/" + typeClass).jsonBody()) {
             string url = "/v1/types/" + typeClass + "/" + type.asString() + "/doc";
-            auto doc = proxy.get("/v1/types/" + typeClass + "/" + type.asString() + "/doc",
-                                 {}, {}, -1, true, nullptr, nullptr, true /* redirect */);
+            auto doc = proxy.get(
+                url, {}, {}, -1, true, nullptr, nullptr, true /* redirect */);
             string error;
             if (doc.code() != 200) {
                 cerr << url << endl;
