@@ -3461,7 +3461,7 @@ bind(SqlBindingScope & scope) const
     //cerr << "prefix = " << prefix << endl;
     //cerr << "asPrefix = " << asPrefix << endl;
 
-    ColumnFilter newColumnName;
+    ColumnFilter newColumnName = ColumnFilter::identity();
 
     if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()){
        
@@ -3473,7 +3473,7 @@ bind(SqlBindingScope & scope) const
 
         // This function figures out the new name of the column.  If it's excluded,
         // then it returns the empty column name
-        ColumnFilter newColumnName([=] (const ColumnName & inputColumnName) -> ColumnName
+        newColumnName = ColumnFilter([=] (const ColumnName & inputColumnName) -> ColumnName
             {
                 //cerr << "input column name " << inputColumnName << endl;
 
@@ -3738,7 +3738,7 @@ SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
-    ColumnFilter filter;
+    ColumnFilter filter = ColumnFilter::identity();
     auto allColumns
         = scope.doGetAllColumns("" /* table name */,
                                 filter);
@@ -3903,7 +3903,7 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
-        ColumnFilter filterColumns;
+        ColumnFilter filterColumns = ColumnFilter::identity();
 
         auto outputColumns
             = scope.doGetAllColumns("" /* prefix */, filterColumns);
