@@ -82,7 +82,7 @@ struct MongoRecord: Dataset {
         using bsoncxx::builder::stream::close_array;
         using bsoncxx::builder::stream::finalize;
 
-        Dataset::validateNames(rowName, row); // TODO ouin?
+        Dataset::validateNames(rowName, row);
         document topDoc;
         bsoncxx::builder::stream::array topArray;
         topDoc << "rowName" << rowName.toUtf8String().rawString();
@@ -109,12 +109,14 @@ struct MongoRecord: Dataset {
 
     std::shared_ptr<MatrixView> getMatrixView() const override
     {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
+        throw HttpReturnException(400,
+                                  "mongodb.record dataset is record-only");
     }
 
     std::shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        throw HttpReturnException(400, "Mongo dataset is record-only");
+        throw HttpReturnException(400,
+                                  "mongodb.record dataset is record-only");
     }
 };
 static RegisterDatasetType<MongoRecord, MongoRecordConfig>
