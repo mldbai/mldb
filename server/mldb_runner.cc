@@ -263,21 +263,19 @@ int main(int argc, char ** argv)
         try {
             filter_istream stream(addCredentialsFromUrl);
             vector<string> fileCredentials;
-            while (stream) {
-                Json::Value val = Json::parse(stream);
-                if (val.type() == Json::arrayValue) {
-                    for (auto & v: val) {
-                        fileCredentials.push_back(v.toString());
-                    }
+            Json::Value val = Json::parse(stream);
+            if (val.type() == Json::arrayValue) {
+                for (auto & v: val) {
+                    fileCredentials.push_back(v.toString());
                 }
-                else if (val.type() == Json::objectValue) {
-                    fileCredentials.push_back(val.toString());
-                }
-                else if (val.type() == Json::nullValue) {
-                    // skip
-                }
-                else throw ML::Exception("Couldn't understand credentials " + val.toString());
             }
+            else if (val.type() == Json::objectValue) {
+                fileCredentials.push_back(val.toString());
+            }
+            else if (val.type() == Json::nullValue) {
+                // skip
+            }
+            else throw ML::Exception("Couldn't understand credentials " + val.toString());
 
             if (!fileCredentials.empty()) {
                 CredentialProvider::registerProvider
