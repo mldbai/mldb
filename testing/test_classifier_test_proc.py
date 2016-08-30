@@ -85,7 +85,6 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     def test_boolean_dataset_no_weight(self):
         res = mldb.post('/v1/procedures', self._get_params('boolean', 'bool_label', '1')).json()
-        # TODO test the output of res
 
         res = mldb.get('/v1/query', q="""
             SELECT * FROM out
