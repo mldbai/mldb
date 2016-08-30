@@ -7,7 +7,7 @@ dollars=$$
 
 SHELL := /bin/bash
 
-ifeq ($(TERM),xterm)
+ifeq ($(TERM),$(filter $(TERM),xterm screen)) # if TERM==xterm || TERM==screen
 
 ESC :=
 
