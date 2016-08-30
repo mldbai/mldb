@@ -88,14 +88,14 @@ class ColumnNameTest(MldbUnitTest):  # noqa
         self.select_err("{x:{y:1} + 1} AS x.*")
 
         # MLDB-1836
-        self.select("{x.y:1} + 1", '"{x.y:1} + 1".y')  # <--- x took a break?
-        self.select("{x:{y:1}} + 1", '{x:{y:1}} + 1.y')  # <--- x took a break?
+        self.select("{x.y:1} + 1", '"{x.y:1} + 1".x.y')
+        self.select("{x:{y:1}} + 1", '{x:{y:1}} + 1.x.y')
 
-        self.select("a:{x.y:1} + 1", 'a.y')  # <--- x took a break?
-        self.select("a:{x:{y:1}} + 1", 'a.y')  # <--- x took a break?
+        self.select("a:{x.y:1} + 1", 'a.x.y')
+        self.select("a:{x:{y:1}} + 1", 'a.x.y')
 
-        self.select("a:{w.x.y:1} + 1", 'a.y')  # <--- w.x took a break?
-        self.select("a:{w:{x:{y:1}}} + 1", 'a.y')  # <--- w.x took a break?
+        self.select("a:{w.x.y:1} + 1", 'a.w.x.y')
+        self.select("a:{w:{x:{y:1}}} + 1", 'a.w.x.y')
 
 if __name__ == '__main__':
     mldb.run_tests()

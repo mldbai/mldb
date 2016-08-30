@@ -376,7 +376,7 @@ struct BinaryOpHelper {
                               const CellValue & val,
                               Date ts)
                 {
-                    output.emplace_back(std::move(columnName),
+                    output.emplace_back(prefix + columnName,
                                         Op::apply(val, r),
                                         std::max(rts, ts));
                     return true;
