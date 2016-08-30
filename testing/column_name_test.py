@@ -89,10 +89,10 @@ class ColumnNameTest(MldbUnitTest):  # noqa
 
         # MLDB-1836
         self.select("{x.y:1} + 1", '"{x.y:1} + 1".x.y')
-        self.select("{x:{y:1}} + 1", '{x:{y:1}} + 1.x.y')
+        self.select("{x:{y:1}} - 1", '{x:{y:1}} - 1.x.y')
 
-        self.select("a:{x.y:1} + 1", 'a.x.y')
-        self.select("a:{x:{y:1}} + 1", 'a.x.y')
+        self.select("a:{x.y:1} * 1", 'a.x.y')
+        self.select("a:{x:{y:1}} / 1", 'a.x.y')
 
         self.select("a:{w.x.y:1} + 1", 'a.w.x.y')
         self.select("a:{w:{x:{y:1}}} + 1", 'a.w.x.y')
