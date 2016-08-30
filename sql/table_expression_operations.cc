@@ -25,9 +25,6 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
     result.dataset = dataset;
     result.asName = asName;
 
-    auto cols = dataset->getColumnIndex();
-    auto matrix = dataset->getMatrixView();
-
     // Allow us to query row information from the dataset
     result.table.getRowInfo = [=] () { return dataset->getRowInfo(); };
 

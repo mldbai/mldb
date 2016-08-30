@@ -6,12 +6,17 @@
 */
 
 #include "svd_utils.h"
+#include "mldb/arch/arch.h"
 #include "mldb/jml/utils/environment.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include <mutex>
+
+#if JML_INTEL_ISA
+#include <smmintrin.h>
+#endif
 
 using namespace std;
 

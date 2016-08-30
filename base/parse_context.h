@@ -585,7 +585,7 @@ protected:
             //     << context.last_token_ << endl;
         }
         
-        ~Token()
+        ~Token() noexcept(false)
         {
             //std::cerr << "deleting token " << this << std::endl;
             if (context)
@@ -689,13 +689,8 @@ public:
 
         ~Revert_Token()
         {
-            try {
-                if (context) apply(true /* in destructor */);
-            }
-            catch (...) {
-                remove(true /* in destructor */);
-                throw;
-            }
+            if (context)
+                apply(true /* in destructor */);
         }
 
         void ignore()

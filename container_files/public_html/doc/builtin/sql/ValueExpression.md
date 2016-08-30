@@ -406,20 +406,22 @@ and the possible values for the `arrays` field are:
 
 ### Numeric functions
 
-- `pow(x, y)`: returns x to the power of y.
-- `exp(x)`: returns **e** (the Euler number) raised to the power x.
-- `ln(x)`: returns the natural logarithm of x.
-- `ceil(x)`: returns the smaller integer not less than x.
-- `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
-- `abs(x)`: returns the absolute value of x.
-- `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
-- `sign(x)`: returns the sign of x (-1, 0, +1).
-- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
-- `isinf(x)`: return true if x is +/- infinity in the floating point representation.
-- `isfinite(x)`: return true if x is neither infinite nor not-a-number.
+- `pow(x, y)`: returns `x` to the power of `y`.
+- `exp(x)`: returns _e_ (the Euler number) raised to the power `x`.
+- `ln(x)`: returns the natural logarithm of `x`.
+- `log(x)`: returns the base-10 logarithm of `x`.
+- `log(b, x)`: returns the base-`b` logarithm of `x`.
+- `ceil(x)`: returns the smaller integer not less than `x`.
+- `floor(x)`: returns the largest integer not greater than `x`.
+- `mod(x, y)`: returns `x` modulo `y`.  The value of `x` and `y` must be an integer. Another way to get the modulo is `x % y`.
+- `abs(x)`: returns the absolute value of `x`.
+- `sqrt(x)`: returns the square root of `x`.
+- `sign(x)`: returns the sign of `x` (-1, 0, +1).
+- `isnan(x)`: returns true if `x` is `NaN` in the floating point representation.
+- `isinf(x)`: return true if `x` is +/- infinity in the floating point representation.
+- `isfinite(x)`: returns true if `x` is neither infinite nor `NaN`.
 
-- `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
+- `quantize(x, y)`: returns `x` rounded to the precision of `y`.  Here are some examples:
 
 expression|result
 ----------------------|-----
@@ -441,7 +443,7 @@ expression|result
 - `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
 - `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
 - `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
-- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
+- `clamp(x,lower,upper)` will clamp the value `x` between the `lower` and `upper` bounds.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 

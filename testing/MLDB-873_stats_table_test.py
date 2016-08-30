@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-873_stats_table_test.py
 # datacratic, 2015

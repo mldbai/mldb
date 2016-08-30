@@ -26,7 +26,7 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-var resp = mldb.get("/v1/datasets/test/query", {select:"min({*}) AS min, max({*}) AS max", groupBy: 'label'});
+var resp = mldb.get("/v1/query", {q:"SELECT min({*}) AS min, max({*}) AS max from test group by label"});
 
 assertEqual(resp.responseCode, 200, "Error executing query");
 

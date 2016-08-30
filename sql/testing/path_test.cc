@@ -11,6 +11,9 @@
 #include "mldb/arch/exception_handler.h"
 #include "mldb/types/value_description.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/vfs/filter_streams.h"
+#include <set>
+#include <unordered_set>
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -362,3 +365,41 @@ BOOST_AUTO_TEST_CASE(test_path_builder)
     builder.add(elem);
     Path path = builder.extract();
 }
+
+#if 0
+BOOST_AUTO_TEST_CASE(test_ordered2)
+{
+    vector<Path> paths;
+
+    filter_istream stream("columns.txt");
+    while (stream) {
+        std::string s;
+        getline(stream, s);
+        if (s.empty())
+            continue;
+        paths.emplace_back(Path::parse(s));
+    }
+   
+    cerr << "got " << paths.size() << " paths" << endl;
+
+    for (unsigned i = 0;  i < 10;  ++i) {
+        std::random_shuffle(paths.begin(), paths.end());
+        std::unordered_set<Path> unordered;
+        std::unordered_set<uint64_t> unorderedHashes;
+        std::set<Path> ordered;
+        std::set<uint64_t> orderedHashes;
+
+        for (const Path & p: paths) {
+            BOOST_CHECK(unordered.insert(p).second);
+            BOOST_CHECK(unorderedHashes.insert(p.hash()).second);
+            BOOST_CHECK(ordered.insert(p).second);
+            BOOST_CHECK(orderedHashes.insert(p.hash()).second);
+        }
+
+        BOOST_CHECK_EQUAL(ordered.size(), paths.size());
+        BOOST_CHECK_EQUAL(unordered.size(), paths.size());
+        BOOST_CHECK_EQUAL(orderedHashes.size(), paths.size());
+        BOOST_CHECK_EQUAL(unorderedHashes.size(), paths.size());
+    }
+}
+#endif

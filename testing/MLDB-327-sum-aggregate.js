@@ -23,7 +23,7 @@ recordExample("ex3", 1, 2, "cat");
 
 dataset.commit()
 
-var resp = mldb.get("/v1/datasets/test/query", {select: "label,sum(x),vertical_sum(y)", groupBy: "label", orderBy: "label"});
+var resp = mldb.get("/v1/query", {q: "select label,sum(x),vertical_sum(y) from test group by label order by label"});
 
 plugin.log(resp);
 
@@ -63,12 +63,5 @@ assertEqual(resp.json[0].rowName, '"[""cat""]"', "rowName");  // MLDB-363
 assertEqual(resp.json[0].columns[0][1], "cat", "label1");
 assertEqual(resp.json[0].columns[1][1], 1, "sum of x for cat");
 assertEqual(resp.json[0].columns[2][1], 2, "sum of y for cat");
-
-// GROUP BY and LIMIT 
-var resp2 = mldb.get("/v1/datasets/test/query", {select: "label", groupBy: "label", limit:1});
-var resp3 = mldb.get("/v1/query", {q: "select label from test group by label limit 1"});
-
-// MLDB-820
-assertEqual(resp2.json.length, resp3.json.length, "nb of rows");
 
 "success"

@@ -55,9 +55,6 @@ svd_config = {
     }
 }
 
-r = mldb.get('/v1/datasets/random_dataset/query')
-#mldb.log(json.dumps(json.loads(r["response"]), indent=4))
-
 r = mldb.put(svd_procedure, svd_config)
 #mldb.log(json.dumps(json.reads(r.response), indent=4))
 

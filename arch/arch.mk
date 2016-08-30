@@ -2,7 +2,7 @@
 
 LIBARCH_SOURCES := \
         simd_vector.cc \
-	simd_vector_avx.cc \
+        simd_vector_avx.cc \
         demangle.cc \
 	tick_counter.cc \
 	cpuid.cc \
@@ -22,7 +22,6 @@ LIBARCH_SOURCES := \
 	abort.cc \
 	spinlock.cc \
 
-
 LIBARCH_LINK := dl
 
 ifneq ($(BOOST_VERSION),42)
@@ -32,10 +31,8 @@ endif
 $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
 
 LIBGC_SOURCES := \
-	gc_lock.cc 
-
-LIBGC_SOURCES := \
-	gc_lock.cc 
+	gc_lock.cc \
+	shared_gc_lock.cc
 
 $(eval $(call library,gc,$(LIBGC_SOURCES),rt arch))
 

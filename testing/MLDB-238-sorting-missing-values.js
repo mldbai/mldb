@@ -15,9 +15,7 @@ dataset.recordRow("row3", [ [ "Weight2", 3, ts ],["col3", 2, ts] ]);
 
 dataset.commit();
 
-var output = mldb.perform("GET", "/v1/datasets/ds1/query",
-                          [["select", "*"],
-                           ["orderBy", "Weight,col3"]]);
+var output = mldb.get('/v1/query', { q: 'select * from ds1 order by Weight, col3'});
 
 plugin.log(output);
 
