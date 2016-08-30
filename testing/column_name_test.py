@@ -53,7 +53,7 @@ class ColumnNameTest(MldbUnitTest):  # noqa
         self.select("{x:1} AS x", 'x.x')
 
     def test_object_over_object_arith(self):
-        self.select("{x:1} + {x:1}", '{x:1} + {x:1}.x')  # <--- ugly
+        self.select("{x:1} + {x:1}", '{x:1} + {x:1}.x')
 
     def test_object_extraction(self):
         self.select("col.x FROM (SELECT col.x:1)", 'col.x')
@@ -70,7 +70,7 @@ class ColumnNameTest(MldbUnitTest):  # noqa
         self.select("{*} AS * FROM (SELECT col.x:1)", 'col.x')
 
     def test_object_arith(self):
-        self.select('{b:1} + 1', '{b:1} + 1.b')  # <--- ugly
+        self.select('{b:1} + 1', '{b:1} + 1.b')
         self.select('{b:1} + 1 AS *', 'b')
 
         self.select('a:{b:1} + 1', 'a.b')
