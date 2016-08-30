@@ -132,7 +132,7 @@ createHttpWatch(RestConnection & connection,
         // to data
         Data * dataPtr = data.get();
 
-        logger->debug() << "watching " << jsonEncode(resource);
+        DEBUG_MSG(logger) << "watching " << jsonEncode(resource);
 
         // Create the watch which will receive the information we need
         data->watch = this->watch(resource, true /* catchUp */,
@@ -140,7 +140,7 @@ createHttpWatch(RestConnection & connection,
 
         auto onFire = [=] (const Any & valueIn)
             {
-                logger->debug() << "watchRouter onFire" << jsonEncode(valueIn)
+                DEBUG_MSG(logger) << "watchRouter onFire" << jsonEncode(valueIn)
                 << " shutdown " << this->shutdown_;
                 if (this->shutdown_)
                     return;
@@ -154,7 +154,7 @@ createHttpWatch(RestConnection & connection,
             {
                 if (this->shutdown_)
                     return;
-                logger->debug() << "watchRouter onError" << jsonEncode(error);
+                DEBUG_MSG(logger) << "watchRouter onError" << jsonEncode(error);
             };
 #endif
 
@@ -187,11 +187,11 @@ void
 ServicePeer::
 onNewConnection(std::shared_ptr<PeerConnection> conn)
 {
-    logger->debug() << peerInfo.peerName << " accepted new connection";
+    DEBUG_MSG(logger) << peerInfo.peerName << " accepted new connection";
     auto entry = std::make_shared<RemotePeer>(this);
     PeerInfo remoteInfo = entry->initAfterAccept(conn);
 
-    logger->debug() << peerInfo.peerName << " got new connection from "
+    DEBUG_MSG(logger) << peerInfo.peerName << " got new connection from "
          << remoteInfo.peerName;
     peers.addEntry(remoteInfo.peerName, entry);
 
@@ -214,15 +214,15 @@ void
 ServicePeer::
 onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
 {
-    logger->debug() << "peer " << peerInfo.peerName << " found a new peer " << newPeer.key;
-    logger->debug() << "newPeer.event = " << newPeer.event;
+    DEBUG_MSG(logger) << "peer " << peerInfo.peerName << " found a new peer " << newPeer.key;
+    DEBUG_MSG(logger) << "newPeer.event = " << newPeer.event;
 
     switch (newPeer.event) {
     case CE_NEW:
         if (newPeer.key == peerInfo.peerName) {
             if (jsonEncode(*newPeer.value) != jsonEncode(peerInfo))
                 throw ML::Exception("our peer was discovered with different info");
-            logger->debug() << "new entry for me " << peerInfo.peerName << " "
+            DEBUG_MSG(logger) << "new entry for me " << peerInfo.peerName << " "
                  << newPeer.key << " " << jsonEncode(peers.getKeys());
             ExcAssert(peers.tryGetExistingEntry(peerInfo.peerName));
         }
@@ -237,14 +237,14 @@ onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
             // TODO: async connect (for when we have lots of peers)
 
             try {
-                logger->debug() << "peer " << peerInfo.peerName 
+                DEBUG_MSG(logger) << "peer " << peerInfo.peerName 
                      << " is connecting to new peer "
                      << newPeer.key;
                 auto conn = peerServer->connect(*newPeer.value);
                 auto entry = std::make_shared<RemotePeer>(this);
                 entry->initAfterConnect(conn, *newPeer.value);
 
-                logger->debug() << "peer " << peerInfo.peerName 
+                DEBUG_MSG(logger) << "peer " << peerInfo.peerName 
                      << " being added after connecting to "
                      << newPeer.key;
 
@@ -259,11 +259,11 @@ onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
         }
         else {
             // We accept.  Once that's done we add ourselves to the peers.
-            logger->debug() << "waiting for accept from peer " << newPeer.key;
+            DEBUG_MSG(logger) << "waiting for accept from peer " << newPeer.key;
         }
         break;
     case CE_DELETED:
-        logger->debug() << "deleted peer " << newPeer.key;
+        DEBUG_MSG(logger) << "deleted peer " << newPeer.key;
         if (newPeer.key == peerInfo.peerName) {
             // We lost our own entry.  We need to restart.
             logger->warn() << "WARNING: peer " << peerInfo.peerName
@@ -273,8 +273,8 @@ onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
         peers.deleteEntry(newPeer.key);
         break;
     case CE_UPDATED:
-        logger->debug() << "updated peer " << newPeer.key;
-        logger->debug() << "TODO: implement updates";
+        DEBUG_MSG(logger) << "updated peer " << newPeer.key;
+        DEBUG_MSG(logger) << "TODO: implement updates";
     default:
         throw ML::Exception("unexpected discovery event type");
     }
@@ -292,7 +292,7 @@ onPeerStateChange(RemotePeer * peer)
     
     PeerInfo info = peer->remotePeerInfo;
     
-    //logger->debug() << "peer state change for " << jsonEncode(info);
+    //DEBUG_MSG(logger) << "peer state change for " << jsonEncode(info);
 
     // post this so that we can let it get out of its callback
     peerServer->postWork([=] () { peers.deleteEntry(info.peerName); });
@@ -330,7 +330,7 @@ start()
     auto newPeerInfo = peerServer->listen(peerInfo);
     peerInfo = newPeerInfo;
 
-    //logger->debug() << "after: " << jsonEncode(peerInfo);
+    //DEBUG_MSG(logger) << "after: " << jsonEncode(peerInfo);
 
     // 2.  Check that we can establish a connection with our published
     // address (externally).  To do this we go through the entire connection
@@ -343,15 +343,15 @@ start()
             ([&] (std::shared_ptr<PeerConnection> accepted)
              {
                 selfAcceptEntry->initAfterAccept(accepted);
-                //logger->debug() << "**** ONNEWCONNECTION";
+                //DEBUG_MSG(logger) << "**** ONNEWCONNECTION";
                 acceptedPeerInfo.set_value(selfAcceptEntry->remotePeerInfo);
-                //logger->debug() << "accept done";
+                //DEBUG_MSG(logger) << "accept done";
             });
 
         auto selfConnection = peerServer->connect(newPeerInfo);
         auto selfConnectEntry = std::make_shared<RemotePeer>(this);
         selfConnectEntry->initAfterConnect(selfConnection, newPeerInfo);
-        //logger->debug() << "got selfConnection and connect done";
+        //DEBUG_MSG(logger) << "got selfConnection and connect done";
 
         std::future<PeerInfo> future = acceptedPeerInfo.get_future();
 
@@ -370,7 +370,7 @@ start()
     }
 
     // 2.  Connect to ourself
-    logger->debug() << "Checking we can connect to ourself...";
+    DEBUG_MSG(logger) << "Checking we can connect to ourself...";
     auto selfConnection = peerServer->connectToSelf();
     auto selfEntry = std::make_shared<RemotePeer>(this);
     selfEntry->initAfterConnect(selfConnection, newPeerInfo);
@@ -379,7 +379,7 @@ start()
     if (selfEntry->state != PS_OK) {
         throw ML::Exception("Can't start service peer: unable to talk to itself (error is '" + selfEntry->error + "').  Check that etcd is OK and that the published port and hostname is really the exterally accessible port and hostname.");
     }
-    //logger->debug() << "done checking";
+    //DEBUG_MSG(logger) << "done checking";
 
     peerServer->setNewConnectionHandler(std::bind(&ServicePeer::onNewConnection,
                                                   this,
@@ -389,12 +389,12 @@ start()
     // 3.  Add our entry
     peers.addEntry(peerInfo.peerName, selfEntry);
 
-    //logger->debug() << "publishing";
+    //DEBUG_MSG(logger) << "publishing";
 
     // 4.  Announce ourselves to the world
     discovery->publish(peerInfo);
 
-    //logger->debug() << "starting";
+    //DEBUG_MSG(logger) << "starting";
 
     // 5.  Start our self entry running
     selfEntry->start();
@@ -472,11 +472,11 @@ doCreateLink(RestEntity * forWho,
              const std::string & linkType,
              Any linkParams)
 {
-    //logger->debug() << "creating link ";
-    //logger->debug() << "from " << jsonEncode(forWho->getPath());
-    //logger->debug() << "to   " << jsonEncode(remotePath);
-    //logger->debug() << "linkType " << linkType;
-    //logger->debug() << "linkParams " << jsonEncode(linkParams);
+    //DEBUG_MSG(logger) << "creating link ";
+    //DEBUG_MSG(logger) << "from " << jsonEncode(forWho->getPath());
+    //DEBUG_MSG(logger) << "to   " << jsonEncode(remotePath);
+    //DEBUG_MSG(logger) << "linkType " << linkType;
+    //DEBUG_MSG(logger) << "linkParams " << jsonEncode(linkParams);
 
     return this->acceptLink(forWho->getPath(),
                             remotePath,
@@ -676,7 +676,7 @@ watchChannel(const Utf8String & channel,
              bool catchUp,
              Any info)
 {
-    //logger->debug() << "PeerCollection::watchChannel " << channel << " " << filter
+    //DEBUG_MSG(logger) << "PeerCollection::watchChannel " << channel << " " << filter
     //     << " " << catchUp << " " << jsonEncodeStr(info);
 
     if (channel == "children")
@@ -688,7 +688,7 @@ watchChannel(const Utf8String & channel,
 #if 0
         return transform<std::string>(watchChildren(filter, catchUp, info),
                                      [] (const RestEntityChildEvent & ev)
-                                      { logger->debug() << "channel event " << ev.name << " " << ev.event;
+                                      { DEBUG_MSG(logger) << "channel event " << ev.name << " " << ev.event;
                                          return (ev.event == CE_NEW
                                                ? "+" : "-") + ev.name; });
 #endif
