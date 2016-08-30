@@ -11,7 +11,7 @@
 
 #include "mldb/server/credential_collection.h"
 #include "mldb/rest/collection_config_store.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/vfs/filter_streams.h"
@@ -41,6 +41,7 @@ void addCredentialRule(const Datacratic::HttpRestProxy & conn,
     }
 }
 
+#if 0
 void deleteAllCredentials(const Datacratic::HttpRestProxy & conn)
 {
     auto res = conn.perform("DELETE", "/v1/credentials");
@@ -50,6 +51,7 @@ void deleteAllCredentials(const Datacratic::HttpRestProxy & conn)
                             res.code());
     }
 }
+#endif
 
 void deleteCredentialRule(const Datacratic::HttpRestProxy & conn,
                 const std::string & ruleName)

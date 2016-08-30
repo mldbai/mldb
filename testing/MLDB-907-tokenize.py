@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-907-tokenize.py
 # datacratic, 2015
@@ -146,21 +147,14 @@ class TokenizeTest(MldbUnitTest):  # noqa
         self.find_column(result, unicode('tokens.day', encoding='utf-8'), 1)
 
     def test_tokenize_legacy_args(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'min_token_length' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {min_token_length:2})")
-
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'ngram_range' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {ngram_range: [1, 3]})")
-        
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'splitchars' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {splitchars: ','}) AS tokens")
-        
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                "The 'quotechar' argument has been renamed"):
-            mldb.query("SELECT tokenize('str', {quotechar: ','})")
+        self.assertTableResultEquals(
+            mldb.query("""
+                SELECT tokenize('s y z hoho bouya "pwet zou"', 
+                            {min_token_length:2, ngram_range:[1, 2], 
+                             splitchars:' ', quotechar: '"'}) as *
+                """),
+            [["_rowName","bouya","bouya_pwet zou","hoho","hoho_bouya","pwet zou"],
+             ["result",1,1,1,1,1]])
 
     def test_tokenize_min_token_length(self):
         result = mldb.get(

@@ -64,7 +64,7 @@ struct ReadThroughBindingScope: public SqlBindingScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
     
@@ -144,7 +144,7 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
     // Only so we can return a good error message
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     // Only so we can return a good error message
     virtual ColumnName
@@ -236,6 +236,60 @@ struct SqlExpressionParamScope: public ReadThroughBindingScope {
 
 
 /*****************************************************************************/
+/* SQL EXPRESSION EVAL SCOPE                                                 */
+/*****************************************************************************/
+
+/** Scope that only binds parameters, ie entities referenced as $xxx which
+    are passed in after binding but are constant for each query execution.
+*/
+
+struct SqlExpressionEvalScope: public ReadThroughBindingScope {
+
+    SqlExpressionEvalScope(SqlBindingScope & outer,
+                           std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo)
+        : ReadThroughBindingScope(outer),
+          argInfo(std::move(argInfo))
+    {
+    }
+
+    // This row scope initializes the inner scope with itself; it should
+    // never be used unless we are in a correlated sub-select in which
+    // case we will need to thread the outer scope through.
+    struct RowScope: public ReadThroughBindingScope::RowScope {
+        RowScope(const std::vector<ExpressionValue> & args)
+            : ReadThroughBindingScope::RowScope(*this),
+              args(args.data()), numArgs(args.size())
+        {
+        }
+
+        RowScope(const ExpressionValue * args,
+                 size_t numArgs)
+            : ReadThroughBindingScope::RowScope(*this),
+              args(args), numArgs(numArgs)
+        {
+        }
+
+        const ExpressionValue * args;
+        size_t numArgs;
+    };
+    
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
+
+    static RowScope getRowScope(const std::vector<ExpressionValue> & args)
+    {
+        return RowScope(args);
+    }
+
+    static RowScope getRowScope(const ExpressionValue * args, size_t numArgs)
+    {
+        return RowScope(args, numArgs);
+    }
+    
+    std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo;
+};
+
+
+/*****************************************************************************/
 /* SQL EXPRESSION CONSTANT SCOPE                                             */
 /*****************************************************************************/
 
@@ -317,7 +371,7 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,

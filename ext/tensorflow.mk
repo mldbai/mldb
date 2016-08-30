@@ -59,7 +59,7 @@ TENSORFLOW_PROTO_TEXT_FILES := $(PROTO_TEXT_CC_FILES)
 
 $(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so  $(INC)/google/protobuf
 
-$(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field))
 
 $(eval $(call program,proto_text,protobuf3,$(TENSORFLOW_PROTO_TEXT_FILES)))
 
@@ -163,7 +163,7 @@ CUDA_HEADERS := cuda.h cublas.h cufft.h cuComplex.h vector_types.h builtin_types
 
 $(INC)/third_party/gpus/cuda/include/%: | $(CUDA_SYSTEM_HEADER_DIR)/%
 	@mkdir -p $(dir $@)
-	@ln -s $< $@
+	@ln -sf $(CUDA_SYSTEM_HEADER_DIR)/$(notdir $@) $@
 
 $(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
 	@mkdir -p $(dir $@)
@@ -178,7 +178,7 @@ $(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudn
 # up the dependency.
 
 $(TENSORFLOW_CC_FILES): \
-	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras
+	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras $(INC)/third_party/gpus/cuda/include/cudnn.h
 
 # Some of the CUDA headers include their header dependencies via <file.h>
 # instead of "file.h", which requires us to set up the system header directory
@@ -247,8 +247,13 @@ endif
 ifeq ($(toolchain),gcc5)
 TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment
 endif
+ifeq ($(toolchain),gcc6)
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-ignored-attributes -Wno-nonnull-compare
+endif
 ifeq ($(toolchain),clang)
-TENSORFLOW_WARNING_FLAGS := -Wno-unused-const-variable -Wno-unused-private-field -Wno-tautological-undefined-compare -Wno-missing-braces -Wno-absolute-value -Wno-unused-function -Wno-inconsistent-missing-override -Wno-constant-conversion
+# -Wno-error should not be used but so far it seems like the only way to mute
+# warning: braces around scalar initializer
+TENSORFLOW_WARNING_FLAGS := -Wno-unused-const-variable -Wno-unused-private-field -Wno-tautological-undefined-compare -Wno-missing-braces -Wno-absolute-value -Wno-unused-function -Wno-inconsistent-missing-override -Wno-constant-conversion -Wno-unused-variable -Wno-error
 endif
 
 # Second, the include directories required

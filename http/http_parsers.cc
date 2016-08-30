@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* http_parsers.h                                                  -*- C++ -*-
    Wolfgang Sourdeau, January 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include <string.h>
@@ -394,7 +393,7 @@ parseBlockBody(BufferState & state)
 {
     ML::Parse_Context::Revert_Token token(state);
 
-    uint64_t chunkSize = min(state.readahead_available(), remainingBody_);
+    size_t chunkSize = min<size_t>(state.readahead_available(), remainingBody_);
     // cerr << "toSend: " + to_string(chunkSize) + "\n";
     // cerr << "received body: /" + string(data, chunkSize) + "/\n";
     if (onData && chunkSize > 0) {

@@ -551,6 +551,7 @@ run(const ProcedureRunConfig & run,
         Json::Value foldRez;
         foldRez["fold"] = jsonEncode(datasetFold);
         foldRez["modelFileUrl"] = clsProcConf.modelFileUrl.toUtf8String();
+        foldRez["functionName"] = clsProcConf.functionName;
 
         if(runProcConf.outputAccuracyDataset)
             foldRez["accuracyDataset"] = accuracyConfig.outputDataset->id;

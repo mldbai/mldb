@@ -7,14 +7,17 @@
    Contains generic implementations (non-vectorised) of SIMD functionality.
 */
 
-#include "exception.h"
-#include "simd_vector.h"
-#include "simd_vector_avx.h"
+#include "mldb/arch/arch.h"
 #include "mldb/compiler/compiler.h"
+#include "exception.h"
 #include <iostream>
 #include <cmath>
-#include "sse2.h"
-#include <immintrin.h>
+#if JML_INTEL_ISA
+# include "simd_vector.h"
+# include "simd_vector_avx.h"
+# include "sse2.h"
+# include <immintrin.h>
+#endif
 
 using namespace std;
 

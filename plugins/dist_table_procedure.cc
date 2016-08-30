@@ -509,7 +509,6 @@ persist(const Url & modelFileUrl, DistTableMode mode,
 }
 
 
-
 /*****************************************************************************/
 /* DIST TABLE FUNCTION FUNCTIONS ENDPOINT PAYLOAD                            */
 /*****************************************************************************/
@@ -722,9 +721,6 @@ apply(const FunctionApplier & applier,
     {
         auto st = distTablesMap.find(columnName);
         if (st == distTablesMap.end())
-            return true;
-
-        if (val.empty())
             return true;
 
         const DistTable & distTable = st->second;

@@ -179,14 +179,6 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         result = mldb.get("/v1/query", q=u"select * from \"hellô\"")
         mldb.log(result.text)
 
-        result = mldb.get("/v1/datasets/" + quote("hellô") + "/query",
-                          select='*')
-        mldb.log(result.text)
-
-        result = mldb.get(u"/v1/datasets/hellô/query",
-                          select='*')
-        mldb.log(result.text)
-
         result = mldb.get("/v1/datasets")
         mldb.log(result.text)
 

@@ -40,7 +40,7 @@ recordExample("ex112", 1, 1, null);
 
 dataset.commit()
 
-var data = mldb.get('/v1/datasets/test/query', {select: 'x,y,label', where:"rowName() = 'ex112'", format:'table'}).json;
+var data = mldb.get('/v1/query', {q: "SELECT x,y,label from test where rowName() = 'ex112'", format:'table'}).json;
 plugin.log(data);
 
 var expected = [

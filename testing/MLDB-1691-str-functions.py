@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-1691-str-functions.py
 # Francois Maillet, 27 mai 2016

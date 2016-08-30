@@ -332,6 +332,18 @@ will change values on each row under consideration. See the [Intro to Datasets](
   which may be used for example as the result of a `NAMED` clause.  This is the
   inverse of `stringify_path` (above).
 - `path_element(path, n)` will return element `n` of the given `path`.
+- `path_length(path)` will return the number of elements in the given `path`.
+- `flatten_path(path)` will return a path with a single element that encodes
+  the entire `path` passed in, in the same manner as `stringify_path`.  This
+  is useful where a series of nested values need to be turned into a flat set
+  of columns for another function or a vector aggregator.  By using
+  `COLUMN EXPR (AS flatten_path(columnPath()))` an entire object can be
+  flattened in this manner.
+- `unflatten_path(path)` is the inverse of `flatten_path`.  It requires that
+  the input path have a single element, and will turn it back into a variable
+  sized path.  Using `COLUMN EXPR (AS unflatten_path(columnPath()))` an entire
+  object can be unflattened in this manner.
+
 
 ### Encoding and decoding functions
 
@@ -394,20 +406,22 @@ and the possible values for the `arrays` field are:
 
 ### Numeric functions
 
-- `pow(x, y)`: returns x to the power of y.
-- `exp(x)`: returns **e** (the Euler number) raised to the power x.
-- `ln(x)`: returns the natural logarithm of x.
-- `ceil(x)`: returns the smaller integer not less than x.
-- `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
-- `abs(x)`: returns the absolute value of x.
-- `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
-- `sign(x)`: returns the sign of x (-1, 0, +1).
-- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
-- `isinf(x)`: return true if x is +/- infinity in the floating point representation.
-- `isfinite(x)`: return true if x is neither infinite nor not-a-number.
+- `pow(x, y)`: returns `x` to the power of `y`.
+- `exp(x)`: returns _e_ (the Euler number) raised to the power `x`.
+- `ln(x)`: returns the natural logarithm of `x`.
+- `log(x)`: returns the base-10 logarithm of `x`.
+- `log(b, x)`: returns the base-`b` logarithm of `x`.
+- `ceil(x)`: returns the smaller integer not less than `x`.
+- `floor(x)`: returns the largest integer not greater than `x`.
+- `mod(x, y)`: returns `x` modulo `y`.  The value of `x` and `y` must be an integer. Another way to get the modulo is `x % y`.
+- `abs(x)`: returns the absolute value of `x`.
+- `sqrt(x)`: returns the square root of `x`.
+- `sign(x)`: returns the sign of `x` (-1, 0, +1).
+- `isnan(x)`: returns true if `x` is `NaN` in the floating point representation.
+- `isinf(x)`: return true if `x` is +/- infinity in the floating point representation.
+- `isfinite(x)`: returns true if `x` is neither infinite nor `NaN`.
 
-- `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
+- `quantize(x, y)`: returns `x` rounded to the precision of `y`.  Here are some examples:
 
 expression|result
 ----------------------|-----
@@ -429,7 +443,7 @@ expression|result
 - `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
 - `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
 - `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
-- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
+- `clamp(x,lower,upper)` will clamp the value `x` between the `lower` and `upper` bounds.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 
@@ -611,6 +625,8 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `vertical_count(<row>)` alias of `count()`, operates on columns.
   - `vertical_sum(<row>)` alias of `sum()`, operates on columns.
   - `vertical_avg(<row>)` alias of `avg()`, operates on columns.
+  - `vertical_stddev(<row>)` alias of `stddev()`, operates on columns.
+  - `vertical_variance(<row>)` alias of `variance()`, operates on columns.
   - `vertical_min(<row>)` alias of `min()`, operates on columns.
   - `vertical_max(<row>)` alias of `max()`, operates on columns.
   - `vertical_latest(<row>)` alias of `latest()`, operates on columns.

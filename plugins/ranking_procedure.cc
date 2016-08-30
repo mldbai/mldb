@@ -55,9 +55,7 @@ RankingProcedureConfigDescription()
              "expression is required but has no effect. The order by "
              "expression is used to rank the rows.");
     addField("outputDataset", &RankingProcedureConfig::outputDataset,
-             "Output dataset configuration. This may refer either to an "
-             "existing dataset, or a fully specified but non-existing dataset "
-             "which will be created by the procedure.",
+             GENERIC_OUTPUT_DS_DESC,
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("rankingType", &RankingProcedureConfig::rankingType,
              "The type of the rank to output. The only accepted value is "

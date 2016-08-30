@@ -89,12 +89,16 @@ The following example would be for a 2-fold run:
         },
         "folds": [
             {
-                "accuracyDataset" : <id of fold 1 accuracy dataset if it was generated>
+                "accuracyDataset" : <id of fold 1 accuracy dataset if it was generated>,
+                "modelFileUrl" = <path of fold 1 model file>,
+                "functionName" = <name of fold 1 scorer function>,
                 "resultsTest" : { <classifier.test output for fold 1> },
                 "fold": { <datasetFold used for fold 1> }
             },
             {
-                "accuracyDataset" : <id of fold 2 accuracy dataset if it was generated>
+                "accuracyDataset" : <id of fold 2 accuracy dataset if it was generated>,
+                "modelFileUrl" = <path of fold 2 model file>,
+                "functionName" = <name of fold 2 scorer function>,
                 "resultsTest" : { <classifier.test output for fold 2> },
                 "fold": { <datasetFold used for fold 2> }
             }

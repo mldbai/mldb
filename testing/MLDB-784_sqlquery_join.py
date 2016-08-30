@@ -58,10 +58,9 @@ info = json.loads(mldb.perform('GET', '/v1/functions/patate/info')["response"])
 mldb.log(info)
 
 # now it should do the join
-res = mldb.perform('GET', '/v1/datasets/ds2/query',
+res = mldb.perform('GET', '/v1/query',
                    [
-                       ['select', 'a, patate({rowName() as id}) as *'],
-                       ['where', 'rowName() = \'row_2\''],
+                       ['q', 'SELECT a, patate({rowName() as id}) as * from ds2 where rowName() = \'row_2\''],
                        ['format', 'aos']],
                    {})
 

@@ -69,7 +69,7 @@ struct TestBindingContext: public SqlBindingScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep)
+                    const ColumnFilter& keep)
     {
         GetAllColumnsOutput result;
 

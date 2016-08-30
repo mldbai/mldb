@@ -25,7 +25,7 @@ struct SparseMatrixDataset: public Dataset {
 
     virtual ~SparseMatrixDataset();
 
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
 
     /** Base database methods require us to be able to iterate through rows.
         All other views are built on top of this.

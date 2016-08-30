@@ -138,7 +138,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             else return row;
         }
 
-        virtual void advance()
+        virtual void advance() override
         {
             ExcAssert(rowIndex < rowCount);
             rowIndex++;

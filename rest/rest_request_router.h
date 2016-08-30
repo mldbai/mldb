@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <set>
+
 #include "mldb/rest/rest_request_fwd.h"
 #include "mldb/rest/rest_request.h"
 #include "mldb/rest/rest_connection.h"
@@ -17,6 +19,8 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/regex.h"
 #include "mldb/http/http_exception.h"
+#include <set>
+
 
 namespace Datacratic {
 

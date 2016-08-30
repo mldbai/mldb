@@ -3461,58 +3461,63 @@ bind(SqlBindingScope & scope) const
     //cerr << "prefix = " << prefix << endl;
     //cerr << "asPrefix = " << asPrefix << endl;
 
-    if (!prefix.empty())
-        simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
+    ColumnFilter newColumnName = ColumnFilter::identity();
 
-    //cerr << "tableName = " << resolvedTableName << endl;
-    //cerr << "simplifiedPrefix = " << simplifiedPrefix << endl;
+    if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()){
+       
+        if (!prefix.empty())
+            simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
 
-    // This function figures out the new name of the column.  If it's excluded,
-    // then it returns the empty column name
-    auto newColumnName = [=] (const ColumnName & inputColumnName) -> ColumnName
-        {
-            //cerr << "input column name " << inputColumnName << endl;
+        //cerr << "tableName = " << resolvedTableName << endl;
+        //cerr << "simplifiedPrefix = " << simplifiedPrefix << endl;
 
-            // First, check it matches the prefix
-            // We have to check the simplified prefix for regular datasets
-            // i.e select x.a.* from x returns a.b
-            // But we have to check the initial prefix for joins
-            // i.e select x.a.* from x join y returns x.a.b
-            if (!inputColumnName.matchWildcard(simplifiedPrefix)
-                && !inputColumnName.matchWildcard(prefix)) {
-                //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
-                return ColumnName();
-            }
+        // This function figures out the new name of the column.  If it's excluded,
+        // then it returns the empty column name
+        newColumnName = ColumnFilter([=] (const ColumnName & inputColumnName) -> ColumnName
+            {
+                //cerr << "input column name " << inputColumnName << endl;
 
-            // Second, check it doesn't match an exclusion
-            for (auto & ex: excluding) {
-                if (ex.second) {
-                    // prefix
-                    if (inputColumnName.matchWildcard(ex.first))
-                        return ColumnName();
+                // First, check it matches the prefix
+                // We have to check the simplified prefix for regular datasets
+                // i.e select x.a.* from x returns a.b
+                // But we have to check the initial prefix for joins
+                // i.e select x.a.* from x join y returns x.a.b
+                if (!inputColumnName.matchWildcard(simplifiedPrefix)
+                    && !inputColumnName.matchWildcard(prefix)) {
+                    //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
+                    return ColumnName();
                 }
-                else {
-                    // exact match
-                    if (inputColumnName == ex.first)
-                        return ColumnName();
+
+                // Second, check it doesn't match an exclusion
+                for (auto & ex: excluding) {
+                    if (ex.second) {
+                        // prefix
+                        if (inputColumnName.matchWildcard(ex.first))
+                            return ColumnName();
+                    }
+                    else {
+                        // exact match
+                        if (inputColumnName == ex.first)
+                            return ColumnName();
+                    }
                 }
-            }
 
-            // Finally, replace the prefix with the new prefix
-            if (!simplifiedPrefix.empty() || (prefix != asPrefix)) {
+                // Finally, replace the prefix with the new prefix
+                if (!simplifiedPrefix.empty() || (prefix != asPrefix)) {
 
-                if (prefix != asPrefix) {
-                    //cerr << "replacing wildcard " << prefix
-                    // << " with " << asPrefix << " on " << inputColumnName << endl;
-                    //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
+                    if (prefix != asPrefix) {
+                        //cerr << "replacing wildcard " << prefix
+                        // << " with " << asPrefix << " on " << inputColumnName << endl;
+                        //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
 
-                    return inputColumnName.replaceWildcard(prefix, asPrefix);
+                        return inputColumnName.replaceWildcard(prefix, asPrefix);
+                    }
                 }
-            }
 
-            //cerr << "kept" << endl;
-            return inputColumnName;
-        };
+                //cerr << "kept" << endl;
+                return inputColumnName;
+            });
+    }   
 
     auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
 
@@ -3733,9 +3738,10 @@ SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
+    ColumnFilter filter = ColumnFilter::identity();
     auto allColumns
         = scope.doGetAllColumns("" /* table name */,
-                                  [] (ColumnName n) { return std::move(n); });
+                                filter);
     
     bool hasDynamicColumns
         = allColumns.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
@@ -3869,22 +3875,20 @@ bind(SqlBindingScope & scope) const
         keepColumns[c.inputColumnName]
             = c.columnName;
     
-    auto filterColumns = [=] (const ColumnName & name) -> ColumnName
-        {
-            if (hasDynamicColumns)
-                return name;
-            auto it = keepColumns.find(name);
-            if (it == keepColumns.end()) {
-                return ColumnName();
-            }
-            return it->second;
-        };
-    
-    // Finally, return a filtered set from the underlying dataset
-    auto outputColumns
-        = scope.doGetAllColumns("" /* prefix */, filterColumns);
-
     if (selectValue && asColumnPath && !hasDynamicColumns) {
+
+        ColumnFilter filterColumns([=] (const ColumnName & name) -> ColumnName
+            {
+                auto it = keepColumns.find(name);
+                if (it == keepColumns.end()) {
+                    return ColumnName();
+                }
+                return it->second;
+            });
+    
+        // Finally, return a filtered set from the underlying dataset
+        auto outputColumns
+            = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
         auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
@@ -3899,6 +3903,10 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
+        ColumnFilter filterColumns = ColumnFilter::identity();
+
+        auto outputColumns
+            = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
         BoundSqlExpression boundSelect = select->bind(colScope);
 
