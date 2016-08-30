@@ -3,8 +3,27 @@
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 #
 
-import unittest, json
+import unittest, json, tempfile, os, pprint
 mldb = mldb_wrapper.wrap(mldb) # noqa
+
+
+def get_temporary_file():
+    return tempfile.NamedTemporaryFile(prefix=os.getcwd() + '/build/x86_64/tmp')
+
+def make_dataset(headers, data, name):
+    data = [map(float, row.strip().split())
+            for row in data.strip().split('\n')]
+
+    mldb.put('/v1/datasets/' + name, {
+        'type': 'tabular'
+    })
+    for i, row in enumerate(data):
+        mldb.post('/v1/datasets/{}/rows'.format(name), {
+            'rowName': str(i),
+            'columns': [[col,val,0] for col,val in zip(headers, row)]
+        })
+    mldb.post('/v1/datasets/{}/commit'.format(name))
+
 
 class Mldb174Test(MldbUnitTest):
 
@@ -639,6 +658,82 @@ class Mldb174Test(MldbUnitTest):
 
             mldb.log(rez.json()["status"])
             self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["r2"], r2, places=2)
+
+    def test_super_simple_dt(self):
+        headers = ['x', 'y', 'label']
+        data = """
+            -1 -1 0
+            -1  1 0
+             1 -1 0
+             1  1 10
+            """
+        make_dataset(headers, data, 'super_simple')
+
+        _model_file = get_temporary_file()
+        model_file = 'file:///' + _model_file.name
+        res = mldb.put('/v1/procedures/_', {
+            'type': 'classifier.train',
+            'params': {
+                'mode': 'regression',
+                'trainingData': "SELECT features: {x,y}, label FROM super_simple",
+                'algorithm': 'dt',
+                'modelFileUrl': model_file,
+                'configuration': {
+                    'dt': {
+                        'type': 'decision_tree',
+                        'max_depth': 2,
+                    }
+                },
+                'functionName': 'classify'
+            }
+        }).json()
+        mldb.log(res)
+        details = mldb.get('/v1/functions/classify/details').json()
+        mldb.log(pprint.pformat(details))
+
+        self.assertEqual(details['model']['params']['tree'], {
+            u'root': {
+                u'examples': 4.0,
+                u'false': {
+                    u'examples': 2.0,
+                    u'false': {
+                        u'examples': 1.0,
+                        u'pred': [10.0],
+                        u'type': u'leaf'},
+                    u'missing': {u'examples': 0.0,
+                                 u'pred': [None],
+                                 u'type': u'leaf'},
+                    u'pred': [5.0],
+                    u'split': {
+                        u'feature': u'y',
+                        u'op': u'LESS',
+                        u'value': u'0'},
+                    u'true': {
+                        u'examples': 1.0,
+                        u'pred': [0.0],
+                        u'type': u'leaf'},
+                    u'type': u'node',
+                    u'z': 0.0},
+                u'missing': {
+                    u'examples': 0.0,
+                    u'pred': [None],
+                    u'type': u'leaf'},
+                u'pred': [2.5],
+                u'split': {
+                    u'feature': u'x',
+                    u'op': u'LESS',
+                    u'value': u'0'},
+                u'true': {
+                    u'examples': 2.0,
+                    u'pred': [0.0],
+                    u'type': u'leaf'},
+                u'type': u'node',
+                u'z': 12.5}
+        })
+
+        mldb.log(mldb.query("""
+            SELECT classify({features: {x:0.7, y:1.2}}) AS *
+        """))
 
 
 mldb.run_tests()
