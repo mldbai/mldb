@@ -77,7 +77,6 @@ class TestClassifierExplainFn(MldbUnitTest):  # noqa
         headers = ['x', 'y', 'label', 'weight']
         data = """
             -1 -1 0 1
-            -1 -1 0 1
             -1  1 0 3
              1 -1 0 3
              1  1 1 3
@@ -199,14 +198,10 @@ class TestClassifierExplainFn(MldbUnitTest):  # noqa
             }
         })
 
-        mldb.log(mldb.query("""
-            SELECT explain({features: {x:0.7, y:1.2}, label:8}) AS *
-        """))
-
-        mldb.log(mldb.query("""
-            SELECT explain({features: {x:0.7, y:1.2}, label:12}) AS *
-        """))
-
+        for label in [1, .8, 1.2]:
+            mldb.log(mldb.query("""
+                SELECT explain({features: {x:0.7, y:1.2}, label:%f}) AS *
+            """ % label))
 
 
 if __name__ == '__main__':
