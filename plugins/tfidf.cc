@@ -416,7 +416,7 @@ apply(const FunctionApplier & applier,
     Date ts = inputVal.getEffectiveTimestamp();
 
     // Compute the score for every word in the input
-    logger->debug() << "corpus size: " << corpusSize;
+    DEBUG_MSG(logger) << "corpus size: " << corpusSize;
 
     auto onColumn2 = [&] (const PathElement & name,
                           const ExpressionValue & val)
@@ -429,7 +429,7 @@ apply(const FunctionApplier & applier,
             uint64_t docFrequencyInt = docFrequency != dfs.end() ? docFrequency->second : 0;
             double idf = idf_fct(docFrequencyInt);
 
-            logger->debug()
+            DEBUG_MSG(logger)
                 << "term: '" << term << "', df: "
                 << docFrequencyInt << ", tf: " << tf << ", idf: " << idf;
 
