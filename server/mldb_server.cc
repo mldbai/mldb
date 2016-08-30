@@ -399,7 +399,7 @@ void
 MldbServer::
 scanPlugins(const std::string & dir_)
 {
-    logger->debug() << "scanning plugins in directory " << dir_;
+    DEBUG_MSG(logger) << "scanning plugins in directory " << dir_;
 
     std::string dir = dir_;
 

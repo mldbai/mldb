@@ -203,8 +203,7 @@ struct ScoredStats {
         entry.weight = weight;
         entry.key = key;
         
-        if (isSorted && !entries.empty()
-            && entry < entries.back())
+        if (isSorted && !entries.empty() && entry < entries.back())
             isSorted = false;
 
         entries.push_back(entry);
