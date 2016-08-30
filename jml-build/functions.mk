@@ -7,19 +7,22 @@ dollars=$$
 
 SHELL := /bin/bash
 
-ifeq ($(TERM),xterm)
+ifneq ($(strip $(TERM)),)
+    # we have a term
+    ifeq ($(shell if [ $$(tput colors) -gt 7 ]; then echo "1"; fi;),1)
 
-ESC :=
+    ESC :=
 
-COLOR_RED :=$(ESC)[31m
-COLOR_GREEN :=$(ESC)[32m
-COLOR_YELLOW :=$(ESC)[33m
-COLOR_BLUE :=$(ESC)[34m
-COLOR_VIOLET :=$(ESC)[35m
-COLOR_CYAN :=$(ESC)[36m
-COLOR_RESET := $(ESC)[0m
-COLOR_BOLD :=$(ESC)[1m
-COLOR_DARK_GRAY := $(ESC)[1;30m
+    COLOR_RED :=$(ESC)[31m
+    COLOR_GREEN :=$(ESC)[32m
+    COLOR_YELLOW :=$(ESC)[33m
+    COLOR_BLUE :=$(ESC)[34m
+    COLOR_VIOLET :=$(ESC)[35m
+    COLOR_CYAN :=$(ESC)[36m
+    COLOR_RESET := $(ESC)[0m
+    COLOR_BOLD :=$(ESC)[1m
+    COLOR_DARK_GRAY := $(ESC)[1;30m
+    endif
 
 endif
 
