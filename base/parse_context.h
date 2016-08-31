@@ -91,10 +91,6 @@ struct Parse_Context {
         necessary. */
     void init(const std::string & filename);
 
-    /** Initialize from an istream. */
-    void init(const std::string & filename, std::istream & stream,
-              unsigned line = 1, unsigned col = 1);
-
     /** Set the chunk size for the buffers.  Mostly used for testing
         purposes.  Note that this is only useful when initialized from
         a stream. */
