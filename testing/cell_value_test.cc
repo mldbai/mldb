@@ -16,6 +16,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
+#include <climits>
 
 
 using namespace std;
@@ -153,7 +154,7 @@ BOOST_AUTO_TEST_CASE( test_date )
 
     Date now(Date::now());
     CellValue ts1(now);
-    cerr << "ts1.toString() = " << ts1.toString() << endl;
+
     BOOST_CHECK_EQUAL(CellValue(ts1.toString()).coerceToTimestamp(),
                       ts1);
 
@@ -242,7 +243,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
     auto cell3 = CellValue::parse(veryLongFloat, 
                                   strlen(veryLongFloat),
                                   STRING_IS_VALID_ASCII);
-    cerr << "HERE " << cell3.toString() << endl;
+
     BOOST_CHECK_EQUAL(cell3.cellType(), CellValue::FLOAT);
 
     constexpr const char * veryVeryLongFloat = 
@@ -254,7 +255,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
     auto cell4 = CellValue::parse(veryVeryLongFloat, 
                                   strlen(veryVeryLongFloat),
                                   STRING_IS_VALID_ASCII);
-    cerr << "HERE " << cell4.toString() << endl;
+
     BOOST_CHECK_EQUAL(cell4.cellType(), CellValue::FLOAT);
 
     constexpr const char * veryVeryVeryLongFloat = 
@@ -268,7 +269,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
     auto cell5 = CellValue::parse(veryVeryVeryLongFloat, 
                                   strlen(veryVeryVeryLongFloat),
                                   STRING_IS_VALID_ASCII);
-    cerr << "HERE " << cell5.toString() << endl;
+
     // the value is rounded to 0
     BOOST_CHECK_EQUAL(cell5.cellType(), CellValue::INTEGER);
 }
@@ -283,15 +284,32 @@ BOOST_AUTO_TEST_CASE (test_realistic_int)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
 
-    constexpr const char * realisticInt2 = "-38860246539115906123454634";
+    constexpr const char * smallerThanMinInt = "-38860246539115906123454634";
 
-    auto cell2 = CellValue::parse(realisticInt2, 
+    auto cell2 = CellValue::parse(smallerThanMinInt, 
                                   strlen(realisticInt1), // intended - must not read passed the length
                                   STRING_IS_VALID_ASCII);
 
     BOOST_CHECK_EQUAL(cell2.cellType(), CellValue::INTEGER);
     BOOST_CHECK_EQUAL(cell1, cell2);
+
+    constexpr const char * largerThanMaxInt = "+38860246539115906123454634";
+
+    auto cell3 = CellValue::parse(largerThanMaxInt, 
+                                  strlen(largerThanMaxInt),
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell3.cellType(), CellValue::INTEGER);
+    BOOST_CHECK_EQUAL(cell3.toInt(), LLONG_MAX);
+
+    auto cell4 = CellValue::parse(smallerThanMinInt, 
+                                  strlen(smallerThanMinInt),
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell4.cellType(), CellValue::INTEGER);
+    BOOST_CHECK_EQUAL(cell4.toInt(), LLONG_MIN);
 }
+
 
 BOOST_AUTO_TEST_CASE (test_realistic_uint)
 {
