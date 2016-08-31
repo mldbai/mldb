@@ -7,7 +7,7 @@
     Common code for JS handling.
 */
 
-#include "v8/v8.h"
+#include "mldb/ext/v8-cross-build-output/include/v8.h"
 #include "js_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/logging/logging.h"

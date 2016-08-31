@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "v8/v8.h"
+#include "mldb/ext/v8-cross-build-output/include/v8.h"
 #include <string>
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"

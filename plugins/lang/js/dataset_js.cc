@@ -90,9 +90,14 @@ recordRow(const v8::FunctionCallbackInfo<v8::Value> & args)
     JsContextScope scope(args.This());
     try {
         Dataset * dataset = getShared(args.This());
-            
-        dataset->recordRow(JS::getArg<RowName>(args, 0, "rowName"),
-                           JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {}));
+         
+        auto rowName = JS::getArg<RowName>(args, 0, "rowName");
+        auto values = JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {});
+
+        {
+            //v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordRow(std::move(rowName), std::move(values));
+        }
 
         args.GetReturnValue().Set(args.This());
     } HANDLE_JS_EXCEPTIONS(args);
@@ -105,9 +110,14 @@ recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
     JsContextScope scope(args.This());
     try {
         Dataset * dataset = getShared(args.This());
-            
-        dataset->recordRows(JS::getArg<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "rows", {}));
+        
+        auto rows = JS::getArg<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "rows", {});
 
+        {
+            //v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordRows(std::move(rows));
+        }
+        
         args.GetReturnValue().Set(args.This());
     } HANDLE_JS_EXCEPTIONS(args);
 }
@@ -119,9 +129,14 @@ recordColumn(const v8::FunctionCallbackInfo<v8::Value> & args)
     JsContextScope scope(args.This());
     try {
         Dataset * dataset = getShared(args.This());
-            
-        dataset->recordColumn(JS::getArg<ColumnName>(args, 0, "columnName"),
-                              JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {}));
+        
+        auto columnName = JS::getArg<ColumnName>(args, 0, "columnName");
+        auto column = JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {});
+
+        {
+            //v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordColumn(std::move(columnName), std::move(column));
+        }
 
         args.GetReturnValue().Set(args.This());
     } HANDLE_JS_EXCEPTIONS(args);
@@ -135,7 +150,8 @@ recordColumns(const v8::FunctionCallbackInfo<v8::Value> & args)
     try {
         Dataset * dataset = getShared(args.This());
             
-        dataset->recordColumns(JS::getArg<std::vector<std::pair<ColumnName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "columns", {}));
+        auto columns = JS::getArg<std::vector<std::pair<ColumnName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "columns", {});
+        dataset->recordColumns(std::move(columns));
 
         args.GetReturnValue().Set(args.This());
     } HANDLE_JS_EXCEPTIONS(args);

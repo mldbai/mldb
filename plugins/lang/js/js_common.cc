@@ -12,10 +12,11 @@
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb_js.h"
-#include "v8/libplatform/libplatform.h"
+#include "mldb/ext/v8-cross-build-output/include/libplatform/libplatform.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
+#include <boost/filesystem.hpp>
 #include <thread>
 
 using namespace std;
@@ -100,6 +101,7 @@ struct V8MldbPlatform: public v8::Platform {
                                                double delay_in_seconds) override
     {
         cerr << "CallDelayedOnForegroundThread" << endl;
+        cerr << "delay_in_seconds = " << delay_in_seconds << endl;
         std::terminate();
     }
 
@@ -251,12 +253,18 @@ V8Init(MldbServer * server)
 
     v8::V8::SetFlagsFromCommandLine(&v8_argc, (char **)&v8_argv, false);
 
-    //const char * argv0 = "build/x86_64/bin/mldb_runner";
-    //if (!v8::V8::InitializeICUDefaultLocation(argv0, "build/x86_64/lib")) {
-    //    throw HttpReturnException(500, "Couldn't initialize ICU data for v8");
-    //}
+    // TODO: linuxisms...
+    char exePath[PATH_MAX];
+    ssize_t pathLen = readlink("/proc/self/exe", exePath, PATH_MAX);
+    if (pathLen == -1)
+        throw HttpReturnException
+            (400, "Couldn't path to the MLDB executable; "
+             "is the /proc filesystem mounted?  ("
+             + string(strerror(errno)) + ")");
+    boost::filesystem::path path(exePath, exePath + pathLen);
+    auto libPath = path.parent_path().parent_path() / "lib" / "libv8.so";
 
-    v8::V8::InitializeExternalStartupData("build/x86_64/lib/libv8.so");
+    v8::V8::InitializeExternalStartupData(libPath.c_str());
     v8::V8::InitializePlatform(new V8MldbPlatform(server));
     v8::V8::Initialize();
 

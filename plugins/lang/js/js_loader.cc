@@ -24,7 +24,7 @@
 #include "dataset_js.h"
 #include "function_js.h"
 #include "procedure_js.h"
-#include "v8/v8.h"
+#include "mldb/ext/v8-cross-build-output/include/v8.h"
 
 #include "mldb/types/string.h"
 
