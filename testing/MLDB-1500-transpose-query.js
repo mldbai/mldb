@@ -49,7 +49,7 @@ function createDataset()
     var datasetConfig = {
         type: 'import.text',
         params: {
-            dataFileUrl: 'https://public.mldb.ai/reddit.csv.gz',
+            dataFileUrl: 'http://public.mldb.ai/reddit.csv.gz',
             outputDataset: { id: 'reddit_text_file' },
             limit: 1000,
             delimiter: "",
@@ -73,7 +73,7 @@ function createDataset()
                 from: 'reddit_text_file'
             },
             outputDataset: { type: 'sparse.mutable', id: 'reddit' }
-}
+        }
     };
 
     createAndTrainProcedure(transformConfig, "dataset import");
