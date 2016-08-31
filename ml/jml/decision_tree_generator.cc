@@ -1283,7 +1283,7 @@ train_recursive_regression(Thread_Context & context,
 
     Tree::Node * node = tree.new_node();
     node->split = accum.split();
-    node->z = accum.z();    node->examples = total_weight;
+    node->z = accum.z();
     node->examples = total_weight;
     node->pred = leaf.pred;
 
