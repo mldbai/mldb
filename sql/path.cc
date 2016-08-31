@@ -26,6 +26,17 @@ namespace {
 // If ever we allow the first offset of a path to be non-zero (eg, to tail
 // a long path via sharing) we should remove this.
 constexpr bool PATH_OFFSET_ZERO_IS_ALWAYS_ZERO = true;
+
+inline void checkNullPathElement(bool lhsNull, bool rhsNull = false) {
+    if (lhsNull) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null lhs PathElement");
+    }
+    if (rhsNull) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null rhs PathElement");
+    }
+}
 } // file scope
 
 
@@ -605,16 +616,7 @@ Path
 PathElement::
 operator + (const PathElement & other) const
 {
-    if (null()) {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
-        throw HttpReturnException(
-            500, "Cannot call operator + on null lhs PathElement");
-    }
-    if (other.null()) {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
-        throw HttpReturnException(
-            500, "Cannot call operator + on null rhs PathElement");
-    }
+    checkNullPathElement(null(), other.null());
     PathBuilder builder;
     return builder.add(*this).add(other).extract();
 }
@@ -623,16 +625,7 @@ Path
 PathElement::
 operator + (PathElement && other) const
 {
-    if (null()) {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
-        throw HttpReturnException(
-            500, "Cannot call operator + on null lhs PathElement");
-    }
-    if (other.null()) {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
-        throw HttpReturnException(
-            500, "Cannot call operator + on null rhs PathElement");
-    }
+    checkNullPathElement(null(), other.null());
     PathBuilder builder;
     return builder.add(*this).add(std::move(other)).extract();
 }
@@ -641,11 +634,7 @@ Path
 PathElement::
 operator + (const Path & other) const
 {
-    if (null()) {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
-        throw HttpReturnException(
-            500, "Cannot call operator + on null lhs PathElement");
-    }
+    checkNullPathElement(null());
     Path result(*this);
     return result + other;
 }
@@ -654,11 +643,7 @@ Path
 PathElement::
 operator + (Path && other) const
 {
-    if (null()) {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
-        throw HttpReturnException(
-            500, "Cannot call operator + on null lhs PathElement");
-    }
+    checkNullPathElement(null());
     Path result(*this);
     return result + std::move(other);
 }
@@ -1189,10 +1174,7 @@ Path
 Path::
 operator + (const PathElement & other) const
 {
-    if (other.null()) {
-        throw HttpReturnException(
-            500, "Cannot call operator + on null rhs PathElement");
-    }
+    checkNullPathElement(false, other.null());
     PathBuilder result;
     return result
         .addRange(*this, 0, size())
@@ -1204,10 +1186,7 @@ Path
 Path::
 operator + (PathElement && other) const
 {
-    if (other.null()) {
-        throw HttpReturnException(
-            500, "Cannot call operator + on null rhs PathElement");
-    }
+    checkNullPathElement(false, other.null());
     PathBuilder result;
     return result
         .addRange(*this, 0, size())
