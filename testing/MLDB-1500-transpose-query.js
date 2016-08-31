@@ -88,14 +88,14 @@ expected = [
 
       {
          "columns" : [
-            [ "width", 780, "2016-03-09T02:33:24Z" ]
+            [ "width", 780, "2016-08-09T16:46:52Z" ]
          ],
          "rowHash" : "1a6e08b48361f340",
          "rowName" : "\"[\"\"AskReddit\"\"]\""
       },
       {
          "columns" : [
-            [ "width", 757, "2016-03-09T02:33:24Z" ]
+            [ "width", 757, "2016-08-09T16:46:52Z" ]
          ],
          "rowHash" : "2d6c95775e682799",
          "rowName" : "\"[\"\"funny\"\"]\""
@@ -113,14 +113,14 @@ res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width fro
 expected = [
     {
         "columns" : [
-            [ "width", 1, "2016-03-09T02:33:24Z" ]
+            [ "width", 1, "2016-08-09T16:46:52Z" ]
         ],
         "rowHash" : "bdf764190569d24d",
         "rowName" : "\"[\"\"1000\"\"]\""
     },
     {
         "columns" : [
-            [ "width", 1, "2016-03-09T02:33:24Z" ]
+            [ "width", 1, "2016-08-09T16:46:52Z" ]
         ],
         "rowHash" : "e23a0ba6c8420e79",
         "rowName" : "\"[\"\"1000words\"\"]\""
