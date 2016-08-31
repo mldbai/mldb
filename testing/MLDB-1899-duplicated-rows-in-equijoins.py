@@ -11,13 +11,13 @@ class MLDB1899DuplicatedRowsInEquijoins(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         left_table = mldb.create_dataset({ "id": "left_table", "type": "sparse.mutable" })
-        for index in range(0, 100):
-            left_table.record_row(str(index) ,[["c", index % 10, 0], ["const", 2, 0]])
+        for index in range(100):
+            left_table.record_row(index ,[["c", index % 10, 0], ["const", 2, 0]])
         left_table.commit()
 
         right_table = mldb.create_dataset({ "id": "right_table", "type": "sparse.mutable" })
-        for index in range(0, 100):
-            right_table.record_row(str(index) ,[["c", index % 10, 0], ["d", index % 2, 0]])
+        for index in range(100):
+            right_table.record_row(index ,[["c", index % 10, 0], ["d", index % 2, 0]])
         right_table.commit()
 
     def test_no_duplicate_rows_in_left_join_with_batch_exec(self):

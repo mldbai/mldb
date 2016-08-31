@@ -1146,21 +1146,21 @@ take()
                 result->values.push_back(r->values[i]);
 
             ExpressionValue storage;
-            auto crossWhereTrue = parent->crossWhere_(*result, storage, GET_LATEST).isTrue();
-            auto lWhere = lEmbedding.getColumn(1, GET_ALL).isTrue();
-            auto rWhere = rEmbedding.getColumn(1, GET_ALL).isTrue();
+            auto whereCondition = parent->crossWhere_(*result, storage, GET_LATEST).isTrue()
+                && lEmbedding.getColumn(1, GET_ALL).isTrue()
+                && rEmbedding.getColumn(1, GET_ALL).isTrue();
 
-            if ((!crossWhereTrue || !lWhere || !rWhere) && outerLeft) {
+            if (!whereCondition && outerLeft) {
                 for (auto i = 0; i < numR; i++)
                     result->values.pop_back();
                 for (auto i = 0; i < numR; i++)
                     result->values.push_back(ExpressionValue());
             }
-            else if ((!crossWhereTrue || !lWhere || !rWhere) && outerRight) {
+            else if (!whereCondition && outerRight) {
                 for (auto i = 0; i < numL; i++)
                     result->values[i] = ExpressionValue();
             }
-            else if ((!crossWhereTrue || !lWhere || !rWhere) && !outerRight && !outerLeft) {
+            else if (!whereCondition && !outerRight && !outerLeft) {
                 l = takeFromBuffer(l);
                 DEBUG_MSG(logger) << "skipping row - the where condition is false";
                 if (l == bufferedLeftValues.end()) {
@@ -1187,7 +1187,7 @@ take()
                 setAlreadySeen = true;
             }
 
-            if (outerLeft && (!crossWhereTrue || !lWhere || !rWhere) && alreadySeenLeftRow) {
+            if (outerLeft && !whereCondition && alreadySeenLeftRow) {
                 DEBUG_MSG(logger) << "skipping row - this row was already outputed";
                 continue;
             }
