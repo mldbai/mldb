@@ -605,6 +605,16 @@ Path
 PathElement::
 operator + (const PathElement & other) const
 {
+    if (null()) {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
+        throw HttpReturnException(
+            500, "Cannot call operator + on null lhs PathElement");
+    }
+    if (other.null()) {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
+        throw HttpReturnException(
+            500, "Cannot call operator + on null rhs PathElement");
+    }
     PathBuilder builder;
     return builder.add(*this).add(other).extract();
 }
@@ -613,6 +623,16 @@ Path
 PathElement::
 operator + (PathElement && other) const
 {
+    if (null()) {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
+        throw HttpReturnException(
+            500, "Cannot call operator + on null lhs PathElement");
+    }
+    if (other.null()) {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
+        throw HttpReturnException(
+            500, "Cannot call operator + on null rhs PathElement");
+    }
     PathBuilder builder;
     return builder.add(*this).add(std::move(other)).extract();
 }
@@ -621,6 +641,11 @@ Path
 PathElement::
 operator + (const Path & other) const
 {
+    if (null()) {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
+        throw HttpReturnException(
+            500, "Cannot call operator + on null lhs PathElement");
+    }
     Path result(*this);
     return result + other;
 }
@@ -629,6 +654,11 @@ Path
 PathElement::
 operator + (Path && other) const
 {
+    if (null()) {
+        cerr << __FILE__ << ":" << __LINE__ << endl;
+        throw HttpReturnException(
+            500, "Cannot call operator + on null lhs PathElement");
+    }
     Path result(*this);
     return result + std::move(other);
 }
@@ -1159,6 +1189,10 @@ Path
 Path::
 operator + (const PathElement & other) const
 {
+    if (other.null()) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null rhs PathElement");
+    }
     PathBuilder result;
     return result
         .addRange(*this, 0, size())
@@ -1170,6 +1204,10 @@ Path
 Path::
 operator + (PathElement && other) const
 {
+    if (other.null()) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null rhs PathElement");
+    }
     PathBuilder result;
     return result
         .addRange(*this, 0, size())

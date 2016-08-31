@@ -69,7 +69,6 @@ BOOST_AUTO_TEST_CASE(test_coord_constructor)
     BOOST_CHECK(p2.empty());
 
     BOOST_CHECK_EQUAL(p2.toUtf8String(), "");
-    BOOST_CHECK_EQUAL((coords1 + coord1).toUtf8String(), "");
     BOOST_CHECK_EQUAL(Path(coord1).toUtf8String(), "");
 
     vector<PathElement> coords2;
@@ -403,3 +402,21 @@ BOOST_AUTO_TEST_CASE(test_ordered2)
     }
 }
 #endif
+
+BOOST_AUTO_TEST_CASE(test_null)
+{
+    PathElement e("e");
+    PathElement null;
+    Path p("p");
+
+    // pe = path element
+    // p = path
+    BOOST_CHECK_THROW(null + e, ML::Exception); // pe - pe, null lhs
+    BOOST_CHECK_THROW(e + null, ML::Exception); // pe - pe, null rhs
+    BOOST_CHECK_THROW(null + std::move(e), ML::Exception); // pe - moved pe, null lhs
+    BOOST_CHECK_THROW(e + std::move(null), ML::Exception); // pe - moved pe, null rhs
+    BOOST_CHECK_THROW(null + p, ML::Exception); // pe - path, null lhs
+    BOOST_CHECK_THROW(null + std::move(p), ML::Exception); // pe - moved path, null lhs
+    BOOST_CHECK_THROW(p + null, ML::Exception); // path - pe, null rhs
+    BOOST_CHECK_THROW(p + std::move(null), ML::Exception); // path - moved pe, null rhs
+}
