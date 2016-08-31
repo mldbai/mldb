@@ -8,7 +8,7 @@
 */
 
 
-#include "fixtures.h"
+#include "mldb/utils/testing/fixtures.h"
 
 #include <boost/filesystem.hpp>
 #include <iostream>

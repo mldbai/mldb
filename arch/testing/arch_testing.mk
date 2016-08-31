@@ -13,6 +13,7 @@ $(eval $(call test,info_test,arch,boost))
 $(eval $(call test,rtti_utils_test,arch,boost))
 $(eval $(call test,thread_specific_test,arch,boost))
 $(eval $(call test,gc_test,gc,boost))
+$(eval $(call test,shared_gc_lock_test,gc,boost manual)) # broken on some environments since gc lock changes
 $(eval $(call test,rcu_protected_test,gc,boost timed))
 
 ifeq ($(ARCH),x86_64)

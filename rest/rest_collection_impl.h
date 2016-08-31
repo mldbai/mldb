@@ -1370,10 +1370,7 @@ mustCreateSync(Config config,
         if (es->count(key)) {
             if (!overwrite)
                 this->throwEntryAlreadyExists(key);
-            else {
-            if (!this->deleteEntry(key))
-                this->throwEntryNotOverwritten(key);
-            }
+            this->deleteEntry(key);
         }
     }
 

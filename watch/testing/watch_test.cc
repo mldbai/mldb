@@ -9,7 +9,7 @@
 
 #include "mldb/watch/watch.h"
 #include "mldb/watch/watch_impl.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

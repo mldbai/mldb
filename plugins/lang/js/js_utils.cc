@@ -170,8 +170,6 @@ translateCurrentException()
 
 void passJsException(const v8::TryCatch & tc);
 
-struct NullHandle NULL_HANDLE;
-
 ValuePromise getArg(const JSArgs & args, int argnum,
                     const std::string & name)
 {
@@ -286,69 +284,6 @@ getFunction(const std::string & script_source)
     v8::Local<v8::Function> fnresult(v8::Function::Cast(*result));
 
     return scope.Close(fnresult);
-}
-
-v8::Handle<v8::Array>
-getIndexArray(size_t sz)
-{
-    v8::Handle<v8::Array> result(v8::Array::New(sz));
-    
-    for (unsigned i = 0;  i < sz;  ++i) {
-        result->Set(v8::Uint32::New(i),
-                    v8::Uint32::New(i));
-    }
-
-    return result;
-}
-
-/** Call a getter function that's in the data field of the given object. */
-v8::Handle<v8::Value>
-callGetterFn(v8::Local<v8::String> property,
-             const v8::AccessorInfo & info)
-{
-    try {
-        HandleScope scope;
-        if (!info.Data()->IsFunction())
-            throw ML::Exception("isn't a function");
-        v8::Local<v8::Function> fn(v8::Function::Cast(*info.Data()));
-        if (fn.IsEmpty())
-            throw JSPassException();
-        const int argc = 1;
-        v8::Local<v8::Value> argv[argc] = { property };
-        return scope.Close(fn->Call(info.This(), argc, argv));
-    } HANDLE_JS_EXCEPTIONS;
-}
-
-void printObj(const v8::Handle<v8::Value> & val,
-              std::ostream & stream,
-              int nesting)
-{
-    string s(nesting * 4, ' ');
-    stream << s << cstr(val) << endl;
-    if (val->IsObject()) {
-        auto objPtr = v8::Object::Cast(*val);
-        if (!objPtr)
-            return;
-
-        v8::Local<v8::Array> properties = objPtr->GetPropertyNames();
-
-        for(int i=0; i<properties->Length(); ++i) {
-            v8::Local<v8::Value> key = properties->Get(i);
-            v8::Local<v8::Value> val = objPtr->Get(key);
-
-            stream << s << "  " << cstr(key) << ": " << cstr(val) << endl;
-        }
-
-        v8::Local<v8::Value> proto = objPtr->Get(v8::String::New("prototype"));
-        stream << s << "  prototype " << cstr(proto) << endl;
-        if (proto->IsObject())
-            printObj(proto, stream, nesting + 1);
-
-        v8::Local<v8::Value> proto2 = objPtr->GetPrototype(); 
-        stream << s << "  .__proto__ " << cstr(proto2) << endl;
-        if (proto2->IsObject())
-            printObj(proto2, stream, nesting + 1);
-    }
 }
 
 } // namespace JS
