@@ -62,7 +62,7 @@ class ImportTextToSparseTest(unittest.TestCase):
         res = mldb.put('/v1/procedures/import_reddit', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz",
+                "dataFileUrl": "https://public.mldb.ai/reddit.csv.gz",
                 "delimiter": "",
                 "quoteChar": "",
                 "select": "tokenize(lineText, {offset: 1, value: 1}) as *",

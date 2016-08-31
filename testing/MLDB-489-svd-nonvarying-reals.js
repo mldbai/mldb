@@ -51,7 +51,7 @@ function createDataset()
 
     var dataset = mldb.createDataset(dataset_config)
 
-    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz'
     var now = new Date();
 
     var stream = mldb.openStream(dataset_address);
