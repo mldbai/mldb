@@ -1988,7 +1988,7 @@ isSuperposition() const
     //return type_ == Type::SUPERPOSITION;
     return type_ == Type::STRUCTURED
         && structured_->size() > 0
-        && std::get<0>(structured_->at(0)).empty();
+        && std::get<0>(structured_->at(0)).null();
 }
 
 bool
@@ -2114,7 +2114,7 @@ struct FilterAccumulator {
             auto onColumn = [&] (const PathElement & columnName,
                                  const ExpressionValue & expr)
                 {
-                    if (columnName.empty()) {
+                    if (columnName.null()) {
                         // This is a superposition, and so we need to go
                         // down a level
                         accum(expr);
@@ -3179,7 +3179,7 @@ forEachSuperposedValue(const std::function<bool (const ExpressionValue & val)> &
         auto onColumn = [&] (const PathElement & columnName,
                              const ExpressionValue & val)
             {
-                if (!columnName.empty()) {
+                if (!columnName.null()) {
                     nonAtoms.emplace_back(columnName, val);
                     return true;
                 }
@@ -3248,7 +3248,7 @@ getFiltered(const VariableFilter & filter,
     auto onColumn = [&] (const PathElement & col,
                          const ExpressionValue & val)
         {
-            if (col.empty()) {
+            if (col.null()) {
                 atoms(val);
                 return true;
             }
@@ -3318,7 +3318,7 @@ getFilteredDestructive(const VariableFilter & filter)
     auto onColumn = [&] (PathElement & col,
                          ExpressionValue & val)
         {
-            if (col.empty()) {
+            if (col.null()) {
                 atoms(val);
                 return true;
             }
@@ -3375,7 +3375,7 @@ getUniqueAtomCount() const
             size_t result = 0;
             bool hasSuperpositionElements = false;
             for (auto & s: *structured_) {
-                if (std::get<0>(s).empty())
+                if (std::get<0>(s).null())
                     hasSuperpositionElements = true;
                 else result += std::get<1>(s).getUniqueAtomCount();
             }
@@ -3730,7 +3730,7 @@ initStructured(Structured value, bool needsSorting, bool hasDuplicates) noexcept
                 if (i == 0 && j == value.size()) {
                     const PathElement & key = std::get<0>(value[i]);
 
-                    if (key.empty()) {
+                    if (key.null()) {
                         // All have the same key.  We have one single element as a
                         // superposition.  If we continue, we'll get into an infinite
                         // loop.

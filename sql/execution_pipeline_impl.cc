@@ -652,7 +652,7 @@ doGetAllColumns(const Utf8String & tableName,
                 
             StructValue output;
             if (useLeft) {
-                if (!leftPrefix.empty()) {
+                if (!leftPrefix.null()) {
                     output.emplace_back(leftPrefix, std::move(leftResult));
                 }
                 else {
@@ -661,7 +661,7 @@ doGetAllColumns(const Utf8String & tableName,
             }
 
             if (useRight) {
-                 if (!rightPrefix.empty()) {
+                 if (!rightPrefix.null()) {
                     output.emplace_back(rightPrefix, std::move(rightResult));
                 }
                 else {

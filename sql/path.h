@@ -197,7 +197,7 @@ struct PathElement {
     /// with legacy hashes.
     uint64_t newHash() const;
 
-    inline bool empty() const
+    inline bool null() const
     {
         // The empty string doesn't count as an empty PathElement
         return complex_ == 0 && simpleLen_ == 0;

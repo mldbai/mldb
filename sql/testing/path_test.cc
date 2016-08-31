@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(test_element_compare)
 BOOST_AUTO_TEST_CASE(test_coord_constructor)
 {
     PathElement coord1;
-    BOOST_CHECK(coord1.empty());
+    BOOST_CHECK(coord1.null());
 
     BOOST_CHECK_EQUAL(coord1.toUtf8String(), "");
 
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(test_coord_constructor)
 BOOST_AUTO_TEST_CASE(test_empty_str)
 {
     PathElement pe("");
-    BOOST_CHECK(!pe.empty());
+    BOOST_CHECK(!pe.null());
 
     BOOST_CHECK_EQUAL(pe.toUtf8String(), "");
     BOOST_CHECK_EQUAL(pe.toEscapedUtf8String(), "\"\"");

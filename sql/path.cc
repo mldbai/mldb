@@ -478,7 +478,7 @@ Utf8String
 PathElement::
 toEscapedUtf8String() const
 {
-    if (empty()) {
+    if (null()) {
         return "";
     }
     if (complex_ == 1 && str.str.empty()) {
@@ -852,7 +852,7 @@ PathBuilder &
 PathBuilder::
 add(PathElement && element)
 {
-    if (element.empty()) {
+    if (element.null()) {
         return *this;
     }
 
@@ -877,7 +877,7 @@ PathBuilder &
 PathBuilder::
 add(const PathElement & element)
 {
-    if (element.empty()) {
+    if (element.null()) {
         return *this;
     }
 
@@ -955,7 +955,7 @@ Path::Path(PathElement && path)
     : length_(1), digits_(path.digits_),
       ofsBits_(0)
 {
-    if (path.empty()) {
+    if (path.null()) {
         length_ = 0;
         return;
     }
@@ -981,7 +981,7 @@ Path::Path(const PathElement & path)
     : length_(1), digits_(path.digits_),
       ofsBits_(0)
 {
-    if (path.empty()) {
+    if (path.null()) {
         length_ = 0;
         return;
     }
@@ -1538,7 +1538,7 @@ bool
 PathElementDescription::
 isDefaultTyped(const PathElement * val) const
 {
-    return val->empty();
+    return val->null();
 }
 
 struct PathDescription

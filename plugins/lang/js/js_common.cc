@@ -148,7 +148,7 @@ PathElement from_js_ref(const JS::JSValue & value, PathElement *)
 
 void to_js(JS::JSValue & value, const PathElement & val)
 {
-    if (val.empty())
+    if (val.null())
         value = v8::Null();
     return to_js(value, val.toUtf8String());
 }
