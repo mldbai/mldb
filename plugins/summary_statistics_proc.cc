@@ -70,13 +70,13 @@ SummaryStatisticsProcedureConfigDescription()
             }
             auto expr = dynamic_cast<NamedColumnExpression *>(clause.get());
             if (expr == nullptr) {
-                logger->debug() << "Failed to cast " << clause->surface;
+                DEBUG_MSG(logger) << "Failed to cast " << clause->surface;
                 throw ML::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
             if (expr->alias.empty()) {
-                logger->debug() << "Empty alias " << clause->surface;
+                DEBUG_MSG(logger) << "Empty alias " << clause->surface;
                 throw ML::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
@@ -87,7 +87,7 @@ SummaryStatisticsProcedureConfigDescription()
                     + expr->alias.toSimpleName());
             }
             catch (const ML::Exception & exc) {
-                logger->debug() << "Failed to parse within sum "
+                DEBUG_MSG(logger) << "Failed to parse within sum "
                                 << clause->surface;
                 throw ML::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
