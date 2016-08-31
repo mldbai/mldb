@@ -95,9 +95,16 @@ var svdConfig = {
 
 createAndTrainProcedure(svdConfig, 'reddit_svd');
 
-var embedding = mldb.get("/v1/datasets/reddit_svd_embedding/query", {limit:10}).json;
-plugin.log(embedding);
+var resp = mldb.get('/v1/query', { q: 'select count(*) from reddit_svd_embedding', format: 'table' });
 
-assertEqual(embedding.length, 10, "checking embedding really there");
+mldb.log(resp.json);
+
+var expected = [
+   [ "_rowName", "count(*)" ],
+   [ "[]", 2553 ]
+];
+
+assertEqual(resp.json, expected);
+
 
 "success"

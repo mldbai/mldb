@@ -43,7 +43,7 @@ struct ArrayDescription
     std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::array<T, N> * val,
-                                JsonParsingContext & context) const JML_OVERRIDE
+                                JsonParsingContext & context) const override
     {
         if (!context.isArray())
             context.exception("expected array of " + inner->typeName);
@@ -68,14 +68,14 @@ struct ArrayDescription
     }
 
     virtual void printJson(const void * val,
-                           JsonPrintingContext & context) const JML_OVERRIDE
+                           JsonPrintingContext & context) const override
     {
         const std::array<T, N> * val2 = reinterpret_cast<const std::array<T, N> *>(val);
         return printJsonTyped(val2, context);
     }
 
     virtual void printJsonTyped(const std::array<T, N> * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE
+                                JsonPrintingContext & context) const override
     {
         context.startArray(N);
 
@@ -87,43 +87,43 @@ struct ArrayDescription
         context.endArray();
     }
 
-    virtual bool isDefault(const void * val) const JML_OVERRIDE
+    virtual bool isDefault(const void * val) const override
     {
         const std::array<T, N> * val2 = reinterpret_cast<const std::array<T, N> *>(val);
         return isDefaultTyped(val2);
     }
 
-    virtual bool isDefaultTyped(const std::array<T, N> * val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(const std::array<T, N> * val) const override
     {
         return val->empty();
     }
 
-    virtual size_t getArrayLength(void * val) const JML_OVERRIDE
+    virtual size_t getArrayLength(void * val) const override
     {
         const std::array<T, N> * val2 = reinterpret_cast<const std::array<T, N> *>(val);
         return val2->size();
     }
 
     virtual void *
-    getArrayElement(void * val, uint32_t element) const JML_OVERRIDE
+    getArrayElement(void * val, uint32_t element) const override
     {
         std::array<T, N> * val2 = reinterpret_cast<std::array<T, N> *>(val);
         return &val2->at(element);
     }
 
     virtual const void *
-    getArrayElement(const void * val, uint32_t element) const JML_OVERRIDE
+    getArrayElement(const void * val, uint32_t element) const override
     {
         const std::array<T, N> * val2 = reinterpret_cast<const std::array<T, N> *>(val);
         return &val2->at(element);
     }
 
-    virtual const ValueDescription & contained() const JML_OVERRIDE
+    virtual const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }

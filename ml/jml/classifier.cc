@@ -899,8 +899,10 @@ FS_Context(const std::shared_ptr<const Feature_Space> & feature_space)
 
 FS_Context::~FS_Context()
 {
-    if (fs_stack().empty())
-        throw Exception("FS stack was empty in destructor; bad problem");
+    if (fs_stack().empty()) {
+        ::fprintf(stderr, "FS stack was empty in destructor; bad problem");
+        std::terminate();
+    }
     fs_stack().pop_back();
 }
 

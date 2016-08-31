@@ -40,6 +40,6 @@ res = mldb.get('/v1/functions/embed/application',
                input={'row': { 'x': .5, 'y': .5}})
 
 # now use it in a query
-res = mldb.get('/v1/datasets/ds1/query', select='embed({{*} as row})')
+res = mldb.get('/v1/query', q='SELECT embed({{*} as row}) from ds1')
 
 mldb.script.set_return('success')

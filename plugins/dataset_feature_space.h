@@ -103,7 +103,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
                       const ColumnName & columnName,
                       const ColumnInfo & columnInfo) const;*/
 
-    virtual ML::Feature_Info info(const ML::Feature & feature) const;
+    virtual ML::Feature_Info info(const ML::Feature & feature) const override;
 
 
     /*************************************************************************/
@@ -139,39 +139,39 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     using ML::Feature_Space::print;
 
-    virtual std::string print(const ML::Feature_Set & fs) const JML_OVERRIDE;
+    virtual std::string print(const ML::Feature_Set & fs) const override;
 
-    virtual std::string print(const ML::Feature & feature) const JML_OVERRIDE;
+    virtual std::string print(const ML::Feature & feature) const override;
 
-    virtual std::string print(const ML::Feature & feature, float value) const JML_OVERRIDE;
+    virtual std::string print(const ML::Feature & feature, float value) const override;
 
-    virtual void serialize(ML::DB::Store_Writer & store, const ML::Feature & feature) const JML_OVERRIDE;
+    virtual void serialize(ML::DB::Store_Writer & store, const ML::Feature & feature) const override;
 
-    virtual void reconstitute(ML::DB::Store_Reader & store, ML::Feature & feature) const JML_OVERRIDE;
+    virtual void reconstitute(ML::DB::Store_Reader & store, ML::Feature & feature) const override;
 
     virtual void serialize(ML::DB::Store_Writer & store, const ML::Feature & feature,
-                           float value) const JML_OVERRIDE;
+                           float value) const override;
 
     virtual void reconstitute(ML::DB::Store_Reader & store,
                               const ML::Feature & feature,
-                              float & value) const JML_OVERRIDE;
+                              float & value) const override;
 
 
     /*************************************************************************/
     /* FEATURE SPACE                                                         */
     /*************************************************************************/
 
-    virtual std::string class_id() const;
+    virtual std::string class_id() const override;
 
-    virtual ML::Feature_Space_Type type() const;
+    virtual ML::Feature_Space_Type type() const override;
 
-    virtual Feature_Space * make_copy() const;
+    virtual Feature_Space * make_copy() const override;
 
     using ML::Feature_Space::serialize;
     using ML::Feature_Space::reconstitute;
 
     void reconstitute(ML::DB::Store_Reader & store);
-    void serialize(ML::DB::Store_Writer & store) const;
+    virtual void serialize(ML::DB::Store_Writer & store) const override;
 };
 
 

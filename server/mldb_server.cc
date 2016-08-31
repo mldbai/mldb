@@ -7,6 +7,7 @@
     Server for MLDB.
 */
 
+#include "mldb/arch/arch.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/rest/etcd_peer_discovery.h"
 #include "mldb/rest/asio_peer_server.h"
@@ -38,7 +39,11 @@ using namespace std;
 
 namespace {
 bool supportsSystemRequirements() {
+#if JML_INTEL_ISA
     return ML::has_sse42();
+#else
+    return true;
+#endif
 }
 } // anonymous
 
@@ -189,32 +194,26 @@ initRoutes()
         const auto queryStringDef = "The string representing the SQL query. "
                                     "Must be defined either as a query string "
                                     "parameter or the JSON body.";
-        addRouteAsync(versionNode, "/query", { "GET" },
-                      "Select from dataset",
-                      &MldbServer::runHttpQuery,
-                      this,
-                      // Query string parameters
-                      RestParamDefault<Utf8String>("q", queryStringDef, ""),
-                      PassConnectionId(),
-                      RestParamDefault<std::string>("format",
-                                                    "Format of output",
-                                                    "full"),
-                      RestParamDefault<bool>("headers",
-                                             "Do we include headers on table format",
-                                             true),
-                      RestParamDefault<bool>("rowNames",
-                                             "Do we include row names in output",
-                                             true),
-                      RestParamDefault<bool>("rowHashes",
-                                             "Do we include row hashes in output",
-                                             false),
-                      RestParamDefault<bool>("sortColumns",
-                                             "Do we sort the column names",
-                                             false),
-
-                      // Body parameters
-                      JsonParamDefault<Utf8String>("q", queryStringDef));
-
+        addRouteAsync(
+            versionNode, "/query", { "GET" }, "Select from dataset",
+            &MldbServer::runHttpQuery, this,
+            HybridParamDefault<Utf8String>("q", queryStringDef, ""),
+            PassConnectionId(),
+            HybridParamDefault<std::string>("format",
+                                            "Format of output",
+                                            "full"),
+            HybridParamDefault<bool>("headers",
+                                     "Do we include headers on table format",
+                                      true),
+            HybridParamDefault<bool>("rowNames",
+                                     "Do we include row names in output",
+                                     true),
+            HybridParamDefault<bool>("rowHashes",
+                                     "Do we include row hashes in output",
+                                     false),
+            HybridParamDefault<bool>("sortColumns",
+                                     "Do we sort the column names",
+                                     false));
 
         this->versionNode = &versionNode;
         return true;
@@ -241,30 +240,15 @@ initRoutes()
 
 void
 MldbServer::
-runHttpQuery(const Utf8String& qsQuery,
+runHttpQuery(const Utf8String& query,
              RestConnection & connection,
              const std::string & format,
              bool createHeaders,
              bool rowNames,
              bool rowHashes,
-             bool sortColumns,
-             const Utf8String & bQuery
-             ) const
+             bool sortColumns) const
 {
-    if (qsQuery == "" && bQuery == "") {
-        throw ML::Exception("q is currently undefined. It must be defined "
-                            "either as a query string parameter or as a key "
-                            "in body payload.");
-    }
-
-    if (qsQuery != "" && bQuery != "") {
-        throw ML::Exception("q is currently defined twice. It must be defined "
-                            "either as a query string parameter or as a key "
-                            "in body paylaod.");
-    }
-
-    auto stm = SelectStatement::parse(
-        qsQuery != "" ? qsQuery.rawString() : bQuery.rawString());
+    auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbScope mldbContext(this);
 
     auto runQuery = [&] ()

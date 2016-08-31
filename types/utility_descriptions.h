@@ -24,47 +24,47 @@ struct BridgedValueDescription: public ValueDescription {
 
     virtual ~BridgedValueDescription();
     
-    virtual void parseJson(void * val, JsonParsingContext & context) const JML_OVERRIDE;
-    virtual void printJson(const void * val, JsonPrintingContext & context) const JML_OVERRIDE;
-    virtual bool isDefault(const void * val) const JML_OVERRIDE;
-    virtual void setDefault(void * val) const JML_OVERRIDE;
-    virtual void copyValue(const void * from, void * to) const JML_OVERRIDE;
-    virtual void moveValue(void * from, void * to) const JML_OVERRIDE;
-    virtual void swapValues(void * from, void * to) const JML_OVERRIDE;
-    virtual void * constructDefault() const JML_OVERRIDE;
-    virtual void destroy(void *) const JML_OVERRIDE;
-    virtual void * optionalMakeValue(void * val) const JML_OVERRIDE;
-    virtual const void * optionalGetValue(const void * val) const JML_OVERRIDE;
-    virtual size_t getArrayLength(void * val) const JML_OVERRIDE;
-    virtual void * getArrayElement(void * val, uint32_t element) const JML_OVERRIDE;
-    virtual const void * getArrayElement(const void * val, uint32_t element) const JML_OVERRIDE;
+    virtual void parseJson(void * val, JsonParsingContext & context) const override;
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override;
+    virtual bool isDefault(const void * val) const override;
+    virtual void setDefault(void * val) const override;
+    virtual void copyValue(const void * from, void * to) const override;
+    virtual void moveValue(void * from, void * to) const override;
+    virtual void swapValues(void * from, void * to) const override;
+    virtual void * constructDefault() const override;
+    virtual void destroy(void *) const override;
+    virtual void * optionalMakeValue(void * val) const override;
+    virtual const void * optionalGetValue(const void * val) const override;
+    virtual size_t getArrayLength(void * val) const override;
+    virtual void * getArrayElement(void * val, uint32_t element) const override;
+    virtual const void * getArrayElement(const void * val, uint32_t element) const override;
     virtual const ValueDescription &
-    getArrayElementDescription(const void * val, uint32_t element) const;
-    virtual void setArrayLength(void * val, size_t newLength) const JML_OVERRIDE;
+    getArrayElementDescription(const void * val, uint32_t element) const override;
+    virtual void setArrayLength(void * val, size_t newLength) const override;
     virtual size_t getTupleLength() const override;
     virtual std::vector<std::shared_ptr<const ValueDescription> >
     getTupleElementDescriptions() const override;
-    virtual const ValueDescription & getKeyValueDescription() const JML_OVERRIDE;
-    virtual const ValueDescription & contained() const JML_OVERRIDE;
-    virtual OwnershipModel getOwnershipModel() const JML_OVERRIDE;
-    virtual void* getLink(void* obj) const JML_OVERRIDE;
-    virtual void set(void* obj, void* value, const ValueDescription* valueDesc) const JML_OVERRIDE;
+    virtual const ValueDescription & getKeyValueDescription() const override;
+    virtual const ValueDescription & contained() const override;
+    virtual OwnershipModel getOwnershipModel() const override;
+    virtual void* getLink(void* obj) const override;
+    virtual void set(void* obj, void* value, const ValueDescription* valueDesc) const override;
     virtual void convertAndCopy(const void * from,
                                 const ValueDescription & fromDesc,
-                                void * to) const JML_OVERRIDE;
-    virtual size_t getFieldCount(const void * val) const JML_OVERRIDE;
+                                void * to) const override;
+    virtual size_t getFieldCount(const void * val) const override;
     virtual const FieldDescription *
-    hasField(const void * val, const std::string & name) const JML_OVERRIDE;
+    hasField(const void * val, const std::string & name) const override;
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const JML_OVERRIDE;
+                              const std::function<void (const FieldDescription &)> & onField) const override;
     virtual const FieldDescription & 
-    getField(const std::string & field) const JML_OVERRIDE;
-    virtual const std::vector<std::string> getEnumKeys() const JML_OVERRIDE;
+    getField(const std::string & field) const override;
+    virtual const std::vector<std::string> getEnumKeys() const override;
     virtual std::vector<std::tuple<int, std::string, std::string> >
-    getEnumValues() const JML_OVERRIDE;
-    virtual bool isSame(const ValueDescription* other) const JML_OVERRIDE;
-    virtual bool isChildOf(const ValueDescription* base) const JML_OVERRIDE;
-    virtual void initialize() JML_OVERRIDE;
+    getEnumValues() const override;
+    virtual bool isSame(const ValueDescription* other) const override;
+    virtual bool isChildOf(const ValueDescription* base) const override;
+    virtual void initialize() override;
 };
 
 
@@ -111,19 +111,19 @@ struct ValueDescriptionWithDefault : public BridgedValueDescription {
     {
     }
     
-    virtual bool isDefault(const void * val_) const JML_OVERRIDE
+    virtual bool isDefault(const void * val_) const override
     {
         const T * val = (const T *)val_;
         return *val == defaultValue;
     }
 
-    virtual void setDefault(void * val_) const JML_OVERRIDE
+    virtual void setDefault(void * val_) const override
     {
         T * val = (T *)val_;
         *val = defaultValue;
     }
 
-    virtual void * constructDefault() const JML_OVERRIDE
+    virtual void * constructDefault() const override
     {
         return new T(defaultValue);
     }

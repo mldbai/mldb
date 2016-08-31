@@ -330,7 +330,10 @@ JsObjectBase::
 ~JsObjectBase()
 {
     if (js_object_.IsEmpty()) return;
-    ExcAssert(js_object_.IsNearDeath());
+    if (!js_object_.IsNearDeath()) {
+        ::fprintf(stderr, "JS object is not near death");
+        std::terminate();
+    }
     js_object_->SetInternalField(0, v8::Undefined());
     js_object_->SetInternalField(1, v8::Undefined());
     js_object_.Dispose();

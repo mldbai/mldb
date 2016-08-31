@@ -1,5 +1,5 @@
-GCC?=gcc
-GXX?=g++
+GCC?=$(if $(DEFAULTGCC),$(DEFAULTGCC),gcc)
+GXX?=$(if $(DEFAULTGXX),$(DEFAULTGXX),g++)
 GCC_VERSION:=$(shell $(GXX) --version | head -n1 | sed 's/.* //g')
 CXX_VERSION?=$(GCC_VERSION)
 CXX:=$(COMPILER_CACHE) $(GXX)

@@ -16,7 +16,7 @@
 #include <thread>
 #include "mldb/io/message_loop.h"
 #include "mldb/io/async_writer_source.h"
-#include "mldb/soa/utils/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -197,7 +197,7 @@ void doBench(const string & label,
     }
 
     double totalTime = lastRead - start;
-    ::printf("%s,%d,%lu,%lu,%d,%f,%f,%f,%f,%f\n",
+    ::printf("%s,%d,%zu,%zu,%d,%f,%f,%f,%f,%f\n",
              label.c_str(),
              numMessages, msgSize, bytesRead, numMissed,
              (lastWrite - start),

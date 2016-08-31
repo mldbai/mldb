@@ -37,7 +37,7 @@ res = mldb.get('/v1/functions/poil/info')
 mldb.log("poil function info")
 mldb.log(res.json())
 
-res = mldb.get('/v1/datasets/ds1/query', select='poil({*})')
+res = mldb.get('/v1/query', q='SELECT poil({*}) from ds1')
 mldb.log("ds1 query")
 mldb.log(res.json())
 
@@ -100,7 +100,7 @@ assert res.json() == expected
 mldb.log("poil2 function info")
 mldb.log(res.json())
 
-res = mldb.get('/v1/datasets/ds1/query', select='poil2({*})')
+res = mldb.get('/v1/query', q='SELECT poil2({*}) from ds1')
 mldb.log("query result")
 mldb.log(res)
 

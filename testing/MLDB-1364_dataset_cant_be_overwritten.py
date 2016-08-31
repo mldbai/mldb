@@ -20,9 +20,11 @@ class MLDB1364Test(MldbUnitTest):
         ds.record_row("c",[["y", 3, 0]])
         ds.commit()
         
-    @unittest.expectedFailure
     def test_svd(self):
         
+        # this is throwing because the not_yet_created dataset 
+        # does not exist
+
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put("/v1/datasets/training_data",{
                 "type": "merged",
@@ -36,14 +38,14 @@ class MLDB1364Test(MldbUnitTest):
 
         # we want to store output in 'not_yet_created'
         # the fact we tried to access 'not_yet_created' above
-        # makes the first ttempt to create it fail
+        # makes the first attempt to create it fail
         
         mldb.put("/v1/procedures/train_svd", {
             "type": "svd.train",
             "params": {
                 "rowOutputDataset": "not_yet_created", # attention
                 "outputColumn": "svd.embedding.00",
-                "modelFileUrl": "file:///tmp/svd.bin.test.gz",
+                "modelFileUrl": "file://tmp/svd.bin.test.gz",
                 "trainingData": "select * from sample",
                 "numSingularValues": 1,
                 "runOnCreation": True

@@ -40,6 +40,9 @@ S2_CC_FILES:= \
 ifeq ($(toolchain),gcc)
 S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses
 endif
+ifeq ($(toolchain),gcc6)
+S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs
+endif
 ifeq ($(toolchain),clang)
 S2_WARNING_OPTIONS:=-Wno-parentheses -Wno-absolute-value -Wno-unused-local-typedef -Wno-unused-const-variable -Wno-format -Wno-dynamic-class-memaccess
 endif
