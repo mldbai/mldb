@@ -91,10 +91,6 @@ struct Parse_Context {
         necessary. */
     void init(const std::string & filename);
 
-    /** Initialize from a memory region. */
-    void init(const std::string & filename, const char * start,
-              const char * finish, unsigned line = 1, unsigned col = 1);
-
     /** Initialize from an istream. */
     void init(const std::string & filename, std::istream & stream,
               unsigned line = 1, unsigned col = 1);
