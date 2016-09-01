@@ -35,11 +35,12 @@ int ptr_align(const X * p)
 
 void vec_scale(const float * x, float k, float * r, size_t n)
 {
-    v4sf kkkk = vec_splat(k);
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
+        v4sf kkkk = vec_splat(k);
         for (; i + 16 <= n;  i += 16) {
             v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             xxxx0 *= kkkk;
@@ -61,15 +62,17 @@ void vec_scale(const float * x, float k, float * r, size_t n)
             __builtin_ia32_storeups(r + i + 0, xxxx0);
         }
     }
+#endif
     
     for (; i < n;  ++i) r[i] = k * x[i];
 }
 
 void vec_add(const float * x, const float * y, float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
         //cerr << "unoptimized" << endl;
 
@@ -98,16 +101,17 @@ void vec_add(const float * x, const float * y, float * r, size_t n)
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
-        
-        for (; i < n;  ++i) r[i] = x[i] + y[i];
     }
+#endif
+    for (; i < n;  ++i) r[i] = x[i] + y[i];
 }
 
 void vec_prod(const float * x, const float * y, float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
         //cerr << "unoptimized" << endl;
         
@@ -136,14 +140,14 @@ void vec_prod(const float * x, const float * y, float * r, size_t n)
             yyyy0 *= xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
-        
-        for (; i < n;  ++i) r[i] = x[i] * y[i];
     }
+#endif
+    for (; i < n;  ++i) r[i] = x[i] * y[i];
 }
 
 void vec_prod(const float * x, const double * y, float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
 #if 0 // TODO: do
     if (false) ;
@@ -189,24 +193,25 @@ void vec_prod(const float * x, const double * y, float * r, size_t n)
 
 void vec_prod(const double * x, const double * y, float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     for (; i < n;  ++i) r[i] = x[i] * y[i];
 }
 
 void vec_add(const float * x, float k, const float * y, float * r, size_t n)
 {
-    v4sf kkkk = vec_splat(k);
-    unsigned i = 0;
+    size_t i = 0;
 
     //bool alignment_unimportant = true;  // nehalem?
 
+#if JML_INTEL_ISA
     if (false && n >= 16 && (ptr_align(x) == ptr_align(y) && ptr_align(y) == ptr_align(r))) {
+        v4sf kkkk = vec_splat(k);
 
         /* Align everything on 16 byte boundaries */
         if (ptr_align(x) != 0) {
             int needed_to_align = (16 - ptr_align(x)) / 4;
             
-            for (unsigned i = 0;  i < needed_to_align;  ++i)
+            for (size_t i = 0;  i < needed_to_align;  ++i)
                 r[i] = x[i] + k * y[i];
 
             r += needed_to_align;  x += needed_to_align;  y += needed_to_align;
@@ -244,9 +249,10 @@ void vec_add(const float * x, float k, const float * y, float * r, size_t n)
             r += 16;  x += 16;  y += 16;  n -= 16;
         }
 
-        for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] + k * y[i];
+        for (size_t i = 0;  i < n;  ++i) r[i] = x[i] + k * y[i];
     }
     else {
+        v4sf kkkk = vec_splat(k);
         //cerr << "unoptimized" << endl;
 
         for (; i + 16 <= n;  i += 16) {
@@ -279,16 +285,18 @@ void vec_add(const float * x, float k, const float * y, float * r, size_t n)
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
-
-        for (; i < n;  ++i) r[i] = x[i] + k * y[i];
     }
+#endif
+
+    for (; i < n;  ++i) r[i] = x[i] + k * y[i];
 }
 
 void vec_add(const float * x, const float * k, const float * y, float * r,
              size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
         for (; i + 16 <= n;  i += 16) {
             v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
@@ -325,21 +333,22 @@ void vec_add(const float * x, const float * k, const float * y, float * r,
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
-
-        for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
     }
+#endif
+
+    for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
 
 void vec_add(const float * x, float k, const double * y, float * r, size_t n)
 {
-    for (unsigned i = 0; i < n;  ++i) r[i] = x[i] + k * y[i];
+    for (size_t i = 0; i < n;  ++i) r[i] = x[i] + k * y[i];
 }
 
 
 float vec_dotprod_generic(const float * x, const float * y, size_t n)
 {
     double res = 0.0;
-    for (unsigned i = 0;  i < n;  ++i) res += x[i] * y[i];
+    for (size_t i = 0;  i < n;  ++i) res += x[i] * y[i];
     return res;
 }
 
@@ -355,11 +364,12 @@ float vec_dotprod(const float * x, const float * y, size_t n)
 
 void vec_scale(const double * x, double k, double * r, size_t n)
 {
-    v2df kk = vec_splat(k);
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
+        v2df kk = vec_splat(k);
         for (; i + 8 <= n;  i += 8) {
             v2df xx0 = _mm_loadu_pd(x + i + 0);
             xx0 *= kk;
@@ -381,6 +391,7 @@ void vec_scale(const double * x, double k, double * r, size_t n)
             __builtin_ia32_storeupd(r + i + 0, xx0);
         }
     }
+#endif
     
     for (; i < n;  ++i) r[i] = k * x[i];
 }
@@ -388,10 +399,11 @@ void vec_scale(const double * x, double k, double * r, size_t n)
 void vec_add(const double * x, double k, const double * y, double * r,
              size_t n)
 {
-    v2df kk = vec_splat(k);
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
+        v2df kk = vec_splat(k);
         for (; i + 8 <= n;  i += 8) {
             v2df yy0 = _mm_loadu_pd(y + i + 0);
             v2df xx0 = _mm_loadu_pd(x + i + 0);
@@ -427,6 +439,7 @@ void vec_add(const double * x, double k, const double * y, double * r,
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = x[i] + k * y[i];
 }
@@ -434,7 +447,8 @@ void vec_add(const double * x, double k, const double * y, double * r,
 void vec_add(const double * x, const double * k, const double * y,
              double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
+#if JML_INTEL_ISA
     if (true) {
         for (; i + 8 <= n;  i += 8) {
             v2df yy0 = _mm_loadu_pd(y + i + 0);
@@ -475,11 +489,13 @@ void vec_add(const double * x, const double * k, const double * y,
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
 
-inline double horiz_sum_8_sse2(v2df rr0, v2df rr1, v2df rr2, v2df rr3)
+#if JML_INTEL_ISA
+double horiz_sum_8_sse2(v2df rr0, v2df rr1, v2df rr2, v2df rr3)
 {
     double result = 0.0;
 
@@ -499,7 +515,7 @@ inline double horiz_sum_8_sse2(v2df rr0, v2df rr1, v2df rr2, v2df rr3)
 
 double vec_dotprod_sse2(const double * x, const double * y, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     double result = 0.0;
 
     if (true) {
@@ -577,10 +593,10 @@ void vec_minus_sse2(const float * x, const float * y, float * r, size_t n)
             xxxx0 -= yyyy0;
             __builtin_ia32_storeups(r + i + 0, xxxx0);
         }
-        
-        for (; i < n;  ++i) r[i] = x[i] - y[i];
     }
+    for (; i < n;  ++i) r[i] = x[i] - y[i];
 }
+#endif
 
 #if 0  // GCC 4.8 segfaults on initialization of loaded shlibs when multiversioning used.  It may actually be a linker problem... hard to tell
 __attribute__ ((target ("default")))
@@ -604,30 +620,44 @@ double vec_dotprod(const double * x, const double * y, size_t n)
 double vec_dotprod(const double * x, const double * y, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
-    if (has_avx()) {
+    if (false) ;
+#if JML_INTEL_ISA
+    else if (has_avx()) {
         return Avx::vec_dotprod(x, y, n);
     }
-    else {
+    else if (true) {
         return vec_dotprod_sse2(x, y, n);
+    }
+#endif
+    else {
+        double result = 0.0;
+        for (size_t i = 0; i < n;  ++i) result += x[i] * y[i];
+        return result;
     }
 }
 
 void vec_minus(const float * x, const float * y, float * r, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
+    if (false) ;
+#if JML_INTEL_ISA
     if (has_avx()) {
         Avx::vec_minus(x, y, r, n);
     }
     else if (true) /* sse2 */ {
         vec_minus_sse2(x, y, r, n);
-    } else {
-        for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] - y[i];
+    }
+#endif
+    else {
+        for (size_t i = 0;  i < n;  ++i) r[i] = x[i] - y[i];
     }
 }
 
 double vec_euclid(const float * x, const float * y, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
+    if (false) ;
+#if JML_INTEL_ISA
     if (has_avx()) {
         return Avx::vec_euclid(x, y, n);
     }
@@ -635,9 +665,11 @@ double vec_euclid(const float * x, const float * y, size_t n)
         float tmp[n];
         vec_minus(x, y, tmp, n);
         return vec_dotprod(tmp, tmp, n);
-    } else {
+    }
+#endif
+    else {
         double result = 0.0;
-        for (unsigned i = 0;  i < n;  ++i)
+        for (size_t i = 0;  i < n;  ++i)
             result += (x[i] - y[i]) * (x[i] - y[i]);
         return result;
     }
@@ -649,8 +681,9 @@ double vec_accum_prod3(const float * x, const float * y, const float * z,
                        size_t n)
 {
     double res = 0.0;
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
         v2df rr = vec_splat(0.0);
 
@@ -719,6 +752,7 @@ double vec_accum_prod3(const float * x, const float * y, const float * z,
 
         res = results[0] + results[1];
     }
+#endif
         
     for (;  i < n;  ++i) res += x[i] * y[i] * z[i];
     return res;
@@ -728,8 +762,9 @@ double vec_accum_prod3(const float * x, const float * y, const double * z,
                        size_t n)
 {
     double res = 0.0;
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
         v2df rr = vec_splat(0.0);
 
@@ -757,22 +792,24 @@ double vec_accum_prod3(const float * x, const float * y, const double * z,
 
         res = results[0] + results[1];
     }
-        
+#endif        
+
     for (;  i < n;  ++i) res += x[i] * y[i] * z[i];
     return res;
 }
 
 void vec_minus(const double * x, const double * y, double * r, size_t n)
 {
-    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] - y[i];
+    for (size_t i = 0;  i < n;  ++i) r[i] = x[i] - y[i];
 }
 
 double vec_accum_prod3(const double * x, const double * y, const double * z,
                       size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     double result = 0.0;
 
+#if JML_INTEL_ISA
     if (true) {
         v2df rr = vec_splat(0.0);
 
@@ -820,6 +857,7 @@ double vec_accum_prod3(const double * x, const double * y, const double * z,
 
         result = results[0] + results[1];
     }
+#endif
 
     for (; i < n;  ++i) result += x[i] * y[i] * z[i];
 
@@ -829,9 +867,10 @@ double vec_accum_prod3(const double * x, const double * y, const double * z,
 double vec_accum_prod3(const double * x, const double * y, const float * z,
                       size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     double result = 0.0;
 
+#if JML_INTEL_ISA
     if (true) {
         v2df rr = vec_splat(0.0);
 
@@ -860,6 +899,7 @@ double vec_accum_prod3(const double * x, const double * y, const float * z,
 
         result = results[0] + results[1];
     }
+#endif
 
     for (; i < n;  ++i) result += x[i] * y[i] * z[i];
 
@@ -869,15 +909,16 @@ double vec_accum_prod3(const double * x, const double * y, const float * z,
 double vec_sum(const double * x, size_t n)
 {
     double res = 0.0;
-    for (unsigned i = 0;  i < n;  ++i)
+    for (size_t i = 0;  i < n;  ++i)
         res += x[i];
     return res;
 }
 
+#if JML_INTEL_ISA
 double vec_dotprod_dp_sse2(const float * x, const float * y, size_t n)
 {
     double res = 0.0;
-    unsigned i = 0;
+    size_t i = 0;
 
     if (true) {
         v2df rr = vec_splat(0.0);
@@ -942,13 +983,17 @@ double vec_dotprod_dp_sse2(const float * x, const float * y, size_t n)
     for (;  i < n;  ++i) res += x[i] * y[i];
     return res;
 }
+#endif // JML_INTEL_ISA
 
 double vec_dotprod_dp(const double * x, const float * y, size_t n)
 {
     double res = 0.0;
 
-    unsigned i = 0;
-    if (true) {
+    size_t i = 0;
+    if (false) ;
+
+#if JML_INTEL_ISA
+    else if (true) {
         v2df rr0 = vec_splat(0.0), rr1 = vec_splat(0.0);
         
         for (; i + 8 <= n;  i += 8) {
@@ -995,7 +1040,7 @@ double vec_dotprod_dp(const double * x, const float * y, size_t n)
         
         res = results[0] + results[1];
     }
-
+#endif
 
     for (;  i < n;  ++i) res += x[i] * y[i];
 
@@ -1005,25 +1050,34 @@ double vec_dotprod_dp(const double * x, const float * y, size_t n)
 double vec_dotprod_dp(const float * x, const float * y, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
-    if (has_avx()) {
+    if (false) ;
+#if JML_INTEL_ISA
+    else if (has_avx()) {
         return Avx::vec_dotprod_dp(x, y, n);
     }
-    else {
+    else if (true) {
         return vec_dotprod_dp_sse2(x, y, n);
+    }
+#endif
+    else {
+        double res = 0.0;
+        for (size_t i = 0;  i < n;  ++i) res += x[i] * y[i];
+        return res;
     }
 }
 
 double vec_sum_dp(const float * x, size_t n)
 {
     double res = 0.0;
-    for (unsigned i = 0;  i < n;  ++i)
+    for (size_t i = 0;  i < n;  ++i)
         res += x[i];
     return res;
 }
 
 void vec_add(const double * x, const double * y, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
+#if JML_INTEL_ISA
     if (true) {
         for (; i + 8 <= n;  i += 8) {
             v2df yy0 = _mm_loadu_pd(y + i + 0);
@@ -1054,17 +1108,19 @@ void vec_add(const double * x, const double * y, double * r, size_t n)
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = x[i] + y[i];
 }
 
 void vec_add(const double * x, double k, const float * y, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
-    v2df kk = vec_splat(k);
-
+#if JML_INTEL_ISA
     if (true) {
+        v2df kk = vec_splat(k);
+
         for (; i + 8 <= n;  i += 8) {
             v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
@@ -1114,18 +1170,20 @@ void vec_add(const double * x, double k, const float * y, double * r, size_t n)
             __builtin_ia32_storeupd(r + i + 2, yy1);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = x[i] + k * y[i];
 }
 
 void vec_add(const double * x, const float * y, double * r, size_t n)
 {
-    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] + y[i];
+    for (size_t i = 0;  i < n;  ++i) r[i] = x[i] + y[i];
 }
 
 void vec_prod(const double * x, const double * y, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
+#if JML_INTEL_ISA
     if (true) {
         for (; i + 8 <= n;  i += 8) {
             v2df yy0 = _mm_loadu_pd(y + i + 0);
@@ -1156,14 +1214,15 @@ void vec_prod(const double * x, const double * y, double * r, size_t n)
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
     }
-
+#endif
     for (;  i < n;  ++i) r[i] = x[i] * y[i];
 }
 
 void vec_prod(const double * x, const float * y, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
         for (; i + 8 <= n;  i += 8) {
             v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
@@ -1208,6 +1267,7 @@ void vec_prod(const double * x, const float * y, double * r, size_t n)
             __builtin_ia32_storeupd(r + i + 2, yy1);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = x[i] * y[i];
 }
@@ -1216,12 +1276,13 @@ void vec_k1_x_plus_k2_y_z(double k1, const double * x,
                           double k2, const double * y, const double * z,
                           double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
-    v2df kk1 = vec_splat(k1);
-    v2df kk2 = vec_splat(k2);
-
+#if JML_INTEL_ISA
     if (true) {
+        v2df kk1 = vec_splat(k1);
+        v2df kk2 = vec_splat(k2);
+
         for (; i + 8 <= n;  i += 8) {
             v2df yy0 = _mm_loadu_pd(y + i + 0);
             v2df xx0 = _mm_loadu_pd(x + i + 0);
@@ -1271,6 +1332,7 @@ void vec_k1_x_plus_k2_y_z(double k1, const double * x,
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = k1 * x[i] + k2 * y[i] * z[i];
 }
@@ -1279,12 +1341,13 @@ void vec_k1_x_plus_k2_y_z(float k1, const float * x,
                           float k2, const float * y, const float * z,
                           float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
-    v4sf kkkk1 = vec_splat(k1);
-    v4sf kkkk2 = vec_splat(k2);
-
+#if JML_INTEL_ISA
     if (true) {
+        v4sf kkkk1 = vec_splat(k1);
+        v4sf kkkk2 = vec_splat(k2);
+
         for (; i + 16 <= n;  i += 16) {
             v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
             v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
@@ -1334,14 +1397,16 @@ void vec_k1_x_plus_k2_y_z(float k1, const float * x,
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = k1 * x[i] + k2 * y[i] * z[i];
 }
 
 void vec_add_sqr(const float * x, float k, const float * y, float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
         v4sf kkkk = vec_splat(k);
         //cerr << "unoptimized" << endl;
@@ -1381,18 +1446,19 @@ void vec_add_sqr(const float * x, float k, const float * y, float * r, size_t n)
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
-
-        for (; i < n;  ++i) r[i] = x[i] + k * (y[i] * y[i]);
     }
+#endif
+    for (; i < n;  ++i) r[i] = x[i] + k * (y[i] * y[i]);
 }
 
 void vec_add_sqr(const double * x, double k, const double * y, double * r,
                  size_t n)
 {
-    v2df kk = vec_splat(k);
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
+        v2df kk = vec_splat(k);
         for (; i + 8 <= n;  i += 8) {
             v2df yy0 = _mm_loadu_pd(y + i + 0);
             v2df xx0 = _mm_loadu_pd(x + i + 0);
@@ -1433,20 +1499,22 @@ void vec_add_sqr(const double * x, double k, const double * y, double * r,
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = x[i] + k * (y[i] * y[i]);
 }
 
 void vec_add_sqr(const float * x, float k, const double * y, float * r, size_t n)
 {
-    for (unsigned i = 0; i < n;  ++i) r[i] = x[i] + k * (y[i] * y[i]);
+    for (size_t i = 0; i < n;  ++i) r[i] = x[i] + k * (y[i] * y[i]);
 }
 
 void vec_add_sqr(const double * x, double k, const float * y, double * r,
                  size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
+#if JML_INTEL_ISA
     if (true) {
         v2df kk = vec_splat(k);
         for (; i + 8 <= n;  i += 8) {
@@ -1501,6 +1569,7 @@ void vec_add_sqr(const double * x, double k, const float * y, double * r,
             __builtin_ia32_storeupd(r + i + 2, yy1);
         }
     }
+#endif
 
     for (;  i < n;  ++i) r[i] = x[i] + k * (y[i] * y[i]);
 }
@@ -1508,9 +1577,10 @@ void vec_add_sqr(const double * x, double k, const float * y, double * r,
 void vec_add(const float * x, const double * k, const double * y, float * r,
              size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
             v2df yy0a  = _mm_loadu_pd(y + i + 0);
@@ -1533,6 +1603,7 @@ void vec_add(const float * x, const double * k, const double * y, float * r,
             __builtin_ia32_storeups(r + i + 0, rrrr0);
         }
     }
+#endif
 
     for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
@@ -1540,9 +1611,10 @@ void vec_add(const float * x, const double * k, const double * y, float * r,
 void vec_add(const float * x, const float * k, const double * y, float * r,
              size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
             v2df yy0a  = _mm_loadu_pd(y + i + 0);
@@ -1567,6 +1639,7 @@ void vec_add(const float * x, const float * k, const double * y, float * r,
             __builtin_ia32_storeups(r + i + 0, rrrr0);
         }
     }
+#endif
 
     for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
@@ -1574,9 +1647,10 @@ void vec_add(const float * x, const float * k, const double * y, float * r,
 void vec_add(const double * x, const float * k, const float * y, double * r,
              size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
             v4sf kkkk0 = _mm_loadu_ps(k + i + 0);
@@ -1596,6 +1670,7 @@ void vec_add(const double * x, const float * k, const float * y, double * r,
             __builtin_ia32_storeupd(r + i + 2, xx0b);
         }
     }
+#endif
 
     for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
@@ -1603,9 +1678,10 @@ void vec_add(const double * x, const float * k, const float * y, double * r,
 void vec_add(const double * x, const float * k, const double * y, double * r,
              size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
             v2df yy0a  = _mm_loadu_pd(y + i + 0);
@@ -1627,6 +1703,7 @@ void vec_add(const double * x, const float * k, const double * y, double * r,
             __builtin_ia32_storeupd(r + i + 2, xx0b);
         }
     }
+#endif
 
     for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
@@ -1636,43 +1713,43 @@ void vec_add(const double * x, const float * k, const double * y, double * r,
 
 void vec_exp(const float * x, float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     for (; i < n;  ++i) r[i] = exp((double)x[i]);
 }
 
 void vec_exp(const float * x, float k, float * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
 }
 
 void vec_exp(const float * x, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     for (; i < n;  ++i) r[i] = exp((double)x[i]);
 }
 
 void vec_exp(const float * x, double k, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
 }
 
 void vec_exp(const double * x, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     for (; i < n;  ++i) r[i] = exp((double)x[i]);
 }
 
 void vec_exp(const double * x, double k, double * r, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
 }
 
 float vec_twonorm_sqr(const float * x, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     float result = 0.0;
     for (; i < n;  ++i) result += x[i] * x[i];
     return result;
@@ -1680,7 +1757,7 @@ float vec_twonorm_sqr(const float * x, size_t n)
 
 double vec_twonorm_sqr_dp(const float * x, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     double result = 0.0;
     for (; i < n;  ++i) {
         double xd = x[i];
@@ -1691,7 +1768,7 @@ double vec_twonorm_sqr_dp(const float * x, size_t n)
 
 double vec_twonorm_sqr(const double * x, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
     double result = 0.0;
     for (; i < n;  ++i) result += x[i] * x[i];
     return result;
@@ -1699,7 +1776,7 @@ double vec_twonorm_sqr(const double * x, size_t n)
 
 double vec_kl(const float * p, const float * q, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     double total = 0.0;
 
@@ -1710,9 +1787,10 @@ double vec_kl(const float * p, const float * q, size_t n)
 
 void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n)
 {
-    unsigned i = 0;
+    size_t i = 0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
             v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
@@ -1724,6 +1802,7 @@ void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n)
             __builtin_ia32_storeups(maxs + i + 0, aaaa0);
         }
     }
+#endif
 
     for (; i < n;  ++i) {
         mins[i] = std::min(mins[i], x[i]);

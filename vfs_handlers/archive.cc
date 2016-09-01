@@ -111,7 +111,8 @@ bool iterateArchive(std::streambuf * archive,
                         std::ostringstream stream;
                             
                         size_t size = 0;
-                        off_t offset = 0;
+                        // This is a type exported by libarchive
+                        __LA_INT64_T offset = 0;
                         const char * buff;
                         int r = archive_read_data_block(a, (const void **)&buff,
                                                         &size, &offset);
