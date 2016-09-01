@@ -61,6 +61,12 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 'arr' : [1, 2, [3, 4], 5]
             })
 
+            cls.non_std_id_coll_name = 'non_std_id_coll'
+            cls.pymongo_db.non_std_id_coll.insert_one({
+                '_id' : {'compound' : 'key id'},
+                'data' : 'foo braque'
+            })
+
     @classmethod
     def tearDownClass(cls):
         if got_mongod:
@@ -472,6 +478,53 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
 
         with self.assertRaisesRegexp(RuntimeError, "duplicate key error"):
             ds.record_row('rowA', [['colB', 2, 1]])
+
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_dataset_on_non_std_id(self):
+        mldb.put('/v1/datasets/non_std_id_ds', {
+            'type' : 'mongodb.dataset',
+            'params' : {
+                'connectionScheme' : self.connection_scheme,
+                'collection' : self.non_std_id_coll_name,
+            }
+        })
+
+        msg = "unimplemented support"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.query("SELECT * FROM non_std_id_ds")
+
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_import_on_non_std_id(self):
+        msg = "unimplemented support"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.post('/v1/procedures', {
+                'type' : 'mongodb.import',
+                'params' : {
+                    'connectionScheme' : self.connection_scheme,
+                    'collection' : self.non_std_id_coll_name,
+                    'outputDataset' : {
+                        'id' : 'imported',
+                        'type' : 'sparse.mutable'
+                    }
+                }
+            })
+
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_query_on_non_std_id(self):
+        mldb.put('/v1/functions/mongo_query_invalid', {
+            'type' : 'mongodb.query',
+            'params' : {
+                'connectionScheme' : self.connection_scheme,
+                'collection' : self.non_std_id_coll_name,
+            }
+        })
+        query = json.dumps({
+            'data' : {
+                '$eq' : 'foo braque'
+            }
+        })
+        mldb.get('/v1/functions/mongo_query_invalid/application',
+                 input={'query' : query}).json()
 
 if __name__ == '__main__':
     mldb.run_tests()

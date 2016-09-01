@@ -211,14 +211,15 @@ struct MongoDataset: Dataset {
                         throw HttpReturnException(
                             500,
                             "monbodb.dataset unimplemented support for "
-                            "MongoDB records with _ids that are not ObjectIDs.");
+                            "MongoDB records with key \"_id\" that are not "
+                            "objectIDs.");
                     }
 
                     auto oid = (**it)["_id"].get_oid();
                     if (useWhere) {
                         auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
                         ExpressionValue expr(extract(ts, **it));
-                        MongoRowScope row(expr);
+                        MongoRowScope row(expr, oid.value.to_string());
                         ExpressionValue storage;
                         if (!whereBound(row, storage, GET_ALL).isTrue()) {
                             continue;

@@ -144,13 +144,20 @@ struct MongoImportProcedure: public Procedure {
         auto processor = [&](Dataset & output,
                              const bsoncxx::document::view & doc)
         {
+            if (doc["_id"].type() != bsoncxx::type::k_oid) {
+                throw HttpReturnException(
+                    500,
+                    "monbodb.import unimplemented support for "
+                    "MongoDB records with key \"_id\" that are not "
+                    "ObjectIDs.");
+            }
             auto oid = doc["_id"].get_oid();
             Path rowName(oid.value.to_string());
             auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
             ExpressionValue expr(extract(ts, doc));
 
             if (useWhere || useSelect || useNamed) {
-                MongoRowScope row(expr);
+                MongoRowScope row(expr, oid.value.to_string());
                 if (useWhere && !whereBound(row, storage, GET_ALL).isTrue()) {
                     return;
                 }
