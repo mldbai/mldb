@@ -4,7 +4,7 @@
 
 V8_ARCH_x86_64:=x64
 V8_ARCH_aarch64:=arm64
-V8_ARCH_ARM:=arm
+V8_ARCH_arm:=arm
 
 V8_ARCH:=$(V8_ARCH_$(ARCH))
 
