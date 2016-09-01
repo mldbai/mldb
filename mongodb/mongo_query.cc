@@ -47,7 +47,7 @@ MongoQueryConfigDescription()
     addField("collection", &MongoQueryConfig::collection,
              "The collection to query.");
 
-    // TODO extract help string
+    // Desc copied from sql_functions.cc.
     addField("output", &MongoQueryConfig::outputType,
              "Controls how the query output is converted into a row. "
              "`FIRST_ROW` (the default) will return only the first row produced "
