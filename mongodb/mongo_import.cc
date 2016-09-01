@@ -122,10 +122,7 @@ struct MongoImportProcedure: public Procedure {
         mongocxx::client conn(mongoUri);
         auto db = conn[mongoUri.database()];
 
-        auto logger = MLDB::getMldbLog("MongoDbPluginLogger");
-        logger->set_level(spdlog::level::debug);
-
-        logger->debug() << "\n"
+        DEBUG_MSG(logger) << "\n"
             << "Db name:    " << mongoUri.database() << "\n"
             << "Collection: " << runConfig.collection;
 

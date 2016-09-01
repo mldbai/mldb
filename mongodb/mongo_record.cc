@@ -13,6 +13,9 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/ext/spdlog/include/spdlog/spdlog.h"
+#include "mldb/utils/log.h"
+#include "mldb/utils/log_fwd.h"
 
 #include "mongo_common.h"
 
@@ -76,29 +79,61 @@ struct MongoRecord: Dataset {
                       const std::vector<Cell> & row) override
     {
         using bsoncxx::builder::stream::document;
-        using bsoncxx::builder::stream::open_document;
-        using bsoncxx::builder::stream::close_document;
-        using bsoncxx::builder::stream::open_array;
-        using bsoncxx::builder::stream::close_array;
-        using bsoncxx::builder::stream::finalize;
 
         Dataset::validateNames(rowName, row);
         document topDoc;
-        bsoncxx::builder::stream::array topArray;
-        topDoc << "rowName" << rowName.toUtf8String().rawString();
+        topDoc << "_id" << rowName.toUtf8String().rawString();
         for (const Cell & col: row) {
-            auto & colName = std::get<0>(col);
-            topArray
-                << open_document
-                << "columnName" << colName.toUtf8String().rawString()
-                << "ts" << std::get<2>(col).secondsSinceEpoch()
-                << "data" << jsonEncodeUtf8(std::get<1>(col)).rawString()
-                << close_document;
+            auto colName = [&] () {
+                // Weird lambda to prevent a freeze within mongo
+                Utf8String str = std::get<0>(col).toUtf8String();
+                if (str.rawString()[0] == '$') {
+                    throw HttpReturnException(
+                        400,
+                        "Keys starting with a dollar sign cannot be recorded "
+                        "to MongoDB. Error on key: " + str.rawString());
+                }
+                if (str.find('.') != str.end()) {
+                    throw HttpReturnException(
+                        400,
+                        "Dotted keys cannot be recorded "
+                        "to MongoDB. Error on key: " + str.rawString());
+                }
+                return str.rawString();
+            };
+            const auto cellValue = std::get<1>(col);
+            if (cellValue.empty() || cellValue.isString()) {
+                topDoc << colName() << cellValue.toString();
+            }
+            else if (cellValue.isInteger()) {
+                int64_t val = cellValue.toInt();
+                if (val >= std::numeric_limits<int>::min() && val <= std::numeric_limits<int>::max()) {
+                    topDoc << colName() << static_cast<int>(val);
+                }
+                else {
+                    topDoc << colName() << val;
+                }
+            }
+            else if (cellValue.isDouble()) {
+                topDoc << colName() << cellValue.toDouble();
+            }
+            else if (cellValue.isTimestamp()) {
+                using bsoncxx::types::b_date;
+                topDoc << colName()
+                       << b_date(cellValue.toTimestamp().secondsSinceEpoch() * 1000);
+            }
+            else {
+                // TODO MLDB-1918 - should be warning level
+                logger->error()
+                    << "Uncovered CellValue type conversion from "
+                    << cellValue.cellType();
+                topDoc << colName()
+                    << jsonEncodeUtf8(cellValue).rawString();
+            }
         }
-        topDoc << "columns" << bsoncxx::types::b_array{topArray.view()};
         db[collection].insert_one(topDoc.extract());
     }
-    
+
     void recordRows(
         const std::vector<std::pair<Path, std::vector<Cell>>> & rows) override
     {

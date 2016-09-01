@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # mongodb_plugin_test.py
 # Mich, 2016-08-02
@@ -246,34 +247,28 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         res.record_row('row1', [['colA', 'valeur sure', 34]])
         res.record_row('dotted.row2', [
             ['colA', 'other valeur sure', 3],
-            ['dotted.colB', 43, 4]
+            ['space colB', 43, 4],
+            ['true', True, 1],
+            ['false', False, 1]
         ])
         res.record_row('"quoted"', [['whatever', 1, 5]])
 
         res = self.pymongo_db.record.find()
         rows = [r for r in res]
         self.assertEqual(len(rows), 3)
-        self.assertEqual(rows[0]['rowName'], 'row1')
-        self.assertEqual(rows[0]['columns'], [{
-            'columnName' : 'colA',
-            'data' : '"valeur sure"',
-            'ts' : 34.0
-        }])
-        self.assertEqual(rows[1]['rowName'], '"dotted.row2"')
-        self.assertEqual(rows[1]['columns'], [
-            {
-                'columnName' : 'colA',
-                'data' : '"other valeur sure"',
-                'ts' : 3.0
-            },
-            {
-                'columnName' : '"dotted.colB"',
-                'data' : '43',
-                'ts' : 4.0
-            }
-        ])
+        self.assertEqual(rows[0], {
+            '_id' : 'row1',
+            'colA' : 'valeur sure'
+        })
+        self.assertEqual(rows[1], {
+            '_id' : '"dotted.row2"',
+            'colA' : 'other valeur sure',
+            'space colB' : 43,
+            'true' : 1,
+            'false' : 0
+        })
 
-        self.assertEqual(rows[2]['rowName'], '"""quoted"""')
+        self.assertEqual(rows[2]['_id'], '"""quoted"""')
 
     def test_record_missing_params(self):
         msg = 'connectionScheme is a required property'
@@ -412,6 +407,42 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 }
             })
 
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_record_invalid_keys(self):
+        ds = mldb.create_dataset({
+            'id' : 'ds_record_invalid',
+            'type' : 'mongodb.record',
+            'params' : {
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'record_invalid'
+            }
+        })
+
+        msg = 'Dotted keys cannot be recorded to MongoDB'
+        with self.assertRaisesRegexp(RuntimeError, msg):
+            ds.record_row('row1', [['dotted.keyΏ', 1, 1]])
+
+        msg = 'Keys starting with a dollar sign cannot be recorded'
+        with self.assertRaisesRegexp(RuntimeError, msg):
+            ds.record_row('row1', [['$dollarsignΏ', 1, 1]])
+
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_double_record(self):
+        """
+        Recording two rows with the same name
+        """
+        ds = mldb.create_dataset({
+            'id' : 'ds_double_record',
+            'type' : 'mongodb.record',
+            'params' : {
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'record_double'
+            }
+        })
+        ds.record_row('rowA', [['colA', 1, 1]])
+
+        with self.assertRaisesRegexp(RuntimeError, "duplicate key error"):
+            ds.record_row('rowA', [['colB', 2, 1]])
 
 if __name__ == '__main__':
     mldb.run_tests()
