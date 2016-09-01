@@ -33,38 +33,38 @@ struct DatasetJS: public JsObjectBase {
     static v8::Local<v8::FunctionTemplate>
     registerMe();
 
-    static v8::Handle<v8::Value>
-    recordRow(const v8::Arguments & args);
+    static void
+    recordRow(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    recordRows(const v8::Arguments & args);
+    static void
+    recordRows(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    recordColumn(const v8::Arguments & args);
+    static void
+    recordColumn(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    recordColumns(const v8::Arguments & args);
+    static void
+    recordColumns(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    commit(const v8::Arguments & args);
+    static void
+    commit(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    status(const v8::Arguments & args);
+    static void
+    status(const v8::FunctionCallbackInfo<v8::Value> & args);
     
-    static v8::Handle<v8::Value>
-    id(const v8::Arguments & args);
+    static void
+    id(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    type(const v8::Arguments & args);
+    static void
+    type(const v8::FunctionCallbackInfo<v8::Value> & args);
     
-    static v8::Handle<v8::Value>
-    config(const v8::Arguments & args);
+    static void
+    config(const v8::FunctionCallbackInfo<v8::Value> & args);
     
-    static v8::Handle<v8::Value>
-    getColumnNames(const v8::Arguments & args);
+    static void
+    getColumnNames(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    getTimestampRange(const v8::Arguments & args);
+    static void
+    getTimestampRange(const v8::FunctionCallbackInfo<v8::Value> & args);
 };
 
 } // namespace MLDB

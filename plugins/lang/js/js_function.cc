@@ -15,9 +15,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-
 using namespace std;
-
 
 namespace Datacratic {
 namespace MLDB {
@@ -72,40 +70,54 @@ initialize(const JsFunctionData & data)
     //v8::Locker locker(this->isolate->isolate);
     v8::Isolate::Scope isolate(this->isolate->isolate);
 
-    HandleScope handle_scope;
+    HandleScope handle_scope(this->isolate->isolate);
 
     // Create a new context.
-    this->context = v8::Persistent<v8::Context>::New(Context::New());
-
+    this->context.Reset(this->isolate->isolate,
+                        Context::New(this->isolate->isolate));
 
     // Enter the created context for compiling and
     // running the hello world script. 
-    Context::Scope context_scope(this->context);
+    Context::Scope context_scope(this->context.Get(this->isolate->isolate));
 
     // Add the mldb object to the context
     auto mldb = MldbJS::registerMe()->NewInstance();
-    mldb->SetInternalField(0, v8::External::New(data.server));
-    mldb->SetInternalField(1, v8::External::New(data.context.get()));
-    this->context->Global()->Set(String::New("mldb"), mldb);
-
+    mldb->SetInternalField(0, v8::External::New(this->isolate->isolate,
+                                                data.server));
+    mldb->SetInternalField(1, v8::External::New(this->isolate->isolate,
+                                                data.context.get()));
+    this->context.Get(this->isolate->isolate)
+        ->Global()
+        ->Set(String::NewFromUtf8(this->isolate->isolate,
+                                 "mldb"), mldb);
+    
     Utf8String jsFunctionSource = data.scriptSource;
 
     // Create a string containing the JavaScript source code.
-    Handle<String> source = String::New(jsFunctionSource.rawString().c_str());
+    Handle<String> source
+        = String::NewFromUtf8(this->isolate->isolate,
+                              jsFunctionSource.rawString().c_str());
 
     TryCatch trycatch;
     //trycatch.SetVerbose(true);
 
     // This is equivalent to fntocall = new Function('arg1', ..., 'script');
-    v8::Local<v8::Object> function
-        = v8::Local<v8::Object>::Cast(this->context->Global()->Get(v8::String::New("Function")));
+    auto function
+        = this->context.Get(this->isolate->isolate)
+        ->Global()
+        ->Get(v8::String::NewFromUtf8(this->isolate->isolate, "Function"))
+        .As<v8::Object>();
+    
     std::vector<v8::Handle<v8::Value> > argv;
     for (unsigned i = 0;  i != data.params.size();  ++i)
-        argv.push_back(v8::String::New(data.params[i].c_str()));
+        argv.push_back(v8::String::NewFromUtf8(this->isolate->isolate,
+                                               data.params[i].c_str()));
     argv.push_back(source);
 
-    v8::Local<v8::Function> compiled
-        = v8::Local<v8::Function>::Cast(function->CallAsConstructor(argv.size(), &argv[0]));
+    v8::Local<v8::Function> compiled 
+        = function->CallAsConstructor(argv.size(), &argv[0])
+        .As<v8::Function>();
+
     if (compiled.IsEmpty()) {  
         auto rep = convertException(trycatch, "Compiling jseval script");
         JML_TRACE_EXCEPTIONS(false);
@@ -115,7 +127,7 @@ initialize(const JsFunctionData & data)
                                   "provenance", data.filenameForErrorMessages);
     }
 
-    this->function = v8::Persistent<v8::Function>::New(compiled);
+    this->function.Reset(this->isolate->isolate, compiled);
 }
 
 ExpressionValue
@@ -130,11 +142,11 @@ run(const std::vector<ExpressionValue> & args,
     //v8::Locker locker(this->isolate->isolate);
     v8::Isolate::Scope isolate(this->isolate->isolate);
 
-    HandleScope handle_scope;
+    HandleScope handle_scope(this->isolate->isolate);
 
     // Enter the created context for compiling and
     // running the hello world script. 
-    Context::Scope context_scope(this->context);
+    Context::Scope context_scope(this->context.Get(this->isolate->isolate));
 
     Date ts = Date::negativeInfinity();
 
@@ -154,8 +166,10 @@ run(const std::vector<ExpressionValue> & args,
     TryCatch trycatch;
     //trycatch.SetVerbose(true);
 
-    auto result = this->function->Call(this->context->Global(), argv.size(), &argv[0]);
-
+    auto result = this->function.Get(this->isolate->isolate)
+        ->Call(this->context.Get(this->isolate->isolate)->Global(),
+               argv.size(), &argv[0]);
+    
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running jseval script");
         JML_TRACE_EXCEPTIONS(false);

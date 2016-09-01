@@ -12,7 +12,7 @@ For C++ code to compile and the Python modules to install correctly, the followi
 apt-get install -y git valgrind build-essential libboost-all-dev \
 libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
-libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
+libpython-dev libgit2-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
 language-pack-en libyaml-cpp-dev
 ```

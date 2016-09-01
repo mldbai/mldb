@@ -53,15 +53,17 @@ Utf8String utf8str(const JSValue & val)
 v8::Handle<v8::Value>
 injectBacktrace(v8::Handle<v8::Value> value)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (value.IsEmpty())
         throw ML::Exception("no object passed for backtrace injection");
 
-    v8::Handle<v8::Object> obj(v8::Object::Cast(*value));
+    auto obj = value.As<v8::Object>();
 
     if (obj.IsEmpty())
         throw ML::Exception("can't inject backtrace");
 
-    v8::Handle<v8::Value> jsStack = obj->Get(v8::String::NewSymbol("stack"));
+    v8::Handle<v8::Value> jsStack
+        = obj->Get(v8::String::NewFromUtf8(isolate, "stack"));
 
     vector<string> jsStackElements = split(cstr(jsStack), '\n');
 
@@ -81,20 +83,20 @@ injectBacktrace(v8::Handle<v8::Value> value)
     }
     else backtrace = ML::backtrace(num_frames_to_skip);
 
-    v8::Handle<v8::Array> nativeStack(v8::Array::New(backtrace.size() + jsStackElements.size()));
+    v8::Handle<v8::Array> nativeStack
+        (v8::Array::New(isolate, backtrace.size() + jsStackElements.size()));
     int n = 0;
     for (unsigned i = 0;  i < backtrace.size();  ++i, ++n) {
-        nativeStack->Set(v8::Uint32::New(n),
-                         v8::String::New(("[C++]     at " + backtrace[i].print_for_trace())
-                                         .c_str()));
+        nativeStack->Set(v8::Uint32::New(isolate, n),
+                         v8::String::NewFromUtf8(isolate, ("[C++]     at " + backtrace[i].print_for_trace()).c_str()));
     }
     
     for (int i = jsStackElements.size() - 1;  i >= 0;  --i, ++n) {
-        nativeStack->Set(v8::Uint32::New(n),
-                         v8::String::New(("[JS]  " + jsStackElements[i]).c_str()));
+        nativeStack->Set(v8::Uint32::New(isolate, n),
+                         v8::String::NewFromUtf8(isolate, ("[JS]  " + jsStackElements[i]).c_str()));
     }
 
-    obj->Set(v8::String::NewSymbol("backtrace"), nativeStack);
+    obj->Set(v8::String::NewFromUtf8(isolate, "backtrace"), nativeStack);
 
     return obj;
 }
@@ -102,46 +104,51 @@ injectBacktrace(v8::Handle<v8::Value> value)
 v8::Handle<Value>
 mapException(const std::exception & exc)
 {
-    return v8::ThrowException
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    return isolate->ThrowException
         (injectBacktrace
-         (v8::Exception::Error(v8::String::New((type_name(exc)
+         (v8::Exception::Error(v8::String::NewFromUtf8(isolate, (type_name(exc)
                                                 + ": " + exc.what()).c_str()))));
 }
 
 v8::Handle<Value>
 mapException(const ML::Exception & exc)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     //cerr << "mapping ML::Exception " << exc.what() << endl;
 
-    return v8::ThrowException
+    return isolate->ThrowException
         (injectBacktrace
-         (v8::Exception::Error(v8::String::New(exc.what()))));
+         (v8::Exception::Error(v8::String::NewFromUtf8(isolate, exc.what()))));
 }
 
 v8::Handle<Value>
 mapException(const HttpReturnException & exc)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::Handle<v8::Value> error
-        = injectBacktrace(v8::Exception::Error(v8::String::New(exc.what())));
+        = injectBacktrace(v8::Exception::Error(v8::String::NewFromUtf8(isolate, exc.what())));
 
-    v8::Handle<v8::Object> obj(v8::Object::Cast(*error));
+    auto obj = error.As<v8::Object>();
 
     if (obj.IsEmpty())
         throw ML::Exception("can't inject backtrace");
     
-    obj->Set(v8::String::NewSymbol("httpCode"),
-             v8::Integer::New(exc.httpCode));
-    obj->Set(v8::String::NewSymbol("details"),
+    obj->Set(v8::String::NewFromUtf8(isolate, "httpCode"),
+             v8::Integer::New(isolate, exc.httpCode));
+    obj->Set(v8::String::NewFromUtf8(isolate, "details"),
              toJS(exc.details.asJson()));
-    obj->Set(v8::String::NewSymbol("error"),
+    obj->Set(v8::String::NewFromUtf8(isolate, "error"),
              toJS(exc.what()));
     
-    return v8::ThrowException(error);
+    return isolate->ThrowException(error);
 }
 
 v8::Handle<v8::Value>
 translateCurrentException()
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+
     if (!std::current_exception()) {
         throw ML::Exception("no exception");
     }
@@ -163,8 +170,8 @@ translateCurrentException()
     }
     JML_CATCH_ALL {
         std::string msg = "unknown exception type";
-        auto error = v8::Exception::Error(v8::String::New(msg.c_str()));
-        return v8::ThrowException(injectBacktrace(error));
+        auto error = v8::Exception::Error(v8::String::NewFromUtf8(isolate, msg.c_str()));
+        return isolate->ThrowException(injectBacktrace(error));
     }
 }
 
@@ -198,11 +205,13 @@ string getArg(const JSArgs & args, int argnum, const string & defvalue,
     return getArg<string>(args, argnum, defvalue, name);
 }
 
+#if 0
 /** Convert the given value into a persistent v8 function. */
 v8::Persistent<v8::Function>
 from_js(const JSValue & val, v8::Persistent<v8::Function> *)
 {
-    v8::Handle<v8::Function> fn(v8::Function::Cast(*val));
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::Local<v8::Function> fn = val.As<v8::Function>();
     if (fn.IsEmpty() || !fn->IsFunction()) {
         //cerr << "fn = " << cstr(fn) << endl;
         //cerr << "fn.IsEmpty() = " << fn.IsEmpty() << endl;
@@ -210,27 +219,14 @@ from_js(const JSValue & val, v8::Persistent<v8::Function> *)
         throw ML::Exception("expected a function; instead we got " + cstr(val));
     }
     
-    return v8::Persistent<v8::Function>::New(fn);
+    return v8::Persistent<v8::Function>(isolate, fn);
 }
+#endif
 
 v8::Local<v8::Function>
 from_js(const JSValue & val, v8::Local<v8::Function> *)
 {
-    v8::Local<v8::Function> fn(v8::Function::Cast(*val));
-    if (fn.IsEmpty() || !fn->IsFunction()) {
-        //cerr << "fn = " << cstr(fn) << endl;
-        //cerr << "fn.IsEmpty() = " << fn.IsEmpty() << endl;
-        //cerr << "val->IsFunction() = " << val->IsFunction() << endl;
-        throw ML::Exception("expected a function; instead we got " + cstr(val));
-    }
-
-    return fn;
-}
-
-v8::Handle<v8::Function>
-from_js(const JSValue & val, v8::Handle<v8::Function> *)
-{
-    v8::Handle<v8::Function> fn(v8::Function::Cast(*val));
+    auto fn = val.As<v8::Function>();
     if (fn.IsEmpty() || !fn->IsFunction()) {
         //cerr << "fn = " << cstr(fn) << endl;
         //cerr << "fn.IsEmpty() = " << fn.IsEmpty() << endl;
@@ -244,7 +240,7 @@ from_js(const JSValue & val, v8::Handle<v8::Function> *)
 v8::Handle<v8::Array>
 from_js(const JSValue & val, v8::Handle<v8::Array> *)
 {
-    v8::Handle<v8::Array> arr(v8::Array::Cast(*val));
+    auto arr = val.As<v8::Array>();
     if (arr.IsEmpty() || !arr->IsArray())
         throw ML::Exception("expected an array; instead we got " + cstr(val));
 
@@ -255,9 +251,9 @@ v8::Handle<v8::Function>
 getFunction(const std::string & script_source)
 {
     using namespace v8;
-
-    HandleScope scope;
-    Handle<String> source = String::New(script_source.c_str());
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
+    Handle<String> source = String::NewFromUtf8(isolate, script_source.c_str());
 
     TryCatch tc;
     
@@ -281,9 +277,9 @@ getFunction(const std::string & script_source)
     if (!result->IsFunction())
         throw ML::Exception("result of script isn't a function");
     
-    v8::Local<v8::Function> fnresult(v8::Function::Cast(*result));
+    auto fnresult = result.As<v8::Function>();
 
-    return scope.Close(fnresult);
+    return scope.Escape(fnresult);
 }
 
 } // namespace JS

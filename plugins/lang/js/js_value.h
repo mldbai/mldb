@@ -10,7 +10,7 @@
 #pragma once
 
 #include "js_value_fwd.h"
-#include <v8.h>
+#include "mldb/ext/v8-cross-build-output/include/v8.h"
 
 namespace Datacratic {
 namespace JS {
