@@ -598,5 +598,38 @@ struct SelectColumnExpression: public SqlRowExpression {
     std::map<ScopedName, UnboundWildcard> wildcards() const;
 };
 
+struct SelectForEachExpression: public SqlRowExpression {
+    SelectForEachExpression(std::shared_ptr<SqlExpression> select,                           
+                           std::shared_ptr<SqlExpression> source);
+
+    std::shared_ptr<SqlExpression> select;
+    std::shared_ptr<SqlExpression> source;
+    std::shared_ptr<SqlExpression> where; 
+
+    virtual BoundSqlExpression
+    bind(SqlBindingScope & context) const;
+
+    virtual Utf8String print() const;
+
+    virtual std::shared_ptr<SqlExpression>
+    transform(const TransformArgs & transformArgs) const;
+
+    virtual bool isConstant() const { return false; }
+
+    virtual std::string getType() const
+    {
+        return "selectForEachExpr";
+    }
+
+    virtual Utf8String getOperation() const
+    {
+        return Utf8String();
+    }
+
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+
+    std::map<ScopedName, UnboundWildcard> wildcards() const;
+};
+
 } // namespace MLDB
 } // namespace Datacratic

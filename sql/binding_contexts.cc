@@ -616,6 +616,31 @@ doResolveTableName(const ColumnName & fullVariableName,
     return outer.doResolveTableName(fullVariableName, tableName);
 }
 
+/*****************************************************************************/
+/* FOREACH EXPRESSION BINDING SCOPE                                          */
+/*****************************************************************************/
+
+BoundFunction
+ForEachExpressionBindingScope::
+doGetFunction(const Utf8String & tableName,
+              const Utf8String & functionName,
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
+{
+    if (functionName == "value") {
+        checkArgsSize(args.size(), 0, "value()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & valScope = scope.as<ForEachScope>();
+                    return valScope.columnValue;
+                },
+                std::make_shared<AnyValueInfo>()}; //TODO
+    }
+    else {
+        throw;
+    }
+}
 
 /*****************************************************************************/
 /* UTILITY FUNCTIONS                                                         */

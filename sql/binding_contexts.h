@@ -398,6 +398,41 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
     }
 };
 
+/*****************************************************************************/
+/* FOREACH EXPRESSION BINDING SCOPE                                          */
+/*****************************************************************************/
+
+struct ForEachExpressionBindingScope: public SqlBindingScope {
+
+    ForEachExpressionBindingScope()
+    {
+    }
+   
+    /// RowContex structure. Derived class's row scope must derive from this
+    struct ForEachScope: public SqlRowScope {      
+
+        ForEachScope(const ExpressionValue & columnValue)
+            : columnValue(columnValue)
+        {
+        }
+
+        const ExpressionValue & columnValue;
+    };
+
+    virtual BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope);
+
+    
+    static ForEachScope getValueScope(const ExpressionValue & val)
+    {
+        return ForEachScope(val);
+    }    
+  
+};
+
 
 /*****************************************************************************/
 /* UTILITY FUNCTIONS                                                         */

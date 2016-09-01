@@ -2130,6 +2130,25 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         return result;
     }
 
+    if (matchKeyword(context, "FOREACH")) {
+        context.skip_whitespace();
+        context.expect_literal('(');
+
+        auto expr = SqlExpression::parse(context, 10, allowUtf8);
+
+        context.skip_whitespace();
+        context.expect_literal(',');
+
+        auto sourceexpr = SqlExpression::parse(context, 10, allowUtf8);
+
+        context.skip_whitespace();
+        context.expect_literal(')');
+
+        auto result = std::make_shared<SelectForEachExpression>(expr, sourceexpr);
+        result->surface = capture.captured();
+        return result;
+    }
+
     /* Match either:
 
        <prefix>*

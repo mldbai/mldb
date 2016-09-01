@@ -4068,6 +4068,94 @@ wildcards() const
     return result;
 }
 
+/*****************************************************************************/
+/* SELECT FOREACH EXPRESSION                                                  */
+/*****************************************************************************/
+
+SelectForEachExpression::
+SelectForEachExpression(std::shared_ptr<SqlExpression> select,
+                       std::shared_ptr<SqlExpression> source)
+    : select(std::move(select)),
+      source(std::move(source))
+{
+}
+
+BoundSqlExpression
+SelectForEachExpression::
+bind(SqlBindingScope & scope) const
+{
+   auto boundSource = source->bind(scope);
+
+   ForEachExpressionBindingScope forEachScope;
+
+   auto boundExpr = select->bind(forEachScope);   
+
+   auto exec = [=] (const SqlRowScope & scope,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
+            -> const ExpressionValue &
+    {
+
+        ExpressionValue sourceStorage;
+        auto rowValue = boundSource(scope, sourceStorage, filter);
+
+        //typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
+        StructValue columns;
+
+        auto onColumn = [&](const PathElement & columnName,
+                           const ExpressionValue & val) -> bool {
+            auto valScope = ForEachExpressionBindingScope::getValueScope(val);
+
+            ExpressionValue exprStorage;
+            auto columnResult = boundExpr(valScope, exprStorage, filter);
+            columns.emplace_back(columnName, columnResult);
+
+            return true;
+        };
+
+        rowValue.forEachColumn(onColumn);                  
+
+        return storage = ExpressionValue(columns);
+    };
+
+   auto info = make_shared<UnknownRowValueInfo>();
+
+   BoundSqlExpression result(exec, this, info);
+
+   return result;
+}
+
+Utf8String
+SelectForEachExpression::
+print() const
+{
+    return "forEachExpr("
+        + select->print() + ","
+        + source->print() + ","       
+        + ")";
+}
+
+std::shared_ptr<SqlExpression>
+SelectForEachExpression::
+transform(const TransformArgs & transformArgs) const
+{
+    throw HttpReturnException(400, "SelectForEachExpression::transform()");
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+SelectForEachExpression::
+getChildren() const
+{
+    return {select, source};
+}
+
+std::map<ScopedName, UnboundWildcard>
+SelectForEachExpression::
+wildcards() const
+{
+    return source->wildcards();
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic
