@@ -7,8 +7,10 @@
 #include <string>
 
 #include "bsoncxx/builder/stream/document.hpp"
+#include "bsoncxx/builder/stream/array.hpp"
 #include "bsoncxx/json.hpp"
 #include "mongocxx/client.hpp"
+#include "mongocxx/stdx.hpp"
 
 #include "mldb/core/function.h"
 #include "mldb/types/structure_description.h"
@@ -84,32 +86,60 @@ struct MongoQueryFunction: Function {
                           const ExpressionValue & context) const override
     {
         using bsoncxx::builder::stream::document;
+        using bsoncxx::builder::stream::array;
+        using bsoncxx::builder::stream::open_document;
+        using bsoncxx::builder::stream::close_document;
 
         const auto & query = context.getColumn(PathElement("query"));
         const auto queryStr = query.toUtf8String().rawString();
+        bsoncxx::v_noabi::document::value queryDoc = bsoncxx::from_json(queryStr);
+        Json::Value jsonVal = Json::parse(queryStr);
+        document doc;
 
-        auto queryDoc = bsoncxx::from_json(queryStr);
+        if (jsonVal.isMember("_id")) {
+            array idOpts;
+            string _id = jsonVal.removeMember("_id").asString();
+            if (_id.size() == 12 || _id.size() == 24) {
+                idOpts << open_document
+                       << "_id" << bsoncxx::oid(_id)
+                       << close_document;
+            }
+            idOpts << open_document
+                   << "_id" << _id
+                   << close_document;
+            doc << "$or" << bsoncxx::types::b_array{idOpts.view()};
+        }
 
         auto conn = mongocxx::client(mongoUri);
         auto db = conn[mongoUri.database()];
 
         {
+            mongocxx::stdx::optional<mongocxx::v_noabi::cursor> cursor;
             if (queryConfig.outputType == FIRST_ROW) {
                 mongocxx::options::find opts;
                 opts.limit(2); // Limit 1 yields error unset document::element
-                auto cursor = db[queryConfig.collection].find(queryDoc.view(), opts);
-                if (cursor.begin() != cursor.end()) {
-                    auto it = cursor.begin();
-                    auto oid = (*it)["_id"].get_oid();
+                if (doc.view().empty()) {
+                    cursor = db[queryConfig.collection].find(queryDoc.view(), opts);
+                }
+                else {
+                    cursor = db[queryConfig.collection].find(doc.view(), opts);
+                }
+                for (auto&& it : *cursor) {
+                    auto oid = (it)["_id"].get_oid();
                     auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());
-                    return ExpressionValue(extract(ts, *it));
+                    return ExpressionValue(extract(ts, it));
                 }
             }
             else if (queryConfig.outputType == NAMED_COLUMNS) {
-                auto cursor = db[queryConfig.collection].find(queryDoc.view());
+                if (doc.view().empty()) {
+                    cursor = db[queryConfig.collection].find(queryDoc.view());
+                }
+                else {
+                    cursor = db[queryConfig.collection].find(doc.view());
+                }
                 StructValue row;
                 Date d = Date::negativeInfinity();
-                for (auto && el: cursor) {
+                for (auto && el: *cursor) {
                     auto oid = el["_id"].get_oid();
                     PathElement rowName(oid.value.to_string());
                     auto ts = Date::fromSecondsSinceEpoch(oid.value.get_time_t());

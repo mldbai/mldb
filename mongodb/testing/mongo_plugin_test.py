@@ -295,22 +295,52 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
     def test_query_first_row(self):
         # Example of a query passed straight to mongodb. The result comes back
         # formatted as an MLDB result.
-        res = mldb.put('/v1/functions/mongo_query', {
+        mldb.put('/v1/functions/mongo_query', {
             'type' : 'mongodb.query',
             'params' : {
                 'connectionScheme' : self.connection_scheme,
                 'collection' : 'test_collection'
             }
         })
-        mldb.log(res)
         query = json.dumps({
             'type' : {
-                '$ne' : 'simple'
+                '$eq' : 'nested_obj'
             }
         })
         res = mldb.get('/v1/functions/mongo_query/application',
                        input={'query' : query}).json()
-        self.assertNotEqual(res['output']['type'], 'simple')
+        self.assertEqual(res['output']['type'], 'nested_obj')
+
+        _id = res['output']['_id']
+        query = json.dumps({
+            '_id' : _id
+        })
+        res = mldb.get('/v1/functions/mongo_query/application',
+                       input={'query' : query}).json()
+        self.assertEqual(res['output']['type'], 'nested_obj')
+
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_query_first_row_bad_oid(self):
+        # _id of length are tried as ObjectIDs. Make sure they don't cause
+        # issue even when they can't be converted to ObjectIDs.
+        mldb.put('/v1/functions/mongo_query_bad_oid', {
+            'type' : 'mongodb.query',
+            'params' : {
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'test_collection'
+            }
+        })
+        query = json.dumps({
+            '_id' : 'Z' * 12
+        })
+        mldb.get('/v1/functions/mongo_query_bad_oid/application',
+                 input={'query' : query}).json()
+
+        query = json.dumps({
+            '_id' : 'Z' * 24
+        })
+        mldb.get('/v1/functions/mongo_query/application',
+                 input={'query' : query}).json()
 
     def test_query_first_row_missing_param(self):
         msg = 'connectionScheme is a required property'
@@ -343,7 +373,6 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 'output' : 'NAMED_COLUMNS'
             }
         }),
-        mldb.log(res)
         query = json.dumps({
             'username' : {
                 '$ne' : 'simple'

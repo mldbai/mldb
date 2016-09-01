@@ -196,17 +196,6 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
-    if (functionName == "oid") {
-        return {[=] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
-            {
-                const auto & row = scope.as<MongoRowScope>();
-                return ExpressionValue(row.oid,
-                                       Date::negativeInfinity());
-            },
-            std::make_shared<StringValueInfo>()
-        };
-    }
     return SqlBindingScope::doGetFunction(tableName, functionName, args,
                                           argScope);
 }

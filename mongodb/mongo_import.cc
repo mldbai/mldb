@@ -150,7 +150,7 @@ struct MongoImportProcedure: public Procedure {
             ExpressionValue expr(extract(ts, doc));
 
             if (useWhere || useSelect || useNamed) {
-                MongoRowScope row(expr, oid.value.to_string());
+                MongoRowScope row(expr);
                 if (useWhere && !whereBound(row, storage, GET_ALL).isTrue()) {
                     return;
                 }

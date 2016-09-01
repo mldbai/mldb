@@ -37,10 +37,9 @@ void validateConnectionScheme(const std::string & connectionScheme);
 void validateCollection(const std::string & collection);
 
 struct MongoRowScope : SqlRowScope {
-    MongoRowScope(const ExpressionValue & expr, const std::string & oid)
-        : expr(expr), oid(oid) {}
+    MongoRowScope(const ExpressionValue & expr)
+        : expr(expr) {}
     const ExpressionValue & expr;
-    const std::string oid;
 };
 
 struct MongoScope : SqlExpressionMldbScope {
