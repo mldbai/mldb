@@ -116,6 +116,7 @@ and return these results:
 
 * The ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) notebook
 * The ![](%%nblink _demos/Transfer Learning with Tensorflow) demo notebook
+* The ![](%%nblink _demos/Image Processing with Convolutions) demo notebook
 
 ## See also
 

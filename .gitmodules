@@ -46,3 +46,6 @@
 [submodule "mongodb/ext/mnmlstc"]
 	path = mongodb/ext/mnmlstc
 	url = git@github.com:mldbai/mnmlstc.git
+[submodule "ext/v8-cross-build-output"]
+	path = ext/v8-cross-build-output
+	url = https://github.com/mldbai/v8-cross-build-output.git

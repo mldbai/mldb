@@ -30,3 +30,4 @@ The process of writing a Python plugin is as follows:
     * this directory should contain a `doc` directory with an `index.md` file
 * load the plugin using the main UI or the Notebook interface
 * iterate
+

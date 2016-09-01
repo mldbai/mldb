@@ -14,7 +14,7 @@ function assertEqual(expr, val, msg)
 var importConfig = {
     type: 'import.text',
     params: {
-        dataFileUrl: 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz',
+        dataFileUrl: 'https://public.mldb.ai/reddit.csv.gz',
         outputDataset: { id: 'reddit_text_file' },
         limit: 1000,
         delimiter: "",

@@ -29,7 +29,7 @@ class Mldb1694(MldbUnitTest):
 
         mldb.log("pwet!")
 
-        self.amazingGrace = "https://s3.amazonaws.com/public.mldb.ai/datasets/tensorflow-demo/grace_hopper.jpg"
+        self.amazingGrace = "https://public.mldb.ai/datasets/tensorflow-demo/grace_hopper.jpg"
  
     def test_prediction_works(self):
         self.assertTableResultEquals(
