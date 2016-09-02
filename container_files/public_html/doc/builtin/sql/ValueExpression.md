@@ -595,11 +595,18 @@ The following useful non-standard aggregation functions are also supported:
   column name and value given.  This can be used with a group by clause to
   transform a dense dataset of (actor,action,value) records into a sparse
   dataset with one sparse row per actor, for example to create one-hot feature vectors or term-document or cooccurrence matrices.
-- `string_agg(expr, separator)` will coerce the value of `expr` and that of
-  `separator` to a string, and produce a single string with the concatenation
-  of `expr` separated by `separators` at internal boundaries.  For example,
-  if `expr` is `"one"`, `"two"` and `"three"` in the group, and separator is
-  `', '` the output will be `"one, two, three"`.
+- `string_agg(expr, separator [, sortField])` will coerce the value of `expr`
+   and that of `separator` to a string, create a list of all values sorted 
+   by the `sortField`
+   (which is null if not specified) breaking ties by sorting by `expr` as a
+   string, and produce a single string with the concatenation of `expr`
+   separated by `separator` at internal boundaries on the list.  For example,
+   if `expr` is `"one"`, `"two"` and `"three"` in the group, and `separator` is
+   `', '` the output will be `"one, two, three"`.  The `sortField` can be used
+   to ensure that the values over multiple `string_agg` calls are in the,
+   same order, for example are in order of time or in row order of the
+   underlying dataset.  Note that the `rowPath()` can be used in the
+   `sortField` to achieve that result.
 
 ### Aggregates of rows
 

@@ -15,10 +15,14 @@
 namespace Datacratic {
 namespace MLDB {
 
+// Empty string to avoid construction of temporary object
+extern const Utf8String NO_FUNCTION_NAME;
+
 inline void checkArgsSize(size_t number, size_t expected,
-                          std::string fctName="")
+                          const Utf8String & fctName_=NO_FUNCTION_NAME)
 {
     if (number != expected) {
+        auto fctName = fctName_;
         if (!fctName.empty()) {
             fctName = "function " + fctName + " ";
         }
@@ -26,6 +30,26 @@ inline void checkArgsSize(size_t number, size_t expected,
             throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " arguments, got " + to_string(number));
         else
             throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " argument, got " + to_string(number));
+    }
+}
+
+inline void checkArgsSize(size_t number, size_t minArgs, size_t maxArgs,
+                          const Utf8String & fctName_=NO_FUNCTION_NAME)
+{
+    if (minArgs == maxArgs) {
+        checkArgsSize(number, minArgs, fctName_);
+        return;
+    }
+    if (number < minArgs || number > maxArgs) {
+        auto fctName = fctName_;
+        if (!fctName.empty()) {
+            fctName = "function " + fctName + " ";
+        }
+        throw HttpReturnException
+            (400, fctName + "expected between "
+             + std::to_string(minArgs) + " and "
+             + std::to_string(maxArgs) + " arguments, got "
+             + std::to_string(number));
     }
 }
 

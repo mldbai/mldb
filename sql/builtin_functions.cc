@@ -35,6 +35,9 @@ using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
+
+const Utf8String NO_FUNCTION_NAME;
+
 namespace Builtins {
 
 /*****************************************************************************/
