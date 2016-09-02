@@ -190,7 +190,7 @@ void iterateDense(const SelectExpression & select,
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                calcd[i] = boundCalc[i](rowContext, GET_LATEST);
             }
             
             /* Finally, pass to the aggregator to continue. */

@@ -1401,7 +1401,7 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 /// For an embedding
 struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValue, std::vector<CellValue> > > {
     EmbeddingValueInfo(StorageType storageType = ST_ATOM)
-        : EmbeddingValueInfo({-1}, storageType)
+        : EmbeddingValueInfo(std::vector<ssize_t>({-1}), storageType)
     {
     }
 

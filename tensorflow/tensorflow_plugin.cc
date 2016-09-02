@@ -1327,7 +1327,7 @@ struct TensorflowGraphBase: public Function {
 
         //cerr << "outputs " << outputs.size() << " tensors" << endl;
 
-        return std::move(outputs);
+        return outputs;
     }
 
     virtual ExpressionValue

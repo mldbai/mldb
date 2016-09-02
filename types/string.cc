@@ -587,14 +587,14 @@ Utf8String
 Utf8String::
 toLower() const
 {
-    return std::move(boost::locale::to_lower(data_));
+    return boost::locale::to_lower(data_);
 }
 
 Utf8String
 Utf8String::
 toUpper() const
 {
-    return std::move(boost::locale::to_upper(data_));
+    return boost::locale::to_upper(data_);
 }
 
 Utf8String::iterator

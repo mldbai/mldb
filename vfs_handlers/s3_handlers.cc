@@ -288,7 +288,7 @@ private:
             ExcAssertEqual(state, RESPONSE);
             string chunkData = std::move(data);
             setState(IDLE);
-            return std::move(chunkData);
+            return chunkData;
         }
 
         void setState(int newState)

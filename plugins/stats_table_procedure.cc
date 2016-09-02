@@ -35,7 +35,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
@@ -85,8 +84,8 @@ increment(const CellValue & val, const vector<uint> & outcomes) {
     auto it = counts.find(key);
     if(it == counts.end()) {
         auto rtn = counts.emplace(
-            key, std::move(make_pair(1, vector<int64_t>(outcomes.begin(),
-                                                        outcomes.end()))));
+            key, make_pair(1, vector<int64_t>(outcomes.begin(),
+                                              outcomes.end())));
         // return inserted value
         return (*(rtn.first)).second;
     }

@@ -113,7 +113,7 @@ struct RegisterBuiltin {
             -> BoundFunction
             {
                 try {
-                    BoundFunction result = std::move(function(args));
+                    BoundFunction result = function(args);
                     auto fn = result.exec;
                     result.exec = [=] (const std::vector<ExpressionValue> & args,
                                        const SqlRowScope & scope)

@@ -239,7 +239,7 @@ extractAndMerge(size_t numElementsToMerge,
     // Phase 1: extract each into a lot of buckets
     auto onEntry = [&] (int i)
         {
-            allEntries[i] = std::move(getEntries(i));
+            allEntries[i] = getEntries(i);
         };
 
     parallelMap(0, numElementsToMerge, onEntry);
@@ -281,7 +281,7 @@ extractAndMerge(size_t numElementsToMerge,
 
     parallelMap(0, MergeHashEntries::NBUCKETS, mergeBucket);
 
-    return std::move(result);
+    return result;
 }
 
 

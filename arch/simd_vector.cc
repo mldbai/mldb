@@ -37,7 +37,9 @@ void vec_scale(const float * x, float k, float * r, size_t n)
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         v4sf kkkk = vec_splat(k);
@@ -71,7 +73,9 @@ void vec_add(const float * x, const float * y, float * r, size_t n)
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         //cerr << "unoptimized" << endl;
@@ -110,7 +114,9 @@ void vec_prod(const float * x, const float * y, float * r, size_t n)
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         //cerr << "unoptimized" << endl;
@@ -150,7 +156,9 @@ void vec_prod(const float * x, const double * y, float * r, size_t n)
     size_t i = 0;
 
 #if 0 // TODO: do
-    if (false) ;
+        if (false)
+        ;
+
     else {
         //cerr << "unoptimized" << endl;
         
@@ -366,7 +374,9 @@ void vec_scale(const double * x, double k, double * r, size_t n)
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         v2df kk = vec_splat(k);
@@ -564,7 +574,9 @@ void vec_minus_sse2(const float * x, const float * y, float * r, size_t n)
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
     else {
         //cerr << "unoptimized" << endl;
         
@@ -620,7 +632,9 @@ double vec_dotprod(const double * x, const double * y, size_t n)
 double vec_dotprod(const double * x, const double * y, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else if (has_avx()) {
         return Avx::vec_dotprod(x, y, n);
@@ -639,7 +653,8 @@ double vec_dotprod(const double * x, const double * y, size_t n)
 void vec_minus(const float * x, const float * y, float * r, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
-    if (false) ;
+    if (false)
+        ;
 #if JML_INTEL_ISA
     if (has_avx()) {
         Avx::vec_minus(x, y, r, n);
@@ -656,7 +671,9 @@ void vec_minus(const float * x, const float * y, float * r, size_t n)
 double vec_euclid(const float * x, const float * y, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     if (has_avx()) {
         return Avx::vec_euclid(x, y, n);
@@ -990,7 +1007,9 @@ double vec_dotprod_dp(const double * x, const float * y, size_t n)
     double res = 0.0;
 
     size_t i = 0;
-    if (false) ;
+        if (false)
+        ;
+
 
 #if JML_INTEL_ISA
     else if (true) {
@@ -1050,7 +1069,9 @@ double vec_dotprod_dp(const double * x, const float * y, size_t n)
 double vec_dotprod_dp(const float * x, const float * y, size_t n)
 {
     // Interrogate the cpuid flags directly to decide which one to use
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else if (has_avx()) {
         return Avx::vec_dotprod_dp(x, y, n);
@@ -1579,7 +1600,9 @@ void vec_add(const float * x, const double * k, const double * y, float * r,
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
@@ -1613,7 +1636,9 @@ void vec_add(const float * x, const float * k, const double * y, float * r,
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
@@ -1649,7 +1674,9 @@ void vec_add(const double * x, const float * k, const float * y, double * r,
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
@@ -1680,7 +1707,9 @@ void vec_add(const double * x, const float * k, const double * y, double * r,
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {
@@ -1789,7 +1818,9 @@ void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n)
 {
     size_t i = 0;
 
-    if (false) ;
+        if (false)
+        ;
+
 #if JML_INTEL_ISA
     else {
         for (; i + 4 <= n;  i += 4) {

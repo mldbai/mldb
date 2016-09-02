@@ -195,7 +195,7 @@ struct BoundSqlExpression {
         ExpressionValue storage;
         const ExpressionValue & res = exec(context, storage, filter);
         if (&res == &storage)
-            return std::move(storage);
+            return storage;
         return res;
     }
 
