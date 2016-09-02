@@ -820,24 +820,32 @@ static RegisterDatasetType<PostgresqlRecorderDataset, PostgresqlRecorderDatasetC
 regPostgresqlRecorderDataset(postgresqlPackage(),
                  "postgresql.recorder",
                  "Dataset type that records to a PostgreSQL database",
-                 "Postgresql.md.html");
+                 "Postgresql.md.html",
+                 nullptr,
+                 { MldbEntity::INTERNAL_ENTITY });
 
 static RegisterDatasetType<PostgresqlDataset, PostgresqlDatasetConfig>
 regPostgresqlDataset(postgresqlPackage(),
                  "postgresql.dataset",
                  "Dataset type that reads from a PostgreSQL database",
-                 "Postgresql.md.html");
+                 "Postgresql.md.html",
+                 nullptr,
+                 { MldbEntity::INTERNAL_ENTITY });
 
 static RegisterProcedureType<PostgresqlImportProcedure, PostgresqlImportConfig>
 regPostgresqlImport(postgresqlPackage(),
                  "Import a dataset from PostgreSQL",
-                 "Postgresql.md.html");
+                 "Postgresql.md.html",
+                 nullptr,
+                 { MldbEntity::INTERNAL_ENTITY });
 
 static RegisterFunctionType<PostgresqlQueryFunction, PostgresqlQueryFunctionConfig>
 regSqlQueryFunction(postgresqlPackage(),
                     "postgresql.query",
                     "Run a single row SQL query against a PostgreSQL dataset",
-                    "Postgresql.md.html");
+                    "Postgresql.md.html",
+                    nullptr,
+                    { MldbEntity::INTERNAL_ENTITY });
 
 } // namespace MLDB
 } // namespace Datacratic
