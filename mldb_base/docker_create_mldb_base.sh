@@ -96,6 +96,7 @@ apt-get install -y \
     unzip \
     unrar-free \
     libstdc++6 \
+    libpq5 \
     libyaml-cpp0.5
 
 #######################
