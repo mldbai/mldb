@@ -89,7 +89,7 @@ TsneConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = chain(validateQuery(&TsneConfig::trainingData,e
+    onPostValidate = chain(validateQuery(&TsneConfig::trainingData,
                                          MustContainFrom(),
                                          NoGroupByHaving()),
                            validateFunction<TsneConfig>());
