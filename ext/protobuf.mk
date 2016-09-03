@@ -26,7 +26,7 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	@echo " $(COLOR_BLUE)[CONFIG EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@(cd $(BUILD)/$(1)/tmp/protobuf-build \
 	&& ./autogen.sh > configure-log.txt 2>&1 \
-	&& ./configure \
+	&& TMP=$(PWD)/$(TMP) ./configure \
 		--prefix $(PWD)/$(BUILD)/$(1) \
 		--program-suffix="" \
 		$$(PROTOC_EXTRA_ARGS_$(1)) >> configure-log.txt 2>&1) \
