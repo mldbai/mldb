@@ -23,7 +23,15 @@ MongoTemporaryServer(const string & uniquePath, const int portNum)
     ++index;
 
     if (uniquePath_.empty()) {
-        ML::Env_Option<string> tmpDir("TMP", "./tmp");
+        string tmpDir(secure_getenv("TMP"));
+        if (tmpDir == "") {
+            tmpDir = "./tmp";
+        }
+        if (tmpDir[0] == '/') {
+            // chop the head or mongo will fail with "socket path too long"
+            string cwd(secure_getenv("PWD"));
+            tmpDir = "." + tmpDir.substr(cwd.size());
+        }
         uniquePath_ = ML::format("%s/mongo-temporary-server-%d-%d",
                                  tmpDir.get(), getpid(), index);
         cerr << ("starting mongo temporary server under unique path "
