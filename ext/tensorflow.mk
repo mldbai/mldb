@@ -354,6 +354,15 @@ $(eval $(call library,tensorflow,,tensorflow-ops tensorflow-kernels tensorflow-c
 # And create a nice target name
 tensorflow_lib: $(LIB)/libtensorflow.so
 
+# Rule to auto-generate source code for the c interface.
+#
+# We preload the operations library and then run the tool to generate the code.
+#
+# The user_ops.h header is used as a placeholder for those who want to extend
+# tensorflow in-tree.  Since MLDB provides other means for extension, and we
+# don't want to modify the source tree, we put a dummy, empty header in there
+# to signify that there are no user operations available.
+
 define generate_tensorflow_op
 
 $(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so
@@ -366,14 +375,6 @@ endef
 
 $(foreach op,$(TENSORFLOW_OPS),$(eval $(call generate_tensorflow_op,$(op))))
 
-# Rule to auto-generate source code for the c interface.
-#
-# We preload the operations library and then run the tool to generate the code.
-#
-# The user_ops.h header is used as a placeholder for those who want to extend
-# tensorflow in-tree.  Since MLDB provides other means for extension, and we
-# don't want to modify the source tree, we put a dummy, empty header in there
-# to signify that there are no user operations available.
 # Find the source files needed for the C++ interface.  Some are pre-packaged and
 # others were generated above.
 TENSORFLOW_CC_INTERFACE_FILES:=$(sort $(shell (find $(CWD)/tensorflow/cc -name "*.cc" | grep -v example)) $(foreach op,$(TENSORFLOW_OPS),$(CWD)/tensorflow/cc/ops/$(op)_ops.cc))
