@@ -424,6 +424,8 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT username FROM ds WHERE type != 'simple'")
         self.assertEqual(len(res), 3)
 
+        res = mldb.query("SELECT oid() FROM ds") # TODO broken!
+
     def test_dataset_missing_param(self):
         msg = 'connectionScheme is a required property'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):

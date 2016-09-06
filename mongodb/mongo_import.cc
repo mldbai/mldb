@@ -194,7 +194,7 @@ struct MongoImportProcedure: public Procedure {
                     --limit;
                 }
                 if (++i % 1000 == 0) {
-                    logger->debug() << "Processing " << i << "th document";
+                    DEBUG_MSG(logger) << "Processing " << i << "th document";
                 }
                 if (runConfig.ignoreParsingErrors) {
                     try {
@@ -209,7 +209,7 @@ struct MongoImportProcedure: public Procedure {
                     processor(*output.get(), doc);
                 }
             }
-            logger->debug() << "Fetched " << i << " documents";
+            DEBUG_MSG(debug) << "Fetched " << i << " documents";
         }
         output->commit();
         Json::Value res = jsonEncode(output->getStatus());
