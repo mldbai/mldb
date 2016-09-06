@@ -347,7 +347,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Run the extra calculations before the select, as the select may
         // destroy the input if it's a select star.
         for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-            calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
+            calcd[i] = boundCalc[i](selectRowScope, GET_LATEST);
         }
 
         if (selectStar) {
@@ -470,7 +470,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
                 vector<ExpressionValue> calcd(boundCalc.size());
                 for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                    calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
+                    calcd[i] = boundCalc[i](selectRowScope, GET_LATEST);
                 }
 
                 // Get the order by context, which can read from both the result
@@ -699,8 +699,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 //         << minRowNum << " maxRowNumNeeded " << maxRowNumNeeded
                 //         << " maxRowNum " << maxRowNum << endl;
 
-                QueryThreadTracker childTracker
-                    = std::move(parentTracker.child());
+                QueryThreadTracker childTracker = parentTracker.child();
 
                 ExpressionValue row;
                 try {
@@ -745,7 +744,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     vector<ExpressionValue> calcd(boundCalc.size());
                     for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                        calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                        calcd[i] = boundCalc[i](rowContext, GET_LATEST);
                     }
 
                     if (selectStar) {
@@ -1013,7 +1012,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                calcd[i] = boundCalc[i](rowContext, GET_LATEST);
             }
 
             if (selectStar) {

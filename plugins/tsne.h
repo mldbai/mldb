@@ -27,7 +27,8 @@ struct TsneConfig : public ProcedureConfig {
         : numInputDimensions(-1),
           numOutputDimensions(2),
           tolerance(1e-5),
-          perplexity(30.0)
+          perplexity(30.0),
+          learningRate(500.0)
     {
         output.withType("embedding");
     }
@@ -41,6 +42,7 @@ struct TsneConfig : public ProcedureConfig {
     int numOutputDimensions;
     double tolerance;
     double perplexity;
+    double learningRate;
 
     Utf8String functionName;
 };

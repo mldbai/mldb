@@ -37,7 +37,7 @@ struct QueryThreadTracker {
         QueryThreadTracker result;
         result.inParent = false;
         ++depth;
-        return std::move(result);
+        return result;
     }
 
     // Destructor, which undoes the increment from the desctructor

@@ -27,12 +27,12 @@ Utf8String restDecode(std::string str, Utf8String *)
 
 std::string restDecode(std::string str, std::string *)
 {
-    return std::move(str);
+    return str;
 }
 
 Utf8String restDecode(Utf8String str, Utf8String *)
 {
-    return std::move(str);
+    return str;
 }
 
 std::string restDecode(Utf8String str, std::string *)

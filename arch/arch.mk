@@ -2,7 +2,6 @@
 
 LIBARCH_SOURCES := \
         simd_vector.cc \
-        simd_vector_avx.cc \
         demangle.cc \
 	tick_counter.cc \
 	cpuid.cc \
@@ -21,6 +20,10 @@ LIBARCH_SOURCES := \
 	rt.cc \
 	abort.cc \
 	spinlock.cc \
+
+ifeq ($(ARCH),x86_64)
+LIBARCH_SOURCES += simd_vector_avx.cc
+endif
 
 LIBARCH_LINK := dl
 

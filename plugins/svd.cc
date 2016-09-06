@@ -1062,7 +1062,7 @@ SvdEmbedRow(MldbServer * owner,
     : BaseT(owner)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
-    svd = std::move(jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString()));
+    svd = jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString());
 
     std::map<ColumnHash, SvdColumnIndexEntry> columnIndex2;
 

@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
         }
         
         BOOST_CHECK_EQUAL(proxy.get("/v1/plugins").jsonBody(),
-                          Json::Value({ "jsplugin" }));
+                          Json::Value({ Json::Value("jsplugin") }));
         server.shutdown();
     }
 
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
         }
 
         BOOST_CHECK_EQUAL(proxy.get("/v1/plugins").jsonBody(),
-                          Json::Value({ "jsplugin" }));
+                          Json::Value({ Json::Value("jsplugin") }));
 
         auto res = proxy.perform("DELETE", "/v1/plugins/jsplugin");
         cerr << res << endl;
