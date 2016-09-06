@@ -462,6 +462,7 @@ double calc_D_row(float * Di, int n)
     double total = 0.0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else if (n >= 8) {
         using namespace SIMD;
 
@@ -524,6 +525,7 @@ double calc_D_row(float * Di, int n)
 
         total = (results[0] + results[1]);
     }
+#endif // JML_INTEL_ISA
     
     for (;  i < n;  ++i) {
         Di[i] = 1.0f / (1.0f + Di[i]);
@@ -592,6 +594,8 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
     unsigned i = 0;
 
     if (false) ;
+
+#if JML_INTEL_ISA
     else if (true) {
         using namespace SIMD;
 
@@ -626,6 +630,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
         
         cost = results[0] + results[1];
     }
+#endif // JML_INTEL_ISA
 
     for (;  i < n;  ++i) {
         float d = Di[i];
@@ -736,7 +741,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
                 const boost::multi_array<float, 2> & Y,
                 int i, int n)
 {
-#if 1
+#if JML_INTEL_ISA
     using namespace SIMD;
 
     v4sf totals01 = vec_splat(0.0f), totals23 = totals01;
@@ -771,7 +776,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
     __builtin_ia32_storeups(&dY[i][0], totals01);
     __builtin_ia32_storeups(&dY[i + 2][0], totals23);
 
-#else
+#else // JML_INTEL_ISA
     enum { b = 4 };
 
     float totals[b][2];
@@ -793,7 +798,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
         dY[i + ii][0] = totals[ii][0];
         dY[i + ii][1] = totals[ii][1];
     }
-#endif
+#endif // JML_INTEL_ISA
 }
 
 inline void

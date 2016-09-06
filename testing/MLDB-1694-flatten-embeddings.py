@@ -29,11 +29,11 @@ class Mldb1694(MldbUnitTest):
 
         mldb.log("pwet!")
 
-        self.amazingGrace = "https://s3.amazonaws.com/public.mldb.ai/datasets/tensorflow-demo/grace_hopper.jpg"
+        self.amazingGrace = "https://public.mldb.ai/datasets/tensorflow-demo/grace_hopper.jpg"
  
     def test_prediction_works(self):
         self.assertTableResultEquals(
-            mldb.query("""select * from transpose(
+            mldb.query("""select round(pred * 10000) as pred from transpose(
                             (
                                 SELECT inception({url: '%s'}) as *
                                 NAMED 'pred'
@@ -43,11 +43,11 @@ class Mldb1694(MldbUnitTest):
                 """ % self.amazingGrace),
             [
                 ["_rowName","pred"],
-                ["softmax.0.866", 0.8080089092254639],
-                ["softmax.0.794", 0.022845188155770302],
-                ["softmax.0.896", 0.009539488703012466],
-                ["softmax.0.849", 0.009413405321538448],
-                ["softmax.0.926", 0.007742532528936863]
+                ["softmax.0.866", 8080],
+                ["softmax.0.794",  228],
+                ["softmax.0.896",   95],
+                ["softmax.0.849",   94],
+                ["softmax.0.926",   77]
             ])
 
 
@@ -56,7 +56,7 @@ class Mldb1694(MldbUnitTest):
         # but accesses the output parameter softmax and flattens
         # the embedding
         self.assertTableResultEquals(
-            mldb.query("""select * from transpose(
+            mldb.query("""select round(pred * 10000) as pred from transpose(
                             (
                                 SELECT flatten(inception({url: '%s'})[softmax]) as *
                                 NAMED 'pred'
@@ -66,11 +66,11 @@ class Mldb1694(MldbUnitTest):
                 """ % self.amazingGrace),
             [
                 ["_rowName","pred"],
-                ["866", 0.8080089092254639],
-                ["794", 0.022845188155770302],
-                ["896", 0.009539488703012466],
-                ["849", 0.009413405321538448],
-                ["926", 0.007742532528936863]
+                ["866", 8080],
+                ["794",  228],
+                ["896",   95],
+                ["849",   94],
+                ["926",   77]
             ])
 
 

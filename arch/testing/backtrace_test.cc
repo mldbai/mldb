@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE( test2 )
 
         size_t written = backtrace(buffer, sizeof(buffer));
         BOOST_CHECK_LT(written, sizeof(buffer));
-        ::fprintf(stderr, "written: %lu\n", written);
+        ::fprintf(stderr, "written: %zu\n", written);
 
         /* buffer ends with '\0' */
         BOOST_CHECK_EQUAL(buffer[written], '\0');

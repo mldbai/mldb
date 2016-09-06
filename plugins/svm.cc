@@ -445,7 +445,7 @@ call(SVMFunctionArgs input) const
     Date ts = input.embedding.getEffectiveTimestamp();
 
     svm_node * x = new svm_node[embedding.size()+1];
-    Scope_Exit(delete x);
+    Scope_Exit(delete[] x);
 
     int nbSparse = 0;
     for (size_t i = 0; i < embedding.size(); ++i) {

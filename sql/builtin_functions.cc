@@ -35,6 +35,9 @@ using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
+
+const Utf8String NO_FUNCTION_NAME;
+
 namespace Builtins {
 
 /*****************************************************************************/
@@ -1428,7 +1431,7 @@ struct Min {
 
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1449,7 +1452,7 @@ struct Max {
     }
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1473,7 +1476,7 @@ struct Sum {
 
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1529,7 +1532,7 @@ struct Count {
 
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1721,7 +1724,7 @@ void normalize(ML::distribution<double>& val, double p)
                                                 ts,
                                                 args.at(0).getEmbeddingShape());
 
-                         return std::move(result);
+                         return result;
 
                      },
                      std::make_shared<EmbeddingValueInfo>
@@ -1755,7 +1758,7 @@ void normalize(ML::distribution<double>& val, double p)
 
                          ExpressionValue result(std::move(val), columnNames,  ts);
 
-                         return std::move(result);
+                         return result;
                      },
                      std::make_shared<EmbeddingValueInfo>(numDims)};
          }
@@ -2480,11 +2483,11 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
                     //throw ML::Exception("The parameter passed to the length "
                             //"function must be a string");
 
-                return std::move(
-                        ExpressionValue(args[0].getAtom().toUtf8String().length(), 
-                                        args[0].getEffectiveTimestamp()));
-            },
-            std::make_shared<IntegerValueInfo>()
+                return ExpressionValue
+                    (args[0].getAtom().toUtf8String().length(), 
+                     args[0].getEffectiveTimestamp());
+             },
+             std::make_shared<IntegerValueInfo>()
     };
 }
 
@@ -2532,8 +2535,8 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 if(bestScore == -1)
                     throw ML::Exception("Error computing Levenshtein distance");
 
-                return std::move(ExpressionValue(bestScore,
-                                       args[0].getEffectiveTimestamp()));
+                return ExpressionValue(bestScore,
+                                       args[0].getEffectiveTimestamp());
             },
             std::make_shared<IntegerValueInfo>()
     };
@@ -3028,11 +3031,11 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
             {
                 ExcAssertEqual(boundArgs.size(), 2);
                 try {
-                    return storage = std::move(boundArgs[0](row, GET_LATEST));
+                    return storage = boundArgs[0](row, GET_LATEST);
                 }
                 catch (const std::exception & exc) {
                 }
-                return storage = std::move(boundArgs[1](row, GET_LATEST));
+                return storage = boundArgs[1](row, GET_LATEST);
             },
             expr,
             outputInfo};
@@ -3055,11 +3058,12 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
         {
             ExcAssertEqual(boundArgs.size(), 1);
             try {
-                return storage = std::move(boundArgs[0](row, GET_LATEST));
+                return storage = boundArgs[0](row, GET_LATEST);
             }
             catch (const std::exception & exc) {
-                return storage = std::move(ExpressionValue(
-                    ML::getExceptionString(), Date::negativeInfinity()));
+                return storage
+                = ExpressionValue(ML::getExceptionString(),
+                                  Date::negativeInfinity());
             }
         },
         expr,

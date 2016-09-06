@@ -263,7 +263,7 @@ std::vector<uint8_t> coerceTo(const CellValue & v, std::vector<uint8_t> *)
     std::copy(v.blobData(),
               v.blobData() + result.size(),
               result.data());
-    return std::move(result);
+    return result;
 }
 
 template<typename T>
@@ -279,7 +279,7 @@ std::string coerceTo(const CellValue & t, std::string *)
 
 std::string coerceTo(std::string t, std::string *)
 {
-    return std::move(t);
+    return t;
 }
 
 std::string coerceTo(const Utf8String & v, std::string *)

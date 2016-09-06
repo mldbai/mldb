@@ -339,7 +339,7 @@ watchWithPath(const ResourceSpec & spec,
     // 1.  Watch the path, so that we know of any entities that come or
     //     go on the path.
     data->childWatch
-        = std::move(watchChildren(spec[0].filter, true /* catchup */, info));
+        = watchChildren(spec[0].filter, true /* catchup */, info);
 
     ExcAssert(!data->childWatch.bound());
 

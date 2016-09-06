@@ -9,6 +9,7 @@
 
 #include "execution_pipeline.h"
 #include "join_utils.h"
+#include "mldb/utils/log_fwd.h"
 #include <list>
 
 namespace Datacratic {
@@ -377,6 +378,12 @@ struct JoinElement: public PipelineElement {
             values.
         */
         bufferType::iterator l, firstDuplicate;
+        /** True if we have already seen this left row, ie, if we have rewinded 
+            the left side. */
+        ExpressionValue lastLeftValue;
+        bool alreadySeenLeftRow;
+
+        std::shared_ptr<spdlog::logger> logger;
     
         virtual std::shared_ptr<PipelineResults> take();
 

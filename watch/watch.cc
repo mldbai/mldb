@@ -205,7 +205,7 @@ waitGeneric(double timeToWait)
     if (!found)
         throw ML::Exception("No event found before timeout");
         
-    return std::move(res);
+    return res;
 }
 
 std::shared_ptr<const ValueDescription>

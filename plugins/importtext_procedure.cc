@@ -198,7 +198,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
                     auto & row = scope.as<RowScope>();
-                    return storage = std::move(ExpressionValue(row.row[index], row.ts));
+                    return storage = ExpressionValue(row.row[index], row.ts);
                 },
                 std::make_shared<AtomValueInfo>()};
     }
@@ -246,7 +246,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         result.emplace_back(columnNames[i], row.row[i], row.ts);
                 }
 
-                return std::move(result);
+                return result;
             };
 
         GetAllColumnsOutput result;

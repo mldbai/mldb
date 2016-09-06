@@ -47,7 +47,7 @@ struct TestRegisterAggregator {
                        SqlBindingScope & context)
             -> BoundAggregator
             {
-                return std::move(aggregator());
+                return aggregator();
             };
         handles.push_back(registerAggregator(Utf8String(name), fn));
         doRegister(aggregator, std::forward<Names>(names)...);

@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE( test_move )
 {
     WatchesT<std::string> watches;
     std::vector<Watch> w;
-    w.emplace_back(std::move(watches.add()));
+    w.emplace_back(watches.add());
     BOOST_CHECK_EQUAL(watches.size(), 1);
     
     watches.trigger("hello");

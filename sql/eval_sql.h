@@ -71,7 +71,7 @@ inline ExpressionValue bindSqlArg(T && val)
 */
 inline ExpressionValue bindSqlArg(ExpressionValue val)
 {
-    return std::move(val);
+    return val;
 }
 
 /** Evaluate the given SQL expression, within the given scope (which is

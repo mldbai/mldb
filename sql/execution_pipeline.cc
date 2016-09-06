@@ -267,7 +267,7 @@ doGetBoundParameter(const Utf8String & paramName)
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             auto & row = rowScope.as<PipelineResults>();
-            return storage = std::move(row.getParam(paramName));
+            return storage = row.getParam(paramName);
         };
         
     return { exec, info };
