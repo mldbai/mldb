@@ -18,9 +18,11 @@
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
 #include <thread>
+#include <queue>
+#include <condition_variable>
+
 
 using namespace std;
-
 using namespace v8;
 
 
@@ -37,8 +39,27 @@ Logging::Category mldbJsCategory("javascript");
  */
 struct V8MldbPlatform: public v8::Platform {
     V8MldbPlatform(MldbServer * server)
-        : start(std::chrono::steady_clock::now())
+        : start(std::chrono::steady_clock::now()),
+          shutdown(false),
+          foregroundMessageLoop(std::bind(&V8MldbPlatform::runForegroundLoop,
+                                          this))
     {
+    }
+
+    ~V8MldbPlatform()
+    {
+        shutdown = true;
+        foregroundLoopCondition.notify_all();
+        std::unique_lock<std::mutex> guard(mutex);
+        foregroundMessageLoop.join();
+
+        // Delete outstanding tasks (don't run them)
+        while (!queue.empty()) {
+            auto entry = queue.top();
+            Task * task = std::get<2>(entry);
+            delete task;
+            queue.pop();
+        };
     }
 
     std::chrono::time_point<std::chrono::steady_clock> start;
@@ -87,8 +108,7 @@ struct V8MldbPlatform: public v8::Platform {
      */
     virtual void CallOnForegroundThread(Isolate* isolate, Task* task) override
     {
-        cerr << "CallOnForegroundThread" << endl;
-        std::terminate();
+        CallDelayedOnForegroundThread(isolate, task, 0.0);
     }
 
     /**
@@ -100,9 +120,13 @@ struct V8MldbPlatform: public v8::Platform {
     virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
                                                double delay_in_seconds) override
     {
-        cerr << "CallDelayedOnForegroundThread" << endl;
-        cerr << "delay_in_seconds = " << delay_in_seconds << endl;
-        std::terminate();
+        auto deadline = std::chrono::steady_clock::now()
+            + std::chrono::nanoseconds((long long)delay_in_seconds * 1000000000);
+        std::unique_lock<std::mutex> guard(mutex);
+        queue.emplace(deadline, isolate, task);
+        if (queue.empty() || deadline < std::get<0>(queue.top())) {
+            foregroundLoopCondition.notify_one();
+        }
     }
 
     /**
@@ -174,6 +198,49 @@ struct V8MldbPlatform: public v8::Platform {
                              const char* name, uint64_t handle) override
     {
     }
+
+    void runForegroundLoop()
+    {
+        std::unique_lock<std::mutex> guard(mutex);
+
+        while (!shutdown.load()) {
+            if (queue.empty()) {
+                foregroundLoopCondition.wait(guard);
+            }
+            else {
+                TimePoint nextWakeup = std::get<0>(queue.top());
+                foregroundLoopCondition.wait_until(guard, nextWakeup);
+            }
+
+            if (shutdown.load())
+                return;
+
+            while (!queue.empty()
+                   && (std::chrono::steady_clock::now()
+                       < std::get<0>(queue.top()))) {
+                auto entry = queue.top();
+                queue.pop();
+                guard.unlock();
+                Task * task = std::get<2>(entry);
+                task->Run();
+                delete task;
+                guard.lock();
+            }
+        };
+    }
+
+    std::mutex mutex;
+    std::atomic<bool> shutdown;
+    std::condition_variable foregroundLoopCondition;
+
+    typedef std::chrono::time_point<std::chrono::steady_clock> TimePoint;
+    typedef std::tuple<TimePoint, v8::Isolate *, Task*> DelayedEntry;
+    std::priority_queue<DelayedEntry, std::vector<DelayedEntry>,
+                        std::greater<DelayedEntry> >
+        queue;
+    //tracing::TracingController* tracing_controller_;
+
+    std::thread foregroundMessageLoop;
 };
 
 void
