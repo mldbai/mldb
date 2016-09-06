@@ -23,6 +23,7 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	@echo "   $(COLOR_BLUE)[COPY EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@mkdir -p $(BUILD)/$(1)/tmp/protobuf-build
 	@cp -rf mldb/ext/protobuf/* $(BUILD)/$(1)/tmp/protobuf-build
+	@ln -sf $(PWD)/mldb/ext/gmock $(BUILD)/$(1)/tmp/protobuf-build/
 	@echo " $(COLOR_BLUE)[CONFIG EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@(cd $(BUILD)/$(1)/tmp/protobuf-build \
 	&& ./autogen.sh > configure-log.txt 2>&1 \

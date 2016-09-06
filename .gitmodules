@@ -37,3 +37,6 @@
 [submodule "ext/v8-cross-build-output"]
 	path = ext/v8-cross-build-output
 	url = https://github.com/mldbai/v8-cross-build-output.git
+[submodule "ext/gmock"]
+	path = ext/gmock
+	url = https://github.com/mldbai/gmock-1.7.0.git
