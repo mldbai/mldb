@@ -1517,7 +1517,7 @@ ExpressionValue(RowValue row) noexcept
                     ++it2;
 
                 Structured newValue = doLevel(it, it2, level + 1);
-                rowOut.emplace_back(std::move(std::get<0>(*it).at(level)),
+                rowOut.emplace_back(std::get<0>(*it).at(level),
                                     std::move(newValue));
 
                 it = it2;
@@ -2279,7 +2279,7 @@ getColumn(const PathElement & columnName, const VariableFilter & filter) const
     if (!val)
         return ExpressionValue();
     else if (val == &storage)
-        return std::move(storage);
+        return storage;
     else return *val;
 }
 
@@ -2366,7 +2366,7 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
     if (!val)
         return ExpressionValue();
     else if (val == &storage)
-        return std::move(storage);
+        return storage;
     else return *val;
 }
 
@@ -2744,7 +2744,7 @@ appendToRow(const Path & columnName, StructValue & row) const
                               ssize_t scope) -> ExpressionValue
             {
                 if (scope == columnName.size()) {
-                    return std::move(inner);
+                    return inner;
                 }
                 else {
                     StructValue row;
@@ -2785,7 +2785,7 @@ appendToRowDestructive(const Path & columnName, StructValue & row)
                               ssize_t scope) -> ExpressionValue
             {
                 if (scope == columnName.size()) {
-                    return std::move(inner);
+                    return inner;
                 }
                 else {
                     StructValue row;
@@ -3344,7 +3344,7 @@ getFilteredDestructive(const VariableFilter & filter)
         const ExpressionValue * output = atoms.extract(storage);
         if (output) {
             if (output == &storage)
-                return std::move(storage);
+                return storage;
             else return *output;
         }
     }
@@ -4526,8 +4526,8 @@ doSearchRow(const RowValue & columns,
     if (index == -1)
         return nullptr;
     
-    return &(storage = std::move(ExpressionValue(std::get<1>(columns[index]),
-                                                 std::get<2>(columns[index]))));
+    return &(storage = ExpressionValue(std::get<1>(columns[index]),
+                                       std::get<2>(columns[index])));
 }
 
 const ExpressionValue *

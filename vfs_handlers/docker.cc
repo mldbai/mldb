@@ -442,7 +442,7 @@ struct RegisterDockerHandler {
                                     int depth)
             {
                 if (uri == uriToFind) {
-                    result = std::move(open(options));
+                    result = open(options);
                     return false;
                 }
                 return true;

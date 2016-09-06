@@ -318,10 +318,10 @@ struct JoinedDataset::Itl
         RowName rowName;
 
         if (chainedJoinDepth > 0 && !leftName.empty()) {
-            rowName = std::move(RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]"));
+            rowName = RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]");
         }
         else if (chainedJoinDepth == 0) {
-            rowName = std::move(RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]"));
+            rowName = RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]");
         }
         else {
             Utf8String left;
@@ -329,7 +329,7 @@ struct JoinedDataset::Itl
                 left += "[]-";
             }
 
-            rowName = std::move(RowName(left + "[" + rightName.toUtf8String() + "]"));
+            rowName = RowName(left + "[" + rightName.toUtf8String() + "]");
         }
 
 #if 0

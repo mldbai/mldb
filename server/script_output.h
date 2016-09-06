@@ -127,7 +127,9 @@ struct ScriptLogEntry {
     }
 
     ScriptLogEntry(Date ts, std::string stream, Utf8String content) noexcept
-        : ts(ts), stream(std::move(stream)), content(std::move(content.stealRawString())),
+        : ts(ts),
+          stream(std::move(stream)),
+          content(content.stealRawString()),
           closed(false)
     {
     }

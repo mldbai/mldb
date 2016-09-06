@@ -43,7 +43,7 @@ TESTS   := $(BUILD)/$(ARCH)/tests
 TMPBIN	:= $(BUILD)/$(ARCH)/tmp
 INC     := $(BUILD)/$(ARCH)/include
 SRC     := .
-TMP     ?= $(BUILD)/$(ARCH)/tmp
+TMP     ?= $(PWD)/$(BUILD)/$(ARCH)/tmp
 
 # These are for cross-compilation, where binaries used in the build need
 # be be built for the host.

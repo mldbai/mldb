@@ -1794,7 +1794,7 @@ shallowCopy() const
     auto onArgs = [] (std::vector<std::shared_ptr<SqlExpression> > args)
         -> std::vector<std::shared_ptr<SqlExpression> >
         {
-            return std::move(args);
+            return args;
         };
 
     return transform(onArgs);
@@ -1949,7 +1949,7 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
                                         "' with aggregators is not allowed"));
     }
     
-    return std::move(output);
+    return output;
 }
 
 template <class T>
@@ -2512,7 +2512,7 @@ apply(const SqlRowScope & context) const
 {
     std::vector<ExpressionValue> sortFields(clauses.size());
     for (unsigned i = 0;  i < clauses.size();  ++i) {
-        sortFields[i] = std::move(clauses[i].expr(context, GET_LATEST));
+        sortFields[i] = clauses[i].expr(context, GET_LATEST);
     }
     return sortFields;
 }
@@ -2778,7 +2778,7 @@ transform(const TransformArgs & transformArgs) const
     for (auto & clause: result.clauses)
         clause.first = transformArgs({clause.first})[0];
   
-    return std::move(result);
+    return result;
 }
     
 OrderByExpression
@@ -2790,7 +2790,7 @@ substitute(const SelectExpression & select) const
     for (auto & clause: result.clauses)
         clause.first = clause.first->substitute(select);
     
-    return std::move(result);
+    return result;
 }
 
 const OrderByExpression ORDER_BY_NOTHING;
@@ -2979,7 +2979,7 @@ SelectExpression(const std::string & exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -2988,7 +2988,7 @@ SelectExpression(const char * exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -2997,7 +2997,7 @@ SelectExpression(const Utf8String & exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -3095,7 +3095,7 @@ bind(SqlBindingScope & context) const
 {
     vector<BoundSqlExpression> boundClauses;
     for (auto & c: clauses)
-        boundClauses.emplace_back(std::move(c->bind(context)));
+        boundClauses.emplace_back(c->bind(context));
 
     std::vector<KnownColumn> outputColumns;
 
@@ -3135,7 +3135,7 @@ bind(SqlBindingScope & context) const
                 else v.appendToRow(Path(), result);
             }
             
-            return storage = std::move(ExpressionValue(std::move(result)));
+            return storage = ExpressionValue(std::move(result));
         };
 
     return BoundSqlExpression(exec, this, outputInfo, isConstant);
@@ -3271,7 +3271,7 @@ parseJsonTyped(SelectExpression * val,
                JsonParsingContext & context) const
 {
     Utf8String s = context.expectStringUtf8();
-    *val = std::move(SelectExpression::parse(s));
+    *val = SelectExpression::parse(s);
 }
 
 void
@@ -3884,7 +3884,7 @@ parse(const std::string& body)
 
     context.expect_eof();
 
-    return std::move(stm);
+    return stm;
 }
 
 SelectStatement
@@ -3996,7 +3996,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-    return std::move(statement);
+    return statement;
 }
 
 Utf8String

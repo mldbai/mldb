@@ -136,24 +136,24 @@ struct PostgresqlDataset: public Dataset {
         return startPostgresqlConnection(config_.databaseName, config_.host, config_.port);
     }
 
-    virtual Any getStatus() const
+    virtual Any getStatus() const override
     {
         return string("ok");
     }
 
     virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
 
     /** Commit changes to the database.  Default is a no-op. */
-    virtual void commit()
+    virtual void commit() override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
@@ -244,8 +244,8 @@ struct PostgresqlDataset: public Dataset {
             if (rowsToKeep.size() == limit)
                 newToken = start;
 
-            return std::move(make_pair(std::move(rowsToKeep),
-                                       std::move(newToken)));
+            return make_pair(std::move(rowsToKeep),
+                             std::move(newToken));
         },
         "PostgresqlDataset row generation"};
 
@@ -299,9 +299,9 @@ struct PostgresqlDataset: public Dataset {
 
     }
 
-    /** Return wheter or not all columns names and info are known.
+    /** Return whether or not all columns names and info are known.
     */
-    virtual bool hasColumnNames() const { return false; }
+    virtual bool hasColumnNames() const override { return false; }
 
 };
 

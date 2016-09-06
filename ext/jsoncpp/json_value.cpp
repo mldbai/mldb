@@ -1459,7 +1459,7 @@ Value::toStringNoNewLine() const
     std::string str = toString();
     if (str.back() == '\n')
         str.erase(str.size() - 1);
-    return std::move(str);
+    return str;
 }
 
 

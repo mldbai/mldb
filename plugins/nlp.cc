@@ -176,7 +176,7 @@ call(Words input) const
 
             auto it = accum.find(col);
             if(it == accum.end()) {
-                accum.emplace(col, std::move(make_pair(val_as_double, ts)));
+                accum.emplace(col, make_pair(val_as_double, ts));
             }
             else {
                 it->second.first += val_as_double;

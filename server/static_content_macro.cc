@@ -500,10 +500,10 @@ void availabletypesMacro(MacroContext & context,
                         filteredParams.append(p);
                     }
                 }
-                return std::move(filteredParams);
+                return filteredParams;
             }
             else
-                return std::move(params);
+                return params;
         };
 
         Json::Value params = internalEntitiesFilter(Json::parse(connection.response));

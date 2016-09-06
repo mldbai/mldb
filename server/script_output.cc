@@ -92,7 +92,7 @@ struct ScriptLogContentDescription: public ValueDescriptionT<ScriptLogContent> {
             *val = ScriptLogContent();
         }
         else if (context.isString()) {
-            val->rawBytes = std::move(context.expectStringUtf8().stealRawString());
+            val->rawBytes = context.expectStringUtf8().stealRawString();
         }
         else if (context.isArray()) {
             Json::Value jval = context.expectJson();

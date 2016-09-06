@@ -136,7 +136,7 @@ struct JML_PACKED Header
         if (head.checkBits != head.checksumOptions())
             throw lz4_error("corrupted options");
 
-        return std::move(head);
+        return head;
     }
 
     template<typename Sink>

@@ -20,6 +20,7 @@ define build_protobuf_for_arch
 PROTOC_EXTRA_ARGS_$(1):=$(if $(call sne,$(1),$(HOSTARCH)),--with-protoc=$(PWD)/$(HOSTBIN)/protoc --host=$(1)-linux-gnu --target=$(1)-linux-gnu)$(if $(call seq,$(1),$(ARCH)), CC="$(CC)" CXX="$(CXX)")
 
 $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
+	@mkdir -p $(TMP)
 	@echo "   $(COLOR_BLUE)[COPY EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@mkdir -p $(BUILD)/$(1)/tmp/protobuf-build
 	@cp -rf mldb/ext/protobuf/* $(BUILD)/$(1)/tmp/protobuf-build

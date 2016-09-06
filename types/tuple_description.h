@@ -11,6 +11,7 @@
 
 
 #include "mldb/types/value_description.h"
+#include <type_traits>
 
 namespace Datacratic {
 
@@ -26,9 +27,9 @@ template<typename Tuple, int n, typename First, typename... Rest>
 struct AddTupleTypes<Tuple, n, First, Rest...> {
     static void go(std::vector<TupleElementDescription> & elements)
     {
-        auto desc = getDefaultDescriptionShared((First *)0);
+        auto desc = getDefaultDescriptionShared((typename std::remove_reference<First>::type *)0);
         Tuple * tpl = 0;
-        void * el = &std::get<n>(*tpl);
+        const void * el = &std::get<n>(*tpl);
         int offset = (size_t)el;
 
         TupleElementDescription elDesc;

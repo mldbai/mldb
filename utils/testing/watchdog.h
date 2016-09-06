@@ -52,7 +52,7 @@ struct Watchdog {
              std::function<void ()> timeoutFunction = abortProcess)
         : finished(false), seconds(seconds), timeoutFunction(timeoutFunction)
     {
-        thread = std::move(std::thread(std::bind(&Watchdog::runThread, this)));
+        thread = std::thread(std::bind(&Watchdog::runThread, this));
     }
 
     ~Watchdog()

@@ -191,7 +191,7 @@ getColumn(const ColumnName & columnName,
         if (fromOutput)
             return *fromOutput;
         
-        return storage = std::move(ExpressionValue::null(Date::negativeInfinity()));
+        return storage = ExpressionValue::null(Date::negativeInfinity());
     }
 }
 
@@ -415,7 +415,7 @@ doGetBoundParameter(const Utf8String & paramName)
                 auto & row = context.as<RowScope>();
                 if (!row.params || !*row.params)
                     throw HttpReturnException(400, "Bound parameters requested but none passed");
-                return storage = std::move((*row.params)(paramName));
+                return storage = (*row.params)(paramName);
             },
             std::make_shared<AnyValueInfo>()};
 }
@@ -455,7 +455,7 @@ doGetAllColumns(const Utf8String & tableName,
                 }
                 // Otherwise, check if we need it
                 ColumnName result = keep(inputColumnName);
-                return std::move(result);
+                return result;
             }
 
             return keep(inputColumnName);

@@ -301,7 +301,7 @@ struct RegisterArchiveHandler {
                 //cerr << "matching " << archiveMemberUri
                 //<< " against " << uri << endl;
                 if (uri.rawString() == archiveMemberUri) {
-                    result = std::move(open(options));
+                    result = open(options);
                     return false;
                 }
                 return true;

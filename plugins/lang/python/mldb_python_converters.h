@@ -177,8 +177,8 @@ struct PathConverter
 
         std::vector<PathElement> el_container;
         for (boost::python::ssize_t i = 0; i < n; ++i){
-            el_container.push_back(std::move(
-                        pyToPathElement(boost::python::object(pyList[i]).ptr())));
+            el_container.emplace_back(
+                        pyToPathElement(boost::python::object(pyList[i]).ptr()));
         }
 
         new (storage) Path(el_container.begin(), el_container.end());

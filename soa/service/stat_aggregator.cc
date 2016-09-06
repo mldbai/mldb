@@ -106,7 +106,7 @@ GaugeAggregator(Verbosity verbosity, const std::vector<int>& extra)
 GaugeAggregator::
 ~GaugeAggregator()
 {
-    delete values;
+    delete values.load();
 }
 
 void

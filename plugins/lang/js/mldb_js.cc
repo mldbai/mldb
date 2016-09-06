@@ -367,7 +367,7 @@ struct StreamJS::Methods {
                 std::ostringstream buf;
                 buf << stream->rdbuf();
 
-                args.GetReturnValue().Set(JS::toJS(CellValue::blob(std::move(buf.str()))));
+                args.GetReturnValue().Set(JS::toJS(CellValue::blob(buf.str())));
             }
             else {
                 // Load from the blob
@@ -492,7 +492,7 @@ struct RandomNumberGenerator {
 
     double uniform(double min = 0.0, double max = 1.0)
     {
-        return min + (max - min) * uniform();
+        return min + (max - min) * uniform01();
     }
 
     double normal(double mean = 0.0, double stddev = 1.0)

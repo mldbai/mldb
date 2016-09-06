@@ -87,7 +87,7 @@ removeTableNameFromExpression(const SqlExpression & expr, const Utf8String & tab
                 a = doArg(a);
             }
             
-            return std::move(args);
+            return args;
         };
 
     doArg = [&] (std::shared_ptr<SqlExpression> a)

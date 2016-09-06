@@ -107,7 +107,7 @@ run(const std::vector<BoundSqlExpression> & exprs) const
 
     runIncremental(exprs, onVal);
     
-    return std::move(results);
+    return results;
 }
 
 /// Allow control over whether the given optimization path is run
