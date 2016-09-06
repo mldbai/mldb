@@ -209,7 +209,7 @@ struct MongoImportProcedure: public Procedure {
                     processor(*output.get(), doc);
                 }
             }
-            DEBUG_MSG(debug) << "Fetched " << i << " documents";
+            DEBUG_MSG(logger) << "Fetched " << i << " documents";
         }
         output->commit();
         Json::Value res = jsonEncode(output->getStatus());
