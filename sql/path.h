@@ -199,7 +199,7 @@ struct PathElement {
 
     inline bool null() const
     {
-        // The empty string doesn't count as an empty PathElement
+        // The empty string is not a null PathElement
         return complex_ == 0 && simpleLen_ == 0;
     }
 
