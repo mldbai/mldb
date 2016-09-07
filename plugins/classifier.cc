@@ -469,6 +469,7 @@ run(const ProcedureRunConfig & run,
         // Now, initialize a mapping for each thread
         for (auto & labelStr: allLabels) {
             int encodedLabel = categorical->parse_or_add(labelStr);
+            cerr << "encoded label " << encodedLabel << " " << labelStr << endl;
             labelMapping[labelStr] = encodedLabel;
         }
 
@@ -582,6 +583,7 @@ run(const ProcedureRunConfig & run,
                  "or preprocess your labels with `replace_not_finite(label, 0)`?");
         }
 
+        //cerr << "feature set " << fvs[i].featureSet << endl;
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
 
         if(runProcConf.mode != CM_REGRESSION) {

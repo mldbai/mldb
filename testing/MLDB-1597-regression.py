@@ -300,6 +300,169 @@ class Mldb1597Test(MldbUnitTest):
                 ]:
                     train(f,l,a)
 
+    def test_left_join_after_left_join(self):
+        x = mldb.create_dataset({ "id": "x", "type": "tabular" })
+        x.record_row(1,[["a", 1, 0], ["b", 1, 0], ["c", 729, 0]])
+        x.record_row(2,[["a", 2, 0], ["b", 1, 0], ["c", 729, 0]])
+        x.record_row(3,[["a", 3, 0], ["b", 1, 0], ["c", 729, 0]])
+        x.commit()
+
+        y = mldb.create_dataset({ "id": "y", "type": "tabular" })
+        y.record_row(1,[["a", 1, 0], ["b", 1, 0], ["c", 729, 0]])
+        y.record_row(2,[["a", 2, 0], ["b", 1, 0], ["c", 729, 0]])
+        y.record_row(3,[["a", 3, 0], ["b", 1, 0], ["c", 729, 0]])
+        y.commit()
+
+        z = mldb.create_dataset({ "id": "z", "type": "tabular" })
+        z.record_row(1,[["a", 1, 0], ["b", 1, 0], ["c", 729, 0]])
+        z.record_row(2,[["a", 2, 0], ["b", 1, 0], ["c", 729, 0]])
+        z.record_row(3,[["a", 3, 0], ["b", 1, 0], ["c", 729, 0]])
+        z.commit()
+
+        # first ON condition true on diagonale only
+        # second ON condition always true
+        resp1 = mldb.query("""
+            select * from x left join y on (x.a=y.a) 
+                     left join z on (x.b=z.b and x.c=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x left join y on (x.a=y.a) 
+                     left join z on (x.b+x.c=z.b+z.c) 
+                     order by rowName()
+        """)
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3 * 3)
+
+        # first and second ON conditions always true
+        resp1 = mldb.query("""
+            select * from x left join y on (x.c=y.c) 
+                     left join z on (x.b=z.b and x.c=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x left join y on (x.c=y.c) 
+                     left join z on (x.b+x.c=z.b+z.c) 
+                     order by rowName()
+        """)
+
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3 * 3 * 3)
+
+        # first ON condition always false
+        # second ON condition always true
+        resp1 = mldb.query("""
+            select * from x left join y on (x.c=y.a) 
+                     left join z on (x.b=z.b and x.c=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x left join y on (x.c=y.a) 
+                     left join z on (x.b+x.c=z.b+z.c) 
+                     order by rowName()
+        """)
+
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3 * 3)
+
+        # first ON condition always false
+        # second ON condition always false
+        resp1 = mldb.query("""
+            select * from x left join y on (x.c=y.a) 
+                     left join z on (x.b=z.b and x.a=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x left join y on (x.c=y.a) 
+                     left join z on (x.b+x.a=z.b+z.c) 
+                     order by rowName()
+        """)
+
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3)
+
+    @unittest.skip("going to be fixed later")
+    def test_right_join_after_right_join(self):
+        x = mldb.create_dataset({ "id": "x", "type": "tabular" })
+        x.record_row('row1',[["a", 1, 0], ["b", 1, 0], ["c", 729, 0]])
+        x.record_row('row2',[["a", 2, 0], ["b", 1, 0], ["c", 729, 0]])
+        x.record_row('row3',[["a", 3, 0], ["b", 1, 0], ["c", 729, 0]])
+        x.commit()
+
+        y = mldb.create_dataset({ "id": "y", "type": "tabular" })
+        y.record_row('row1',[["a", 1, 0], ["b", 1, 0], ["c", 729, 0]])
+        y.record_row('row2',[["a", 2, 0], ["b", 1, 0], ["c", 729, 0]])
+        y.record_row('row3',[["a", 3, 0], ["b", 1, 0], ["c", 729, 0]])
+        y.commit()
+
+        z = mldb.create_dataset({ "id": "z", "type": "tabular" })
+        z.record_row('row1',[["a", 1, 0], ["b", 1, 0], ["c", 729, 0]])
+        z.record_row('row2',[["a", 2, 0], ["b", 1, 0], ["c", 729, 0]])
+        z.record_row('row3',[["a", 3, 0], ["b", 1, 0], ["c", 729, 0]])
+        z.commit()
+
+        # first ON condition true on diagonale only
+        # second ON condition always true
+        resp1 = mldb.query("""
+            select * from x right join y on (x.a=y.a) 
+                     right join z on (x.b=z.b and x.c=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x right join y on (x.a=y.a) 
+                     right join z on (x.b+x.c=z.b+z.c) 
+                     order by rowName()
+        """)
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3 * 3)
+
+        # first and second ON conditions always true
+        resp1 = mldb.query("""
+            select * from x right join y on (x.c=y.c) 
+                     right join z on (x.b=z.b and x.c=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x right join y on (x.c=y.c) 
+                     right join z on (x.b+x.c=z.b+z.c) 
+                     order by rowName()
+        """)
+
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3 * 3 * 3)
+
+        # first ON condition always false
+        # second ON condition always true
+        resp1 = mldb.query("""
+            select * from x right join y on (x.c=y.a) 
+                     right join z on (x.b=z.b and x.c=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x right join y on (x.c=y.a) 
+                     right join z on (x.b+x.c=z.b+z.c) 
+                     order by rowName()
+        """)
+
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3 * 3)
+
+        # first ON condition always false
+        # second ON condition always false
+        resp1 = mldb.query("""
+            select * from x right join y on (x.c=y.a) 
+                     right join z on (x.b=z.b and x.a=z.c) 
+                     order by rowName()
+        """)
+        resp2 = mldb.query("""
+            select * from x right join y on (x.c=y.a) 
+                     right join z on (x.b+x.a=z.b+z.c) 
+                     order by rowName()
+        """)
+
+        self.assertTableResultEquals(resp1, resp2)
+        self.assertEqual(len(resp1), 1 + 3)
+
 mldb.run_tests()
 
 

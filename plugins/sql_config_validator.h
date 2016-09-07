@@ -8,7 +8,9 @@
 */
 
 #include "mldb/sql/sql_expression.h"
+#include "mldb/sql/sql_expression_operations.h"
 #include "types/optional.h"
+#include "mldb/arch/demangle.h"
 
 #pragma once
 
@@ -51,257 +53,87 @@ validateQuery(FieldType ConfigType::* field, const Constraint & constraint, Cons
     // parameter packs cannot be expended in lambda function
     // see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=55914
     auto validator = [=](ConfigType * cfg, JsonParsingContext & context) {
-        constraint(cfg->*field, ConfigType::name);
+        constraint.operator()(cfg->*field, ConfigType::name);
     };
 
     return chain<ConfigType>(validator, validateQuery(field, constraints...));
 }
 
+struct QueryValidator {
+    virtual void operator()(const InputQuery & query, const std::string & name) const = 0;
+    void operator()(const Optional<InputQuery> & query, const std::string & name) const;
+};
+
 /**
  *  Accept any select statement with empty GROUP BY/HAVING clause.
  *  FieldType must contain a SelectStatement named stm.
  */
-struct NoGroupByHaving
+struct NoGroupByHaving : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (query.stm) {
-            if (!query.stm->groupBy.empty()) {
-                throw ML::Exception(name + " does not support groupBy clause");
-            }
-            else if (!query.stm->having->isConstantTrue()) {
-                throw ML::Exception(name + " does not support having clause");
-            }
-        }
-    }
-
-    void operator()(const Optional<InputQuery> & query, const std::string & name) const
-    {
-        if (query) operator()(*query, name);
-    }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 /**
  *  Accept any select statement with empty WHERE clause.
  *  FieldType must contain a SelectStatement named stm.
  */
-struct NoWhere
+struct NoWhere : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (query.stm) {
-            if (!query.stm->where->isConstantTrue()) {
-                throw ML::Exception(name + " does not support where");
-            }
-        }
-    }
-
-    void operator()(const Optional<InputQuery> & query,
-                    const std::string & name) const
-    {
-        if (query) operator()(*query, name);
-    }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 /**
  *  Accept any select statement with empty LIMIT clause.
  *  FieldType must contain a SelectStatement named stm.
  */
-struct NoLimit
+struct NoLimit : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (query.stm) {
-            if (query.stm->limit != -1) {
-                throw ML::Exception(name + " does not support limit");
-            }
-        }
-    }
-
-    void operator()(const Optional<InputQuery> & query,
-                    const std::string & name) const
-    {
-        if (query) operator()(*query, name);
-    }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 /**
  *  Accept any select statement with empty OFFSET clause.
  *  FieldType must contain a SelectStatement named stm.
  */
-struct NoOffset
+struct NoOffset : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (query.stm) {
-            if (query.stm->offset > 0) {
-                throw ML::Exception(name + " does not support offset");
-            }
-        }
-    }
-
-    void operator()(const Optional<InputQuery> & query,
-                    const std::string & name) const
-    {
-        if (query) operator()(*query, name);
-    }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 /**
   *  Must contain a FROM clause
  */
-struct MustContainFrom
+struct MustContainFrom : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (!query.stm || !query.stm->from || query.stm->from->surface.empty())
-            throw ML::Exception(name + " must contain a FROM clause");
-    }
-
-    void operator()(const Optional<InputQuery> & query, const std::string & name) const
-    {
-        if (query) operator()(*query, name);
-    }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 /**
- *  Accept simple select expressions like column1, column2, wildcard expressions
- *  and column expressions but reject operations on columns like sum(column1, column2).
- *  FieldType must contain a SelectStatement named stm.
+ *  Check the presence of a NamedColumnExpression with name `features` that contains 
+ *  only simple row expressions of the form: {column1, column2}, {prefix*}, {*} and 
+ *  {* EXCLUDING(column)}.  Basically, any expression that select columns without altering
+ *  their values.
  */
-struct PlainColumnSelect
+struct PlainColumnSelect : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (!query.stm) {
-            return;
-        }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
+};
 
-        auto getWildcard = [] (const std::shared_ptr<SqlRowExpression> expression)
-            -> std::shared_ptr<const WildcardExpression>
-            {
-                return std::dynamic_pointer_cast<const WildcardExpression>(expression);
-            };
-
-        auto getColumnExpression = [] (const std::shared_ptr<SqlRowExpression> expression)
-            -> std::shared_ptr<const SelectColumnExpression>
-            {
-                return std::dynamic_pointer_cast<const SelectColumnExpression>(expression);
-            };
-
-        auto getNamedColumnExpression = [] (const std::shared_ptr<SqlRowExpression> expression)
-            -> std::shared_ptr<const NamedColumnExpression>
-            {
-                return std::dynamic_pointer_cast<const NamedColumnExpression>(expression);
-            };
-
-        auto getReadVariable = [] (const std::shared_ptr<SqlExpression> expression)
-            -> std::shared_ptr<const ReadColumnExpression>
-            {
-                return std::dynamic_pointer_cast<const ReadColumnExpression>(expression);
-            };
-
-        auto getWithinExpression = [] (const std::shared_ptr<SqlExpression> expression)
-            -> std::shared_ptr<const SelectWithinExpression>
-            {
-                return std::dynamic_pointer_cast<const SelectWithinExpression>(expression);
-            };
-
-        auto getIsTypeExpression = [] (const std::shared_ptr<SqlExpression> expression)
-            -> std::shared_ptr<const IsTypeExpression>
-            {
-                return std::dynamic_pointer_cast<const IsTypeExpression>(expression);
-            };
-
-        auto getComparisonExpression = [] (const std::shared_ptr<SqlExpression> expression)
-            -> std::shared_ptr<const ComparisonExpression>
-            {
-                return std::dynamic_pointer_cast<const ComparisonExpression>(expression);
-            };
-
-        auto getBooleanExpression = [] (const std::shared_ptr<SqlExpression> expression)
-            -> std::shared_ptr<const BooleanOperatorExpression>
-            {
-                return std::dynamic_pointer_cast<const BooleanOperatorExpression>(expression);
-            };
-
-        auto getFunctionCallExpression = [] (const std::shared_ptr<SqlExpression> expression) 
-            -> std::shared_ptr<const FunctionCallExpression>
-            {
-                return std::dynamic_pointer_cast<const FunctionCallExpression>(expression);
-            };
-
-        auto getExtractExpression = [] (const std::shared_ptr<SqlExpression> expression) 
-            -> std::shared_ptr<const ExtractExpression>
-            {
-                return std::dynamic_pointer_cast<const ExtractExpression>(expression);
-            };
-
-        auto getConstantExpression = [] (const std::shared_ptr<SqlExpression> expression)
-            -> std::shared_ptr<const ConstantExpression>
-            {
-                return std::dynamic_pointer_cast<const ConstantExpression>(expression);
-            };
-
-        auto & select = query.stm->select;
-        for (const auto & clause : select.clauses) {
-
-            auto wildcard = getWildcard(clause);
-            if (wildcard)
-                continue;
-
-            auto columnExpression = getColumnExpression(clause);
-            if (columnExpression)
-                continue;
-
-            auto computedVariable = getNamedColumnExpression(clause);
-
-            if (computedVariable) {
-                auto readVariable = getReadVariable(computedVariable->expression);
-                if (readVariable)
-                    continue;
-                // {x, y}
-                auto withinExpression = getWithinExpression(computedVariable->expression);
-                if (withinExpression)
-                    continue;
-                // x is not null
-                auto isTypeExpression = getIsTypeExpression(computedVariable->expression);
-                if (isTypeExpression)
-                    continue;
-                // x = 'true'
-                auto comparisonExpression = getComparisonExpression(computedVariable->expression);
-                if (comparisonExpression)
-                    continue;
-                // NOT x
-                auto booleanExpression = getBooleanExpression(computedVariable->expression);
-                if (booleanExpression)
-                    continue;
-                // function(args)
-                auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
-                if (functionCallExpression)
-                    continue;
-
-                // (...)[extract]
-                auto extractExpression = getExtractExpression(computedVariable->expression);
-                if (extractExpression)
-                    continue;
-
-                // 1.0
-                auto constantExpression = getConstantExpression(computedVariable->expression);
-                if (constantExpression)
-                    continue;
-            }
-
-            throw ML::Exception(name +
-                                " only accepts wildcard and column names at " +
-                                clause->surface.rawString());
-        }
-    }
-
-    void operator()(const Optional<InputQuery> & query, const std::string & name) const
-    {
-        if (query) operator()(*query, name);
-    }
+/**
+ *  Check the presence of simple row expressions of the form: {column1, column2}, 
+ *  {prefix*}, {*} and {* EXCLUDING(column)}.  Basically, any expression that select columns 
+ *  without altering their values are accepted.
+ */
+struct PlainColumnSubSelect : public QueryValidator
+{
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 inline bool containsNamedSubSelect(const InputQuery& query, const Utf8String& name) 
@@ -316,10 +148,10 @@ inline bool containsNamedSubSelect(const InputQuery& query, const Utf8String& na
     if (query.stm) {
         auto & select = query.stm->select;
         for (const auto & clause : select.clauses) {
-            auto computedVariable = getNamedColumnExpression(clause);
-            if (computedVariable
-                && computedVariable->alias.size() == 1
-                && computedVariable->alias[0] ==  name)
+            auto namedColumn = getNamedColumnExpression(clause);
+            if (namedColumn
+                && namedColumn->alias.size() == 1
+                && namedColumn->alias[0] ==  name)
                 return true;
         }
     }
@@ -330,33 +162,20 @@ inline bool containsNamedSubSelect(const InputQuery& query, const Utf8String& na
  *  Ensure the select contains a row named "features" and a scalar named "label".
  *  FieldType must contain a SelectStatement named stm.
  */
-struct FeaturesLabelSelect
+struct FeaturesLabelSelect : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (!containsNamedSubSelect(query, "features") ||
-            !containsNamedSubSelect(query, "label") )
-            throw ML::Exception(name + " expects a row named 'features' and a scalar named 'label'");
-    }
-
-    void operator()(const Optional<InputQuery> & query, const std::string & name) const
-    {
-        if (query) operator()(*query, name);
-    }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 /**
  *  Ensure the select contains a scalar named "score" and a scalar named "label".
  *  FieldType must contain a SelectStatement named stm.
  */
-struct ScoreLabelSelect
+struct ScoreLabelSelect : public QueryValidator
 {
-    void operator()(const InputQuery & query, const std::string & name) const
-    {
-        if (!containsNamedSubSelect(query, "score") ||
-            !containsNamedSubSelect(query, "label") )
-            throw ML::Exception(name + " expects a scalar named 'score' and a scalar named 'label'");
-    }
+    using QueryValidator::operator();
+    void operator()(const InputQuery & query, const std::string & name) const;
 };
 
 /**
