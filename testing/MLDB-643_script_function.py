@@ -96,9 +96,9 @@ mldb.log("Committing dataset")
 dataset.commit()
 
 # requires "as args" because args is the input argument
-select = "scriptApplier2({{*} as args})[{return}] as *"
+select = "SELECT scriptApplier2({{*} as args})[{return}] as * from toy limit 10"
 
-query_output = mldb.get("/v1/datasets/toy/query", select=select, limit="10")
+query_output = mldb.get("/v1/query", q=select,)
 
 js_resp = query_output.json()
 mldb.log(js_resp)

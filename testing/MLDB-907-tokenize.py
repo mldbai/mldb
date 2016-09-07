@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-907-tokenize.py
 # datacratic, 2015

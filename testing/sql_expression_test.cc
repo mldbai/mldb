@@ -69,7 +69,7 @@ struct TestBindingContext: public SqlBindingScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep)
+                    const ColumnFilter& keep)
     {
         GetAllColumnsOutput result;
 
@@ -765,6 +765,8 @@ BOOST_AUTO_TEST_CASE(test_explicit_cast)
     BOOST_CHECK_EQUAL(run("CAST (0 AS timestamp)"), Date());
     BOOST_CHECK_EQUAL(run("CAST ('1971-01-01T01:03:03' AS timestamp)"),
                       Date(1971, 1, 1, 1, 3, 3));
+    //JML_TRACE_EXCEPTIONS(false);
+    BOOST_CHECK_THROW(run("CAST (123 AS \"\")"), std::exception);
 }
 
 // MLDB-635 truth tables

@@ -1084,7 +1084,7 @@ private:
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept
     {
-        ExcAssertEqual((int)type_, (int)Type::NONE);
+        //ExcAssertEqual((int)type_, (int)Type::NONE);
         ts_ = ts;
         if (value.empty())
             return;
@@ -1297,6 +1297,7 @@ struct EmptyValueInfo: public ExpressionValueInfo {
     virtual void copyFromCell(void * data, const void * fromData) const;
 
     virtual bool isScalar() const;
+    virtual std::string getScalarDescription() const;
 
     virtual bool isCompatible(const ExpressionValue & value) const
     {
@@ -1400,7 +1401,7 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 /// For an embedding
 struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValue, std::vector<CellValue> > > {
     EmbeddingValueInfo(StorageType storageType = ST_ATOM)
-        : EmbeddingValueInfo({-1}, storageType)
+        : EmbeddingValueInfo(std::vector<ssize_t>({-1}), storageType)
     {
     }
 
@@ -1484,7 +1485,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
     virtual SchemaCompleteness getSchemaCompleteness() const override;
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
 
     virtual bool isCompatible(const ExpressionValue & value) const override
     {

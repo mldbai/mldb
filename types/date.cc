@@ -11,7 +11,6 @@
 #include <cmath>
 #include <limits>
 #include "mldb/arch/format.h"
-#include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/base/parse_context.h"
 #include <cmath>
@@ -108,12 +107,6 @@ Date(int year, int month, int day,
                            + 3600 * hour + 60 * minute + second
                            + fraction)
 {
-}
-
-Date::
-Date(JS::JSValue & value)
-{
-    throw Exception("Date::Date(JSValue): not done");
 }
 
 Date::

@@ -378,7 +378,7 @@ getColumnValues(const ColumnName & column,
                      result.end());
     }
 
-    return std::move(result);
+    return result;
 }
 
 std::vector<CellValue>
@@ -408,7 +408,7 @@ getColumnDense(const ColumnName & column) const
         result.push_back(values.find(name)->second.first);
     } 
 
-    return std::move(result);
+    return result;
 }
 
 std::tuple<BucketList, BucketDescriptions>
@@ -746,7 +746,7 @@ getRowInfo() const
     std::vector<KnownColumn> knownColumns;
 
     for (auto & c: getColumnNames()) {
-        knownColumns.emplace_back(std::move(getKnownColumnInfo(c)));
+        knownColumns.emplace_back(getKnownColumnInfo(c));
     }
 
     return std::make_shared<RowValueInfo>(std::move(knownColumns),
@@ -930,7 +930,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
         rows.erase(std::unique(rows.begin(), rows.end()),
                    rows.end());
 
-        return std::pair<std::vector<RowName>, Any>(std::move(rows), std::move(Any()));
+        return std::pair<std::vector<RowName>, Any>(std::move(rows), Any());
     }
     else {
         return {};
@@ -1821,7 +1821,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                         MatrixNamedRow row;
                         if (needsColumns)
-                            row = std::move(matrix->getRow(r));
+                            row = matrix->getRow(r);
                         else {
                             row.rowHash = row.rowName = r;
                         }
@@ -1865,8 +1865,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                 if (rows.size() == limit)
                     newToken = start;
                 
-                return std::move(make_pair(std::move(rowsToKeep),
-                                           std::move(newToken)));
+                return make_pair(std::move(rowsToKeep),
+                                 std::move(newToken));
             },
             "scan table filtering by where expression"};
 }

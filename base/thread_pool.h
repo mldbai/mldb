@@ -57,6 +57,8 @@ struct ThreadPool {
 
     void work() const;
 
+    size_t numThreads() const;
+
     uint64_t jobsRunning() const;
     uint64_t jobsSubmitted() const;
     uint64_t jobsFinished() const;

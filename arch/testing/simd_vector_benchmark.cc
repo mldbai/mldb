@@ -10,6 +10,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include "mldb/arch/arch.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/tick_counter.h"
@@ -27,7 +28,7 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-
+#if JML_INTEL_ISA
 namespace ML {
 namespace SIMD {
 namespace Generic {
@@ -39,6 +40,7 @@ double vec_dotprod(const double * x, const double * y, size_t n);
 } // namespace Avx
 } // namespace SIMD
 } // namespace ML
+#endif // JML_INTEL_ISA
 
 double vec_dotprod_generic(const double * x, const double * y, size_t n)
 {
@@ -64,10 +66,14 @@ BOOST_AUTO_TEST_CASE( benchmark )
     
         for (unsigned i = 0;  i < 100;  ++i) {
 
+#if JML_INTEL_ISA
             uint64_t t0 = ticks();
             SIMD::Generic::vec_dotprod_sse2(&x[0], &y[0], nvals);
             uint64_t t1 = ticks();
             SIMD::Avx::vec_dotprod(&x[0], &y[0], nvals);
+#else  // JML_INTEL_ISA
+            uint64_t t0 = ticks(), t1 = t0;
+#endif // JML_INTEL_ISA
             uint64_t t2 = ticks();
             vec_dotprod_generic(&x[0], &y[0], nvals);
             uint64_t t3 = ticks();

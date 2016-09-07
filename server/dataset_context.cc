@@ -135,7 +135,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 SqlExpressionMldbScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException(400, "Cannot use wildcards with no FROM clause.");
 }
@@ -191,7 +191,7 @@ getColumn(const ColumnName & columnName,
         if (fromOutput)
             return *fromOutput;
         
-        return storage = std::move(ExpressionValue::null(Date::negativeInfinity()));
+        return storage = ExpressionValue::null(Date::negativeInfinity());
     }
 }
 
@@ -415,7 +415,7 @@ doGetBoundParameter(const Utf8String & paramName)
                 auto & row = context.as<RowScope>();
                 if (!row.params || !*row.params)
                     throw HttpReturnException(400, "Bound parameters requested but none passed");
-                return storage = std::move((*row.params)(paramName));
+                return storage = (*row.params)(paramName);
             },
             std::make_shared<AnyValueInfo>()};
 }
@@ -423,7 +423,7 @@ doGetBoundParameter(const Utf8String & paramName)
 GetAllColumnsOutput
 SqlExpressionDatasetScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     if (!tableName.empty()
         && std::find(childaliases.begin(), childaliases.end(), tableName)
@@ -431,64 +431,96 @@ doGetAllColumns(const Utf8String & tableName,
         && tableName != alias)
         throw HttpReturnException(400, "Unknown dataset " + tableName);
 
-    auto columns = dataset.getMatrixView()->getColumnNames();
-
-    auto filterColumnName = [&] (const ColumnName & inputColumnName)
-        -> ColumnName
-    {
-        if (!tableName.empty() && !childaliases.empty()) {
-            // We're in a join.  The columns will all be prefixed with their
-            // child table name, but we don't want to use that.
-            // eg, in x inner join y, we will have variables like
-            // x.a and y.b, but when we select them we want them to be
-            // like a and b.
-            if (!inputColumnName.startsWith(tableName)) {
-                return ColumnName();
-            }
-            // Otherwise, check if we need it
-            ColumnName result = keep(inputColumnName);
-            return std::move(result);
-        }
-
-        return keep(inputColumnName);
-    };
-
-    std::unordered_map<ColumnHash, ColumnName> index;
-    std::vector<KnownColumn> columnsWithInfo;
     bool allWereKept = true;
     bool noneWereRenamed = true;
+    std::unordered_map<ColumnHash, ColumnName> index;
+    std::vector<KnownColumn> columnsWithInfo;
+    SchemaCompleteness schema = SCHEMA_OPEN;
 
-    vector<ColumnName> columnsNeedingInfo;
+    if (keep.exec) {
 
-    for (auto & columnName: columns) {
-        ColumnName outputName(filterColumnName(columnName));
+        auto columns = dataset.getMatrixView()->getColumnNames();
 
-        if (outputName == ColumnName()) {
-            allWereKept = false;
-            continue;
+        auto filterColumnName = [&] (const ColumnName & inputColumnName)
+            -> ColumnName
+        {
+            if (!tableName.empty() && !childaliases.empty()) {
+                // We're in a join.  The columns will all be prefixed with their
+                // child table name, but we don't want to use that.
+                // eg, in x inner join y, we will have variables like
+                // x.a and y.b, but when we select them we want them to be
+                // like a and b.
+                if (!inputColumnName.startsWith(tableName)) {
+                    return ColumnName();
+                }
+                // Otherwise, check if we need it
+                ColumnName result = keep(inputColumnName);
+                return result;
+            }
+
+            return keep(inputColumnName);
+        };        
+        
+        vector<ColumnName> columnsNeedingInfo;
+
+        for (auto & columnName: columns) {
+            ColumnName outputName(filterColumnName(columnName));
+
+            if (outputName == ColumnName()) {
+                allWereKept = false;
+                continue;
+            }
+
+            if (outputName != columnName)
+                noneWereRenamed = false;
+            columnsNeedingInfo.push_back(columnName);
+
+            index[columnName] = outputName;
+
+            // Ask the dataset to describe this column later, null ptr for now
+            columnsWithInfo.emplace_back(outputName, nullptr,
+                                         COLUMN_IS_DENSE);
+
+            // Change the name to the output name
+            //columnsWithInfo.back().columnName = outputName;
         }
 
-        if (outputName != columnName)
-            noneWereRenamed = false;
-        columnsNeedingInfo.push_back(columnName);
+        auto allInfo = dataset.getKnownColumnInfos(columnsNeedingInfo);
 
-        index[columnName] = outputName;
+        // Now put in the value info
+        for (unsigned i = 0;  i < allInfo.size();  ++i) {
+            ColumnName outputName = columnsWithInfo[i].columnName;
+            columnsWithInfo[i] = allInfo[i];
+            columnsWithInfo[i].columnName = std::move(outputName);
+        }
 
-        // Ask the dataset to describe this column later, null ptr for now
-        columnsWithInfo.emplace_back(outputName, nullptr,
-                                     COLUMN_IS_DENSE);
-
-        // Change the name to the output name
-        //columnsWithInfo.back().columnName = outputName;
+        schema = SCHEMA_CLOSED;
     }
+    else if (dataset.hasColumnNames()) {
 
-    auto allInfo = dataset.getKnownColumnInfos(columnsNeedingInfo);
+        auto columns = dataset.getMatrixView()->getColumnNames();
 
-    // Now put in the value info
-    for (unsigned i = 0;  i < allInfo.size();  ++i) {
-        ColumnName outputName = columnsWithInfo[i].columnName;
-        columnsWithInfo[i] = allInfo[i];
-        columnsWithInfo[i].columnName = std::move(outputName);
+        vector<ColumnName> columnsNeedingInfo;
+
+        for (auto & columnName: columns) {
+
+            columnsNeedingInfo.push_back(columnName);
+
+            // Ask the dataset to describe this column later, null ptr for now
+            columnsWithInfo.emplace_back(columnName, nullptr,
+                                         COLUMN_IS_DENSE);
+        }
+
+        auto allInfo = dataset.getKnownColumnInfos(columnsNeedingInfo);
+
+        // Now put in the value info
+        for (unsigned i = 0;  i < allInfo.size();  ++i) {
+            ColumnName outputName = columnsWithInfo[i].columnName;
+            columnsWithInfo[i] = allInfo[i];
+            columnsWithInfo[i].columnName = std::move(outputName);
+        }
+
+        schema = SCHEMA_CLOSED;
     }
 
     std::function<ExpressionValue (const SqlRowScope &, const VariableFilter &)> exec;
@@ -517,7 +549,7 @@ doGetAllColumns(const Utf8String & tableName,
     GetAllColumnsOutput result;
     result.exec = exec;
     result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
-                                                 SCHEMA_CLOSED);
+                                                 schema);
     return result;
 }
 

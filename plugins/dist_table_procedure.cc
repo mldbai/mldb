@@ -221,10 +221,10 @@ DEFINE_ENUM_DESCRIPTION(DistTableMode);
 DistTableModeDescription::
 DistTableModeDescription()
 {
-    addValue("bagOfWords",   DT_MODE_BAG_OF_WORDS, "This mode will use the names of "
+    addValue("bagOfWords",   DT_MODE_BAG_OF_WORDS, "This mode will use the name of "
         "the columns as the keys to the distribution tables.");
     addValue("fixedColumns", DT_MODE_FIXED_COLUMNS, "This mode will use the value "
-        "of the cells as the keys to the distrubtion tables.");
+        "of the cells as the keys to the distribution tables.");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
@@ -507,7 +507,6 @@ persist(const Url & modelFileUrl, DistTableMode mode,
     ML::DB::Store_Writer store(stream);
     store << DistTableProcedure::DIST_TABLE_PERSIST_VERSION << mode << distTablesMap;
 }
-
 
 
 /*****************************************************************************/

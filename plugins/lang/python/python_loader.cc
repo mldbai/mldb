@@ -13,6 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/plugin.h"
 #include "mldb/core/procedure.h"
+#include "mldb/base/scope.h"
 #include "mldb/server/plugin_resource.h"
 
 #include "pointer_fix.h" // must come before boost/python
@@ -49,6 +50,141 @@ using namespace Datacratic::Python;
 namespace Datacratic {
 namespace MLDB {
 
+// NOTE: copied from exec.cpp in Boost, available under the Boost license
+
+boost::python::object
+pyExec(Utf8String code,
+       Utf8String filename,
+       boost::python::object global = boost::python::object(),
+       boost::python::object local = boost::python::object())
+{
+    // We create a pipe so that we don't need to open a temporary
+    // file.  Unfortunately Python only allows us to pass a filename
+    // for error messages if we have a FILE *, so we need to arrange
+    // to have one.  The easiest way is to create an fd on a pipe,
+    // and then to use fopenfd() to open it.
+
+    int fds[2];
+    int res = pipe2(fds, 0 /* flags */);
+
+    if (res == -1)
+        throw HttpReturnException(500, "Python evaluation pipe: "
+                                  + string(strerror(errno)));
+    
+    Scope_Exit(if (fds[0] != -1) ::close(fds[0]); if (fds[1] != -1) ::close(fds[1]));
+
+    res = fcntl(fds[1], F_SETFL, O_NONBLOCK);
+    if (res == -1) {
+        auto errno2 = errno;
+        cerr << "fcntl O_NONBLOCK: " << strerror(errno2) << endl;
+        throw HttpReturnException(500, "Python evaluation fcntl: "
+                                  + string(strerror(errno2)));
+    }
+
+    std::atomic<int> finished(0);
+    std::thread t;
+
+    // Write as much as we can.  In Linux, the default pipe buffer is
+    // 64k, which is enough for most scripts.
+    ssize_t written = write(fds[1], code.rawData(), code.rawLength());
+    
+    if (written == -1) {
+        // Error writing.  Bail out.
+        throw HttpReturnException
+            (500, "Error writing to pipe for python evaluation: "
+             + string(strerror(errno)));
+    }
+    else if (written == code.rawLength()) {
+        // We wrote the whole script to the pipe.  We can close the
+        // write end of the file.
+        ::close(fds[1]);
+        fds[1] = -1;
+    }
+    else {
+        // We weren't able to write the whole thing to the pipe.
+        // We need to set up a thread to push more in once the
+        // Python part has read some.
+
+        // Turn off non-blocking.  We don't want to busy loop.  The
+        // thread won't deadlock, since the FD will be closed if
+        // we need to exit before all of the code is written.
+        res = fcntl(fds[1], F_SETFL, 0);
+        if (res == -1) {
+            auto errno2 = errno;
+            throw HttpReturnException(500, "Python evaluation fcntl: "
+                                      + string(strerror(errno2)));
+        }
+
+        // Set up a thread to continue writing code to the pipe until
+        // all of the code has been passed to the function
+        t = std::thread([&] ()
+            {
+                while (!finished) {
+                    ssize_t done = write(fds[1],
+                                         code.rawData() + written,
+                                         code.rawLength() - written);
+                    if (finished)
+                        return;
+                    if (done == -1) {
+                        if (errno == EAGAIN || errno == EINTR) {
+                            continue;
+                        }
+                        cerr << "Error writing to Python source pipe: "
+                             << strerror(errno) << endl;
+                        std::terminate();
+                    }
+                    else {
+                        written += done;
+                        if (written == code.rawLength()) {
+                            close(fds[1]);
+                            fds[1] = -1;
+                            return;
+                        }
+                    }
+                }
+            });
+    }
+
+    // Finally, we have our fd.  Turn it into a FILE * that Python wants.
+    FILE * file = fdopen(fds[0], "r");
+
+    if (!file) {
+        throw HttpReturnException
+            (500, "Error creating fd for python evaluation: "
+             + string(strerror(errno)));
+    }
+    Scope_Exit(::fclose(file));
+    fds[0] = -1;  // stop the fd guard from closing it, since now we have a guard
+
+    using namespace boost::python;
+    // From here on in is copied from the Boost version
+    // Set suitable default values for global and local dicts.
+    object none;
+    if (global.ptr() == none.ptr()) {
+        if (PyObject *g = PyEval_GetGlobals())
+            global = object(boost::python::detail::borrowed_reference(g));
+        else
+            global = dict();
+    }
+    if (local.ptr() == none.ptr()) local = global;
+    
+    // should be 'char const *' but older python versions don't use 'const' yet.
+    PyObject* result = PyRun_File(file, filename.rawData(), Py_file_input,
+                                  global.ptr(), local.ptr());
+
+    // Clean up no matter what (make sure our writing thread exits).  If it
+    // was blocked on writing, the closing of the fd will unblock it.
+    finished = 1;
+    if (fds[1] != -1) {
+        ::close(fds[1]);
+        fds[1] = -1;
+    }
+    if (t.joinable())
+        t.join();
+
+    if (!result) throw_error_already_set();
+    return boost::python::object(boost::python::detail::new_reference(result));
+}
 
 
 
@@ -140,6 +276,7 @@ PythonPlugin(MldbServer * server,
     mldbPy->setPlugin(itl);
 
     Utf8String scriptSource = itl->pluginResource->getScript(PackageElement::MAIN);
+    Utf8String scriptUri = itl->pluginResource->getScriptUri(PackageElement::MAIN);
 
     // initialize interpreter. if the plugin is being constructed from a python plugin 
     // perform call, the __mldb_child_call will be set so we can engage child mode
@@ -172,8 +309,9 @@ PythonPlugin(MldbServer * server,
 
     try {
         injectMldbWrapper(pyControl);
-        boost::python::object obj = boost::python::exec(boost::python::str(scriptSource.rawString()),
-                                                        pyControl.main_namespace);
+        boost::python::object obj = pyExec(scriptSource,
+                                           scriptUri,
+                                           pyControl.main_namespace);
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "Running PyPlugin script");
 
@@ -400,10 +538,10 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
 ScriptOutput
 PythonPlugin::
 runPythonScript(std::shared_ptr<PythonContext> titl, 
-        PackageElement elementToRun,
-        const RestRequest & request,
-        RestRequestParsingContext & context,
-        PythonSubinterpreter & pyControl)
+                PackageElement elementToRun,
+                const RestRequest & request,
+                RestRequestParsingContext & context,
+                PythonSubinterpreter & pyControl)
 {
     auto mldbPy = std::make_shared<MldbPythonContext>();
     bool isScript = titl->pluginResource->scriptType == LoadedPluginResource::ScriptType::SCRIPT;
@@ -415,6 +553,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     }
 
     Utf8String scriptSource = titl->pluginResource->getScript(elementToRun);
+    Utf8String scriptUri = titl->pluginResource->getScriptUri(elementToRun);
 
     pyControl.acquireGil();
 
@@ -441,7 +580,6 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     }
 
     ScriptOutput result;
-    auto scriptSourceStr = boost::python::str(scriptSource.rawString());
 
     auto pySetArgv = [] {
         char argv1[] = "mldb-boost-python";
@@ -456,7 +594,9 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             JML_TRACE_EXCEPTIONS(false);
             pySetArgv();
             boost::python::object obj =
-                boost::python::exec(scriptSourceStr, pyControl.main_namespace);
+                pyExec(scriptSource,
+                       scriptUri,
+                       pyControl.main_namespace);
 
             getOutputFromPy(pyControl, result);
 
@@ -476,8 +616,8 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
 
             pySetArgv();
             boost::python::object obj
-                = boost::python::exec(scriptSourceStr, pyControl.main_namespace);
-
+                = pyExec(scriptSource, scriptUri, pyControl.main_namespace);
+            
             result.result = titl->rtnVal;
             result.setReturnCode(titl->rtnCode);
             return result;
@@ -633,8 +773,10 @@ class mldb_wrapper(object):
             return self._perform('DELETE', url, [], {}, [['async', 'true']])
 
         def query(self, query):
-            return self._perform('GET', '/v1/query', [['format', 'table']],
-                                 {'q' : query}).json()
+            return self._perform('GET', '/v1/query', [], {
+                'q' : query,
+                'format' : 'table'
+            }).json()
 
         def run_tests(self):
             import StringIO

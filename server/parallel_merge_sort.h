@@ -48,7 +48,7 @@ void parallelMergeSortRecursive(VecOfVecs & range, unsigned first, unsigned last
                 };
 
                 if (totalToDo > threadThreshold) {
-                    t = std::move(std::thread(run));
+                    t = std::thread(run);
                 }
                 else run();
 

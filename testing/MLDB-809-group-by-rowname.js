@@ -15,7 +15,7 @@ recordExample("ex3", 1, 2, "cat");
 
 dataset.commit()
 
-var resp = mldb.get("/v1/datasets/test/query", {format: 'table'});
+var resp = mldb.get("/v1/query", {q : 'SELECT * from test', format: 'table'});
 
 plugin.log(resp.json);
 
@@ -30,7 +30,7 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-var resp = mldb.get("/v1/datasets/test/query", {select:"min({*}) AS min, max({*}) AS max", groupBy: 'label', rowName: 'label', format: 'table'});
+var resp = mldb.get("/v1/query", {q:"SELECT min({*}) AS min, max({*}) AS max NAMED label from test group by label", format: 'table'});
 
 assertEqual(resp.responseCode, 200, "Error executing query");
 
@@ -53,7 +53,7 @@ expected = [
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Query 2 output was not the same as expected output");
 
-resp = mldb.get("/v1/datasets/test/query", {select:"min({*}) AS min, max({*}) AS max", groupBy: 'label', rowName: 'group_key_element(0)', format: 'table'});
+resp = mldb.get("/v1/query", {q:"SELECT min({*}) AS min, max({*}) AS max NAMED group_key_element(0) from test group by label", format: 'table'});
 
 assertEqual(resp.responseCode, 200, "Error executing query");
 

@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <stdint.h>
 #include <algorithm>
+#include <atomic>
 #include <boost/iterator/iterator_facade.hpp>
 
 
@@ -162,6 +163,29 @@ Data extract_bit_range(const Data * p, size_t bit, shift_t bits)
     if (bit + bits > DBITS) {
         // We need to extract from the two values
         result = shrd(result, p[1], bit);
+    }
+    else result >>= bit;
+
+    if (bits == DBITS) return result;
+
+    result *= Data(bits != 0);  // bits == 0: should return 0; mask doesn't work
+    return result & ((Data(1) << bits) - 1);
+}
+
+template<typename Data>
+JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+Data extract_bit_range(const std::atomic<Data> * p, size_t bit, shift_t bits,
+                       std::memory_order order = std::memory_order_seq_cst)
+{
+    if (bits == 0) return 0;
+
+    Data result = p[0].load(order);
+
+    enum { DBITS = sizeof(Data) * 8 };
+    
+    if (bit + bits > DBITS) {
+        // We need to extract from the two values
+        result = shrd(result, p[1].load(order), bit);
     }
     else result >>= bit;
 

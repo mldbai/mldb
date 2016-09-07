@@ -26,6 +26,11 @@
 #define JML_DEPRECATED __attribute__((__deprecated__))
 #define JML_ALIGNED(x) __attribute__((__aligned__(x)))
 #define JML_FORMAT_STRING(arg1, arg2) __attribute__((__format__ (printf, arg1, arg2)))
+#ifdef __clang__
+#  define JML_UNUSED_PRIVATE_FIELD  __attribute__((__unused__))
+#else
+#  define JML_UNUSED_PRIVATE_FIELD
+#endif
 
 // Macro to catch all exceptions apart from stack unwinding exceptions...
 // it's against the standard to do catch(...) without rethrowing.
@@ -37,14 +42,10 @@
 
 #if __GNUC__ == 4
 #  if __CNUC_MINOR__ < 8
-#     define JML_OVERRIDE 
 #     define JML_NO_MOVE_IF_NOEXCEPT
 #  else
-#     define JML_OVERRIDE override
 #     undef  JML_NO_MOVE_IF_NOECEPT
 #  endif
-#elif __GNUC__ > 4
-#  define JML_OVERRIDE override
 #endif
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__

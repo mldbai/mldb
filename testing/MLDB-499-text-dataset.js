@@ -53,7 +53,7 @@ function createDataset(datasetType)
     var dataset_config = {
         type: "import.text",
         params: {
-            dataFileUrl : "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz",
+            dataFileUrl : "https://public.mldb.ai/reddit.csv.gz",
             outputDataset: {
                 id: datasetType,
                 type: datasetType
@@ -75,7 +75,10 @@ function createDataset(datasetType)
 
 createDataset("tabular");
 
-var resp = mldb.get('/v1/datasets/tabular/query', {format:'table', orderBy:'rowName()', limit:20});
+var resp = mldb.get("/v1/query",
+                      { q: 'select * from tabular order by rowName() limit 20',
+                        format:'table'
+                      });
 
 //plugin.log(resp.json);
 
@@ -86,7 +89,10 @@ assertEqual(resp.json[1][1], "603,politics,trees,pics");
 
 createDataset("sparse.mutable");
 
-var resp = mldb.get('/v1/datasets/sparse.mutable/query', {format:'table', orderBy:'rowName()', limit:20});
+var resp = mldb.get("/v1/query",
+                      { q: 'select * from "sparse.mutable" order by rowName() limit 20',
+                        format:'table'
+                      });
 
 //plugin.log(resp.json);
 

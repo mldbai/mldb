@@ -8,6 +8,8 @@
     at the end.
 */
 
+#pragma once
+
 #include "mldb/arch/thread_specific.h"
 #include <functional>
 

@@ -160,7 +160,7 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
     result.sparseColumns = std::move(sparseColumns);
     result.sparseIndex = std::move(sparseIndex);
 
-    return std::move(result);
+    return result;
 }
 
 FeatureBuckets 
@@ -284,7 +284,7 @@ extractFeaturesFromRows(const Dataset & dataset,
     }
 #endif
 
-    return std::move(featureBuckets);
+    return featureBuckets;
 }
 
 ColumnIndexEntries
@@ -378,7 +378,7 @@ invertFeatures(const ClassifiedColumns & columns,
     cerr << "done feature matrix inversion" << endl;
     cerr << timer.elapsed() << endl;
 
-    return std::move(result);
+    return result;
 }
 
 ColumnCorrelations
@@ -447,7 +447,7 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
 
     cerr << "done processing correlations" << endl;
 
-    return std::move(result);
+    return result;
 }
 
 } // namespace MLDB

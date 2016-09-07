@@ -50,17 +50,18 @@ TsneConfigDescription()
     addField("rowOutputDataset", &TsneConfig::output,
              "Dataset for TSNE output, with embeddings of training data. "
              "One row will be added for each row in the input dataset, "
-             "with a list of coordinates",
+             "with a list of coordinates.",
              PolyConfigT<Dataset>().withType("embedding"));
     addField("numInputDimensions", &TsneConfig::numInputDimensions,
              "Number of dimensions from the input to use.  This will limit "
              "the columns to the n first columns in the alphabetical "
-             "sorting of the columns (-1 = all)",
+             "sorting of the columns (-1 = all).",
              -1);
     addField("numOutputDimensions", &TsneConfig::numOutputDimensions,
              "Number of dimensions to produce in t-SNE space.  Normally "
              "this will be 2 or 3, depending upon the number of dimensions "
-             "in the visualization");
+             "in the visualization.",
+             2);
     addField("tolerance", &TsneConfig::tolerance,
              "Tolerance of perplexity calculation.  This is an internal "
              "parameter that only needs to be changed in rare circumstances.");
@@ -69,7 +70,15 @@ TsneConfigDescription()
              "controls how hard t-SNE tries to spread the points out.  If "
              "the resulting output looks more like a ball or a sphere than "
              "individual clusters, you should reduce this number.  If it "
-             "looks like a dot or star, you should increase it.");
+             "looks like a dot or star, you should increase it.",
+             30.0);
+    addField("learningRate", &TsneConfig::learningRate,
+             "The learning rate specifies the gradient descent step size during "
+             "optimization of the cost function.  A learning rate that is too small "
+             "may hold optimization in a local minimum.  A learning rate that is too high "
+             "may jump over the best optimal point. In general, the learning rate "
+             "should be between 100 and 1000.",
+             500.0);
     addField("modelFileUrl", &TsneConfig::modelFileUrl,
              "URL where the model file (with extension '.tsn') should be saved. "
              "This file can be loaded by the ![](%%doclink tsne.embedRow function). "
@@ -230,9 +239,11 @@ run(const ProcedureRunConfig & run,
 
     itl->params.perplexity = runProcConf.perplexity;
     itl->params.tolerance = runProcConf.tolerance;
+    itl->params.eta = runProcConf.learningRate;
 
     //cerr << "perplexity = " << itl->params.perplexity << endl;
     //cerr << "tolerance = " << itl->params.tolerance << endl;
+    // cerr << "learningRate = " << itl->params.eta << endl;
 
     //cerr << "doing t-SNE" << endl;
 

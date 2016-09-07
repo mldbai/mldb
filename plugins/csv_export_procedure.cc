@@ -21,7 +21,7 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/soa/utils/csv_writer.h"
+#include "csv_writer.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 

@@ -134,7 +134,7 @@ jsonDecodeStrTyped(const std::string & json)
     Any ev;
     payloadDesc.parseJsonTyped(&ev, context);
 
-    return std::move(ev);
+    return ev;
 }
 
 Any
@@ -145,7 +145,7 @@ jsonDecodeTyped(const Json::Value & json)
     Any ev;
     payloadDesc.parseJsonTyped(&ev, context);
 
-    return std::move(ev);
+    return ev;
 }
 
 std::string
@@ -155,7 +155,7 @@ jsonEncodeStrTyped(const Any & val)
     std::ostringstream stream;
     StreamJsonPrintingContext context(stream);
     payloadDesc.printJson(&val, context);
-    return std::move(stream.str());
+    return stream.str();
 }
 
 Json::Value

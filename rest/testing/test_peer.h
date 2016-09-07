@@ -10,7 +10,7 @@
 #include "mldb/rest/service_peer.h"
 #include "mldb/rest/etcd_peer_discovery.h"
 #include "mldb/rest/asio_peer_server.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/utils/command.h"
 #include "mldb/rest/rest_collection_impl.h"

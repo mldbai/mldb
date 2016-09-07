@@ -108,7 +108,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
             else {
                 std::ostringstream streamo;
                 streamo << stream.rdbuf();
-                blob = CellValue::blob(std::move(streamo.str()));
+                blob = CellValue::blob(streamo.str());
             }
 
             result.content = ExpressionValue(std::move(blob), info.lastModified);

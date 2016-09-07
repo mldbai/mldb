@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** rest_request_params.h                                          -*- C++ -*-
     Jeremy Barnes, 24 January 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -112,7 +111,7 @@ struct JsonStrCodec {
         std::ostringstream stream;
         StreamJsonPrintingContext context(stream);
         desc->printJson(&obj, context);
-        return std::move(stream.str());
+        return stream.str();
     }
 
     std::shared_ptr<const ValueDescriptionT<T> > desc;
@@ -344,8 +343,9 @@ struct RequestParam {
     Utf8String description;
 };
 
-/** This indicates that we get a parameter from either the query string or the
-    JSON payload. If it's defined in both an error is returned.
+/** This indicates that we get a parameter from either the query string (json)
+    or the JSON payload. If the query string and the payload are used
+    simultaneously an error is returned.
 */
 template<typename T, typename Codec = JsonStrCodec<T> >
 struct HybridParamJsonDefault {
@@ -359,8 +359,7 @@ struct HybridParamJsonDefault {
                            const Utf8String & defaultValueStr = "",
                            Codec codec = Codec())
         : name(name), description(description), defaultValue(defaultValue),
-          defaultValueStr(codec.encode(defaultValue)),
-          codec(std::move(codec))
+          defaultValueStr(codec.encode(defaultValue)), codec(std::move(codec))
     {
     }
 
@@ -376,6 +375,44 @@ struct HybridParamJsonDefault {
     T defaultValue;
     Utf8String defaultValueStr;
     Codec codec;
+};
+
+/** This indicates that we get a parameter from either the query string
+    (non json) or the JSON payload. If the query string and the payload are
+    used simultaneously an error is returned.
+*/
+template<typename T, typename RestCodec = RestCodec<T>, typename JsonCodec = JsonStrCodec<T>>
+struct HybridParamDefault {
+    HybridParamDefault()
+    {
+    }
+
+    HybridParamDefault(const Utf8String & name,
+                       const Utf8String & description,
+                       T defaultValue = T(),
+                       const Utf8String & defaultValueStr = "",
+                       RestCodec restCodec = RestCodec(),
+                       JsonCodec jsonCodec = JsonCodec())
+        : name(name), description(description), defaultValue(defaultValue),
+          defaultValueStr(restCodec.encode(defaultValue)),
+          restCodec(std::move(restCodec)), jsonCodec(std::move(jsonCodec))
+    {
+    }
+
+    HybridParamDefault(const HybridParamDefault & other)
+        : name(other.name), description(other.description),
+          defaultValue(other.defaultValue),
+          defaultValueStr(other.defaultValueStr), restCodec(other.restCodec),
+          jsonCodec(other.jsonCodec)
+    {
+    }
+
+    Utf8String name;
+    Utf8String description;
+    T defaultValue;
+    Utf8String defaultValueStr;
+    RestCodec restCodec;
+    JsonCodec jsonCodec;
 };
 
 

@@ -10,8 +10,8 @@
 #include "mldb/arch/spinlock.h"
 #include "mldb/ml/jml/probabilizer.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/jml/utils/map_reduce.h"
+#include <atomic>
 
 using namespace std;
 using namespace ML;
@@ -297,7 +297,7 @@ trainProbabilizer(const DataPartition & partition,
 
     Date before = Date::now();
 
-    size_t numTrue = 0;
+    std::atomic<size_t> numTrue(0);
 
     auto onExample = [&] (bool label, const boost::any & user, double weight,
                           size_t exampleNum)
@@ -306,7 +306,7 @@ trainProbabilizer(const DataPartition & partition,
             outputs[0][exampleNum] = score;
             outputs[1][exampleNum] = 1.0;
             correct[exampleNum] = label;
-            ML::atomic_add(numTrue, label);
+            numTrue += label;
         };
 
     partition.forEachExample(onExample,

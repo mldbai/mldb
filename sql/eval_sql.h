@@ -71,7 +71,7 @@ inline ExpressionValue bindSqlArg(T && val)
 */
 inline ExpressionValue bindSqlArg(ExpressionValue val)
 {
-    return std::move(val);
+    return val;
 }
 
 /** Evaluate the given SQL expression, within the given scope (which is
@@ -95,7 +95,7 @@ ExpressionValue evalSql(SqlBindingScope & scope,
 {
     ExpressionValue argsArray[sizeof...(args)]
         = { bindSqlArg(std::forward<Args>(args))... };
-    return evalSql(scope, expr, &argsArray[0], sizeof...(args));
+    return evalSql(scope, expr, argsArray, sizeof...(args));
 }
 
 } // namespace MLDB

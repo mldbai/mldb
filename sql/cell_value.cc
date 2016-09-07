@@ -20,6 +20,7 @@
 #include "interval.h"
 #include "path.h"
 #include "mldb/ext/s2/s2.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 using namespace std;
 
@@ -248,23 +249,27 @@ parse(const Utf8String & str)
     return parse(str.rawData(), str.rawLength(), STRING_UNKNOWN);
 }
 
+/**
+   This implementation is slow but correct.  If this becomes the 
+   bottleneck of some scenarios (e.g. importing large csv file) consider
+   rewriting it without a copy of the buffer and by combining the three
+   independent parsing cases into one.  Note that any implementation
+   should be able to detect correctly overflow and underflow.  Also, it
+   should minimize rounding errors as it is done in strtod implementation.
+   See for example https://fossies.org/dox/glibc-2.24/strtod__l_8c_source.html
+   from the glic for an overview of the challenges.
+*/
 CellValue
 CellValue::
 parse(const char * s_, size_t len, StringCharacteristics characteristics)
 {
-    static constexpr size_t NUMERICAL_BUFFER = 64;
-
-    // if the string is longer than 64 characters it can't realistically
-    // be a numerical value
-    if (len > NUMERICAL_BUFFER)
-        return CellValue(s_, len, characteristics);
-
     if (len == 0)
         return CellValue();
 
     // this ensures that our buffer is null terminated as required below
-    char s[NUMERICAL_BUFFER + 1];
-    memcpy(s, s_, len);
+    PossiblyDynamicBuffer<char, 256> sv(len + 1);
+    memcpy(sv.data(), s_, len);
+    auto s = sv.data();
     s[len] = 0;
 
     // First try as an int

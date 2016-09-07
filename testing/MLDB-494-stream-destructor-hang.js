@@ -52,7 +52,7 @@ function createDataset()
     var dataset = mldb.createDataset(dataset_config)
     plugin.log("Reddit data loader created dataset")
 
-    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz'
     var now = new Date("2015-01-01");
 
     var stream = mldb.openStream(dataset_address);
@@ -99,8 +99,8 @@ var dataset2_config = {
 
 var dataset2 = mldb.createDataset(dataset2_config);
 
-assertEqual(mldb.get('/v1/datasets/test/query', {limit:10, orderBy: 'rowHash()'}).json,
-            mldb.get('/v1/datasets/test2/query', {limit:10, orderBy: 'rowHash()'}).json,
+assertEqual(mldb.get('/v1/query', {q : 'select * from test order by rowHash() limit 10'}).json,
+            mldb.get('/v1/query', {q : 'select * from test2 order by rowHash() limit 10'}).json,
            "query diff");
 
 "success"

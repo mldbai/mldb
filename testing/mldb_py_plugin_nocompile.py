@@ -10,4 +10,3 @@ at all
 yeah {}&(*(#)*@(
 
 plugin.log("Hello, world")
-

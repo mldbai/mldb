@@ -61,6 +61,7 @@ $$(eval $$(call library,$(2),$(3),$(4),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR
 mldb_plugins: $(PLUGINS)/$(1)/lib/lib$(2).so
 endef
 
+# Note: arguments to "library" function are
 # $(1): name of the library
 # $(2): source files to include in the library
 # $(3): libraries to link with
@@ -68,6 +69,24 @@ endef
 # $(5): output extension; default .so
 # $(6): build name; default SO
 # $(7): output dir; default $(LIB)
+
+# Add an MLDB plugin program
+#
+# Synopsis:
+#    $(eval $(call mldb_plugin_program,<pluginName>,<executableName>,<sourceFiles>,<libDeps>))
+#
+# Arguments:
+#    $(1): <pluginName>: name of the plugin
+#    $(2): <executableName>: name of the executable, which will go in the bin/
+#                            subdirectory of the plugin
+#    $(3): <sourceFiles>: source files to compile for the executable
+#    $(4): <libDeps>: dependency libraries to link with, either generic or
+#                     within this plugin
+
+define mldb_plugin_program
+$$(eval $$(call program,$(2),$(4),$(3),,$(PLUGINS)/$(1)/bin,,"$(COLOR_VIOLET)[MLDB PLUGIN BIN]$(COLOR_RESET)"))
+mldb_plugins mldb_plugin_$(1): $(PLUGINS)/$(1)/bin/$(2)
+endef
 
 # Variable that tells us which static content to filter out and not include
 # as part of the container.  It is passed to the filter-out function of
@@ -84,11 +103,12 @@ STATIC_CONTENT_FILTER_PATTERNS:=%~ \#% .%
 # Arguments:
 #   $(1): <pluginName>: name of the plugin
 #   $(2): <dir>: directory that the static content lives in (under CWD)
+#   $(3): <subdir>: directory name in the output
 #
 # Side effects:
 #   MLDB_PLUGIN_$(1)_STATIC_FILES_$(2) will be set with a list of the names of
-#   static files for teh plugins
-define mldb_builtin_plugin_static_directory_helper
+#   static files for the plugins
+define mldb_plugin_static_directory
 
 # Lists all files in the given static content directory.  It
 # uses the find command to look for files, then filters them out using the
@@ -101,14 +121,18 @@ MLDB_PLUGIN_$(1)_STATIC_FILES_$(2) := $$(filter-out $$(STATIC_CONTENT_FILTER_PAT
 # Tell make that in order to create a file in a plugin static content
 # directory, it just has to copy it from the source
 ifeq ($(MLDB_LINK_PLUGIN_RESOURCES),1)
-$(PLUGINS)/$(1)/$(2)/%:	$(CWD)/$(2)/%
-	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN LN]$(COLOR_RESET)" $(1)/$(2)/$$*
+$(PLUGINS)/$(1)/$(3)/%:	$(CWD)/$(2)/%
+	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN LN]$(COLOR_RESET)" $(1)/$(2)$$*
 	ln -sf $(PWD)/$$< $$@
 else
-$(PLUGINS)/$(1)/$(2)/%:	$(CWD)/$(2)/%
-	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN CP]$(COLOR_RESET)" $(1)/$(2)/$$*
+$(PLUGINS)/$(1)/$(3)/%:	$(CWD)/$(2)/%
+	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN CP]$(COLOR_RESET)" $(1)/$(2)$$*
 	@install -D $$< $$@
 endif
+
+MLDB_PLUGIN_$(1)_INSTALLED_FILES+=$$(MLDB_PLUGIN_$(1)_STATIC_FILES_$(2):$(2)/%=$(PLUGINS)/$(1)/$(3)/%)
+
+mldb_plugin_$(1):	$$(MLDB_PLUGIN_$(1)_INSTALLED_FILES)
 
 endef
 
@@ -142,7 +166,7 @@ $(PLUGINS)/$(1) $(PLUGINS)/$(1)/lib:
 	@mkdir -p $$@
 
 # For each static content directory, create and use it
-$$(foreach dir,$(3),$$(eval $$(call mldb_builtin_plugin_static_directory_helper,$(1),$$(dir))))
+$$(foreach dir,$(3),$$(eval $$(call mldb_plugin_static_directory,$(1),$$(dir),$$(dir))))
 
 # This variable lists all files that this plugin needs to make.  It can be
 # used to set up full dependency lists for things that depend on the

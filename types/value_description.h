@@ -249,7 +249,7 @@ struct ValueDescriptionT : public ValueDescription {
     {
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const JML_OVERRIDE
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
         T * val2 = reinterpret_cast<T *>(val);
         return parseJsonTyped(val2, context);
@@ -260,7 +260,7 @@ struct ValueDescriptionT : public ValueDescription {
         return parseJson(val, context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const JML_OVERRIDE
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         const T * val2 = reinterpret_cast<const T *>(val);
         return printJsonTyped(val2, context);
@@ -271,7 +271,7 @@ struct ValueDescriptionT : public ValueDescription {
         return printJson(val, context);
     }
 
-    virtual bool isDefault(const void * val) const JML_OVERRIDE
+    virtual bool isDefault(const void * val) const override
     {
         const T * val2 = reinterpret_cast<const T *>(val);
         return isDefaultTyped(val2);
@@ -282,7 +282,7 @@ struct ValueDescriptionT : public ValueDescription {
         return false;
     }
 
-    virtual void setDefault(void * val) const JML_OVERRIDE
+    virtual void setDefault(void * val) const override
     {
         T * val2 = reinterpret_cast<T *>(val);
         setDefaultTyped(val2);
@@ -293,17 +293,17 @@ struct ValueDescriptionT : public ValueDescription {
         *val = T();
     }
 
-    virtual void copyValue(const void * from, void * to) const JML_OVERRIDE
+    virtual void copyValue(const void * from, void * to) const override
     {
         copyValue(to, from, typename std::is_copy_assignable<T>::type());
     }
 
-    virtual void moveValue(void * from, void * to) const JML_OVERRIDE
+    virtual void moveValue(void * from, void * to) const override
     {
         moveValue(to, from, typename std::is_move_assignable<T>::type());
     }
 
-    virtual void swapValues(void * from, void * to) const JML_OVERRIDE
+    virtual void swapValues(void * from, void * to) const override
     {
         using std::swap;
         auto from2 = reinterpret_cast<T *>(from);
@@ -313,24 +313,24 @@ struct ValueDescriptionT : public ValueDescription {
         std::swap(*from2, *to2);
     }
 
-    virtual void * constructDefault() const JML_OVERRIDE
+    virtual void * constructDefault() const override
     {
         return constructDefault(typename std::is_default_constructible<T>::type());
     }
 
-    virtual void destroy(void * val) const JML_OVERRIDE
+    virtual void destroy(void * val) const override
     {
         delete (T*)val;
     }
 
     virtual void set(
-            void* obj, void* value, const ValueDescription* valueDesc) const JML_OVERRIDE
+            void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         checkSame(valueDesc);
         copyValue(value, obj);
     }
 
-    virtual void * optionalMakeValue(void * val) const JML_OVERRIDE
+    virtual void * optionalMakeValue(void * val) const override
     {
         T * val2 = reinterpret_cast<T *>(val);
         return optionalMakeValueTyped(val2);
@@ -341,7 +341,7 @@ struct ValueDescriptionT : public ValueDescription {
         throw ML::Exception("type is not optional");
     }
 
-    virtual const void * optionalGetValue(const void * val) const JML_OVERRIDE
+    virtual const void * optionalGetValue(const void * val) const override
     {
         const T * val2 = reinterpret_cast<const T *>(val);
         return optionalGetValueTyped(val2);
@@ -583,7 +583,7 @@ std::string jsonEncodeStr(const T & obj)
     result.reserve(116);  /// try to force a 128 byte allocation
     StringJsonPrintingContext context(result);
     desc->printJson(&obj, context);
-    return std::move(result);
+    return result;
 }
 
 // jsonEncode implementation for any type which:

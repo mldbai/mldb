@@ -158,6 +158,52 @@ struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
                 throw HttpReturnException(400, "Unknown JSON AttrValue '" + v.toStringNoNewLine() + "'");
             }
         }
+        else if (context.isArray()) {
+            // Do a list if singly nested
+            Json::Value v = context.expectJson();
+
+            if (v.empty()) {
+                val->mutable_list();
+            }
+            else {
+                switch (v[0].type()) {
+                case Json::nullValue:
+                    throw HttpReturnException(500, "Can't convert JSON NULL to a TensorFlow attribute value");
+                case Json::intValue:
+                case Json::uintValue: {
+                    auto * l = val->mutable_list();
+                    for (auto & jval: v) {
+                        l->add_i(jval.asInt());
+                    }
+                    return;
+                }
+                case Json::realValue:  {
+                    auto * l = val->mutable_list();
+                    for (auto & jval: v) {
+                        l->add_f(jval.asDouble());
+                    }
+                    return;
+                }
+                case Json::stringValue:  {
+                    auto * l = val->mutable_list();
+                    for (auto & jval: v) {
+                        l->add_s(jval.asString());
+                    }
+                    return;
+                }
+                case Json::booleanValue:  {
+                    auto * l = val->mutable_list();
+                    for (auto & jval: v) {
+                        l->add_b(jval.asBool());
+                    }
+                    return;
+                }
+                case Json::arrayValue:
+                case Json::objectValue:
+                    throw HttpReturnException(400, "Can't do TensorFlow list of structured types to attr");
+                }
+            }
+        }
         else {
             Json::Value val = context.expectJson();
             cerr << "val = " << val << endl;
@@ -562,7 +608,7 @@ struct TensorflowGraphBase: public Function {
 
         GetAllColumnsOutput
         doGetAllColumns(const Utf8String & tableName,
-                        ColumnFilter& keep)
+                        const ColumnFilter& keep)
         {
             if (!tableName.empty())
                 return ReadThroughBindingScope
@@ -927,6 +973,10 @@ struct TensorflowGraphBase: public Function {
                 break;
             }
         }
+        else if (val.isEmbedding()) {
+            // TODO: infer consistent type for tensor, and convert it
+        }
+
         cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
         throw HttpReturnException(500, "Unable to cast value to tensor");
     }
@@ -961,6 +1011,10 @@ struct TensorflowGraphBase: public Function {
                     // Attempt to match the data type only.
                     return castToTypedTensor(val, it->second.type());
                 }
+
+                //cerr << "getting tensor for layer " << layer
+                //     << " with description " << node.DebugString()
+                //     << endl;
 
                 // The layer has neither a size nor a datatype.  Convert it
                 // in the natural way, and hope for the best.
@@ -1273,7 +1327,7 @@ struct TensorflowGraphBase: public Function {
 
         //cerr << "outputs " << outputs.size() << " tensors" << endl;
 
-        return std::move(outputs);
+        return outputs;
     }
 
     virtual ExpressionValue
@@ -1369,7 +1423,7 @@ struct TensorflowOp: public TensorflowGraphBase {
 
         for (const auto & input: op->input_arg()) {
             tensorflow::NodeDef * inode = graph->add_node();
-            cerr << "input arg " << input.name() << endl;
+            //cerr << "input arg " << input.name() << endl;
             inode->set_name(input.name());
             inode->set_op("Placeholder");
             inode->set_device("/cpu:0");
@@ -1799,45 +1853,28 @@ struct TensorflowPlugin: public Plugin {
 
                 config.outputs.clauses.emplace_back(SqlRowExpression::parse("op"));
 
-                cerr << "opdef is " << opDef->DebugString() << endl;
+                //cerr << "opdef is " << opDef->DebugString() << endl;
                 
                 std::shared_ptr<RowValueInfo> inputInfo;
 
                 bool singleInput = false;
                 bool atomInput = args[0].info->isScalar();
                 PathElement singleInputName;
+
+                
+                // Check if there is only one input; we synthesize the full
+                // set of inputs if so
                 if (args[0].info->isScalar() || args[0].info->isEmbedding()) {
-                    // Check that there is only one input
                     if (opDef->input_arg_size() == 1) {
                         singleInput = true;
                         singleInputName = opDef->input_arg(0).name();
+
                         std::vector<KnownColumn> columns;
                         columns.emplace_back(singleInputName,
                                              args[0].info,
                                              COLUMN_IS_DENSE,
                                              0 /* index */);
                         inputInfo.reset(new RowValueInfo(columns, SCHEMA_CLOSED));
-
-                        if (opDef->input_arg(0).type()) {
-                            config.inputType = opDef->input_arg(0).type();
-                        }
-                        else if (!opDef->input_arg(0).type_attr().empty()) {
-                            std::string attrName = opDef->input_arg(0).type_attr();
-                            auto it = config.attr.find(attrName);
-                            if (it == config.attr.end()) {
-                                // We didn't find the attribute
-                                // Set it to the default value
-                                for (auto & attr: opDef->attr()) {
-                                    if (attr.name() == attrName) {
-                                        // found it
-                                        config.inputType = attr.default_value().type();
-                                    }
-                                }
-                                // Can't do it
-                            } else {
-                                config.inputType = it->second.type();
-                            }
-                        }
                     }
                     else {
                         throw HttpReturnException
@@ -1847,6 +1884,31 @@ struct TensorflowPlugin: public Plugin {
                 }
                 else {
                     inputInfo = ExpressionValueInfo::toRow(args[0].info);
+                }
+
+                for (size_t i = 0;  i < opDef->input_arg_size();  ++i) {
+                    const auto & inputArg = opDef->input_arg(i);
+
+                    if (inputArg.type()) {
+                        config.inputType = inputArg.type();
+                    }
+                    else if (!inputArg.type_attr().empty()) {
+                        std::string attrName = inputArg.type_attr();
+                        auto it = config.attr.find(attrName);
+                        if (it == config.attr.end()) {
+                            // We didn't find the attribute
+                            // Set it to the default value
+                            for (auto & attr: opDef->attr()) {
+                                if (attr.name() == attrName) {
+                                    // found it
+                                    config.inputType = attr.default_value().type();
+                                }
+                            }
+                            // Can't do it
+                        } else {
+                            config.inputType = it->second.type();
+                        }
+                    }
                 }
 
                 // Now bind the input of the function, so that we know what

@@ -6,7 +6,7 @@
 
 */
 
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/rest/rest_collection.h"
 #include "mldb/rest/rest_collection_impl.h"

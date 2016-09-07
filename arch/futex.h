@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* futex.h                                                         -*- C++ -*-
    Jeremy Barnes, 25 January 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Basic futex function wrappers.
 */
 
-#ifndef __jml__arch__futex_h__
-#define __jml__arch__futex_h__
+#pragma once
 
 #include <atomic>
 #include <unistd.h>
@@ -91,6 +89,3 @@ inline void futex_unlock(void * futex)
 
 
 } // namespace ML
-
-
-#endif /* __jml__arch__futex_h__ */

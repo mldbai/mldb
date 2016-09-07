@@ -25,14 +25,14 @@ class ImproveErrorMessageNamedOnNullTest(MldbUnitTest): # noqa
         mldb.query('SELECT * NAMED behA FROM ds WHERE behA IS NOT NULL')
 
     def test_non_working_case(self):
-        expect = "Can't create a row with a null or empty name"
-        with self.assertMldbRaises(expected_regexp=expect) as re:
-           mldb.query('SELECT * NAMED behA FROM ds')
+        expect = "Can't create a row with a null name"
+        with self.assertMldbRaises(expected_regexp=expect):
+            mldb.query('SELECT * NAMED behA FROM ds')
 
-    def test_non_working_case_2(self):
-        expect = "Can't create a row with a null or empty name"
-        with self.assertMldbRaises(expected_regexp=expect) as re:
-           mldb.query("SELECT * NAMED '' FROM ds")
+    def test_empty_row_name(self):
+        res = mldb.query("SELECT * NAMED '' FROM ds")
+        self.assertEqual(res[1][0], '""')
+        self.assertEqual(res[2][0], '""')
 
     def test_non_working_case_3(self):
         expect = "Row names must be"
@@ -40,7 +40,7 @@ class ImproveErrorMessageNamedOnNullTest(MldbUnitTest): # noqa
            mldb.query("SELECT * NAMED {1} FROM ds")
 
     def test_non_working_case_4(self):
-        expect = "Can't create a row with a null or empty name"
+        expect = "Can't create a row with a null name"
         with self.assertMldbRaises(expected_regexp=expect) as re:
            mldb.query("SELECT * NAMED [] FROM ds")
 

@@ -288,7 +288,7 @@ private:
             ExcAssertEqual(state, RESPONSE);
             string chunkData = std::move(data);
             setState(IDLE);
-            return std::move(chunkData);
+            return chunkData;
         }
 
         void setState(int newState)
@@ -520,13 +520,6 @@ makeStreamingDownload(const std::string & uri)
     result.reset(new boost::iostreams::stream_buffer<StreamingDownloadSource>
                  (source,131072));
     return make_pair(std::move(result), source.info());
-}
-
-std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
-makeStreamingDownload(const std::string & bucket,
-                      const std::string & object)
-{
-    return makeStreamingDownload("s3://" + bucket + "/" + object);
 }
 
 
@@ -799,16 +792,6 @@ makeStreamingUpload(const std::string & uri,
                  (StreamingUploadSource(uri, onException, metadata),
                   131072));
     return result;
-}
-
-std::unique_ptr<std::streambuf>
-makeStreamingUpload(const std::string & bucket,
-                    const std::string & object,
-                    const OnUriHandlerException & onException,
-                    const S3Api::ObjectMetadata & metadata)
-{
-    return makeStreamingUpload("s3://" + bucket + "/" + object,
-                               onException, metadata);
 }
 
 /** Register S3 with the filter streams API so that a filter_stream can be

@@ -406,20 +406,22 @@ and the possible values for the `arrays` field are:
 
 ### Numeric functions
 
-- `pow(x, y)`: returns x to the power of y.
-- `exp(x)`: returns **e** (the Euler number) raised to the power x.
-- `ln(x)`: returns the natural logarithm of x.
-- `ceil(x)`: returns the smaller integer not less than x.
-- `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
-- `abs(x)`: returns the absolute value of x.
-- `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
-- `sign(x)`: returns the sign of x (-1, 0, +1).
-- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
-- `isinf(x)`: return true if x is +/- infinity in the floating point representation.
-- `isfinite(x)`: return true if x is neither infinite nor not-a-number.
+- `pow(x, y)`: returns `x` to the power of `y`.
+- `exp(x)`: returns _e_ (the Euler number) raised to the power `x`.
+- `ln(x)`: returns the natural logarithm of `x`.
+- `log(x)`: returns the base-10 logarithm of `x`.
+- `log(b, x)`: returns the base-`b` logarithm of `x`.
+- `ceil(x)`: returns the smaller integer not less than `x`.
+- `floor(x)`: returns the largest integer not greater than `x`.
+- `mod(x, y)`: returns `x` modulo `y`.  The value of `x` and `y` must be an integer. Another way to get the modulo is `x % y`.
+- `abs(x)`: returns the absolute value of `x`.
+- `sqrt(x)`: returns the square root of `x`.
+- `sign(x)`: returns the sign of `x` (-1, 0, +1).
+- `isnan(x)`: returns true if `x` is `NaN` in the floating point representation.
+- `isinf(x)`: return true if `x` is +/- infinity in the floating point representation.
+- `isfinite(x)`: returns true if `x` is neither infinite nor `NaN`.
 
-- `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
+- `quantize(x, y)`: returns `x` rounded to the precision of `y`.  Here are some examples:
 
 expression|result
 ----------------------|-----
@@ -441,7 +443,7 @@ expression|result
 - `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
 - `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
 - `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
-- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
+- `clamp(x,lower,upper)` will clamp the value `x` between the `lower` and `upper` bounds.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 
@@ -593,11 +595,18 @@ The following useful non-standard aggregation functions are also supported:
   column name and value given.  This can be used with a group by clause to
   transform a dense dataset of (actor,action,value) records into a sparse
   dataset with one sparse row per actor, for example to create one-hot feature vectors or term-document or cooccurrence matrices.
-- `string_agg(expr, separator)` will coerce the value of `expr` and that of
-  `separator` to a string, and produce a single string with the concatenation
-  of `expr` separated by `separators` at internal boundaries.  For example,
-  if `expr` is `"one"`, `"two"` and `"three"` in the group, and separator is
-  `', '` the output will be `"one, two, three"`.
+- `string_agg(expr, separator [, sortField])` will coerce the value of `expr`
+   and that of `separator` to a string, create a list of all values sorted 
+   by the `sortField`
+   (which is null if not specified) breaking ties by sorting by `expr` as a
+   string, and produce a single string with the concatenation of `expr`
+   separated by `separator` at internal boundaries on the list.  For example,
+   if `expr` is `"one"`, `"two"` and `"three"` in the group, and `separator` is
+   `', '` the output will be `"one, two, three"`.  The `sortField` can be used
+   to ensure that the values over multiple `string_agg` calls are in the,
+   same order, for example are in order of time or in row order of the
+   underlying dataset.  Note that the `rowPath()` can be used in the
+   `sortField` to achieve that result.
 
 ### Aggregates of rows
 
