@@ -57,10 +57,10 @@ struct LogDummy {
     !logger->should_log(spdlog::level::info) ? (void) 0 : Datacratic::MLDB::LogDummy() & logger->info()
 
 #define WARNING_MSG(logger)                                             \
-    !logger->should_log(spdlog::level::warn) ? (void) 0 :  Datacratic::MLDB::LLogDummy() & logger->warning()
+    !logger->should_log(spdlog::level::warn) ? (void) 0 :  Datacratic::MLDB::LogDummy() & logger->warn()
 
 #define ERROR_MSG(logger)                                               \
-    !logger->should_log(spdlog::level::error) ? (void) 0 :  Datacratic::MLDB::LLogDummy() & logger->error()
+    !logger->should_log(spdlog::level::err) ? (void) 0 :  Datacratic::MLDB::LogDummy() & logger->error()
 
 } // MLDB
 

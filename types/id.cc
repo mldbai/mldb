@@ -19,9 +19,9 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include <iostream>
 #include "mldb/ext/jsoncpp/value.h"
-#include <boost/multiprecision/cpp_int.hpp>
 
 #if JML_BITS == 32
+#include <boost/multiprecision/cpp_int.hpp>
 #endif
 
 using namespace ML;
