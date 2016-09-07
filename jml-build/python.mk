@@ -204,7 +204,7 @@ ifneq ($(PREMAKE),1)
 
 ifneq ($(LIB),$(PYTHON_PLAT_LIB_PATH))
 $(PYTHON_PLAT_LIB_PATH)/$(1).so:	$(LIB)/$(1).so
-	@cp $$< $$@~ && mv $$@~ $$@
+	@mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
 endif
 
 

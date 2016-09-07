@@ -43,7 +43,16 @@ $(2)/libprotobuf3.so:	$(4)/protoc
 	$(if $(call sne,$(2),$(BUILD)/$(1)/lib),cp $(PWD)/$(BUILD)/$(1)/lib/libprotobuf* $(2))
 	@cp $(BUILD)/$(1)/lib/libprotobuf.so.10.0.0 $$@~ && mv $$@~ $$@
 
-protobuf: $(4)/protoc
+# First, we need the protobuf Python library installed in place.  We don't use
+# the setup.py install command since this tries to create eggs and paths in
+# places that Python doesn't expect them, and so it can't load the library.
+$(4)/google/protobuf/__init__.py: $(4)/protoc
+	cd $(BUILD)/$(1)/tmp/protobuf-build/python \
+	&& ls \
+	&& PROTOC=$(4)/protoc python ./setup.py build \
+	&& cp -r build/lib.linux-$(ARCH)-$(PYTHON_VERSION_DETECTED)/google $(PWD)/$(4)
+
+protobuf: $(4)/protoc $(4)/google/protobuf/__init__.py
 
 endef
 

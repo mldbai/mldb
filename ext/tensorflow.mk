@@ -63,10 +63,13 @@ $(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BAS
 
 $(eval $(call program,proto_text,protobuf3,$(TENSORFLOW_PROTO_TEXT_FILES)))
 
+#ln -sf ../../ext/protobuf/src/google ext/tensorflow
+#build/x86_64/bin/proto_text mldb/ext/tensorflow/google/protobuf google/protobuf mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt mldb/ext/tensorflow/google/protobuf/any.proto
+
 # Compile all of the .proto files in the TensorFlow
 # source directory.  Here we find all of those files
-TENSORFLOW_PROTOBUF_FILES:=$(shell find $(CWD)/tensorflow/core -name "*.proto" | grep -v 'meta_graph\|protobuf/worker')
-TENSORFLOW_PROTOBUF_TEXT_FILES:=$(filter-out %/test_log.proto,$(TENSORFLOW_PROTOBUF_FILES))
+TENSORFLOW_PROTOBUF_FILES:=$(shell find $(CWD)/tensorflow/core -name "*.proto")
+TENSORFLOW_PROTOBUF_TEXT_FILES:=$(filter-out %/test_log.proto %/worker.proto %/meta_graph.proto,$(TENSORFLOW_PROTOBUF_FILES))
 TENSORFLOW_PROTOBUF_BUILD:=$(TENSORFLOW_PROTOBUF_FILES:$(CWD)/%.proto=%.pb.cc) $(TENSORFLOW_PROTOBUF_TEXT_FILES:$(CWD)/%.proto=%.pb_text.cc)
 TENSORFLOW_PROTOBUF_HEADERS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) $(TENSORFLOW_PROTOBUF_TEXT_FILES:%.proto=%.pb_text.h)
 
@@ -74,7 +77,7 @@ TENSORFLOW_PROTOBUF_HEADERS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) $(TENSO
 # kernels.  We strip out any Cuda constructs, and add them back in later in
 # the part of the makefile designed around Cuda support.
 
-TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op\.cc' | grep -v test | grep -v tutorial | grep -v user_ops | grep -v 'fact_op\.cc' $(if $(WITH_CUDA),, | grep -v cuda  $(if $(WITH_CUDNN),,| grep -v cu_dnn) ) | grep -v /kernels/ | grep -v distributed_runtime | grep -v platform/cloud | grep -v pb_text)
+TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op\.cc' | grep -v test | grep -v tutorial | grep -v user_ops | grep -v 'fact_op\.cc' $(if $(WITH_CUDA),, | grep -v cuda  $(if $(WITH_CUDNN),,| grep -v cu_dnn) ) | grep -v /kernels/ | grep -v distributed_runtime/rpc | grep -v platform/cloud | grep -v pb_text)
 
 #TENSORFLOW_CC_FILES:=$(TF_CC_SRCS)
 
@@ -265,7 +268,7 @@ TENSORFLOW_INCLUDE_FLAGS := $(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_I
 TENSORFLOW_COMPILE_FLAGS := $(TENSORFLOW_WARNING_FLAGS) $(TENSORFLOW_INCLUDE_FLAGS) $(TENSORFLOW_COMMON_CUDA_FLAGS) -DEIGEN_AVOID_STL_ARRAY=1
 
 # Dependency list for any CC file that knows about Tensorflow.
-TENSORFLOW_CC_DEPS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | https://github.com/mldbai/test_git_plugin.git
+TENSORFLOW_CC_DEPS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/highwayhash
 
 # Here is the list of files we need to compile for tensorflow to be incorporated
 $(TENSORFLOW_CC_FILES):	$(TENSORFLOW_CC_DEPS)
@@ -414,15 +417,6 @@ $(TMP)/tensorflow-bazel-python.mk: mldb/ext/bazel_extract_rule.py | $(TMP)
 -include $(TMP)/tensorflow-bazel-python.mk
 
 
-OS ?= linux
-
-# First, we need the protobuf Python library installed in place.  We don't use
-# the setup.py install command since this tries to create eggs and paths in
-# places that Python doesn't expect them, and so it can't load the library.
-protobuf_python: $(HOSTBIN)/protoc
-	cd mldb/ext/tensorflow/google/protobuf/python && ls && PROTOC=$(HOSTBIN)/protoc python ./setup.py build && cp -r build/lib.$(OS)-$(ARCH)-$(PYTHON_VERSION_DETECTED)/google $(PWD)/$(BIN)
-
-
 # We need to run SWIG to generate the basic interface files 
 $(CWD)/tensorflow/python/tensorflow_wrap.cxx $(CWD)/tensorflow/python/pywrap_tensorflow.py:	$(CWD)/tensorflow/python/tensorflow.i
 	swig -I$(TF_CWD) -c++ -python -module pywrap_tensorflow $(<)
@@ -462,22 +456,6 @@ TENSORFLOW_PY_OP_FILES:=$(foreach op,$(TENSORFLOW_OPS) user,tensorflow/python/op
 $(CWD)/tensorflow/python/training/gen_training_ops.py: $(CWD)/tensorflow/python/ops/gen_training_ops.py
 	@cp $< $@~ && mv $@~ $@
 
-# We need a bunch of empty __init__.py files to make Python able to navigate
-# the directory structure.  These are listed here, and automatically created
-# as empty.
-TENSORFLOW_EMPTY_INIT_PY:= \
-	tensorflow/core/__init__.py \
-	tensorflow/core/framework/__init__.py \
-	tensorflow/core/util/__init__.py \
-	tensorflow/core/lib/__init__.py \
-	tensorflow/core/lib/core/__init__.py \
-	tensorflow/python/ops/__init__.py \
-	tensorflow/core/example/__init__.py
-
-# To create them, we simply touch the file
-$(TENSORFLOW_EMPTY_INIT_PY:%=$(CWD)/%):
-	@mkdir -p $(dir $@) && touch $@
-
 # There are a few .cc files that need to be compiled in the Python wrappers
 # in order to create the bindings
 TENSORFLOW_CC_PYTHON_FILES:=$(shell find $(CWD)/tensorflow/python -name "*.cc") $(CWD)/tensorflow/python/tensorflow_wrap.cxx
@@ -498,10 +476,64 @@ TENSORFLOW_PYTHON_LINK := tensorflow
 # Finally, build a Python native addon with the tensorflow functionality inside
 $(eval $(call python_addon,_pywrap_tensorflow,$(TENSORFLOW_CC_PYTHON_BUILD),$(TENSORFLOW_PYTHON_LINK),$(TENSORFLOW_CUDA_LINKER_FLAGS)))
 
+# Core directory
+TENSORFLOW_CORE_PY_FILES:=$(shell find $(CWD)/tensorflow/core -name "*.py" | sed 's!$(CWD)/!!')
+TENSORFLOW_CORE_PY_INITS:=$(foreach file,$(addsuffix __init__.py,$(sort $(dir $(TENSORFLOW_CORE_PY_FILES)))),$(filter-out $(TENSORFLOW_CORE_PY_FILES),$(file)))
+
+# Python directory
+TENSORFLOW_PYTHON_PY_FILES:=$(shell find $(CWD)/tensorflow/python -name "*.py" | sed 's!$(CWD)/!!' | grep -v kernel_tests | grep -v '_test.py')
+TENSORFLOW_PYTHON_PY_INITS:=$(foreach file,$(addsuffix __init__.py,$(sort $(dir $(TENSORFLOW_PYTHON_PY_FILES)))),$(filter-out $(TENSORFLOW_PYTHON_PY_FILES),$(file)))
+
+# Contrib directory
+TENSORFLOW_CONTRIB_PY_FILES:=$(shell find $(CWD)/tensorflow/contrib -name "*.py" | sed 's!$(CWD)/!!')
+
+TENSORFLOW_CONTRIB_PY_INITS:=$(foreach file,$(addsuffix __init__.py,$(sort $(dir $(TENSORFLOW_CONTRIB_PY_FILES) $(dir $(dir $(TENSORFLOW_CONTRIB_PY_FILES))) $(dir $(dir $(dir $(TENSORFLOW_CONTRIB_PY_FILES))))))),$(filter-out $(TENSORFLOW_CONTRIB_PY_FILES),$(file)))
+
+# Contributed kernels
+# $(1): operation name
+# $(2): source files
+
+define tf_contributed_op
+$$(eval $$(call set_compile_option,$(2),$$(TENSORFLOW_COMPILE_FLAGS)))
+$$(eval $$(call python_addon,$(1),$(LAYERS_SOURCES),,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
+endef
+
+$(eval $(call tf_contributed_op,tensorflow/contrib/layers/python/ops/_bucketization_op,$(addprefix tensorflow/contrib/layers/,kernels/bucketization_kernel.cc ops/bucketization_op.cc)))
+$(eval $(call tf_contributed_op,tensorflow/contrib/layers/python/ops/_sparse_feature_cross_op,$(addprefix tensorflow/contrib/layers/,kernels/sparse_feature_cross_kernel.cc ops/sparse_feature_cross_op.cc)))
+$(eval $(call tf_contributed_op,tensorflow/contrib/metrics/python/ops/_set_ops,$(addprefix tensorflow/contrib/metrics/,kernels/set_kernels.cc ops/set_ops.cc)))
+$(eval $(call tf_contributed_op,tensorflow/contrib/linear_optimizer/ops/_sdca_ops,$(addprefix tensorflow/contrib/linear_optimizer/,kernels/sdca_ops.cc ops/sdca_ops.cc),tensorflow/contrib/linear_optimizer/ops/scda_ops.py))
+
+
+# We need a bunch of empty __init__.py files to make Python able to navigate
+# the directory structure.  These are listed here, and automatically created
+# as empty.
+TENSORFLOW_EMPTY_INIT_PY:= \
+	$(TENSORFLOW_CORE_PY_INITS) \
+	$(TENSORFLOW_PYTHON_PY_INITS) \
+	$(TENSORFLOW_CONTRIB_PY_INITS) \
+	tensorflow/core/__init__.py \
+	tensorflow/core/framework/__init__.py \
+	tensorflow/core/util/__init__.py \
+	tensorflow/core/lib/__init__.py \
+	tensorflow/core/lib/core/__init__.py \
+	tensorflow/python/ops/__init__.py \
+	tensorflow/python/platform/__init__.py \
+	tensorflow/core/example/__init__.py \
+	tensorflow/core/protobuf/__init__.py \
+	tensorflow/contrib/losses/python/__init__.py \
+	tensorflow/contrib/metrics/python/__init__.py
+
+
+# To create them, we simply touch the file
+$(TENSORFLOW_EMPTY_INIT_PY:%=$(CWD)/%):
+	@mkdir -p $(dir $@) && touch $@
+
 # The rest of the files are .py files that need to be copied into place
-TENSORFLOW_PYTHON_FILES:=$(sort $(shell find $(CWD)/tensorflow/python -name "*.py" | grep -v '_test.py' | sed 's!$(CWD)/!!') $(shell find $(CWD)/tensorflow/examples -name "*.py" | sed 's!$(CWD)/!!') tensorflow/__init__.py tensorflow/python/pywrap_tensorflow.py $(TENSORFLOW_PROTOBUF_FILES:$(CWD)/%.proto=%_pb2.py) tensorflow/python/training/checkpoint_state_pb2.py tensorflow/python/training/saver_pb2.py tensorflow/core/example/example_pb2.py $(TENSORFLOW_EMPTY_INIT_PY) $(TENSORFLOW_PY_OP_FILES))
+TENSORFLOW_PYTHON_FILES:=$(sort $(shell find $(CWD)/tensorflow/python -name "*.py" | grep -v '_test.py' | sed 's!$(CWD)/!!') $(shell find $(CWD)/tensorflow/examples -name "*.py" | sed 's!$(CWD)/!!') tensorflow/__init__.py tensorflow/python/pywrap_tensorflow.py $(TENSORFLOW_PROTOBUF_FILES:$(CWD)/%.proto=%_pb2.py) tensorflow/python/training/checkpoint_state_pb2.py tensorflow/core/example/example_pb2.py $(TENSORFLOW_EMPTY_INIT_PY) $(TENSORFLOW_CORE_PY_INITS) $(TENSORFLOW_CORE_PY_FILES) $(TENSORFLOW_PYTHON_PY_INITS) $(TENSORFLOW_PYTHON_PY_FILES) $(TENSORFLOW_PY_OP_FILES) $(TENSORFLOW_CONTRIB_PY_FILES) $(TENSORFLOW_CONTRIB_PY_INITS))
 
 # Install them all as part of the Python module
 $(eval $(call python_module,,$(TENSORFLOW_PYTHON_FILES),,_pywrap_tensorflow,nocheck))
+
+
 
 endif
