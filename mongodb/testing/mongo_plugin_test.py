@@ -168,6 +168,30 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             }
         ])
 
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_import_oid(self):
+        """
+        Example of import procedure. select, named, where, limit and offset
+        are supported options.
+        """
+        mldb.post('/v1/procedures', {
+            'type' : 'mongodb.import',
+            'params' : {
+                'connectionScheme' : self.connection_scheme,
+                'collection' : self.collection_name,
+                'outputDataset' : {
+                    'id' : 'imported_oid',
+                    'type' : 'sparse.mutable'
+                },
+                'select' : 'oid()'
+            }
+        })
+        res = mldb.query("SELECT * FROM imported_oid")
+        self.assertEqual(len(res[0], 2),
+                         "columns should be _rowName and oid()")
+        for r in res[1:]:
+            self.assertEqual(r[0], r[1])
+
     def test_invalid_connection_scheme(self):
         msg = 'the minimal connectionScheme format is'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
@@ -423,8 +447,6 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
 
         res = mldb.query("SELECT username FROM ds WHERE type != 'simple'")
         self.assertEqual(len(res), 3)
-
-        res = mldb.query("SELECT oid() FROM ds") # TODO broken!
 
     def test_dataset_missing_param(self):
         msg = 'connectionScheme is a required property'

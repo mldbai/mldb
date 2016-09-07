@@ -33,7 +33,7 @@ MongoTemporaryServer(const string & uniquePath, const int portNum)
             tmpDir = "." + tmpDir.substr(cwd.size());
         }
         uniquePath_ = ML::format("%s/mongo-temporary-server-%d-%d",
-                                 tmpDir.get(), getpid(), index);
+                                 tmpDir, getpid(), index);
         cerr << ("starting mongo temporary server under unique path "
                  + uniquePath_ + "\n");
     }
