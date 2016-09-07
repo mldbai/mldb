@@ -187,7 +187,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             }
         })
         res = mldb.query("SELECT * FROM imported_oid")
-        self.assertEqual(len(res[0], 2),
+        self.assertEqual(len(res[0]), 2,
                          "columns should be _rowName and oid()")
         for r in res[1:]:
             self.assertEqual(r[0], r[1])
