@@ -702,8 +702,8 @@ SqlExpression::
 namespace {
 
 // Match a non-scoped identifier
-static bool matchIdentifier(ML::Parse_Context & context,
-                            bool allowUtf8, Utf8String & result)
+static bool matchPathIdentifier(ML::Parse_Context & context,
+                                bool allowUtf8, Utf8String & result)
 {
     if (context.eof()) {
         return false;
@@ -749,7 +749,7 @@ static bool matchIdentifier(ML::Parse_Context & context,
 static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
 {
     Utf8String result;
-    matchIdentifier(context, allowUtf8, result);
+    matchPathIdentifier(context, allowUtf8, result);
     return result;
 }
 
@@ -762,7 +762,7 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
     }
 
     Utf8String first;
-    if (!matchIdentifier(context, allowUtf8, first)) {
+    if (!matchPathIdentifier(context, allowUtf8, first)) {
         return result;
     }
 
@@ -1075,7 +1075,7 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
             if (context && (isalnum(*context) || *context == '_'))
                 return false;
         }
-        
+
         token.ignore();
         return true;
     }
