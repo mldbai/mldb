@@ -681,7 +681,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(svdConfig, run);
 
-    if (runProcConf.outputColumn.empty()) {
+    if (runProcConf.outputColumn.null()) {
         throw HttpReturnException
             (400, "SVD training procedure requires a non-empty output column name",
              "config", runProcConf);
