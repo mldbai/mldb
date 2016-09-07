@@ -746,6 +746,13 @@ static bool matchIdentifier(ML::Parse_Context & context,
     return !result.empty();
 }
 
+static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
+{
+    Utf8String result;
+    matchIdentifier(context, allowUtf8, result);
+    return result;
+}
+
 static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 {
     ColumnName result;
@@ -762,10 +769,9 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
     result = PathElement(std::move(first));
 
     while (context.match_literal('.')) {
-        Utf8String next;
-        if (!matchIdentifier(context, allowUtf8, next)) {
+        Utf8String next = matchIdentifier(context, allowUtf8);
+        if (next.empty())
             break;  // will happen for a *
-        }
         result = result + next;
     }
 
@@ -1190,10 +1196,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             lhs->surface = ML::trim(token.captured());
         }
         else {
-            Utf8String paramName;
-            if (!matchIdentifier(context, allowUtf8, paramName)) {
+            Utf8String paramName = matchIdentifier(context, allowUtf8);
+            if (paramName.empty())
                 context.exception("Expected identifier after $");
-            }
             lhs.reset(new BoundParameterExpression(paramName));
             lhs->surface = ML::trim(token.captured());
         }
@@ -1281,11 +1286,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         skip_whitespace(context);
         expectKeyword(context, "AS ");
         
-        Utf8String typeUtf8;
-        if (!matchIdentifier(context, allowUtf8, typeUtf8)) {
+        std::string type = matchIdentifier(context, allowUtf8).extractAscii();
+        if (type.empty())
             context.exception("Expected type name as identifier");
-        }
-        string type = typeUtf8.extractAscii();
         boost::to_lower(type);
 
         skip_whitespace(context);
@@ -3351,11 +3354,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             if (matchKeyword(context, "AS"))
             {
                 expect_whitespace(context);
-
-                if (!matchIdentifier(context, allowUtf8, asName)) {
-                    context.exception(
-                        "Expected identifier after the subtable AS clause");
-                }
+                asName = matchIdentifier(context, allowUtf8);
+                if (asName.empty())
+                    context.exception("Expected identifier after the subtable AS clause");
             }
 
             result.reset(new SelectSubtableExpression(statement, asName));
@@ -3385,10 +3386,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         Utf8String asName;
         if (matchKeyword(context, "AS")) {
             expect_whitespace(context);
-            if (!matchIdentifier(context, allowUtf8, asName)) {
-                context.exception(
-                    "Expected identifier after the row_dataset(...) AS clause");
-            }
+            asName = matchIdentifier(context, allowUtf8);
+            if (asName.empty())
+                context.exception("Expected identifier after the row_dataset(...) AS clause");
         }
         
         result = std::make_shared<RowTableExpression>(statement, asName);
@@ -3397,9 +3397,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     if (!result) {
         std::shared_ptr<NamedDatasetExpression> expr;
-        Utf8String identifier;
+        Utf8String identifier = matchIdentifier(context, allowUtf8);
 
-        if (matchIdentifier(context, allowUtf8, identifier)) {
+        if (!identifier.empty()) {
 
             if (context.match_literal('('))
             {
@@ -3448,13 +3448,12 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 expr.reset(new DatasetExpression(identifier, identifier));
             }
 
+            Utf8String asName;
 
             if (matchKeyword(context, "AS ")) {
-                Utf8String asName;
-                if (!matchIdentifier(context, allowUtf8, asName)) {
-                    context.exception(
-                            "Expected identifier after the AS clause");
-                }
+                asName = matchIdentifier(context, allowUtf8);
+                if (asName.empty())
+                    context.exception("Expected identifier after the AS clause");
 
                 expr->setDatasetAlias(asName);
             }
