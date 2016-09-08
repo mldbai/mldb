@@ -13,7 +13,7 @@ JPEG_SOURCE = jaricom.c jcapimin.c jcapistd.c jcarith.c \
 
 ifneq ($(PREMAKE),1)
 $(CWD)/jconfig.h:
-	cd mldb/ext/jpeg && ./configure
+	cd mldb/ext/jpeg && ./configure > configure.log
 endif
 
 JPEG_INCLUDE_FILES:=$(CWD)/jconfig.h
