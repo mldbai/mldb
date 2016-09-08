@@ -11,7 +11,7 @@ ifneq ($(PREMAKE),1)
 #
 # $(1) = arch to build for (either $HOSTARCH or $ARCH)
 # $(2) = place to install libraries
-# $(3) = place to install headers
+# $(3) = place to install headers (unused)
 # $(4) = place to install binaries
 
 define build_protobuf_for_arch
@@ -30,6 +30,9 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	&& ./autogen.sh > configure-log.txt 2>&1 \
 	&& TMP=$(PWD)/$(TMP) ./configure \
 		--prefix $(PWD)/$(BUILD)/$(1) \
+		--libdir=$(PWD)/$(2) \
+		--includedir=$(PWD)/$(3) \
+		--bindir=$(PWD)/$(4) \
 		--program-suffix="" \
 		$$(PROTOC_EXTRA_ARGS_$(1)) >> configure-log.txt 2>&1) \
 	|| (echo $(COLOR_RED)Protobuf configure failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/configure-log.txt && false)
