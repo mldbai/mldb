@@ -236,7 +236,6 @@ runBoolean(AccuracyConfig & runAccuracyConf,
     // cerr << stats.atPercentile(0.01).toJson();
 
     return Any(stats.toJson());
-
 }
 
 RunOutput
@@ -391,7 +390,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         class_stats["accuracy"] = accuracy;
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
-        class_stats["f"] = 2 * ML::xdiv(precision * recall,
+        class_stats["f1Score"] = 2 * ML::xdiv(precision * recall,
                                         precision + recall);
         class_stats["support"] = support;
         results["labelStatistics"][actual_it.first.toString()] = class_stats;
@@ -399,7 +398,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         total_accuracy += accuracy * support;
         total_precision += precision * support;
         total_recall += recall * support;
-        total_f1 += class_stats["f"].asDouble() * support;
+        total_f1 += class_stats["f1Score"].asDouble() * support;
         total_support += support;
     }
 
@@ -408,7 +407,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     weighted_stats["accuracy"] = total_accuracy / total_support;
     weighted_stats["precision"] = total_precision / total_support;
     weighted_stats["recall"] = total_recall / total_support;
-    weighted_stats["f"] = total_f1 / total_support;
+    weighted_stats["f1Score"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
     results["weightedStatistics"] = weighted_stats;
 
