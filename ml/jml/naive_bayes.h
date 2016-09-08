@@ -97,7 +97,7 @@ public:
     std::vector<Bayes_Feature> features;
     boost::multi_array<float, 3> probs;  /* num features x 3 x num labels matrix */
     distribution<float> label_priors;
-    distribution<float> missing_total; /* sum of all missing distributions. */
+    distribution<float> missing_total; /* sum of all missing distributions, per class. */
 
     using Classifier_Impl::predict;
 
@@ -124,6 +124,11 @@ public:
     virtual Naive_Bayes * make_copy() const;
 
     void calc_missing_total();
+
+    virtual Explanation explain(const Feature_Set & feature_set,
+                                const ML::Label & label,
+                                double weight = 1.0,
+                                PredictionContext * context = 0) const;
 };
 
 

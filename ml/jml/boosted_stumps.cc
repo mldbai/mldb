@@ -779,6 +779,11 @@ explain(const Feature_Set & feature_set,
 {
     Explanation result(feature_space(), weight); 
 
+    if (label < 0 || label >= label_count())
+        throw Exception(format("Boosted_Stumps::explain(...): "
+                               "Attempt to predict label %d with label_count "
+                               " %zd", label, label_count()));
+
     // Get the bias for the label
     if (!bias.empty())
         result.bias = bias.at(label);

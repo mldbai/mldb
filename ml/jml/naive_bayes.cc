@@ -419,6 +419,83 @@ void Naive_Bayes::calc_missing_total()
     missing_total = distribution<float>(missing.begin(), missing.end());
 }
 
+Explanation
+Naive_Bayes::
+explain(const Feature_Set & feature_set,
+        const ML::Label & label,
+        double weight,
+        PredictionContext * context) const
+{
+    //
+    // the model is
+    // prediction(f) = argmax_i P(l=i) * prod_j P(f_j | l=i) / P(f_j)
+    // where f is the feature vector and l the label
+    // and so the contribution of feature f_j is
+    // P(f_j | l=i) / P(f_j)
+    // We then take the log so that ±contribution are really opposites
+    //
+    
+    size_t label_idx = label.label();
+    if (label_idx < 0 || label_idx >= label_count())
+        throw Exception(format("Naive_Bayes::explain(...): "
+                               "Invalid label %i with label_count "
+                               " %zd", label_idx, label_count()));
+   
+    Explanation result(feature_space(), weight);
+
+    // auto decoded = decode(feature_set);
+
+    // ExcAssertEqual(decoded.size(), features.size());
+
+    // if it's a regression tas
+    // if(label_idx > weights.size() - 1) {
+    //     throw ML::Exception("label bigger than weight vector");
+    // }
+
+    // for (unsigned j = 0;  j < features.size();  ++j) {
+    //     result.feature_weights[features[j].feature]
+    //         += weight * weights[label_idx][j] * decoded[j];
+    // }
+
+    /* I only implemeted the same as the easiest case from all the cases in
+     * the predict() function */
+
+    /* Go through each possible feature. */
+    for (unsigned f = 0;  f < features.size(); ++f) {
+        const Feature & feature = features[f].feature;
+        Feature_Set::const_iterator first, last;
+        std::tie(first, last) = feature_set.find(feature);
+            
+        double weight_true = 0.0, weight_false = 0.0, weight_missing = 0.0;
+            
+        if (first == last) {
+            weight_missing = 1.0;
+        } else {
+            double scale = 1.0 / (last - first);
+            while (first != last) {
+                if (!finite((*first).second))
+                    weight_missing += scale;
+                else if ((*first).second >= features[f].arg)
+                    weight_true += scale;
+                else
+                    weight_false += scale;
+                ++first;
+            }
+        }
+
+        result.feature_weights[features[f].feature] += weight * (
+                probs[f][false][label_idx]     * weight_false
+                + probs[f][true][label_idx]    * weight_true
+                + probs[f][MISSING][label_idx] * weight_missing);
+    }
+    result.bias += weight * log(label_priors[label_idx]);
+    // FIXME diviser par P(feature=false) etc.
+    // RENDU ICI il me manque le /details pour repogner les poids pour savoir
+    // ce qu'il a entrainer pour 
+    // FIXME les weights la c'est louche en maudit
+    return result;
+}
+
 
 
 /*****************************************************************************/

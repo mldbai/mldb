@@ -82,6 +82,7 @@ female 5.75 150 9""")
             prediction = mldb.get('/v1/query',
                 q="""SELECT classify({features: {%s}}) as *""" % feats,
                 format='aos').json();
+            mldb.log(target)
             mldb.log(prediction)
             if 'scores.1' in prediction[0]:
                 score = prediction[0]['scores.1']
@@ -96,5 +97,10 @@ female 5.75 150 9""")
 
     def test_categorical(self):
         self._do_test("categorical")
+
+    def test_reg(self):
+        # FIXME this should throw, naive bayes and classification doesn't make
+        # sense
+        self._do_test("regression")
 
 mldb.run_tests()

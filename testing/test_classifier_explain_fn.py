@@ -6,7 +6,7 @@
 # This tests the `classifier.explain` function.
 #
 
-import os, tempfile, pprint
+import os, tempfile, pprint, unittest
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
@@ -55,12 +55,12 @@ class TestClassifierExplainFn(MldbUnitTest):  # noqa
 
     @classmethod
     def setUpClass(cls):
-        headers = ['x', 'y', 'label', 'weight']
+        headers = ['x', 'y', 'label']
         data = """
-            -1 -1 0 1
-            -1  1 0 3
-             1 -1 0 3
-             1  1 1 3
+            -1 -1 0
+            -1  1 0
+             1 -1 0
+             1  1 1
             """
         cls.make_dataset(headers, data, 'simple_and')
 
@@ -74,17 +74,29 @@ class TestClassifierExplainFn(MldbUnitTest):  # noqa
         #     """
         # cls.make_dataset(headers, data, 'reg')
         # mldb.log(mldb.query("SELECT * FROM reg"))
-        headers = ['x', 'y', 'label', 'weight']
+        headers = ['x', 'y', 'label']
         data = """
-            -1 -1 0 1
-            -1  1 0 3
-             1 -1 0 3
-             1  1 1 3
+            -1 -1 0
+            -1  1 0
+             1 -1 0
+             1  1 1
             """
         cls.make_dataset(headers, data, 'simple_and_hack')
 
+        # titanic data
+        mldb.post("/v1/procedures", {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : "https://raw.githubusercontent.com/datacratic"
+                                "/mldb-pytanic-plugin/master/titanic_train.csv",
+                "outputDataset": {
+                    "id": "titanic_raw",
+                }
+            }
+        })
 
-    def test_dt_boolean_no_weight(self):
+
+    def test_dt_bool(self):
         for update_alg in ['prob', 'gentle', 'normal']:
             mldb.log(update_alg)
             _model_file = get_temporary_file()
@@ -124,7 +136,7 @@ class TestClassifierExplainFn(MldbUnitTest):  # noqa
             SELECT explain({features: {x:0.7, y:1.2}, label:1}) AS *
             """))
 
-    def test_glz_boolean_no_weight(self):
+    def test_glz_bool(self):
         _model_file = get_temporary_file()
         model_file = 'file:///' + _model_file.name
         res = mldb.put('/v1/procedures/_', {
@@ -164,7 +176,7 @@ class TestClassifierExplainFn(MldbUnitTest):  # noqa
             SELECT explain({features: {x:0.7, y:1.2}, label:0}) AS *
         """))
 
-    def test_dt_reg_no_weight(self):
+    def test_dt_reg(self):
         mldb.log('test dt reg no weight')
         _model_file = get_temporary_file()
         model_file = 'file:///' + _model_file.name
@@ -202,6 +214,131 @@ class TestClassifierExplainFn(MldbUnitTest):  # noqa
             mldb.log(mldb.query("""
                 SELECT explain({features: {x:0.7, y:1.2}, label:%f}) AS *
             """ % label))
+
+    def test_dt_titanic(self):
+        mldb.log("dt titanic")
+        _model_file = get_temporary_file()
+        model_file = 'file:///' + _model_file.name
+        mldb.post("/v1/procedures", {
+            "type": "classifier.train",
+            "params": {
+                "mode": "boolean",
+                "trainingData": """
+                    select
+                        {Sex, Age, Fare, Embarked, Parch, SibSp, Pclass} as features,
+                        label
+                    from titanic_raw
+                """,
+                "algorithm": "dt",
+                "configurationFile": "mldb/container_files/classifiers.json",
+                "modelFileUrl": model_file,
+                "functionName": "score"
+            }
+        })
+
+        mldb.put("/v1/functions/dt_explainer", {
+            "type": "classifier.explain",
+            "params": {
+                "modelFileUrl": model_file
+            }
+        })
+
+        mldb.log(mldb.query("SELECT * FROM titanic_raw LIMIT 1"))
+
+        # mldb.log(mldb.query("""
+        #     select score({features: {
+        #         Age: 22,
+        #         Embarked: 'S',
+        #         Fare: 7.25,
+        #         Parch: 0,
+        #         Pclass: 3,
+        #         Sex: 'male',
+        #         SibSp: 1
+        # }}) AS *"""))
+
+        mldb.log(mldb.query("""
+            select score({features: {*}, label: 0}) as * from titanic_raw limit 1
+        """))
+
+        mldb.log(mldb.query("""
+            select dt_explainer({features: {*}, label: 0}) as * from titanic_raw limit 1
+        """))
+
+    # @unittest.skip('not implemented yet')
+    def test_naive_bayes_bool(self):
+        _model_file = get_temporary_file()
+        model_file = 'file:///' + _model_file.name
+        mldb.post("/v1/procedures", {
+            "type": "classifier.train",
+            "params": {
+                "mode": "boolean",
+                "trainingData": """
+                    select
+                        {Sex, Age, Fare, Embarked, Parch, SibSp, Pclass} as features,
+                        label
+                    from titanic_raw
+                """,
+                "algorithm": "naive_bayes",
+                "configurationFile": "mldb/container_files/classifiers.json",
+                "modelFileUrl": model_file,
+                "functionName": "nbf"
+            }
+        })
+
+        mldb.log('super naive bayes')
+        mldb.log(pprint.pformat(mldb.get('/v1/functions/nbf/details').json()))
+
+        mldb.put("/v1/functions/naive_bayes_explainer", {
+            "type": "classifier.explain",
+            "params": {
+                "modelFileUrl": model_file
+            }
+        })
+
+        # should throw a nice error saying we need a label
+        with self.assertRaises(mldb_wrapper.ResponseException):  # noqa
+            mldb.get('/v1/query', q="""
+                select naive_bayes_explainer({features: {*}}) as * from titanic_raw limit 1
+            """)
+
+        mldb.log(mldb.query("""
+            select naive_bayes_explainer({features: {*}, label: 0}) as * from titanic_raw limit 1
+        """))
+
+    def test_boosted_stumps_bool(self):
+        _model_file = get_temporary_file()
+        model_file = 'file:///' + _model_file.name
+        mldb.post("/v1/procedures", {
+            "type": "classifier.train",
+            "params": {
+                "mode": "boolean",
+                "trainingData": """
+                    select
+                        {Sex, Age, Fare, Embarked, Parch, SibSp, Pclass} as features,
+                        label
+                    from titanic_raw
+                """,
+                "algorithm": "bs",
+                "configurationFile": "mldb/container_files/classifiers.json",
+                "modelFileUrl": model_file
+            }
+        })
+
+        mldb.put("/v1/functions/bs_explainer", {
+            "type": "classifier.explain",
+            "params": {
+                "modelFileUrl": model_file
+            }
+        })
+
+        with self.assertRaises(mldb_wrapper.ResponseException):  # noqa
+            mldb.get('/v1/query', q="""
+                select bs_explainer({features: {*}}) as * from titanic_raw limit 1
+            """)
+
+        mldb.log(mldb.query("""
+            select bs_explainer({features: {*}, label: 0}) as * from titanic_raw limit 1
+        """))
 
 
 if __name__ == '__main__':

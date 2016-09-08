@@ -132,7 +132,7 @@ struct ClassifyFunction: public Function {
          const std::shared_ptr<RowValueInfo> & input) const;
 
     virtual ExpressionValue apply(const FunctionApplier & applier,
-                              const ExpressionValue & context) const;
+                                  const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

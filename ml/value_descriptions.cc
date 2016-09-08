@@ -21,6 +21,7 @@
 #include "mldb/ml/jml/glz_classifier.h"
 #include "mldb/ml/jml/stump.h"
 #include "mldb/ml/jml/boosted_stumps.h"
+#include "mldb/ml/jml/naive_bayes.h"
 
 
 using namespace std;
@@ -614,5 +615,17 @@ BoostedStumpsDescription()
     addField("missing", &Boosted_Stumps::sum_missing, "Sum of all missing values");
 }
 
+// FIXME we need to implement a json encoder/decoder for a boost:multi_array
+// DEFINE_STRUCTURE_DESCRIPTION_NAMED(NaiveBayesDescription, Naive_Bayes);
+
+// NaiveBayesDescription::
+// NaiveBayesDescription()
+// {
+//     addField("probs", &Naive_Bayes::probs,
+//              "Weights learnt by the classifier.  Those are log(prob feature |"
+//              " class) for all combinaisons of true/false/missing");
+//     addField("features", &Naive_Bayes::features,
+//              "List of features used by the classifier");
+// }
 
 } // namespace ML
