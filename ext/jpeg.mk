@@ -13,6 +13,7 @@ JPEG_SOURCE = jaricom.c jcapimin.c jcapistd.c jcarith.c \
 
 ifneq ($(PREMAKE),1)
 $(CWD)/jconfig.h:
+	@echo " $(COLOR_BLUE)[CONFIG EXTERN]$(COLOR_RESET)                      	jpeg $(1)"
 	cd mldb/ext/jpeg && ./configure > configure.log
 endif
 
