@@ -30,9 +30,6 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	&& ./autogen.sh > configure-log.txt 2>&1 \
 	&& TMP=$(PWD)/$(TMP) ./configure \
 		--prefix $(PWD)/$(BUILD)/$(1) \
-		--libdir=$(PWD)/$(2) \
-		--includedir=$(PWD)/$(3) \
-		--bindir=$(PWD)/$(4) \
 		--program-suffix="" \
 		$$(PROTOC_EXTRA_ARGS_$(1)) >> configure-log.txt 2>&1) \
 	|| (echo $(COLOR_RED)Protobuf configure failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/configure-log.txt && false)
@@ -49,14 +46,18 @@ $(2)/libprotobuf3.so:	$(4)/protoc
 
 protobuf: $(4)/protoc
 
+# Allow a dependency on the headers
+$(INC)/google/protobuf: $(4)/protoc
+	@# Only copy when needing includes elsewhere
+	[ ! "$(PWD)/$(BUILD)/$(1)/include/google/protobuf" -ef "$(3)/google/protobuf" ] \
+	  && ( mkdir -p $(3)/google \
+	     && cp -r $(PWD)/$(BUILD)/$(1)/include/google/protobuf $(3)/google/protobuf) \
+	  || true
+
 endef
 
 ifneq ($(ARCH),$(HOSTARCH))
 $(eval $(call build_protobuf_for_arch,$(HOSTARCH),$(BUILD)/$(HOSTARCH)/lib,$(BUILD)/$(HOSTARCH)/include,$(BUILD)/$(HOSTARCH)/bin))
 endif
 $(eval $(call build_protobuf_for_arch,$(ARCH),$(LIB),$(INC),$(BIN)))
-
-# Allow a dependency on the headers
-$(INC)/google/protobuf: $(BIN)/protoc
-
 endif
