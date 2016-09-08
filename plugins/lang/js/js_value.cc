@@ -45,22 +45,25 @@ void
 JSObject::
 initialize()
 {
-    *this = v8::Object::New();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    *this = v8::Object::New(isolate);
 }
 
 void
 JSObject::
 add(const std::string & key, const std::string & value)
 {
-    (*this)->Set(v8::String::NewSymbol(key.c_str()),
-                 v8::String::New(value.c_str(), value.length()));
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    (*this)->Set(v8::String::NewFromUtf8(isolate, key.c_str()),
+                 v8::String::NewFromUtf8(isolate, value.c_str()));
 }
 
 void
 JSObject::
 add(const std::string & key, const JSValue & value)
 {
-    (*this)->Set(v8::String::NewSymbol(key.c_str()),
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    (*this)->Set(v8::String::NewFromUtf8(isolate, key.c_str()),
                  value);
 }
 
@@ -71,110 +74,122 @@ add(const std::string & key, const JSValue & value)
 
 void to_js(JSValue & jsval, signed int value)
 {
-    jsval = v8::Integer::New(value);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::Integer::New(isolate, value);
 }
 
 void to_js(JSValue & jsval, unsigned int value)
 {
-    jsval = v8::Integer::NewFromUnsigned(value);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::Integer::NewFromUnsigned(isolate, value);
 }
 
 void to_js(JSValue & jsval, signed long value)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (value <= INT_MAX && value >= INT_MIN)
-        jsval = v8::Integer::New(value);
-    else jsval = v8::Number::New((double) value);
+        jsval = v8::Integer::New(isolate, value);
+    else jsval = v8::Number::New(isolate, (double) value);
 }
 
 void to_js(JSValue & jsval, unsigned long value)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (value <= UINT_MAX)
-        jsval = v8::Integer::NewFromUnsigned(value);
-    else jsval = v8::Number::New((double) value);
+        jsval = v8::Integer::NewFromUnsigned(isolate, value);
+    else jsval = v8::Number::New(isolate, (double) value);
 }
 
 void to_js(JSValue & jsval, signed long long value)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (value <= INT_MAX && value >= INT_MIN)
-        jsval = v8::Integer::New(value);
-    else jsval = v8::Number::New((double) value);
+        jsval = v8::Integer::New(isolate, value);
+    else jsval = v8::Number::New(isolate, (double) value);
 }
 
 void to_js(JSValue & jsval, unsigned long long value)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (value <= UINT_MAX)
-        jsval = v8::Integer::NewFromUnsigned(value);
-    else jsval = v8::Number::New((double) value);
+        jsval = v8::Integer::NewFromUnsigned(isolate, value);
+    else jsval = v8::Number::New(isolate, (double) value);
 }
 
 void to_js(JSValue & jsval, float value)
 {
-    jsval = v8::Number::New(value);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::Number::New(isolate, value);
 }
 
 void to_js(JSValue & jsval, double value)
 {
-    jsval = v8::Number::New(value);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::Number::New(isolate, value);
 }
 
 void to_js_bool(JSValue & jsval, bool value)
 {
-    jsval = v8::Boolean::New(value);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::Boolean::New(isolate, value);
 }
 
 void to_js(JSValue & jsval, const std::string & value)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     bool isAscii = true;
     for (unsigned i = 0;  i < value.size() && isAscii;  ++i)
         if (value[i] == 0 || value[i] > 127)
             isAscii = false;
     if (isAscii)
-        jsval = v8::String::New(value.c_str(), value.length());
+        jsval = v8::String::NewFromUtf8(isolate, value.c_str());
     else {
         // Assume utf-8
-        jsval = v8::String::New(value.c_str(), value.length());
+        jsval = v8::String::NewFromUtf8(isolate, value.c_str());
     }
 }
 
 void to_js(JSValue & jsval, const Utf8String & value)
 {
-	jsval = v8::String::New(value.rawData(), value.rawLength());
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::String::NewFromUtf8(isolate, value.rawData());
 }
 
 void to_js(JSValue & jsval, const char * value)
 {
-    jsval = v8::String::New(value);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::String::NewFromUtf8(isolate, value);
 }
 
 void to_js(JSValue & jsval, const Json::Value & value)
 {
-    switch(value.type())
-    {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    switch(value.type()) {
     case Json::objectValue:
-    {
-        v8::HandleScope scope;
-        v8::Local<v8::Object> obj = v8::Object::New();
-        BOOST_FOREACH(string key, value.getMemberNames())
         {
-            JSValue member;
-            to_js(member, value[key]);
-            obj->Set(v8::String::New(key.c_str()), member);
+            v8::EscapableHandleScope scope(isolate);
+            v8::Local<v8::Object> obj = v8::Object::New(isolate);
+            BOOST_FOREACH(string key, value.getMemberNames()) {
+                JSValue member;
+                to_js(member, value[key]);
+                obj->Set(v8::String::NewFromUtf8(isolate, key.c_str()),
+                         member);
+            }
+            jsval = scope.Escape(obj);
         }
-        jsval = scope.Close(obj);
-    }
         break;
     case Json::arrayValue:
-    {
-        v8::HandleScope scope;
-        v8::Local<v8::Array> arr = v8::Array::New();
-        for(int i=0;i< value.size(); ++i)
         {
-            JSValue elem;
-            to_js(elem, value[i]);
-            arr->Set(i, elem);
+            v8::EscapableHandleScope scope(isolate);
+            v8::Local<v8::Array> arr = v8::Array::New(isolate);
+            for(int i=0;i< value.size(); ++i)
+                {
+                    JSValue elem;
+                    to_js(elem, value[i]);
+                    arr->Set(i, elem);
+                }
+            jsval = scope.Escape(arr);
         }
-        jsval = scope.Close(arr);
-    }
         break;
     case Json::realValue:
         to_js(jsval, value.asDouble());
@@ -192,7 +207,7 @@ void to_js(JSValue & jsval, const Json::Value & value)
         to_js(jsval, value.asBool());
         break;
     case Json::nullValue:
-        jsval = v8::Null();
+        jsval = v8::Null(isolate);
         break;
     default:
         throw ML::Exception("Can't convert from JsonCpp to JSValue");
@@ -202,7 +217,8 @@ void to_js(JSValue & jsval, const Json::Value & value)
 
 void to_js(JSValue & jsval, Date value)
 {
-    jsval = v8::Date::New(value.secondsSinceEpoch() * 1000.0);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    jsval = v8::Date::New(isolate, value.secondsSinceEpoch() * 1000.0);
 }
 
 namespace {
@@ -371,8 +387,8 @@ bool from_js(const JSValue & val, bool *)
 
 std::string from_js(const JSValue & val, std::string *)
 {
-    v8::String::AsciiValue asciiStr(val);
-    return std::string(*asciiStr, *asciiStr + asciiStr.length());
+    v8::String::Utf8Value utf8Str(val);
+    return std::string(*utf8Str, *utf8Str + utf8Str.length());
 }
 
 Json::Value from_js(const JSValue & val, Json::Value *)
@@ -402,6 +418,8 @@ Json::Value from_js(const JSValue & val, Json::Value *)
         }
         else
         {
+            v8::Isolate* isolate = v8::Isolate::GetCurrent();
+            v8::HandleScope handleScope(isolate);
             Json::Value result (Json::objectValue);
             auto objPtr = v8::Object::Cast(*val);
             v8::Handle<v8::Array> prop_names = objPtr->GetPropertyNames();
@@ -409,7 +427,7 @@ Json::Value from_js(const JSValue & val, Json::Value *)
             for (unsigned i = 0;  i < prop_names->Length();  ++i)
             {
                 v8::Handle<v8::String> key
-                    = prop_names->Get(v8::Uint32::New(i))->ToString();
+                    = prop_names->Get(v8::Uint32::New(isolate, i))->ToString();
                 if (!objPtr->HasOwnProperty(key)) continue;
                 result[from_js(key, (Utf8String *)0)] =
                         from_js(objPtr->Get(key), (Json::Value *)0);

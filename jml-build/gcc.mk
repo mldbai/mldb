@@ -3,6 +3,7 @@ GXX?=$(if $(DEFAULTGXX),$(DEFAULTGXX),g++)
 GCC_VERSION:=$(shell $(GXX) --version | head -n1 | sed 's/.* //g')
 CXX_VERSION?=$(GCC_VERSION)
 CXX:=$(COMPILER_CACHE) $(GXX)
+CC:=$(COMPILER_CACHE) $(GCC)
 
 GXXWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -Woverloaded-virtual -Wno-deprecated-declarations -Wno-deprecated -Winit-self -Wno-unused-but-set-variable -Wno-psabi -Wno-unknown-pragmas
 
@@ -10,7 +11,7 @@ CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GXXWARNINGFLAGS) -pipe -ggdb $(foreach dir
 CXXNODEBUGFLAGS := -O3 -DBOOST_DISABLE_ASSERTS -DNDEBUG 
 CXXDEBUGFLAGS := -O0 -g3
 
-CXXLINKFLAGS = -rdynamic $(foreach DIR,$(PWD)/$(BIN) $(PWD)/$(LIB),-L$(DIR) -Wl,--rpath-link,$(DIR)) -Wl,--rpath,\$$ORIGIN/../bin -Wl,--rpath,\$$ORIGIN/../lib -Wl,--copy-dt-needed-entries -Wl,--no-as-needed
+CXXLINKFLAGS = $(PORT_LINK_FLAGS) -rdynamic $(foreach DIR,$(PWD)/$(BIN) $(PWD)/$(LIB),-L$(DIR) -Wl,--rpath-link,$(DIR)) -Wl,--rpath,\$$ORIGIN/../bin -Wl,--rpath,\$$ORIGIN/../lib -Wl,--copy-dt-needed-entries -Wl,--no-as-needed
 CXXLIBRARYFLAGS = -shared $(CXXLINKFLAGS) -lpthread
 CXXEXEFLAGS =$(CXXLINKFLAGS) -lpthread
 CXXEXEPOSTFLAGS = $(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY))

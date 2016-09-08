@@ -39,7 +39,8 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
                 }
             }
         })
-        res = mldb.query("SELECT * FROM output")
+        res = mldb.query("SELECT * FROM output order by rowPath()")
+        mldb.log(res)
         self.assertTableResultEquals(res, [
             ["_rowName", "value.data_type", "value.num_null",
              "value.num_unique", "value.max", "value.avg", "value.min",
@@ -50,17 +51,19 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
              "value.most_frequent_items.10",
              "value.most_frequent_items.patate"],
 
-            ["colTxt", "categorical", 1, 2, None, None, None, None, None,
-             None, 1, None, None, None, None, None, 1],
-
-             ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20, None, 1, None,
-              None, "NaN", None, None],
+            ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2,
+             5.196152422706632, 1, None],
 
             ["colB", "number", 2, 1, 2, 2, 2, 2, 2, 2, None, None, 1, None,
              "NaN", None, None],
 
-            ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2,
-             5.196152422706632, 1, None]
+            ["colC", "number", 2, 1, 20, 20, 20, 20, 20, 20, None, 1, None,
+              None, "NaN", None, None],
+
+            ["colTxt", "categorical", 1, 2, None, None, None, None, None,
+             None, 1, None, None, None, None, None, 1]
+
+
         ])
 
     def test_dottest_col_names(self):

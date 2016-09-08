@@ -12,7 +12,7 @@ For C++ code to compile and the Python modules to install correctly, the followi
 apt-get install -y git valgrind build-essential libboost-all-dev \
 libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
-libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
+libpython-dev libgit2-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
 language-pack-en libyaml-cpp-dev
 ```
@@ -354,9 +354,79 @@ make ... WITH_CUDA=1
 ```
 
 
-### Building for ARM
+### Building MLDB for ARM64 (aarch64, eg for Tegra X1 or Jetson X1)
 
-### Building for ARM64
+First, the machine needs to be set up with cross compilers:
 
+```
 sudo apt-get install libc6-arm64-cross libc6-dev-arm64-cross linux-libc-dev-arm64-cross g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+```
+
+Then we need to add arm64 to Debian's multiarch support so that it can find the packages for an arm64 target system:
+
+```
+sudo dpkg --add-architecture arm64
+sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted'
+sudo apt-get update
+```
+
+Thirdly, we need to download the cross development environment for the
+target platform.  This will be installed under build/aarch64/osdeps
+
+```
+make port_deps ARCH=aarch64
+```
+
+Fourthly, we need to make the build tools for the host architecture
+
+```
+make build_tools
+```
+
+Finally, we can build the port itself:
+
+```
+make -j8 -k compile ARCH=aarch64
+```
+
+Note that currently no version of the v8 javascript engine is available
+from Debian for arch64.  We are working on a solution.
+
+
+# Building for ARM with hardware float (eg, Raspberry Pi with a Ubuntu derivative)
+
+First, the machine needs to be set up with cross compilers:
+
+```
+sudo apt-get install libc6-armhf-cross libc6-dev-armhf-cross linux-libc-dev-armhf-cross g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf g++-4.8-multilib-arm-linux-gnueabihf gcc-4.8-multilib-arm-linux-gnueabihf g++-4.8-arm-linux-gnueabihf gcc-4.8-arm-linux-gnueabihf
+```
+
+Then we need to add armhf to Debian's multiarch support so that it can find the packages for an armhf target system:
+
+```
+sudo dpkg --add-architecture armhf
+sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted'
+sudo apt-get update
+```
+
+Thirdly, we need to download the cross development environment for the
+target platform.  This will be installed under build/aarch64/osdeps
+
+```
+make port_deps ARCH=arm
+```
+
+Fourthly, we need to make the build tools for the host architecture
+
+```
+make build_tools
+```
+
+Finally, we can build the port itself:
+
+```
+make -j8 -k compile ARCH=arm
+```
+
+The version of MLDB will be placed in build/arm/bin and build/arm/lib
 

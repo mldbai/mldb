@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <v8.h>
+#include "mldb/ext/v8-cross-build-output/include/v8.h"
 #include <string>
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
@@ -48,11 +48,6 @@ std::string cstr(const std::string & str);
 std::string cstr(const JSValue & val);
 
 Utf8String utf8str(const JSValue & val);
-template<typename T>
-std::string cstr(const v8::Local<T> & str)
-{
-    return cstr(JSValue(str));
-}
 
 template<typename T>
 std::string cstr(const v8::Handle<T> & str)
@@ -85,9 +80,10 @@ v8::Handle<v8::Value> injectBacktrace(v8::Handle<v8::Value> value);
 
 /** Macro to use after a try { block to catch and translate javascript
     exceptions. */
-#define HANDLE_JS_EXCEPTIONS                                    \
+#define HANDLE_JS_EXCEPTIONS(args)                              \
     catch (...) {                                               \
-        return Datacratic::JS::translateCurrentException();     \
+        args.GetReturnValue().Set(Datacratic::JS::translateCurrentException()); \
+        return;                                                         \
     }
 
 #define HANDLE_JS_EXCEPTIONS_SETTER                             \
@@ -128,7 +124,7 @@ toArray(v8::Handle<v8::Value> handle)
     ExcAssert(!handle.IsEmpty());
     if (!handle->IsArray())
         throw ML::Exception("value " + cstr(handle) + " is not an array");
-    v8::Handle<v8::Array> array(v8::Array::Cast(*handle));
+    auto array = handle.As<v8::Array>();
     if (array.IsEmpty())
         throw ML::Exception("value " + cstr(handle) + " is not an array");
     return array;
@@ -146,47 +142,52 @@ toJS(const T & t)
 template<typename T>
 void to_js(JSValue & val, const std::vector<T> & v)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Array> arr(v8::Array::New(v.size()));
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Handle<v8::Array> arr(v8::Array::New(isolate, v.size()));
     for (unsigned i = 0;  i < v.size();  ++i)
-        arr->Set(v8::Uint32::New(i), toJS(v[i]));
-    val = scope.Close(arr);
+        arr->Set(v8::Uint32::New(isolate, i), toJS(v[i]));
+    val = scope.Escape(arr);
 }
 
 template<typename T, std::size_t SIZE>
 void to_js(JSValue & val, const std::array<T, SIZE> & v)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Array> arr(v8::Array::New(v.size()));
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Array> arr(v8::Array::New(isolate, v.size()));
     for (unsigned i = 0;  i < v.size();  ++i)
-        arr->Set(v8::Uint32::New(i), toJS(v[i]));
-    val = scope.Close(arr);
+        arr->Set(v8::Uint32::New(isolate, i), toJS(v[i]));
+    val = scope.Escape(arr);
 }
 
 template<typename T>
 void to_js(JSValue & val, const std::set<T> & s)
 {
-    v8::HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
     v8::Local<v8::Array> arr(v8::Array::New(s.size()));
     int count = 0;
     for(auto i = s.begin(); i != s.end(); ++i)
     {
-        arr->Set(v8::Uint32::New(count), toJS(*i));
+        arr->Set(v8::Uint32::New(isolate, count), toJS(*i));
         count++;
     }
-    val = scope.Close(arr);
+    val = scope.Escape(arr);
 }
 
 template<typename T>
 void to_js(JSValue & val, const std::map<std::string, T> & s)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Object> obj= v8::Object::New();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Object> obj= v8::Object::New(isolate);
     for(auto i = s.begin(); i != s.end(); ++i)
     {
-        obj->Set(v8::String::NewSymbol(i->first.c_str()), toJS(i->second));
+        obj->Set(v8::String::NewFromUtf8(isolate, i->first.c_str()),
+                 toJS(i->second));
     }
-    val = scope.Close(obj);
+    val = scope.Escape(obj);
 }
 
 template<typename T>
@@ -199,7 +200,8 @@ from_js(const JSValue & val, const std::map<std::string, T> * = 0)
     
     std::map<std::string, T> result;
 
-    v8::HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope scope(isolate);
 
     auto objPtr = v8::Object::Cast(*val);
 
@@ -219,14 +221,15 @@ from_js(const JSValue & val, const std::map<std::string, T> * = 0)
 template<typename T, typename Str>
 void to_js(JSValue & val, const std::map<Utf8String, T> & s)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Object> obj= v8::Object::New();
-    for(auto i = s.begin(); i != s.end(); ++i)
-    {
-        obj->Set(v8::String::NewSymbol(i->first.rawData(), i->first.rawLength()),
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Object> obj= v8::Object::New(isolate);
+    for(auto i = s.begin(); i != s.end(); ++i) {
+        obj->Set(v8::String::NewFromUtf8(i->first.rawData(),
+                                         i->first.rawLength()),
                  toJS(i->second));
     }
-    val = scope.Close(obj);
+    val = scope.Escape(obj);
 }
 
 template<typename T>
@@ -239,7 +242,8 @@ from_js(const JSValue & val, const std::map<Utf8String, T> * = 0)
     
     std::map<Utf8String, T> result;
 
-    v8::HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope scope(isolate);
 
     auto objPtr = v8::Object::Cast(*val);
 
@@ -259,25 +263,27 @@ from_js(const JSValue & val, const std::map<Utf8String, T> * = 0)
 template<typename T>
 void to_js(JSValue & val, const std::unordered_map<std::string, T> & s)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Object> obj= v8::Object::New();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Object> obj= v8::Object::New(isolate);
     for(auto i = s.begin(); i != s.end(); ++i)
     {
-        obj->Set(v8::String::NewSymbol(i->first.c_str()), toJS(i->second));
+        obj->Set(v8::String::NewFromUtf8(i->first.c_str()), toJS(i->second));
     }
-    val = scope.Close(obj);
+    val = scope.Escape(obj);
 }
 
 template<typename K, typename V, typename H>
 void to_js(JSValue & val, const std::unordered_map<K, V, H> & s)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Object> obj= v8::Object::New();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Object> obj= v8::Object::New(isolate);
     for(auto i = s.begin(); i != s.end(); ++i)
     {
         obj->Set(toJS(i->first), toJS(i->second));
     }
-    val = scope.Close(obj);
+    val = scope.Escape(obj);
 }
 
 template<typename K, typename V, typename H>
@@ -290,7 +296,8 @@ from_js(const JSValue & val, const std::map<K, V, H> * = 0)
     
     std::map<K, V, H> result;
 
-    v8::HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope scope(isolate);
 
     auto objPtr = v8::Object::Cast(*val);
 
@@ -311,21 +318,23 @@ from_js(const JSValue & val, const std::map<K, V, H> * = 0)
 template<typename T, typename V>
 void to_js(JSValue & val, const std::tuple<T, V> & v)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Array> arr(v8::Array::New(2));
-    arr->Set(v8::Uint32::New(0), toJS(v.template get<0>()));
-    arr->Set(v8::Uint32::New(1), toJS(v.template get<1>()));
-    val = scope.Close(arr);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Array> arr(v8::Array::New(isolate, 2));
+    arr->Set(v8::Uint32::New(isolate, 0), toJS(v.template get<0>()));
+    arr->Set(v8::Uint32::New(isolate, 1), toJS(v.template get<1>()));
+    val = scope.Escape(arr);
 }
 
 template<typename T, typename V>
 void to_js(JSValue & val, const std::pair<T, V> & v)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Array> arr(v8::Array::New(2));
-    arr->Set(v8::Uint32::New(0), toJS( v.first  ));
-    arr->Set(v8::Uint32::New(1), toJS( v.second ));
-    val = scope.Close(arr);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Array> arr(v8::Array::New(isolate, 2));
+    arr->Set(v8::Uint32::New(isolate, 0), toJS( v.first  ));
+    arr->Set(v8::Uint32::New(isolate, 1), toJS( v.second ));
+    val = scope.Escape(arr);
 }
 
 template<typename T, typename V>
@@ -348,13 +357,14 @@ from_js(const JSValue & val, const std::pair<T,V> * = 0)
 template<class Tuple, int Arg, int Size>
 struct TupleOpsJs {
 
-    static void unpack(v8::Local<v8::Array> & arr,
+    static void unpack(v8::Isolate * isolate,
+                       v8::Local<v8::Array> & arr,
                        const Tuple & tuple)
     {
         JSValue val;
         to_js(val, std::get<Arg>(tuple));
-        arr->Set(v8::Uint32::New(Arg), val);
-        TupleOpsJs<Tuple, Arg + 1, Size>::unpack(arr, tuple);
+        arr->Set(v8::Uint32::New(isolate, Arg), val);
+        TupleOpsJs<Tuple, Arg + 1, Size>::unpack(isolate, arr, tuple);
     }
 
     static void pack(v8::Array & array,
@@ -370,7 +380,8 @@ struct TupleOpsJs {
 template<class Tuple, int Size>
 struct TupleOpsJs<Tuple, Size, Size> {
 
-    static void unpack(v8::Local<v8::Array> & array,
+    static void unpack(v8::Isolate * isolate,
+                       v8::Local<v8::Array> & array,
                        const Tuple & tuple)
     {
     }
@@ -384,10 +395,12 @@ struct TupleOpsJs<Tuple, Size, Size> {
 template<typename... Args>
 void to_js(JSValue & val, const std::tuple<Args...> & v)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::Array> arr(v8::Array::New(sizeof...(Args)));
-    TupleOpsJs<std::tuple<Args...>, 0, sizeof...(Args)>::unpack(arr, v);
-    val = scope.Close(arr);
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    v8::Local<v8::Array> arr(v8::Array::New(isolate, sizeof...(Args)));
+    TupleOpsJs<std::tuple<Args...>, 0, sizeof...(Args)>
+        ::unpack(isolate, arr, v);
+    val = scope.Escape(arr);
 }
 
 template<typename... Args>
@@ -408,7 +421,7 @@ from_js(const JSValue & val, const std::tuple<Args...> * v = 0)
     structure or from an array of values.
 */
 struct JSArgs {
-    JSArgs(const v8::Arguments & args)
+    JSArgs(const v8::FunctionCallbackInfo<v8::Value> & args)
         : This(args.This()), args1(&args), args2(0), argc(args.Length())
     {
     }
@@ -421,8 +434,9 @@ struct JSArgs {
 
     v8::Handle<v8::Value> operator [] (unsigned index) const
     {
+        v8::Isolate* isolate = v8::Isolate::GetCurrent();
         if (index >= argc)
-            return v8::Undefined();
+            return v8::Undefined(isolate);
 
         if (args1) return (*args1)[index];
         else return args2[index];
@@ -443,7 +457,7 @@ struct JSArgs {
     }
 
     v8::Handle<v8::Object> This;
-    const v8::Arguments * args1;
+    const v8::FunctionCallbackInfo<v8::Value> * args1;
     const v8::Handle<v8::Value> * args2;
     unsigned argc;
 };
@@ -451,10 +465,6 @@ struct JSArgs {
 /** Convert the given value into a persistent v8 function. */
 v8::Persistent<v8::Function>
 from_js(const JSValue & val, v8::Persistent<v8::Function> * = 0);
-
-/** Same, but for a local version */
-v8::Handle<v8::Function>
-from_js(const JSValue & val, v8::Handle<v8::Function> * = 0);
 
 /** Same, but for a local version */
 v8::Local<v8::Function>
@@ -510,12 +520,6 @@ void from_js(const JSValue & jsval, T * value,
 }
 
 template<typename V8Value>
-void to_js(JSValue & val, const v8::Handle<V8Value> & val2)
-{
-    val = val2;
-}
-
-template<typename V8Value>
 void to_js(JSValue & val, const v8::Local<V8Value> & val2)
 {
     val = val2;
@@ -530,12 +534,13 @@ void to_js(JSValue & val, const v8::Persistent<V8Value> & val2)
 template<typename T, size_t I, typename Sz, bool Sf, typename P, class A>
 void to_js(JSValue & val, const compact_vector<T, I, Sz, Sf, P, A> & v)
 {
-    v8::HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
 
     v8::Local<v8::Array> arr(v8::Array::New(v.size()));
     for (unsigned i = 0;  i < v.size();  ++i)
-        arr->Set(v8::Uint32::New(i), toJS(v[i]));
-    val = scope.Close(arr);
+        arr->Set(v8::Uint32::New(isolate, i), toJS(v[i]));
+    val = scope.Escape(arr);
 }
 
 //template<typename T>

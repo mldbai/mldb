@@ -660,6 +660,13 @@ work() const
     itl->work();
 }
 
+size_t
+ThreadPool::
+numThreads() const
+{
+    return itl->workers.size();
+}
+
 uint64_t
 ThreadPool::
 jobsRunning() const

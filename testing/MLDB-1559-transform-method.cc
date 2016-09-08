@@ -52,7 +52,7 @@ void TestExpression(const T& expression, int expected)
                 a = a->transform(onChild);
             }
 
-            return std::move(args);
+            return args;
         };
 
     expression.transform(onChild);

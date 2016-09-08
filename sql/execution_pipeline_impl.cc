@@ -69,8 +69,8 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
                 //     << " returns " << rowContents.getField(columnName)
                 //     << endl;
 
-                return storage = std::move(rowContents.getNestedColumn(columnName,
-                                                                       filter));
+                return storage = rowContents.getNestedColumn(columnName,
+                                                             filter);
             },
             std::make_shared<AtomValueInfo>()};
 
@@ -334,7 +334,7 @@ Bound(const GenerateRowsElement * parent,
     : parent(std::dynamic_pointer_cast<const GenerateRowsElement>
              (parent->shared_from_this())),
       source_(std::move(source)),
-      inputScope_(std::move(source_->outputScope())),
+      inputScope_(source_->outputScope()),
       outputScope_(/* Add a table to the outer scope */
                    inputScope_->tableScope
                    (std::make_shared<TableLexicalScope>
@@ -654,7 +654,7 @@ doGetAllColumns(const Utf8String & tableName,
                 
             StructValue output;
             if (useLeft) {
-                if (!leftPrefix.empty()) {
+                if (!leftPrefix.null()) {
                     output.emplace_back(leftPrefix, std::move(leftResult));
                 }
                 else {
@@ -663,7 +663,7 @@ doGetAllColumns(const Utf8String & tableName,
             }
 
             if (useRight) {
-                 if (!rightPrefix.empty()) {
+                 if (!rightPrefix.null()) {
                     output.emplace_back(rightPrefix, std::move(rightResult));
                 }
                 else {
@@ -1196,7 +1196,7 @@ take()
                 alreadySeenLeftRow = true;
 
             DEBUG_MSG(logger) << "returning the row";
-            return std::move(result);
+            return result;
         }
         else if (lField < rField) {
             // loop until left field value is equal to the right field value
@@ -1211,7 +1211,7 @@ take()
                     DEBUG_MSG(logger) << "returning left outer row [" 
                                       << result->values[0].coerceToPath()
                                       << "]";
-                    return std::move(result);
+                    return result;
                 } else {
                     DEBUG_MSG(logger) << "skipping left row [" 
                                       << result->values[0].coerceToPath()
@@ -1245,7 +1245,7 @@ take()
                             DEBUG_MSG(logger) << "returning right outer row [" 
                                               << result->values[0].coerceToPath()
                                               << "]";
-                            return std::move(result);
+                            return result;
                         } else {
                             DEBUG_MSG(logger) << "skipping right row [" 
                                               << r->values[0].coerceToPath()

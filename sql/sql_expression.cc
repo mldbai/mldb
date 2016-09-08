@@ -702,13 +702,12 @@ SqlExpression::
 namespace {
 
 // Match a non-scoped identifier
-static Utf8String matchIdentifier(ML::Parse_Context & context,
-                                  bool allowUtf8)
+static bool matchPathIdentifier(ML::Parse_Context & context,
+                                bool allowUtf8, Utf8String & result)
 {
-    Utf8String result;
-
-    if (context.eof())
-        return result;
+    if (context.eof()) {
+        return false;
+    }
 
     if (context.match_literal('"')) {
         //read until the double quote closes.
@@ -721,12 +720,12 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
                 }
                 else if (context.match_literal('"')) {
                     token.ignore();
-                    return result;
+                    return true;
                 }
                 else if (!context) {
                     break;
                 }
-                else result += expectUtf8Char(context);           
+                else result += expectUtf8Char(context);
             }
         }
         
@@ -739,12 +738,18 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
 
         // An identifier can't start with a digit (MLDB-200)
         if (isdigit(*context))
-            return result;
+            return false;
 
         while (context && (isalnum(*context) || *context == '_'))
             result += *context++;
     }
+    return !result.empty();
+}
 
+static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
+{
+    Utf8String result;
+    matchPathIdentifier(context, allowUtf8, result);
     return result;
 }
 
@@ -752,13 +757,15 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 {
     ColumnName result;
 
-    if (context.eof())
+    if (context.eof()) {
         return result;
+    }
 
-    Utf8String first = matchIdentifier(context, allowUtf8);
-
-    if (first.empty())
+    Utf8String first;
+    if (!matchPathIdentifier(context, allowUtf8, first)) {
         return result;
+    }
+
     result = PathElement(std::move(first));
 
     while (context.match_literal('.')) {
@@ -1068,7 +1075,7 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
             if (context && (isalnum(*context) || *context == '_'))
                 return false;
         }
-        
+
         token.ignore();
         return true;
     }
@@ -1794,7 +1801,7 @@ shallowCopy() const
     auto onArgs = [] (std::vector<std::shared_ptr<SqlExpression> > args)
         -> std::vector<std::shared_ptr<SqlExpression> >
         {
-            return std::move(args);
+            return args;
         };
 
     return transform(onArgs);
@@ -1949,7 +1956,7 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
                                         "' with aggregators is not allowed"));
     }
     
-    return std::move(output);
+    return output;
 }
 
 template <class T>
@@ -2512,7 +2519,7 @@ apply(const SqlRowScope & context) const
 {
     std::vector<ExpressionValue> sortFields(clauses.size());
     for (unsigned i = 0;  i < clauses.size();  ++i) {
-        sortFields[i] = std::move(clauses[i].expr(context, GET_LATEST));
+        sortFields[i] = clauses[i].expr(context, GET_LATEST);
     }
     return sortFields;
 }
@@ -2778,7 +2785,7 @@ transform(const TransformArgs & transformArgs) const
     for (auto & clause: result.clauses)
         clause.first = transformArgs({clause.first})[0];
   
-    return std::move(result);
+    return result;
 }
     
 OrderByExpression
@@ -2790,7 +2797,7 @@ substitute(const SelectExpression & select) const
     for (auto & clause: result.clauses)
         clause.first = clause.first->substitute(select);
     
-    return std::move(result);
+    return result;
 }
 
 const OrderByExpression ORDER_BY_NOTHING;
@@ -2979,7 +2986,7 @@ SelectExpression(const std::string & exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -2988,7 +2995,7 @@ SelectExpression(const char * exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -2997,7 +3004,7 @@ SelectExpression(const Utf8String & exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -3023,7 +3030,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
     if (matchKeyword(context, "DISTINCT ON ")) {
         context.skip_whitespace();
         context.expect_literal('(');
-        do {       
+        do {
             auto expr = SqlExpression::parse(context, 10, allowUtf8);
             distinctExpr.push_back(expr);
             context.skip_whitespace();
@@ -3042,7 +3049,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
     result.distinctExpr = std::move(distinctExpr);
 
-    result.surface = ML::trim(token.captured()); 
+    result.surface = ML::trim(token.captured());
 
     return result;
 }
@@ -3095,7 +3102,7 @@ bind(SqlBindingScope & context) const
 {
     vector<BoundSqlExpression> boundClauses;
     for (auto & c: clauses)
-        boundClauses.emplace_back(std::move(c->bind(context)));
+        boundClauses.emplace_back(c->bind(context));
 
     std::vector<KnownColumn> outputColumns;
 
@@ -3135,7 +3142,7 @@ bind(SqlBindingScope & context) const
                 else v.appendToRow(Path(), result);
             }
             
-            return storage = std::move(ExpressionValue(std::move(result)));
+            return storage = ExpressionValue(std::move(result));
         };
 
     return BoundSqlExpression(exec, this, outputInfo, isConstant);
@@ -3271,7 +3278,7 @@ parseJsonTyped(SelectExpression * val,
                JsonParsingContext & context) const
 {
     Utf8String s = context.expectStringUtf8();
-    *val = std::move(SelectExpression::parse(s));
+    *val = SelectExpression::parse(s);
 }
 
 void
@@ -3884,7 +3891,7 @@ parse(const std::string& body)
 
     context.expect_eof();
 
-    return std::move(stm);
+    return stm;
 }
 
 SelectStatement
@@ -3996,7 +4003,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-    return std::move(statement);
+    return statement;
 }
 
 Utf8String

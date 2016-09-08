@@ -18,6 +18,7 @@
 #include "multi_array_utils.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/ml/algebra/lapack.h"
+#include <cmath>
 
 using namespace std;
 using namespace ML;
@@ -28,12 +29,14 @@ namespace ML {
 
 double erf(double x)
 {
-    return ::erf(x);
+    return std::erf(x);
 }
 
 double erfinv(double y)
 {
-    return ::erfinv(y);
+    // TODO: if we use boost here, then Valgrind doesn't work
+    throw ML::Exception("no error function inverse available");
+    //return std::erfinv(y);
 }
 
 } // namespace ML

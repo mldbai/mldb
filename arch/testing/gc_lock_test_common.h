@@ -193,7 +193,7 @@ struct TestBase {
 
     std::atomic<bool> finished;
     std::atomic<int> nthreads;
-    std::atomic<int> nblocks;
+    int nblocks;
     std::atomic<int> nSpinThreads;
     Allocator<int> allocator;
     Lock gc;

@@ -197,8 +197,9 @@ struct PathElement {
     /// with legacy hashes.
     uint64_t newHash() const;
 
-    inline bool empty() const
+    inline bool null() const
     {
+        // The empty string is not a null PathElement
         return complex_ == 0 && simpleLen_ == 0;
     }
 
@@ -254,7 +255,7 @@ struct PathElement {
 
     union {
         // The complex_ flag means we can't simply copy the words around;
-        // we need to do some more work.
+        // we need to do some more work. (Empty strings are considered complex)
         struct {
             uint8_t complex_: 1;   ///< If true, we're stored in an external string
             uint8_t simpleLen_:5;  ///< If complex_ is false, this is the length
@@ -562,7 +563,7 @@ private:
 
 struct Path {
     Path()
-        : length_(0), digits_(0), ofsPtr_(0)
+        : length_(0), digits_(0), ofsPtr_(nullptr)
     {
     }
 

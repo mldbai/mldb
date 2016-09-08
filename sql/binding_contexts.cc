@@ -36,7 +36,7 @@ doGetFunction(const Utf8String & tableName,
         if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
             outerArgs.emplace_back(std::move(arg));		
         else		
-            outerArgs.emplace_back(std::move(rebind(arg)));		
+            outerArgs.emplace_back(rebind(arg));
     }
 
     // Get function from the outer scope

@@ -501,7 +501,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     auto makeClient = [&] () {
         return HttpClient(legacyLoop, baseUrl, 1);
     };
-    HttpClient client1(move(makeClient()));
+    HttpClient client1(makeClient());
     doGet(client1);
 
     /* move assignment operator */

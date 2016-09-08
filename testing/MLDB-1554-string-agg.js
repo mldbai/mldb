@@ -31,7 +31,7 @@ recordExample("plum", "died", "stabbed");
 dataset.commit()
 
 var resp = mldb.get("/v1/query", 
-    {q: "SELECT string_agg(what, ', ') AS whats, string_agg(how, '') AS hows NAMED who FROM test GROUP BY who ORDER BY who",
+    {q: "SELECT string_agg(what, ', ', rowName()) AS whats, string_agg(how, '', rowName()) AS hows NAMED who FROM test GROUP BY who ORDER BY who",
     format: 'sparse'});
 
 plugin.log(resp.json);
@@ -41,8 +41,8 @@ assertEqual(resp.responseCode, 200, "Error executing query");
 expected = [
    [
       [ "_rowName", "mustard" ],
-      [ "hows", "plumplumkitchen" ],
-      [ "whats", "killed, stabbed, moved" ]
+      [ "hows", "kitchenplumplum" ],
+      [ "whats", "moved, stabbed, killed" ]
    ],
    [
       [ "_rowName", "plum" ],

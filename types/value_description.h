@@ -583,7 +583,7 @@ std::string jsonEncodeStr(const T & obj)
     result.reserve(116);  /// try to force a 128 byte allocation
     StringJsonPrintingContext context(result);
     desc->printJson(&obj, context);
-    return std::move(result);
+    return result;
 }
 
 // jsonEncode implementation for any type which:

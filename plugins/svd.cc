@@ -681,7 +681,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(svdConfig, run);
 
-    if (runProcConf.outputColumn.empty()) {
+    if (runProcConf.outputColumn.null()) {
         throw HttpReturnException
             (400, "SVD training procedure requires a non-empty output column name",
              "config", runProcConf);
@@ -1062,7 +1062,7 @@ SvdEmbedRow(MldbServer * owner,
     : BaseT(owner)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
-    svd = std::move(jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString()));
+    svd = jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString());
 
     std::map<ColumnHash, SvdColumnIndexEntry> columnIndex2;
 

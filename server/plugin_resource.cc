@@ -411,7 +411,7 @@ getScript(PackageElement elem) const
     std::ostringstream out;
     out << stream.rdbuf();
     stream.close();
-    return Utf8String(std::move(out.str()));
+    return Utf8String(out.str());
 }
 
 Utf8String LoadedPluginResource::
