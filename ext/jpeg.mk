@@ -16,7 +16,7 @@ $(CWD)/jconfig.h:
 	cd mldb/ext/jpeg && ./configure
 endif
 
-$(JPEG_SOURCE):	$(CWD)/jconfig.h
+$(LIB)/libjpeg.so:	$(CWD)/jconfig.h
 
 JPEG_INCLUDE_FILES:=$(CWD)/jconfig.h
 
