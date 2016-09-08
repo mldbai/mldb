@@ -365,7 +365,7 @@ tensorflow_lib: $(LIB)/libtensorflow.so
 
 define generate_tensorflow_op
 
-$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so
+$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(INC)/google/protobuf $(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so
 	@LD_PRELOAD=$(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so $(HOSTBIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.cc 0
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
 
