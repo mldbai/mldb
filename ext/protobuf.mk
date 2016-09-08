@@ -11,7 +11,7 @@ ifneq ($(PREMAKE),1)
 #
 # $(1) = arch to build for (either $HOSTARCH or $ARCH)
 # $(2) = place to install libraries
-# $(3) = place to install headers (unused)
+# $(3) = place to install headers
 # $(4) = place to install binaries
 
 define build_protobuf_for_arch
