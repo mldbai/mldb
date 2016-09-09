@@ -91,6 +91,10 @@ struct MongoQueryFunction: Function {
         using bsoncxx::builder::stream::close_document;
 
         const auto & query = context.getColumn(PathElement("query"));
+        if (query.empty()) {
+            throw HttpReturnException(
+                400, "You must define the parameter \"query\"");
+        }
         const auto queryStr = query.toUtf8String().rawString();
         bsoncxx::v_noabi::document::value queryDoc = bsoncxx::from_json(queryStr);
         Json::Value jsonVal = Json::parse(queryStr);

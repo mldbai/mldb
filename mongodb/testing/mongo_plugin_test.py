@@ -35,7 +35,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
     def setUpClass(cls):
         if got_mongod:
             # We use a single server instance for the whole test
-            cls.mongo_tmp_server = MongoTemporaryServerPtr("", 0)
+            cls.mongo_tmp_server = MongoTemporaryServerPtr("localhost", 0)
             cls.port = cls.mongo_tmp_server.get_port_num()
             cls.pymongo = MongoClient('localhost', cls.port)
             cls.connection_scheme = \
@@ -395,7 +395,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
     def test_query_named_row(self):
         # Example of a query passed straight to mongodb. The result comes back
         # formatted as an MLDB result.
-        res = mldb.put('/v1/functions/mongo_query', {
+        mldb.put('/v1/functions/mongo_query', {
             'type' : 'mongodb.query',
             'params' : {
                 'connectionScheme' : self.connection_scheme,
@@ -414,6 +414,22 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         keys.sort()
         self.assertEqual(res['output'][keys[0]][1][0], 'type')
         self.assertEqual(res['output'][keys[0]][1][1][0], 'simple')
+
+    @unittest.skipIf(not got_mongod, "mongod not available")
+    def test_query_no_query(self):
+        # Example of a query passed straight to mongodb. The result comes back
+        # formatted as an MLDB result.
+        mldb.put('/v1/functions/mongo_query_no_query', {
+            'type' : 'mongodb.query',
+            'params' : {
+                'connectionScheme' : self.connection_scheme,
+                'collection' : 'test_collection'
+            }
+        })
+        msg = 'You must define the parameter "query"'
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.get('/v1/functions/mongo_query_no_query/application')
+
 
     @unittest.skipIf(not got_mongod, "mongod not available")
     def test_dataset(self):
