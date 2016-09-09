@@ -35,7 +35,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
     def setUpClass(cls):
         if got_mongod:
             # We use a single server instance for the whole test
-            cls.mongo_tmp_server = MongoTemporaryServerPtr("localhost", 0)
+            cls.mongo_tmp_server = MongoTemporaryServerPtr("", 0)
             cls.port = cls.mongo_tmp_server.get_port_num()
             cls.pymongo = MongoClient('localhost', cls.port)
             cls.connection_scheme = \
@@ -426,10 +426,9 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 'collection' : 'test_collection'
             }
         })
-        msg = 'You must define the parameter "query"'
+        msg = 'You must define the parameter \\\\"query\\\\"'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.get('/v1/functions/mongo_query_no_query/application')
-
 
     @unittest.skipIf(not got_mongod, "mongod not available")
     def test_dataset(self):

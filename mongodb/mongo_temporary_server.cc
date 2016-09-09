@@ -23,7 +23,8 @@ MongoTemporaryServer(const string & uniquePath, const int portNum)
     ++index;
 
     if (uniquePath_.empty()) {
-        string tmpDir(secure_getenv("TMP"));
+        char * tmp = secure_getenv("TMP");
+        string tmpDir(tmp == nullptr ? "" : tmp);
         if (tmpDir == "") {
             tmpDir = "./tmp";
         }
