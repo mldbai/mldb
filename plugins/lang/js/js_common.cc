@@ -401,7 +401,7 @@ PathElement from_js_ref(const JS::JSValue & value, PathElement *)
 void to_js(JS::JSValue & value, const PathElement & val)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    if (val.empty())
+    if (val.null())
         value = v8::Null(isolate);
     return to_js(value, val.toUtf8String());
 }

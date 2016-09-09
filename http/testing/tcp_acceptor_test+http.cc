@@ -118,8 +118,74 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_disconnect_test )
                           "Host: *\r\n"
                           "\r\n");
         cerr << "sending\n";
-        socket.send(boost::asio::buffer(request.c_str(), request.size()));
+        socket.send(asio::buffer(request.c_str(), request.size()));
         cerr << "sent\n";
+    }
+    ::sleep(1);
+
+    pool.shutdown();
+}
+
+/* Test handling of 100-Continue headers */
+BOOST_AUTO_TEST_CASE( tcp_acceptor_http_100_continue )
+{
+    EventLoop loop;
+    AsioThreadPool pool(loop);
+
+    auto onNewConnection = [&] (TcpSocket && socket) {
+        return std::make_shared<MyHandler>(std::move(socket));
+    };
+
+    TcpAcceptor acceptor(loop, onNewConnection);
+    acceptor.listen(0, "localhost");
+
+    auto address = asio::ip::address::from_string("127.0.0.1");
+    asio::ip::tcp::endpoint serverEndpoint(address,
+                                           acceptor.effectiveTCPv4Port());
+
+    {
+        auto socket = asio::ip::tcp::socket(loop.impl().ioService());
+        socket.connect(serverEndpoint);
+
+        {
+            /* First we send a 100 continue request. */
+            char request[] = ("POST /something HTTP/1.1\r\n"
+                              "Host: *\r\n"
+                              "Content-Length: 5\r\n"
+                              "Expect: 100-continue\r\n"
+                              "\r\n");
+            socket.send(asio::buffer(request, sizeof(request)));
+            char recvBuffer[1024];
+            size_t nBytes = socket.receive(asio::buffer(recvBuffer,
+                                                        sizeof(recvBuffer)));
+            BOOST_REQUIRE(strncmp(recvBuffer, "HTTP/1.1 100 Continue\r\n\r\n", nBytes)
+                          == 0);
+            char body[] = "abcde";
+            socket.send(asio::buffer(body, sizeof(body)));
+        }
+
+        {
+            /* Then we send a second request to ensure that the states were
+               correctly reset. */
+            char request[] = ("POST /ping HTTP/1.1\r\n"
+                              "Host: *\r\n"
+                              "Content-Length: 5\r\n"
+                              "\r\n"
+                              "12345");
+            socket.send(asio::buffer(request, sizeof(request)));
+
+            char recvBuffer[1024];
+            size_t nBytes = socket.receive(asio::buffer(recvBuffer,
+                                                        sizeof(recvBuffer)));
+            string expectedResponse("HTTP/1.1 200 OK\r\n"
+                                    "Content-Type: text/plain\r\n"
+                                    "Content-Length: 4\r\n"
+                                    "Connection: Keep-Alive\r\n"
+                                    "\r\n"
+                                    "pong");
+            string response(recvBuffer, nBytes);
+            BOOST_CHECK_EQUAL(response, expectedResponse);
+        }
     }
     ::sleep(1);
 

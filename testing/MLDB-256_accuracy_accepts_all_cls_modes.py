@@ -184,7 +184,7 @@ class Mldb256Test(MldbUnitTest):
         jsRez = rez.json()
         self.assertGreater(jsRez["status"]["folds"][0]["resultsTest"]["auc"], 0.65)
 
-        bestF = jsRez["status"]["folds"][0]["resultsTest"]["bestF"]
+        bestF = jsRez["status"]["folds"][0]["resultsTest"]["bestF1Score"]
         accuracy = (bestF["counts"]["truePositives"] + bestF["counts"]["trueNegatives"]) / \
                         (bestF["population"]["included"] + bestF["population"]["excluded"])
         self.assertEqual(bestF["pr"]["accuracy"], accuracy)
@@ -213,21 +213,21 @@ class Mldb256Test(MldbUnitTest):
 
         goodLabelStatistics = {
                     "0": {
-                        "f": 0.8,
+                        "f1Score": 0.8,
                         "recall": 1.0,
                         "support": 2,
                         "precision": 2./3,
                         "accuracy": 0.8
                     },
                     "1": {
-                        "f": 0.0,
+                        "f1Score": 0.0,
                         "recall": 0.0,
                         "support": 1,
                         "precision": 0.0,
                         "accuracy": 0.8
                     },
                     "2": {
-                        "f": 1.0,
+                        "f1Score": 1.0,
                         "recall": 1.0,
                         "support": 2,
                         "precision": 1.0,
@@ -245,7 +245,7 @@ class Mldb256Test(MldbUnitTest):
         total_support = 0
         total_precision = 0
         for val in goodLabelStatistics.itervalues():
-            total_f1 += val["f"] * val["support"]
+            total_f1 += val["f1Score"] * val["support"]
             total_accuracy += val["accuracy"] * val["support"]
             total_recall += val["recall"] * val["support"]
             total_precision += val["precision"] * val["support"]
@@ -253,7 +253,7 @@ class Mldb256Test(MldbUnitTest):
 
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["weightedStatistics"],
                 {
-                    "f": total_f1 / total_support,
+                    "f1Score": total_f1 / total_support,
                     "recall": total_recall / total_support,
                     "accuracy": total_accuracy / total_support,
                     "support": total_support,

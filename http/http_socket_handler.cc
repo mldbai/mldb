@@ -5,6 +5,7 @@
    Copyright (c) 2015 Datacratic.  All rights reserved.
 */
 
+#include <strings.h>
 #include "boost/system/error_code.hpp"
 #include "boost/asio/error.hpp"
 #include "mldb/arch/exception.h"
@@ -13,6 +14,14 @@
 
 using namespace std;
 using namespace Datacratic;
+
+namespace {
+
+constexpr char header100Continue[] = "Expect: 100-continue\r\n";
+constexpr int sizeof100Continue = sizeof(header100Continue) - 1;
+
+}
+
 
 namespace Datacratic {
 
@@ -78,6 +87,9 @@ HttpSocketHandler(TcpSocket socket)
     };
     parser_.onHeader = [&] (const char * data, size_t dataSize) {
         this->onHeader(data, dataSize);
+    };
+    parser_.onExpect100Continue = [&] () {
+        return this->onExpect100Continue();
     };
     parser_.onData = [&] (const char * data, size_t dataSize) {
         this->onData(data, dataSize);
@@ -194,7 +206,7 @@ putResponseOnWire(const HttpResponse & response,
     responseStr.append("\r\n");
     responseStr.append(response.body);
 
-    send(std::move(responseStr), next, onSendFinished);
+    send(std::move(responseStr), std::move(next), std::move(onSendFinished));
 }
 
 void
@@ -217,6 +229,34 @@ HttpLegacySocketHandler::
 onHeader(const char * data, size_t size)
 {
     headerPayload.append(data, size);
+}
+
+bool
+HttpLegacySocketHandler::
+onExpect100Continue()
+{
+    bool result;
+
+    HttpHeader header;
+    header.parse(headerPayload);
+    if (shouldReturn100Continue(header)) {
+        send("HTTP/1.1 100 Continue\r\n\r\n");
+        result = true;
+    }
+    else {
+        send("HTTP/1.1 417 Expectation Failed\r\n\r\n");
+        headerPayload.clear();
+        result = false;
+    }
+
+    return result;
+}
+
+bool
+HttpLegacySocketHandler::
+shouldReturn100Continue(const HttpHeader & header)
+{
+    return true;
 }
 
 void

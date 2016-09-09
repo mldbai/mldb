@@ -702,13 +702,12 @@ SqlExpression::
 namespace {
 
 // Match a non-scoped identifier
-static Utf8String matchIdentifier(ML::Parse_Context & context,
-                                  bool allowUtf8)
+static bool matchPathIdentifier(ML::Parse_Context & context,
+                                bool allowUtf8, Utf8String & result)
 {
-    Utf8String result;
-
-    if (context.eof())
-        return result;
+    if (context.eof()) {
+        return false;
+    }
 
     if (context.match_literal('"')) {
         //read until the double quote closes.
@@ -721,12 +720,12 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
                 }
                 else if (context.match_literal('"')) {
                     token.ignore();
-                    return result;
+                    return true;
                 }
                 else if (!context) {
                     break;
                 }
-                else result += expectUtf8Char(context);           
+                else result += expectUtf8Char(context);
             }
         }
         
@@ -739,12 +738,18 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
 
         // An identifier can't start with a digit (MLDB-200)
         if (isdigit(*context))
-            return result;
+            return false;
 
         while (context && (isalnum(*context) || *context == '_'))
             result += *context++;
     }
+    return !result.empty();
+}
 
+static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
+{
+    Utf8String result;
+    matchPathIdentifier(context, allowUtf8, result);
     return result;
 }
 
@@ -752,13 +757,15 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 {
     ColumnName result;
 
-    if (context.eof())
+    if (context.eof()) {
         return result;
+    }
 
-    Utf8String first = matchIdentifier(context, allowUtf8);
-
-    if (first.empty())
+    Utf8String first;
+    if (!matchPathIdentifier(context, allowUtf8, first)) {
         return result;
+    }
+
     result = PathElement(std::move(first));
 
     while (context.match_literal('.')) {
@@ -1068,7 +1075,7 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
             if (context && (isalnum(*context) || *context == '_'))
                 return false;
         }
-        
+
         token.ignore();
         return true;
     }
@@ -3023,7 +3030,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
     if (matchKeyword(context, "DISTINCT ON ")) {
         context.skip_whitespace();
         context.expect_literal('(');
-        do {       
+        do {
             auto expr = SqlExpression::parse(context, 10, allowUtf8);
             distinctExpr.push_back(expr);
             context.skip_whitespace();
@@ -3042,7 +3049,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
     result.distinctExpr = std::move(distinctExpr);
 
-    result.surface = ML::trim(token.captured()); 
+    result.surface = ML::trim(token.captured());
 
     return result;
 }

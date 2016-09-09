@@ -6,8 +6,6 @@
 # This tests the `classifier.test` procedure.
 #
 from __future__ import division
-from pprint import pformat
-import unittest
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
@@ -207,21 +205,21 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
         truth = {
             'labelStatistics': {
                 '0': {
-                    "f": 2/3,
+                    "f1Score": 2/3,
                     "recall": 1,
                     "support": 1,
                     "precision": .5,
                     "accuracy": 0.75,
                 },
                 '1': {
-                    "f": 1,
+                    "f1Score": 1,
                     "recall": 1,
                     "support": 1,
                     "precision": 1,
                     "accuracy": 1,
                 },
                 '2': {
-                    "f": 2. * .5  / 1.5,
+                    "f1Score": 2. * .5  / 1.5,
                     "recall": 0.5,
                     "support": 2,
                     "precision": 1,
@@ -229,7 +227,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
                 },
             },
             'weightedStatistics': {
-                'f': (2/3 + 1 + 2/3*2)/4,
+                'f1Score': (2/3 + 1 + 2/3*2)/4,
                 'recall': (1+1+.5*2)/4,
                 'support': 4,
                 'precision': (.5+1+1*2)/4,
@@ -264,21 +262,21 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
         truth = {
             'labelStatistics': {
                 '0': {
-                    "f": 2/5,
+                    "f1Score": 2/5,
                     "recall": 1,
                     "support": 1,
                     "precision": .25,
                     "accuracy": 5/8,
                 },
                 '1': {
-                    "f": 1,
+                    "f1Score": 1,
                     "recall": 1,
                     "support": 3,
                     "precision": 1,
                     "accuracy": 1,
                 },
                 '2': {
-                    "f": 2/5,
+                    "f1Score": 2/5,
                     "recall": 0.25,
                     "support": 4,
                     "precision": 1,
@@ -286,7 +284,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
                 },
             },
             'weightedStatistics': {
-                'f': (2/5 + 3 + 2/5*4) / 8,
+                'f1Score': (2/5 + 3 + 2/5*4) / 8,
                 'recall': (1 + 3 + .25*4)/8,
                 'support': 8,
                 'precision': (.25 + 3 + 4) / 8,

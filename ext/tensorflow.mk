@@ -57,7 +57,7 @@ PROTO_TEXT_CC_FILES := $(shell cat $(TF_MAKEFILE_DIR)/proto_text_cc_files.txt)
 
 TENSORFLOW_PROTO_TEXT_FILES := $(PROTO_TEXT_CC_FILES)
 
-$(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so  $(INC)/google/protobuf
+$(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so  $(INC)/google/protobuf $(CWD)/tensorflow/core/lib/core/error_codes.pb.h $(CWD)/tensorflow/core/framework/summary.pb.h
 
 $(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field -Wno-unused-const-variable))
 
@@ -119,7 +119,7 @@ $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH):
 
 # To create a protobuf file, we compile the input file.  Same for the .h
 # file.
-$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto $(HOSTBIN)/protoc
+$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(HOSTBIN)/protoc $(INC)/google/protobuf
 	@echo "         $(COLOR_CYAN)[PROTO]$(COLOR_RESET)			$(basename $<)"
 	@$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
@@ -328,7 +328,7 @@ $(foreach op,$(TENSORFLOW_OPS), \
 # Put them all into one convenient library, along with the no_op.  The no_op
 # has to be here, and not in the core library, as otherwise the interface is
 # generated for each of the ops and we have multiple definitions.
-$(CWD)/tensorflow/core/ops/no_op.cc: | $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
+$(CWD)/tensorflow/core/ops/no_op.cc: | $(INC)/google/protobuf $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
 $(eval $(call set_compile_option,tensorflow/core/ops/no_op.cc,$(TENSORFLOW_COMPILE_FLAGS)))
 $(eval $(call library,tensorflow-ops,tensorflow/core/ops/no_op.cc,$(foreach op,$(TENSORFLOW_OPS),tensorflow_$(op)_ops) tensorflow-core,,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
 
@@ -365,7 +365,7 @@ tensorflow_lib: $(LIB)/libtensorflow.so
 
 define generate_tensorflow_op
 
-$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so
+$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so | $(INC)/google/protobuf 
 	@LD_PRELOAD=$(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so $(HOSTBIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.cc 0
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
 
