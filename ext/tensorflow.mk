@@ -119,7 +119,7 @@ $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH):
 
 # To create a protobuf file, we compile the input file.  Same for the .h
 # file.
-$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto $(HOSTBIN)/protoc | $(INC)/google/protobuf
+$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(HOSTBIN)/protoc $(INC)/google/protobuf
 	@echo "         $(COLOR_CYAN)[PROTO]$(COLOR_RESET)			$(basename $<)"
 	@$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
@@ -365,7 +365,7 @@ tensorflow_lib: $(LIB)/libtensorflow.so
 
 define generate_tensorflow_op
 
-$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(INC)/google/protobuf $(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so
+$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so | $(INC)/google/protobuf 
 	@LD_PRELOAD=$(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so $(HOSTBIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.cc 0
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
 
