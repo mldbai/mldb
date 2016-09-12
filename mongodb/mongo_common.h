@@ -26,14 +26,14 @@ namespace Mongo {
 
 const Package & mongodbPackage();
 
-const static std::string mongoScheme =
+const static std::string mongoConnSchemeAndDesc =
     "MongoDB connection scheme. "
     "mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database]]";
 
 CellValue bsonToCell(const bsoncxx::types::value & val);
 StructValue extract(const Date & ts, const bsoncxx::document::view & doc);
 StructValue extract(const Date & ts, const bsoncxx::array::view & arr);
-void validateConnectionScheme(const std::string & connectionScheme);
+void validateConnectionScheme(const std::string & uriConnectionScheme);
 void validateCollection(const std::string & collection);
 
 struct MongoRowScope : SqlRowScope {
@@ -47,14 +47,14 @@ struct MongoScope : SqlExpressionMldbScope {
 
     MongoScope(MldbServer * server) : SqlExpressionMldbScope(server){}
 
-    ColumnGetter doGetColumn(const Utf8String & tableName,
-                             const ColumnName & columnName) override;
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName) override;
 
-    GetAllColumnsOutput
+    virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
                     const ColumnFilter & keep) override;
 
-    BoundFunction
+    virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
                   const std::vector<BoundSqlExpression> & args,

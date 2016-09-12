@@ -28,7 +28,7 @@ namespace Mongo {
 struct MongoRecordConfig {
     static constexpr const char * name = "mongodb.record";
     MongoRecordConfig() {}
-    string connectionScheme;
+    string uriConnectionScheme;
     string collection;
 };
 DECLARE_STRUCTURE_DESCRIPTION(MongoRecordConfig);
@@ -37,15 +37,15 @@ DEFINE_STRUCTURE_DESCRIPTION(MongoRecordConfig);
 MongoRecordConfigDescription::
 MongoRecordConfigDescription()
 {
-    addField("connectionScheme", &MongoRecordConfig::connectionScheme,
-             mongoScheme);
+    addField("uriConnectionScheme", &MongoRecordConfig::uriConnectionScheme,
+             mongoConnSchemeAndDesc);
     addField("collection", &MongoRecordConfig::collection,
              "The collection to record to.");
 
     onPostValidate = [] (MongoRecordConfig * config,
                          JsonParsingContext & context)
     {
-        validateConnectionScheme(config->connectionScheme);
+        validateConnectionScheme(config->uriConnectionScheme);
         validateCollection(config->collection);
     };
 }
@@ -64,7 +64,7 @@ struct MongoRecord: Dataset {
         : Dataset(owner)
     {
         auto dsConfig = config.params.convert<MongoRecordConfig>();
-        mongocxx::uri mongoUri(dsConfig.connectionScheme);
+        mongocxx::uri mongoUri(dsConfig.uriConnectionScheme);
         conn = mongocxx::client(mongoUri);
         db = conn[mongoUri.database()];
         collection = dsConfig.collection;
@@ -157,7 +157,7 @@ struct MongoRecord: Dataset {
 static RegisterDatasetType<MongoRecord, MongoRecordConfig>
 regMongodbDataset(mongodbPackage(),
                  "mongodb.record",
-                 "Dataset type that forwards records to a mongodb database",
+                 "Dataset type that forwards records to a MongoDB database",
                  "MongoRecord.md.html");
 
 } // namespace Mongo

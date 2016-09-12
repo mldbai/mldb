@@ -25,6 +25,7 @@ const Package & mongodbPackage()
     return result;
 }
 
+// Call for atomic values.
 CellValue bsonToCell(const bsoncxx::types::value & val)
 {
     switch (val.type()) {
@@ -59,6 +60,7 @@ CellValue bsonToCell(const bsoncxx::types::value & val)
 
     case bsoncxx::type::k_array:
     case bsoncxx::type::k_document:
+        // For k_array and k_document "extract" should be called.
         ExcAssert(false);
 
     case bsoncxx::type::k_dbpointer:
@@ -115,17 +117,17 @@ StructValue extract(const Date & ts, const bsoncxx::array::view & arr)
     return row;
 }
 
-void validateConnectionScheme(const std::string & connectionScheme)
+void validateConnectionScheme(const std::string & uriConnectionScheme)
 {
     // Mongo driver is very sensitive regarding uris.
     // Bad ones may provoke aborts.
-    if (connectionScheme.empty() || connectionScheme.find("mongodb://") != 0
-            || connectionScheme.size() < 11)
+    if (uriConnectionScheme.empty() || uriConnectionScheme.find("mongodb://") != 0
+            || uriConnectionScheme.size() < 11)
     {
         throw HttpReturnException(
             400,
-            "connectionScheme is a required property and the minimal "
-            "connectionScheme format is mongodb://<host>");
+            "uriConnectionScheme is a required property and the minimal "
+            "uriConnectionScheme format is mongodb://<host>");
     }
 }
 

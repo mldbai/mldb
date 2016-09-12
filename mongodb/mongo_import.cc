@@ -28,7 +28,7 @@ typedef tuple<ColumnName, CellValue, Date> Cell;
 
 struct MongoImportConfig: ProcedureConfig {
     static constexpr const char * name = "mongodb.import";
-    string connectionScheme;
+    string uriConnectionScheme;
     string collection;
     PolyConfigT<Dataset> outputDataset;
 
@@ -40,7 +40,7 @@ struct MongoImportConfig: ProcedureConfig {
     std::shared_ptr<SqlExpression> named;
 
     MongoImportConfig() :
-        connectionScheme(""),
+        uriConnectionScheme(""),
         limit(-1),
         offset(0),
         ignoreParsingErrors(false),
@@ -59,8 +59,8 @@ MongoImportConfigDescription::
 MongoImportConfigDescription()
 {
     addParent<ProcedureConfig>();
-    addField("connectionScheme", &MongoImportConfig::connectionScheme,
-             mongoScheme);
+    addField("uriConnectionScheme", &MongoImportConfig::uriConnectionScheme,
+             mongoConnSchemeAndDesc);
     addField("collection", &MongoImportConfig::collection,
              "The collection to import");
     addField("outputDataset", &MongoImportConfig::outputDataset,
@@ -91,7 +91,7 @@ MongoImportConfigDescription()
     onPostValidate = [] (MongoImportConfig * config,
                          JsonParsingContext & context)
     {
-        validateConnectionScheme(config->connectionScheme);
+        validateConnectionScheme(config->uriConnectionScheme);
         validateCollection(config->collection);
     };
 }
@@ -118,7 +118,7 @@ struct MongoImportProcedure: public Procedure {
     {
         const auto runConfig = applyRunConfOverProcConf(config, run);
 
-        mongocxx::uri mongoUri(runConfig.connectionScheme);
+        mongocxx::uri mongoUri(runConfig.uriConnectionScheme);
         mongocxx::client conn(mongoUri);
         auto db = conn[mongoUri.database()];
 
@@ -147,7 +147,7 @@ struct MongoImportProcedure: public Procedure {
             if (doc["_id"].type() != bsoncxx::type::k_oid) {
                 throw HttpReturnException(
                     500,
-                    "monbodb.import unimplemented support for "
+                    "monbodb.import: unimplemented support for "
                     "MongoDB records with key \"_id\" that are not "
                     "ObjectIDs.");
             }
@@ -169,7 +169,6 @@ struct MongoImportProcedure: public Procedure {
 
                 if (useSelect) {
                     expr = selectBound(row, storage, GET_ALL);
-                    storage = expr;
                 }
             }
 
@@ -220,7 +219,7 @@ struct MongoImportProcedure: public Procedure {
 
 static RegisterProcedureType<MongoImportProcedure, MongoImportConfig>
 regMongodbImport(mongodbPackage(),
-                 "Import a dataset from mongodb",
+                 "Import a dataset from MongoDB",
                  "MongoImport.md.html");
 
 } // namespace Mongo

@@ -104,7 +104,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         res = mldb.post('/v1/procedures', {
             'type' : 'mongodb.import',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : self.collection_name,
                 'outputDataset' : {
                     'id' : 'imported',
@@ -177,7 +177,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.post('/v1/procedures', {
             'type' : 'mongodb.import',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : self.collection_name,
                 'outputDataset' : {
                     'id' : 'imported_oid',
@@ -193,12 +193,12 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             self.assertEqual(r[0], r[1])
 
     def test_invalid_connection_scheme(self):
-        msg = 'the minimal connectionScheme format is'
+        msg = 'the minimal uriConnectionScheme format is'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
-                    'connectionScheme' : 'mongodb://',
+                    'uriConnectionScheme' : 'mongodb://',
                     'collection' : 'users',
                     'outputDataset' : {
                         'id' : 'out',
@@ -211,7 +211,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
-                    'connectionScheme' : 'bouette://',
+                    'uriConnectionScheme' : 'bouette://',
                     'collection' : 'users',
                     'outputDataset' : {
                         'id' : 'out',
@@ -220,12 +220,12 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 }
             })
 
-        msg = 'connectionScheme is a required property'
+        msg = 'uriConnectionScheme is a required property'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
-                    'connectionScheme' : '',
+                    'uriConnectionScheme' : '',
                     'collection' : 'users',
                     'outputDataset' : {
                         'id' : 'out',
@@ -235,7 +235,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             })
 
     def test_import_missing_param(self):
-        msg = 'connectionScheme is a required property'
+        msg = 'uriConnectionScheme is a required property'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
@@ -253,7 +253,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
-                    'connectionScheme' : 'mongodb://localhost:27017/tutorial',
+                    'uriConnectionScheme' : 'mongodb://localhost:27017/tutorial',
                     'outputDataset' : {
                         'id' : 'out',
                         'type' : 'sparse.mutable'
@@ -270,7 +270,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             'id' : 'ds_record',
             'type' : 'mongodb.record',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'record'
             }
         })
@@ -301,7 +301,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         self.assertEqual(rows[2]['_id'], '"""quoted"""')
 
     def test_record_missing_params(self):
-        msg = 'connectionScheme is a required property'
+        msg = 'uriConnectionScheme is a required property'
         with self.assertRaisesRegexp(RuntimeError, msg):
             mldb.create_dataset({
                 'id' : 'ds_err3',
@@ -317,7 +317,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 'id' : 'ds_err4',
                 'type' : 'mongodb.record',
                 'params' : {
-                    'connectionScheme' : 'mongodb://localhost:27017/tutorial'
+                    'uriConnectionScheme' : 'mongodb://localhost:27017/tutorial'
                 }
             })
 
@@ -328,7 +328,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/functions/mongo_query', {
             'type' : 'mongodb.query',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'test_collection'
             }
         })
@@ -356,7 +356,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/functions/mongo_query_bad_oid', {
             'type' : 'mongodb.query',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'test_collection'
             }
         })
@@ -373,7 +373,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                  input={'query' : query}).json()
 
     def test_query_first_row_missing_param(self):
-        msg = 'connectionScheme is a required property'
+        msg = 'uriConnectionScheme is a required property'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.put('/v1/functions/mongo_query_err1', {
                 'type' : 'mongodb.query',
@@ -387,7 +387,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             mldb.put('/v1/functions/mongo_query_err2', {
                 'type' : 'mongodb.query',
                 'params' : {
-                    'connectionScheme' : 'mongodb://localhost:27017/tutorial'
+                    'uriConnectionScheme' : 'mongodb://localhost:27017/tutorial'
                 }
             })
 
@@ -398,7 +398,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/functions/mongo_query', {
             'type' : 'mongodb.query',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'test_collection',
                 'output' : 'NAMED_COLUMNS'
             }
@@ -422,7 +422,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/functions/mongo_query_no_query', {
             'type' : 'mongodb.query',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'test_collection'
             }
         })
@@ -437,7 +437,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/datasets/ds', {
             'type' : 'mongodb.dataset',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'test_collection',
             }
         })
@@ -464,7 +464,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         self.assertEqual(len(res), 3)
 
     def test_dataset_missing_param(self):
-        msg = 'connectionScheme is a required property'
+        msg = 'uriConnectionScheme is a required property'
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.put('/v1/datasets/ds_err1', {
                 'type' : 'mongodb.dataset',
@@ -477,7 +477,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             mldb.put('/v1/datasets/ds_err2', {
                 'type' : 'mongodb.dataset',
                 'params' : {
-                    'connectionScheme' : 'mongodb://localhost:27017/tutorial'
+                    'uriConnectionScheme' : 'mongodb://localhost:27017/tutorial'
                 }
             })
 
@@ -487,7 +487,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             'id' : 'ds_record_invalid',
             'type' : 'mongodb.record',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'record_invalid'
             }
         })
@@ -509,7 +509,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             'id' : 'ds_double_record',
             'type' : 'mongodb.record',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : 'record_double'
             }
         })
@@ -523,7 +523,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/datasets/non_std_id_ds', {
             'type' : 'mongodb.dataset',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : self.non_std_id_coll_name,
             }
         })
@@ -539,7 +539,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
-                    'connectionScheme' : self.connection_scheme,
+                    'uriConnectionScheme' : self.connection_scheme,
                     'collection' : self.non_std_id_coll_name,
                     'outputDataset' : {
                         'id' : 'imported',
@@ -553,7 +553,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         mldb.put('/v1/functions/mongo_query_invalid', {
             'type' : 'mongodb.query',
             'params' : {
-                'connectionScheme' : self.connection_scheme,
+                'uriConnectionScheme' : self.connection_scheme,
                 'collection' : self.non_std_id_coll_name,
             }
         })

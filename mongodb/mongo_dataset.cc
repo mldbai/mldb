@@ -1,7 +1,7 @@
 /**                                                                 -*- C++ -*-
  * mongo_dataset.cc
  * Mich, 2016-08-05
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
  **/
 #include <memory>
 #include <thread>
@@ -117,8 +117,7 @@ struct MongoColumnIndex : ColumnIndex {
 
 struct MongoDatasetConfig {
     static constexpr const char * name = "mongodb.dataset";
-    MongoDatasetConfig() {}
-    string connectionScheme;
+    string uriConnectionScheme;
     string collection;
 };
 
@@ -128,15 +127,15 @@ DEFINE_STRUCTURE_DESCRIPTION(MongoDatasetConfig);
 MongoDatasetConfigDescription::
 MongoDatasetConfigDescription()
 {
-    addField("connectionScheme", &MongoDatasetConfig::connectionScheme,
-             mongoScheme);
+    addField("uriConnectionScheme", &MongoDatasetConfig::uriConnectionScheme,
+             mongoConnSchemeAndDesc);
     addField("collection", &MongoDatasetConfig::collection,
              "The collection to import");
 
     onPostValidate = [] (MongoDatasetConfig * config,
                          JsonParsingContext & context)
     {
-        validateConnectionScheme(config->connectionScheme);
+        validateConnectionScheme(config->uriConnectionScheme);
         validateCollection(config->collection);
     };
 }
@@ -158,7 +157,7 @@ struct MongoDataset: Dataset {
         : Dataset(owner)
     {
         auto dsConfig = config.params.convert<MongoDatasetConfig>();
-        mongocxx::uri mongoUri(dsConfig.connectionScheme);
+        mongocxx::uri mongoUri(dsConfig.uriConnectionScheme);
 
         // We make 2 connections because we can't have 2 cursors on the same
         // one.
@@ -210,7 +209,7 @@ struct MongoDataset: Dataset {
                     if ((**it)["_id"].type() != bsoncxx::type::k_oid) {
                         throw HttpReturnException(
                             500,
-                            "monbodb.dataset unimplemented support for "
+                            "monbodb.dataset: unimplemented support for "
                             "MongoDB records with key \"_id\" that are not "
                             "objectIDs.");
                     }
@@ -259,7 +258,7 @@ struct MongoDataset: Dataset {
 static RegisterDatasetType<MongoDataset, MongoDatasetConfig>
 regMongodbDataset(mongodbPackage(),
                  "mongodb.dataset",
-                 "Dataset type that forwards records to a mongodb database",
+                 "Dataset type that forwards records to a MongoDB database",
                  "MongoDataset.md.html");
 
 } // namespace Mongo

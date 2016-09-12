@@ -28,7 +28,7 @@ namespace Mongo {
 
 
 struct MongoQueryConfig {
-    string connectionScheme;
+    string uriConnectionScheme;
     string collection;
     string query;
     SqlQueryOutput outputType;
@@ -42,8 +42,8 @@ DEFINE_STRUCTURE_DESCRIPTION(MongoQueryConfig);
 MongoQueryConfigDescription::
 MongoQueryConfigDescription()
 {
-    addField("connectionScheme", &MongoQueryConfig::connectionScheme,
-             mongoScheme);
+    addField("uriConnectionScheme", &MongoQueryConfig::uriConnectionScheme,
+             mongoConnSchemeAndDesc);
     addField("collection", &MongoQueryConfig::collection,
              "The collection to query.");
 
@@ -60,7 +60,7 @@ MongoQueryConfigDescription()
     onPostValidate = [] (MongoQueryConfig * config,
                          JsonParsingContext & context)
     {
-        validateConnectionScheme(config->connectionScheme);
+        validateConnectionScheme(config->uriConnectionScheme);
         validateCollection(config->collection);
     };
 }
@@ -73,7 +73,7 @@ struct MongoQueryFunction: Function {
             : Function(owner)
     {
         queryConfig = config.params.convert<MongoQueryConfig>();
-        mongoUri = mongocxx::uri(queryConfig.connectionScheme);
+        mongoUri = mongocxx::uri(queryConfig.uriConnectionScheme);
     }
 
     Any
@@ -150,7 +150,7 @@ struct MongoQueryFunction: Function {
                     if ((el)["_id"].type() != bsoncxx::type::k_oid) {
                         throw HttpReturnException(
                             500,
-                            "monbodb.query unimplemented support for "
+                            "monbodb.query: unimplemented support for "
                             "MongoDB records with key \"_id\" that are not "
                             "objectIDs.");
                     }
@@ -194,7 +194,7 @@ struct MongoQueryFunction: Function {
 static RegisterFunctionType<MongoQueryFunction, MongoQueryConfig>
 regMongodbDataset(mongodbPackage(),
                  "mongodb.query",
-                 "Takes a mongodb query, forwards it to mongo, parses the "
+                 "Takes a MongoDB query, forwards it to MongDB, parses the "
                  "result and returns it as an MLDB result.",
                  "MongoQueryFunction.md.html");
 
