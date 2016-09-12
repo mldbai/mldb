@@ -108,9 +108,11 @@ struct MongoQueryFunction: Function {
                        << "_id" << bsoncxx::oid(_id)
                        << close_document;
             }
-            idOpts << open_document
-                   << "_id" << _id
-                   << close_document;
+            else {
+                idOpts << open_document
+                       << "_id" << _id
+                       << close_document;
+            }
             doc << "$or" << bsoncxx::types::b_array{idOpts.view()};
         }
 

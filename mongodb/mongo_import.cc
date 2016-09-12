@@ -178,9 +178,9 @@ struct MongoImportProcedure: public Procedure {
         auto offset = runConfig.offset;
         auto limit = runConfig.limit;
         int errors = 0;
+        size_t rowsInserted = 0;
         {
             auto cursor = db[runConfig.collection].find({});
-            int i = 0;
             for (auto&& doc : cursor) {
                 if (offset > 0) {
                     --offset;
@@ -192,8 +192,9 @@ struct MongoImportProcedure: public Procedure {
                 else if (limit > 0) {
                     --limit;
                 }
-                if (++i % 1000 == 0) {
-                    DEBUG_MSG(logger) << "Processing " << i << "th document";
+                if (++rowsInserted % 1000 == 0) {
+                    DEBUG_MSG(logger) << "Processing " << rowsInserted
+                                      << "th document";
                 }
                 if (runConfig.ignoreParsingErrors) {
                     try {
@@ -201,18 +202,25 @@ struct MongoImportProcedure: public Procedure {
                     }
                     catch (const ML::Exception & exc) {
                         ++ errors;
-                        logger->error() << exc.what();
+                        if (errors <= 100) {
+                            logger->error() << exc.what();
+                        }
+                        if (errors == 100) {
+                            logger->error() <<
+                                "100 errors logged, not logging them anymore.";
+                        }
                     }
                 }
                 else {
                     processor(*output.get(), doc);
                 }
             }
-            DEBUG_MSG(logger) << "Fetched " << i << " documents";
+            DEBUG_MSG(logger) << "Fetched " << rowsInserted << " documents";
         }
         output->commit();
         Json::Value res = jsonEncode(output->getStatus());
         res["numParsingErrors"] = errors;
+        res["numInsertedRows"] = rowsInserted;
         return RunOutput(res);
     }
 };
