@@ -35,13 +35,13 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-inline ML::DB::Store_Writer &
+ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
     return store << Id(coord.toUtf8String());
 }
 
-inline ML::DB::Store_Reader &
+ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
     Id id;
@@ -50,13 +50,13 @@ operator >> (ML::DB::Store_Reader & store, PathElement & coord)
     return store;
 }
 
-inline ML::DB::Store_Writer &
+ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const Path & coords)
 {
     return store << coords.toUtf8String();
 }
 
-inline ML::DB::Store_Reader &
+ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, Path & coords)
 {
     Utf8String str;
