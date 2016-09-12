@@ -34,6 +34,18 @@
 [submodule "ext/highwayhash"]
 	path = ext/highwayhash
 	url = https://github.com/mldbai/highwayhash.git
+[submodule "mongodb/ext/mongo-cxx-driver"]
+	path = mongodb/ext/mongo-cxx-driver
+	url = https://github.com/mldbai/mongo-cxx-driver.git
+[submodule "mongodb/ext/libbson"]
+	path = mongodb/ext/libbson
+	url = git@github.com:mldbai/libbson.git
+[submodule "mongodb/ext/mongo-c-driver"]
+	path = mongodb/ext/mongo-c-driver
+	url = git@github.com:mldbai/mongo-c-driver.git
+[submodule "mongodb/ext/mnmlstc"]
+	path = mongodb/ext/mnmlstc
+	url = git@github.com:mldbai/mnmlstc.git
 [submodule "ext/v8-cross-build-output"]
 	path = ext/v8-cross-build-output
 	url = https://github.com/mldbai/v8-cross-build-output.git
