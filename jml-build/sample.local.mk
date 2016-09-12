@@ -1,12 +1,4 @@
-# to speed up repeated builds, use ccache
-CXX := ccache g++
-CC := ccache gcc
-FC := ccache gfortran
+COMPILER_CACHE:=ccache
 
-# to get colorized output with ccache, put colorccache on your path and use
-# CXX := colorccache g++
-# CC := colorccache gcc
-# FC := colorccache gfortran
-
-BOOST_VERSION := 52
-TCMALLOC_ENABLED := 1
+# You should run ccache -M 12G or something similar to set the max cache size
+# to a value higher than the default 1G.
