@@ -15,10 +15,17 @@ HOEDOWN_SRC=\
 	src/stack.o \
 	src/version.o
 
+HOEDOWN_WARNING_FLAGS :=
+
+ifeq ($(toolchain),gcc6)
+HOEDOWN_WARNING_FLAGS := -Wno-misleading-indentation
+endif
+
 HOEDOWN_REAL_SRC=$(HOEDOWN_SRC:%.o=%.c)
 
-$(eval $(call set_compile_option,bin/hoedown.c bin/smartypants.c,-Imldb/ext/hoedown/src))
+$(eval $(call set_compile_option,bin/hoedown.c bin/smartypants.c,-Imldb/ext/hoedown/src $(HOEDOWN_WARNING_FLAGS)))
 
+$(eval $(call set_compile_option,src/document.c,$(HOEDOWN_WARNING_FLAGS)))
 $(eval $(call library,hoedown,$(HOEDOWN_REAL_SRC)))
 $(eval $(call program,hoedown,hoedown,bin/hoedown.c))
 $(eval $(call program,smartypants,hoedown,bin/smartypants.c))
