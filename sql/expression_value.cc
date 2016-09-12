@@ -63,7 +63,6 @@ void convertEmbeddingImpl(void * to,
                           StorageType toType,
                           StorageType fromType);
 
-
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO                                                     */
 /*****************************************************************************/
@@ -216,6 +215,34 @@ getKnownColumns() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a row",
                               "type", ML::type_name(*this));
+}
+
+std::vector<KnownColumn>
+ExpressionValueInfo::
+getKnownAtoms(const ColumnName prefix) const
+{
+    std::vector<KnownColumn> result;
+    auto columns = getKnownColumns();
+    result.reserve(columns.size());
+    for (const auto& c : columns) {
+        if (c.valueInfo->isRow() || c.valueInfo->isEmbedding()) {
+            auto subResult = c.valueInfo->getKnownAtoms(c.columnName);
+            for (const auto& atom : subResult) {
+                result.emplace_back(prefix + atom.columnName, 
+                                atom.valueInfo,
+                                atom.sparsity == c.sparsity ? atom.sparsity : COLUMN_IS_SPARSE,
+                                -1);
+            }
+        }
+        else {
+            result.emplace_back(prefix + c.columnName, 
+                                c.valueInfo,
+                                c.sparsity,
+                                -1);
+        }
+    }
+
+    return result;
 }
 
 std::vector<ColumnName>
@@ -715,6 +742,13 @@ getKnownColumns() const
     return result;
 }
 
+/*std::vector<KnownColumn>
+EmbeddingValueInfo::
+getKnownAtoms(const ColumnName prefix) const
+{
+    return getKnownAtomsHelper(*this, prefix);
+}*/
+
 std::vector<ColumnName>
 EmbeddingValueInfo::
 allColumnNames() const
@@ -866,6 +900,13 @@ getKnownColumns() const
 {
     return columns;
 }
+
+/*std::vector<KnownColumn>
+RowValueInfo::
+getKnownAtoms(const ColumnName prefix) const
+{
+    return getKnownAtomsHelper(*this, prefix);   
+}*/
 
 SchemaCompleteness
 RowValueInfo::

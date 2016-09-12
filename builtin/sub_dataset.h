@@ -52,6 +52,8 @@ struct SubDataset : public Dataset {
 
     virtual std::pair<Date, Date> getTimestampRange() const;
 
+    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const override;
+
 private:
     SubDatasetConfig datasetConfig;
     struct Itl;

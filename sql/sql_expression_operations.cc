@@ -3737,6 +3737,8 @@ BoundSqlExpression
 SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
+    const bool processAtoms = true;
+
     // 1.  Get all columns
     ColumnFilter filter = ColumnFilter::identity();
     auto allColumns
@@ -3774,7 +3776,15 @@ bind(SqlBindingScope & scope) const
     /// List of all functions to run in our run() operator
     std::vector<std::function<void (const SqlRowScope &, StructValue &)> > functionsToRun;
 
-    std::vector<KnownColumn> knownColumns = allColumns.info->getKnownColumns();
+    std::vector<KnownColumn> knownColumns;
+
+    if (processAtoms) {
+        knownColumns = allColumns.info->getKnownAtoms(); 
+    }
+    else {
+       knownColumns = allColumns.info->getKnownColumns(); 
+    }
+        
 
     // For each group of columns, find which match
     for (unsigned j = 0;  j < knownColumns.size();  ++j) {
@@ -3785,6 +3795,8 @@ bind(SqlBindingScope & scope) const
         auto thisScope = colScope.getColumnScope(columnName);
 
         bool keep = boundWhere(thisScope, GET_LATEST).isTrue();
+
+        cerr << "considering column: " << columnName << endl;
 
         if (!keep)
             continue;

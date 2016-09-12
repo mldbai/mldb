@@ -787,14 +787,14 @@ queryStructured(const SelectExpression & select,
                                     limit,
                                     alias);
 
-    for (auto& r : rows) {
+    for (auto& r : std::get<0>(rows)) {
         output.push_back(r.flattenDestructive());
     }
 
     return output;
 }
 
-std::vector<NamedRowValue>
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
 Dataset::
 queryStructuredExpr(const SelectExpression & select,
                 const WhenExpression & when,
@@ -811,6 +811,7 @@ queryStructuredExpr(const SelectExpression & select,
     ExcAssert(rowName);
     std::mutex lock;
     std::vector<NamedRowValue> output;
+    std::shared_ptr<ExpressionValueInfo> structureInfo;
 
     if (!having->isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
@@ -840,7 +841,7 @@ queryStructuredExpr(const SelectExpression & select,
         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
-        iterateDataset(select, *this, alias, when, where,
+        structureInfo = iterateDataset(select, *this, alias, when, where,
                        { rowName->shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
                        nullptr);
     }
@@ -858,13 +859,14 @@ queryStructuredExpr(const SelectExpression & select,
             };
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
-        iterateDatasetGrouped(select, *this, alias, when, where,
+        structureInfo = iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, *having, *rowName,
                               {processor, false/*processInParallel*/}, orderBy, offset, limit,
                               nullptr);
     }
 
-    return output;
+    return make_tuple<std::vector<NamedRowValue>, 
+                      std::shared_ptr<ExpressionValueInfo> >(std::move(output), std::move(structureInfo));
 }
 
 bool
@@ -904,11 +906,12 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                 return onRow(path, row);
             };
 
-        return iterateDatasetExpr(select, *this, alias, when, where,
+        iterateDatasetExpr(select, *this, alias, when, where,
                                   { rowName->shallowCopy() },
                                   { processor, true /*processInParallel*/ },
                                   orderBy, offset, limit,
                                   nullptr);
+        return true;
     }
     else {
 
@@ -927,11 +930,13 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
             };
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
-        return iterateDatasetGrouped(select, *this, alias, when, where,
+        iterateDatasetGrouped(select, *this, alias, when, where,
                                      groupBy, aggregators, *having, *rowName,
                                      {processor, true/*processInParallel*/},
                                      orderBy, offset, limit,
                                      nullptr);
+
+        return true;
     }
 }
 

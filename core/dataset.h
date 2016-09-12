@@ -533,7 +533,7 @@ struct Dataset: public MldbEntity {
                     ssize_t limit,
                     Utf8String alias = "") const;
 
-    virtual std::vector<NamedRowValue>
+    std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
     queryStructuredExpr(const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,

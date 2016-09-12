@@ -225,6 +225,10 @@ struct ExpressionValueInfo {
     /// a row.
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
+    /// Return the set of known atoms for a row.  Default throws that it's not
+    /// a row.
+    virtual std::vector<KnownColumn> getKnownAtoms(const ColumnName prefix = ColumnName()) const;
+
     /// Return a list of all known column names
     virtual std::vector<ColumnName> allColumnNames() const;
     

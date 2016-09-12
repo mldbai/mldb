@@ -52,15 +52,18 @@ struct SubDataset::Itl
     std::vector<ColumnName> fullFlattenColumnNames;
     ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date earliest, latest;
+    std::shared_ptr<ExpressionValueInfo> columnInfo;
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
         SqlExpressionMldbScope mldbContext(owner);
 
-        std::vector<NamedRowValue> rows
-            = queryFromStatementExpr(statement, mldbContext);
+        std::vector<NamedRowValue> rows;
+        auto pair = queryFromStatementExpr(statement, mldbContext);
 
-        init(std::move(rows));
+        columnInfo = std::get<1>(pair);
+
+        init(std::move(std::get<0>(pair)));
     }
 
     Itl(std::vector<NamedRowValue> rows)
@@ -389,6 +392,19 @@ SubDataset::
 getRowStream() const
 {
     return make_shared<SubDataset::Itl::SubRowStream>(itl.get());
+}
+
+KnownColumn
+SubDataset::
+getKnownColumnInfo(const ColumnName & columnName) const
+{
+    if (itl->columnInfo) {
+        std::shared_ptr<ExpressionValueInfo> columnInfo = itl->columnInfo->findNestedColumn(columnName);
+        if (columnInfo)
+            return KnownColumn(columnName, columnInfo, COLUMN_IS_SPARSE);
+    }
+
+    return Dataset::getKnownColumnInfo(columnName);
 }
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
