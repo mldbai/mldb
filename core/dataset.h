@@ -533,6 +533,18 @@ struct Dataset: public MldbEntity {
                     ssize_t limit,
                     Utf8String alias = "") const;
 
+    virtual std::vector<NamedRowValue>
+    queryStructuredExpr(const SelectExpression & select,
+                    const WhenExpression & when,
+                    const SqlExpression & where,
+                    const OrderByExpression & orderBy,
+                    const TupleExpression & groupBy,
+                    const std::shared_ptr<SqlExpression> having,
+                    const std::shared_ptr<SqlExpression> rowName,
+                    ssize_t offset,
+                    ssize_t limit,
+                    Utf8String alias = "") const;
+
     /** Select from the database. */
     virtual bool
     queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,

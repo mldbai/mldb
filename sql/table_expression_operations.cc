@@ -621,7 +621,7 @@ RowTableExpression::
 // and allow expression parsing to be in a separate library
 std::vector<NamedRowValue>
 (*querySubDatasetFn) (MldbServer * server,
-                      std::vector<MatrixNamedRow> rows,
+                      std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
                       const SqlExpression & where,
@@ -674,8 +674,8 @@ bind(SqlBindingScope & context) const
             return BoundFunction();
         };
 
-    static const ColumnName valueName("value");
-    static const ColumnName columnNameName("column");
+    static const PathElement valueName("value");
+    static const PathElement columnNameName("column");
 
     // Allow the dataset to run queries
     result.table.runQuery = [=] (const SqlBindingScope & context,
@@ -699,30 +699,28 @@ bind(SqlBindingScope & context) const
                 ExpressionValue row = boundExpr(rowScope, GET_LATEST);
                 
                 // 2.  Put it in a sub dataset
-                std::vector<MatrixNamedRow> rows;
+                std::vector<NamedRowValue> rows;
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onColumn = [&] (const Path & columnName,
-                                     const Path & prefix,
-                                     const CellValue & cell,
-                                     Date ts)
+                Date ts = Date::negativeInfinity();//row.getEffectiveTimestamp();
+
+                auto onColumn = [&] (const PathElement & columnName,
+                                     const ExpressionValue & val)
                 {
-                    MatrixNamedRow row;
+                    NamedRowValue row;
                     row.rowHash = row.rowName = ColumnName(to_string(n++));
+
                     row.columns.emplace_back(columnNameName,
-                                             (prefix + columnName)
-                                                 .toUtf8String(),
-                                             ts);
-                    row.columns.emplace_back(valueName,
-                                             cell,
-                                             ts);
+                                             ExpressionValue(columnName.toUtf8String(), ts));
+                    row.columns.emplace_back(valueName, val);
+
                     rows.emplace_back(std::move(row));
 
                     return true;
                 };
 
-                row.forEachAtom(onColumn);
+                row.forEachColumn(onColumn);
 
                 return querySubDatasetFn(server, std::move(rows),
                                          select, when, *where, orderBy,

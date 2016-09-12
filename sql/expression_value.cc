@@ -2357,6 +2357,14 @@ tryGetNestedColumn(const ColumnName & columnName,
     throw HttpReturnException(500, "Unknown expression value type");
 }
 
+bool 
+ExpressionValue::
+hasNestedColumn(const Path & column) const
+{
+    ExpressionValue storage;
+    return tryGetNestedColumn(column, storage) != nullptr;
+}
+
 ExpressionValue
 ExpressionValue::
 getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) const
@@ -4612,6 +4620,25 @@ NamedRowValue::flattenDestructive()
     
     return result;
 }
+
+MatrixNamedRow
+NamedRowValue::flatten() const
+{
+    MatrixNamedRow result;
+
+    result.rowName = std::move(rowName);
+    result.rowHash = std::move(rowHash);
+
+    for (auto & c: columns) {
+        const PathElement & fieldName = std::get<0>(c);
+        const ExpressionValue & val = std::get<1>(c);
+        Path columnName(fieldName);
+        val.appendToRow(columnName, result.columns);
+    }
+    
+    return result;
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic

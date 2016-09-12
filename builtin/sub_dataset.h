@@ -40,7 +40,7 @@ struct SubDataset : public Dataset {
     SubDataset(MldbServer * owner, SubDatasetConfig config);
 
     SubDataset(MldbServer * owner,
-               std::vector<MatrixNamedRow> rows);
+               std::vector<NamedRowValue> rows);
 
     virtual ~SubDataset();
 

@@ -333,6 +333,17 @@ validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 std::vector<MatrixNamedRow>
 queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 {
+    std::vector<MatrixNamedRow> output;
+    auto rows = queryWithoutDatasetExpr(stm, scope);
+    for (auto& r : rows) {
+        output.push_back(r.flattenDestructive());
+    }
+    return output;
+}
+
+std::vector<NamedRowValue>
+queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
+{
     for (const auto & c: stm.select.clauses) {
         if (c->isWildcard()) {
             throw HttpReturnException(
@@ -347,7 +358,7 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
         // Fast path when there is no possibility of result since
         // queryWithoutDataset produces at most single row results.
 
-        MatrixNamedRow row;
+        NamedRowValue row;
         SqlRowScope context;
         ExpressionValue val = boundSelect(context, GET_ALL);
         auto boundRowName = stm.rowName->bind(scope);
@@ -357,7 +368,7 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
         val.mergeToRowDestructive(row.columns);
         return { std::move(row) };
     }
-    return vector<MatrixNamedRow>();
+    return vector<NamedRowValue>();
 }
 
 std::vector<MatrixNamedRow>
@@ -365,10 +376,23 @@ queryFromStatement(const SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params)
 {
+    std::vector<MatrixNamedRow> output;
+    auto rows = queryFromStatementExpr(stm, scope, params);
+    for (auto& r : rows) {
+        output.push_back(r.flattenDestructive());
+    }
+    return output;
+}
+
+std::vector<NamedRowValue>
+queryFromStatementExpr(const SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params)
+{
     BoundTableExpression table = stm.from->bind(scope);
     
     if (table.dataset) {
-        return table.dataset->queryStructured(stm.select, stm.when,
+        return table.dataset->queryStructuredExpr(stm.select, stm.when,
                                               *stm.where,
                                               stm.orderBy, stm.groupBy,
                                               stm.having,
@@ -393,7 +417,7 @@ queryFromStatement(const SelectStatement & stm,
 
         auto executor = boundPipeline->start(params);
         
-        std::vector<MatrixNamedRow> rows;
+        std::vector<NamedRowValue> rows;
 
         ssize_t limit = stm.limit;
         ssize_t offset = stm.offset;
@@ -413,7 +437,7 @@ queryFromStatement(const SelectStatement & stm,
                 continue;
             }
 
-            MatrixNamedRow row;
+            NamedRowValue row;
             // Second last element is the row name
             row.rowName = output->values.at(output->values.size() - 2)
                 .coerceToPath(); 
@@ -426,7 +450,7 @@ queryFromStatement(const SelectStatement & stm,
     }
     else {
         // No from at all
-        return queryWithoutDataset(stm, scope);
+        return queryWithoutDatasetExpr(stm, scope);
     }
 }
 

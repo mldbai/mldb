@@ -166,6 +166,9 @@ getEmbedding(const SelectStatement & stm,
 std::vector<MatrixNamedRow>
 queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope);
 
+std::vector<NamedRowValue>
+queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope);
+
 /** Select from the given statement.  This will choose the most
     appropriate execution method based upon what is in the query.
 
@@ -174,6 +177,11 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope);
 */
 std::vector<MatrixNamedRow>
 queryFromStatement(const SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params = nullptr);
+
+std::vector<NamedRowValue>
+queryFromStatementExpr(const SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params = nullptr);
 

@@ -846,6 +846,9 @@ struct ExpressionValue {
                        ExpressionValue & storage,
                        const VariableFilter & filter = GET_LATEST) const;
 
+    // Return true if the nested column exist, false otherwise
+    bool hasNestedColumn(const Path & column) const;
+
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
     ML::distribution<float, std::vector<float> >
@@ -1541,6 +1544,7 @@ struct NamedRowValue {
 
     //operator MatrixNamedRow() const;
     MatrixNamedRow flattenDestructive();
+    MatrixNamedRow flatten() const;
 };
 
 

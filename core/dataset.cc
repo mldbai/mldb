@@ -774,10 +774,43 @@ queryStructured(const SelectExpression & select,
                 ssize_t limit,
                 Utf8String alias) const
 {
+    std::vector<MatrixNamedRow> output;
+
+    auto rows = queryStructuredExpr(select,
+                                    when,
+                                    where,
+                                    orderBy,
+                                    groupBy,
+                                    having,
+                                    rowName,
+                                    offset,
+                                    limit,
+                                    alias);
+
+    for (auto& r : rows) {
+        output.push_back(r.flattenDestructive());
+    }
+
+    return output;
+}
+
+std::vector<NamedRowValue>
+Dataset::
+queryStructuredExpr(const SelectExpression & select,
+                const WhenExpression & when,
+                const SqlExpression & where,
+                const OrderByExpression & orderBy,
+                const TupleExpression & groupBy,
+                const std::shared_ptr<SqlExpression> having,
+                const std::shared_ptr<SqlExpression> rowName,
+                ssize_t offset,
+                ssize_t limit,
+                Utf8String alias) const
+{
     ExcAssert(having);
     ExcAssert(rowName);
     std::mutex lock;
-    std::vector<MatrixNamedRow> output;
+    std::vector<NamedRowValue> output;
 
     if (!having->isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
@@ -798,10 +831,9 @@ queryStructured(const SelectExpression & select,
         auto processor = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
-                MatrixNamedRow row = row_.flattenDestructive();
-                row.rowName = getValidatedRowName(calc.at(0));
-                row.rowHash = row.rowName;
-                output.emplace_back(std::move(row));
+                row_.rowName = getValidatedRowName(calc.at(0));
+                row_.rowHash = row_.rowName;
+                output.push_back(std::move(row_));
                 return true;
             };
 
@@ -821,8 +853,7 @@ queryStructured(const SelectExpression & select,
         // Otherwise do it grouped...
         auto processor = [&] (NamedRowValue & row_)
             {
-                MatrixNamedRow row = row_.flattenDestructive();
-                output.emplace_back(row);
+                output.push_back(std::move(row_));
                 return true;
             };
 
@@ -912,6 +943,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
                                 const ColumnName & columnName,
                                 const Filter & filter)
 {
+    cerr << "executeFilteredColumnExpression " << columnName << endl;
     auto columnIndex = dataset.getColumnIndex();
 
     if (columnIndex->knownColumn(columnName)) {
@@ -933,6 +965,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
         return std::pair<std::vector<RowName>, Any>(std::move(rows), Any());
     }
     else {
+        cerr << "column unknown" << endl;
         return {};
     }
     
@@ -964,6 +997,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
                                const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
+    cerr << "generateVariableEqualsConstant" << endl;
     ColumnName columnName(removeTableName(alias,variable.columnName));
     CellValue constantValue(constant.constant.getAtom());
 
