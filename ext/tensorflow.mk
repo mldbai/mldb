@@ -422,7 +422,7 @@ TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$(TENSORFLOW_KERNEL_CC_BUILD:%=../../$(BUI
 $$(eval $$(call set_compile_option,$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)),$$(TENSORFLOW_COMPILE_FLAGS) $$(TF_KERNEL_VARIANT_$(ARCH)_$(1))))
 $$(eval $$(call library,tensorflow-kernels-$(1),$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)) $$(TENSORFLOW_CUDA_NVCC_BUILD),tensorflow-ops $$(TENSORFLOW_CUDA_LINK),,,,,$$(TENSORFLOW_CUDA_LINKER_FLAGS),$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants))
 
-# Tensorflow depends upon having a variant
+# Tensorflow depends upon having this variant available
 $(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so
 
 #$(w arning $(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so)
