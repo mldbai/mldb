@@ -101,7 +101,13 @@ compareNatural(const char * p1, size_t len1,
     size_t i1 = 0, i2 = 0;
     
     while (i1 < len1 && i2 < len2) {
-        char c1 = p1[i1], c2 = p2[i2];
+        // We need unsigned chars here, as this path is optimized with
+        // memcmp in other places, which treats characters as unsigned.
+        // Otherwise, with Unicode characters on platforms with signed
+        // chars, we will get a different comparison order than the
+        // optimized path, meaning that sort order is inconsistent.
+        // See MLDB-1936
+        unsigned char c1 = p1[i1], c2 = p2[i2];
 
         if (isdigit(c1) && isdigit(c2)) {
             size_t lz1, digits1, lz2, digits2;
