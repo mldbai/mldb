@@ -36,7 +36,7 @@
 	url = https://github.com/mldbai/highwayhash.git
 [submodule "mongodb/ext/mongo-cxx-driver"]
 	path = mongodb/ext/mongo-cxx-driver
-	url = https://github.com/mldbai/mongo-cxx-driver.git
+	url = git@github.com:mldbai/mongo-cxx-driver.git
 [submodule "mongodb/ext/libbson"]
 	path = mongodb/ext/libbson
 	url = git@github.com:mldbai/libbson.git
