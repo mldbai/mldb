@@ -18,7 +18,8 @@ class Mldb1718(MldbUnitTest):
                     "id": "testset",
                     "type": "sparse.mutable",
                 },
-                "runOnCreation": True
+                "runOnCreation": True,
+                'named' : 'lineNumber()'
             }
         })
 

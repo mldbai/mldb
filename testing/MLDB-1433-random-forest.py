@@ -13,7 +13,8 @@ mldb.put("/v1/procedures/airline", {
             "id": "airline"
         },
        # "limit" : 10,
-        "runOnCreation": True        
+        "runOnCreation": True,
+        'named' : 'lineNumber()'
     }
 })
 mldb.log(datetime.datetime.now() - start)
@@ -29,7 +30,8 @@ mldb.put("/v1/procedures/airline", {
             "id": "airline_test"
         },
        # "limit" : 10,
-        "runOnCreation": True        
+        "runOnCreation": True,
+        'named' : 'lineNumber()'
     }
 })
 mldb.log(datetime.datetime.now() - start)
@@ -87,7 +89,8 @@ mldb.put("/v1/procedures/airline", {
             "type" : "sparse.mutable"
         },
        # "limit" : 10,
-        "runOnCreation": True        
+        "runOnCreation": True,
+        'named' : 'lineNumber()'
     }
 })
 mldb.log(datetime.datetime.now() - start)

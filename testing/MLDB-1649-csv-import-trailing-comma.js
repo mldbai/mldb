@@ -22,7 +22,8 @@ var importConfig = {
         dataFileUrl: "file://mldb/testing/dataset/MLDB-1649.csv",
         runOnCreation: true,
         outputDataset: 'mldb1649',
-        structuredColumnNames: false
+        structuredColumnNames: false,
+        'named' : 'lineNumber()'
     }
 };
 

@@ -77,7 +77,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addField("named", &ImportTextConfig::named,
              "Row name expression for output dataset. Note that each row "
              "must have a unique name.",
-             SqlExpression::parse("lineNumber()"));
+             SqlExpression::parse("dataFileUrl() + '.' + lineNumber()"));
     addField("timestamp", &ImportTextConfig::timestamp,
              "Expression for row timestamp.",
              SqlExpression::parse("fileTimestamp()"));

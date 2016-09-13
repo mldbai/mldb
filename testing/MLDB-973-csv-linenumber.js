@@ -7,7 +7,8 @@ csv_conf = {
         outputDataset: {
             id: "test",
         },
-        runOnCreation: true,     
+        runOnCreation: true,
+        'named' : 'lineNumber()'
     }
 }
 

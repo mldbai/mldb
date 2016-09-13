@@ -22,7 +22,8 @@ var importConfig = {
         dataFileUrl: "file://mldb/testing/dataset/MLDB-1638.csv",
         runOnCreation: true,
         outputDataset: 'unstructured',
-        structuredColumnNames: false
+        structuredColumnNames: false,
+        'named' : 'lineNumber()'
     }
 };
 
@@ -47,7 +48,8 @@ var importConfig = {
         dataFileUrl: "file://mldb/testing/dataset/MLDB-1638.csv",
         runOnCreation: true,
         outputDataset: 'structured',
-        structuredColumnNames: true
+        structuredColumnNames: true,
+        'named' : 'lineNumber()'
     }
 };
 

@@ -123,6 +123,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                 "quoteChar": "",
                 "delimiter": "",
                 "runOnCreation" : True,
+                'named' : 'lineNumber()'
             }
         }
         mldb.put("/v1/procedures/csv_proc", csv_conf)

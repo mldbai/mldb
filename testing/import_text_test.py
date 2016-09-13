@@ -35,7 +35,8 @@ class ImportTextTest(MldbUnitTest):
                 'outputDataset' : {
                     'id' : 'base_ds',
                     'type' : 'tabular'
-                }
+                },
+                'named' : 'lineNumber()'
             }
         })
         res = mldb.query("SELECT a, b, c FROM base_ds")
@@ -57,7 +58,8 @@ class ImportTextTest(MldbUnitTest):
                 'outputDataset' : {
                     'id' : 'gen_headers_ds',
                     'type' : 'tabular'
-                }
+                },
+                'named' : 'lineNumber()'
             }
         })
         res = mldb.query("SELECT * FROM gen_headers_ds")
@@ -80,7 +82,8 @@ class ImportTextTest(MldbUnitTest):
                     'outputDataset' : {
                         'id' : 'gen_headers_ds',
                         'type' : 'tabular'
-                    }
+                    },
+                    'named' : 'lineNumber()'
                 }
             })
 
@@ -95,7 +98,8 @@ class ImportTextTest(MldbUnitTest):
                     'outputDataset' : {
                         'id' : 'base_ds',
                         'type' : 'tabular'
-                    }
+                    },
+                    'named' : 'lineNumber()'
                 }
             })
 
@@ -111,7 +115,8 @@ class ImportTextTest(MldbUnitTest):
                     'outputDataset' : {
                         'id' : 'base_ds',
                         'type' : 'tabular'
-                    }
+                    },
+                    'named' : 'lineNumber()'
                 }
             })
 
@@ -123,6 +128,7 @@ class ImportTextTest(MldbUnitTest):
                 'outputDataset' : "titanic_hashed",
                 "where": "rowHash() % 3 = 0",
                 'runOnCreation' : True,
+                'named' : 'lineNumber()'
             }
         })
 
@@ -132,6 +138,7 @@ class ImportTextTest(MldbUnitTest):
                 "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
                 'outputDataset' : "titanic_no_hashed",
                 'runOnCreation' : True,
+                'named' : 'lineNumber()'
             }
         })
 
@@ -158,7 +165,8 @@ class ImportTextTest(MldbUnitTest):
             'params' : {
                 'dataFileUrl' : 'file://mldb/testing/filename with whitespaces.csv',
                 'outputDataset' : 'test_impot_filename_with_whitespaces',
-                'runOnCreation' : True
+                'runOnCreation' : True,
+                'named' : 'lineNumber()'
             }
         })
 

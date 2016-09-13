@@ -58,7 +58,8 @@ class Mldb174Test(MldbUnitTest):
                 "runOnCreation": True,
                 "outputDataset": {
                     "id": "wine_red"
-                }
+                },
+                'named' : 'lineNumber()'
             }
         })
 
@@ -70,7 +71,8 @@ class Mldb174Test(MldbUnitTest):
                 "runOnCreation": True,
                 "outputDataset": {
                     "id": "wine_white"
-                }
+                },
+                'named' : 'lineNumber()'
             }
         })
 

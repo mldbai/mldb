@@ -20,7 +20,8 @@ var importConfig = {
         delimiter: "",
         quoteChar: "",
         headers: ['customLine'],
-        runOnCreation: true
+        runOnCreation: true,
+        'named' : 'lineNumber()'
     }
 };
 

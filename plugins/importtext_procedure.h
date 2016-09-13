@@ -36,7 +36,7 @@ struct ImportTextConfig : public ProcedureConfig  {
           autoGenerateHeaders(false),
           select(SelectExpression::STAR),
           where(SqlExpression::TRUE),
-          named(SqlExpression::parse("lineNumber()")),
+          named(SqlExpression::parse("dataFileUrl() + '.' + lineNumber()")),
           timestamp(SqlExpression::parse("fileTimestamp()"))
     {
         outputDataset.withType("tabular");
