@@ -141,6 +141,9 @@ TF_CUDA_CAPABILITIES:=5.3
 # equal to 1.
 ifeq ($(WITH_CUDA),1)
 
+# Which version of CUDA do we use?
+CUDA_VERSION?=7.0
+
 # This is the directory that the whole CUDA development kit is installed
 # inside.
 CUDA_BASE_DIR?=/usr/local/cuda-$(CUDA_VERSION)
@@ -205,7 +208,10 @@ TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
 #   between the CUDA and non-CUDA kernels; otherwise there will be linker
 #   errors.  If you get something like "undefined symbol tensorflow::functor::XXXFunctor<Eigen::GpuDevice>::Reduce<..., std::array*, >(...)" then this is
 #   the problem.
-TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -I$(INC)/third_party/gpus
+# - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
+#   Eigen disables needed std::initializer_list constructors in its arrays
+#   because it doesn't properly detect that this feature is available
+TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -DEIGEN_HAS_VARIADIC_TEMPLATES=1 -I$(INC)/third_party/gpus
 
 # Here are the flags we need to pass to NVCC to compile TensorFlow's CUDA
 # files.
@@ -225,14 +231,19 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 # - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
 #   Eigen disables needed std::initializer_list constructors in its arrays
 #   because it doesn't properly detect that this feature is available
-TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_53 -code=sm_53 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) -DEIGEN_HAS_VARIADIC_TEMPLATES=1
+# - For cross-compilation, we tell it exactly what the underlying compiler
+#   is so that it gets it right
+#   See here: http://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#cross-platform
+
+TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_30 -code=sm_30 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) $(TENSORFLOW_ARCH_CUDA_FLAGS) -DEIGEN_HAS_VARIARDIC_TEMPLATES=1
 
 # When compiling the cuda kernels we need to use the include flags and
 # some of our own
 $(eval $(call set_compile_option,$(TENSORFLOW_CUDA_NVCC_BUILD),$(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_INCLUDE_FLAGS) $(TENSORFLOW_NVCC_CUDA_FLAGS)))
 
-# Libraries we need to link with
-TENSORFLOW_CUDA_LINK:=cudart #cublas curand cufft
+# Libraries we need to link with.  Note that no CUDA libraries are required
+# since they are all dynamically loaded
+TENSORFLOW_CUDA_LINK:=  #cudart cublas curand cufft
 
 # Library path for CUDA
 CUDA_LIB_PATH?=$(CUDA_BASE_DIR)/lib64
