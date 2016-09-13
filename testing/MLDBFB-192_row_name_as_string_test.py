@@ -27,7 +27,8 @@ class RowNameAsStringTest(MldbUnitTest):
                 "outputDataset": {
                     "id": "csv",
                 },
-                "runOnCreation": True
+                "runOnCreation": True,
+                'named' : 'lineNumber()'
             }
         }
         mldb.put("/v1/procedures/csv_proc", csv_conf)

@@ -28,9 +28,10 @@ class CsvLineEndingsGeneric(object):
                     "id": "x",
                 },
                 "runOnCreation" : True,
+                'named' : 'lineNumber()'
             }
         }
-        mldb.put("/v1/procedures/csv_proc", csv_conf) 
+        mldb.put("/v1/procedures/csv_proc", csv_conf)
 
         ds_result = mldb.get("/v1/datasets/x")
 
@@ -197,9 +198,10 @@ class CsvLineEndingsGeneric(object):
                     "id": "empty_csv",
                 },
                 "runOnCreation" : True,
+                'named' : 'lineNumber()'
             }
         }
-        mldb.put("/v1/procedures/csv_proc", csv_conf) 
+        mldb.put("/v1/procedures/csv_proc", csv_conf)
 
         result = mldb.get("/v1/query", q="SELECT count(*) FROM empty_csv")
         mldb.log(result.text)
@@ -215,9 +217,10 @@ class CsvLineEndingsGeneric(object):
                         "id": "does_not_exist_csv",
                     },
                     "runOnCreation" : True,
+                    'named' : 'lineNumber()'
                 }
             }
-            mldb.put("/v1/procedures/error_proc", error_conf) 
+            mldb.put("/v1/procedures/error_proc", error_conf)
 
         result = exc.exception.response
         mldb.log(result.text)

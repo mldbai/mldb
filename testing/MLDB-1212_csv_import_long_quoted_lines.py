@@ -29,7 +29,8 @@ class Mldb1212(MldbUnitTest):
                     "id": "x",
                 },
                 "runOnCreation": True,
-                "ignoreBadLines": False
+                "ignoreBadLines": False,
+                'named' : 'lineNumber()'
             }
         }
         mldb.put("/v1/procedures/csv_proc", csv_conf)
@@ -54,7 +55,8 @@ class Mldb1212(MldbUnitTest):
                 "outputDataset": "multiline",
                 "runOnCreation": True,
                 "allowMultiLines": True,
-                "ignoreBadLines": False
+                "ignoreBadLines": False,
+                'named' : 'lineNumber()'
             }
         }
 
@@ -79,7 +81,8 @@ class Mldb1212(MldbUnitTest):
                 "runOnCreation": True,
                 "allowMultiLines": True,
                 "ignoreBadLines": False,
-                "limit": 2
+                "limit": 2,
+                'named' : 'lineNumber()'
             }
         }
 
@@ -93,7 +96,7 @@ class Mldb1212(MldbUnitTest):
                 [       "3",  "a", "bouya , hoho", "c2" ]
             ]
         )
-   
+
     # offset not supported yet
     @unittest.expectedFailure
     def test_multiline_offset(self):
@@ -106,11 +109,12 @@ class Mldb1212(MldbUnitTest):
                 "allowMultiLines": True,
                 "ignoreBadLines": False,
                 "offset": 2,
-                "limit": 2
+                "limit": 2,
+                'named' : 'lineNumber()'
             }
         }
 
-        mldb.put("/v1/procedures/csv_proc_multi", csv_conf) 
+        mldb.put("/v1/procedures/csv_proc_multi", csv_conf)
 
         self.assertTableResultEquals(
             mldb.query("select * from multiline"),

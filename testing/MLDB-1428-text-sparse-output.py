@@ -11,16 +11,17 @@ import unittest
 class ImportTextToSparseTest(unittest.TestCase):
 
     def test_sparse(self):
-        res = mldb.put('/v1/procedures/import_reddit', { 
-            "type": "import.text",  
-            "params": { 
+        res = mldb.put('/v1/procedures/import_reddit', {
+            "type": "import.text",
+            "params": {
                 "dataFileUrl": "file://mldb/testing/dataset/iris.data",
                 'encoding' : 'latin1',
                 "select": "*",
                 'outputDataset': {'id': 'iris', 'type': 'sparse.mutable'},
-                 'headers': ["a", "b", "c", "d", "label"],
-                'runOnCreation': True
-            } 
+                'headers': ["a", "b", "c", "d", "label"],
+                'runOnCreation': True,
+                'named' : 'lineNumber()'
+            }
         })
 
         res = mldb.query('SELECT * FROM iris ORDER BY rowName() limit 1')
@@ -45,9 +46,10 @@ class ImportTextToSparseTest(unittest.TestCase):
                 'encoding' : 'latin1',
                 "select": "* excluding(c)",
                 'outputDataset': {'id': 'iris_ex', 'type': 'sparse.mutable'},
-                 'headers': ["a", "b", "c", "d", "label"],
-                'runOnCreation': True
-            } 
+                'headers': ["a", "b", "c", "d", "label"],
+                'runOnCreation': True,
+                'named' : 'lineNumber()'
+            }
         })
 
         res = mldb.query('SELECT * FROM iris_ex ORDER BY rowName() limit 1')
@@ -67,8 +69,9 @@ class ImportTextToSparseTest(unittest.TestCase):
                 "quoteChar": "",
                 "select": "tokenize(lineText, {offset: 1, value: 1}) as *",
                 'outputDataset': {'id': 'reddit', 'type': 'sparse.mutable'},
-                'runOnCreation': True
-            } 
+                'runOnCreation': True,
+                'named' : 'lineNumber()'
+            }
         })
 
         res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL LIMIT 1')

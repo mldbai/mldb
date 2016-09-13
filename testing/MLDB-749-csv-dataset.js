@@ -29,7 +29,8 @@ var csv_conf = {
         },
         runOnCreation: false,
         headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ],
-        ignoreBadLines: true
+        ignoreBadLines: true,
+        named : 'lineNumber()'
     }
 }
 
@@ -60,6 +61,7 @@ csv_conf = {
             id: "titanic",
         },
         runOnCreation: true,
+        named : 'lineNumber()'
     }
 }
 
@@ -79,7 +81,8 @@ try {
                 id: "test",
             },
             runOnCreation: true,
-            delimiter: '|'
+            delimiter: '|',
+        named : 'lineNumber()'
         }
     }
 
@@ -125,6 +128,7 @@ csv_conf = {
             id: "correctness",
         },
         runOnCreation: true,
+        named : 'lineNumber()'
     }
 }
 
@@ -146,7 +150,8 @@ csv_conf = {
             id: "cities",
         },
         runOnCreation: true,
-        encoding: 'latin1'
+        encoding: 'latin1',
+        named : 'lineNumber()'
     }
 }
 
@@ -273,7 +278,8 @@ var brokenConfigFail = {
             id: "broken_fail",
         },
         runOnCreation: true,
-        encoding: 'latin1'
+        encoding: 'latin1',
+        named : 'lineNumber()'
     }
 }
 
@@ -300,7 +306,8 @@ var brokenConfigNoHeader = {
         },
         runOnCreation: true,
         encoding: 'latin1',
-        headers: ['a', 'b', 'c']
+        headers: ['a', 'b', 'c'],
+        named : 'lineNumber()'
     }
 }
 
@@ -318,7 +325,8 @@ brokenConfig = {
         },
         runOnCreation: true,
         encoding: 'latin1',
-        ignoreBadLines: true
+        ignoreBadLines: true,
+        named : 'lineNumber()'
     }
 }
 
@@ -349,7 +357,8 @@ brokenConfig = {
         runOnCreation: true,
         encoding: 'latin1',
         ignoreBadLines: true,
-        offset: 2
+        offset: 2,
+        named : 'lineNumber()'
     }
 }
 
@@ -433,7 +442,8 @@ function getCountWithOffsetLimit(dataset, offset, limit) {
             },
             runOnCreation: true,
             offset: offset,
-            limit: limit
+            limit: limit,
+            named : 'lineNumber()'
         }
     }
 
@@ -463,7 +473,8 @@ function getCountWithOffsetLimit2(dataset, offset, limit) {
             delimiter: "\t",
             headers: ["a", "b", "tweet", "date"],
             select: "tweet",
-            ignoreBadLines: true
+            ignoreBadLines: true,
+            named : 'lineNumber()'
         }
     }
 
@@ -496,7 +507,8 @@ var mldb1312Config = {
             },
             runOnCreation: true,
             encoding: 'latin1',
-            quoteChar: '#'
+            quoteChar: '#',
+            named : 'lineNumber()'
         }
     }
 
@@ -523,7 +535,8 @@ var mldb1312Config_b = {
             runOnCreation: true,
             encoding: 'latin1',
             quoteChar: '#',
-            delimiter: ''
+            delimiter: '',
+            named : 'lineNumber()'
         }
     }
 
@@ -542,7 +555,8 @@ var mldb1312Config_c = {
             encoding: 'latin1',
             quoteChar: '',
             delimiter: ',',
-            ignoreBadLines: true
+            ignoreBadLines: true,
+            named : 'lineNumber()'
         }
     }
 
