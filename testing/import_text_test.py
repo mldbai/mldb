@@ -176,6 +176,23 @@ class ImportTextTest(MldbUnitTest):
             ['2', 1, 2]
         ])
 
+    def test_default_named(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                'dataFileUrl' : 'file://mldb/testing/filename with whitespaces.csv',
+                'outputDataset' : 'test_impot_filename_with_whitespaces',
+                'runOnCreation' : True
+            }
+        })
+
+        res = mldb.query("SELECT * FROM test_impot_filename_with_whitespaces")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'a', 'b'],
+            ['"file://mldb/testing/filename with whitespaces.csv.2"', 1, 2]
+        ])
+
+
 
 if __name__ == '__main__':
     mldb.run_tests()
