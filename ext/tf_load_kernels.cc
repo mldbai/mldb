@@ -46,10 +46,6 @@ struct AtInit {
         if (!handle && has_sse42()) {
             error = load("sse42");
         }
-        // Finally SSE2
-        if (!handle && has_sse2()) {
-            error = load("sse2");
-        }
 #else
         error = load("generic");
 #endif
