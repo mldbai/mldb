@@ -18,7 +18,7 @@ using namespace Datacratic;
 namespace {
 
 constexpr char header100Continue[] = "Expect: 100-continue\r\n";
-constexpr int sizeof100Continue = sizeof(header100Continue) - 1;
+//constexpr int sizeof100Continue = sizeof(header100Continue) - 1;
 
 }
 
