@@ -72,7 +72,8 @@ $(MONGOCXX_SRC_FILES): \
 	$(CWD)/mongo-cxx-driver/src/mongocxx/config/version.hpp \
 	$(CWD)/mongo-cxx-driver/src/mongocxx/config/export.hpp \
 	$(CWD)/mongo-cxx-driver/src/mongocxx/config/private/config.hpp \
-	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp
+	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp \
+	$(BSON_SRC_FILES)
 
 $(CWD)/mongo-cxx-driver/src/mongocxx/config/%.hpp: $(CWD)/mongocxx-%.hpp
 	@cp $< $@~ && mv $@~ $@

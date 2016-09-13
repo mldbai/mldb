@@ -11,6 +11,8 @@ LIBMLDB_MONGODB_PLUGIN_SOURCES:= \
 	mongo_query.cc \
 	mongo_dataset.cc \
 
+$(addprefix $(CWD)/,$(LIBMLDB_MONGODB_PLUGIN_SOURCES)): $(BSONCXX_SRC_FILES)
+
 $(eval $(call set_compile_option,$(LIBMLDB_MONGODB_PLUGIN_SOURCES),$(MONGOCXX_INCLUDE_FLAGS)))
 
 $(eval $(call mldb_plugin_library,mongodb,mldb_mongodb_plugin,$(LIBMLDB_MONGODB_PLUGIN_SOURCES),mongocxx))
