@@ -14,7 +14,7 @@ class ColumnNameTest(MldbUnitTest):  # noqa
 
     def test_object_extrac_star(self):
         self.select("c* FROM (SELECT col.x:1)", 'col.x')
-        #self.select("c* AS * FROM (SELECT col.x:1)", 'x')  # no longer works with structured subselects  
+        self.select("c* AS * FROM (SELECT col.x:1)", 'x')
         self.select("* AS * FROM (SELECT col.x:1)", 'col.x')  
 
 if __name__ == '__main__':

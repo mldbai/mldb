@@ -574,6 +574,11 @@ struct Dataset: public MldbEntity {
     virtual std::vector<ColumnName>
     getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
 
+    /** Return a list of flattened column names in the dataset
+    */
+    virtual std::vector<ColumnName> 
+    getFlattenedColumnNames() const;
+
     /** Return whether or not all column names and info are known.
         Defaults to true
     */

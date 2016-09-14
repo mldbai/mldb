@@ -2199,6 +2199,15 @@ getColumnNames(ssize_t offset, ssize_t limit) const
     return frame(names, offset, limit);
 }
 
+std::vector<ColumnName>
+Dataset::
+getFlattenedColumnNames() const
+{
+    //Most dataset are not structured
+    //Notable exception is the sub query dataset
+    return getMatrixView()->getColumnNames();
+}
+
 void
 Dataset::
 commit()

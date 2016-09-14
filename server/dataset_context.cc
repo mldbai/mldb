@@ -439,7 +439,7 @@ doGetAllColumns(const Utf8String & tableName,
 
     if (keep.exec) {
 
-        auto columns = dataset.getMatrixView()->getColumnNames();
+        auto columns = dataset.getFlattenedColumnNames();
 
         auto filterColumnName = [&] (const ColumnName & inputColumnName)
             -> ColumnName
@@ -498,7 +498,7 @@ doGetAllColumns(const Utf8String & tableName,
     }
     else if (dataset.hasColumnNames()) {
 
-        auto columns = dataset.getMatrixView()->getColumnNames();
+        auto columns = dataset.getFlattenedColumnNames();
 
         vector<ColumnName> columnsNeedingInfo;
 

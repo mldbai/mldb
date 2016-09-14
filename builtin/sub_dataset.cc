@@ -249,7 +249,7 @@ struct SubDataset::Itl
         }
 
         return fullColumnNames;
-    }   
+    }
 
     /** Return the value of the column for all rows and timestamps. */
     virtual MatrixColumn getColumn(const ColumnName & columnName) const
@@ -405,6 +405,13 @@ getKnownColumnInfo(const ColumnName & columnName) const
     }
 
     return Dataset::getKnownColumnInfo(columnName);
+}
+
+std::vector<ColumnName> 
+SubDataset::
+getFlattenedColumnNames() const
+{
+    return itl->fullFlattenColumnNames;
 }
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
