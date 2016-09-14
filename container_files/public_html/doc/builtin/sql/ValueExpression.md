@@ -504,7 +504,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - `year` as the gregorian calendar year of the date
   - `isoyear` as the ISO-8601 calendar year of the date
 - `date_trunc(unit, x)` will truncate the timestamp `x` to the specified `unit`.
-
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
 

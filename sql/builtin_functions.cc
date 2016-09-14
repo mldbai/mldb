@@ -3156,7 +3156,6 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
             {
 
                 StructValue result;
-                cerr << args[0].toString() << endl;
                 auto content = ExpressionValue::null(Date::notADate());
                 auto error = ExpressionValue::null(Date::notADate());
                 try {
