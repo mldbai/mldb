@@ -68,7 +68,7 @@ class MLDB1937SvdWithComplexSelect(MldbUnitTest):  # noqa
         mldb.put('/v1/procedures/train_svd', {
             "type" : "svd.train",
             "params" : {
-                "trainingData": "select a from data", #column expr(where columnName() = 'a') from data",
+                "trainingData": "select column expr(where columnName() = 'a') from data",
                 "rowOutputDataset": "svd_row_embedding",
                 "columnOutputDataset" : "svd_column_embedding"
             }
