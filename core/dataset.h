@@ -555,7 +555,7 @@ struct Dataset: public MldbEntity {
     virtual std::vector<ColumnName>
     getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
 
-    /** Return whether or not all column names and info are known.
+    /** Return whether or not all columns names and info are known.
         Defaults to true
     */
     virtual bool hasColumnNames() const { return true; }
