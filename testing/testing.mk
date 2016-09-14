@@ -322,7 +322,6 @@ $(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
 $(eval $(call mldb_unit_test,MLDB-1323-complicated-query.py,,manual)) # slow and depends on iffy file
 $(eval $(call mldb_unit_test,MLDB-1345-having.py))
 $(eval $(call mldb_unit_test,mldb_unit_test_test.py))
-$(eval $(call mldb_unit_test,MLDB-1216-fetcher-function.js))
 $(eval $(call mldb_unit_test,MLDBFB-335_when_timestamp_variable_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-192_row_name_as_string_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-199_invalid_script_test.py))
