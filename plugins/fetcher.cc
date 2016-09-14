@@ -129,7 +129,9 @@ static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
 regFetcherFunction(builtinPackage(),
                    "fetcher",
                    "Fetches the contents of a URL each time it's invoked",
-                   "functions/Fetcher.md.html");
+                   "functions/Fetcher.md.html",
+                   nullptr, //static route
+                   { MldbEntity::INTERNAL_ENTITY });
 
 } // namespace MLDB
 } // namespace Datacratic

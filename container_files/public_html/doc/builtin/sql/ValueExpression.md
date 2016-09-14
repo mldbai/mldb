@@ -550,10 +550,39 @@ calculate
 
 The following functions are used to extract and process web data.
 
-* `fetcher(str)` fetches resources from a given file or URL. It acts as the default version of [function fetcher](../functions/Fetcher.md.html). It returns two output columns:
- * content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
- * error is a string containing the error message. If the fetch succeeded, it will be null.
-* `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+#### `fetcher(str)`
+
+Fetches resources from a given file or URL. It acts as the default version of [function fetcher](../functions/Fetcher.md.html). It returns two output columns:
+* content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
+* error is a string containing the error message. If the fetch succeeded, it will be null.
+
+##### Example
+
+The following query will use fetcher to return the country code from an IP
+address from an external web service.
+
+```sql
+SELECT CAST (fetcher('http://www.geoplugin.net/json.gp?ip=158.245.13.123')[content] AS STRING)
+```
+
+##### Limitations
+
+- The fetcher function will only attempt one fetch of the given URL; for
+  transient errors a manual retry will be required
+- There is currently no timeout parameter.  Hung requests will timeout
+  eventually, but there is no guarantee as to when.
+- There is currently no rate limiting built in.
+- There is currently no facility to limit the maximum size of data that
+  will be fetched.
+- There is currently no means to authenticate when fetching a URL,
+  apart from using the credentials daemon built in to MLDB.
+- There is currently no caching mechanism.
+- There is currently no means to fetch a resource only if it has not
+  changed since the last time it was fetched.
+
+#### `extract_domain(str, {removeSubdomain: false})`
+
+Extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
 
 The full set of options to the `extract_domain` function are as follows:
 
