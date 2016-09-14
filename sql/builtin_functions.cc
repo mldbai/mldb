@@ -3149,8 +3149,14 @@ bind(const std::vector<BoundSqlExpression> & args,
 BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
+
+    vector<KnownColumn> columnsInfo;
+    columnsInfo.emplace_back(Path("content"), make_shared<BlobValueInfo>(),
+                             ColumnSparsity::COLUMN_IS_DENSE);
+    columnsInfo.emplace_back(Path("error"), make_shared<StringValueInfo>(),
+                             ColumnSparsity::COLUMN_IS_DENSE);
     auto outputInfo
-        = std::make_shared<UnknownRowValueInfo>();
+        = std::make_shared<RowValueInfo>(columnsInfo);
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {

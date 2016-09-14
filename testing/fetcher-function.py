@@ -39,7 +39,6 @@ class FetcherFunction(MldbUnitTest):  # noqa
 
         res = mldb.query(
             "SELECT getCountryBuiltin({ip: '158.245.13.123'}) AS *")
-        mldb.log(res)
         self.assertTableResultEquals(res, [
             ['_rowName', 'country'],
             ['result', 'US']
