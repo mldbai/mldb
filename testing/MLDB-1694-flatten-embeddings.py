@@ -75,3 +75,4 @@ class Mldb1694(MldbUnitTest):
 
 
 mldb.run_tests()
+

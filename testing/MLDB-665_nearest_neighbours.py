@@ -119,27 +119,27 @@ class Mldb1415Test(MldbUnitTest):
             assert any([x for idx, x in enumerate(rez[i+1]) if idx > 0 and not_null_idx != 1]) == False
 
 
-    #def test_nearest_neigbour_in_centroid_space_to_points_is_assigned_cluster(self):
+    def test_nearest_neigbour_in_centroid_space_to_points_is_assigned_cluster(self):
         # make sure that if we take each point and get it's nearest neighbour in the
         # centroids embedding, we get its assigned cluster back
-    #    mldb.log("------------ query");
-    #    rez = mldb.query("""
-    #        select *
-    #        from iris_kmeans_dataset
-    #        join (
-    #            select nn({coords: {* excluding(class)}, numNeighbors:1}) as *
-    #            from iris_dataset
-    #        ) as tbl ON tbl.rowName() = iris_kmeans_dataset.rowName()
-    #    """)
-    #    mldb.log("------------ results");
-    #    mldb.log(rez)
-    #    neighbor_index = rez[0].index("tbl.neighbors.0")
-    #    cluster_index = rez[0].index("iris_kmeans_dataset.cluster")
-    #    for line in rez[1:]:
-    #        not_null_idx = line.index(max(line[2:]))
+        mldb.log("------------ query");
+        rez = mldb.query("""
+            select *
+            from iris_kmeans_dataset
+            join (
+                select nn({coords: {* excluding(class)}, numNeighbors:1}) as *
+                from iris_dataset
+            ) as tbl ON tbl.rowName() = iris_kmeans_dataset.rowName()
+        """)
+        mldb.log("------------ results");
+        mldb.log(rez)
+        neighbor_index = rez[0].index("tbl.neighbors.0")
+        cluster_index = rez[0].index("iris_kmeans_dataset.cluster")
+        for line in rez[1:]:
+            not_null_idx = line.index(max(line[2:]))
 
             # make sure the nearst neighbour is the assigned cluster
-    #        assert line[neighbor_index] == "%d" % line[cluster_index]
+            assert line[neighbor_index] == "%d" % line[cluster_index]
             
 
 mldb.run_tests()

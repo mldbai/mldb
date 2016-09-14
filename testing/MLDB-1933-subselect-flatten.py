@@ -10,12 +10,21 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class ColumnExprTest(MldbUnitTest):  # noqa
 
-    def test_SubDataset(self):        
+    def test_subselect(self):
+        res = mldb.query("SELECT COLUMN EXPR STRUCTURED (SELECT 1) FROM (SELECT [[2,3],[4,5]] as myembedding)")
+        expected = [["_rowName","myembedding"],["result",1]]
+        self.assertTableResultEquals(res, expected);
 
-        # should see two columns if unflattened, 4 if flattened
-        mldb.log(
-        mldb.query("SELECT COLUMN EXPR (SELECT 1) FROM (SELECT [[2,3],[4,5]] as myembedding)")
-        )
+    def test_subselect_multiple(self):
+        res = mldb.query("SELECT COLUMN EXPR STRUCTURED (SELECT 1) FROM (SELECT [2,3] as x,[4,5] as y)")
+        expected = [["_rowName", "x", "y"],
+                    ["result", 1, 1]]
+        self.assertTableResultEquals(res, expected);
+
+    def test_subselect_multiple_value(self):
+        res = mldb.query("SELECT COLUMN EXPR STRUCTURED (SELECT norm(value(), 2)) FROM (SELECT [2,3] as x,[4,5] as y)")
+        expected = [["_rowName", "x", "y"],
+                    ["result", 3.605551275463989, 6.4031242374328485]]
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    mldb.run_tests()    

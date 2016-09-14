@@ -3519,7 +3519,7 @@ bind(SqlBindingScope & scope) const
             });
     }   
 
-    auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
+    auto allColumns = scope.doGetAllAtoms(resolvedTableName, newColumnName);
 
     auto exec = [=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
@@ -3723,13 +3723,15 @@ SelectColumnExpression(std::shared_ptr<SqlExpression> select,
                        std::shared_ptr<SqlExpression> where,
                        OrderByExpression orderBy,
                        int64_t offset,
-                       int64_t limit)
+                       int64_t limit,
+                       bool isStructured)
     : select(std::move(select)),
       as(std::move(as)),
       where(std::move(where)),
       orderBy(std::move(orderBy)),
       offset(offset),
-      limit(limit)
+      limit(limit),
+      isStructured(isStructured)
 {
 }
 
@@ -3737,13 +3739,10 @@ BoundSqlExpression
 SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
-    const bool processAtoms = true;
-
     // 1.  Get all columns
     ColumnFilter filter = ColumnFilter::identity();
-    auto allColumns
-        = scope.doGetAllColumns("" /* table name */,
-                                filter);
+    auto allColumns 
+        = isStructured ? scope.doGetAllColumns("" /* table name */, filter) : scope.doGetAllAtoms("" /* table name */, filter);
     
     bool hasDynamicColumns
         = allColumns.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
@@ -3778,13 +3777,7 @@ bind(SqlBindingScope & scope) const
 
     std::vector<KnownColumn> knownColumns;
 
-    if (processAtoms) {
-        knownColumns = allColumns.info->getKnownAtoms(); 
-    }
-    else {
-       knownColumns = allColumns.info->getKnownColumns(); 
-    }
-        
+    knownColumns = allColumns.info->getKnownColumns(); 
 
     // For each group of columns, find which match
     for (unsigned j = 0;  j < knownColumns.size();  ++j) {
@@ -3795,8 +3788,6 @@ bind(SqlBindingScope & scope) const
         auto thisScope = colScope.getColumnScope(columnName);
 
         bool keep = boundWhere(thisScope, GET_LATEST).isTrue();
-
-        cerr << "considering column: " << columnName << endl;
 
         if (!keep)
             continue;
@@ -3819,9 +3810,7 @@ bind(SqlBindingScope & scope) const
 
         columns.emplace_back(std::move(entry));
     }
-
-    //cerr << "considering " << columns.size() << " columns" << endl;
-    
+   
     // Compare two columns according to the sort criteria
     auto compareColumns = [&] (const ColumnEntry & col1,
                                const ColumnEntry & col2)
@@ -3886,7 +3875,7 @@ bind(SqlBindingScope & scope) const
     for (auto & c: columns)
         keepColumns[c.inputColumnName]
             = c.columnName;
-    
+
     if (selectValue && asColumnPath && !hasDynamicColumns) {
 
         ColumnFilter filterColumns([=] (const ColumnName & name) -> ColumnName
@@ -3900,7 +3889,8 @@ bind(SqlBindingScope & scope) const
     
         // Finally, return a filtered set from the underlying dataset
         auto outputColumns
-            = scope.doGetAllColumns("" /* prefix */, filterColumns);
+            = isStructured ? scope.doGetAllColumns("" /* prefix */, filterColumns) : 
+                             scope.doGetAllAtoms("" /* prefix */, filterColumns);
 
         auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
@@ -3915,10 +3905,8 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
-        ColumnFilter filterColumns = ColumnFilter::identity();
 
-        auto outputColumns
-            = scope.doGetAllColumns("" /* prefix */, filterColumns);
+        ColumnFilter filterColumns = ColumnFilter::identity();
 
         BoundSqlExpression boundSelect = select->bind(colScope);
 
@@ -3927,15 +3915,13 @@ bind(SqlBindingScope & scope) const
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                ExpressionValue input = outputColumns.exec(scope, filter);
+                ExpressionValue input = allColumns.exec(scope, filter);
 
                 RowValue output;
-                
-                auto onAtom = [&] (ColumnName & columnName,
-                                   CellValue & val,
-                                   Date ts)
+               
+                auto onValue = [&] (const ColumnName & columnName,
+                                   ExpressionValue in)
                 {
-                    ExpressionValue in(std::move(val), ts);
                     auto scope = ColumnExpressionBindingScope
                         ::getColumnScope(columnName, in);
 
@@ -3953,7 +3939,7 @@ bind(SqlBindingScope & scope) const
                             : boundSelect(scope, storage, GET_ALL);
 
                     ColumnName columnNameStorage;
-                    ColumnName * columnNameOut = &columnName;
+                    const ColumnName * columnNameOut = &columnName;
                     if (!asColumnPath) {
                         ExpressionValue tmp;
                         columnNameStorage
@@ -4003,13 +3989,28 @@ bind(SqlBindingScope & scope) const
 
                     return true;
                 };
+
+                auto onAtom = [&] (ColumnName & columnName,
+                                   CellValue & val,
+                                   Date ts) -> bool
+                {
+                    return onValue(columnName,ExpressionValue(val, ts));
+                };
+
+                auto onColumn = [&] (PathElement & columnName, ExpressionValue & val) -> bool
+                {
+                    return onValue(ColumnName(columnName), val);
+                };
                 
-                input.forEachAtomDestructive(onAtom);
+                if (isStructured)
+                    input.forEachColumnDestructive(onColumn);
+                else 
+                    input.forEachAtomDestructive(onAtom);
 
                 return storage = std::move(output);
             };
 
-        BoundSqlExpression result(exec, this, outputColumns.info);
+        BoundSqlExpression result(exec, this, allColumns.info);
     
         return result;
     }
