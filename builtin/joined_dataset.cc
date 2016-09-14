@@ -267,7 +267,8 @@ struct JoinedDataset::Itl
         }
 
         // Finally, the column indexes
-        for (auto & c: leftDataset->getColumnNames()) {
+        for (auto & c: leftDataset->getFlattenedColumnNames()) {
+
             ColumnName newColumnName;
             if (!left.asName.empty())
                 newColumnName = ColumnName(left.asName) + c;
@@ -284,8 +285,8 @@ struct JoinedDataset::Itl
             leftColumns[c] = newColumnName;
         }
 
-        // Finally, the column indexes
-        for (auto & c: rightDataset->getColumnNames()) {
+        for (auto & c: rightDataset->getFlattenedColumnNames()) {
+
             ColumnName newColumnName;
 
             if (!right.asName.empty())

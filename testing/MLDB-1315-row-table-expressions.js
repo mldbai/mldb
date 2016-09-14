@@ -64,9 +64,7 @@ expected = [
 testQuery('SELECT x.* FROM row_dataset({x: 1, y:2, z: \'three\'}) AS x ORDER BY rowName()',
           expected);
 
-var resp = mldb.put("/v1/functions/x", { type: "sql.query", params: { query: "SELECT * as * from row_dataset({a:1,b:2})", output: "NAMED_COLUMNS"} });
-
-mldb.log(resp)
+var resp = mldb.put("/v1/functions/x", { type: "sql.query", params: { query: "SELECT * from row_dataset({a:1,b:2})", output: "NAMED_COLUMNS"} });
 
 assertEqual(resp.responseCode, 201);
 
