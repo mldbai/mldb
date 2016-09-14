@@ -295,19 +295,6 @@ getColumnRowCount(const ColumnName & column) const
     return getColumnStats(column, toStoreResult).rowCount();
 }
 
-bool
-ColumnIndex::
-forEachColumnGetStats(const OnColumnStats & onColumnStats) const
-{
-    for (auto & c: getColumnNames()) {
-        ColumnStats toStore;
-        if (!onColumnStats(c, getColumnStats(c, toStore)))
-            return false;
-    }
-
-    return true;
-}
-
 const ColumnStats &
 ColumnIndex::
 getColumnStats(const ColumnName & column, ColumnStats & stats) const
@@ -330,12 +317,13 @@ getColumnStats(const ColumnName & column, ColumnStats & stats) const
         if (!v.isNumber())
             isNumeric = false;
         
-        // TODO: not really true...
+        // TODO: not really true as there might be many column values per row
         stats.values[v].rowCount_ += 1;
     }
 
     stats.isNumeric_ = isNumeric && !col.empty();
     stats.rowCount_ = rows.size();
+    stats.atMostOne = oneOnly;
     return stats;
 }
 

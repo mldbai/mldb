@@ -19,9 +19,46 @@
 
 using namespace std;
 
-
 namespace Datacratic {
 namespace MLDB {
+
+namespace {
+   std::unordered_map<ColumnName, ColumnStats>
+   getColumnStats(const SelectExpression & select,
+                  const Dataset & from,
+                  const WhenExpression & when,
+                  const SqlExpression & where,
+                  const OrderByExpression & orderBy,
+                  ssize_t offset,
+                  ssize_t limit) {
+
+       std::unordered_map<ColumnName, ColumnStats> stats;
+       
+       auto onRow = [&stats] (NamedRowValue & output_) {
+           MatrixNamedRow output = output_.flattenDestructive();
+           for (auto & col : output.columns) {
+               auto columnName = get<0>(col);
+               auto cellValue = get<1>(col);
+               auto it = stats.find(columnName);
+               if (it == stats.end()) {
+                   auto & colStats = stats[columnName];
+                   colStats.isNumeric_ = cellValue.isNumber();
+               }
+               auto & colStats = stats[columnName];
+               colStats.isNumeric_ = colStats.isNumeric_ && cellValue.isNumber();
+               colStats.rowCount_ +=1;
+               // since there could be several values for a column in the same row 
+               // this is more a value count than a row count!
+               colStats.values[cellValue].rowCount_ += 1;
+           }
+
+           return true;
+       };
+
+       iterateDataset(select, from, "", when, where, {onRow, false /*processInParallel*/}, orderBy, offset, limit, nullptr);
+       return stats;
+   }
+}
 
 DEFINE_ENUM_DESCRIPTION(ColumnOperator);
 
@@ -49,12 +86,19 @@ ColumnSpecDescription()
 }
 
 ClassifiedColumns
-classifyColumns(const Dataset & dataset, SelectExpression select)
+classifyColumns(const SelectExpression & select_,
+                const Dataset & dataset,
+                const WhenExpression & when,
+                const SqlExpression & where,
+                const OrderByExpression & orderBy,
+                ssize_t offset,
+                ssize_t limit)
 {
-    // Step 1.  Get a list of the columns we want to use, by parsing the select
+    // Get a list of the columns we want to use, by parsing the select
     // expression.  Note that only direct expression values will work.
 
     // Default is all columns
+    SelectExpression select = select_;
     if (select.clauses.empty())
         select = SelectExpression::parse("*");
 
@@ -71,60 +115,50 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
     
     cerr << "selected " << selectedColumns.size() << " columns" << endl;
     
-    // Step 2.  Get the per-column index so that we know what our
-    // columns are.
-    
-    std::shared_ptr<ColumnIndex> colIndex = dataset.getColumnIndex();
-
-    // Step 3.  Classify the columns into two different types:
+    // Classify the columns into two different types:
 
     std::vector<ContinuousColumnInfo> continuousColumns;
     std::vector<SparseColumnInfo> sparseColumns;
 
+    std::unordered_map<ColumnName, ColumnStats> stats = 
+        getColumnStats(select, dataset, when, where, orderBy, offset, limit);
+ 
+    // cerr << "stats size " << stats.size() << endl;
+
     size_t rowCount = dataset.getMatrixView()->getRowCount();
 
-    auto onColumn = [&] (const ColumnName & columnName,
-                         const ColumnStats & stats)
-        {
-            // If it wasn't in our selected columns, we don't keep it
-            if (!selectedColumns.count(columnName))
-                return true;
+    for (auto & colStats : stats) {
 
-            //cerr << "column " << columnName << " has " << stats.rowCount()
-            //<< " values set" << " numeric = " << stats.isNumeric()
-            //<< " dense " << stats.isDense() << " vals "
-            //<< stats.values.size() << endl;
+        // cerr << "column " << colStats.first << " has " << colStats.second.rowCount()
+        //      << " values set" << " numeric = " << colStats.second.isNumeric()
+        //      << " vals "
+        //      << colStats.second.values.size() << endl;
             
-            bool isDense = stats.rowCount() == rowCount;
-            //if (!stats.atMostOne())
-            //    throw HttpReturnException(400, "Column '" + columnName.toUtf8String()
-            //                              + "' has more than one value in some rows");
+        bool isDense = colStats.second.rowCount() == rowCount;
 
-            if (stats.isNumeric() && isDense && stats.values.size() > 1) {
-                // Candidate for a dense continuous column
-                continuousColumns.emplace_back(columnName, stats.rowCount());
+        //TODO - what to do with the case where a row contains many values
+        
+        if (colStats.second.isNumeric() && isDense && colStats.second.values.size() > 1) {
+            // Candidate for a dense continuous column
+            continuousColumns.emplace_back(colStats.first, colStats.second.rowCount());
+        }
+        else if (colStats.second.isNumeric() && colStats.second.values.size() > 1) {
+            // Candidate for a discrete, real valued column
+            sparseColumns.emplace_back(colStats.first, CellValue(),
+                                       colStats.second.rowCount(),
+                                       true /* isContinuous */);
+        }
+        else {
+            //cerr << "sparse column" << endl;
+            // Either single or dual-valued, or always empty
+            // Look through the values of this feature
+            for (auto & v: colStats.second.values) {
+                sparseColumns.emplace_back(colStats.first, v.first,
+                                           v.second.rowCount(),
+                                           false /* isContinuous */);
             }
-            else if (stats.isNumeric() && stats.values.size() > 1) {
-                // Candidate for a discrete, real valued column
-                sparseColumns.emplace_back(columnName, CellValue(),
-                                           stats.rowCount(),
-                                           true /* isContinuous */);
-            }
-            else {
-                //cerr << "sparse column" << endl;
-                // Either single or dual-valued, or always empty
-                // Look through the values of this feature
-                for (auto & v: stats.values) {
-                    sparseColumns.emplace_back(columnName, v.first,
-                                               v.second.rowCount(),
-                                               false /* isContinuous */);
-                }
-            }
-
-            return true;
-        };
-    
-    colIndex->forEachColumnGetStats(onColumn);
+        }
+    }
 
     // Step 3: Select all of our basis columns for our SVD
     std::map<ColumnHash, ClassifiedColumns::ColumnIndexEntry> sparseIndex;

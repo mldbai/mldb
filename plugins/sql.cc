@@ -213,24 +213,15 @@ struct BehaviourModule {
 
             vtab->dataset = dataset;
 
-            auto index = dataset->getColumnIndex();
-
             string columnNameStr;
-            vector<ColumnName> columnNames;
+            vector<ColumnName> columnNames = dataset->getColumnNames();
             vector<ColumnHash> columnHashes;
 
-            auto onColumnStats = [&] (ColumnHash ch,
-                                      const ColumnName & columnName,
-                                      const ColumnStats & stats)
-                {
-                    columnNameStr += ", '" + sqlEscape(columnName.toString()) + "'";
-                    columnNames.emplace_back(columnName);
-                    columnHashes.emplace_back(columnName);
-                    return true;
-                };
+            for (auto & columnName : columnNames) {
+                columnNameStr += ", '" + sqlEscape(columnName.toString()) + "'";
+                columnHashes.emplace_back(columnName);
+            }
 
-            index->forEachColumnGetStats(onColumnStats);
-            
             vtab->columnNames = columnNames;
             vtab->columnHashes = columnHashes;
 

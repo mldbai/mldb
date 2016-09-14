@@ -155,13 +155,6 @@ struct ColumnStats {
 
 struct ColumnIndex {
     virtual ~ColumnIndex();
-    
-    typedef std::function<bool (const ColumnName & columnName,
-                                const ColumnStats & stats)> OnColumnStats;
-
-    /** Return stats for each column.  Default uses getColumnNames() and
-        getColumnStats(). */
-    virtual bool forEachColumnGetStats(const OnColumnStats & onColumnStats) const;
 
     /** Get stats for an individual column.  Default uses getColumn() and
         calculates from there.

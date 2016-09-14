@@ -704,7 +704,13 @@ run(const ProcedureRunConfig & run,
 
     auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
 
-    ClassifiedColumns columns = classifyColumns(*dataset, runProcConf.trainingData.stm->select);
+    ClassifiedColumns columns = classifyColumns(runProcConf.trainingData.stm->select,
+                                                *dataset,
+                                                runProcConf.trainingData.stm->when,
+                                                *runProcConf.trainingData.stm->where,
+                                                runProcConf.trainingData.stm->orderBy,
+                                                runProcConf.trainingData.stm->offset,
+                                                runProcConf.trainingData.stm->limit);
 
 #if 0
     cerr << "columns: " << columns.continuousColumns.size()

@@ -478,8 +478,13 @@ struct ColumnCorrelations {
 };
 
 
-ClassifiedColumns classifyColumns(const Dataset & dataset,
-                                  SelectExpression select);
+ClassifiedColumns classifyColumns(const SelectExpression & select,
+                                  const Dataset & from,
+                                  const WhenExpression & when,
+                                  const SqlExpression & where,
+                                  const OrderByExpression & orderBy,
+                                  ssize_t offset,
+                                  ssize_t limit);
 
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);

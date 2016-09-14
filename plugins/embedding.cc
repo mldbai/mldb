@@ -474,24 +474,6 @@ struct EmbeddingDataset::Itl
         return repr->columnNames.size();
     }
 
-    virtual bool forEachColumnGetStats(const OnColumnStats & onColumnStats) const
-    {
-        auto repr = committed();
-
-        if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get stats of unknown column");
-
-        for (auto & col: repr->columnIndex) {
-            ColumnStats toStoreResult;
-            const ColumnName & columnName = repr->columnNames.at(col.second);
-            if (!onColumnStats(columnName,
-                               getColumnStats(columnName, toStoreResult)))
-                return false;
-        }
-
-        return true;
-    }
-
     virtual const ColumnStats &
     getColumnStats(const ColumnName & ch, ColumnStats & toStoreResult) const
     {
