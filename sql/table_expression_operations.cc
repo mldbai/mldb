@@ -705,22 +705,24 @@ bind(SqlBindingScope & context) const
 
                 Date ts = Date::negativeInfinity();//row.getEffectiveTimestamp();
 
-                auto onColumn = [&] (const PathElement & columnName,
-                                     const ExpressionValue & val)
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
                 {
                     NamedRowValue row;
                     row.rowHash = row.rowName = ColumnName(to_string(n++));
 
                     row.columns.emplace_back(columnNameName,
-                                             ExpressionValue(columnName.toUtf8String(), ts));
-                    row.columns.emplace_back(valueName, val);
+                                             ExpressionValue((prefix+columnName).toUtf8String(), ts));
+                    row.columns.emplace_back(valueName, ExpressionValue(val, ts));
 
                     rows.emplace_back(std::move(row));
 
                     return true;
                 };
 
-                row.forEachColumn(onColumn);
+                row.forEachAtom(onAtom);
 
                 return querySubDatasetFn(server, std::move(rows),
                                          select, when, *where, orderBy,
