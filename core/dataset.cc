@@ -323,7 +323,7 @@ getColumnStats(const ColumnName & column, ColumnStats & stats) const
 
     stats.isNumeric_ = isNumeric && !col.empty();
     stats.rowCount_ = rows.size();
-    stats.atMostOne = oneOnly;
+    stats.atMostOne_ = oneOnly;
     return stats;
 }
 

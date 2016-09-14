@@ -123,16 +123,16 @@ classifyColumns(const SelectExpression & select_,
     std::unordered_map<ColumnName, ColumnStats> stats = 
         getColumnStats(select, dataset, when, where, orderBy, offset, limit);
  
-    // cerr << "stats size " << stats.size() << endl;
+    cerr << "stats size " << stats.size() << endl;
 
     size_t rowCount = dataset.getMatrixView()->getRowCount();
 
     for (auto & colStats : stats) {
 
-        // cerr << "column " << colStats.first << " has " << colStats.second.rowCount()
-        //      << " values set" << " numeric = " << colStats.second.isNumeric()
-        //      << " vals "
-        //      << colStats.second.values.size() << endl;
+        cerr << "column " << colStats.first << " has " << colStats.second.rowCount()
+             << " values set" << " numeric = " << colStats.second.isNumeric()
+             << " vals "
+             << colStats.second.values.size() << endl;
             
         bool isDense = colStats.second.rowCount() == rowCount;
 
@@ -198,7 +198,8 @@ classifyColumns(const SelectExpression & select_,
 }
 
 FeatureBuckets 
-extractFeaturesFromRows(const Dataset & dataset,
+extractFeaturesFromRows(const SelectExpression & select,
+                        const Dataset & dataset,
                         const WhenExpression & when,
                         std::shared_ptr<SqlExpression> where,
                         const OrderByExpression & orderBy, 
@@ -211,9 +212,6 @@ extractFeaturesFromRows(const Dataset & dataset,
     FeatureBuckets featureBuckets(numBuckets);
     std::mutex bucketMutexes[numBuckets];
     std::atomic<size_t> numExamples(0);
-
-
-    auto select = SqlRowExpression::parseList("*");
 
     ML::Timer timer;
     cerr << "extracting values" << endl;

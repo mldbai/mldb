@@ -489,7 +489,8 @@ ClassifiedColumns classifyColumns(const SelectExpression & select,
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);
 
-FeatureBuckets extractFeaturesFromRows(const Dataset & dataset,
+FeatureBuckets extractFeaturesFromRows(const SelectExpression & select,
+                                       const Dataset & dataset,
                                        const WhenExpression & whenClause,
                                        std::shared_ptr<SqlExpression> whereClause,
                                        const OrderByExpression & orderBy, 

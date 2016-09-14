@@ -69,9 +69,7 @@ SvdConfigDescription()
              "Specification of the data for input to the SVD Procedure.  This should be "
              "organized as an embedding, with each selected row containing the same "
              "set of columns with numeric values to be used as coordinates.  The select statement "
-             "does not support groupby and having clauses. "
-             "Only plain column names may be used; it is not possible to select on "
-             "an expression (like x + 1)");
+             "does not support groupby and having clauses.");
     addField("columnOutputDataset", &SvdConfig::columnOutput,
              "Output dataset for embedding (column singular vectors go here)",
              optionalOutputDataset);
@@ -107,7 +105,6 @@ SvdConfigDescription()
 
     onPostValidate = chain(validateQuery(&SvdConfig::trainingData,
                                          NoGroupByHaving(),
-                                         PlainColumnSelect(),
                                          MustContainFrom()),
                            validateFunction<SvdConfig>());
 }
@@ -727,7 +724,8 @@ run(const ProcedureRunConfig & run,
     }
 #endif
 
-    FeatureBuckets extractedFeatures = extractFeaturesFromRows(*dataset,
+    FeatureBuckets extractedFeatures = extractFeaturesFromRows(runProcConf.trainingData.stm->select,
+                                                               *dataset,
                                                                runProcConf.trainingData.stm->when,
                                                                runProcConf.trainingData.stm->where,
                                                                runProcConf.trainingData.stm->orderBy,
