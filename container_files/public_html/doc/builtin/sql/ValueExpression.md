@@ -487,7 +487,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `now()` returns the timestamp at the current moment, according to system
   time.
 - `date_part(unit, x)` returns the subfield `unit` of timestamp `x`. The following are the supported units:
-  
   - `microsecond` as the total number of microseconds after the rounded down second.
   - `millisecond` as the total number of millisecond after the rounded down second.
   - `second` as the number of seconds after the minute (0-59)
@@ -504,8 +503,8 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - `quarter` as the number of the date's quarter (1-4)
   - `year` as the gregorian calendar year of the date
   - `isoyear` as the ISO-8601 calendar year of the date
-
 - `date_trunc(unit, x)` will truncate the timestamp `x` to the specified `unit`.
+
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
 
@@ -552,7 +551,10 @@ calculate
 
 The following functions are used to extract and process web data.
 
-- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+* `fetcher(str)` fetches resources from a given file or URL. It acts as the default version of [function fetcher](../functions/Fetcher.md.html). It returns two output columns:
+ * content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
+ * error is a string containing the error message. If the fetch succeeded, it will be null.
+* `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
 
 The full set of options to the `extract_domain` function are as follows:
 
