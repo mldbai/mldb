@@ -28,7 +28,7 @@ class MLDB1937SvdWithComplexSelect(MldbUnitTest):  # noqa
     def test_svd_with_function_calls(self):
         # this is using the fact that SVD training on string values
         # creates a new sparse column for each string value seens
-        mldb.log(mldb.put('/v1/procedures/train_svd', {
+        mldb.put('/v1/procedures/train_svd', {
             "type" : "svd.train",
             "params" : {
                 "trainingData": "select a, lower(b) from data",
@@ -36,14 +36,12 @@ class MLDB1937SvdWithComplexSelect(MldbUnitTest):  # noqa
                 "columnOutputDataset": "svd_column_embedding",
                 "modelFileUrl": "file://tmp/MLDB-1937-svd-with-complex-select.svd"
             }
-        }))
+        })
 
         # column rowName_, a, lower(b).stringEquals.test and lower(b).stringEquals.lombric
         self.assertEqual(len(mldb.query("select * from svd_column_embedding")[0]), 4)
 
     def test_svd_with_aritmetic_ops(self):
-        # this is using the fact that SVD training on string values
-        # creates a new sparse column for each string value seens
         mldb.put('/v1/procedures/train_svd', {
             "type" : "svd.train",
             "params" : {
@@ -53,7 +51,42 @@ class MLDB1937SvdWithComplexSelect(MldbUnitTest):  # noqa
             }
         })
 
+        self.assertEqual(len(mldb.query("select * from svd_column_embedding")[0]), 5)
+
+    def test_svd_with_column_expression(self):
+        mldb.put('/v1/procedures/train_svd', {
+            "type" : "svd.train",
+            "params" : {
+                "trainingData": "select column expr(where rowCount() = 100) from data",
+                "rowOutputDataset": "svd_row_embedding",
+                "columnOutputDataset" : "svd_column_embedding"
+            }
+        })
+
+        self.assertEqual(len(mldb.query("select * from svd_column_embedding")[0]), 5)
+
+        mldb.put('/v1/procedures/train_svd', {
+            "type" : "svd.train",
+            "params" : {
+                "trainingData": "select a from data", #column expr(where columnName() = 'a') from data",
+                "rowOutputDataset": "svd_row_embedding",
+                "columnOutputDataset" : "svd_column_embedding"
+            }
+        })
+
         mldb.log(mldb.query("select * from svd_column_embedding"))
+        self.assertEqual(len(mldb.query("select * from svd_column_embedding")[0]), 1)
+
+        mldb.put('/v1/procedures/train_svd', {
+            "type" : "svd.train",
+            "params" : {
+                "trainingData": "select column expr(where columnName() = 'b') from data",
+                "rowOutputDataset": "svd_row_embedding",
+                "columnOutputDataset" : "svd_column_embedding"
+            }
+        })
+
+        self.assertEqual(len(mldb.query("select * from svd_column_embedding")[0]), 4)
 
 
 if __name__ == '__main__':
