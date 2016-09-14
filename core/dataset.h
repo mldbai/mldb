@@ -579,6 +579,11 @@ struct Dataset: public MldbEntity {
     virtual std::vector<ColumnName> 
     getFlattenedColumnNames() const;
 
+    /** Return the number of distinct flattened known columns
+        Defaults to getColumnCount (in matrix interface)
+    */
+    virtual size_t getFlattenedColumnCount() const;
+
     /** Return whether or not all column names and info are known.
         Defaults to true
     */

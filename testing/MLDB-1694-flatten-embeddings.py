@@ -31,6 +31,26 @@ class Mldb1694(MldbUnitTest):
 
         self.amazingGrace = "https://public.mldb.ai/datasets/tensorflow-demo/grace_hopper.jpg"
  
+    def test_prediction_works(self):
+        self.assertTableResultEquals(
+            mldb.query("""select round(pred * 10000) as pred from transpose(
+                            (
+                                SELECT inception({url: '%s'}) as *
+                                NAMED 'pred'
+                            )
+                        )
+                        order by pred DESC limit 5
+                """ % self.amazingGrace),
+            [
+                ["_rowName","pred"],
+                ["softmax.0.866", 8080],
+                ["softmax.0.794",  228],
+                ["softmax.0.896",   95],
+                ["softmax.0.849",   94],
+                ["softmax.0.926",   77]
+            ])
+
+
     def test_flattened_prediction_works(self):
         # this version does the same prediction as the test above
         # but accesses the output parameter softmax and flattens
@@ -55,4 +75,3 @@ class Mldb1694(MldbUnitTest):
 
 
 mldb.run_tests()
-

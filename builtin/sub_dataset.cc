@@ -414,6 +414,13 @@ getFlattenedColumnNames() const
     return itl->fullFlattenColumnNames;
 }
 
+size_t 
+SubDataset::
+getFlattenedColumnCount() const
+{
+    return itl->fullFlattenColumnNames.size();
+}
+
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
        "sub",

@@ -2208,6 +2208,15 @@ getFlattenedColumnNames() const
     return getMatrixView()->getColumnNames();
 }
 
+size_t 
+Dataset::
+getFlattenedColumnCount() const
+{
+    //Most dataset are not structured
+    //Notable exception is the sub query dataset
+    return getMatrixView()->getColumnCount();
+}
+
 void
 Dataset::
 commit()

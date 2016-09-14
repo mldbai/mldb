@@ -56,6 +56,8 @@ struct SubDataset : public Dataset {
 
     virtual std::vector<ColumnName> getFlattenedColumnNames() const override;
 
+    virtual size_t getFlattenedColumnCount() const;
+
 private:
     SubDatasetConfig datasetConfig;
     struct Itl;
