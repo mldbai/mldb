@@ -14,7 +14,7 @@ class WhenInWhen(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        same_time_tomorrow = now + datetime.timedelta(seconds=3599)
+        same_time_tomorrow = now + datetime.timedelta(seconds=24 * 3600 - 1)
         ds1 = mldb.create_dataset({
             'type': 'sparse.mutable',
             'id': 'dataset1'})

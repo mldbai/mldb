@@ -686,7 +686,7 @@ struct Dataset: public MldbEntity {
     virtual RowName getOriginalRowName(const Utf8String& tableName,
                                        const RowName & name) const;
 
-    virtual size_t getRowCount() const;
+    virtual uint64_t getRowCount() const;
 };
 
 

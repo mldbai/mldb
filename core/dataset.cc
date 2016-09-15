@@ -2182,7 +2182,7 @@ getOriginalRowName(const Utf8String& tableName, const RowName & name) const
     return name;
 }
 
-size_t
+uint64_t
 Dataset::
 getRowCount() const
 {
