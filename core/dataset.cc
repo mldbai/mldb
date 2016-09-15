@@ -948,7 +948,6 @@ executeFilteredColumnExpression(const Dataset & dataset,
                                 const ColumnName & columnName,
                                 const Filter & filter)
 {
-    cerr << "executeFilteredColumnExpression " << columnName << endl;
     auto columnIndex = dataset.getColumnIndex();
 
     if (columnIndex->knownColumn(columnName)) {
@@ -970,7 +969,6 @@ executeFilteredColumnExpression(const Dataset & dataset,
         return std::pair<std::vector<RowName>, Any>(std::move(rows), Any());
     }
     else {
-        cerr << "column unknown" << endl;
         return {};
     }
     
@@ -1002,7 +1000,6 @@ generateVariableEqualsConstant(const Dataset & dataset,
                                const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
-    cerr << "generateVariableEqualsConstant" << endl;
     ColumnName columnName(removeTableName(alias,variable.columnName));
     CellValue constantValue(constant.constant.getAtom());
 

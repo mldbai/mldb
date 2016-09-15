@@ -451,8 +451,6 @@ querySubDataset(MldbServer * server,
                 const Utf8String & tableAlias,
                 bool allowMultiThreading)
 {
-    cerr << "query sub dataset" << endl;
-
     auto dataset = std::make_shared<SubDataset>
         (server, std::move(rows));
                 
