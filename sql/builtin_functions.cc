@@ -2629,6 +2629,83 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerFlatten(flatten, "flatten");
 
+BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 2);
+
+    if (!args[0].info->couldEmbedding())
+        throw HttpReturnException(400, "requires an array as first argument");
+
+    if (!args[1].info->isEmbedding())
+        throw HttpReturnException(400, "requires an arrays as second argument");
+
+    if (!args[1].metadata.isConstant)
+        throw HttpReturnException(400, "requires a constant value as a second argument");
+
+    //Dont know the type without evaluating second arg;
+    auto embeddingFormat = args[1].constantValue();
+
+    DimsVector shape;
+
+    auto addDim = [&] (const Path & columnName,
+           const Path & prefix,
+           const CellValue & val,
+           Date ts)
+    {
+        shape.push_back(val.toInt());
+        return true;
+    };
+
+    embeddingFormat.forEachAtom(addDim);
+
+    auto st = args[0].info->getEmbeddingType();
+
+    auto outputInfo
+        = std::make_shared<EmbeddingValueInfo>(EmbeddingValueInfo::fromShape(shape, st));
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 2);
+
+                return args[0].reshape(shape);
+            },
+            outputInfo
+    };
+}
+
+static RegisterBuiltin registerReshape(reshape, "reshape");
+
+BoundFunction shape(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    if (!args[0].info->couldEmbedding())
+        throw HttpReturnException(400, "requires an array as first argument");
+     
+    auto outputInfo
+        = std::make_shared<EmbeddingValueInfo>(-1, ST_INT32);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+
+                DimsVector shape = args[0].getEmbeddingShape();
+                std::vector<int> shapeValues;
+                shapeValues.reserve(shape.size());
+
+                for (auto s : shape)
+                    shapeValues.push_back(s);
+
+                return ExpressionValue(shapeValues, args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+    }; 
+}
+
+static RegisterBuiltin registerShape(shape, "shape");
+
 BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
 {
     // Return the result indexed on a single dimension

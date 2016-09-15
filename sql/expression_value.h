@@ -210,6 +210,12 @@ struct ExpressionValueInfo {
         return true;
     }
 
+    /// Could the thing described by this value description return an embedding?
+    virtual bool couldEmbedding() const 
+    { 
+        return false; 
+    }
+
     /// Return whether the schema for a row is closed (only those columns are
     /// there) or open (other columns may be present).  Default throws that
     /// it's not a row.
@@ -615,6 +621,11 @@ struct ExpressionValue {
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<double> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<int> values,
                     Date ts,
                     DimsVector shape = DimsVector());
     
@@ -1396,6 +1407,11 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
     {
         return true;
     }
+
+    virtual bool couldEmbedding() const override 
+    { 
+        return true; 
+    }
 };
 
 /// For an embedding
@@ -1418,6 +1434,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
         input. */
     EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
 
+    static EmbeddingValueInfo fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
+
     std::vector<ssize_t> shape;
     StorageType storageType;
 
@@ -1433,6 +1451,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
     virtual bool couldBeRow() const;
 
     virtual bool couldBeScalar() const;
+
+    virtual bool couldEmbedding() const override { return true; }
 
     virtual bool isEmbedding() const;
 

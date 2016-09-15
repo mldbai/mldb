@@ -1758,6 +1758,8 @@ bind(SqlBindingScope & scope) const
              true /* is constant */);
     }
 
+    bool isConstant = true;
+
     vector<BoundSqlExpression> boundClauses;
     DimsVector knownDims = {clauses.size()};
 
@@ -1765,6 +1767,7 @@ bind(SqlBindingScope & scope) const
 
     for (auto & c: clauses) {
         boundClauses.emplace_back(c->bind(scope));
+        isConstant = isConstant && boundClauses.back().metadata.isConstant;
         clauseInfo.push_back(boundClauses.back().info);
     }   
 
@@ -1837,7 +1840,7 @@ bind(SqlBindingScope & scope) const
             }
         };
 
-    return BoundSqlExpression(exec, this, outputInfo, false);
+    return BoundSqlExpression(exec, this, outputInfo, isConstant);
 }
 
 Utf8String
