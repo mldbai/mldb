@@ -79,12 +79,7 @@ struct MergedDataset::Itl
                   [] (std::shared_ptr<Dataset> p1,
                       std::shared_ptr<Dataset> p2)
                   {
-                    return false;
-                  return (p1->getColumnIndex()->getColumnNames().size()
-                          + p1->getMatrixView()->getRowNames().size())
-                         >
-                         (p2->getColumnIndex()->getColumnNames().size()
-                          + p2->getMatrixView()->getRowNames().size());
+                    return p1->getRowCount() > p2->getRowCount();
                   });
 
         std::vector<std::shared_ptr<Dataset> > toMerge;
