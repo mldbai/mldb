@@ -889,6 +889,10 @@ struct ExpressionValue {
     */
     void convertEmbedding(void * buf, size_t len, StorageType bufType) const;
 
+    /** Return the storage type of the embedding 
+    */
+    StorageType getEmbeddingType() const;
+
     /** Iterate over the child expression, with an ExpressionValue at each
         level.  Note that if isRow() is false, than this function will
         NOT call the callback; it's only called for row-valued values.

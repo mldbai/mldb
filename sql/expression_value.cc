@@ -1767,6 +1767,13 @@ embedding(Date ts,
     return result;
 }
 
+StorageType
+ExpressionValue::
+getEmbeddingType() const
+{
+    return embedding_->storageType_;
+}
+
 ExpressionValue
 ExpressionValue::
 superpose(std::vector<ExpressionValue> vals)
