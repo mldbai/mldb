@@ -8,13 +8,13 @@ import unittest
 import datetime
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
-now = datetime.datetime.now()
+now = datetime.datetime.now() - datetime.timedelta(seconds=1)
 
 class WhenInWhen(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        same_time_tomorrow = now + datetime.timedelta(seconds=24 * 3600 - 1)
+        same_time_tomorrow = now + datetime.timedelta(days=1)
         ds1 = mldb.create_dataset({
             'type': 'sparse.mutable',
             'id': 'dataset1'})
@@ -23,7 +23,8 @@ class WhenInWhen(unittest.TestCase):
         for i in xrange(row_count - 1):
             # row name is x's value
             ds1.record_row(str(i),
-                           [['x', str(i), same_time_tomorrow], ['y', str(i), now]])
+                           [['x', str(i), same_time_tomorrow],
+                            ['y', str(i), now]])
 
         ds1.record_row(str(row_count - 1), [['x', "9", same_time_tomorrow],
                                             ['y', "9", same_time_tomorrow]])
