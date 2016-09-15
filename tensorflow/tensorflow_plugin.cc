@@ -1214,6 +1214,9 @@ struct TensorflowGraphBase: public Function {
                 return DT_UINT16;
             case ST_BLOB:
                 return DT_STRING;
+            case ST_TIMESTAMP:
+            case ST_TIMEINTERVAL:
+                return DT_DOUBLE;
             default:
 
             throw HttpReturnException(400, "Can't return value of this type to TensorFlow",

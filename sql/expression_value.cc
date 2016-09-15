@@ -1771,7 +1771,10 @@ StorageType
 ExpressionValue::
 getEmbeddingType() const
 {
-    return embedding_->storageType_;
+    if (type_ == Type::EMBEDDING)
+        return embedding_->storageType_;
+    
+    throw HttpReturnException(500, "Querying embedding type on non-embedding value");
 }
 
 ExpressionValue

@@ -889,7 +889,8 @@ struct ExpressionValue {
     */
     void convertEmbedding(void * buf, size_t len, StorageType bufType) const;
 
-    /** Return the storage type of the embedding 
+    /** Return the storage type of the embedding
+        Will throw an error if not an embedding.
     */
     StorageType getEmbeddingType() const;
 
