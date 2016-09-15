@@ -10,6 +10,7 @@ $(eval $(call include_sub_make,jpeg,jpeg,../jpeg.mk))
 $(eval $(call include_sub_make,protobuf,protobuf,../protobuf.mk))
 $(eval $(call include_sub_make,farmhash,farmhash,../farmhash.mk))
 $(eval $(call include_sub_make,highwayhash,highwayhash,../highwayhash.mk))
+$(eval $(call include_sub_make,giflib,giflib,../giflib.mk))
 $(eval $(call include_sub_make,tensorflow,tensorflow,../tensorflow.mk))
 
 EDLIB_CC_FILES:= edlib/edlib/src/edlib.cpp

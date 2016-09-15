@@ -47,7 +47,7 @@ $(2)/libprotobuf3.so:	$(4)/protoc
 protobuf: $(4)/protoc
 
 # Allow a dependency on the headers
-$(INC)/google/protobuf: $(4)/protoc
+$(INC)/google/protobuf: | $(4)/protoc
 	@# Only copy when needing includes elsewhere
 	[ ! "$(PWD)/$(BUILD)/$(1)/include/google/protobuf" -ef "$(3)/google/protobuf" ] \
 	  && ( mkdir -p $(3)/google \

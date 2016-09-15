@@ -1458,8 +1458,8 @@ struct TensorflowOp: public TensorflowGraphBase {
     {
         functionConfig = config.params.convert<TensorflowOpConfig>();   
         tensorflow::Status status;
-        op = tensorflow::OpRegistry::Global()->LookUp(functionConfig.op.rawString(),
-                                                      &status);
+        status = tensorflow::OpRegistry::Global()->LookUpOpDef(functionConfig.op.rawString(),
+                                                      &op);
 
         if (!op) {
             throw HttpReturnException(400, "Unable to obtain TensorFlow operator '"
@@ -1640,8 +1640,7 @@ struct TensorflowPlugin: public Plugin {
             const tensorflow::OpDef & op = ops.op(i);
             RegisteredOp entry;
 
-            Status status;
-            entry.op = OpRegistry::Global()->LookUp(op.name(), &status);
+            Status status = OpRegistry::Global()->LookUpOpDef(op.name(), &entry.op);
             ExcAssert(status.ok());
 
             entry.builtinFunctionHandle
@@ -1882,8 +1881,10 @@ struct TensorflowPlugin: public Plugin {
                     SqlBindingScope & context)
             -> BoundFunction
             {
-                tensorflow::Status status;
-                auto * opDef = tensorflow::OpRegistry::Global()->LookUp(op, &status);
+                
+                const tensorflow::OpDef * opDef;
+                tensorflow::Status status
+                    = tensorflow::OpRegistry::Global()->LookUpOpDef(op, &opDef);
 
                 if (args.size() < 1 || args.size() > 2)
                     throw HttpReturnException
