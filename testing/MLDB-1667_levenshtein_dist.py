@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-1667
 # 2016-05-19
@@ -8,7 +9,7 @@ import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb1667(MldbUnitTest):  
+class Mldb1667(MldbUnitTest):
     @classmethod
     def setUpClass(self):
         pass
@@ -53,7 +54,11 @@ class Mldb1667(MldbUnitTest):
             "episodes.")
         mldb.log(len(text))
         doTestWords(text, text2, 10)
-        
+
+        doTestWords('Québec', 'Québec', 0)
+        doTestWords('Québec', 'Quebec', 1)
+        doTestWords('éèà', 'abc', 3)
+
 
     def test_wrong_type(self):
         def doWrongTypeQuery(a, b):
