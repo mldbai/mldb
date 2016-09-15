@@ -227,7 +227,7 @@ struct SubDataset::Itl
 
     virtual ColumnName getColumnName(ColumnHash columnHash) const
     {        
-        for (auto& c : columnNames)
+        for (const auto& c : columnNames)
         {
             if (ColumnHash(ColumnName(c)) == columnHash)
             {
@@ -258,11 +258,11 @@ struct SubDataset::Itl
         output.columnHash = columnName;
         output.columnName = columnName;
 
-        for (auto row : subOutput)
+        for (const auto& row : subOutput)
         {            
             auto flattened = row.flatten();
 
-            for (auto c : flattened.columns)
+            for (const auto& c : flattened.columns)
             {
                 const ColumnName & cName = std::get<0>(c);
 
@@ -283,11 +283,11 @@ struct SubDataset::Itl
     {
         std::vector<std::tuple<RowName, CellValue> > result; 
 
-        for (auto row : subOutput)
+        for (const auto& row : subOutput)
         {
             auto flattened = row.flatten();
 
-            for (auto c : flattened.columns)
+            for (const auto& c : flattened.columns)
             {
                 const ColumnName & cName = std::get<0>(c);
 
