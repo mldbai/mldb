@@ -8,7 +8,7 @@ import unittest
 import datetime
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
-now = datetime.datetime.now()
+now = datetime.datetime.now() - datetime.timedelta(seconds=1)
 
 class WhenInWhen(unittest.TestCase):
 
@@ -23,7 +23,8 @@ class WhenInWhen(unittest.TestCase):
         for i in xrange(row_count - 1):
             # row name is x's value
             ds1.record_row(str(i),
-                           [['x', str(i), same_time_tomorrow], ['y', str(i), now]])
+                           [['x', str(i), same_time_tomorrow],
+                            ['y', str(i), now]])
 
         ds1.record_row(str(row_count - 1), [['x', "9", same_time_tomorrow],
                                             ['y', "9", same_time_tomorrow]])
@@ -43,7 +44,7 @@ class WhenInWhen(unittest.TestCase):
         validate1(mldb.get(
             '/v1/query',
             q="SELECT * FROM dataset1 WHEN value_timestamp() < latest_timestamp(x)"))
-    
+
     def test_2(self):
         def validate2(result):
             mldb.log(result)
@@ -58,7 +59,7 @@ class WhenInWhen(unittest.TestCase):
         validate2(mldb.get(
             '/v1/query',
             q="SELECT * FROM dataset1 WHEN value_timestamp() = latest_timestamp(x) WHERE x = '9'"))
-    
+
     def test_3(self):
         def validate3(result):
             mldb.log(result)

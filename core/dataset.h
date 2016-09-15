@@ -685,6 +685,8 @@ struct Dataset: public MldbEntity {
        This will return the name that the row has in the table with this alias*/
     virtual RowName getOriginalRowName(const Utf8String& tableName,
                                        const RowName & name) const;
+
+    virtual uint64_t getRowCount() const;
 };
 
 
