@@ -584,7 +584,7 @@ struct Dataset: public MldbEntity {
     */
     virtual size_t getFlattenedColumnCount() const;
 
-    /** Return whether or not all column names and info are known.
+    /** Return whether or not all columns names and info are known.
         Defaults to true
     */
     virtual bool hasColumnNames() const { return true; }

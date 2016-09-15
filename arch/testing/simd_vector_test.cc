@@ -13,6 +13,7 @@
 #include "mldb/arch/arch.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/demangle.h"
+#include "mldb/arch/simd.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
@@ -336,14 +337,18 @@ void vec_dotprod_dp_test_case(int nvals)
     }
     
     double r2 = SIMD::vec_dotprod_dp_sse2(x, y, nvals);
-    double r2a = SIMD::Avx::vec_dotprod_dp(x, y, nvals);
+    // this will be trivially true if the CPU does not support AVX
+    double r2a = ML::has_avx() ? SIMD::Avx::vec_dotprod_dp(x, y, nvals) :
+        SIMD::vec_dotprod_dp_sse2(x, y, nvals);
 
     if (r2 != r2a)
         cerr << "error: nvals = " << nvals << endl;
 
     BOOST_CHECK_EQUAL(r2, r2a);
 
-    double r3 = SIMD::Avx::vec_dotprod(x, y, nvals);
+    // this will be trivially true if the CPU does not support AVX
+    double r3 = ML::has_avx() ? SIMD::Avx::vec_dotprod(x, y, nvals) :
+         SIMD::vec_dotprod_sse2(x, y, nvals);
     double r4 = SIMD::vec_dotprod_sse2(x, y, nvals);
 
     BOOST_CHECK_EQUAL(r3, r4);
