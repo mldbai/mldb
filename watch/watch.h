@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* watch.h                                                       -*- C++ -*-
    Jeremy Barnes, 6 April 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Class to deal with watchers.
 */
@@ -209,7 +209,7 @@ struct Watch {
         if (!found)
             throwException(WATCH_ERR_TIMEOUT, "No event found before timeout");
 
-        return std::move(res);
+        return res;
     }
 
     /** Pop an event, or throw an exception if the event was not found.
@@ -874,9 +874,9 @@ struct WatchAllData {
         // Once all are done, we bind them so that they can start
         // triggering
         for (unsigned i = 0;  i < elementWatches.size();  ++i) {
+            // clang doesn't like std::bind when used with g++6 headers
             elementWatches[i].bindGeneric
-                (std::bind(&WatchAllData::onElementTrigger, this,
-                           std::placeholders::_1, i));
+                ([this,i](const Any & val) { this->onElementTrigger(val, i); });
         }
     }
 
@@ -923,7 +923,7 @@ WatchT<AllOutput> all(Watches&&... watches)
     // Now activate it to send any existing results through
     data->activate();
 
-    return std::move(result);
+    return result;
 }
 
 

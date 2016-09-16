@@ -10,7 +10,11 @@
 #include "mldb/sql/path.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/vfs/filter_streams.h"
+#include <set>
+#include <unordered_set>
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -53,20 +57,45 @@ BOOST_AUTO_TEST_CASE(test_element_compare)
 BOOST_AUTO_TEST_CASE(test_coord_constructor)
 {
     PathElement coord1;
-    BOOST_CHECK(coord1.empty());
- 
+    BOOST_CHECK(coord1.null());
+
     BOOST_CHECK_EQUAL(coord1.toUtf8String(), "");
-   
+
     Path coords1;
     BOOST_CHECK(coords1.empty());
 
     BOOST_CHECK_EQUAL(coords1.toUtf8String(), "");
 
-    BOOST_CHECK_EQUAL((coords1 + coord1).toUtf8String(), "\"\"");
+    Path p2 = coords1 + coords1;
+    BOOST_CHECK(p2.empty());
+
+    BOOST_CHECK_EQUAL(p2.toUtf8String(), "");
     BOOST_CHECK_EQUAL(Path(coord1).toUtf8String(), "");
 
     vector<PathElement> coords2;
     coords2.push_back(coord1);
+}
+
+BOOST_AUTO_TEST_CASE(test_empty_str)
+{
+    PathElement pe("");
+    BOOST_CHECK(!pe.null());
+
+    BOOST_CHECK_EQUAL(pe.toUtf8String(), "");
+    BOOST_CHECK_EQUAL(pe.toEscapedUtf8String(), "\"\"");
+
+    Path path(pe);
+    BOOST_CHECK(!path.empty());
+    BOOST_CHECK_EQUAL(path.size(), 1);
+    BOOST_CHECK_EQUAL(path.toUtf8String(), "\"\"");
+    BOOST_CHECK_EQUAL((pe + pe).toUtf8String(), "\"\".\"\"");
+}
+
+BOOST_AUTO_TEST_CASE(test_double_quotes_str)
+{
+    PathElement pe("\"\"");
+    BOOST_CHECK_EQUAL(pe.toUtf8String(), "\"\"");
+    BOOST_CHECK_EQUAL(pe.toEscapedUtf8String(), "\"\"\"\"\"\"");
 }
 
 BOOST_AUTO_TEST_CASE(test_coord_printing)
@@ -154,7 +183,6 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
         Path coords1 = Path::parse("é");
         BOOST_CHECK_EQUAL(coords1.toUtf8String(), "é");
     }
-
     {
         Path coords1 = Path::parse("..");
         BOOST_CHECK_EQUAL(coords1.size(), 3);
@@ -196,6 +224,12 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
         BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("x\"\""), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\"x\",y"), ML::Exception);
+    }
+
+    {
+        Path coords1 = Path::parse("");
+        BOOST_CHECK_EQUAL(coords1.size(), 1);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\"");
     }
 }
 
@@ -322,4 +356,87 @@ BOOST_AUTO_TEST_CASE(test_append)
     BOOST_CHECK_EQUAL(p0 + p0, p0);
     BOOST_CHECK_EQUAL(p0 + p1, p1);
     BOOST_CHECK_EQUAL(p1 + p0, p1);
+}
+
+BOOST_AUTO_TEST_CASE(test_path_builder)
+{
+    PathElement elem("x");
+    PathBuilder builder;
+    builder.add(elem);
+    Path path = builder.extract();
+}
+
+// MLDB-1936
+BOOST_AUTO_TEST_CASE(test_ordered2)
+{
+    vector<Path> paths;
+
+    vector<int> lengthBuckets;
+
+    filter_istream stream("mldb/sql/testing/path_test_columns.txt");
+    while (stream) {
+        std::string s;
+        getline(stream, s);
+        if (s.empty())
+            continue;
+        paths.emplace_back(Path::parse(s));
+        int l = paths.back().size();
+        if (l >= lengthBuckets.size())
+            lengthBuckets.resize(l + 1);
+        lengthBuckets[l] += 1;
+    }
+   
+    cerr << "got " << paths.size() << " paths" << endl;
+    cerr << jsonEncodeStr(lengthBuckets) << endl;
+
+    for (unsigned i = 0;  i < 10;  ++i) {
+        std::random_shuffle(paths.begin(), paths.end());
+        std::unordered_set<Path> unordered;
+        std::unordered_set<uint64_t> unorderedHashes;
+        std::set<Path> ordered;
+        std::set<uint64_t> orderedHashes;
+
+        for (const Path & p: paths) {
+            BOOST_CHECK(!ordered.count(p));
+            BOOST_CHECK(!unordered.count(p));
+            BOOST_CHECK(unordered.insert(p).second);
+            BOOST_CHECK(unorderedHashes.insert(p.hash()).second);
+            BOOST_CHECK(ordered.insert(p).second);
+            BOOST_CHECK(orderedHashes.insert(p.hash()).second);
+            BOOST_CHECK(ordered.count(p));
+            BOOST_CHECK(unordered.count(p));
+        }
+
+        BOOST_CHECK_EQUAL(ordered.size(), paths.size());
+        BOOST_CHECK_EQUAL(unordered.size(), paths.size());
+        BOOST_CHECK_EQUAL(orderedHashes.size(), paths.size());
+        BOOST_CHECK_EQUAL(unorderedHashes.size(), paths.size());
+
+        for (const Path & p: paths) {
+            if (!ordered.count(p))
+                cerr << "missing path " << p << endl;
+            BOOST_CHECK(ordered.count(p));
+            BOOST_CHECK(unordered.count(p));
+            BOOST_CHECK(orderedHashes.count(p.hash()));
+            BOOST_CHECK(unorderedHashes.count(p.hash()));
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_null)
+{
+    PathElement e("e");
+    PathElement null;
+    Path p("p");
+
+    // pe = path element
+    // p = path
+    BOOST_CHECK_THROW(null + e, ML::Exception); // pe - pe, null lhs
+    BOOST_CHECK_THROW(e + null, ML::Exception); // pe - pe, null rhs
+    BOOST_CHECK_THROW(null + std::move(e), ML::Exception); // pe - moved pe, null lhs
+    BOOST_CHECK_THROW(e + std::move(null), ML::Exception); // pe - moved pe, null rhs
+    BOOST_CHECK_THROW(null + p, ML::Exception); // pe - path, null lhs
+    BOOST_CHECK_THROW(null + std::move(p), ML::Exception); // pe - moved path, null lhs
+    BOOST_CHECK_THROW(p + null, ML::Exception); // path - pe, null rhs
+    BOOST_CHECK_THROW(p + std::move(null), ML::Exception); // path - moved pe, null rhs
 }

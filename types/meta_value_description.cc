@@ -102,7 +102,7 @@ static Json::Value getDefaultValue(const ValueDescription & description)
     description.printJson(val, context);
     description.destroy(val);
 
-    return std::move(jval);
+    return jval;
 }
 
 static ValueDescriptionRepr

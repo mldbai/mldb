@@ -25,7 +25,7 @@ namespace ML {
 
 struct Spinlock {
     Spinlock(int yieldAfter = 100)
-        : value(ATOMIC_FLAG_INIT), yieldAfter(yieldAfter)
+        : yieldAfter(yieldAfter)
     {
     }
 
@@ -66,7 +66,7 @@ struct Spinlock {
     /// way we can avoid including <thread>.
     static void yield();
 
-    std::atomic_flag value;
+    std::atomic_flag value = ATOMIC_FLAG_INIT;
 
     /// How many times to spin before we yield?
     int yieldAfter;

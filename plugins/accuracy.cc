@@ -128,13 +128,13 @@ runBoolean(AccuracyConfig & runAccuracyConf,
     PerThreadAccumulator<ScoredStats> accum;
 
     auto processor = [&] (NamedRowValue & row,
-                           const std::vector<ExpressionValue> & scoreLabelWeight)
+                          const std::vector<ExpressionValue> & scoreLabelWeight)
         {
-            //cerr << "got vals " << labelWeight << " " << score << endl;
-
             double score = scoreLabelWeight[0].toDouble();
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
+
+            // cerr << "score=" << score << "; label=" << label << "; weight=" << weight << endl;
 
             accum.get().update(label, score, weight, row.rowName);
 
@@ -225,18 +225,17 @@ runBoolean(AccuracyConfig & runAccuracyConf,
         output->commit();
     }
 
-    cerr << "stats are " << endl;
+    // cerr << "stats are " << endl;
 
-    cerr << stats.toJson();
+    // cerr << stats.toJson();
 
-    cerr << stats.atPercentile(0.50).toJson();
-    cerr << stats.atPercentile(0.20).toJson();
-    cerr << stats.atPercentile(0.10).toJson();
-    cerr << stats.atPercentile(0.05).toJson();
-    cerr << stats.atPercentile(0.01).toJson();
+    // cerr << stats.atPercentile(0.50).toJson();
+    // cerr << stats.atPercentile(0.20).toJson();
+    // cerr << stats.atPercentile(0.10).toJson();
+    // cerr << stats.atPercentile(0.05).toJson();
+    // cerr << stats.atPercentile(0.01).toJson();
 
     return Any(stats.toJson());
-
 }
 
 RunOutput
@@ -315,10 +314,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     }
 
 
-    // Create confusion matrix
-    map<CellValue, map<CellValue, unsigned>> confusion_matrix;
-    map<CellValue, unsigned> predicted_sums;
-    map<CellValue, unsigned> real_sums;
+    // Create confusion matrix (actual / predicted)
+    map<CellValue, map<CellValue, double>> confusion_matrix;
+    map<CellValue, double> predicted_sums;
+    map<CellValue, double> real_sums;
+    double conf_mat_sum = 0;
     bool gotStuff = false;
     accum.forEach([&] (AccumBucket * thrBucket)
             {
@@ -326,9 +326,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
-                    confusion_matrix[label][predicted] += 1;
-                    real_sums[label] += 1;
-                    predicted_sums[predicted] += 1;
+                    const double & weight = std::get<3>(elem);
+                    confusion_matrix[label][predicted] += weight;
+                    real_sums[label] += weight;
+                    predicted_sums[predicted] += weight;
+                    conf_mat_sum += weight;
                 }
             });
 
@@ -343,20 +345,14 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     double total_precision = 0;
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
-    unsigned total_support = 0;
+    double total_support = 0;
+
+    int nb_predicted_no_label = 0;
 
     results["confusionMatrix"] = Json::Value(Json::arrayValue);
     for(const auto & actual_it : confusion_matrix) {
-        unsigned fn = 0;
-        unsigned tp = 0;
 
         for(const auto & predicted_it : actual_it.second) {
-            if(predicted_it.first == actual_it.first)  {
-                tp += predicted_it.second;
-            } else{
-                fn += predicted_it.second;
-            }
-
             Json::Value conf_mat_elem;
             conf_mat_elem["predicted"] = jsonEncode(predicted_it.first);
             conf_mat_elem["actual"] = jsonEncode(actual_it.first);
@@ -364,23 +360,45 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             results["confusionMatrix"].append(conf_mat_elem);
         }
 
+        double tp = confusion_matrix[actual_it.first][actual_it.first];
+        double fp = predicted_sums[actual_it.first] - tp;
+        double fn = real_sums[actual_it.first] - tp;
+        double tn = conf_mat_sum - fn - fp - tp;
+
+        /*
+        cerr << "\nlabel: " << actual_it.first << endl;
+        cerr << "TP: " << tp << endl;
+        cerr << "FP: " << fp << endl;
+        cerr << "TN: " << tn << endl;
+        cerr << "FN: " << fn << endl;
+        */
+
+        // if our class was (wrongfully) predicted (fp) but was never actually
+        // there (tp + fn == 0), then this is strange
+        if (tp + fn == 0 && fp > 0) {
+            nb_predicted_no_label++;
+            cerr << "WARNING!! Label '" << actual_it.first
+                 << "' was predicted but not in known labels!" << endl;
+        }
+
         Json::Value class_stats;
 
-        double accuracy = ML::xdiv(tp, float(real_sums[actual_it.first]));
-        double precision = ML::xdiv(tp, float(predicted_sums[actual_it.first]));
-        double recall = ML::xdiv(tp, float(tp + fn));
-        unsigned support = real_sums[actual_it.first];
+        double accuracy = ML::xdiv(tp + tn, conf_mat_sum);
+        double precision = ML::xdiv(tp, tp + fp);
+        double support = tp + fn;
+        double recall = ML::xdiv(tp, support);
         class_stats["accuracy"] = accuracy;
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
-        class_stats["f"] = 2 * ML::xdiv((precision * recall), (precision + recall));
+        class_stats["f1Score"] = 2 * ML::xdiv(precision * recall,
+                                        precision + recall);
         class_stats["support"] = support;
         results["labelStatistics"][actual_it.first.toString()] = class_stats;
 
         total_accuracy += accuracy * support;
         total_precision += precision * support;
         total_recall += recall * support;
-        total_f1 += class_stats["f"].asDouble() * support;
+        total_f1 += class_stats["f1Score"].asDouble() * support;
         total_support += support;
     }
 
@@ -389,7 +407,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     weighted_stats["accuracy"] = total_accuracy / total_support;
     weighted_stats["precision"] = total_precision / total_support;
     weighted_stats["recall"] = total_recall / total_support;
-    weighted_stats["f"] = total_f1 / total_support;
+    weighted_stats["f1Score"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
     results["weightedStatistics"] = weighted_stats;
 
@@ -397,22 +415,18 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     // TODO maybe this should always return an error? The problem is it is not impossible that because
     // of the way the dataset is split, it is a normal situation. But it can also point to
     // misalignment in the way columns are named
-
-    // for all predicted labels
-    for(const auto & predicted_it : predicted_sums) {
-        // if it is not a true label
-        if(real_sums.find(predicted_it.first) == real_sums.end()) {
-            if(weighted_stats["precision"].asDouble() == 0) {
-                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' "
-                        "was predicted but not in true labels! Are the columns of the predicted "
-                        "labels named properly?", predicted_it.first.toString()));
-            }
-            cerr << "WARNING!! Label '" << predicted_it.first << "' was predicted but not in known labels!" << endl;
-        }
+    
+    // throw if precision is zero and at least one predicted value wasn't even
+    // in the labels
+    if (weighted_stats["precision"].asDouble() == 0
+        && nb_predicted_no_label > 0) {
+        throw ML::Exception(ML::format("Weighted precision is 0 and %i"
+                "labels were predicted but not in true labels! "
+                "Are the columns of the predicted labels named properly?",
+                nb_predicted_no_label));
     }
-
-
-    cout << results.toStyledString() << endl;
+    
+    // cout << results.toStyledString() << endl;
 
     return Any(results);
 }
@@ -425,17 +439,17 @@ runRegression(AccuracyConfig & runAccuracyConf,
     /* Calculate the r-squared. */
     struct ThreadStats {
         ThreadStats() :
-            mse_sum(0), n(0)
+            mse_sum(0), totalWeight(0)
         {}
 
-        void increment(double v, double l) {
+        void increment(double v, double l, double w) {
             if (!finite(v)) return;
 
-            mse_sum += pow(v-l, 2);
+            mse_sum += pow(v-l, 2) * w;
             absolute_percentage.push_back(abs( (v-l)/l ));
 
-            labels.push_back(l);
-            n++;
+            labelsWeights.emplace_back(l,w);
+            totalWeight += w;
         }
 
         static void merge(ThreadStats & t1, ThreadStats & t2)
@@ -453,9 +467,9 @@ runRegression(AccuracyConfig & runAccuracyConf,
         }
 
         double mse_sum;
-        int n;
+        double totalWeight;
         ML::distribution<double> absolute_percentage;
-        vector<double> labels;
+        vector<pair<double, double>> labelsWeights;
     };
 
     PerThreadAccumulator<ThreadStats> accum;
@@ -470,7 +484,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
             double label = scoreLabelWeight[1].toDouble();
             double weight = scoreLabelWeight[2].toDouble();
 
-            accum.get().increment(score, label);
+            accum.get().increment(score, label, weight);
 
             if(output) {
                 std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
@@ -504,16 +518,16 @@ runRegression(AccuracyConfig & runAccuracyConf,
     }
 
 
-    double n = 0, mse_sum = 0;
-    vector<vector<double> > allThreadLabels;
+    double totalWeight = 0, mse_sum = 0;
+    vector<vector<pair<double,double>> > allThreadLabelsWeights;
     accum.forEach([&] (ThreadStats * thrStats)
                   {
-                        n += thrStats->n;
+                        totalWeight += thrStats->totalWeight;
                         mse_sum += thrStats->mse_sum;
-                        allThreadLabels.emplace_back(std::move(thrStats->labels));
+                        allThreadLabelsWeights.emplace_back(std::move(thrStats->labelsWeights));
                   });
 
-    if(n == 0) {
+    if(totalWeight == 0) {
         throw ML::Exception(NO_DATA_ERR_MSG);
     }
 
@@ -523,27 +537,27 @@ runRegression(AccuracyConfig & runAccuracyConf,
     auto doThreadMeanLbl = [&] (int threadNum) -> bool
     {
         double averageAccum = 0;
-        for(auto & label : allThreadLabels[threadNum])
-            averageAccum += label / n;
+        for(auto & labelWeight : allThreadLabelsWeights[threadNum])
+            averageAccum += labelWeight.first * labelWeight.second / totalWeight;
 
         std::unique_lock<std::mutex> guard(mergeAccumsLock);
         meanOfLabel += averageAccum;
         return true;
     };
-    parallelMap(0, allThreadLabels.size(), doThreadMeanLbl);
+    parallelMap(0, allThreadLabelsWeights.size(), doThreadMeanLbl);
 
     double totalSumSquares = 0;
     auto doThreadSS = [&] (int threadNum) -> bool
     {
         double ssAccum = 0;
-        for(auto & label : allThreadLabels[threadNum])
-            ssAccum += pow(label - meanOfLabel, 2);
+        for(auto & labelWeight : allThreadLabelsWeights[threadNum])
+            ssAccum += pow(labelWeight.first - meanOfLabel, 2) * labelWeight.second;
 
         std::unique_lock<std::mutex> guard(mergeAccumsLock);
         totalSumSquares += ssAccum;
         return true;
     };
-    parallelMap(0, allThreadLabels.size(), doThreadSS);
+    parallelMap(0, allThreadLabelsWeights.size(), doThreadSS);
 
 
     // calculate the r2 while catching the edge cases
@@ -575,15 +589,12 @@ runRegression(AccuracyConfig & runAccuracyConf,
         absolute_percentage = std::move(accum.threads[0]->absolute_percentage);
     }
 
-    ExcAssertEqual(absolute_percentage.size(), n);
-
-
     // create return object
     Json::Value results;
     results["r2"] = r_squared;
 //     results["b"] = b;
 //     results["bd"] = bd;
-    results["mse"] = mse_sum / n;
+    results["mse"] = mse_sum / totalWeight;
 
     Json::Value quantile_errors;
     if(absolute_percentage.size() > 0) {

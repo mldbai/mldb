@@ -72,9 +72,10 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     cerr << proxy.post("/v1/datasets/test1/commit");
 
 
-    auto checkRow = [&] (const std::string & query, const std::string & answer)
+    auto checkRow = [&] (const std::string & select, const std::string & where ,const std::string & answer)
         {
-            auto selectResult = proxy.get("/v1/datasets/test1/query?"+query);
+            std::string query = "/v1/query?q=select "+select + " from test1 where " + where;
+            auto selectResult = proxy.get(query);
 
             BOOST_CHECK_EQUAL(selectResult.code(), 200);
 
@@ -84,7 +85,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
             BOOST_CHECK_EQUAL(selectJson[0].rowName, RowName(answer));
         };
 
-    checkRow("where=techno='yes'&select=*", "row1");
-    checkRow("where=\"tag%20with%20spaces\"='yes'&select=*", "row3");
-    checkRow("where=\"tag:with%20spaces\"='yes'&select=*", "row3");
+    checkRow("*", "techno='yes'", "row1");
+    checkRow("*", "\"tag%20with%20spaces\"='yes'", "row3");
+    checkRow("*", "\"tag:with%20spaces\"='yes'", "row3");
 }

@@ -131,7 +131,7 @@ jsonEscape(const std::string & str)
         else if (p == NO_ESCAPING)
             return str;
         heap_buf.resize(p - heap_buf.data());
-        return std::move(heap_buf);
+        return heap_buf;
     }
 }
 
@@ -206,7 +206,7 @@ void jsonEscape(const std::string & str, std::string & out)
     } else {
         // We need an allocation anyway, so use the simple solution
         if (out.empty())
-            out = std::move(jsonEscape(str));
+            out = jsonEscape(str);
         else out += jsonEscape(str);
     }
 }
@@ -232,7 +232,7 @@ void jsonEscape(const char * str, size_t len, std::string & out)
     } else {
         // We need an allocation anyway, so use the simple solution
         if (out.empty())
-            out = std::move(jsonEscape(string(str, str + len)));
+            out = jsonEscape(string(str, str + len));
         else out += jsonEscape(string(str, str + len));
     }
 }

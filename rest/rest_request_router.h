@@ -19,6 +19,8 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/regex.h"
 #include "mldb/http/http_exception.h"
+#include <set>
+
 
 namespace Datacratic {
 
@@ -264,7 +266,7 @@ struct RestRequestParsingContext {
     struct ObjectEntry {
         ObjectEntry(void * obj = nullptr,
                     const std::type_info * type = nullptr,
-                    std::function<void (void *) noexcept> deleter = nullptr)
+                    std::function<void (void *) noexcept> deleter = nullptr) noexcept
             : obj(obj), type(type), deleter(std::move(deleter))
         {
         }
@@ -279,9 +281,31 @@ struct RestRequestParsingContext {
         const std::type_info * type;
         std::function<void (void *) noexcept> deleter;
 
-        //ObjectEntry(const ObjectEntry &) = delete;
-        //void operator = (const ObjectEntry &) = delete;
+        ObjectEntry(const ObjectEntry &) = delete;
+        void operator = (const ObjectEntry &) = delete;
 
+        ObjectEntry(ObjectEntry && other) noexcept
+            : obj(other.obj), type(other.type), deleter(std::move(other.deleter))
+        {
+            other.obj = nullptr;
+            other.deleter = nullptr;
+        }
+
+        ObjectEntry & operator = (ObjectEntry && other) noexcept
+        {
+            ObjectEntry newMe(std::move(other));
+            swap(newMe);
+            return *this;
+        }
+
+        void swap(ObjectEntry & other) noexcept
+        {
+            std::swap(obj, other.obj);
+            std::swap(type, other.type);
+            std::swap(deleter, other.deleter);
+        }
+
+#if 0
         // Needed for gcc 4.6
         ObjectEntry(const ObjectEntry & other)
             : obj(other.obj), type(other.type)
@@ -297,6 +321,7 @@ struct RestRequestParsingContext {
             ObjectEntry newMe(other);
             *this = std::move(newMe);
         }
+#endif
     };
 
     /// List of extracted objects to which path components refer.  Both the
@@ -343,7 +368,7 @@ struct RestRequestParsingContext {
         RestRequestParsingContext * obj;
 
         StateGuard(RestRequestParsingContext * obj)
-            : state(std::move(obj->saveState())),
+            : state(obj->saveState()),
               obj(obj)
         {
         }

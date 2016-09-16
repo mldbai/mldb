@@ -17,29 +17,6 @@ LIBOPSTATS_LINK := \
 $(eval $(call library,opstats,$(LIBOPSTATS_SOURCES),$(LIBOPSTATS_LINK)))
 
 
-# Runner Common
-
-LIBRUNNERCOMMON_SOURCES := \
-	runner_common.cc
-
-LIBRUNNERCOMMON_LINK :=
-
-$(eval $(call library,runner_common,$(LIBRUNNERCOMMON_SOURCES),$(LIBRUNNERCOMMON_LINK)))
-$(eval $(call program,runner_helper,runner_common arch))
-
-
-# Runner
-
-LIBRUNNER_SOURCES := \
-	sink.cc \
-	runner.cc
-
-LIBRUNNER_LINK := runner_common io_base value_description logging utils
-
-$(eval $(call library,runner,$(LIBRUNNER_SOURCES),$(LIBRUNNER_LINK)))
-
-$(LIB)/librunner.so: $(BIN)/runner_helper
-
 
 # Services
 
@@ -49,7 +26,6 @@ LIBSERVICES_SOURCES := \
 LIBSERVICES_LINK := opstats
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
-$(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
 
 
 # AWS

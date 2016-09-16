@@ -32,13 +32,13 @@ dataset.recordRow('row1', [ [ "x", 0, ts1 ], ["x", 1, ts2], ["x", 2, ts3] ]);
 
 dataset.commit()
 
-var query1 = mldb.get('/v1/datasets/test/query', { select: '*' });
+var query1 = mldb.get('/v1/query', { q: 'SELECT * from test' });
 
 plugin.log(query1);
 
 assertEqual(query1.json[0].columns.length, 3);
 
-var query2 = mldb.get('/v1/datasets/test/query', { select: 'x' });
+var query2 = mldb.get('/v1/query', { q: 'SELECT x from test' });
 
 assertEqual(query2.json[0].columns.length, 3);
 

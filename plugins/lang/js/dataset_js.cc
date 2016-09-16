@@ -9,7 +9,6 @@
 
 #include "dataset_js.h"
 #include "mldb/core/dataset.h"
-#include "mldb/types/js/id_js.h"
 
 
 using namespace std;
@@ -27,7 +26,8 @@ v8::Handle<v8::Object>
 DatasetJS::
 create(std::shared_ptr<Dataset> dataset, JsPluginContext * context)
 {
-    auto obj = context->Dataset->GetFunction()->NewInstance();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto obj = context->Dataset.Get(isolate)->GetFunction()->NewInstance();
     auto * wrapped = new DatasetJS();
     wrapped->dataset = dataset;
     wrapped->wrap(obj, context);
@@ -49,162 +49,190 @@ registerMe()
 {
     using namespace v8;
 
-    HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("Dataset");
     auto prototmpl = fntmpl->PrototypeTemplate();
 
-    prototmpl->Set(String::New("recordRow"), FunctionTemplate::New(recordRow));
-    prototmpl->Set(String::New("recordRows"), FunctionTemplate::New(recordRows));
-    prototmpl->Set(String::New("recordColumn"), FunctionTemplate::New(recordColumn));
-    prototmpl->Set(String::New("recordColumns"), FunctionTemplate::New(recordColumns));
+    prototmpl->Set(String::NewFromUtf8(isolate, "recordRow"),
+                   FunctionTemplate::New(isolate, recordRow));
+    prototmpl->Set(String::NewFromUtf8(isolate, "recordRows"),
+                   FunctionTemplate::New(isolate, recordRows));
+    prototmpl->Set(String::NewFromUtf8(isolate, "recordColumn"),
+                   FunctionTemplate::New(isolate, recordColumn));
+    prototmpl->Set(String::NewFromUtf8(isolate, "recordColumns"),
+                   FunctionTemplate::New(isolate, recordColumns));
 
-    prototmpl->Set(String::New("commit"), FunctionTemplate::New(commit));
-    prototmpl->Set(String::New("status"), FunctionTemplate::New(status));
-    prototmpl->Set(String::New("id"), FunctionTemplate::New(id));
-    prototmpl->Set(String::New("type"), FunctionTemplate::New(type));
-    prototmpl->Set(String::New("config"), FunctionTemplate::New(config));
+    prototmpl->Set(String::NewFromUtf8(isolate, "commit"),
+                   FunctionTemplate::New(isolate, commit));
+    prototmpl->Set(String::NewFromUtf8(isolate, "status"),
+                   FunctionTemplate::New(isolate, status));
+    prototmpl->Set(String::NewFromUtf8(isolate, "id"),
+                   FunctionTemplate::New(isolate, id));
+    prototmpl->Set(String::NewFromUtf8(isolate, "type"),
+                   FunctionTemplate::New(isolate, type));
+    prototmpl->Set(String::NewFromUtf8(isolate, "config"),
+                   FunctionTemplate::New(isolate, config));
         
-    prototmpl->Set(String::New("getColumnNames"), FunctionTemplate::New(getColumnNames));
-    prototmpl->Set(String::New("getTimestampRange"), FunctionTemplate::New(getTimestampRange));
+    prototmpl->Set(String::NewFromUtf8(isolate, "getColumnNames"),
+                   FunctionTemplate::New(isolate, getColumnNames));
+    prototmpl->Set(String::NewFromUtf8(isolate, "getTimestampRange"),
+                   FunctionTemplate::New(isolate, getTimestampRange));
         
-    return scope.Close(fntmpl);
+    return scope.Escape(fntmpl);
 }
 
-v8::Handle<v8::Value>
+void
 DatasetJS::
-recordRow(const v8::Arguments & args)
+recordRow(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    JsContextScope scope(args.This());
+    try {
+        Dataset * dataset = getShared(args.This());
+         
+        auto rowName = JS::getArg<RowName>(args, 0, "rowName");
+        auto values = JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {});
+
+        {
+            //v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordRow(std::move(rowName), std::move(values));
+        }
+
+        args.GetReturnValue().Set(args.This());
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+
+void
+DatasetJS::
+recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    JsContextScope scope(args.This());
+    try {
+        Dataset * dataset = getShared(args.This());
+        
+        auto rows = JS::getArg<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "rows", {});
+
+        {
+            //v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordRows(std::move(rows));
+        }
+        
+        args.GetReturnValue().Set(args.This());
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+
+void
+DatasetJS::
+recordColumn(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    JsContextScope scope(args.This());
+    try {
+        Dataset * dataset = getShared(args.This());
+        
+        auto columnName = JS::getArg<ColumnName>(args, 0, "columnName");
+        auto column = JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {});
+
+        {
+            //v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordColumn(std::move(columnName), std::move(column));
+        }
+
+        args.GetReturnValue().Set(args.This());
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+
+void
+DatasetJS::
+recordColumns(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     JsContextScope scope(args.This());
     try {
         Dataset * dataset = getShared(args.This());
             
-        dataset->recordRow(JS::getArg<RowName>(args, 0, "rowName"),
-                           JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {}));
+        auto columns = JS::getArg<std::vector<std::pair<ColumnName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "columns", {});
+        dataset->recordColumns(std::move(columns));
 
-        return args.This();
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(args.This());
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
-v8::Handle<v8::Value>
+void
 DatasetJS::
-recordRows(const v8::Arguments & args)
-{
-    JsContextScope scope(args.This());
-    try {
-        Dataset * dataset = getShared(args.This());
-            
-        dataset->recordRows(JS::getArg<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "rows", {}));
-
-        return args.This();
-    } HANDLE_JS_EXCEPTIONS;
-}
-
-v8::Handle<v8::Value>
-DatasetJS::
-recordColumn(const v8::Arguments & args)
-{
-    JsContextScope scope(args.This());
-    try {
-        Dataset * dataset = getShared(args.This());
-            
-        dataset->recordColumn(JS::getArg<ColumnName>(args, 0, "columnName"),
-                              JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {}));
-
-        return args.This();
-    } HANDLE_JS_EXCEPTIONS;
-}
-
-v8::Handle<v8::Value>
-DatasetJS::
-recordColumns(const v8::Arguments & args)
-{
-    JsContextScope scope(args.This());
-    try {
-        Dataset * dataset = getShared(args.This());
-            
-        dataset->recordColumns(JS::getArg<std::vector<std::pair<ColumnName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "columns", {}));
-
-        return args.This();
-    } HANDLE_JS_EXCEPTIONS;
-}
-
-v8::Handle<v8::Value>
-DatasetJS::
-commit(const v8::Arguments & args)
+commit(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
             
         dataset->commit();
             
-        return args.This();
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(args.This());
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
-v8::Handle<v8::Value>
+void
 DatasetJS::
-status(const v8::Arguments & args)
+status(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
             
-        return JS::toJS(jsonEncode(dataset->getStatus()));
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(dataset->getStatus())));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
     
-v8::Handle<v8::Value>
+void
 DatasetJS::
-id(const v8::Arguments & args)
+id(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
             
-        return JS::toJS(dataset->getId());
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(dataset->getId())));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
     
-v8::Handle<v8::Value>
+void
 DatasetJS::
-type(const v8::Arguments & args)
+type(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
             
-        return JS::toJS(dataset->getType());
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(dataset->getType())));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
     
-v8::Handle<v8::Value>
+void
 DatasetJS::
-config(const v8::Arguments & args)
+config(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
         
-        return JS::toJS(jsonEncode(dataset->getConfig()));
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(dataset->getConfig())));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
-    
-v8::Handle<v8::Value>
+
+void
 DatasetJS::
-getColumnNames(const v8::Arguments & args)
+getColumnNames(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
 
-        return JS::toJS(dataset->getColumnIndex()->getColumnNames());
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(dataset->getColumnIndex()->getColumnNames()));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
-v8::Handle<v8::Value>
+void
 DatasetJS::
-getTimestampRange(const v8::Arguments & args)
+getTimestampRange(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
-        return JS::toJS(dataset->getTimestampRange());
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(dataset->getTimestampRange()));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
 } // namespace MLDB

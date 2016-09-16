@@ -406,20 +406,22 @@ and the possible values for the `arrays` field are:
 
 ### Numeric functions
 
-- `pow(x, y)`: returns x to the power of y.
-- `exp(x)`: returns **e** (the Euler number) raised to the power x.
-- `ln(x)`: returns the natural logarithm of x.
-- `ceil(x)`: returns the smaller integer not less than x.
-- `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
-- `abs(x)`: returns the absolute value of x.
-- `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
-- `sign(x)`: returns the sign of x (-1, 0, +1).
-- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
-- `isinf(x)`: return true if x is +/- infinity in the floating point representation.
-- `isfinite(x)`: return true if x is neither infinite nor not-a-number.
+- `pow(x, y)`: returns `x` to the power of `y`.
+- `exp(x)`: returns _e_ (the Euler number) raised to the power `x`.
+- `ln(x)`: returns the natural logarithm of `x`.
+- `log(x)`: returns the base-10 logarithm of `x`.
+- `log(b, x)`: returns the base-`b` logarithm of `x`.
+- `ceil(x)`: returns the smaller integer not less than `x`.
+- `floor(x)`: returns the largest integer not greater than `x`.
+- `mod(x, y)`: returns `x` modulo `y`.  The value of `x` and `y` must be an integer. Another way to get the modulo is `x % y`.
+- `abs(x)`: returns the absolute value of `x`.
+- `sqrt(x)`: returns the square root of `x`.
+- `sign(x)`: returns the sign of `x` (-1, 0, +1).
+- `isnan(x)`: returns true if `x` is `NaN` in the floating point representation.
+- `isinf(x)`: return true if `x` is +/- infinity in the floating point representation.
+- `isfinite(x)`: returns true if `x` is neither infinite nor `NaN`.
 
-- `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
+- `quantize(x, y)`: returns `x` rounded to the precision of `y`.  Here are some examples:
 
 expression|result
 ----------------------|-----
@@ -441,7 +443,7 @@ expression|result
 - `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
 - `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
 - `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
-- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
+- `clamp(x,lower,upper)` will clamp the value `x` between the `lower` and `upper` bounds.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 
@@ -485,7 +487,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `now()` returns the timestamp at the current moment, according to system
   time.
 - `date_part(unit, x)` returns the subfield `unit` of timestamp `x`. The following are the supported units:
-  
   - `microsecond` as the total number of microseconds after the rounded down second.
   - `millisecond` as the total number of millisecond after the rounded down second.
   - `second` as the number of seconds after the minute (0-59)
@@ -502,7 +503,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - `quarter` as the number of the date's quarter (1-4)
   - `year` as the gregorian calendar year of the date
   - `isoyear` as the ISO-8601 calendar year of the date
-
 - `date_trunc(unit, x)` will truncate the timestamp `x` to the specified `unit`.
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
@@ -550,7 +550,41 @@ calculate
 
 The following functions are used to extract and process web data.
 
-- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+#### `fetcher(str)`
+
+Fetches resources from a given file or URL. It acts as the
+default version of [function fetcher](../functions/Fetcher.md.html). It returns
+two output columns:
+* content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
+* error is a string containing the error message. If the fetch succeeded, it will be null.
+
+**Example**
+
+The following query will use fetcher to return the country code from an IP
+address from an external web service.
+
+```sql
+SELECT CAST (fetcher('http://www.geoplugin.net/json.gp?ip=158.245.13.123')[content] AS STRING)
+```
+
+**Limitations**
+
+  - The fetcher function will only attempt one fetch of the given URL; for
+  transient errors a manual retry will be required
+  * There is currently no timeout parameter.  Hung requests will timeout
+  eventually, but there is no guarantee as to when.
+  * There is currently no rate limiting built in.
+  * There is currently no facility to limit the maximum size of data that
+  will be fetched.
+  * There is currently no means to authenticate when fetching a URL,
+  apart from using the credentials daemon built in to MLDB.
+  * There is currently no caching mechanism.
+  * There is currently no means to fetch a resource only if it has not
+  changed since the last time it was fetched.
+
+#### `extract_domain(str, {removeSubdomain: false})`
+
+Extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
 
 The full set of options to the `extract_domain` function are as follows:
 
@@ -593,11 +627,18 @@ The following useful non-standard aggregation functions are also supported:
   column name and value given.  This can be used with a group by clause to
   transform a dense dataset of (actor,action,value) records into a sparse
   dataset with one sparse row per actor, for example to create one-hot feature vectors or term-document or cooccurrence matrices.
-- `string_agg(expr, separator)` will coerce the value of `expr` and that of
-  `separator` to a string, and produce a single string with the concatenation
-  of `expr` separated by `separators` at internal boundaries.  For example,
-  if `expr` is `"one"`, `"two"` and `"three"` in the group, and separator is
-  `', '` the output will be `"one, two, three"`.
+- `string_agg(expr, separator [, sortField])` will coerce the value of `expr`
+   and that of `separator` to a string, create a list of all values sorted 
+   by the `sortField`
+   (which is null if not specified) breaking ties by sorting by `expr` as a
+   string, and produce a single string with the concatenation of `expr`
+   separated by `separator` at internal boundaries on the list.  For example,
+   if `expr` is `"one"`, `"two"` and `"three"` in the group, and `separator` is
+   `', '` the output will be `"one, two, three"`.  The `sortField` can be used
+   to ensure that the values over multiple `string_agg` calls are in the,
+   same order, for example are in order of time or in row order of the
+   underlying dataset.  Note that the `rowPath()` can be used in the
+   `sortField` to achieve that result.
 
 ### Aggregates of rows
 

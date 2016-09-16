@@ -1,21 +1,21 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stump_training_multi.h                                          -*- C++ -*-
    Jeremy Barnes, 29 August 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Optimised version of training for when we have multiple labels (more
    than 7).
 */
 
-#ifndef __boosting__stump_training_multi_h__
-#define __boosting__stump_training_multi_h__
+#pragma once
 
 #include "stump_training.h"
 #include "mldb/arch/simd_vector.h"
+#include "mldb/arch/arch.h"
+#if JML_INTEL_ISA
 #include "mldb/arch/sse.h"
 #include "mldb/arch/sse2.h"
+#endif
 #include "mldb/ml/algebra/multi_array_utils.h"
 
 #undef USE_SIMD_SSE2
@@ -820,9 +820,3 @@ struct Z_multi {
 };
 
 } // namespace ML
-
-
-
-#endif /* __boosting__stump_training_multi_h__ */
-
-

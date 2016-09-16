@@ -11,6 +11,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -70,7 +71,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ColumnScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException
         (400, "Attempt to bind expression with wildcard in column scope");
@@ -106,7 +107,7 @@ run(const std::vector<BoundSqlExpression> & exprs) const
 
     runIncremental(exprs, onVal);
     
-    return std::move(results);
+    return results;
 }
 
 /// Allow control over whether the given optimization path is run
@@ -143,52 +144,6 @@ static CellValue extractVal(CellValue && val, CellValue *)
 static CellValue extractVal(const CellValue & val, CellValue *)
 {
     return val;
-}
-
-namespace {
-    // Made to init and hold a non POD array of dynamic size in a memory safe
-    // way.
-    template<typename T, size_t MAX_STACK_ENTRIES=4096/sizeof(T)>
-    struct PossiblyDynamicBuffer {
-        PossiblyDynamicBuffer(size_t sz)
-            : size_(sz)
-        {
-            if (onStack()) {
-                std::uninitialized_fill(stackEntries, stackEntries + size_, T());
-            }
-            else {
-                heapEntries = new T[size_];
-            }
-        }
-
-        ~PossiblyDynamicBuffer()
-        {
-            if (onStack()) {
-                for (size_t i = 0; i < size_;  ++i) {
-                    stackEntries[i].~T();
-                }
-            }
-            else {
-                delete[] heapEntries;
-            }
-        }
-
-        size_t size_;
-
-        bool onStack() const { return size_ <= MAX_STACK_ENTRIES; }
-
-        T * data() { return onStack() ? stackEntries: heapEntries; }
-        size_t size() const { return size_; }
-
-        union {
-            T stackEntries[MAX_STACK_ENTRIES];
-            T * heapEntries;
-        };
-
-        private:
-            PossiblyDynamicBuffer(const PossiblyDynamicBuffer & other);
-            PossiblyDynamicBuffer & operator=(PossiblyDynamicBuffer & other);
-    };
 }
 
 template<typename Val>

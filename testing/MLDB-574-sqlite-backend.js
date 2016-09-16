@@ -20,7 +20,7 @@ function createDataset()
 
     //return dataset;
 
-    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz'
     //var dataset_address = 'file://reddit_user_posting_behavior.csv';
     var now = new Date("2015-01-01");
 

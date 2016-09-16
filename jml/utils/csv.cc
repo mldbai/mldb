@@ -84,7 +84,7 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
     if (quoted)
         throw FileFinishInsideQuote("file finished inside quote");
 
-    return std::move(result);
+    return result;
 }
 
 std::vector<std::string>
@@ -101,7 +101,7 @@ expect_csv_row(Parse_Context & context, int length, char separator)
 
     bool another = false;
     while (another || (context && !context.match_eol() && *context != '\r')) {
-        result.emplace_back(std::move(expect_csv_field(context, another, separator)));
+        result.emplace_back(expect_csv_field(context, another, separator));
         //cerr << "read " << result.back() << " another = " << another << endl;
     }
 
@@ -113,7 +113,7 @@ expect_csv_row(Parse_Context & context, int length, char separator)
     
     //cerr << "returning result" << endl;
 
-    return std::move(result);
+    return result;
 }
 
 std::string csv_escape(const std::string & s)

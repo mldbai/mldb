@@ -68,8 +68,8 @@ for format in formats:
 
     rows1 = json.dumps(result.json(), indent=4, sort_keys=True)
 
-    result = mldb.get('/v1/datasets/dataset1/query',
-        when="value_timestamp() > '%s'" % later, orderBy ="rowHash()", format=format)
+    result = mldb.get('/v1/query',
+        q = "SELECT * from dataset1 WHEN value_timestamp() > '%s' ORDER BY rowHash()" % later, format=format)
 
     rows2 = json.dumps(result.json(), indent=4, sort_keys=True)
 

@@ -177,7 +177,7 @@ run(const ProcedureRunConfig & run,
                  onProgress2);
 
     int64_t rowCount = orderedRowNames.size();
-    logger->debug() << "Row count: " << rowCount;
+    DEBUG_MSG(logger) << "Row count: " << rowCount;
 
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
@@ -221,8 +221,8 @@ run(const ProcedureRunConfig & run,
 
         ExcAssert(higherBound <= rowCount);
 
-        logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
-                        << " to " << higherBound;
+        DEBUG_MSG(logger) << "Bucket " << mappedRange.first << " from "
+                          << lowerBound << " to " << higherBound;
 
         parallelMap(lowerBound, higherBound, applyFct);
     }

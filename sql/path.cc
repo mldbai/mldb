@@ -26,6 +26,17 @@ namespace {
 // If ever we allow the first offset of a path to be non-zero (eg, to tail
 // a long path via sharing) we should remove this.
 constexpr bool PATH_OFFSET_ZERO_IS_ALWAYS_ZERO = true;
+
+inline void checkNullPathElement(bool lhsNull, bool rhsNull = false) {
+    if (lhsNull) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null lhs PathElement");
+    }
+    if (rhsNull) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null rhs PathElement");
+    }
+}
 } // file scope
 
 
@@ -90,7 +101,13 @@ compareNatural(const char * p1, size_t len1,
     size_t i1 = 0, i2 = 0;
     
     while (i1 < len1 && i2 < len2) {
-        char c1 = p1[i1], c2 = p2[i2];
+        // We need unsigned chars here, as this path is optimized with
+        // memcmp in other places, which treats characters as unsigned.
+        // Otherwise, with Unicode characters on platforms with signed
+        // chars, we will get a different comparison order than the
+        // optimized path, meaning that sort order is inconsistent.
+        // See MLDB-1936
+        unsigned char c1 = p1[i1], c2 = p2[i2];
 
         if (isdigit(c1) && isdigit(c2)) {
             size_t lz1, digits1, lz2, digits2;
@@ -220,7 +237,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
     ExcAssertLessEqual((void *)p, (void *)e);
 
     if (p == e) {
-        return { PathElement(), true };
+        return { PathElement(""), true };
     }
 
     if (*p == '\"') {
@@ -303,7 +320,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
         }
         size_t sz = start - p;
         if (sz == 0)
-            return { PathElement(), true };
+            return { PathElement(""), true };
         PathElement result(p, sz);
         p = start;
         return { std::move(result), true };
@@ -478,8 +495,12 @@ Utf8String
 PathElement::
 toEscapedUtf8String() const
 {
-    if (empty())
+    if (null()) {
+        return "";
+    }
+    if (complex_ == 1 && str.str.empty()) {
         return "\"\"";
+    }
 
     const char * d = data();
     size_t l = dataLength();
@@ -601,6 +622,7 @@ Path
 PathElement::
 operator + (const PathElement & other) const
 {
+    checkNullPathElement(null(), other.null());
     PathBuilder builder;
     return builder.add(*this).add(other).extract();
 }
@@ -609,6 +631,7 @@ Path
 PathElement::
 operator + (PathElement && other) const
 {
+    checkNullPathElement(null(), other.null());
     PathBuilder builder;
     return builder.add(*this).add(std::move(other)).extract();
 }
@@ -617,6 +640,7 @@ Path
 PathElement::
 operator + (const Path & other) const
 {
+    checkNullPathElement(null());
     Path result(*this);
     return result + other;
 }
@@ -625,6 +649,7 @@ Path
 PathElement::
 operator + (Path && other) const
 {
+    checkNullPathElement(null());
     Path result(*this);
     return result + std::move(other);
 }
@@ -719,7 +744,7 @@ initStringUnchecked(T && str)
     // characters, for example when importing legacy files.
     words[0] = words[1] = words[2] = 0;
     digits_ = calcDigits(rawData(str), rawLength(str));
-    if (rawLength(str) <= INTERNAL_BYTES - 1) {
+    if (rawLength(str) > 0 && rawLength(str) <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = rawLength(str);
         std::copy(rawData(str), rawData(str) + rawLength(str),
@@ -747,7 +772,7 @@ initChars(const char * str, size_t len, int digits)
     ExcAssertLess(len, 1ULL << 32);
     words[0] = words[1] = words[2] = 0;
     digits_ = digits;
-    if (len <= INTERNAL_BYTES - 1) {
+    if (len > 0 && len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = len;
         std::copy(str, str + len, bytes + 1);
@@ -848,6 +873,10 @@ PathBuilder &
 PathBuilder::
 add(PathElement && element)
 {
+    if (element.null()) {
+        return *this;
+    }
+
     if (bytes.empty() && element.hasExternalStorage()) {
         bytes = element.stealBytes();
     }
@@ -869,6 +898,10 @@ PathBuilder &
 PathBuilder::
 add(const PathElement & element)
 {
+    if (element.null()) {
+        return *this;
+    }
+
     auto v = element.getStringView();
     bytes.append(v.first, v.first + v.second);
     if (indexes.size() <= 16) {
@@ -897,6 +930,10 @@ PathBuilder &
 PathBuilder::
 addRange(const Path & path, size_t first, size_t last)
 {
+    if (path.empty()) {
+        return *this;
+    }
+
     if (last > path.size())
         last = path.size();
     if (first > last)
@@ -939,7 +976,7 @@ Path::Path(PathElement && path)
     : length_(1), digits_(path.digits_),
       ofsBits_(0)
 {
-    if (path.empty()) {
+    if (path.null()) {
         length_ = 0;
         return;
     }
@@ -965,7 +1002,7 @@ Path::Path(const PathElement & path)
     : length_(1), digits_(path.digits_),
       ofsBits_(0)
 {
-    if (path.empty()) {
+    if (path.null()) {
         length_ = 0;
         return;
     }
@@ -1011,7 +1048,7 @@ toUtf8String() const
     for (size_t i = 0;  i < length_;  ++i) {
         if (!first)
             result += '.';
-        result += at(i).toEscapedUtf8String(); 
+        result += at(i).toEscapedUtf8String();
         first = false;
     }
     return result;
@@ -1046,7 +1083,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
     PathBuilder builder;
 
     if (p == e) {
-        return { Path(), true };
+        return { Path(""), true };
     }
 
     while (p < e) {
@@ -1077,7 +1114,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
     }
 
     if (str != e && e[-1] == '.') {
-        builder.add(PathElement());
+        builder.add(PathElement(""));
     }
 
     return { builder.extract(), true };
@@ -1143,6 +1180,7 @@ Path
 Path::
 operator + (const PathElement & other) const
 {
+    checkNullPathElement(false, other.null());
     PathBuilder result;
     return result
         .addRange(*this, 0, size())
@@ -1154,6 +1192,7 @@ Path
 Path::
 operator + (PathElement && other) const
 {
+    checkNullPathElement(false, other.null());
     PathBuilder result;
     return result
         .addRange(*this, 0, size())
@@ -1481,7 +1520,7 @@ operator >> (std::istream & stream, Path & id)
 /* VALUE DESCRIPTIONS                                                        */
 /*****************************************************************************/
 
-struct PathElementDescription 
+struct PathElementDescription
     : public ValueDescriptionI<PathElement, ValueKind::ATOM, PathElementDescription> {
 
     virtual void parseJsonTyped(PathElement * val,
@@ -1522,10 +1561,10 @@ bool
 PathElementDescription::
 isDefaultTyped(const PathElement * val) const
 {
-    return val->empty();
+    return val->null();
 }
 
-struct PathDescription 
+struct PathDescription
     : public ValueDescriptionI<Path, ValueKind::ATOM, PathDescription> {
 
     virtual void parseJsonTyped(Path * val,

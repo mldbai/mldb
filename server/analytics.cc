@@ -190,7 +190,7 @@ void iterateDense(const SelectExpression & select,
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                calcd[i] = boundCalc[i](rowContext, GET_LATEST);
             }
             
             /* Finally, pass to the aggregator to continue. */
@@ -314,6 +314,22 @@ getEmbedding(const SelectStatement & stm,
                         stm.offset, stm.limit, onProgress);
 }
 
+void
+validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
+{
+    stm.where->bind(scope);
+    stm.when.bind(scope);
+    stm.orderBy.bindAll(scope);
+    if (!stm.groupBy.clauses.empty()) {
+        throw HttpReturnException(
+            400, "GROUP BY usage requires a FROM statement");
+    }
+    if (!stm.having->isConstantTrue()) {
+        throw HttpReturnException(
+            400, "HAVING usage requires a FROM statement");
+    }
+}
+
 std::vector<MatrixNamedRow>
 queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 {
@@ -324,16 +340,24 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
         }
     }
     auto boundSelect = stm.select.bind(scope);
-    SqlRowScope context;
-    ExpressionValue val = boundSelect(context, GET_ALL);
-    MatrixNamedRow row;
-    auto boundRowName = stm.rowName->bind(scope);
 
-    row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
-    row.rowHash = row.rowName;
-    val.mergeToRowDestructive(row.columns);
+    validateQueryWithoutDataset(stm, scope);
 
-    return { std::move(row) };
+    if (stm.offset < 1 && stm.limit != 0) {
+        // Fast path when there is no possibility of result since
+        // queryWithoutDataset produces at most single row results.
+
+        MatrixNamedRow row;
+        SqlRowScope context;
+        ExpressionValue val = boundSelect(context, GET_ALL);
+        auto boundRowName = stm.rowName->bind(scope);
+
+        row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
+        row.rowHash = row.rowName;
+        val.mergeToRowDestructive(row.columns);
+        return { std::move(row) };
+    }
+    return vector<MatrixNamedRow>();
 }
 
 std::vector<MatrixNamedRow>
@@ -498,10 +522,6 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
 
 RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 {
-    if (rowNameEV.empty()) {
-        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
-    }
-
     RowName name;
     try {
         name = rowNameEV.coerceToPath();
@@ -514,10 +534,9 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
              "value", rowNameEV);
     }
 
-    static const Path empty{""};
-
-    if (name.empty() || name.compare(empty) == 0)
-        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
+    if (name.empty()) {
+        throw HttpReturnException(400, "Can't create a row with a null name.");
+    }
     return name;
 }
 

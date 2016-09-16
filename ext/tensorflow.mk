@@ -57,9 +57,9 @@ PROTO_TEXT_CC_FILES := $(shell cat $(TF_MAKEFILE_DIR)/proto_text_cc_files.txt)
 
 TENSORFLOW_PROTO_TEXT_FILES := $(PROTO_TEXT_CC_FILES)
 
-$(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so  $(INC)/google/protobuf
+$(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so  $(INC)/google/protobuf $(CWD)/tensorflow/core/lib/core/error_codes.pb.h $(CWD)/tensorflow/core/framework/summary.pb.h
 
-$(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field))
+$(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field -Wno-unused-const-variable))
 
 $(eval $(call program,proto_text,protobuf3,$(TENSORFLOW_PROTO_TEXT_FILES)))
 
@@ -119,7 +119,7 @@ $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH):
 
 # To create a protobuf file, we compile the input file.  Same for the .h
 # file.
-$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto $(HOSTBIN)/protoc
+$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(HOSTBIN)/protoc $(INC)/google/protobuf
 	@echo "         $(COLOR_CYAN)[PROTO]$(COLOR_RESET)			$(basename $<)"
 	@$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
@@ -163,7 +163,7 @@ CUDA_HEADERS := cuda.h cublas.h cufft.h cuComplex.h vector_types.h builtin_types
 
 $(INC)/third_party/gpus/cuda/include/%: | $(CUDA_SYSTEM_HEADER_DIR)/%
 	@mkdir -p $(dir $@)
-	@ln -s $< $@
+	@ln -sf $(CUDA_SYSTEM_HEADER_DIR)/$(notdir $@) $@
 
 $(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
 	@mkdir -p $(dir $@)
@@ -178,7 +178,7 @@ $(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudn
 # up the dependency.
 
 $(TENSORFLOW_CC_FILES): \
-	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras
+	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras $(INC)/third_party/gpus/cuda/include/cudnn.h
 
 # Some of the CUDA headers include their header dependencies via <file.h>
 # instead of "file.h", which requires us to set up the system header directory
@@ -242,15 +242,18 @@ endif
 # define.  First the flags to turn off warnings that the compiler
 # will output on its sourcecode
 ifeq ($(toolchain),gcc)
-TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-narrowing -Wno-strict-aliasing
 endif
 ifeq ($(toolchain),gcc5)
-TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-narrowing -Wno-strict-aliasing
+endif
+ifeq ($(toolchain),gcc6)
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-ignored-attributes -Wno-nonnull-compare -Wno-narrowing -Wno-strict-aliasing
 endif
 ifeq ($(toolchain),clang)
 # -Wno-error should not be used but so far it seems like the only way to mute
 # warning: braces around scalar initializer
-TENSORFLOW_WARNING_FLAGS := -Wno-unused-const-variable -Wno-unused-private-field -Wno-tautological-undefined-compare -Wno-missing-braces -Wno-absolute-value -Wno-unused-function -Wno-inconsistent-missing-override -Wno-constant-conversion -Wno-unused-variable -Wno-error
+TENSORFLOW_WARNING_FLAGS := -Wno-unused-const-variable -Wno-unused-private-field -Wno-tautological-undefined-compare -Wno-missing-braces -Wno-absolute-value -Wno-unused-function -Wno-inconsistent-missing-override -Wno-constant-conversion -Wno-unused-variable -Wno-error -Wno-braced-scalar-init
 endif
 
 # Second, the include directories required
@@ -325,7 +328,7 @@ $(foreach op,$(TENSORFLOW_OPS), \
 # Put them all into one convenient library, along with the no_op.  The no_op
 # has to be here, and not in the core library, as otherwise the interface is
 # generated for each of the ops and we have multiple definitions.
-$(CWD)/tensorflow/core/ops/no_op.cc: | $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
+$(CWD)/tensorflow/core/ops/no_op.cc: | $(INC)/google/protobuf $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
 $(eval $(call set_compile_option,tensorflow/core/ops/no_op.cc,$(TENSORFLOW_COMPILE_FLAGS)))
 $(eval $(call library,tensorflow-ops,tensorflow/core/ops/no_op.cc,$(foreach op,$(TENSORFLOW_OPS),tensorflow_$(op)_ops) tensorflow-core,,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
 
@@ -335,15 +338,74 @@ TENSORFLOW_KERNEL_CC_FILES:=$(shell find $(CWD)/tensorflow/core/kernels -name "*
 
 TENSORFLOW_KERNEL_CC_BUILD:=$(sort $(TENSORFLOW_KERNEL_CC_FILES:$(CWD)/%=%))
 
-$(eval $(call set_compile_option,$(TENSORFLOW_KERNEL_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$(TENSORFLOW_COMPILE_FLAGS) -mavx))
-
+# Dependencies for the kernel files... basically everything else needs to
+# be built first
 $(TENSORFLOW_KERNEL_CC_FILES):	$(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc  $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/libpng-1.2.53
-$(eval $(call library,tensorflow-kernels,$(TENSORFLOW_KERNEL_CC_BUILD) $(TENSORFLOW_CUDA_NVCC_BUILD),tensorflow-ops $(TENSORFLOW_CUDA_LINK),,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
 
+# This is a list of variants for each architecture
+# Note that this can cause long compile times as a big chunk of
+# TensorFlow is built multiple times, in that case you
+# might want to set TF_KERNEL_VARIANTS:=(whichever one applies) to
+# speed up compile times
+TF_KERNEL_VARIANTS_x86_64:=sse2 sse42 avx avx2
+TF_KERNEL_VARIANTS_aarch64:=generic
+TF_KERNEL_VARIANTS_arm:=generic
 
+# For each variant, this provides the optimization flags passed in
+# The correct kernels library is detected at runtime and loaded
+# dynamically on Tensorflow initialization
+TF_KERNEL_VARIANT_x86_64_sse2:=-msse2
+TF_KERNEL_VARIANT_x86_64_sse42:=-msse4.2
+TF_KERNEL_VARIANT_x86_64_avx:=-mavx
+TF_KERNEL_VARIANT_x86_64_avx2:=-mavx2 -mfma
+
+# ARM variants don't currently detect their CPU capabilities at
+# runtime, so only a generic variant is compiled
+TF_KERNEL_VARIANT_aarch64_generic:=-funsafe-math-optimizations -ftree-vectorize
+TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize
+
+# By default, we compile all kernel variants for our architecture
+# This can be overridden to speed up compile times
+TF_KERNEL_VARIANTS?=$(TF_KERNEL_VARIANTS_$(ARCH))
+
+# If no kernel variants are specified, we can't build kernels
+# and so we will fail at compile time
+$(if $(TF_KERNEL_VARIANTS),,$(error TF_KERNEL_VARIANTS_$(ARCH) is not set; when cross-compiling you need to set up architecture variants))
+
+# Macro to define a kernel variant for compilation
+# This will create a library tensorflow-kernels-(variant) that can be
+# loaded at runtime depending upon the detected architecture.
+#
+# To create this, we
+# a) copy the given files to a temporary directory so that they are seen
+#    as unique by the build system
+# b) compile them with the custom flags
+#
+# $(1) = variant name
+
+define tf_kernel_variant
+
+# Rule to copy the source files over
+mldb/ext/tensorflow/../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%:	$(CWD)/%
+	mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
+
+TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$(TENSORFLOW_KERNEL_CC_BUILD:%=../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%)
+
+$$(eval $$(call set_compile_option,$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)),$$(TENSORFLOW_COMPILE_FLAGS) $$(TF_KERNEL_VARIANT_$(ARCH)_$(1))))
+$$(eval $$(call library,tensorflow-kernels-$(1),$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)) $$(TENSORFLOW_CUDA_NVCC_BUILD),tensorflow-ops $$(TENSORFLOW_CUDA_LINK),,,,,$$(TENSORFLOW_CUDA_LINKER_FLAGS),$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants))
+
+# Tensorflow depends upon having a variant
+$(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so
+
+#$(w arning $(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so)
+
+endef
+
+$(foreach variant,$(TF_KERNEL_VARIANTS),$(eval $(call tf_kernel_variant,$(variant))))
 
 # Overall library that wraps it all together
-$(eval $(call library,tensorflow,,tensorflow-ops tensorflow-kernels tensorflow-core))
+$(eval $(call library,tensorflow,../tf_load_kernels.cc,tensorflow-ops tensorflow-core))
+
 
 # And create a nice target name
 tensorflow_lib: $(LIB)/libtensorflow.so
@@ -356,9 +418,18 @@ tensorflow_lib: $(LIB)/libtensorflow.so
 # tensorflow in-tree.  Since MLDB provides other means for extension, and we
 # don't want to modify the source tree, we put a dummy, empty header in there
 # to signify that there are no user operations available.
-$(CWD)/tensorflow/cc/ops/%_ops.cc $(CWD)/tensorflow/cc/ops/%_ops.h:	$(BIN)/cc_op_gen $(LIB)/libtensorflow_%_ops.so
-	@LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.cc 0
+
+define generate_tensorflow_op
+
+$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so | $(INC)/google/protobuf 
+	@LD_PRELOAD=$(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so $(HOSTBIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.cc 0
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
+
+$(CWD)/tensorflow/cc/ops/$(1)_ops.h: | $(CWD)/tensorflow/cc/ops/$(1)_ops.cc
+ 
+endef
+
+$(foreach op,$(TENSORFLOW_OPS),$(eval $(call generate_tensorflow_op,$(op))))
 
 # Find the source files needed for the C++ interface.  Some are pre-packaged and
 # others were generated above.

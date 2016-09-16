@@ -23,6 +23,6 @@ var res = mldb.post('/v1/types/plugins/javascript/routes/run', scriptConfig);
 mldb.log(res);
 
 assertEqual(res.responseCode, 400);
-assertEqual(res.json.exception.message, "Uncaught SyntaxError: Unexpected token ILLEGAL");
+assertEqual(res.json.exception.message, "Uncaught SyntaxError: Invalid or unexpected token");
 
 "success"

@@ -9,7 +9,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 conf = {
     "type": "import.sentiwordnet",
     "params": {
-        "dataFileUrl": 's3://dev.mldb.datacratic.com/tests/MLDB-1084/SentiWordNet_3.0.0_20130122.txt.gz',
+        "dataFileUrl": 's3://public-mldb-ai/testing/MLDB-1084/SentiWordNet_3.0.0_20130122.txt.gz',
         "outputDataset": 'sentiWordNet'
     }
 }

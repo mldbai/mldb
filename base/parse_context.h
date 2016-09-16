@@ -91,14 +91,6 @@ struct Parse_Context {
         necessary. */
     void init(const std::string & filename);
 
-    /** Initialize from a memory region. */
-    void init(const std::string & filename, const char * start,
-              const char * finish, unsigned line = 1, unsigned col = 1);
-
-    /** Initialize from an istream. */
-    void init(const std::string & filename, std::istream & stream,
-              unsigned line = 1, unsigned col = 1);
-
     /** Set the chunk size for the buffers.  Mostly used for testing
         purposes.  Note that this is only useful when initialized from
         a stream. */
@@ -585,7 +577,7 @@ protected:
             //     << context.last_token_ << endl;
         }
         
-        ~Token()
+        ~Token() noexcept(false)
         {
             //std::cerr << "deleting token " << this << std::endl;
             if (context)
@@ -689,13 +681,8 @@ public:
 
         ~Revert_Token()
         {
-            try {
-                if (context) apply(true /* in destructor */);
-            }
-            catch (...) {
-                remove(true /* in destructor */);
-                throw;
-            }
+            if (context)
+                apply(true /* in destructor */);
         }
 
         void ignore()

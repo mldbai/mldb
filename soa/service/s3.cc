@@ -18,7 +18,7 @@
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/soa/credentials/credential_provider.h"
-#include "mldb/soa/utils/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 #include "mldb/soa/service/xml_helpers.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/fs_utils.h"
@@ -1822,18 +1822,19 @@ struct RegisterS3CredProvider {
                         continue;
 
                     if (fields.size() < 4) {
-                        cerr << "warning: skipping invalid line in ~/.cloud_credentials: "
-                             << line << endl;
+                        cerr << "warning: skipping invalid line in ~/.cloud_credentials at line "
+                             << lineNum << endl;
                         continue;
                     }
 
                     fields.resize(7);
 
+                    static constexpr auto V1 = "1";
                     string version = fields[1];
-                    if (version != "1") {
-                        cerr << "warning: ignoring unknown version "
-                             << version <<  " in ~/.cloud_credentials: "
-                             << line << endl;
+                    if (version != V1) {
+                        cerr << "warning: ignoring unknown version at line "
+                             << lineNum <<  " in ~/.cloud_credentials. "
+                             << "Version " << V1 << " is supported." << endl;
                         continue;
                     }
 

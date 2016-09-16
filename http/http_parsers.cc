@@ -1,14 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* http_parsers.h                                                  -*- C++ -*-
    Wolfgang Sourdeau, January 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include <string.h>
-
+#include <strings.h>
 #include <iostream>
+#include "base/exc_assert.h"
 #include "mldb/arch/exception.h"
 #include "mldb/base/parse_context.h"
 
@@ -142,6 +142,7 @@ clear()
     expectBody_ = true;
     stage_ = 0;
     buffer_.clear();
+    expect100Continue_ = false;
     remainingBody_ = 0;
     useChunkedEncoding_ = false;
     requireClose_ = false;
@@ -179,6 +180,14 @@ feed(const char * bufferData, size_t bufferSize)
         else if (stage_ == 1) {
             stageDone = parseHeaders(state);
             if (stageDone) {
+                if (expect100Continue_) {
+                    /* The setting of expect100Continue_ is conditional on the
+                       definition of onExpect100Continue. */
+                    ExcAssert(onExpect100Continue);
+                    if (!onExpect100Continue()) {
+                        expectBody_ = false;
+                    }
+                }
                 if (!expectBody_
                     || (remainingBody_ == 0 && !useChunkedEncoding_)) {
                     finalizeParsing();
@@ -277,6 +286,7 @@ HttpParser::
 handleHeader(const char * data, size_t dataSize)
 {
     size_t ptr(0);
+    bool skipHeader(!onHeader);
 
     auto skipToChar = [&] (char c) {
         while (ptr < dataSize) {
@@ -328,8 +338,17 @@ handleHeader(const char * data, size_t dataSize)
             useChunkedEncoding_ = true;
         }
     }
+    else if (matchString("Expect", 6)) {
+        skipToValue();
+        if (matchString("100-continue", 12)) {
+            if (onExpect100Continue) {
+                expect100Continue_ = true;
+                skipHeader = true;
+            }
+        }
+    }
 
-    if (onHeader) {
+    if (!skipHeader) {
         onHeader(data, dataSize);
     }
 }
@@ -394,7 +413,7 @@ parseBlockBody(BufferState & state)
 {
     ML::Parse_Context::Revert_Token token(state);
 
-    uint64_t chunkSize = min(state.readahead_available(), remainingBody_);
+    size_t chunkSize = min<size_t>(state.readahead_available(), remainingBody_);
     // cerr << "toSend: " + to_string(chunkSize) + "\n";
     // cerr << "received body: /" + string(data, chunkSize) + "/\n";
     if (onData && chunkSize > 0) {

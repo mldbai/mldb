@@ -81,7 +81,6 @@ apt-get install -y \
     liblzma5 \
     libbz2-1.0 \
     libcrypto++9 \
-    libv8-3.14.5 \
     libcurlpp0 \
     libcurl3 \
     libssh2-1 \

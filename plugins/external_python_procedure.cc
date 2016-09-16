@@ -13,7 +13,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include <boost/filesystem.hpp>
 #include "mldb/types/any_impl.h"
 

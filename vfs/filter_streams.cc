@@ -792,7 +792,7 @@ fork(const std::map<std::string, std::string> & options) const
     filter_istream result;
     result.openFromHandler(handlerOptions.fork(rdbuf(), sink),
                            this->resource, options);
-    return std::move(result);
+    return result;
 }
 
 std::pair<const char *, size_t>

@@ -57,7 +57,7 @@ Datacratic::HttpHeader generateParser(const std::string& q)
     const std::string query = "GET " + q + " HTTP/1.1\r\n\r\n";
     Datacratic::HttpHeader parser;
     parser.parse(query);
-    return std::move(parser);
+    return parser;
 }
 
 void testQueryParam(const Datacratic::HttpHeader& header,

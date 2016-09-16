@@ -25,7 +25,7 @@ The `status` field will contain statistics relevant to the model's mode.
 The `status` field will contain the [Area
 Under the Curve](http://en.wikipedia.org/wiki/Receiver_operating_characteristic#Area_under_the_curve) under the key `auc`, along with the performance statistics (e.g. [precision, recall](http://en.wikipedia.org/wiki/Precision_and_recall)) for the classifier using
 the thresholds which give the best [MCC](http://en.wikipedia.org/wiki/Matthews_correlation_coefficient) and the best [F-score](http://en.wikipedia.org/wiki/F1_score), under the keys `bestMcc` and
-`bestF`, respectively.
+`bestF1Score`, respectively.
 
 Here is a sample output:
 
@@ -36,7 +36,7 @@ Here is a sample output:
       "pr": {
         "recall": 0.6712328767123288, 
         "precision": 0.8448275862068966, 
-        "f": 0.7480916030534351,
+        "f1Score": 0.7480916030534351,
         "accuracy": 0.8196721311
       }, 
       "mcc": 0.6203113512927362, 
@@ -54,11 +54,11 @@ Here is a sample output:
       }
     }, 
     "auc": 0.8176836861768365, 
-    "bestF": {
+    "bestF1Score": {
       "pr": {
         "recall": 0.6712328767123288, 
         "precision": 0.8448275862068966, 
-        "f": 0.7480916030534351,
+        "f1Score": 0.7480916030534351,
         "accuracy": 0.8196721311
       }, 
       "mcc": 0.6203113512927362, 
@@ -112,21 +112,21 @@ Here is a sample output:
     "status": {
         "labelStatistics": {
             "0": {
-                "f": 0.8000000143051146,
+                "f1Score": 0.8000000143051146,
                 "recall": 1.0,
                 "support": 2,
                 "precision": 0.6666666865348816,
                 "accuracy": 1.0
             },
             "1": {
-                "f": 0.0,
+                "f1Score": 0.0,
                 "recall": 0.0,
                 "support": 1,
                 "precision": 0.0,
                 "accuracy": 0.0
             },
             "2": {
-                "f": 1.0,
+                "f1Score": 1.0,
                 "recall": 1.0,
                 "support": 2,
                 "precision": 1.0,
@@ -134,7 +134,7 @@ Here is a sample output:
             }
         },
         "weightedStatistics": {
-            "f": 0.7200000057220459,
+            "f1Score": 0.7200000057220459,
             "recall": 0.8,
             "support": 5,
             "precision": 0.6666666746139527,

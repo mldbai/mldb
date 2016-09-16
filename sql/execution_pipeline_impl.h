@@ -9,6 +9,7 @@
 
 #include "execution_pipeline.h"
 #include "join_utils.h"
+#include "mldb/utils/log_fwd.h"
 #include <list>
 
 namespace Datacratic {
@@ -41,7 +42,7 @@ struct TableLexicalScope: public LexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -152,7 +153,7 @@ struct SubSelectLexicalScope: public TableLexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual std::set<Utf8String> tableNames() const;
@@ -271,7 +272,7 @@ struct JoinLexicalScope: public LexicalScope {
     */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -377,6 +378,12 @@ struct JoinElement: public PipelineElement {
             values.
         */
         bufferType::iterator l, firstDuplicate;
+        /** True if we have already seen this left row, ie, if we have rewinded 
+            the left side. */
+        ExpressionValue lastLeftValue;
+        bool alreadySeenLeftRow;
+
+        std::shared_ptr<spdlog::logger> logger;
     
         virtual std::shared_ptr<PipelineResults> take();
 
@@ -688,7 +695,7 @@ struct AggregateLexicalScope: public LexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    ColumnFilter& keep,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction

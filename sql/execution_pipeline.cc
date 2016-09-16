@@ -175,7 +175,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput 
 PipelineExpressionScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     if (tableName.empty()) {
         if (defaultTables.empty())
@@ -267,7 +267,7 @@ doGetBoundParameter(const Utf8String & paramName)
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             auto & row = rowScope.as<PipelineResults>();
-            return storage = std::move(row.getParam(paramName));
+            return storage = row.getParam(paramName);
         };
         
     return { exec, info };
@@ -357,7 +357,7 @@ doGetColumn(const ColumnName & columnName) const
     
 GetAllColumnsOutput
 PipelineExpressionScope::TableEntry::
-doGetAllColumns(const Utf8String & tableName, ColumnFilter& keep) const
+doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const
 {
     return scope->doGetAllColumns(tableName, keep, fieldOffset);
 }

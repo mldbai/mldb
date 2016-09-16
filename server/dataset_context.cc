@@ -135,7 +135,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 SqlExpressionMldbScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException(400, "Cannot use wildcards with no FROM clause.");
 }
@@ -191,7 +191,7 @@ getColumn(const ColumnName & columnName,
         if (fromOutput)
             return *fromOutput;
         
-        return storage = std::move(ExpressionValue::null(Date::negativeInfinity()));
+        return storage = ExpressionValue::null(Date::negativeInfinity());
     }
 }
 
@@ -415,7 +415,7 @@ doGetBoundParameter(const Utf8String & paramName)
                 auto & row = context.as<RowScope>();
                 if (!row.params || !*row.params)
                     throw HttpReturnException(400, "Bound parameters requested but none passed");
-                return storage = std::move((*row.params)(paramName));
+                return storage = (*row.params)(paramName);
             },
             std::make_shared<AnyValueInfo>()};
 }
@@ -423,7 +423,7 @@ doGetBoundParameter(const Utf8String & paramName)
 GetAllColumnsOutput
 SqlExpressionDatasetScope::
 doGetAllColumns(const Utf8String & tableName,
-                ColumnFilter& keep)
+                const ColumnFilter& keep)
 {
     if (!tableName.empty()
         && std::find(childaliases.begin(), childaliases.end(), tableName)
@@ -455,7 +455,7 @@ doGetAllColumns(const Utf8String & tableName,
                 }
                 // Otherwise, check if we need it
                 ColumnName result = keep(inputColumnName);
-                return std::move(result);
+                return result;
             }
 
             return keep(inputColumnName);

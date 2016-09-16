@@ -254,7 +254,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                          "numTimesFoundColumn", numFoundCol,
                          "numTimesFoundValue", numFoundVal);
                 }
-                if (foundCol.empty()) {
+                if (foundCol.null()) {
                     throw HttpReturnException
                         (400, "Empty or null column names cannot be "
                          "returned from NAMED_COLUMNS sql query");

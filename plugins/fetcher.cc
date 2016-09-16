@@ -108,7 +108,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
             else {
                 std::ostringstream streamo;
                 streamo << stream.rdbuf();
-                blob = CellValue::blob(std::move(streamo.str()));
+                blob = CellValue::blob(streamo.str());
             }
 
             result.content = ExpressionValue(std::move(blob), info.lastModified);
@@ -129,7 +129,9 @@ static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
 regFetcherFunction(builtinPackage(),
                    "fetcher",
                    "Fetches the contents of a URL each time it's invoked",
-                   "functions/Fetcher.md.html");
+                   "functions/Fetcher.md.html",
+                   nullptr, //static route
+                   { MldbEntity::INTERNAL_ENTITY });
 
 } // namespace MLDB
 } // namespace Datacratic

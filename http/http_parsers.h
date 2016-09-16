@@ -28,6 +28,10 @@ struct HttpParser {
      * header key and the value. */
     typedef std::function<void (const char *, size_t)> OnHeader;
 
+    /* Type of callback used when receiving an "Expect: 100-continue" header.
+     */
+    typedef std::function<bool ()> OnExpect100Continue;
+
     /* Type of callback used when to report a chunk of the response body. Only
        invoked when the body is larger than 0 byte. */
     typedef std::function<void (const char *, size_t)> OnData;
@@ -77,6 +81,7 @@ struct HttpParser {
     }
 
     OnHeader onHeader;
+    OnExpect100Continue onExpect100Continue;
     OnData onData;
     OnDone onDone;
 
@@ -97,6 +102,7 @@ private:
     std::string buffer_;
 
     uint64_t remainingBody_;
+    bool expect100Continue_;
     bool useChunkedEncoding_;
     bool requireClose_;
 };
