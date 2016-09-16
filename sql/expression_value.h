@@ -1539,62 +1539,37 @@ struct UnknownRowValueInfo: public RowValueInfo {
     With a Case for Example.
 */
 
-struct ORExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
+struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
-    ORExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right) {
-        left_ = left;
-        right_ = right;
-    }
+    VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right);
 
-    virtual bool isScalar() const { return left_->isScalar() && right_->isScalar(); }
+    //Will return a VariantExpressionValueInfo or another type if the two input type info match in some way.
+    static std::shared_ptr<ExpressionValueInfo>
+    createVariantValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right);
 
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+    virtual bool isScalar() const override;
+
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const  override;
 
     virtual void flatten(const ExpressionValue & value,
                          const std::function<void (const ColumnName & columnName,
                                                    const CellValue & value,
-                                                   Date timestamp)> & write)
-        const;
+                                                   Date timestamp)> & write) const override;
 
-    virtual bool isCompatible(const ExpressionValue & value) const
-    {
-        return left_->isCompatible(value) && right_->isCompatible(value);
-    }
+    virtual bool isCompatible(const ExpressionValue & value) const override;
 
-    virtual SchemaCompleteness getSchemaCompleteness() const {
-        return left_->getSchemaCompleteness() == SCHEMA_CLOSED && 
-          right_->getSchemaCompleteness() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
-    }
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
 
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const {
-        return left_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED && 
-          right_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
-    }
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const  override;
 
-    virtual std::vector<KnownColumn> getKnownColumns() const;
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
 
-    virtual bool couldBeRow() const
-    {
-        return left_->couldBeRow() || right_->couldBeRow();
-    }
+    virtual bool couldBeRow() const override;
 
-    virtual bool couldBeScalar() const
-    {
-        return left_->couldBeScalar() || right_->couldBeScalar();
-    }
+    virtual bool couldBeScalar() const override;
 
-    virtual std::string getScalarDescription() const
-    {
-        ExcAssert(isScalar());
-        std::string left = left_->getScalarDescription();
-        std::string right = left_->getScalarDescription();
-
-        if (left == right)
-            return left;
-
-        return left + " or " + right;
-    }
-
+    virtual std::string getScalarDescription() const override;
+   
     std::shared_ptr<ExpressionValueInfo> left_;
     std::shared_ptr<ExpressionValueInfo> right_;
 };

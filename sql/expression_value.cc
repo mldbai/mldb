@@ -936,25 +936,47 @@ getColumn(const PathElement & columnName) const
     With a Case for Example.
 */
 
+VariantExpressionValueInfo::
+VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right) 
+: left_(left), right_(right)
+{
+       
+}
+
+std::shared_ptr<ExpressionValueInfo>
+VariantExpressionValueInfo::
+createVariantValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right)
+{
+    if (left->isScalar() && right->isScalar()) {
+        auto leftDesc = left->getScalarDescription();
+        auto rightDesc = right->getScalarDescription();
+
+        if (leftDesc == rightDesc)
+            return left;
+    }
+
+    return std::make_shared<VariantExpressionValueInfo>(left, right);
+}
+
 std::shared_ptr<RowValueInfo> 
-ORExpressionValueInfo::
+VariantExpressionValueInfo::
 getFlattenedInfo() const 
 {
-    throw HttpReturnException(500, "ORExpressionValueInfo::getFlattenedInfo()");
+    throw HttpReturnException(500, "VariantExpressionValueInfo::getFlattenedInfo()");
 }
 
 void 
-ORExpressionValueInfo::
+VariantExpressionValueInfo::
 flatten(const ExpressionValue & value,
         const std::function<void (const ColumnName & columnName,
                                   const CellValue & value,
                                   Date timestamp)> & write) const 
 {
-     throw HttpReturnException(500, "ORExpressionValueInfo::flatten()");
+     throw HttpReturnException(500, "VariantExpressionValueInfo::flatten()");
 }
 
 std::vector<KnownColumn> 
-ORExpressionValueInfo::
+VariantExpressionValueInfo::
 getKnownColumns() const 
 {
     if (!left_->isRow() && !right_->isRow()) {
@@ -986,7 +1008,7 @@ getKnownColumns() const
                             COLUMN_IS_DENSE : COLUMN_IS_SPARSE;
 
             result.emplace_back(left.columnName, 
-                                make_shared<ORExpressionValueInfo>(left.valueInfo, rightIter->valueInfo),
+                                make_shared<VariantExpressionValueInfo>(left.valueInfo, rightIter->valueInfo),
                                 sparsity);
         }
         else {
@@ -1006,6 +1028,64 @@ getKnownColumns() const
 
 
     return result;
+}
+
+bool 
+VariantExpressionValueInfo::
+isScalar() const 
+{ 
+    return left_->isScalar() && right_->isScalar(); 
+}
+
+bool 
+VariantExpressionValueInfo::
+isCompatible(const ExpressionValue & value) const
+{
+    return left_->isCompatible(value) && right_->isCompatible(value);
+}
+
+SchemaCompleteness 
+VariantExpressionValueInfo::
+getSchemaCompleteness() const 
+{
+    return left_->getSchemaCompleteness() == SCHEMA_CLOSED && 
+          right_->getSchemaCompleteness() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
+}
+
+SchemaCompleteness 
+VariantExpressionValueInfo::
+getSchemaCompletenessRecursive() const 
+{
+    return left_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED && 
+          right_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
+}
+
+bool 
+VariantExpressionValueInfo::
+couldBeRow() const
+{
+    return left_->couldBeRow() || right_->couldBeRow();
+}
+
+bool 
+VariantExpressionValueInfo::
+couldBeScalar() const
+{
+    return left_->couldBeScalar() || right_->couldBeScalar();
+}
+
+std::string 
+VariantExpressionValueInfo::
+getScalarDescription() const
+{
+    ExcAssert(isScalar());
+    std::string left = left_->getScalarDescription();
+    std::string right = left_->getScalarDescription();
+
+    if (left == right)
+        return left;
+
+    return left + " or " + right;
 }
 
 /*****************************************************************************/

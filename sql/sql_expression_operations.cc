@@ -2518,7 +2518,7 @@ bind(SqlBindingScope & scope) const
     for (auto & w: when) {
         boundWhen.emplace_back(w.first->bind(scope), w.second->bind(scope));
         if (info)
-            info = std::make_shared<ORExpressionValueInfo>(info, boundWhen.back().second.info);
+            info = VariantExpressionValueInfo::createVariantValueInfo(info, boundWhen.back().second.info);
         else
             info = boundWhen.back().second.info;
     }
