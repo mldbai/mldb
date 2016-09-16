@@ -49,7 +49,7 @@ struct SubDataset::Itl
 
     std::vector<NamedRowValue> subOutput;
     std::vector<PathElement> columnNames;
-    std::vector<ColumnName> fullFlattenColumnNames;
+    std::vector<ColumnName> fullFlattenedColumnNames;
     ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date earliest, latest;
     std::shared_ptr<ExpressionValueInfo> columnInfo;
@@ -61,7 +61,7 @@ struct SubDataset::Itl
         std::vector<NamedRowValue> rows;
         auto pair = queryFromStatementExpr(statement, mldbContext);
 
-        columnInfo = std::get<1>(pair);
+        columnInfo = std::move(std::get<1>(pair));
 
         init(std::move(std::get<0>(pair)));
     }
@@ -127,9 +127,9 @@ struct SubDataset::Itl
                            columnNameSet.begin(), columnNameSet.end());
         std::sort(columnNames.begin(), columnNames.end());
 
-        fullFlattenColumnNames.insert(fullFlattenColumnNames.end(),
+        fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
                            fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
-        std::sort(fullFlattenColumnNames.begin(), fullFlattenColumnNames.end());
+        std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end());
     }
 
     ~Itl() { }
@@ -222,7 +222,7 @@ struct SubDataset::Itl
         if (column.size() == 1)
             return std::find(columnNames.begin(), columnNames.end(), column[0]) != columnNames.end();
         else
-            return std::find(fullFlattenColumnNames.begin(), fullFlattenColumnNames.end(), column) != fullFlattenColumnNames.end();
+            return std::find(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end(), column) != fullFlattenedColumnNames.end();
     }
 
     virtual ColumnName getColumnName(ColumnHash columnHash) const
@@ -411,14 +411,14 @@ std::vector<ColumnName>
 SubDataset::
 getFlattenedColumnNames() const
 {
-    return itl->fullFlattenColumnNames;
+    return itl->fullFlattenedColumnNames;
 }
 
 size_t 
 SubDataset::
 getFlattenedColumnCount() const
 {
-    return itl->fullFlattenColumnNames.size();
+    return itl->fullFlattenedColumnNames.size();
 }
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 

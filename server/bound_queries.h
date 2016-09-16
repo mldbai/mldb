@@ -150,7 +150,7 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    std::shared_ptr<ExpressionValueInfo> execute(RowProcessor processor,  
+    std::pair<bool, std::shared_ptr<ExpressionValueInfo> > execute(RowProcessor processor,  
                      ssize_t offset, ssize_t limit,
                      std::function<bool (const Json::Value &)> onProgress);
 

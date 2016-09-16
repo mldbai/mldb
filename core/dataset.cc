@@ -843,7 +843,7 @@ queryStructuredExpr(const SelectExpression & select,
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
         structureInfo = iterateDataset(select, *this, alias, when, where,
                        { rowName->shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                       nullptr);
+                       nullptr).second;
     }
     else {
 
@@ -862,7 +862,7 @@ queryStructuredExpr(const SelectExpression & select,
         structureInfo = iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, *having, *rowName,
                               {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                              nullptr);
+                              nullptr).second;
     }
 
     return make_tuple<std::vector<NamedRowValue>, 

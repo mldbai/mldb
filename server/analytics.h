@@ -72,7 +72,8 @@ struct RowProcessorEx {
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-std::shared_ptr<ExpressionValueInfo> iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -86,7 +87,8 @@ std::shared_ptr<ExpressionValueInfo> iterateDataset(const SelectExpression & sel
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-std::shared_ptr<ExpressionValueInfo> iterateDatasetExpr(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetExpr(const SelectExpression & select,
                         const Dataset & from,
                         const Utf8String & alias,
                         const WhenExpression & when,
@@ -101,7 +103,8 @@ std::shared_ptr<ExpressionValueInfo> iterateDatasetExpr(const SelectExpression &
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-std::shared_ptr<ExpressionValueInfo> iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String& alias,
                     const WhenExpression & when,
@@ -114,7 +117,8 @@ std::shared_ptr<ExpressionValueInfo> iterateDataset(const SelectExpression & sel
                     std::function<bool (const Json::Value &)> onProgress = nullptr);
 
 /** Full select function, with grouping. */
-std::shared_ptr<ExpressionValueInfo> iterateDatasetGrouped(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String& alias,
                            const WhenExpression & when,

@@ -1584,7 +1584,7 @@ BoundGroupByQuery(const SelectExpression & select,
 
 }
 
-std::shared_ptr<ExpressionValueInfo> 
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
 BoundGroupByQuery::
 execute(RowProcessor processor,
         ssize_t offset,
@@ -1729,7 +1729,7 @@ execute(RowProcessor processor,
     }
 
     if (boundOrderBy.empty())
-        return selectInfo;
+        return {true, selectInfo};
 
     // Compare two rows according to the sort criteria
     auto compareRows = [&] (const SortedRow & row1,
@@ -1786,7 +1786,7 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return selectInfo; //early exis on processor error
+                return {false, selectInfo}; //early exis on processor error
 
             if (count - offset == limit)
                 break;
@@ -1803,11 +1803,11 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return selectInfo; //early exis on processor error
+                return {false, selectInfo}; //early exis on processor error
         } 
     }  
 
-    return selectInfo;
+    return {true, selectInfo};
 }
 
 } // namespace MLDB

@@ -427,10 +427,10 @@ doGetAllColumnsInternal(const Utf8String & tableName,
                     bool atoms)
 {
     if (!tableName.empty()
-    && std::find(childaliases.begin(), childaliases.end(), tableName)
-        == childaliases.end()
-    && tableName != alias)
-    throw HttpReturnException(400, "Unknown dataset " + tableName);
+        && std::find(childaliases.begin(), childaliases.end(), tableName)
+            == childaliases.end()
+        && tableName != alias)
+            throw HttpReturnException(400, "Unknown dataset " + tableName);
 
     bool allWereKept = true;
     bool noneWereRenamed = true;

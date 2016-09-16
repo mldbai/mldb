@@ -36,7 +36,8 @@ namespace MLDB {
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-std::shared_ptr<ExpressionValueInfo> iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -50,13 +51,14 @@ std::shared_ptr<ExpressionValueInfo> iterateDataset(const SelectExpression & sel
 {
     BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
 
-    query.execute(processor, offset, limit, onProgress);
+    bool success = query.execute(processor, offset, limit, onProgress);
 
-    return query.selectInfo;
+    return {success, query.selectInfo};
 
 }
 
-std::shared_ptr<ExpressionValueInfo> iterateDatasetExpr(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetExpr(const SelectExpression & select,
                         const Dataset & from,
                         const Utf8String & alias,
                         const WhenExpression & when,
@@ -70,13 +72,14 @@ std::shared_ptr<ExpressionValueInfo> iterateDatasetExpr(const SelectExpression &
 {
     BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
 
-    query.executeExpr(processor, offset, limit, onProgress);
+    bool success = query.executeExpr(processor, offset, limit, onProgress);
 
-    return query.selectInfo;
+    return {success, query.selectInfo};
 }
 
 /** Full select function, with grouping. */
-std::shared_ptr<ExpressionValueInfo> iterateDatasetGrouped(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String & alias,
                            const WhenExpression & when,
@@ -98,7 +101,8 @@ std::shared_ptr<ExpressionValueInfo> iterateDatasetGrouped(const SelectExpressio
 
 }
 
-std::shared_ptr<ExpressionValueInfo> iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,

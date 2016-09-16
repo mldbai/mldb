@@ -54,7 +54,7 @@ struct TransposedDataset::Itl
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
           index(dataset->getColumnIndex()),
-          columnCount(dataset->getFlattenedColumnNames().size())
+          columnCount(dataset->getFlattenedColumnCount())
     {
     }
 

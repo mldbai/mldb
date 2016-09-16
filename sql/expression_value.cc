@@ -225,7 +225,7 @@ getKnownAtoms(const ColumnName prefix) const
     auto columns = getKnownColumns();
     result.reserve(columns.size());
     for (const auto& c : columns) {
-        if (c.valueInfo->isRow() || c.valueInfo->isEmbedding()) {
+        if (c.valueInfo->couldBeRow() || c.valueInfo->isEmbedding()) { //change after merge of couldbeembedding
             auto subResult = c.valueInfo->getKnownAtoms(c.columnName);
             for (const auto& atom : subResult) {
                 result.emplace_back(prefix + atom.columnName, 
@@ -742,13 +742,6 @@ getKnownColumns() const
     return result;
 }
 
-/*std::vector<KnownColumn>
-EmbeddingValueInfo::
-getKnownAtoms(const ColumnName prefix) const
-{
-    return getKnownAtomsHelper(*this, prefix);
-}*/
-
 std::vector<ColumnName>
 EmbeddingValueInfo::
 allColumnNames() const
@@ -900,13 +893,6 @@ getKnownColumns() const
 {
     return columns;
 }
-
-/*std::vector<KnownColumn>
-RowValueInfo::
-getKnownAtoms(const ColumnName prefix) const
-{
-    return getKnownAtomsHelper(*this, prefix);   
-}*/
 
 SchemaCompleteness
 RowValueInfo::
