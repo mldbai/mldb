@@ -123,7 +123,7 @@ $(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(HOSTBIN)/protoc $(INC)/google/
 # Same for pb_text files
 $(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto | $(BIN)/proto_text
 	@echo "      $(COLOR_CYAN)[PROTOTXT]$(COLOR_RESET)			$(basename $<)"
-	$(BIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
+	@$(BIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
 
 #	(cd mldb/ext/tensorflow && $(PWD)/$(BIN)/proto_text tensorflow/core tensorflow/core tensorflow/tools/proto_text/placeholder.txt $(removeprefix mldb/ext/tensorflow/,$<))
 
@@ -167,8 +167,8 @@ $(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
 	@ln -sf $(CUDA_BASE_DIR)/extras $@
 
 $(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudnn_v5.h
-	mkdir -p $(dir $@)
-	ln -s $< $@
+	@mkdir -p $(dir $@)
+	@ln -s $< $@
 
 
 # Anything that's to do with Cuda depends on these header files, so set
@@ -377,16 +377,17 @@ $(if $(TF_KERNEL_VARIANTS),,$(error TF_KERNEL_VARIANTS_$(ARCH) is not set; when 
 #
 # To create this, we
 # a) copy the given files to a temporary directory so that they are seen
-#    as unique by the build system
+#    as unique by the build system and can thus have different compile
+#    flags
 # b) compile them with the custom flags
 #
 # $(1) = variant name
 
 define tf_kernel_variant
 
-# Rule to copy the source files over
+# Rule to copy the source files over to tmp 
 mldb/ext/tensorflow/../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%:	$(CWD)/%
-	mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
+	@mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
 
 TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$(TENSORFLOW_KERNEL_CC_BUILD:%=../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%)
 
