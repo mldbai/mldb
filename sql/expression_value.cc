@@ -561,7 +561,7 @@ EmbeddingValueInfo(std::vector<ssize_t> shape, StorageType storageType)
 {
 }
 
-EmbeddingValueInfo
+std::shared_ptr<EmbeddingValueInfo>
 EmbeddingValueInfo::
 fromShape(const DimsVector& inputShape,  StorageType storageType)
 {
@@ -570,7 +570,7 @@ fromShape(const DimsVector& inputShape,  StorageType storageType)
     for (const auto& v : inputShape) {
         shape.push_back(v);
     }
-    return EmbeddingValueInfo(shape, storageType);
+    return make_shared<EmbeddingValueInfo>(shape, storageType);
 }
 
 bool

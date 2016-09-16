@@ -2633,11 +2633,11 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 2);
 
-    if (!args[0].info->couldEmbedding())
-        throw HttpReturnException(400, "requires an array as first argument");
+    if (!args[0].info->couldBeEmbedding())
+        throw HttpReturnException(400, "requires an embedding as first argument");
 
     if (!args[1].info->isEmbedding())
-        throw HttpReturnException(400, "requires an arrays as second argument");
+        throw HttpReturnException(400, "requires an embedding as second argument");
 
     if (!args[1].metadata.isConstant)
         throw HttpReturnException(400, "requires a constant value as a second argument");
@@ -2660,8 +2660,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
 
     auto st = args[0].info->getEmbeddingType();
 
-    auto outputInfo
-        = std::make_shared<EmbeddingValueInfo>(EmbeddingValueInfo::fromShape(shape, st));
+    auto outputInfo = EmbeddingValueInfo::fromShape(shape, st);
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
@@ -2680,7 +2679,7 @@ BoundFunction shape(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
 
-    if (!args[0].info->couldEmbedding())
+    if (!args[0].info->couldBeEmbedding())
         throw HttpReturnException(400, "requires an array as first argument");
      
     auto outputInfo

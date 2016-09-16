@@ -211,7 +211,7 @@ struct ExpressionValueInfo {
     }
 
     /// Could the thing described by this value description return an embedding?
-    virtual bool couldEmbedding() const 
+    virtual bool couldBeEmbedding() const 
     { 
         return false; 
     }
@@ -1408,7 +1408,7 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
         return true;
     }
 
-    virtual bool couldEmbedding() const override 
+    virtual bool couldBeEmbedding() const override 
     { 
         return true; 
     }
@@ -1434,7 +1434,7 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
         input. */
     EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
 
-    static EmbeddingValueInfo fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
+    static std::shared_ptr<EmbeddingValueInfo> fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
 
     std::vector<ssize_t> shape;
     StorageType storageType;
@@ -1452,7 +1452,7 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
 
     virtual bool couldBeScalar() const;
 
-    virtual bool couldEmbedding() const override { return true; }
+    virtual bool couldBeEmbedding() const override { return true; }
 
     virtual bool isEmbedding() const;
 
