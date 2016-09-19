@@ -225,7 +225,7 @@ getKnownAtoms(const ColumnName prefix) const
     auto columns = getKnownColumns();
     result.reserve(columns.size());
     for (const auto& c : columns) {
-        if (c.valueInfo->couldBeRow() || c.valueInfo->isEmbedding()) { //change after merge of couldbeembedding
+        if (c.valueInfo->couldBeRow() || c.valueInfo->couldBeEmbedding()) { //change after merge of couldbeembedding
             auto subResult = c.valueInfo->getKnownAtoms(c.columnName);
             for (const auto& atom : subResult) {
                 result.emplace_back(prefix + atom.columnName, 
