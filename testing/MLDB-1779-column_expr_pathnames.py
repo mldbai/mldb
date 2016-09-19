@@ -14,8 +14,6 @@ class MLDB1779ColumnExpr(MldbUnitTest):  # noqa
 
     def test_it(self):
 
-        mldb.log(mldb.query("SELECT column expr () from (select x.a:1, y.b:2)"))
-
         self.assertTableResultEquals(
             mldb.query("SELECT column expr () from (select x.a:1, y.b:2)"),
             mldb.query("SELECT * from (select x.a:1, y.b:2)"))
