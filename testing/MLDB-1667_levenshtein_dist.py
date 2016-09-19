@@ -55,9 +55,11 @@ class Mldb1667(MldbUnitTest):
         mldb.log(len(text))
         doTestWords(text, text2, 10)
 
+        # note that those are the distances for the hacky version of utf-8
+        # friendly levenshtein, see MLDB-1948
         doTestWords('Québec', 'Québec', 0)
-        doTestWords('Québec', 'Quebec', 1)
-        doTestWords('éèà', 'abc', 3)
+        doTestWords('Québec', 'Quebec', 2)
+        doTestWords('éèà', 'abc', 6)
 
 
     def test_wrong_type(self):
