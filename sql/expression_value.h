@@ -426,6 +426,10 @@ struct KnownColumn {
           offset(offset)
     {
     }
+
+    bool operator < (const KnownColumn& other) const {
+        return columnName < other.columnName;
+    }
     
     ColumnName columnName;
     std::shared_ptr<ExpressionValueInfo> valueInfo;
@@ -1545,6 +1549,49 @@ struct UnknownRowValueInfo: public RowValueInfo {
     {
         return true;
     }
+};
+
+/*****************************************************************************/
+/* OR Expression Value Info                                                  */
+/*****************************************************************************/
+
+/** Expression Value info when we dont know which of two value info we will get 
+    With a Case for Example.
+*/
+
+struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
+
+    VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right);
+
+    //Will return a VariantExpressionValueInfo or another type if the two input type info match in some way.
+    static std::shared_ptr<ExpressionValueInfo>
+    createVariantValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right);
+
+    virtual bool isScalar() const override;
+
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const  override;
+
+    virtual void flatten(const ExpressionValue & value,
+                         const std::function<void (const ColumnName & columnName,
+                                                   const CellValue & value,
+                                                   Date timestamp)> & write) const override;
+
+    virtual bool isCompatible(const ExpressionValue & value) const override;
+
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
+
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const  override;
+
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
+
+    virtual bool couldBeRow() const override;
+
+    virtual bool couldBeScalar() const override;
+
+    virtual std::string getScalarDescription() const override;
+   
+    std::shared_ptr<ExpressionValueInfo> left_;
+    std::shared_ptr<ExpressionValueInfo> right_;
 };
 
 

@@ -33,28 +33,28 @@ class Mldb283Test(MldbUnitTest):
         })
 
     def test_select(self):
-        self.assertTableResultEquals(
-            mldb.query("select nn({coords: {x:0.5, y:0.5}})[distances] as *"),
-            [
-                ["_rowName", "ex1", "ex2", "ex3", "ex4"],
-                ["result",  0.7071067690849304,
-                      0.7071067690849304,
-                      0.7071067690849304,
-                      0.7071067690849304 ]
-            ]
-        )
-        
-        self.assertTableResultEquals(
-            mldb.query("select nn({coords: {x:0.1, y:0.2}})[distances] as *"),
-            [
-                ["_rowName", "ex1", "ex2", "ex3", "ex4"],
-                ["result",  0.22360680997371674,
-                        0.8062257766723633,
-                        0.9219543933868408,
-                        1.2041594982147217]
-            ]
-        )
+        result = mldb.query("select nn({coords: {x:0.5, y:0.5}})[distances] as *")
+        expected = [0.7071067690849304,
+                    0.7071067690849304,
+                    0.7071067690849304,
+                    0.7071067690849304 ]
 
+        for i, dist in enumerate(result[1][1:5]):
+            # testing up to a given precision since the value varies depending 
+            # on the CPU capabilities
+            self.assertAlmostEqual(dist, expected[i], 5)
+        
+        result = mldb.query("select nn({coords: {x:0.1, y:0.2}})[distances] as *")
+        expected =  [0.22360680997371674,
+                     0.8062257766723633,
+                     0.9219543933868408,
+                     1.2041594982147217]
+        
+        for i, dist in enumerate(result[1][1:5]):
+            # testing up to a given precision since the value varies depending 
+            # on the CPU capabilities
+            self.assertAlmostEqual(dist, expected[i], 5)
+    
     def test_select_row(self):
         # MLDB-509
         self.assertTableResultEquals(
