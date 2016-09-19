@@ -63,7 +63,6 @@ void convertEmbeddingImpl(void * to,
                           StorageType toType,
                           StorageType fromType);
 
-
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO                                                     */
 /*****************************************************************************/
@@ -216,6 +215,34 @@ getKnownColumns() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a row",
                               "type", ML::type_name(*this));
+}
+
+std::vector<KnownColumn>
+ExpressionValueInfo::
+getKnownAtoms(const ColumnName prefix) const
+{
+    std::vector<KnownColumn> result;
+    auto columns = getKnownColumns();
+    result.reserve(columns.size());
+    for (const auto& c : columns) {
+        if (c.valueInfo->couldBeRow() || c.valueInfo->couldBeEmbedding()) { //change after merge of couldbeembedding
+            auto subResult = c.valueInfo->getKnownAtoms(c.columnName);
+            for (const auto& atom : subResult) {
+                result.emplace_back(prefix + atom.columnName, 
+                                atom.valueInfo,
+                                atom.sparsity == c.sparsity ? atom.sparsity : COLUMN_IS_SPARSE,
+                                -1);
+            }
+        }
+        else {
+            result.emplace_back(prefix + c.columnName, 
+                                c.valueInfo,
+                                c.sparsity,
+                                -1);
+        }
+    }
+
+    return result;
 }
 
 std::vector<ColumnName>
@@ -2560,6 +2587,14 @@ tryGetNestedColumn(const ColumnName & columnName,
     throw HttpReturnException(500, "Unknown expression value type");
 }
 
+bool 
+ExpressionValue::
+hasNestedColumn(const Path & column) const
+{
+    ExpressionValue storage;
+    return tryGetNestedColumn(column, storage) != nullptr;
+}
+
 ExpressionValue
 ExpressionValue::
 getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) const
@@ -4815,6 +4850,25 @@ NamedRowValue::flattenDestructive()
     
     return result;
 }
+
+MatrixNamedRow
+NamedRowValue::flatten() const
+{
+    MatrixNamedRow result;
+
+    result.rowName = std::move(rowName);
+    result.rowHash = std::move(rowHash);
+
+    for (auto & c: columns) {
+        const PathElement & fieldName = std::get<0>(c);
+        const ExpressionValue & val = std::get<1>(c);
+        Path columnName(fieldName);
+        val.appendToRow(columnName, result.columns);
+    }
+    
+    return result;
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic

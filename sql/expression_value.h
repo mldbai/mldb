@@ -231,6 +231,10 @@ struct ExpressionValueInfo {
     /// a row.
     virtual std::vector<KnownColumn> getKnownColumns() const;
 
+    /// Return the set of known atoms for a row.  Default throws that it's not
+    /// a row.
+    virtual std::vector<KnownColumn> getKnownAtoms(const ColumnName prefix = ColumnName()) const;
+
     /// Return a list of all known column names
     virtual std::vector<ColumnName> allColumnNames() const;
     
@@ -860,6 +864,9 @@ struct ExpressionValue {
     tryGetNestedColumn(const ColumnName & columnName,
                        ExpressionValue & storage,
                        const VariableFilter & filter = GET_LATEST) const;
+
+    // Return true if the nested column exist, false otherwise
+    bool hasNestedColumn(const Path & column) const;
 
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
@@ -1613,6 +1620,7 @@ struct NamedRowValue {
 
     //operator MatrixNamedRow() const;
     MatrixNamedRow flattenDestructive();
+    MatrixNamedRow flatten() const;
 };
 
 

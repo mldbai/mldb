@@ -362,6 +362,14 @@ doGetAllColumns(const Utf8String & tableName,
                         + tableName);
 }
 
+GetAllColumnsOutput
+SqlBindingScope::
+doGetAllAtoms(const Utf8String & tableName,
+              const ColumnFilter& keep)
+{
+    return doGetAllColumns(tableName, keep);
+}
+
 GenerateRowsWhereFunction
 SqlBindingScope::
 doCreateRowsWhereGenerator(const SqlExpression & where,
@@ -2071,8 +2079,12 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 {
     ML::Parse_Context::Hold_Token capture(context);
 
-    if (matchKeyword(context, "COLUMN EXPR (")
-        || matchKeyword(context, "COLUMN EXPR(")) {
+    if (matchKeyword(context, "COLUMN EXPR")) {
+
+        context.skip_whitespace();
+        bool isStructured = matchKeyword(context, "STRUCTURED");
+        context.skip_whitespace();
+        context.expect_literal('(');
         
         // Components
         // - select: value to select as column; row expression
@@ -2132,7 +2144,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         context.expect_literal(')');
 
         auto result = std::make_shared<SelectColumnExpression>(select, as, where, orderBy,
-                                                               offset, limit);
+                                                               offset, limit, isStructured);
         result->surface = capture.captured();
         return result;
     }

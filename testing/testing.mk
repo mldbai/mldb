@@ -412,6 +412,7 @@ $(eval $(call mldb_unit_test,MLDBFB-646-column-expression-select.js))
 $(eval $(call mldb_unit_test,MLDBFB-650-names-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-1841-distinct-on.py))
 $(eval $(call mldb_unit_test,MLDB-1843-select-disappearing-values.js))
+$(eval $(call mldb_unit_test,MLDB-1933-subselect-flatten.py))
 $(eval $(call mldb_unit_test,MLDB-1947-reshape-builtin.py))
 $(eval $(call mldb_unit_test,MLDB-1891-case-in-import.py))
 

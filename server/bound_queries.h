@@ -83,6 +83,7 @@ struct BoundSelectQuery {
     std::vector<std::shared_ptr<SqlExpression> > calc;
     const OrderByExpression & orderBy;
     std::shared_ptr<SqlExpressionDatasetScope> context;
+    std::shared_ptr<ExpressionValueInfo> selectInfo;
 
     /** Note on the ordering of rows
      *  Users are expecting determinist results (e.g. repeated queries
@@ -149,9 +150,9 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    bool execute(RowProcessor processor,  
-                 ssize_t offset, ssize_t limit,
-                 std::function<bool (const Json::Value &)> onProgress);
+    std::pair<bool, std::shared_ptr<ExpressionValueInfo> > execute(RowProcessor processor,  
+                     ssize_t offset, ssize_t limit,
+                     std::function<bool (const Json::Value &)> onProgress);
 
     const Dataset & from;
     WhenExpression when;

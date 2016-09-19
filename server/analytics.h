@@ -72,7 +72,8 @@ struct RowProcessorEx {
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-bool iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -86,7 +87,8 @@ bool iterateDataset(const SelectExpression & select,
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-bool iterateDatasetExpr(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetExpr(const SelectExpression & select,
                         const Dataset & from,
                         const Utf8String & alias,
                         const WhenExpression & when,
@@ -101,7 +103,8 @@ bool iterateDatasetExpr(const SelectExpression & select,
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-bool iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String& alias,
                     const WhenExpression & when,
@@ -114,7 +117,8 @@ bool iterateDataset(const SelectExpression & select,
                     std::function<bool (const Json::Value &)> onProgress = nullptr);
 
 /** Full select function, with grouping. */
-bool iterateDatasetGrouped(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String& alias,
                            const WhenExpression & when,
@@ -166,6 +170,9 @@ getEmbedding(const SelectStatement & stm,
 std::vector<MatrixNamedRow>
 queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope);
 
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope);
+
 /** Select from the given statement.  This will choose the most
     appropriate execution method based upon what is in the query.
 
@@ -174,6 +181,11 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope);
 */
 std::vector<MatrixNamedRow>
 queryFromStatement(const SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params = nullptr);
+
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+queryFromStatementExpr(const SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params = nullptr);
 

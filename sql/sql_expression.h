@@ -657,6 +657,10 @@ struct SqlBindingScope {
     doGetAllColumns(const Utf8String & tableName,
                     const ColumnFilter& keep);
 
+    virtual GetAllColumnsOutput
+    doGetAllAtoms(const Utf8String & tableName,
+                    const ColumnFilter& keep);
+
     // Function used to create a generator for an expression
     virtual GenerateRowsWhereFunction
     doCreateRowsWhereGenerator(const SqlExpression & where,

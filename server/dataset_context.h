@@ -179,6 +179,10 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     doGetAllColumns(const Utf8String & tableName,
                     const ColumnFilter& keep);
 
+    GetAllColumnsOutput
+    doGetAllAtoms(const Utf8String & tableName,
+                  const ColumnFilter& keep);
+
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
@@ -212,17 +216,10 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     virtual ColumnName
     doResolveTableName(const ColumnName & fullColumnName,
                        Utf8String & tableName) const;
-    
-#if 0
-protected:
 
-    // This is for the context where we have several datasets
-    // resolve ambiguity of different table names
-    // by finding the dataset name that resolves first.
-    Utf8String resolveTableName(const Utf8String& columnName) const;
-    Utf8String resolveTableName(const Utf8String& columnName,
-                                Utf8String& resolvedTableName) const;
-#endif
+private:
+    GetAllColumnsOutput doGetAllColumnsInternal(const Utf8String & tableName, const ColumnFilter& keep, bool atoms);
+
 };
 
 

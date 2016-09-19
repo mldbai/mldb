@@ -422,14 +422,15 @@ doGetBoundParameter(const Utf8String & paramName)
 
 GetAllColumnsOutput
 SqlExpressionDatasetScope::
-doGetAllColumns(const Utf8String & tableName,
-                const ColumnFilter& keep)
+doGetAllColumnsInternal(const Utf8String & tableName,
+                    const ColumnFilter& keep,
+                    bool atoms)
 {
     if (!tableName.empty()
         && std::find(childaliases.begin(), childaliases.end(), tableName)
             == childaliases.end()
         && tableName != alias)
-        throw HttpReturnException(400, "Unknown dataset " + tableName);
+            throw HttpReturnException(400, "Unknown dataset " + tableName);
 
     bool allWereKept = true;
     bool noneWereRenamed = true;
@@ -439,7 +440,7 @@ doGetAllColumns(const Utf8String & tableName,
 
     if (keep.exec) {
 
-        auto columns = dataset.getMatrixView()->getColumnNames();
+        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnNames();
 
         auto filterColumnName = [&] (const ColumnName & inputColumnName)
             -> ColumnName
@@ -498,7 +499,7 @@ doGetAllColumns(const Utf8String & tableName,
     }
     else if (dataset.hasColumnNames()) {
 
-        auto columns = dataset.getMatrixView()->getColumnNames();
+        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnNames();
 
         vector<ColumnName> columnsNeedingInfo;
 
@@ -551,6 +552,22 @@ doGetAllColumns(const Utf8String & tableName,
     result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
                                                  schema);
     return result;
+}
+
+GetAllColumnsOutput
+SqlExpressionDatasetScope::
+doGetAllColumns(const Utf8String & tableName,
+                const ColumnFilter& keep)
+{
+    return doGetAllColumnsInternal(tableName, keep, false);
+}
+
+GetAllColumnsOutput
+SqlExpressionDatasetScope::
+doGetAllAtoms(const Utf8String & tableName,
+              const ColumnFilter& keep)
+{
+    return doGetAllColumnsInternal(tableName, keep, true);
 }
 
 GenerateRowsWhereFunction
