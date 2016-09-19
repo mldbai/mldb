@@ -34,7 +34,7 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 		$$(PROTOC_EXTRA_ARGS_$(1)) >> configure-log.txt 2>&1) \
 	|| (echo $(COLOR_RED)Protobuf configure failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/configure-log.txt && false)
 	@echo "   $(COLOR_BLUE)[MAKE EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
-	@+$(MAKE) -j -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf compile failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/compile-log.txt && false)
+	@+$(MAKE) -j -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf compile failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt && false)
 	@echo "$(COLOR_BLUE)[INSTALL EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@$(MAKE) -j install -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/install-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf install failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/install-log.txt && false)
 	@echo "   $(COLOR_BLUE)[DONE EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"

@@ -440,7 +440,7 @@ struct TensorflowGraphBase: public Function {
             if (isCpuDevice) {
                 // Use the thread pool for CPU threads
                 options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(2);
+                //options.config.set_inter_op_parallelism_threads(2);
             }
             else {
                 // The GPU gets some CPU threads of its own so that
@@ -448,8 +448,8 @@ struct TensorflowGraphBase: public Function {
                 // is necessary to achieve maximum occupancy of the
                 // GPU.
                 options.config.set_allow_soft_placement(true);
-                options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(4);
+                //options.config.set_use_per_session_threads(true);
+                //options.config.set_inter_op_parallelism_threads(4);
             }
 
             // NOTE: eventually, this will work... but until it does, we
@@ -469,7 +469,7 @@ struct TensorflowGraphBase: public Function {
                 }
                 
                 sessions.emplace_back(d->name(), std::move(session),
-                                      16 /* queue length */);
+                                      4 /* queue length */);
             }
         }
 
@@ -1294,6 +1294,8 @@ struct TensorflowGraphBase: public Function {
 
         auto session = getSession();
 
+        Date gotSession = Date::now();
+
         tensorflow::StepStats stats;
         //Status run_status = session.first
         //    ->RunWithStats(inputTensors, outputLayers,
@@ -1310,7 +1312,9 @@ struct TensorflowGraphBase: public Function {
         
         Date after = Date::now();
         cerr << "latency on " << session.second << " was "
-             << after.secondsSince(before) * 1000 << "ms" << endl;
+             << after.secondsSince(gotSession) * 1000 << "ms"
+             << " plus " << gotSession.secondsSince(before) * 1000
+             << " ms to get session" << endl;
 
 #if 0
         uint64_t earliest = -1;

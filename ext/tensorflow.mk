@@ -60,7 +60,7 @@ $(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(INC)/exter
 
 $(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field -Wno-unused-const-variable))
 
-$(eval $(call program,proto_text,protobuf3,$(TENSORFLOW_PROTO_TEXT_FILES)))
+$(eval $(call program,proto_text,protobuf3 z,$(TENSORFLOW_PROTO_TEXT_FILES)))
 
 # Compile all of the .proto files in the TensorFlow
 # source directory.  Here we find all of those files
@@ -73,7 +73,7 @@ TENSORFLOW_PROTOBUF_HEADERS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) $(TENSO
 # kernels.  We strip out any Cuda constructs, and add them back in later in
 # the part of the makefile designed around Cuda support.
 
-TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v 'gpu/.*\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op\.cc' | grep -v test | grep -v tutorial | grep -v user_ops | grep -v 'fact_op\.cc' $(if $(WITH_CUDA),, | grep -v cuda  $(if $(WITH_CUDNN),,| grep -v cu_dnn) ) | grep -v /kernels/ | grep -v distributed_runtime | grep -v platform/cloud | grep -v pb_text | grep -v 'stream_executor/machine_manager.cc\|stream_executor/dso_loader.cc') $(CWD)/tensorflow/core/common_runtime/gpu/gpu_tracer.cc
+TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op\.cc' | grep -v test | grep -v tutorial | grep -v user_ops | grep -v 'fact_op\.cc' $(if $(WITH_CUDA),, | grep -v cuda  $(if $(WITH_CUDNN),,| grep -v cu_dnn) ) | grep -v /kernels/ | grep -v distributed_runtime | grep -v platform/cloud | grep -v pb_text $(if $(WITH_CUDA),,| grep -v 'gpu/.*\.cc' | grep -v 'stream_executor/machine_manager.cc\|stream_executor/dso_loader.cc')) $(CWD)/tensorflow/core/common_runtime/gpu/gpu_tracer.cc
 
 # Tensorflow comes bundled with scripts that download various external things
 # that we already have as a system dependency, and hardcodes the include
@@ -129,17 +129,21 @@ $(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto |
 
 #@$(BIN)/proto_text mldb/ext/tensorflow/core mldb/ext/tensorflow/core mldb/ext/tensorflow/tools/proto_text/placeholder.txt $<
 
+# CUDA base defines, used even with no CUDA support
+CUDA_VERSION?=8.0
+CUDNN_VERSION?=5
+
+# Which CUDA compute capabilities do we support?  3.0 is needed for the
+# AWS g2 instances.
+TF_CUDA_CAPABILITIES:=5.3
+
 # This part deals with CUDA support.  It's only enabled if WITH_CUDA is
 # equal to 1.
 ifeq ($(WITH_CUDA),1)
 
-# Which CUDA compute capabilities do we support?  3.0 is needed for the
-# AWS g2 instances.
-TF_CUDA_CAPABILITIES:=3.0
-
 # This is the directory that the whole CUDA development kit is installed
 # inside.
-CUDA_BASE_DIR?=/usr/local/cuda-8.0
+CUDA_BASE_DIR?=/usr/local/cuda-$(CUDA_VERSION)
 
 # This is the directory that the CUDA header files are included in.
 # If it's not passed into the makefile
@@ -170,12 +174,11 @@ $(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudn
 	@mkdir -p $(dir $@)
 	@ln -s $< $@
 
-
 # Anything that's to do with Cuda depends on these header files, so set
 # up the dependency.
 
 $(TENSORFLOW_CC_FILES): \
-	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras $(INC)/third_party/gpus/cuda/include/cudnn.h
+	$(foreach header,$(CUDA_HEADERS),$(INC)/third_party/gpus/cuda/include/$(header)) | $(INC)/third_party/gpus/cuda/extras $(INC)/third_party/gpus/cuda/include/cudnn.h $(INC)/third_party/gpus/cuda/cuda_config.h
 
 # Some of the CUDA headers include their header dependencies via <file.h>
 # instead of "file.h", which requires us to set up the system header directory
@@ -184,7 +187,7 @@ TENSORFLOW_CUDA_INCLUDE_FLAGS:=-Isystem$(CUDA_SYSTEM_HEADER_DIR) -I$(CUDA_SYSTEM
 
 # Now we find all of the cuda files that need to be compiled by nvidia's
 # nvcc compiler.  These are anything that end in .cu.cc
-TENSORFLOW_CUDA_NVCC_FILES:=$(shell (find $(CWD)/tensorflow -name "*.cu.cc") | grep -v how_tos)
+TENSORFLOW_CUDA_NVCC_FILES:=$(shell (find $(CWD)/tensorflow -name "*.cu.cc") | grep -v how_tos | grep -v contrib/)
 
 # Turn them into the symbolic source names we need for the build system
 TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
@@ -202,7 +205,7 @@ TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
 #   between the CUDA and non-CUDA kernels; otherwise there will be linker
 #   errors.  If you get something like "undefined symbol tensorflow::functor::XXXFunctor<Eigen::GpuDevice>::Reduce<..., std::array*, >(...)" then this is
 #   the problem.
-TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES)
+TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -I$(INC)/third_party/gpus
 
 # Here are the flags we need to pass to NVCC to compile TensorFlow's CUDA
 # files.
@@ -217,7 +220,12 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 #   time as the code is pre-optimized for them.
 # - Xcompiler -fPIC,-g,-O3 to control the flags passed to the host compiler
 #   to make things properly integrate.
-TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_30 -code=sm_30 -g -O3 -Xcompiler -fPIC 
+# - --compiler-bindir: set up the proper backend compiler for our
+#   architecture to compile the CPU portions of the CUDA kernels
+# - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
+#   Eigen disables needed std::initializer_list constructors in its arrays
+#   because it doesn't properly detect that this feature is available
+TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_53 -code=sm_53 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) -DEIGEN_HAS_VARIADIC_TEMPLATES=1
 
 # When compiling the cuda kernels we need to use the include flags and
 # some of our own
@@ -234,6 +242,16 @@ CUDA_LIB_PATH?=$(CUDA_BASE_DIR)/lib64
 TENSORFLOW_CUDA_LINKER_FLAGS:=-L$(CUDA_LIB_PATH) -Wl$(comma)--rpath$(comma)$(CUDA_LIB_PATH)
 
 endif
+
+# This header is used even when CUDA isn't compiled in, ie WITH_CUDA:=1
+$(INC)/third_party/gpus/cuda/cuda_config.h:
+	@mkdir -p $(dir $@)
+	@echo "//Auto-generated by MLDB tensorflow.mk, do not edit" > $@~
+	@echo "#define TF_CUDA_VERSION \"$(CUDA_VERSION)\"" >> $@~
+	@echo "#define TF_CUDNN_VERSION \"$(CUDNN_VERSION)\"" >> $@~
+	@echo "#define TF_CUDA_CAPABILITIES CudaVersion(\"$(TF_CUDA_CAPABILITIES)\")" >> $@~
+	@mv $@~ $@
+
 
 # Here are the flags that anything that includes TensorFlow needs to
 # define.  First the flags to turn off warnings that the compiler
@@ -339,7 +357,7 @@ TENSORFLOW_KERNEL_CC_BUILD:=$(sort $(TENSORFLOW_KERNEL_CC_FILES:$(CWD)/%=%))
 
 # Dependencies for the kernel files... basically everything else needs to
 # be built first
-$(TENSORFLOW_KERNEL_CC_FILES):	$(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc  $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/libpng-1.2.53
+$(TENSORFLOW_KERNEL_CC_FILES):	$(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc  $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/libpng-1.2.53 $(INC)/third_party/gpus/cuda/cuda_config.h
 
 # This is a list of variants for each architecture
 # Note that this can cause long compile times as a big chunk of
@@ -360,7 +378,7 @@ TF_KERNEL_VARIANT_x86_64_avx2:=-mavx2 -mfma
 
 # ARM variants don't currently detect their CPU capabilities at
 # runtime, so only a generic variant is compiled
-TF_KERNEL_VARIANT_aarch64_generic:=-funsafe-math-optimizations -ftree-vectorize
+TF_KERNEL_VARIANT_aarch64_generic:=-funsafe-math-optimizations -ftree-vectorize -Os
 TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize
 
 # By default, we compile all kernel variants for our architecture
