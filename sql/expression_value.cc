@@ -1960,6 +1960,16 @@ embedding(Date ts,
     return result;
 }
 
+StorageType
+ExpressionValue::
+getEmbeddingType() const
+{
+    if (type_ == Type::EMBEDDING)
+        return embedding_->storageType_;
+    
+    throw HttpReturnException(500, "Querying embedding type on non-embedding value");
+}
+
 ExpressionValue
 ExpressionValue::
 superpose(std::vector<ExpressionValue> vals)
