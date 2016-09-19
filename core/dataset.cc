@@ -2236,6 +2236,13 @@ getOriginalRowName(const Utf8String& tableName, const RowName & name) const
     return name;
 }
 
+uint64_t
+Dataset::
+getRowCount() const
+{
+    return getMatrixView()->getRowCount();
+}
+
 } // namespace MLDB
 } // namespace Datacratic
 

@@ -534,6 +534,11 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
+- `reshape(val, shape)` will take a n-dimensional embedding and reinterpret it 
+as a N-dimensional embedding of the provided shape containing all of the elements, allowing
+for example a 1-dimensional vector to be re-interpreted as a 2-dimensional array. The shape
+argument is an embedding containing the size of each dimension.
+- `shape(val)` will take a n-dimensional embedding and return the size of each dimension as as array.
 
 ### <a name="geofunctions"></a>Geographical functions
 

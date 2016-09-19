@@ -810,8 +810,8 @@ struct TensorflowGraphBase: public Function {
                 return result;
             }
             case tensorflow::DT_UINT8: {
-                tensorflow::Tensor result(tensorflow::DT_INT8, {});
-                result.flat<int8_t>()(0) = atom.toInt();
+                tensorflow::Tensor result(tensorflow::DT_UINT8, {});
+                result.flat<uint8_t>()(0) = atom.toInt();
                 return result;
             }
             case tensorflow::DT_INT16: {
@@ -819,9 +819,14 @@ struct TensorflowGraphBase: public Function {
                 result.flat<int16_t>()(0) = atom.toInt();
                 return result;
             }
+            case tensorflow::DT_UINT16: {
+                tensorflow::Tensor result(tensorflow::DT_UINT16, {});
+                result.flat<uint16_t>()(0) = atom.toInt();
+                return result;
+            }
             case tensorflow::DT_INT8: {
-                tensorflow::Tensor result(tensorflow::DT_UINT8, {});
-                result.flat<uint8_t>()(0) = atom.toInt();
+                tensorflow::Tensor result(tensorflow::DT_INT8, {});
+                result.flat<int8_t>()(0) = atom.toInt();
                 return result;
             }
             case tensorflow::DT_STRING: {
@@ -854,54 +859,60 @@ struct TensorflowGraphBase: public Function {
             }
             
             switch (type) {
-            case tensorflow::DT_FLOAT: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<float>().data(),
-                                     len, ST_FLOAT32);
-                return result;
-            }
-            case tensorflow::DT_DOUBLE: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<double>().data(),
-                                     len, ST_FLOAT64);
-                return result;
-            }
-            case tensorflow::DT_INT32: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int32_t>().data(),
-                                     len, ST_INT32);
-                return result;
-            }
-            case tensorflow::DT_UINT8: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<uint8_t>().data(),
-                                     len, ST_UINT8);
-                return result;
-            }
-            case tensorflow::DT_INT16: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int16_t>().data(),
-                                     len, ST_INT16);
-                return result;
-            }
-            case tensorflow::DT_INT8: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int8_t>().data(),
-                                     len, ST_INT8);
-                return result;
-            }
-            case tensorflow::DT_STRING: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<std::string>().data(),
-                                     len, ST_STRING);
-                return result;
-            }
-            case tensorflow::DT_INT64: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<long long>().data(),
-                                     len, ST_INT64);
-                return result;
-            }
+                case tensorflow::DT_FLOAT: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<float>().data(),
+                                         len, ST_FLOAT32);
+                    return result;
+                }
+                case tensorflow::DT_DOUBLE: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<double>().data(),
+                                         len, ST_FLOAT64);
+                    return result;
+                }
+                case tensorflow::DT_INT32: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int32_t>().data(),
+                                         len, ST_INT32);
+                    return result;
+                }
+                case tensorflow::DT_UINT8: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<uint8_t>().data(),
+                                         len, ST_UINT8);
+                    return result;
+                }
+                case tensorflow::DT_INT16: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int16_t>().data(),
+                                         len, ST_INT16);
+                    return result;
+                }
+                case tensorflow::DT_UINT16: {
+                    tensorflow::Tensor result(type, shape);
+                        val.convertEmbedding(result.flat<uint16_t>().data(),
+                                          len, ST_UINT16);
+                    return result;
+                }
+                case tensorflow::DT_INT8: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int8_t>().data(),
+                                         len, ST_INT8);
+                    return result;
+                }
+                case tensorflow::DT_STRING: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<std::string>().data(),
+                                         len, ST_STRING);
+                    return result;
+                }
+                case tensorflow::DT_INT64: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<long long>().data(),
+                                         len, ST_INT64);
+                    return result;
+                }
             default:
                 break;
             }
@@ -974,7 +985,11 @@ struct TensorflowGraphBase: public Function {
             }
         }
         else if (val.isEmbedding()) {
-            // TODO: infer consistent type for tensor, and convert it
+            auto storageType = val.getEmbeddingType();
+            if (storageType == ST_ATOM) {
+                storageType = ST_FLOAT64; //TODO not sure its possible to get consistent type then
+            }
+            return castToTypedTensor(val, storageToDatatype(storageType));
         }
 
         cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
@@ -1122,6 +1137,7 @@ struct TensorflowGraphBase: public Function {
         case DT_INT16:
         case DT_QINT16:
             return ST_INT16;
+        case DT_UINT16:
         case DT_QUINT16:
             return ST_UINT16;
         case DT_STRING:
@@ -1153,6 +1169,8 @@ struct TensorflowGraphBase: public Function {
             return tensorToValueT<uint8_t>(tensor, ts);
         case DT_INT16:
             return tensorToValueT<int16_t>(tensor, ts);
+        case DT_UINT16:
+            return tensorToValueT<uint16_t>(tensor, ts);
         case DT_INT8:
             return tensorToValueT<int8_t>(tensor, ts);
         case DT_STRING:
@@ -1174,6 +1192,38 @@ struct TensorflowGraphBase: public Function {
                                                                                                "type", tensor.dtype()*/);
         }
     }
+
+    static tensorflow::DataType storageToDatatype(StorageType type)
+    {
+        using namespace tensorflow;
+
+        switch (type) {
+            case ST_FLOAT32:
+                return DT_FLOAT;
+            case ST_FLOAT64:
+                return DT_DOUBLE;
+            case ST_INT32:
+                return DT_INT32;
+            case ST_UINT8:
+                return DT_UINT8;
+            case ST_INT8:
+                return DT_INT8;
+            case ST_INT16:
+                return DT_INT16;
+            case ST_UINT16:
+                return DT_UINT16;
+            case ST_BLOB:
+                return DT_STRING;
+            case ST_TIMESTAMP:
+            case ST_TIMEINTERVAL:
+                return DT_DOUBLE;
+            default:
+
+            throw HttpReturnException(400, "Can't return value of this type to TensorFlow",
+                                      "type", type);
+        }
+    }
+
 
     std::pair<std::shared_ptr<tensorflow::Session>, std::string>
     getSession() const

@@ -1,5 +1,5 @@
 # MLDB is the Machine Learning Database
-### by [Datacratic](http://datacratic.com/)
+### by [MLDB.ai](http://mldb.ai/)
 
 [![Join the chat at https://gitter.im/mldbai/mldb](https://badges.gitter.im/mldbai/mldb.svg)](https://gitter.im/mldbai/mldb?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
