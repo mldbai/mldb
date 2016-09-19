@@ -561,6 +561,18 @@ EmbeddingValueInfo(std::vector<ssize_t> shape, StorageType storageType)
 {
 }
 
+std::shared_ptr<EmbeddingValueInfo>
+EmbeddingValueInfo::
+fromShape(const DimsVector& inputShape,  StorageType storageType)
+{
+    std::vector<ssize_t> shape;
+    shape.reserve(inputShape.size());
+    for (const auto& v : inputShape) {
+        shape.push_back(v);
+    }
+    return make_shared<EmbeddingValueInfo>(shape, storageType);
+}
+
 bool
 EmbeddingValueInfo::
 isScalar() const
@@ -1877,6 +1889,27 @@ ExpressionValue(std::vector<float> values, Date ts,
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT32;
+    content->dims_ = std::move(shape);
+    if (content->dims_.empty())
+        content->dims_ = { movedVals->size() };
+
+    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
+    type_ = Type::EMBEDDING;
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    // This avoids needing to reallocate... it essentially allows us to create
+    // a shared_ptr that owns the storage of a vector
+    auto movedVals = std::make_shared<std::vector<int> >(std::move(values));
+    std::shared_ptr<int> vals(movedVals, movedVals->data());
+    std::shared_ptr<Embedding> content(new Embedding());
+    content->data_ = std::move(vals);
+    content->storageType_ = ST_INT32;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
         content->dims_ = { movedVals->size() };

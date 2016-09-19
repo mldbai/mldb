@@ -412,6 +412,7 @@ $(eval $(call mldb_unit_test,MLDBFB-646-column-expression-select.js))
 $(eval $(call mldb_unit_test,MLDBFB-650-names-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-1841-distinct-on.py))
 $(eval $(call mldb_unit_test,MLDB-1843-select-disappearing-values.js))
+$(eval $(call mldb_unit_test,MLDB-1947-reshape-builtin.py))
 $(eval $(call mldb_unit_test,MLDB-1891-case-in-import.py))
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
