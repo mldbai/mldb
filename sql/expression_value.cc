@@ -929,6 +929,166 @@ getColumn(const PathElement & columnName) const
 
 
 /*****************************************************************************/
+/* OR Expression Value Info                                                  */
+/*****************************************************************************/
+
+/** Expression Value info when we dont know which of two value info we will get 
+    With a Case for Example.
+*/
+
+VariantExpressionValueInfo::
+VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right) 
+: left_(left), right_(right)
+{
+       
+}
+
+std::shared_ptr<ExpressionValueInfo>
+VariantExpressionValueInfo::
+createVariantValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right)
+{
+    if (left->isScalar() && right->isScalar()) {
+        auto leftDesc = left->getScalarDescription();
+        auto rightDesc = right->getScalarDescription();
+
+        if (leftDesc == rightDesc)
+            return left;
+    }
+
+    return std::make_shared<VariantExpressionValueInfo>(left, right);
+}
+
+std::shared_ptr<RowValueInfo> 
+VariantExpressionValueInfo::
+getFlattenedInfo() const 
+{
+    throw HttpReturnException(500, "VariantExpressionValueInfo::getFlattenedInfo()");
+}
+
+void 
+VariantExpressionValueInfo::
+flatten(const ExpressionValue & value,
+        const std::function<void (const ColumnName & columnName,
+                                  const CellValue & value,
+                                  Date timestamp)> & write) const 
+{
+     throw HttpReturnException(500, "VariantExpressionValueInfo::flatten()");
+}
+
+std::vector<KnownColumn> 
+VariantExpressionValueInfo::
+getKnownColumns() const 
+{
+    if (!left_->isRow() && !right_->isRow()) {
+        return std::vector<KnownColumn>();
+    }
+
+    std::vector<KnownColumn> leftcolumns = left_->isRow() ? left_->getKnownColumns() : std::vector<KnownColumn>();
+    std::vector<KnownColumn> rightcolumns = right_->isRow() ? right_->getKnownColumns() : std::vector<KnownColumn>();
+
+    std::vector<KnownColumn> result;
+
+    auto findKnownColumn = [] (const ColumnName& column, const std::vector<KnownColumn>& columnList) -> std::vector<KnownColumn>::const_iterator  {
+        for (auto iter = columnList.begin(); iter != columnList.end(); ++iter) {
+            if (iter->columnName == column) {
+                return iter;
+            }
+        }
+
+        return columnList.end();
+    };
+
+    //check if columns from the left exist on the right
+    for (auto& left : leftcolumns) {
+
+        auto rightIter = findKnownColumn(left.columnName, rightcolumns);
+
+        if (rightIter != rightcolumns.end()) {
+            auto sparsity = left.sparsity == COLUMN_IS_DENSE && rightIter->sparsity == COLUMN_IS_DENSE ?
+                            COLUMN_IS_DENSE : COLUMN_IS_SPARSE;
+
+            result.emplace_back(left.columnName, 
+                                make_shared<VariantExpressionValueInfo>(left.valueInfo, rightIter->valueInfo),
+                                sparsity);
+        }
+        else {
+            result.emplace_back(left.columnName, left.valueInfo, COLUMN_IS_SPARSE);
+        }       
+    }
+
+    //check remainder columns on the right
+    for (auto& right : rightcolumns) {
+
+        auto leftIter = findKnownColumn(right.columnName, leftcolumns);
+
+        if (leftIter == leftcolumns.end()) {
+            result.emplace_back(right.columnName, right.valueInfo, COLUMN_IS_SPARSE);
+        }
+    }
+
+
+    return result;
+}
+
+bool 
+VariantExpressionValueInfo::
+isScalar() const 
+{ 
+    return left_->isScalar() && right_->isScalar(); 
+}
+
+bool 
+VariantExpressionValueInfo::
+isCompatible(const ExpressionValue & value) const
+{
+    return left_->isCompatible(value) && right_->isCompatible(value);
+}
+
+SchemaCompleteness 
+VariantExpressionValueInfo::
+getSchemaCompleteness() const 
+{
+    return left_->getSchemaCompleteness() == SCHEMA_CLOSED && 
+          right_->getSchemaCompleteness() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
+}
+
+SchemaCompleteness 
+VariantExpressionValueInfo::
+getSchemaCompletenessRecursive() const 
+{
+    return left_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED && 
+          right_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
+}
+
+bool 
+VariantExpressionValueInfo::
+couldBeRow() const
+{
+    return left_->couldBeRow() || right_->couldBeRow();
+}
+
+bool 
+VariantExpressionValueInfo::
+couldBeScalar() const
+{
+    return left_->couldBeScalar() || right_->couldBeScalar();
+}
+
+std::string 
+VariantExpressionValueInfo::
+getScalarDescription() const
+{
+    ExcAssert(isScalar());
+    std::string left = left_->getScalarDescription();
+    std::string right = left_->getScalarDescription();
+
+    if (left == right)
+        return left;
+
+    return left + " or " + right;
+}
+
+/*****************************************************************************/
 /* EXPRESSION VALUE                                                          */
 /*****************************************************************************/
 
