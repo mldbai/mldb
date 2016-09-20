@@ -52,3 +52,6 @@
 [submodule "ext/gmock"]
 	path = ext/gmock
 	url = git@github.com:mldbai/gmock-1.7.0.git
+[submodule "ext/giflib"]
+	path = ext/giflib
+	url = https://github.com/mldbai/giflib.git
