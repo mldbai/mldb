@@ -11,9 +11,13 @@ $(eval $(call program,edlib_test,edlib,$(EDLIB_TEST_FILE)))
 
 ifneq ($(PREMAKE),1)
 $(TESTS)/edlib_test.passed: $(BIN)/edlib_test
-	$(BIN)/edlib_test && mkdir -p $(TESTS) && touch $(TESTS)/edlib_test.passed
+	@$(BIN)/edlib_test > /dev/null || echo "                 $(COLOR_RED)edlib_test FAILED$(COLOR_RESET)"
+	@mkdir -p $(TESTS)
+	@touch $(TESTS)/edlib_test.passed
+	@echo "                 $(COLOR_GREEN)edlib_test passed$(COLOR_RESET)"
 
-autotest tests: $(TESTS)/edlib_test.passed
+tests: $(BIN)/edlib_test
+autotest: $(TESTS)/edlib_test.passed
 
 edlib_test.passed: $(TESTS)/edlib_test.passed
 .PHONY: edlib_test.passed
