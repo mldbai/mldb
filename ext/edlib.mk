@@ -11,7 +11,7 @@ $(eval $(call program,edlib_test,edlib,$(EDLIB_TEST_FILE)))
 
 ifneq ($(PREMAKE),1)
 $(TESTS)/edlib_test.passed: $(BIN)/edlib_test
-	$(BIN)/edlib_test && touch $(TESTS)/edlib_test.passed
+	$(BIN)/edlib_test && mkdir -p $(TESTS) && touch $(TESTS)/edlib_test.passed
 
 autotest tests: $(TESTS)/edlib_test.passed
 
