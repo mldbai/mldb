@@ -16,7 +16,7 @@
 #include <iostream>
 #include <stdlib.h>
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace ML;
 using namespace std;
 

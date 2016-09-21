@@ -22,7 +22,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 struct RestDirectory;
 
@@ -377,4 +377,4 @@ struct RegisterProcedureType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -28,7 +28,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 SummaryStatisticsProcedureConfig::
@@ -519,4 +519,4 @@ regSummaryStatisticsProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

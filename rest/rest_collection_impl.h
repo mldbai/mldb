@@ -17,7 +17,7 @@
 #include "mldb/types/vector_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 // Defined in rest_request_binding.h.  Used to validate that request
 // parameters match those exposed in the help.
@@ -2057,4 +2057,4 @@ getConfig(Key key, const Value & value) const
                                          ML::type_name(*this).c_str()));
 }
 
-} // namespace Datacratic
+} // namespace MLDB

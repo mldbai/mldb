@@ -21,7 +21,7 @@
 #include "mldb/rest/rest_request_params_types.h"
 #include "mldb/jml/utils/positioned_types.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -1603,4 +1603,4 @@ addRouteSyncJsonReturn(RestRequestRouter & router,
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

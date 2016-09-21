@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(MetricSpace);
@@ -247,6 +247,6 @@ dist(int rowNum1, int rowNum2,
 }
 
 
-} // namespace Datacratic
+
 } // namespace MLDB
 

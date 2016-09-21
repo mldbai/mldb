@@ -14,7 +14,7 @@
 //#include "mldb/core/function.h"
 //#include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {{
+
 namespace MLDB {{
 
 struct {cc_proc_name}ProcedureConfig : ProcedureConfig {{
@@ -44,4 +44,4 @@ struct {cc_proc_name}Procedure: public Procedure {{
 }};
 
 }} // namespace MLDB
-}} // namespace Datacratic
+

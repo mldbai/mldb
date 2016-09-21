@@ -52,7 +52,7 @@ extern "C" {
     }
 } // extern "C"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
@@ -168,10 +168,10 @@ extractNumbers(size_t numValues,
 /*****************************************************************************/
 
 struct DatasetPolyConfigDescription    
-    :  public Datacratic::StructureDescription<PolyConfigT<Dataset> > {
+    :  public StructureDescription<PolyConfigT<Dataset> > {
     DatasetPolyConfigDescription();
 
-    DatasetPolyConfigDescription(const Datacratic::ConstructOnly &);
+    DatasetPolyConfigDescription(const ConstructOnly &);
 
     virtual void initialize()
     {
@@ -191,26 +191,26 @@ struct DatasetPolyConfigDescription::Regme {
     Regme()
         : done(false)
     {
-        Datacratic::registerValueDescription
+        registerValueDescription
             (typeid(PolyConfigT<Dataset> ), [] () { return new DatasetPolyConfigDescription(); }, true);
     }
 };
 
-DatasetPolyConfigDescription::DatasetPolyConfigDescription(const Datacratic::ConstructOnly &)
+DatasetPolyConfigDescription::DatasetPolyConfigDescription(const ConstructOnly &)
 {
     regme.done = true;
 }
 
-Datacratic::ValueDescriptionT<PolyConfigT<Dataset> > *
+ValueDescriptionT<PolyConfigT<Dataset> > *
 getDefaultDescription(PolyConfigT<Dataset> *)
 {
     return new DatasetPolyConfigDescription();
 }
 
-Datacratic::ValueDescriptionT<PolyConfigT<Dataset> > *
+ValueDescriptionT<PolyConfigT<Dataset> > *
 getDefaultDescriptionUninitialized(PolyConfigT<Dataset> *)
 {
-    return new DatasetPolyConfigDescription(::Datacratic::constructOnly);
+    return new DatasetPolyConfigDescription(::MLDB::constructOnly);
 }
 
 DatasetPolyConfigDescription::Regme DatasetPolyConfigDescription::regme;
@@ -2168,7 +2168,7 @@ commit()
 
 BoundFunction
 Dataset::
-overrideFunction(const Datacratic::Utf8String&,
+overrideFunction(const Utf8String&,
                  const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
@@ -2190,5 +2190,5 @@ getRowCount() const
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

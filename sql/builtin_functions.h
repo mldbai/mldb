@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 // Empty string to avoid construction of temporary object
@@ -174,8 +174,8 @@ struct SqlBuiltin {
 };
 
 #define DEF_SQL_BUILTIN(op, arity, expr) \
-    static Datacratic::MLDB::Builtins::SqlBuiltin register_##op(#op, expr, arity);
+    static MLDB::Builtins::SqlBuiltin register_##op(#op, expr, arity);
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -25,7 +25,7 @@
 
 using namespace std;
 using namespace boost;
-using namespace Datacratic;
+using namespace MLDB;
 
 static asio::ip::tcp::resolver::iterator endIterator;
 

@@ -13,7 +13,7 @@
 #include "mldb/sql/binding_contexts.h"
 #include <unordered_map>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct BoundTableExpression;
@@ -266,4 +266,4 @@ struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

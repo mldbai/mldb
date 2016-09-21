@@ -16,7 +16,7 @@
 #include "mldb/arch/thread_specific.h"
 #include <iostream>
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* MULTI AGGREGATOR                                                          */
@@ -197,4 +197,4 @@ private:
     double dumpInterval;
 };
 
-} //namespace Datacratic
+} //namespace MLDB

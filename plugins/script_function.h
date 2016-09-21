@@ -12,7 +12,7 @@
 #include "mldb/core/function.h"
 #include "mldb/server/plugin_resource.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -55,5 +55,5 @@ struct ScriptFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

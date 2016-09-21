@@ -17,7 +17,7 @@
 #include "mldb/io/tcp_acceptor.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct EventLoop;
@@ -89,4 +89,4 @@ private:
     int acceptCnt_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

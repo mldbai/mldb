@@ -19,10 +19,10 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
-namespace Datacratic {
+using namespace MLDB;
+
 namespace MLDB {
+
 namespace Builtins {
 
 typedef BoundAggregator (&BuiltinAggregator) ();
@@ -55,7 +55,6 @@ struct TestRegisterAggregator {
 
     std::vector<std::shared_ptr<void> > handles;
 };
-}
 }
 }
 

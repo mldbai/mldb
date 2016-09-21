@@ -24,27 +24,27 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace ML {
 
-using Datacratic::getDefaultDescriptionShared;
+using MLDB::getDefaultDescriptionShared;
 
 DEFINE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, ML::Feature_Type);
 DEFINE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, ML::Link_Function);
 DEFINE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, ML::Regularization);
 
 struct ClassifierImplDescription
-    : public Datacratic::ValueDescriptionT<std::shared_ptr<ML::Classifier_Impl> > {
+    : public MLDB::ValueDescriptionT<std::shared_ptr<ML::Classifier_Impl> > {
 
     ClassifierImplDescription();
 
     virtual void parseJsonTyped(std::shared_ptr<ML::Classifier_Impl>  * val,
-                                Datacratic::JsonParsingContext & context) const;
+                                MLDB::JsonParsingContext & context) const;
 
     virtual void printJsonTyped(const std::shared_ptr<ML::Classifier_Impl>  * val,
-                                Datacratic::JsonPrintingContext & context) const;
+                                MLDB::JsonPrintingContext & context) const;
 };
 
 DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<ML::Classifier_Impl>,
@@ -310,7 +310,7 @@ ClassifierImplDescription()
 void
 ClassifierImplDescription::
 parseJsonTyped(std::shared_ptr<ML::Classifier_Impl>  * val,
-               Datacratic::JsonParsingContext & context) const
+               MLDB::JsonParsingContext & context) const
 {
     throw ML::Exception("Can't parse classifiers");
 }
@@ -318,7 +318,7 @@ parseJsonTyped(std::shared_ptr<ML::Classifier_Impl>  * val,
 template<typename T>
 bool tryType(const std::shared_ptr<Classifier_Impl>  * val,
              const std::string & type,
-             Datacratic::JsonPrintingContext & context)
+             MLDB::JsonPrintingContext & context)
 {
     auto c = dynamic_cast<T *>(val->get());
     if (c) {
@@ -326,7 +326,7 @@ bool tryType(const std::shared_ptr<Classifier_Impl>  * val,
 
         Json::Value result;
         result["type"] = type;
-        result["params"] = Datacratic::jsonEncode(*c);
+        result["params"] = MLDB::jsonEncode(*c);
         context.writeJson(result);
         return true;
     }
@@ -336,7 +336,7 @@ bool tryType(const std::shared_ptr<Classifier_Impl>  * val,
 void
 ClassifierImplDescription::
 printJsonTyped(const std::shared_ptr<Classifier_Impl>  * val,
-               Datacratic::JsonPrintingContext & context) const
+               MLDB::JsonPrintingContext & context) const
 {
     if (tryType<ML::Committee>(val, "Committee", context)) return;
     if (tryType<ML::GLZ_Classifier>(val, "GLZ", context)) return;
@@ -369,16 +369,16 @@ DEFINE_ENUM_DESCRIPTION(Output_Encoding);
 DEFINE_ENUM_DESCRIPTION_NAMED(SplitOpDescription, Split::Op);
 
 struct FeatureDescription
-    : public Datacratic::ValueDescriptionT<ML::Feature> {
+    : public MLDB::ValueDescriptionT<ML::Feature> {
 
     virtual void parseJsonTyped(ML::Feature * val,
-                                Datacratic::JsonParsingContext & context) const
+                                MLDB::JsonParsingContext & context) const
     {
         throw ML::Exception("Can't parse classifiers");
     }
 
     virtual void printJsonTyped(const ML::Feature * val,
-                                Datacratic::JsonPrintingContext & context) const
+                                MLDB::JsonPrintingContext & context) const
     {
         const ML::Feature_Space * fs = FeatureSpaceContext::current();
         context.writeString(fs->print(*val));
@@ -392,24 +392,24 @@ getDefaultDescription(ML::Feature * = 0)
 }
 
 struct SplitDescription
-    : public Datacratic::ValueDescriptionT<ML::Split> {
+    : public MLDB::ValueDescriptionT<ML::Split> {
 
     virtual void parseJsonTyped(ML::Split * val,
-                                Datacratic::JsonParsingContext & context) const
+                                MLDB::JsonParsingContext & context) const
     {
         throw ML::Exception("Can't parse classifiers");
     }
 
     virtual void printJsonTyped(const ML::Split * val,
-                                Datacratic::JsonPrintingContext & context) const
+                                MLDB::JsonPrintingContext & context) const
     {
         const ML::Feature_Space * fs = FeatureSpaceContext::current();
 
         Json::Value result;
-        result["feature"] = Datacratic::jsonEncode(val->feature());
+        result["feature"] = MLDB::jsonEncode(val->feature());
         if (val->op() != Split::NOT_MISSING)
-            result["value"] = Datacratic::jsonEncode(fs->print(val->feature(), val->split_val()));
-        result["op"] = Datacratic::jsonEncode(val->op());
+            result["value"] = MLDB::jsonEncode(fs->print(val->feature(), val->split_val()));
+        result["op"] = MLDB::jsonEncode(val->op());
         
         context.writeJson(result);
     }
@@ -422,24 +422,24 @@ getDefaultDescription(ML::Split * = 0)
 }
 
 struct TreePtrDescription
-    : public Datacratic::ValueDescriptionT<ML::Tree::Ptr> {
+    : public MLDB::ValueDescriptionT<ML::Tree::Ptr> {
 
     virtual void parseJsonTyped(ML::Tree::Ptr * val,
-                                Datacratic::JsonParsingContext & context) const
+                                MLDB::JsonParsingContext & context) const
     {
         throw ML::Exception("Can't parse classifiers");
     }
 
     virtual void printJsonTyped(const ML::Tree::Ptr * val,
-                                Datacratic::JsonPrintingContext & context) const
+                                MLDB::JsonPrintingContext & context) const
     {
         Json::Value result;
         if (val->node()) {
-            result = Datacratic::jsonEncode(*val->node());
+            result = MLDB::jsonEncode(*val->node());
             result["type"] = "node";
         }
         else if (val->leaf()) {
-            result = Datacratic::jsonEncode(*val->leaf());
+            result = MLDB::jsonEncode(*val->leaf());
             result["type"] = "leaf";
         }
         context.writeJson(result);
@@ -585,7 +585,7 @@ std::string keyToString(const Split & split)
 {
     const ML::Feature_Space * fs = FeatureSpaceContext::current();
 
-    std::string result = Datacratic::jsonEncodeStr(split.feature());
+    std::string result = MLDB::jsonEncodeStr(split.feature());
     switch (split.op()) {
     case Split::LESS:
         result += "<" + fs->print(split.feature(), split.split_val());

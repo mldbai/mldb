@@ -40,7 +40,7 @@
 
 */
 
-namespace Datacratic {
+namespace MLDB {
 
 extern int32_t SpeculativeThreshold;
 
@@ -373,4 +373,4 @@ private:
     std::unique_ptr<Data> localData;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

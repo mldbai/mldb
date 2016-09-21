@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::shared_ptr<DatasetCollection>
@@ -576,8 +576,8 @@ queryStructured(const Dataset * dataset,
     runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes, sortColumns);
 }
 
+template class PolyCollection<Dataset>;
+
 } // namespace MLDB
 
-template class PolyCollection<MLDB::Dataset>;
 
-} // namespace Datacratic

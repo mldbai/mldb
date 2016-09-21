@@ -16,7 +16,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -47,9 +47,9 @@ struct SvdConfig : ProcedureConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(SvdConfig);
 
-struct SvdColumnEntry: public ColumnSpec {
+struct SimpleSvdColumnEntry: public ColumnSpec {
 
-    SvdColumnEntry & operator = (const ColumnSpec & column)
+    SimpleSvdColumnEntry & operator = (const ColumnSpec & column)
     {
         ColumnSpec::operator = (column);
         return *this;
@@ -58,7 +58,7 @@ struct SvdColumnEntry: public ColumnSpec {
     ML::distribution<float> singularVector;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(SvdColumnEntry);
+DECLARE_STRUCTURE_DESCRIPTION(SimpleSvdColumnEntry);
 
 struct SvdColumnIndexEntry {
     ColumnName columnName;
@@ -68,7 +68,7 @@ struct SvdColumnIndexEntry {
 DECLARE_STRUCTURE_DESCRIPTION(SvdColumnIndexEntry);
 
 struct SvdBasis {
-    std::vector<SvdColumnEntry> columns;
+    std::vector<SimpleSvdColumnEntry> columns;
     ML::distribution<float> singularValues;
     std::map<ColumnHash, SvdColumnIndexEntry> columnIndex;
     Date modelTs;   ///< Timestamp up to which model incorporates data from
@@ -195,4 +195,4 @@ struct SvdEmbedRow: public ValueFunctionT<SvdInput, SvdOutput> {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

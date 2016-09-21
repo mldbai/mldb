@@ -24,7 +24,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -607,4 +607,4 @@ regExpProc(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -20,7 +20,7 @@ namespace ML {
 struct Parse_Context;
 } // namespace ML
 
-namespace Datacratic {
+namespace MLDB {
 
 struct JsonParsingContext;
 struct ValueDescription;
@@ -632,4 +632,4 @@ struct StringJsonParsingContext
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

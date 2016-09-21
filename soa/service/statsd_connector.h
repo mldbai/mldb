@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -34,4 +34,4 @@ public:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

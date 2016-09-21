@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 namespace CurlWrapper {
 
@@ -143,6 +143,6 @@ static struct AtInit {
 } // file scope
 
 } // namespace CurlWrapper
-} // namespace Datacratic
+} // namespace MLDB
 
     

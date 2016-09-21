@@ -13,7 +13,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 namespace {
@@ -471,8 +471,8 @@ struct UrlDescription
     virtual bool isDefaultTyped(const Url * val) const;
 };
 
-extern template class ValueDescriptionT<Datacratic::Url>;
-extern template class ValueDescriptionI<Datacratic::Url, ValueKind::ATOM, UrlDescription>;
+extern template class ValueDescriptionT<MLDB::Url>;
+extern template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
 DEFINE_VALUE_DESCRIPTION(Url, UrlDescription);
 
@@ -513,6 +513,6 @@ void setUrlDocumentationUri(const std::string & newUri)
         ->documentationUri = "/doc/builtin/Url.md";
 }
 
-template class ValueDescriptionI<Datacratic::Url, ValueKind::ATOM, UrlDescription>;
+template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
-} // namespace Datacratic
+} // namespace MLDB

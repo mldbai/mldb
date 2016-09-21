@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -201,4 +201,4 @@ ScriptOutputDescription()
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

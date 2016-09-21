@@ -9,7 +9,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 inline uint8_t host_to_be(uint8_t v)
 {
@@ -177,4 +177,4 @@ typedef BigEndian<int32_t> int32_be;
 typedef BigEndian<uint64_t> uint64_be;
 typedef BigEndian<int64_t> int64_be;
 
-} // namespace Datacratic
+} // namespace MLDB

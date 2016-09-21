@@ -18,7 +18,8 @@
 #include "command_expression.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
+using namespace MLDB::PluginCommand;
 
 int main(int argc, char ** argv)
 {

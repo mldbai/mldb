@@ -26,7 +26,7 @@ namespace ML {
 struct Parse_Context;
 } // namespace ML
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** SQL expressions
@@ -1761,4 +1761,4 @@ struct InputQuery
 PREDECLARE_VALUE_DESCRIPTION(InputQuery);
 
 } // namespace MLDB
-} // namespace Datacratic
+

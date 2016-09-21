@@ -27,7 +27,8 @@ __thread BacktraceInfo * current_backtrace = nullptr;
 
 } // namespace ML
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace JS {
 
 
@@ -69,9 +70,9 @@ injectBacktrace(v8::Handle<v8::Value> value)
 
     // Frames to skip:
     // at [C++] ML::backtrace(int)
-    // at [C++] Datacratic::JS::injectBacktrace(v8::Handle<v8::Value>)
-    // at [C++] Datacratic::JS::mapException(ML::Exception const&)
-    // at [C++] Datacratic::JS::translateCurrentException()
+    // at [C++] JS::injectBacktrace(v8::Handle<v8::Value>)
+    // at [C++] JS::mapException(ML::Exception const&)
+    // at [C++] JS::translateCurrentException()
     int num_frames_to_skip = 4;
 
     vector<ML::BacktraceFrame> backtrace;
@@ -283,4 +284,5 @@ getFunction(const std::string & script_source)
 }
 
 } // namespace JS
-} // namespace Datacratic
+
+} // namespace MLDB

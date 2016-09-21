@@ -3,7 +3,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/stats/distribution.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(StorageType);
@@ -569,4 +569,4 @@ convertEmbeddingImpl(void * to,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -9,7 +9,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 enum RestRequestMatchResult {
     MR_NO,     ///< Didn't match but can continue
@@ -23,5 +23,5 @@ struct RestRequest;
 struct RestRequestParsingContext;
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

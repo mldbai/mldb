@@ -8,7 +8,7 @@
 
 #include "sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct SelectSubtableExpression; 
@@ -599,4 +599,3 @@ struct SelectColumnExpression: public SqlRowExpression {
 };
 
 } // namespace MLDB
-} // namespace Datacratic

@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 
 // Defined in thread_pool.h, and different from hardware_concurrency() as
 // it can be overridden.
@@ -1808,4 +1808,4 @@ execute(RowProcessor processor,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

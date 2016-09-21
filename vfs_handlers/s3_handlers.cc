@@ -23,7 +23,7 @@
 #include "mldb/soa/service/s3.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {

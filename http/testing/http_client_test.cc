@@ -30,7 +30,7 @@
 #include "mldb/utils/testing/print_utils.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* helpers functions used in tests */

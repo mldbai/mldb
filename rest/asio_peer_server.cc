@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ASIO PEER SERVER                                                          */
@@ -258,7 +258,7 @@ struct AsioPeerServer::Impl {
     WatchT<Date> getTimer(Date expiry, double period,
                           std::function<void (Date)> toBind)
     {
-        return Datacratic::getTimer(expiry, period, eventLoop, toBind);
+        return MLDB::getTimer(expiry, period, eventLoop, toBind);
     }
 
 
@@ -360,4 +360,4 @@ acceptFd() const
     return impl->acceptor.native_handle();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

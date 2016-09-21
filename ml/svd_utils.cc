@@ -20,7 +20,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(SvdSpace);
 
@@ -761,5 +761,5 @@ calcOverlap(const Bucket & other, SvdSpace space) const
 
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

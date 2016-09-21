@@ -15,7 +15,7 @@
 #include "mldb/http/http_header.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST CONNECTION                                                           */
@@ -125,4 +125,4 @@ struct RestConnection {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

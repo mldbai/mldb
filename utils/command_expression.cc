@@ -27,7 +27,9 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
+
+namespace PluginCommand {
 
 namespace {
 
@@ -744,8 +746,9 @@ CommandTemplateDescription()
     addField("commandLine", &CommandTemplate::commandLine, "expression to generate the command line");
 }
 
-DEFINE_VALUE_DESCRIPTION(std::shared_ptr<CommandExpression>, CommandExpressionDescription);
-DEFINE_VALUE_DESCRIPTION(StringTemplate, StringTemplateDescription);
+DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<CommandExpression>, CommandExpressionDescription);
+DEFINE_VALUE_DESCRIPTION_NS(StringTemplate, StringTemplateDescription);
 
+} // namespace PluginCommand
+} // namespace MLDB
 
-} // namespace Datacratic

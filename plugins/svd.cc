@@ -36,8 +36,7 @@
 
 using namespace std;
 
-
-namespace Datacratic {
+namespace MLDB {
 
 // jsonDecode implementation for any type which:
 // 1) has a default description;
@@ -46,15 +45,13 @@ T jsonDecodeFile(const std::string & filename, T * = 0)
 {
     T result;
 
-    filter_istream stream(filename);
+    MLDB::filter_istream stream(filename);
 
-    static auto desc = getDefaultDescriptionSharedT<T>();
-    StreamingJsonParsingContext context(filename, stream);
+    static auto desc = MLDB::getDefaultDescriptionSharedT<T>();
+    MLDB::StreamingJsonParsingContext context(filename, stream);
     desc->parseJson(&result, context);
     return result;
 }
-
-namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(SvdConfig);
 
@@ -112,13 +109,13 @@ SvdConfigDescription()
                            validateFunction<SvdConfig>());
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(SvdColumnEntry);
+DEFINE_STRUCTURE_DESCRIPTION(SimpleSvdColumnEntry);
 
-SvdColumnEntryDescription::
-SvdColumnEntryDescription()
+SimpleSvdColumnEntryDescription::
+SimpleSvdColumnEntryDescription()
 {
     addParent<ColumnSpec>();
-    addField("singularVector", &SvdColumnEntry::singularVector,
+    addField("singularVector", &SimpleSvdColumnEntry::singularVector,
              "Singular vector for this column");
 }
 
@@ -596,7 +593,7 @@ calcRightSingular(const ClassifiedColumns & columns,
 
             auto vec = svd.rightSingularVector(columnIndex, columnIndex[i]);
 
-            SvdColumnEntry column;
+            SimpleSvdColumnEntry column;
             column = columnIndex[i];
             column.singularVector = std::move(vec);
 
@@ -750,7 +747,7 @@ run(const ProcedureRunConfig & run,
 #endif
 
     if (!runProcConf.modelFileUrl.empty()) {
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toDecodedString());
+        makeUriDirectory(runProcConf.modelFileUrl.toDecodedString());
         filter_ostream stream(runProcConf.modelFileUrl);
         jsonEncodeToStream(allSvd, stream);
     }
@@ -1123,4 +1120,4 @@ regSvdEmbedRow(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

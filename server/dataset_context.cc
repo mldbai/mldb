@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -667,5 +667,5 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

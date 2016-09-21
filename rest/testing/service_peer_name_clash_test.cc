@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 // Checks that a second ServicePeer with the same name as another can't start up

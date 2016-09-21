@@ -16,7 +16,8 @@
 
 #include <boost/python.hpp>
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 
@@ -74,6 +75,7 @@ struct from_python_converter
 
 
 } // namespace Python
-} // Datacratic
+
+} // namespace MLDB
 
 #endif // __python__from_python_converter_h__

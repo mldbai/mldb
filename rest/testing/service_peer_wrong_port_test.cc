@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 // Checks that the ServicePeer won't start up with the wrong port published

@@ -61,7 +61,7 @@ soa_strtod(const char *s00, char **se);
 
 } // extern "C"
 
-namespace Datacratic {
+namespace MLDB {
 
 inline std::string dtoa(double floatVal)
 {
@@ -108,4 +108,4 @@ inline std::string dtoa(double floatVal)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

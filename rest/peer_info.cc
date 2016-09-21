@@ -13,7 +13,7 @@
 #include "mldb/types/date.h"
 #include <unistd.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 const Date startupDate = Date::now();
 
@@ -39,4 +39,4 @@ PeerInfoDescription()
     addField("epoch", &PeerInfo::epoch, "Epoch of peer");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

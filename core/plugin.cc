@@ -20,7 +20,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -273,5 +273,5 @@ regSharedLibrary(builtinPackage(),
                  "plugins/SharedLibrary.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

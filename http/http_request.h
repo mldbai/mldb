@@ -21,7 +21,7 @@ struct Value;
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 
@@ -124,4 +124,4 @@ private:
     std::shared_ptr<HttpClientCallbacks> callbacks_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

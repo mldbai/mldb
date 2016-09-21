@@ -18,7 +18,7 @@
 
 class GURL;
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Url {
     Url();
@@ -77,4 +77,4 @@ void setUrlDocumentationUri(const std::string & newUri);
 
 PREDECLARE_VALUE_DESCRIPTION(Url);
 
-} // namespace Datacratic
+} // namespace MLDB

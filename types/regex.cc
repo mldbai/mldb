@@ -20,7 +20,7 @@
 // std::regex, assuming that the locale properly supports the same
 // functionality as ICU.
 
-namespace Datacratic {
+namespace MLDB {
 
 #define DO_FLAG_SYNTAX(flag)                            \
     if (flags & std::regex_constants::flag)             \
@@ -441,4 +441,4 @@ struct RegexDescription
 DEFINE_VALUE_DESCRIPTION_NS(Regex, RegexDescription);
 
 
-} // namespace Datacratic
+} // namespace MLDB

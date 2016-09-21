@@ -10,7 +10,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -106,4 +106,4 @@ decode(const std::string & msg)
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

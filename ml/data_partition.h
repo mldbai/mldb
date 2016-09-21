@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include "tuple_encoder.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -128,7 +128,7 @@ struct StoredDataPartitionT : public StoredDataPartition {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 
 #endif /* __recoset__ml__data_partition_h__ */

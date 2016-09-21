@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 const tinyxml2::XMLNode *
 extractNode(const tinyxml2::XMLNode * element, const string & path)

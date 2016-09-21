@@ -22,7 +22,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct MldbServer;
@@ -780,4 +780,4 @@ struct RegisterDatasetType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

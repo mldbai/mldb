@@ -60,8 +60,8 @@ private:
     std::string socketPath_;
     std::string logfile_;
     int serverPid;
-    Datacratic::MessageLoop loop_;
-    Datacratic::Runner runner_;
+    MLDB::MessageLoop loop_;
+    MLDB::Runner runner_;
     int portNum;
 };
 
@@ -69,10 +69,10 @@ private:
 
 
 /* Make MongoTemporaryServer available in Datacratic ns */
-namespace Datacratic {
+
 
 using Mongo::MongoTemporaryServer;
 
-} // namespace Datacratic
+
 
 

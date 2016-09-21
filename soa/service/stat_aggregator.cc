@@ -18,7 +18,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -193,4 +193,4 @@ read(const std::string & prefix)
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

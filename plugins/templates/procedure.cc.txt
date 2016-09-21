@@ -28,7 +28,7 @@
 using namespace std;
 
 
-namespace Datacratic {{
+
 namespace MLDB {{
 
 {cc_proc_name}ProcedureConfig::
@@ -93,4 +93,4 @@ reg{cc_proc_name}Procedure(
 
 
 }} // namespace MLDB
-}} // namespace Datacratic
+

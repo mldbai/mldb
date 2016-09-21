@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* VALUE DESCRIPTIONS                                                        */
@@ -785,4 +785,4 @@ void validatePayloadForPost(const RestRequest & req,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

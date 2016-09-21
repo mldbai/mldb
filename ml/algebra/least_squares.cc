@@ -240,7 +240,7 @@ diag_mult_impl(const boost::multi_array<Float, 2> & U,
                               std::placeholders::_1);
 
     if (parallel)
-        Datacratic::parallelMap(0, n, doColumn);
+        MLDB::parallelMap(0, n, doColumn);
     else {
         for (unsigned j = 0;  j < n;  ++j)
             doColumn(j);
@@ -546,7 +546,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
             iterations.push_back(iter);
         };
 
-        Datacratic::parallelMap(0, iterations.size(),
+        MLDB::parallelMap(0, iterations.size(),
                         std::bind(std::mem_fn(&RidgeRegressionIterations<Float>::run),
                                   std::ref(iterations),
                                   std::cref(singular_values),
@@ -783,7 +783,7 @@ weighted_square_impl(const boost::multi_array<Float, 2> & XT,
             x += nxc;
         }
     } else {
-        Datacratic::parallelMap(0, nv, std::bind(doWeightedSquareRow<Float>,
+        MLDB::parallelMap(0, nv, std::bind(doWeightedSquareRow<Float>,
                                                  std::cref(XT),
                                                  std::cref(d),
                                                  std::ref(result),

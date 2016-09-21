@@ -11,7 +11,7 @@
 
 #include "mldb/base/parallel.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct MergeHashEntry {
     MergeHashEntry(uint64_t hash = SH(), uint32_t bitmap = 0)
@@ -285,5 +285,5 @@ extractAndMerge(size_t numElementsToMerge,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

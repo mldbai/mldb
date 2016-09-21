@@ -33,7 +33,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -641,4 +641,4 @@ regJavascript(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

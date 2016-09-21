@@ -33,7 +33,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::vector<double> tovector(boost::multi_array<double, 2>& m)
@@ -186,7 +186,7 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            Datacratic::makeUriDirectory(
+            makeUriDirectory(
                 runProcConf.modelFileUrl.toDecodedString());
             em.save(runProcConf.modelFileUrl.toDecodedString());
             saved = true;
@@ -392,4 +392,4 @@ regEMFunction(builtinPackage(), "gaussianclustering",
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

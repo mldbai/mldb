@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 static FsObjectInfo
 convertHeaderToInfo(const HttpHeader & header)
@@ -466,4 +466,4 @@ struct RegisterHttpHandler {
 
 } registerHttpHandler;
 
-} // namespace Datacratic
+} // namespace MLDB

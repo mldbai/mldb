@@ -10,7 +10,7 @@
 #include "json_parsing.h"
 #include "mldb/utils/compact_vector.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* JSON PATH                                                                 */

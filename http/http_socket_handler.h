@@ -13,7 +13,7 @@
 #include "mldb/io/tcp_socket_handler.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP CONNECTION HANDLER                                                  */
@@ -150,4 +150,4 @@ private:
     std::string writeData_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

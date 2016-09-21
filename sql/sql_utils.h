@@ -11,7 +11,7 @@
 
 #include "mldb/types/string.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Path;
@@ -32,5 +32,5 @@ Path removeTableName(const Utf8String & alias,
                        const Path & variableName);
 
 } // namespace MLDB
-} // namespace Datacratic
+
     

@@ -14,7 +14,7 @@
 #include "peer_message.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /** State of a connection to a peer. */
 enum PeerConnectionState {
@@ -200,4 +200,4 @@ struct PeerServer {
     virtual void setNewConnectionHandler(std::function<void (std::shared_ptr<PeerConnection>)> onNewConnection) = 0;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

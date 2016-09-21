@@ -13,7 +13,7 @@
 #include "utility_descriptions.h"
 #include <cstring>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -380,4 +380,4 @@ addParent(ValueDescriptionT<V> * description_)
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

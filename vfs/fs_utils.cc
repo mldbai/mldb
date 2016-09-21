@@ -30,7 +30,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
+
 namespace fs = boost::filesystem;
 
 namespace {
@@ -51,7 +52,7 @@ Registry& getRegistry()
 
 } // file scope
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(FsObjectInfo);
 
@@ -546,7 +547,7 @@ checkWritability(const std::string & url, const std::string & parameterName)
     // try to create output folder and write open a writer to make sure 
     // we have permissions before
     try {
-        Datacratic::makeUriDirectory(url);
+        makeUriDirectory(url);
     } catch ( std::exception const& ex) {
         throw ML::Exception(ML::format("Error when trying to create folder specified "
                 "in parameter '%s'. Value: '%s'. Exception: %s",
@@ -578,4 +579,4 @@ FileCommiter::
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

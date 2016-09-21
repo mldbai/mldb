@@ -43,11 +43,10 @@
 #include "datetime.h"
 
 using namespace std;
-using namespace Datacratic::Python;
+using namespace MLDB::Python;
 //namespace bp = boost::python;
 
 
-namespace Datacratic {
 namespace MLDB {
 
 // NOTE: copied from exec.cpp in Boost, available under the Boost license
@@ -1097,8 +1096,8 @@ struct AtInit {
          *  Functions
          *  **/
 
-        bp::class_<Datacratic::Any, boost::noncopyable>("any", bp::no_init)
-               .def("as_json",   &Datacratic::Any::asJson)
+        bp::class_<Any, boost::noncopyable>("any", bp::no_init)
+               .def("as_json",   &Any::asJson)
             ;
 
         bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)
@@ -1132,4 +1131,4 @@ struct AtInit {
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

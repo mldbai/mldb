@@ -21,7 +21,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -106,4 +106,4 @@ recordGauge(const char* counterName, float sampleRate, float value)
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

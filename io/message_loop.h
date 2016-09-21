@@ -20,7 +20,7 @@
 #include "typed_message_channel.h"
 #include "mldb/logging/logging.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /******************************************************************************/
 /* LOGS                                                                       */
@@ -218,4 +218,4 @@ private:
     void processRunAction(const SourceEntry & entry);
 };
 
-} // namespace Datacratic
+} // namespace MLDB

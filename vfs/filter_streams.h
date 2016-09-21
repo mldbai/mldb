@@ -19,7 +19,7 @@
 #include <map>
 #include "types/url.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct FsObjectInfo;  // Structure for file system or URL metadata; in fs_utils.h
 
@@ -324,4 +324,4 @@ private:
     std::shared_ptr<FsObjectInfo> info_;
 };
 
-} // namespace Datacratic
+} // namespace MDLB

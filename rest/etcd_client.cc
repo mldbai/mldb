@@ -16,7 +16,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(EtcdResponse);
 
@@ -334,4 +334,4 @@ extractResponse(const HttpRestProxy::Response & resp)
     return response;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

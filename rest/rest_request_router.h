@@ -22,7 +22,7 @@
 #include <set>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -396,10 +396,10 @@ struct RestRequestRouter {
     typedef RestConnection ConnectionId;
     typedef RestRequestMatchResult MatchResult;
 
-    static constexpr RestRequestMatchResult MR_NO = Datacratic::MR_NO;
-    static constexpr RestRequestMatchResult MR_YES = Datacratic::MR_YES;
-    static constexpr RestRequestMatchResult MR_ERROR = Datacratic::MR_ERROR;
-    static constexpr RestRequestMatchResult MR_ASYNC = Datacratic::MR_ASYNC;
+    static constexpr RestRequestMatchResult MR_NO = MLDB::MR_NO;
+    static constexpr RestRequestMatchResult MR_YES = MLDB::MR_YES;
+    static constexpr RestRequestMatchResult MR_ERROR = MLDB::MR_ERROR;
+    static constexpr RestRequestMatchResult MR_ASYNC = MLDB::MR_ASYNC;
 
     typedef std::function<RestRequestMatchResult (RestConnection & connection,
                                        const RestRequest & request,
@@ -614,4 +614,4 @@ sendExceptionResponse(RestConnection & connection,
  Json::Value extractException(const std::exception & exc, int defaultCode);
 
 
-} // namespace Datacratic
+} // namespace MLDB

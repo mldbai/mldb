@@ -34,7 +34,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TsneConfig);
@@ -343,7 +343,7 @@ run(const ProcedureRunConfig & run,
                                       itl->outputColumnNames.end()));
 
     if (!runProcConf.modelFileUrl.empty()) {
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+        makeUriDirectory(runProcConf.modelFileUrl.toString());
         itl->save(runProcConf.modelFileUrl.toString());
     }
 
@@ -463,4 +463,4 @@ regTsneEmbed(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

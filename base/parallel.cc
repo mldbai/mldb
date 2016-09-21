@@ -12,7 +12,7 @@
 #include <atomic>
 #include <mutex>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 void parallelMap(size_t first, size_t last,
@@ -179,4 +179,4 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
         std::rethrow_exception(exc);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

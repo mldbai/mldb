@@ -18,7 +18,7 @@
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/arch/exception.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -197,4 +197,4 @@ void registerSftpHostPublicKey(const std::string & hostname,
 
 const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr);
 
-} // namespace Datacratic
+} // namespace MLDB

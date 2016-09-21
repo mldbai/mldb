@@ -23,7 +23,7 @@
 #include "mldb/types/jml_serialization.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 typedef boost::multi_array<double, 2> MatrixType;
 

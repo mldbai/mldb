@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -344,4 +344,4 @@ runIncrementalDouble(const std::vector<BoundSqlExpression> & exprs,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

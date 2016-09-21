@@ -20,7 +20,7 @@
 namespace po = boost::program_options;
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 using namespace ML;
 
 int main(int argc, char* argv[])
@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
     cerr << "The output uri is " << outputFile << endl;
     cerr << "s3KeyId " << s3KeyId << endl;
     cerr<<  "s3Key " << s3Key << endl;
-    Datacratic::S3Api s3(s3KeyId, s3Key);
+    MLDB::S3Api s3(s3KeyId, s3Key);
     string bucket,object;
     std::tie(bucket,object) = S3Api::parseUri(outputFile);
     cerr << "Bucket : " << bucket << " object " << object << endl;

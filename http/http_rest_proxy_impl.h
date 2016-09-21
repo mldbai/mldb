@@ -13,7 +13,7 @@
 #include "curl_wrapper.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct HttpRestProxy::ConnectionHandler: public CurlWrapper::Easy {
 };
@@ -68,4 +68,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

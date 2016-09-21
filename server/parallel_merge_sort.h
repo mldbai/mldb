@@ -14,7 +14,7 @@
 
 #include "mldb/base/thread_pool.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 template<class VecOfVecs, typename SortFn, typename MergeFn, typename SizeFn>
@@ -197,4 +197,4 @@ parallelQuickSortRecursive(std::vector<T> & vec)
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -2,7 +2,7 @@
 
 #include "test_peer.h"
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 
 int main(int argc, char ** argv)

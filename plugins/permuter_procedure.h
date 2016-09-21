@@ -12,7 +12,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/procedure.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -60,4 +60,4 @@ struct PermutationProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

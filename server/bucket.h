@@ -14,7 +14,7 @@
 #include <memory>
 #include <vector>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct CellValue;
@@ -154,5 +154,4 @@ struct BucketDescriptions {
 
 };
 
-}
 }

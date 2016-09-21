@@ -12,7 +12,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/rest/poly_collection.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -38,9 +38,9 @@ private:
     MldbServer * mldb;
 };
 
+extern template class PolyCollection<Procedure>;
 
 } // namespace MLDB
 
-extern template class PolyCollection<MLDB::Procedure>;
 
-} // namespace Datacratic
+

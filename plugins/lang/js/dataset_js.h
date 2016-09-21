@@ -10,7 +10,7 @@
 #include "js_common.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Dataset;
@@ -68,4 +68,4 @@ struct DatasetJS: public JsObjectBase {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

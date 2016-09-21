@@ -12,7 +12,8 @@
 #include "js_value_fwd.h"
 #include "mldb/ext/v8-cross-build-output/include/v8.h"
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace JS {
 
 
@@ -64,4 +65,6 @@ struct JSObject : public v8::Handle<v8::Object> {
 };
 
 } // namespace JS
-} // namespace Datacratic
+
+} // namespace MLDB
+

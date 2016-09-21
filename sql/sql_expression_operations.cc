@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -4070,5 +4070,5 @@ wildcards() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

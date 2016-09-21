@@ -18,7 +18,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 #if 0
 BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_1 )

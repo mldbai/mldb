@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Builtins {
 
@@ -1122,5 +1122,5 @@ static RegisterAggregatorT<StdDevAccum> registerStdDevAgg("stddev", "vertical_st
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+
 

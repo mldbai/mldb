@@ -12,7 +12,7 @@
 #include <array>
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -132,4 +132,4 @@ struct ArrayDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(ArrayDescription, std::array, typename, T, size_t, N);
 
-} // namespace Datacratic
+} // namespace MLDB

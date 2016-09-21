@@ -19,7 +19,7 @@
 #pragma once
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -185,5 +185,5 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptOutput);
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

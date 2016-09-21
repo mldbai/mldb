@@ -17,7 +17,7 @@
 #include "mldb/types/periodic_utils.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -119,5 +119,5 @@ struct ContinuousWindowDataset: public ForwardedDataset {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

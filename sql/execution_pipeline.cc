@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -621,4 +621,4 @@ statement(const SelectStatement& stm, GetParamInfo getParamInfo)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

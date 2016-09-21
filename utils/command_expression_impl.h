@@ -12,8 +12,9 @@
 #include "command_expression.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
+namespace PluginCommand {
 
 template<typename T>
 void
@@ -251,5 +252,6 @@ struct StringTemplateDescription
     }
 };
 
+} // namespace PluginCommand
 
-} // namespace Datacratic
+} // namespace MLDB

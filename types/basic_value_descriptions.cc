@@ -7,7 +7,7 @@
 
 #include "basic_value_descriptions.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct StringDescription
@@ -278,5 +278,5 @@ DEFINE_VALUE_DESCRIPTION(Json::Value, JsonValueDescription);
 DEFINE_VALUE_DESCRIPTION(bool, BoolDescription);
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

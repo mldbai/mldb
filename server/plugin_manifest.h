@@ -12,7 +12,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/core/plugin.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -27,4 +27,4 @@ struct PluginManifest {
 DECLARE_STRUCTURE_DESCRIPTION(PluginManifest);
 
 } // namespace MLDB
-} // namespace Datacratic
+

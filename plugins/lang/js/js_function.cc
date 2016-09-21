@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct JsFunctionData;
@@ -257,5 +257,5 @@ BoundFunction bindJsEval(const Utf8String & name,
 
 RegisterFunction registerJs(Utf8String("jseval"), bindJsEval);
 
-} // namespace Datacratic
+
 } // namespace MLDB

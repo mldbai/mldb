@@ -12,7 +12,7 @@
 #include "mldb/http/http_client.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {

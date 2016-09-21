@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* CREDENTIAL PROVIDER                                                       */
@@ -88,4 +88,4 @@ getCredential(const std::string & resourceType,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

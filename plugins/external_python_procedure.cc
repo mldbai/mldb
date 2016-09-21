@@ -22,7 +22,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(ExternalPythonProcedureConfig);
@@ -152,4 +152,4 @@ regExternalPipeline(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

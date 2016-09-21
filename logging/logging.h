@@ -66,7 +66,7 @@
 #include <unistd.h>
 #include "mldb/types/date.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Logging
 {
@@ -260,7 +260,7 @@ struct Logging
     };
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 /** Macro to call to log a message to the given group.  Usage is as follows:
 

@@ -15,7 +15,7 @@
 #include "matrix.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum SVMType {
@@ -117,4 +117,4 @@ struct SVMFunction: public ValueFunctionT<SVMFunctionArgs, SVMExpressionValue>  
 };
 
 } //MLDB
-} //Datacratic
+

@@ -20,7 +20,7 @@
 
 using namespace ML;
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 void checkSerializeReconstitute(Id id)
 {

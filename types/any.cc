@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -323,4 +323,4 @@ getBareAnyDescription()
     return std::make_shared<BareAnyDescription>();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

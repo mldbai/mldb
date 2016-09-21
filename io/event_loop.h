@@ -12,7 +12,7 @@
 #include <memory>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct EventLoopImpl;
@@ -45,4 +45,4 @@ private:
     std::unique_ptr<EventLoopImpl> impl_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

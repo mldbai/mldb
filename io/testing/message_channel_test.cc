@@ -28,7 +28,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 
@@ -87,7 +87,7 @@ BOOST_AUTO_TEST_CASE( test_message_channel )
     }
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 BOOST_AUTO_TEST_CASE( test_typed_message_queue )
 {
@@ -208,4 +208,4 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

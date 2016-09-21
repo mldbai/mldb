@@ -11,7 +11,7 @@
 #include "mldb/io/event_loop.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* EVENT LOOP IMPL                                                          */
@@ -36,4 +36,4 @@ private:
     boost::asio::io_service ioService_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

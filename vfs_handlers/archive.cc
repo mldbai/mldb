@@ -23,7 +23,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct ArchiveData {
@@ -325,5 +325,5 @@ struct RegisterArchiveHandler {
 } registerArchiveHandler;
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

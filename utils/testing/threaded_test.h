@@ -21,7 +21,7 @@
 #include <chrono>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* THREADED TEST                                                             */
@@ -114,4 +114,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

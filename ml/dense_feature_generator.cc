@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 std::string
@@ -169,4 +169,4 @@ paramType() const
     return generators[0].generator->paramType();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

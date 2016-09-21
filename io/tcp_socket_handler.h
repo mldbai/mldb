@@ -23,7 +23,7 @@ class error_code;
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct TcpAcceptor;
@@ -99,4 +99,4 @@ private:
     TcpAcceptor * acceptor_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

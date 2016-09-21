@@ -18,7 +18,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/sql/sql_expression_operations.h"
 
-namespace Datacratic {
+
 
 struct Id;
 
@@ -199,5 +199,5 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
 RowName getValidatedRowName(const ExpressionValue& rowNameEV);
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

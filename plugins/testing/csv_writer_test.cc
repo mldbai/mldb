@@ -15,7 +15,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/soa/utils/csv_writer.h"
 
-using namespace Datacratic;
+
 using namespace std;
 
 struct FileHolder{

@@ -16,7 +16,7 @@
 #include <functional>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*
 Reccords statistics related to a process and the system.
@@ -80,7 +80,7 @@ private:
 
 
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #endif // __logger__process_stats_h__
 

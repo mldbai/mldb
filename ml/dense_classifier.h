@@ -17,7 +17,7 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include "pipeline_execution_context.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Return a JSON rendering of an explanation of a given feature set. */
 Json::Value
@@ -132,6 +132,6 @@ private:
     ML::Optimization_Info opt_info_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #endif /* __ml__dense_classifier_h__ */

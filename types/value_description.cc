@@ -20,7 +20,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -833,4 +833,4 @@ unsigned long long int stringToKey(const std::string & str, unsigned long long i
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

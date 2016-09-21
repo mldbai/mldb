@@ -23,7 +23,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /**
@@ -209,4 +209,4 @@ regMelt(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

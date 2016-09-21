@@ -26,7 +26,7 @@ using namespace std;
 using namespace v8;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 Logging::Category mldbJsCategory("javascript");
@@ -725,8 +725,6 @@ exit(JsPluginContext * context)
     jsContextStack->pop_back();
 }
 
-} // namespace MLDB
-
 namespace JS {
 
 
@@ -821,4 +819,5 @@ from_js(const JSValue & val, const RestParams *)
 }
 
 } // namespace JS
-} // namespace Datacratic
+
+} // namespace MLDB

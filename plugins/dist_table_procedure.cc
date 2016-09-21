@@ -32,7 +32,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 inline ML::DB::Store_Writer &
@@ -824,4 +824,4 @@ regClassifyFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

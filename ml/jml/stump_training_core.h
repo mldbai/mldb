@@ -343,7 +343,7 @@ struct Stump_Trainer {
             };
         
 
-        Datacratic::parallelMap(0, features.size(), onFeature);
+        MLDB::parallelMap(0, features.size(), onFeature);
     }
 
     /* Test all of the given features, and return them sorted by their best

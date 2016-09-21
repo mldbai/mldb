@@ -10,7 +10,7 @@
 #include "sql_expression.h"
 #include "mldb/sql/table_expression_operations.h" //for join qualification
 
-namespace Datacratic {
+
 namespace MLDB {
 
  enum JoinSide {
@@ -196,4 +196,4 @@ DECLARE_ENUM_DESCRIPTION_NAMED(AnnotatedJoinConditionStyleDescription,
                               AnnotatedJoinCondition::Style);
 
 } // namespace MLDB
-} // namespace Datacratic
+

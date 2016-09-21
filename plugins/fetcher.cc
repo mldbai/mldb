@@ -14,7 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -134,5 +134,5 @@ regFetcherFunction(builtinPackage(),
                    { MldbEntity::INTERNAL_ENTITY });
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

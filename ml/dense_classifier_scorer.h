@@ -21,7 +21,7 @@
 #include <tuple>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -243,4 +243,4 @@ struct DenseClassifierScorerT
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

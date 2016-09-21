@@ -9,7 +9,7 @@
 #include "test_http_services.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/
