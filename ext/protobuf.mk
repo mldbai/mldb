@@ -19,6 +19,10 @@ define build_protobuf_for_arch
 # sne is string not equal, defined in gmsl
 PROTOC_EXTRA_ARGS_$(1):=$(if $(call sne,$(1),$(HOSTARCH)),--with-protoc=$(PWD)/$(HOSTBIN)/protoc --host=$(1)-linux-gnu --target=$(1)-linux-gnu)$(if $(call seq,$(1),$(ARCH)), CC="$(CC)" CXX="$(CXX)")
 
+# Find the absolute path of $(TMP), by adding $(PWD) if it's a relative
+# path, in other words if it doesn't start with a /
+TMP_ABSOLUTE_PATH:=$(if $(findstring xxxx/,xxxx$(TMP)),,$(PWD)/)$(TMP)
+
 $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	@mkdir -p $(TMP)
 	@echo "   $(COLOR_BLUE)[COPY EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
@@ -28,7 +32,7 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	@echo " $(COLOR_BLUE)[CONFIG EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@(cd $(BUILD)/$(1)/tmp/protobuf-build \
 	&& ./autogen.sh > configure-log.txt 2>&1 \
-	&& TMP=$(PWD)/$(TMP) ./configure \
+	&& TMP=$(TMP_ABSOLUTE_PATH) ./configure \
 		--prefix $(PWD)/$(BUILD)/$(1) \
 		--program-suffix="" \
 		$$(PROTOC_EXTRA_ARGS_$(1)) >> configure-log.txt 2>&1) \
