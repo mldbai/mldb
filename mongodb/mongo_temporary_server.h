@@ -59,7 +59,6 @@ private:
     std::string socketPrefix_;
     std::string socketPath_;
     std::string logfile_;
-    int serverPid;
     Datacratic::MessageLoop loop_;
     Datacratic::Runner runner_;
     int portNum;

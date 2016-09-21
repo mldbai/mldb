@@ -1393,33 +1393,33 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
     AnyValueInfo();
 
-    virtual bool isScalar() const;
+    virtual bool isScalar() const override;
 
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
 
     virtual void flatten(const ExpressionValue & value,
                          const std::function<void (const ColumnName & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write)
-        const;
+        const override;
 
-    virtual bool isCompatible(const ExpressionValue & value) const
+    virtual bool isCompatible(const ExpressionValue & value) const override
     {
         return true;
     }
 
-    virtual SchemaCompleteness getSchemaCompleteness() const;
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
 
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
 
-    virtual std::vector<KnownColumn> getKnownColumns() const;
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
 
-    virtual bool couldBeRow() const
+    virtual bool couldBeRow() const override
     {
         return true;
     }
 
-    virtual bool couldBeScalar() const
+    virtual bool couldBeScalar() const override
     {
         return true;
     }
@@ -1460,39 +1460,39 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
     */
     virtual size_t numDimensions() const;
 
-    virtual bool isScalar() const;
+    virtual bool isScalar() const override;
 
-    virtual bool isRow() const;
+    virtual bool isRow() const override;
 
-    virtual bool couldBeRow() const;
+    virtual bool couldBeRow() const override;
 
-    virtual bool couldBeScalar() const;
+    virtual bool couldBeScalar() const override;
 
     virtual bool couldBeEmbedding() const override { return true; }
 
-    virtual bool isEmbedding() const;
+    virtual bool isEmbedding() const override;
 
-    virtual std::vector<ssize_t> getEmbeddingShape() const;
+    virtual std::vector<ssize_t> getEmbeddingShape() const override;
 
-    virtual StorageType getEmbeddingType() const;
+    virtual StorageType getEmbeddingType() const override;
 
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
 
-    virtual SchemaCompleteness getSchemaCompleteness() const;
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
 
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
 
-    virtual std::vector<KnownColumn> getKnownColumns() const;
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
 
-    virtual std::vector<ColumnName> allColumnNames() const;
+    virtual std::vector<ColumnName> allColumnNames() const override;
 
     virtual void flatten(const ExpressionValue & value,
                          const std::function<void (const ColumnName & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write)
-        const;
+        const override;
 
-    virtual bool isCompatible(const ExpressionValue & value) const
+    virtual bool isCompatible(const ExpressionValue & value) const override
     {
         return value.isArray();
     }
