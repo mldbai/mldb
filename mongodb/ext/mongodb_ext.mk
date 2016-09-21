@@ -54,8 +54,9 @@ BSONCXX_SRC_BUILD:=$(BSONCXX_SRC_FILES:$(CWD)/%=%)
 $(eval $(call set_compile_option,$(BSONCXX_SRC_BUILD),-I$(CWD)/mongo-cxx-driver/src -I$(CWD)/mongo-cxx-driver -I$(LIBBSON)/src/bson -I$(CWD)/mongo-c-driver/src -I$(LIBBSON)/src -I$(LIBBSON)/build/cmake/bson -I$(CWD)/mnmlstc/include -DMONGO_CXX_DRIVER_COMPILING $(MONGO_EXTRA_FLAGS)))
 $(BSONCXX_SRC_FILES): \
 	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/config.hpp \
+	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp \
 	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/version.hpp \
-	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/export.hpp
+	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/export.hpp \
 
 $(CWD)/mongo-cxx-driver/src/bsoncxx/config/%.hpp: $(CWD)/bsoncxx-%.hpp
 	@cp $< $@~ && mv $@~ $@
