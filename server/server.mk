@@ -26,6 +26,7 @@ LIBMLDB_SOURCES:= \
 	forwarded_dataset.cc \
 	column_scope.cc \
 	bucket.cc \
+	sensor_collection.cc \
 
 LIBMLDB_LINK:= \
 	service_peer mldb_builtin_plugins sql_expression runner credentials git2 hoedown mldb_builtin command_expression vfs_handlers mldb_core
