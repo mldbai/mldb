@@ -12,8 +12,10 @@ $(eval $(call include_sub_make,git))
 $(eval $(call include_sub_make,sqlite))
 $(eval $(call include_sub_make,sparse))
 $(eval $(call include_sub_make,embedding))
+
 $(eval $(call include_sub_make,html))
 $(eval $(call include_sub_make,pro))
+$(eval $(call include_sub_make,av))
 
 # No source code, this is just a library to bring everything together
 LIBMLDB_BUILTIN_PLUGIN_SOURCES:=

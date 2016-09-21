@@ -23,6 +23,7 @@
 namespace MLDB {
 
 struct Path;
+std::ostream & operator << (std::ostream & stream, const Path & id);
 
 template<int Domain> struct HashWrapper;
 
