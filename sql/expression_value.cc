@@ -63,7 +63,6 @@ void convertEmbeddingImpl(void * to,
                           StorageType toType,
                           StorageType fromType);
 
-
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO                                                     */
 /*****************************************************************************/
@@ -216,6 +215,34 @@ getKnownColumns() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a row",
                               "type", ML::type_name(*this));
+}
+
+std::vector<KnownColumn>
+ExpressionValueInfo::
+getKnownAtoms(const ColumnName prefix) const
+{
+    std::vector<KnownColumn> result;
+    auto columns = getKnownColumns();
+    result.reserve(columns.size());
+    for (const auto& c : columns) {
+        if (c.valueInfo->couldBeRow() || c.valueInfo->couldBeEmbedding()) { //change after merge of couldbeembedding
+            auto subResult = c.valueInfo->getKnownAtoms(c.columnName);
+            for (const auto& atom : subResult) {
+                result.emplace_back(prefix + atom.columnName, 
+                                atom.valueInfo,
+                                atom.sparsity == c.sparsity ? atom.sparsity : COLUMN_IS_SPARSE,
+                                -1);
+            }
+        }
+        else {
+            result.emplace_back(prefix + c.columnName, 
+                                c.valueInfo,
+                                c.sparsity,
+                                -1);
+        }
+    }
+
+    return result;
 }
 
 std::vector<ColumnName>
@@ -559,6 +586,18 @@ EmbeddingValueInfo::
 EmbeddingValueInfo(std::vector<ssize_t> shape, StorageType storageType)
     : shape(std::move(shape)), storageType(storageType)
 {
+}
+
+std::shared_ptr<EmbeddingValueInfo>
+EmbeddingValueInfo::
+fromShape(const DimsVector& inputShape,  StorageType storageType)
+{
+    std::vector<ssize_t> shape;
+    shape.reserve(inputShape.size());
+    for (const auto& v : inputShape) {
+        shape.push_back(v);
+    }
+    return make_shared<EmbeddingValueInfo>(shape, storageType);
 }
 
 bool
@@ -927,6 +966,166 @@ getColumn(const PathElement & columnName) const
 #endif
 }
 
+
+/*****************************************************************************/
+/* OR Expression Value Info                                                  */
+/*****************************************************************************/
+
+/** Expression Value info when we dont know which of two value info we will get 
+    With a Case for Example.
+*/
+
+VariantExpressionValueInfo::
+VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right) 
+: left_(left), right_(right)
+{
+       
+}
+
+std::shared_ptr<ExpressionValueInfo>
+VariantExpressionValueInfo::
+createVariantValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right)
+{
+    if (left->isScalar() && right->isScalar()) {
+        auto leftDesc = left->getScalarDescription();
+        auto rightDesc = right->getScalarDescription();
+
+        if (leftDesc == rightDesc)
+            return left;
+    }
+
+    return std::make_shared<VariantExpressionValueInfo>(left, right);
+}
+
+std::shared_ptr<RowValueInfo> 
+VariantExpressionValueInfo::
+getFlattenedInfo() const 
+{
+    throw HttpReturnException(500, "VariantExpressionValueInfo::getFlattenedInfo()");
+}
+
+void 
+VariantExpressionValueInfo::
+flatten(const ExpressionValue & value,
+        const std::function<void (const ColumnName & columnName,
+                                  const CellValue & value,
+                                  Date timestamp)> & write) const 
+{
+     throw HttpReturnException(500, "VariantExpressionValueInfo::flatten()");
+}
+
+std::vector<KnownColumn> 
+VariantExpressionValueInfo::
+getKnownColumns() const 
+{
+    if (!left_->isRow() && !right_->isRow()) {
+        return std::vector<KnownColumn>();
+    }
+
+    std::vector<KnownColumn> leftcolumns = left_->isRow() ? left_->getKnownColumns() : std::vector<KnownColumn>();
+    std::vector<KnownColumn> rightcolumns = right_->isRow() ? right_->getKnownColumns() : std::vector<KnownColumn>();
+
+    std::vector<KnownColumn> result;
+
+    auto findKnownColumn = [] (const ColumnName& column, const std::vector<KnownColumn>& columnList) -> std::vector<KnownColumn>::const_iterator  {
+        for (auto iter = columnList.begin(); iter != columnList.end(); ++iter) {
+            if (iter->columnName == column) {
+                return iter;
+            }
+        }
+
+        return columnList.end();
+    };
+
+    //check if columns from the left exist on the right
+    for (auto& left : leftcolumns) {
+
+        auto rightIter = findKnownColumn(left.columnName, rightcolumns);
+
+        if (rightIter != rightcolumns.end()) {
+            auto sparsity = left.sparsity == COLUMN_IS_DENSE && rightIter->sparsity == COLUMN_IS_DENSE ?
+                            COLUMN_IS_DENSE : COLUMN_IS_SPARSE;
+
+            result.emplace_back(left.columnName, 
+                                make_shared<VariantExpressionValueInfo>(left.valueInfo, rightIter->valueInfo),
+                                sparsity);
+        }
+        else {
+            result.emplace_back(left.columnName, left.valueInfo, COLUMN_IS_SPARSE);
+        }       
+    }
+
+    //check remainder columns on the right
+    for (auto& right : rightcolumns) {
+
+        auto leftIter = findKnownColumn(right.columnName, leftcolumns);
+
+        if (leftIter == leftcolumns.end()) {
+            result.emplace_back(right.columnName, right.valueInfo, COLUMN_IS_SPARSE);
+        }
+    }
+
+
+    return result;
+}
+
+bool 
+VariantExpressionValueInfo::
+isScalar() const 
+{ 
+    return left_->isScalar() && right_->isScalar(); 
+}
+
+bool 
+VariantExpressionValueInfo::
+isCompatible(const ExpressionValue & value) const
+{
+    return left_->isCompatible(value) && right_->isCompatible(value);
+}
+
+SchemaCompleteness 
+VariantExpressionValueInfo::
+getSchemaCompleteness() const 
+{
+    return left_->getSchemaCompleteness() == SCHEMA_CLOSED && 
+          right_->getSchemaCompleteness() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
+}
+
+SchemaCompleteness 
+VariantExpressionValueInfo::
+getSchemaCompletenessRecursive() const 
+{
+    return left_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED && 
+          right_->getSchemaCompletenessRecursive() == SCHEMA_CLOSED ? SCHEMA_CLOSED : SCHEMA_OPEN;
+}
+
+bool 
+VariantExpressionValueInfo::
+couldBeRow() const
+{
+    return left_->couldBeRow() || right_->couldBeRow();
+}
+
+bool 
+VariantExpressionValueInfo::
+couldBeScalar() const
+{
+    return left_->couldBeScalar() || right_->couldBeScalar();
+}
+
+std::string 
+VariantExpressionValueInfo::
+getScalarDescription() const
+{
+    ExcAssert(isScalar());
+    std::string left = left_->getScalarDescription();
+    std::string right = left_->getScalarDescription();
+
+    if (left == right)
+        return left;
+
+    return left + " or " + right;
+}
 
 /*****************************************************************************/
 /* EXPRESSION VALUE                                                          */
@@ -1720,6 +1919,27 @@ ExpressionValue(std::vector<float> values, Date ts,
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
         content->dims_ = { movedVals->size() };
+
+    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
+    type_ = Type::EMBEDDING;
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    // This avoids needing to reallocate... it essentially allows us to create
+    // a shared_ptr that owns the storage of a vector
+    auto movedVals = std::make_shared<std::vector<int> >(std::move(values));
+    std::shared_ptr<int> vals(movedVals, movedVals->data());
+    std::shared_ptr<Embedding> content(new Embedding());
+    content->data_ = std::move(vals);
+    content->storageType_ = ST_INT32;
+    content->dims_ = std::move(shape);
+    if (content->dims_.empty())
+        content->dims_ = { movedVals->size() };
     
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
@@ -1765,6 +1985,16 @@ embedding(Date ts,
     new (result.storage_) std::shared_ptr<const Embedding>(std::move(embeddingData));
 
     return result;
+}
+
+StorageType
+ExpressionValue::
+getEmbeddingType() const
+{
+    if (type_ == Type::EMBEDDING)
+        return embedding_->storageType_;
+    
+    throw HttpReturnException(500, "Querying embedding type on non-embedding value");
 }
 
 ExpressionValue
@@ -2355,6 +2585,14 @@ tryGetNestedColumn(const ColumnName & columnName,
         return nullptr;
     }
     throw HttpReturnException(500, "Unknown expression value type");
+}
+
+bool 
+ExpressionValue::
+hasNestedColumn(const Path & column) const
+{
+    ExpressionValue storage;
+    return tryGetNestedColumn(column, storage) != nullptr;
 }
 
 ExpressionValue
@@ -4610,6 +4848,25 @@ NamedRowValue::flattenDestructive()
     
     return result;
 }
+
+MatrixNamedRow
+NamedRowValue::flatten() const
+{
+    MatrixNamedRow result;
+
+    result.rowName = std::move(rowName);
+    result.rowHash = std::move(rowHash);
+
+    for (auto & c: columns) {
+        const PathElement & fieldName = std::get<0>(c);
+        const ExpressionValue & val = std::get<1>(c);
+        Path columnName(fieldName);
+        val.appendToRow(columnName, result.columns);
+    }
+    
+    return result;
+}
+
 
 } // namespace MLDB
 

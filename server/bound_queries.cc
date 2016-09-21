@@ -1063,6 +1063,8 @@ BoundSelectQuery(const SelectExpression & select,
 
         auto boundSelect = select.bind(*context);
 
+        selectInfo = boundSelect.info;
+
         std::vector<BoundSqlExpression> boundCalc;
         for (auto & c: calc) {
             ExcAssert(c);
@@ -1582,7 +1584,7 @@ BoundGroupByQuery(const SelectExpression & select,
 
 }
 
-bool
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
 BoundGroupByQuery::
 execute(RowProcessor processor,
         ssize_t offset,
@@ -1612,6 +1614,7 @@ execute(RowProcessor processor,
 
     //bind the selectexpression, this will create the bound aggregators (which we wont use, ah!)
     auto boundSelect = select.bind(*groupContext);
+    auto selectInfo = boundSelect.info;
 
     //bind the having expression. Must be bound after the select because
     //we placed the having aggregators after the select aggregator in the list
@@ -1726,7 +1729,7 @@ execute(RowProcessor processor,
     }
 
     if (boundOrderBy.empty())
-        return true;
+        return {true, selectInfo};
 
     // Compare two rows according to the sort criteria
     auto compareRows = [&] (const SortedRow & row1,
@@ -1783,7 +1786,7 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return false;
+                return {false, selectInfo}; //early exis on processor error
 
             if (count - offset == limit)
                 break;
@@ -1800,11 +1803,11 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return false;
+                return {false, selectInfo}; //early exis on processor error
         } 
     }  
 
-    return true;
+    return {true, selectInfo};
 }
 
 } // namespace MLDB

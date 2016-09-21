@@ -209,6 +209,12 @@ struct ExpressionValueInfo {
         return true;
     }
 
+    /// Could the thing described by this value description return an embedding?
+    virtual bool couldBeEmbedding() const 
+    { 
+        return false; 
+    }
+
     /// Return whether the schema for a row is closed (only those columns are
     /// there) or open (other columns may be present).  Default throws that
     /// it's not a row.
@@ -223,6 +229,10 @@ struct ExpressionValueInfo {
     /// Return the set of known columns for a row.  Default throws that it's not
     /// a row.
     virtual std::vector<KnownColumn> getKnownColumns() const;
+
+    /// Return the set of known atoms for a row.  Default throws that it's not
+    /// a row.
+    virtual std::vector<KnownColumn> getKnownAtoms(const ColumnName prefix = ColumnName()) const;
 
     /// Return a list of all known column names
     virtual std::vector<ColumnName> allColumnNames() const;
@@ -419,6 +429,10 @@ struct KnownColumn {
           offset(offset)
     {
     }
+
+    bool operator < (const KnownColumn& other) const {
+        return columnName < other.columnName;
+    }
     
     ColumnName columnName;
     std::shared_ptr<ExpressionValueInfo> valueInfo;
@@ -614,6 +628,11 @@ struct ExpressionValue {
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<double> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<int> values,
                     Date ts,
                     DimsVector shape = DimsVector());
     
@@ -845,6 +864,9 @@ struct ExpressionValue {
                        ExpressionValue & storage,
                        const VariableFilter & filter = GET_LATEST) const;
 
+    // Return true if the nested column exist, false otherwise
+    bool hasNestedColumn(const Path & column) const;
+
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
     ML::distribution<float, std::vector<float> >
@@ -887,6 +909,11 @@ struct ExpressionValue {
         memory required.
     */
     void convertEmbedding(void * buf, size_t len, StorageType bufType) const;
+
+    /** Return the storage type of the embedding
+        Will throw an error if not an embedding.
+    */
+    StorageType getEmbeddingType() const;
 
     /** Iterate over the child expression, with an ExpressionValue at each
         level.  Note that if isRow() is false, than this function will
@@ -1395,6 +1422,11 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
     {
         return true;
     }
+
+    virtual bool couldBeEmbedding() const override 
+    { 
+        return true; 
+    }
 };
 
 /// For an embedding
@@ -1417,6 +1449,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
         input. */
     EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
 
+    static std::shared_ptr<EmbeddingValueInfo> fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
+
     std::vector<ssize_t> shape;
     StorageType storageType;
 
@@ -1432,6 +1466,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
     virtual bool couldBeRow() const;
 
     virtual bool couldBeScalar() const;
+
+    virtual bool couldBeEmbedding() const override { return true; }
 
     virtual bool isEmbedding() const;
 
@@ -1526,6 +1562,49 @@ struct UnknownRowValueInfo: public RowValueInfo {
     }
 };
 
+/*****************************************************************************/
+/* OR Expression Value Info                                                  */
+/*****************************************************************************/
+
+/** Expression Value info when we dont know which of two value info we will get 
+    With a Case for Example.
+*/
+
+struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
+
+    VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right);
+
+    //Will return a VariantExpressionValueInfo or another type if the two input type info match in some way.
+    static std::shared_ptr<ExpressionValueInfo>
+    createVariantValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right);
+
+    virtual bool isScalar() const override;
+
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const  override;
+
+    virtual void flatten(const ExpressionValue & value,
+                         const std::function<void (const ColumnName & columnName,
+                                                   const CellValue & value,
+                                                   Date timestamp)> & write) const override;
+
+    virtual bool isCompatible(const ExpressionValue & value) const override;
+
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
+
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const  override;
+
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
+
+    virtual bool couldBeRow() const override;
+
+    virtual bool couldBeScalar() const override;
+
+    virtual std::string getScalarDescription() const override;
+   
+    std::shared_ptr<ExpressionValueInfo> left_;
+    std::shared_ptr<ExpressionValueInfo> right_;
+};
+
 
 /*****************************************************************************/
 /* NAMED ROW VALUE                                                           */
@@ -1540,6 +1619,7 @@ struct NamedRowValue {
 
     //operator MatrixNamedRow() const;
     MatrixNamedRow flattenDestructive();
+    MatrixNamedRow flatten() const;
 };
 
 

@@ -440,7 +440,7 @@ struct TensorflowGraphBase: public Function {
             if (isCpuDevice) {
                 // Use the thread pool for CPU threads
                 options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(2);
+                //options.config.set_inter_op_parallelism_threads(2);
             }
             else {
                 // The GPU gets some CPU threads of its own so that
@@ -448,8 +448,8 @@ struct TensorflowGraphBase: public Function {
                 // is necessary to achieve maximum occupancy of the
                 // GPU.
                 options.config.set_allow_soft_placement(true);
-                options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(4);
+                //options.config.set_use_per_session_threads(true);
+                //options.config.set_inter_op_parallelism_threads(4);
             }
 
             // NOTE: eventually, this will work... but until it does, we
@@ -469,7 +469,7 @@ struct TensorflowGraphBase: public Function {
                 }
                 
                 sessions.emplace_back(d->name(), std::move(session),
-                                      16 /* queue length */);
+                                      4 /* queue length */);
             }
         }
 
@@ -810,8 +810,8 @@ struct TensorflowGraphBase: public Function {
                 return result;
             }
             case tensorflow::DT_UINT8: {
-                tensorflow::Tensor result(tensorflow::DT_INT8, {});
-                result.flat<int8_t>()(0) = atom.toInt();
+                tensorflow::Tensor result(tensorflow::DT_UINT8, {});
+                result.flat<uint8_t>()(0) = atom.toInt();
                 return result;
             }
             case tensorflow::DT_INT16: {
@@ -819,9 +819,14 @@ struct TensorflowGraphBase: public Function {
                 result.flat<int16_t>()(0) = atom.toInt();
                 return result;
             }
+            case tensorflow::DT_UINT16: {
+                tensorflow::Tensor result(tensorflow::DT_UINT16, {});
+                result.flat<uint16_t>()(0) = atom.toInt();
+                return result;
+            }
             case tensorflow::DT_INT8: {
-                tensorflow::Tensor result(tensorflow::DT_UINT8, {});
-                result.flat<uint8_t>()(0) = atom.toInt();
+                tensorflow::Tensor result(tensorflow::DT_INT8, {});
+                result.flat<int8_t>()(0) = atom.toInt();
                 return result;
             }
             case tensorflow::DT_STRING: {
@@ -854,54 +859,60 @@ struct TensorflowGraphBase: public Function {
             }
             
             switch (type) {
-            case tensorflow::DT_FLOAT: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<float>().data(),
-                                     len, ST_FLOAT32);
-                return result;
-            }
-            case tensorflow::DT_DOUBLE: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<double>().data(),
-                                     len, ST_FLOAT64);
-                return result;
-            }
-            case tensorflow::DT_INT32: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int32_t>().data(),
-                                     len, ST_INT32);
-                return result;
-            }
-            case tensorflow::DT_UINT8: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<uint8_t>().data(),
-                                     len, ST_UINT8);
-                return result;
-            }
-            case tensorflow::DT_INT16: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int16_t>().data(),
-                                     len, ST_INT16);
-                return result;
-            }
-            case tensorflow::DT_INT8: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int8_t>().data(),
-                                     len, ST_INT8);
-                return result;
-            }
-            case tensorflow::DT_STRING: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<std::string>().data(),
-                                     len, ST_STRING);
-                return result;
-            }
-            case tensorflow::DT_INT64: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<long long>().data(),
-                                     len, ST_INT64);
-                return result;
-            }
+                case tensorflow::DT_FLOAT: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<float>().data(),
+                                         len, ST_FLOAT32);
+                    return result;
+                }
+                case tensorflow::DT_DOUBLE: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<double>().data(),
+                                         len, ST_FLOAT64);
+                    return result;
+                }
+                case tensorflow::DT_INT32: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int32_t>().data(),
+                                         len, ST_INT32);
+                    return result;
+                }
+                case tensorflow::DT_UINT8: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<uint8_t>().data(),
+                                         len, ST_UINT8);
+                    return result;
+                }
+                case tensorflow::DT_INT16: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int16_t>().data(),
+                                         len, ST_INT16);
+                    return result;
+                }
+                case tensorflow::DT_UINT16: {
+                    tensorflow::Tensor result(type, shape);
+                        val.convertEmbedding(result.flat<uint16_t>().data(),
+                                          len, ST_UINT16);
+                    return result;
+                }
+                case tensorflow::DT_INT8: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int8_t>().data(),
+                                         len, ST_INT8);
+                    return result;
+                }
+                case tensorflow::DT_STRING: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<std::string>().data(),
+                                         len, ST_STRING);
+                    return result;
+                }
+                case tensorflow::DT_INT64: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<long long>().data(),
+                                         len, ST_INT64);
+                    return result;
+                }
             default:
                 break;
             }
@@ -974,7 +985,11 @@ struct TensorflowGraphBase: public Function {
             }
         }
         else if (val.isEmbedding()) {
-            // TODO: infer consistent type for tensor, and convert it
+            auto storageType = val.getEmbeddingType();
+            if (storageType == ST_ATOM) {
+                storageType = ST_FLOAT64; //TODO not sure its possible to get consistent type then
+            }
+            return castToTypedTensor(val, storageToDatatype(storageType));
         }
 
         cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
@@ -1122,6 +1137,7 @@ struct TensorflowGraphBase: public Function {
         case DT_INT16:
         case DT_QINT16:
             return ST_INT16;
+        case DT_UINT16:
         case DT_QUINT16:
             return ST_UINT16;
         case DT_STRING:
@@ -1153,6 +1169,8 @@ struct TensorflowGraphBase: public Function {
             return tensorToValueT<uint8_t>(tensor, ts);
         case DT_INT16:
             return tensorToValueT<int16_t>(tensor, ts);
+        case DT_UINT16:
+            return tensorToValueT<uint16_t>(tensor, ts);
         case DT_INT8:
             return tensorToValueT<int8_t>(tensor, ts);
         case DT_STRING:
@@ -1174,6 +1192,38 @@ struct TensorflowGraphBase: public Function {
                                                                                                "type", tensor.dtype()*/);
         }
     }
+
+    static tensorflow::DataType storageToDatatype(StorageType type)
+    {
+        using namespace tensorflow;
+
+        switch (type) {
+            case ST_FLOAT32:
+                return DT_FLOAT;
+            case ST_FLOAT64:
+                return DT_DOUBLE;
+            case ST_INT32:
+                return DT_INT32;
+            case ST_UINT8:
+                return DT_UINT8;
+            case ST_INT8:
+                return DT_INT8;
+            case ST_INT16:
+                return DT_INT16;
+            case ST_UINT16:
+                return DT_UINT16;
+            case ST_BLOB:
+                return DT_STRING;
+            case ST_TIMESTAMP:
+            case ST_TIMEINTERVAL:
+                return DT_DOUBLE;
+            default:
+
+            throw HttpReturnException(400, "Can't return value of this type to TensorFlow",
+                                      "type", type);
+        }
+    }
+
 
     std::pair<std::shared_ptr<tensorflow::Session>, std::string>
     getSession() const
@@ -1244,6 +1294,8 @@ struct TensorflowGraphBase: public Function {
 
         auto session = getSession();
 
+        Date gotSession = Date::now();
+
         tensorflow::StepStats stats;
         //Status run_status = session.first
         //    ->RunWithStats(inputTensors, outputLayers,
@@ -1260,7 +1312,9 @@ struct TensorflowGraphBase: public Function {
         
         Date after = Date::now();
         cerr << "latency on " << session.second << " was "
-             << after.secondsSince(before) * 1000 << "ms" << endl;
+             << after.secondsSince(gotSession) * 1000 << "ms"
+             << " plus " << gotSession.secondsSince(before) * 1000
+             << " ms to get session" << endl;
 
 #if 0
         uint64_t earliest = -1;
@@ -1408,8 +1462,8 @@ struct TensorflowOp: public TensorflowGraphBase {
     {
         functionConfig = config.params.convert<TensorflowOpConfig>();   
         tensorflow::Status status;
-        op = tensorflow::OpRegistry::Global()->LookUp(functionConfig.op.rawString(),
-                                                      &status);
+        status = tensorflow::OpRegistry::Global()->LookUpOpDef(functionConfig.op.rawString(),
+                                                      &op);
 
         if (!op) {
             throw HttpReturnException(400, "Unable to obtain TensorFlow operator '"
@@ -1590,8 +1644,7 @@ struct TensorflowPlugin: public Plugin {
             const tensorflow::OpDef & op = ops.op(i);
             RegisteredOp entry;
 
-            Status status;
-            entry.op = OpRegistry::Global()->LookUp(op.name(), &status);
+            Status status = OpRegistry::Global()->LookUpOpDef(op.name(), &entry.op);
             ExcAssert(status.ok());
 
             entry.builtinFunctionHandle
@@ -1832,8 +1885,10 @@ struct TensorflowPlugin: public Plugin {
                     SqlBindingScope & context)
             -> BoundFunction
             {
-                tensorflow::Status status;
-                auto * opDef = tensorflow::OpRegistry::Global()->LookUp(op, &status);
+                
+                const tensorflow::OpDef * opDef;
+                tensorflow::Status status
+                    = tensorflow::OpRegistry::Global()->LookUpOpDef(op, &opDef);
 
                 if (args.size() < 1 || args.size() > 2)
                     throw HttpReturnException

@@ -24,7 +24,7 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	@echo "   $(COLOR_BLUE)[COPY EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@mkdir -p $(BUILD)/$(1)/tmp/protobuf-build
 	@cp -rf mldb/ext/protobuf/* $(BUILD)/$(1)/tmp/protobuf-build
-	@ln -sf $(PWD)/mldb/ext/gmock $(BUILD)/$(1)/tmp/protobuf-build/
+	@cp -rf $(PWD)/mldb/ext/gmock $(BUILD)/$(1)/tmp/protobuf-build/
 	@echo " $(COLOR_BLUE)[CONFIG EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@(cd $(BUILD)/$(1)/tmp/protobuf-build \
 	&& ./autogen.sh > configure-log.txt 2>&1 \
@@ -34,7 +34,7 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 		$$(PROTOC_EXTRA_ARGS_$(1)) >> configure-log.txt 2>&1) \
 	|| (echo $(COLOR_RED)Protobuf configure failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/configure-log.txt && false)
 	@echo "   $(COLOR_BLUE)[MAKE EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
-	@+$(MAKE) -j -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf compile failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/compile-log.txt && false)
+	@+$(MAKE) -j -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf compile failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt && false)
 	@echo "$(COLOR_BLUE)[INSTALL EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@$(MAKE) -j install -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/install-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf install failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/install-log.txt && false)
 	@echo "   $(COLOR_BLUE)[DONE EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
@@ -47,7 +47,7 @@ $(2)/libprotobuf3.so:	$(4)/protoc
 protobuf: $(4)/protoc
 
 # Allow a dependency on the headers
-$(INC)/google/protobuf: $(4)/protoc
+$(INC)/google/protobuf: | $(4)/protoc
 	@# Only copy when needing includes elsewhere
 	[ ! "$(PWD)/$(BUILD)/$(1)/include/google/protobuf" -ef "$(3)/google/protobuf" ] \
 	  && ( mkdir -p $(3)/google \
