@@ -397,11 +397,11 @@ With `{arrays: 'encode'}` the output will be:
 
 The full set of options to the `parse_json` function are as follows:
 
-![](%%type Datacratic::MLDB::Builtins::ParseJsonOptions)
+![](%%type MLDB::Builtins::ParseJsonOptions)
 
 and the possible values for the `arrays` field are:
 
-![](%%type Datacratic::MLDB::JsonArrayHandling)
+![](%%type MLDB::JsonArrayHandling)
 
 
 ### Numeric functions
@@ -588,7 +588,7 @@ Extracts the domain name from a URL. Setting the option `removeSubdomain` to `tr
 
 The full set of options to the `extract_domain` function are as follows:
 
-![](%%type Datacratic::MLDB::Builtins::ExtractDomainOptions)
+![](%%type MLDB::Builtins::ExtractDomainOptions)
 
 
 See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
@@ -603,7 +603,7 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 
 Parameters to `tokenize` and `token_extract` are as follows:
 
-![](%%type Datacratic::TokenizeOptions)
+![](%%type MLDB::TokenizeOptions)
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions

@@ -19,7 +19,7 @@ Input queries can also be specified as a JSON object representing a [Dataset Con
 
 The fields in the JSON structure are as follows:
 
-![](%%type Datacratic::MLDB::SelectStatement)
+![](%%type MLDB::SelectStatement)
 
 For example the object:
 

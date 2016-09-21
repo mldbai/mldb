@@ -24,7 +24,7 @@ output of a procedure that generates the embedding, such as the ![](%%doclink ts
 
 The metric field has the following possibilities:
 
-![](%%type Datacratic::MLDB::MetricSpace)
+![](%%type MLDB::MetricSpace)
 
 
 ## Querying Nearest Neighbors

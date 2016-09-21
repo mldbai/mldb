@@ -20,7 +20,7 @@ training after the erroneous step.
 
 and the step configuration key-value definitions are:
 
-![](%%type Datacratic::MLDB::ProcedureStepConfig)
+![](%%type MLDB::ProcedureStepConfig)
 
 
 ## See also

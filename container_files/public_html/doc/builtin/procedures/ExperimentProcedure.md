@@ -18,7 +18,7 @@ flexible way. Folds can be specified implicitly using the `kfolds` parameter, or
 
 ### DatasetFoldConfig
 
-![](%%type Datacratic::MLDB::DatasetFoldConfig)
+![](%%type MLDB::DatasetFoldConfig)
 
 ### Example: 3-fold cross-validation
 
