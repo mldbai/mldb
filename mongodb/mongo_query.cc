@@ -147,7 +147,6 @@ struct MongoQueryFunction: Function {
                     cursor = db[queryConfig.collection].find(doc.view());
                 }
                 StructValue row;
-                Date d = Date::negativeInfinity();
                 for (auto && el: *cursor) {
                     if ((el)["_id"].type() != bsoncxx::type::k_oid) {
                         throw HttpReturnException(
