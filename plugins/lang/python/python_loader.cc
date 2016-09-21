@@ -1096,8 +1096,8 @@ struct AtInit {
          *  Functions
          *  **/
 
-        bp::class_<Any, boost::noncopyable>("any", bp::no_init)
-               .def("as_json",   &Any::asJson)
+        bp::class_<MLDB::Any, boost::noncopyable>("any", bp::no_init)
+            .def("as_json",   &MLDB::Any::asJson)
             ;
 
         bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)

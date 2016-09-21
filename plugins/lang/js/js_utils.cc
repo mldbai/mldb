@@ -70,9 +70,9 @@ injectBacktrace(v8::Handle<v8::Value> value)
 
     // Frames to skip:
     // at [C++] ML::backtrace(int)
-    // at [C++] JS::injectBacktrace(v8::Handle<v8::Value>)
-    // at [C++] JS::mapException(ML::Exception const&)
-    // at [C++] JS::translateCurrentException()
+    // at [C++] MLDB::JS::injectBacktrace(v8::Handle<v8::Value>)
+    // at [C++] MLDB::JS::mapException(ML::Exception const&)
+    // at [C++] MLDB::JS::translateCurrentException()
     int num_frames_to_skip = 4;
 
     vector<ML::BacktraceFrame> backtrace;

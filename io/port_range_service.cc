@@ -164,4 +164,4 @@ dump(ostream& stream) const
 }
 
 
-} // namepsace Datacratic
+} // namepsace MLDB

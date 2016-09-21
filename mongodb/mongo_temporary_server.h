@@ -69,8 +69,11 @@ private:
 
 /* Make MongoTemporaryServer available in Datacratic ns */
 
+namespace MLDB {
 
 using Mongo::MongoTemporaryServer;
+
+} // namespace MLDB
 
 
 

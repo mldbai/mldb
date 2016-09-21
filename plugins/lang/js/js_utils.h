@@ -29,13 +29,12 @@
 #include "mldb/types/string.h"
 
 
+namespace MLDB {
 
 struct HttpReturnException;
 
 template<typename T, size_t I, typename Sz, bool Sf, typename P, class A>
 struct compact_vector;
-
-namespace MLDB {
 
 namespace JS {
 
@@ -83,13 +82,13 @@ v8::Handle<v8::Value> injectBacktrace(v8::Handle<v8::Value> value);
     exceptions. */
 #define HANDLE_JS_EXCEPTIONS(args)                              \
     catch (...) {                                               \
-        args.GetReturnValue().Set(JS::translateCurrentException()); \
+        args.GetReturnValue().Set(MLDB::JS::translateCurrentException()); \
         return;                                                         \
     }
 
 #define HANDLE_JS_EXCEPTIONS_SETTER                             \
     catch (...) {                                               \
-        JS::translateCurrentException();            \
+        MLDB::JS::translateCurrentException();                  \
         return;                                                 \
     }
 

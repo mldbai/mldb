@@ -465,7 +465,7 @@ Json::Value from_js(const JSValue & val, Json::Value *)
 Date from_js(const JSValue & val, Date *)
 {
     if(!v8::Date::Cast(*val)->IsDate())
-        throw ML::Exception("Couldn't convert from " + cstr(val) + " to Date");
+        throw ML::Exception("Couldn't convert from " + cstr(val) + " to MLDB::Date");
     return Date::fromSecondsSinceEpoch(v8::Date::Cast(*val)->NumberValue()
                                        / 1000.0);
 }
