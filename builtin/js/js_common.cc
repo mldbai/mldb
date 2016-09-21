@@ -432,7 +432,16 @@ void to_js(JS::JSValue & value, const Path & val)
 
 void to_js(JS::JSValue & value, const ExpressionValue & val)
 {
-    to_js(value, val.getAtom());
+    if (val.isAtom()) {
+        to_js(value, val.getAtom());
+    }
+    else if (val.isEmbedding()) {
+        // TODO: numberarray
+        to_js(value, val.extractJson());
+    }
+    else {
+        to_js(value, val.extractJson());
+    }
 }
 
 ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)

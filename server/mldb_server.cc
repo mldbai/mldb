@@ -28,6 +28,7 @@
 #include "mldb/engine/procedure_collection.h"
 #include "mldb/engine/function_collection.h"
 #include "mldb/engine/credential_collection.h"
+#include "mldb/engine/sensor_collection.h"
 #include "mldb/engine/procedure_run_collection.h"
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/vfs/fs_utils.h"
@@ -67,6 +68,9 @@ createProcedureCollection(MldbEngine * engine, RestRouteManager & routeManager);
 
 std::shared_ptr<FunctionCollection>
 createFunctionCollection(MldbEngine * engine, RestRouteManager & routeManager);
+
+std::shared_ptr<SensorCollection>
+createSensorCollection(MldbEngine * server, RestRouteManager & routeManager);
 
 std::shared_ptr<CredentialRuleCollection>
 createCredentialCollection(MldbEngine * engine, RestRouteManager & routeManager,
@@ -364,6 +368,7 @@ initCollections(std::string credentialsPath,
     datasets = createDatasetCollection(this, *routeManager);
     procedures = createProcedureCollection(this, *routeManager);
     functions = createFunctionCollection(this, *routeManager);
+    sensors = createSensorCollection(this, *routeManager);
     credentials = createCredentialCollection(this, *routeManager, makeCredentialStore());
     types = createTypeClassCollection(this, *routeManager);
 
@@ -371,6 +376,7 @@ initCollections(std::string credentialsPath,
     datasets->loadConfig();
     procedures->loadConfig();
     functions->loadConfig();
+    sensors->loadConfig();
 
     if (false) {
         logRequest = [&] (const HttpRestConnection & conn, const RestRequest & req)
@@ -436,6 +442,7 @@ shutdown()
     procedures.reset();
     functions.reset();
     credentials.reset();
+    sensors.reset();
 
     // Shutdown plugins last, since they may be needed to shut down the other
     // entities.
@@ -829,6 +836,37 @@ MldbServer::
 createProcedureRunCollection(Procedure * owner)
 {
     return std::make_shared<ProcedureRunCollection>(this, owner);
+}
+
+std::shared_ptr<Sensor>
+MldbServer::
+obtainSensorSync(PolyConfig config,
+                    const OnProgress & onProgress)
+{
+    return this->sensors->obtainEntitySync(std::move(config), onProgress);
+}
+
+std::shared_ptr<Sensor>
+MldbServer::
+createSensorSync(PolyConfig config,
+                    const OnProgress & onProgress, bool overwrite)
+{
+    return this->sensors->createEntitySync(std::move(config), onProgress,
+                                              overwrite);
+}
+    
+std::shared_ptr<Sensor>
+MldbServer::
+tryGetSensor(const Utf8String & sensorName) const
+{
+    return this->sensors->tryGetExistingEntity(sensorName);
+}
+    
+std::shared_ptr<Sensor>
+MldbServer::
+getSensor(const Utf8String & sensorName) const
+{
+    return this->sensors->getExistingEntity(sensorName);
 }
 
 namespace {

@@ -30,6 +30,8 @@ struct Plugin;
 struct Dataset;
 struct Procedure;
 struct Function;
+struct Sensor;
+struct Recorder;
 struct CredentialRule;
 
 struct MatrixNamedRow;
@@ -177,6 +179,21 @@ struct MldbEngine {
 
     virtual std::shared_ptr<ProcedureRunCollection>
     createProcedureRunCollection(Procedure * owner) = 0;
+
+    virtual std::shared_ptr<Sensor>
+    obtainSensorSync(PolyConfig config,
+                       const OnProgress & onProgress) = 0;
+    
+    virtual std::shared_ptr<Sensor>
+    createSensorSync(PolyConfig config,
+                       const OnProgress & onProgress, bool overwrite = false)
+        = 0;
+
+    virtual std::shared_ptr<Sensor>
+    tryGetSensor(const Utf8String & sensorName) const = 0;
+    
+    virtual std::shared_ptr<Sensor>
+    getSensor(const Utf8String & sensorName) const = 0;
 };
 
 } // namespace MLDB

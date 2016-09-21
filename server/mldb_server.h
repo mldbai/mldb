@@ -28,6 +28,7 @@ struct PluginCollection;
 struct DatasetCollection;
 struct ProcedureCollection;
 struct FunctionCollection;
+struct SensorCollection;
 struct CredentialRuleCollection;
 struct TypeClassCollection;
 
@@ -35,6 +36,7 @@ struct Plugin;
 struct Dataset;
 struct Procedure;
 struct Function;
+struct Sensor;
 struct CredentialRule;
 
 struct MatrixNamedRow;
@@ -107,6 +109,7 @@ struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
     std::shared_ptr<FunctionCollection> functions;
     std::shared_ptr<CredentialRuleCollection> credentials;
     std::shared_ptr<TypeClassCollection> types;
+    std::shared_ptr<SensorCollection> sensors;
 
     /** Parse and perform an SQL query. */
     std::vector<MatrixNamedRow> query(const Utf8String& query) const;
@@ -254,6 +257,20 @@ struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
     virtual std::shared_ptr<ProcedureRunCollection>
     createProcedureRunCollection(Procedure * owner) override;
 
+    virtual std::shared_ptr<Sensor>
+    obtainSensorSync(PolyConfig config,
+                       const OnProgress & onProgress) override;
+    
+    virtual std::shared_ptr<Sensor>
+    createSensorSync(PolyConfig config,
+                       const OnProgress & onProgress, bool overwrite = false)
+        override;
+
+    virtual std::shared_ptr<Sensor>
+    tryGetSensor(const Utf8String & sensorName) const override;
+    
+    virtual std::shared_ptr<Sensor>
+    getSensor(const Utf8String & sensorName) const override;
 private:
     void preInit();
     bool initRoutes();
