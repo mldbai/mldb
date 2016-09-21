@@ -11,7 +11,18 @@ LIBMLDB_SOURCES:= \
 	static_content_macro.cc \
 
 LIBMLDB_LINK:= \
-	service_peer mldb_builtin_plugins sql_expression runner credentials git2 hoedown mldb_builtin command_expression vfs_handlers mldb_core mldb_engine
+	service_peer \
+	mldb_builtin_plugins \
+	sql_expression \
+	runner \
+	credentials \
+	git2 \
+	hoedown \
+	mldb_builtin \
+	command_expression \
+	vfs_handlers \
+	mldb_core \
+	mldb_engine
 
 
 $(eval $(call library,mldb,$(LIBMLDB_SOURCES),$(LIBMLDB_LINK)))

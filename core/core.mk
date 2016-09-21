@@ -4,9 +4,10 @@ LIBMLDB_CORE_SOURCES:= \
 	procedure.cc \
 	recorder.cc \
 	function.cc \
+	sensor.cc \
 	value_function.cc \
 	mldb_entity.cc \
-	mldb_engine.cc
+	mldb_engine.cc \
 
 LIBMLDB_CORE_LINK:= \
 	sql_expression rest_entity rest
