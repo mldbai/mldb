@@ -4,6 +4,8 @@
 
 ifneq ($(PREMAKE),1)
 
+MONGO_EXTRA_FLAGS:= $(if $(call seq,$(toolchain),clang), -Wno-pessimizing-move)
+
 LIBBSON:=$(CWD)/libbson
 ###############################################################################
 # First, the BSON C library
@@ -19,7 +21,7 @@ $(LIBBSON)/src/bson/bson-config.h: $(CWD)/bson-config.h
 $(LIBBSON)/src/bson/bson-version.h: $(CWD)/bson-version.h
 	@cp $< $@~ && mv $@~ $@
 
-$(eval $(call set_compile_option,$(BSON_SRC_BUILD),-I$(LIBBSON)/src/bson -I$(LIBBSON)/src -I$(LIBBSON)/build/cmake/bson -DBSON_COMPILATION -Wno-maybe-uninitialized))
+$(eval $(call set_compile_option,$(BSON_SRC_BUILD),-I$(LIBBSON)/src/bson -I$(LIBBSON)/src -I$(LIBBSON)/build/cmake/bson -DBSON_COMPILATION -Wno-maybe-uninitialized $(MONGO_EXTRA_FLAGS)))
 
 $(eval $(call mldb_plugin_library,mongodb,bson,$(BSON_SRC_BUILD)))
 
@@ -39,7 +41,7 @@ $(CWD)/mongo-c-driver/src/mongoc/mongoc-config.h: $(CWD)/mongoc-config.h
 $(CWD)/mongo-c-driver/src/mongoc/mongoc-version.h: $(CWD)/mongoc-version.h
 	@cp $< $@~ && mv $@~ $@
 
-$(eval $(call set_compile_option,$(MONGOC_SRC_BUILD),-I$(LIBBSON)/src/bson -I$(LIBBSON)/src -I$(CWD)/mongo-c-driver/src/mongoc -I$(LIBBSON)/build/cmake/bson -DMONGOC_COMPILATION -Wno-maybe-uninitialized -Wno-deprecated-declarations))
+$(eval $(call set_compile_option,$(MONGOC_SRC_BUILD),-I$(LIBBSON)/src/bson -I$(LIBBSON)/src -I$(CWD)/mongo-c-driver/src/mongoc -I$(LIBBSON)/build/cmake/bson -DMONGOC_COMPILATION -Wno-maybe-uninitialized -Wno-deprecated-declarations $(MONGO_EXTRA_FLAGS)))
 
 $(eval $(call mldb_plugin_library,mongodb,mongoc,$(MONGOC_SRC_BUILD),bson))
 
@@ -49,7 +51,7 @@ $(eval $(call mldb_plugin_library,mongodb,mongoc,$(MONGOC_SRC_BUILD),bson))
 
 BSONCXX_SRC_FILES:=$(shell find $(CWD)/mongo-cxx-driver/src/bsoncxx -name "*.cpp" | grep -v test)
 BSONCXX_SRC_BUILD:=$(BSONCXX_SRC_FILES:$(CWD)/%=%)
-$(eval $(call set_compile_option,$(BSONCXX_SRC_BUILD),-I$(CWD)/mongo-cxx-driver/src -I$(CWD)/mongo-cxx-driver -I$(LIBBSON)/src/bson -I$(CWD)/mongo-c-driver/src -I$(LIBBSON)/src -I$(LIBBSON)/build/cmake/bson -I$(CWD)/mnmlstc/include -DMONGO_CXX_DRIVER_COMPILING))
+$(eval $(call set_compile_option,$(BSONCXX_SRC_BUILD),-I$(CWD)/mongo-cxx-driver/src -I$(CWD)/mongo-cxx-driver -I$(LIBBSON)/src/bson -I$(CWD)/mongo-c-driver/src -I$(LIBBSON)/src -I$(LIBBSON)/build/cmake/bson -I$(CWD)/mnmlstc/include -DMONGO_CXX_DRIVER_COMPILING $(MONGO_EXTRA_FLAGS)))
 $(BSONCXX_SRC_FILES): \
 	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/config.hpp \
 	$(CWD)/mongo-cxx-driver/src/bsoncxx/config/version.hpp \
@@ -82,7 +84,7 @@ $(CWD)/mongo-cxx-driver/src/mongocxx/config/private/config.hpp: $(CWD)/mongo-cxx
 $(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp: $(CWD)/mongo-cxx-driver/src/bsoncxx/config/private/config.hpp.in
 	@cp $< $@~ && mv $@~ $@
 
-$(eval $(call set_compile_option,$(MONGOCXX_SRC_BUILD),-I$(CWD)/mongo-cxx-driver/src -I$(CWD)/mongo-c-driver/src -I$(LIBBSON)/src -I$(CWD)/mongo-cxx-driver  -I$(CWD)/mnmlstc/include -I$(LIBBSON)/src/bson -I$(LIBBSON)/build/cmake/bson -I$(CWD)/mongo-c-driver/src/mongoc -DMONGO_CXX_DRIVER_COMPILING))
+$(eval $(call set_compile_option,$(MONGOCXX_SRC_BUILD),-I$(CWD)/mongo-cxx-driver/src -I$(CWD)/mongo-c-driver/src -I$(LIBBSON)/src -I$(CWD)/mongo-cxx-driver  -I$(CWD)/mnmlstc/include -I$(LIBBSON)/src/bson -I$(LIBBSON)/build/cmake/bson -I$(CWD)/mongo-c-driver/src/mongoc -DMONGO_CXX_DRIVER_COMPILING $(MONGO_EXTRA_FLAGS)))
 
 $(eval $(call mldb_plugin_library,mongodb,mongocxx,$(MONGOCXX_SRC_BUILD),bson bsoncxx mongoc))
 

@@ -14,7 +14,7 @@ libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
 libpython-dev libgit2-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en libyaml-cpp-dev
+language-pack-en libyaml-cpp-dev libsasl2-dev
 ```
 ## Installing Docker
 

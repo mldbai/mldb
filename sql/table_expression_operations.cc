@@ -703,8 +703,6 @@ bind(SqlBindingScope & context) const
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                Date ts = Date::negativeInfinity();//row.getEffectiveTimestamp();
-
                 auto onAtom = [&] (const Path & columnName,
                                    const Path & prefix,
                                    const CellValue & val,

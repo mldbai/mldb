@@ -15,14 +15,6 @@
 using namespace std;
 using namespace MLDB;
 
-namespace {
-
-constexpr char header100Continue[] = "Expect: 100-continue\r\n";
-//constexpr int sizeof100Continue = sizeof(header100Continue) - 1;
-
-}
-
-
 namespace MLDB {
 
 

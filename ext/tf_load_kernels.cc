@@ -46,11 +46,11 @@ struct AtInit {
             error = load("avx");
         }
         // Next SSE 4.2
-        if (!handle && has_sse42) {
+        if (!handle && has_sse42()) {
             error = load("sse42");
         }
         // Finally SSE2
-        if (!handle && has_sse2) {
+        if (!handle && has_sse2()) {
             error = load("sse2");
         }
 #else

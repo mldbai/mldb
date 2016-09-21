@@ -44,19 +44,19 @@ struct SubDataset : public Dataset {
 
     virtual ~SubDataset();
 
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
 
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-    virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
 
-    virtual std::pair<Date, Date> getTimestampRange() const;
+    virtual std::pair<Date, Date> getTimestampRange() const override;
 
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const override;
 
     virtual std::vector<ColumnName> getFlattenedColumnNames() const override;
 
-    virtual size_t getFlattenedColumnCount() const;
+    virtual size_t getFlattenedColumnCount() const override;
 
 private:
     SubDatasetConfig datasetConfig;
