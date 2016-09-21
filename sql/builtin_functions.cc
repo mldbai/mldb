@@ -2506,7 +2506,7 @@ static char32_t getChar32(const string & in, int & idx) {
     if ((c & 0xE0) == 0xC0) {
         remaining = 1;
     }
-    else if ((c & 0xF0) == 0xD0) {
+    else if ((c & 0xF0) == 0xE0) {
         remaining = 2;
     }
     else if ((c & 0xF8) == 0xF0) {
@@ -2527,7 +2527,7 @@ static char32_t getChar32(const string & in, int & idx) {
                 "Invalid UTF-8 character sequence encountered in buffer at index "
                 + to_string(idx));
         }
-        res += static_cast<char32_t>(c << 8 * (remaining - 1));
+        res |= static_cast<char32_t>(c << 8 * (remaining - 1));
     }
     return res;
 };
@@ -2543,11 +2543,14 @@ int levenshteinDistanceImpl(const string & s1, const string & s2)
     vector<char32_t> column(s1len + 1);
     std::iota(column.begin(), column.end(), 0);
     int utf8Factor = 0;
+    int diagonalUtf8Factor = 0;
 
     for (int x = 0; x < s2len; ++x) {
         column[0] = x + columnStart;
+        int prevX = x;
         char32_t s2Char = getChar32(s2, x);
-        char32_t lastDiagonal = x;
+        diagonalUtf8Factor += x - prevX;
+        char32_t lastDiagonal = x - diagonalUtf8Factor;
         utf8Factor = 0;
         for (int y = 0; y < s1len; ++y) {
             auto oldDiagonal = column[y + columnStart - utf8Factor];

@@ -5,8 +5,6 @@
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
-import unittest
-
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class Mldb1667(MldbUnitTest):
@@ -58,6 +56,15 @@ class Mldb1667(MldbUnitTest):
         doTestWords('Québec', 'Québec', 0)
         doTestWords('Québec', 'Quebec', 1)
         doTestWords('éèà', 'abc', 3)
+
+        doTestWords("€", "€", 0); # 3 bytes
+        doTestWords("€", "e", 1);
+        doTestWords("€€€€€", "elephant", 8);
+        doTestWords("€lephant", "elephant", 1);
+
+        doTestWords("𐍈", "𐍈", 0); # 4 bytes
+        doTestWords("𐍈𐍈𐍈𐍈", "elephant", 8);
+        doTestWords("l𐍈l", "lol", 1);
 
 
     def test_wrong_type(self):
