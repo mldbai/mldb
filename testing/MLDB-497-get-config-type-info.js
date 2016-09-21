@@ -16,9 +16,9 @@ function assertEqual(expr, val, msg)
 
 plugin.log(mldb.get("/v1/typeInfo", {type:"std::string"}).json);
 
-var vkInfo = mldb.get("/v1/typeInfo", {type:"ValueKind"}).json;
+var vkInfo = mldb.get("/v1/typeInfo", {type:"MLDB::ValueKind"}).json;
 
-assertEqual(vkInfo.typeName, "ValueKind");
+assertEqual(vkInfo.typeName, "MLDB::ValueKind");
 assertEqual(vkInfo.kind, "ENUM");
 
 var svdInfo = mldb.get("/v1/types/procedures/svd.train/info").json;
