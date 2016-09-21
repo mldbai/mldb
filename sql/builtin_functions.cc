@@ -2527,7 +2527,7 @@ static char32_t getChar32(const string & in, int & idx) {
                 "Invalid UTF-8 character sequence encountered in buffer at index "
                 + to_string(idx));
         }
-        res += static_cast<char32_t>(c << 8 * remaining);
+        res += static_cast<char32_t>(c << 8 * (remaining - 1));
     }
     return res;
 };
