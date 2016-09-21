@@ -19,12 +19,9 @@
 #pragma once
 
 
-namespace Datacratic {
-
-struct RestRequestRouter;
-
 namespace MLDB {
 
+struct RestRequestRouter;
 struct CellValue;
 struct ExpressionValue;
 struct MldbServer;
@@ -237,9 +234,6 @@ private:
     garbageCollectionCallback(const v8::WeakCallbackInfo<JsObjectBase> & info);
 };
 
-} // namespace MLDB
-
-
 namespace JS {
 
 RestParams
@@ -250,4 +244,6 @@ fromJsForRestParams(const JSValue & val);
 
 } // namespace JS
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

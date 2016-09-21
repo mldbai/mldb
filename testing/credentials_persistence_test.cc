@@ -26,13 +26,15 @@
 
 #include <boost/test/unit_test.hpp>
 
+using namespace MLDB;
+
 namespace {
-void addCredentialRule(const Datacratic::HttpRestProxy & conn,
-                    const Datacratic::MLDB::CredentialRuleConfig & rule)
+void addCredentialRule(const HttpRestProxy & conn,
+                    const MLDB::CredentialRuleConfig & rule)
 {
     std::string uri = "/v1/credentials";
 
-    auto res = conn.post(uri, Datacratic::jsonEncode(rule));
+    auto res = conn.post(uri, jsonEncode(rule));
 
     if (res.code() != 201) {
         std::cerr << res << std::endl;
@@ -42,7 +44,7 @@ void addCredentialRule(const Datacratic::HttpRestProxy & conn,
 }
 
 #if 0
-void deleteAllCredentials(const Datacratic::HttpRestProxy & conn)
+void deleteAllCredentials(const HttpRestProxy & conn)
 {
     auto res = conn.perform("DELETE", "/v1/credentials");
     if (res.code() != 200 && res.code() != 204) {
@@ -53,7 +55,7 @@ void deleteAllCredentials(const Datacratic::HttpRestProxy & conn)
 }
 #endif
 
-void deleteCredentialRule(const Datacratic::HttpRestProxy & conn,
+void deleteCredentialRule(const HttpRestProxy & conn,
                 const std::string & ruleName)
 {
     std::string uri = "/v1/credentials/" + ruleName;
@@ -69,8 +71,6 @@ void deleteCredentialRule(const Datacratic::HttpRestProxy & conn,
 } // anonymous namespace
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
 
 struct SubprocessMldbRunner {
 
@@ -191,9 +191,9 @@ BOOST_AUTO_TEST_CASE( test_credentials_persistence )
     cred.secret   = "iamasecret";
     cred.validUntil = Date(2030, 1, 1);
 
-    Datacratic::MLDB::CredentialRuleConfig rule;
+    MLDB::CredentialRuleConfig rule;
     rule.id = "mycreds";
-    rule.store.reset(new Datacratic::StoredCredentials);
+    rule.store.reset(new StoredCredentials);
     rule.store->resourceType = "aws:s3";
     rule.store->resource = "s3://test.bucket/";
     rule.store->credential = cred;

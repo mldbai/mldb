@@ -11,7 +11,7 @@
 #include "sql/sql_expression.h"
 #include "server/dataset_context.h"
 
-namespace Datacratic {
+
 
 struct Date;
 
@@ -65,4 +65,4 @@ struct MongoScope : SqlExpressionMldbScope {
 
 } // namespace Mongo
 } // namespace MLDB
-} // namespace Datacratic
+

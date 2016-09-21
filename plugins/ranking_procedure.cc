@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(RankingType);
@@ -205,4 +205,4 @@ regRankingProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -11,7 +11,7 @@
 #include "column_types.h"
 #include "mldb/sql/cell_value.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct TabularDatasetColumn;
@@ -61,4 +61,4 @@ struct FrozenColumn {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

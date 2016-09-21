@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
@@ -1616,4 +1616,4 @@ isDefaultTyped(const Path * val) const
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

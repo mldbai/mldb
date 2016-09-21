@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* PEER CONNECTION                                                           */
@@ -139,7 +139,7 @@ WatchT<Date>
 MirrorPeerConnection::
 getTimer(Date expiry, double period, std::function<void (Date)> toBind)
 {
-    return Datacratic::getTimer(expiry, period, StrandHolder(impl->strand),
+    return MLDB::getTimer(expiry, period, StrandHolder(impl->strand),
                                 toBind);
 }
 
@@ -212,4 +212,4 @@ PeerConnectionStatusDescription()
              "Style of peer connection");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

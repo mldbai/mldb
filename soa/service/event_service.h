@@ -17,7 +17,7 @@
 #include <vector>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct MultiAggregator;
 
@@ -256,4 +256,4 @@ protected:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

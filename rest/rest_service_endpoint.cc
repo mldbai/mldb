@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST SERVICE ENDPOINT CONNECTION ID                                       */
@@ -360,4 +360,4 @@ logToStream(std::ostream & stream)
         };
 }
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -38,7 +38,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 typedef std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > Rows;
@@ -670,4 +670,4 @@ regAccuracy(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

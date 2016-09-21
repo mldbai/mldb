@@ -14,7 +14,7 @@ namespace Json {
 struct Value;
 } // namespace JSON
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -237,4 +237,4 @@ std::ostream &
 operator << (std::ostream & stream, const HttpRestProxy::Response & response);
 
 
-} // namespace Datacratic
+} // namespace MLDB

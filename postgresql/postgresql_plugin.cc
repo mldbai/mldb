@@ -17,13 +17,13 @@
 
 using namespace std;
 
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
+MLDB::Plugin *
+mldbPluginEnterV100(MLDB::MldbServer * server)
 {
     return nullptr;
 }
 
-namespace Datacratic {
+
 namespace MLDB {
 
 const Package & postgresqlPackage()
@@ -848,4 +848,4 @@ regSqlQueryFunction(postgresqlPackage(),
                     { MldbEntity::INTERNAL_ENTITY });
 
 } // namespace MLDB
-} // namespace Datacratic
+

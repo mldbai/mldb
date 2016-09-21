@@ -22,7 +22,8 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "pointer_fix.h"
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 /******************************************************************************/
@@ -412,5 +413,5 @@ struct JsonValueConverter
 
 
 } // namespace Python
-} // Datacratic
 
+} // namespace MLDB

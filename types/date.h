@@ -25,7 +25,7 @@ namespace ML {
 struct Parse_Context;
 } // namespace ML
 
-namespace Datacratic {
+namespace MLDB {
 namespace JS {
 struct JSValue;
 } // namespace JS
@@ -519,13 +519,13 @@ ValueDescriptionT<Date> * getStandardDateDescription();
 ValueDescriptionT<Date> * getJavaTimestampDescription();
 ValueDescriptionT<Date> * getIso8601TimestampDescription();
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<>
-struct hash<Datacratic::Date> {
-    size_t operator () (const Datacratic::Date & date) const
+struct hash<MLDB::Date> {
+    size_t operator () (const MLDB::Date & date) const
     {
         return date.hash();
     }

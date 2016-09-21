@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -186,4 +186,4 @@ regPoolingFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -11,7 +11,7 @@
 #include "mldb/types/structure_description.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -159,4 +159,4 @@ getExpressionValueInfo() const
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

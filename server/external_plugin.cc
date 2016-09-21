@@ -20,9 +20,8 @@
 
 
 using namespace std;
+using namespace MLDB::PluginCommand;
 
-
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -475,9 +474,9 @@ struct AtInit {
 
 } // file scope
 
-} // namespace MLDB
-
 template class PolyCollection<MLDB::ExternalPluginSetup>;
 template class PolyCollection<MLDB::ExternalPluginStartup>;
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

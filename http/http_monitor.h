@@ -22,7 +22,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /******************************************************************************/

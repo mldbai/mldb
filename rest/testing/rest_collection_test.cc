@@ -20,7 +20,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 struct TestConfig {
     std::string id;

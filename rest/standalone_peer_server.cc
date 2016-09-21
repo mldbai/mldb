@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* STANDALONE PEER SERVER                                                    */
@@ -48,7 +48,7 @@ struct StandalonePeerServer::Impl {
     WatchT<Date> getTimer(Date expiry, double period,
                           std::function<void (Date)> toBind)
     {
-        return Datacratic::getTimer(expiry, period, eventLoop, toBind);
+        return MLDB::getTimer(expiry, period, eventLoop, toBind);
     }
 
     EventLoop eventLoop;
@@ -118,4 +118,4 @@ getTimer(Date expiry, double period,
     return impl->getTimer(expiry, period, toBind);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

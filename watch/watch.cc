@@ -14,7 +14,7 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include "watch.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 void crashTheProgram(const WatchError & error)
 {
@@ -800,4 +800,4 @@ throwException(WatchErrorKind kind, const char * msg, ...) const
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

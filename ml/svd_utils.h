@@ -14,7 +14,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Select which inner product space we use */
 enum SvdSpace {
@@ -175,4 +175,4 @@ struct SvdColumnEntry {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

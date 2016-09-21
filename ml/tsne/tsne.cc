@@ -168,7 +168,7 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
         };
     
     // TODO: in original version, we did chunks in reverse order.
-    Datacratic::parallelMapChunked(0, n, chunk_size, onJob);
+    MLDB::parallelMapChunked(0, n, chunk_size, onJob);
 
     if (fill_upper)
         copy_lower_to_upper(D);
@@ -409,7 +409,7 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
             (D, tolerance, perplexity, P, beta, i0, i1)();
         };
 
-    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
+    MLDB::parallelMapChunked(0, n, chunk_size, onChunk);
 
     cerr << "mean sigma is " << sqrt(1.0 / beta).mean() << endl;
 
@@ -699,7 +699,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
         };
 
     // TODO: chunks in reverse?
-    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
+    MLDB::parallelMapChunked(0, n, chunk_size, onChunk);
 
     double d_total_offdiag = SIMD::vec_sum(d_totals, n);
 
@@ -721,7 +721,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
         };
 
     // TODO: chunks in reverse?
-    Datacratic::parallelMapChunked(0, n, chunk_size2, onChunk2);
+    MLDB::parallelMapChunked(0, n, chunk_size2, onChunk2);
 
     double cost = 0.0;
     if (calc_cost) cost = SIMD::vec_sum(row_costs, n);
@@ -895,7 +895,7 @@ void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
             Calc_Gradient_Job(dY, Y, PmQxD, i0, i1)();
         };
 
-    Datacratic::parallelMapChunked(0, n, chunk_size, doJob);
+    MLDB::parallelMapChunked(0, n, chunk_size, doJob);
 }
 
 void tsne_update(boost::multi_array<float, 2> & Y,
@@ -1267,7 +1267,7 @@ sparseProbsFromCoords(const std::function<float (int, int)> & dist,
                 cerr << "done " << x << " in " << timer.elapsed() << "s" << endl;
         };
 
-    Datacratic::parallelMap(0, nx, calcExample);
+    MLDB::parallelMap(0, nx, calcExample);
 
     if (treeOut)
         treeOut->reset(tree.release());
@@ -2004,7 +2004,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
             };
 
 #if 1
-        int totalThreads = std::max(1, std::min(16, Datacratic::numCpus() / 2));
+        int totalThreads = std::max(1, std::min(16, MLDB::numCpus() / 2));
 
         auto doThread = [&] (int n)
             {
@@ -2022,7 +2022,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 //}
             };
 
-        Datacratic::parallelMap(0, totalThreads, doThread);
+        MLDB::parallelMap(0, totalThreads, doThread);
         //parallelMap(0, nx, calcExample);
 #else
         // Each example proceeds more or less independently

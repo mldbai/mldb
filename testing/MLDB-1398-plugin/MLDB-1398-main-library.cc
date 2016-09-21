@@ -10,8 +10,8 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 // From the dependent plugin library
 std::string getStatusMessage();
@@ -28,8 +28,8 @@ struct PluginHandler: public Plugin {
     }
 };
 
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
+MLDB::Plugin *
+mldbPluginEnterV100(MLDB::MldbServer * server)
 {
     //commenting until MLDBFB-403 is fixed
     //cerr << "entering plugins library" << endl;  

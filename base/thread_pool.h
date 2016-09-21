@@ -13,7 +13,7 @@
 #include <functional>
 #include <memory>
 
-namespace Datacratic {
+namespace MLDB {
 
 typedef std::function<void () noexcept> ThreadJob;
 
@@ -74,4 +74,4 @@ private:
     std::shared_ptr<Itl> itl;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -21,7 +21,7 @@ struct Mutable_Feature_Set;
 struct Classifier_Impl;
 } // namespace ML
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -179,4 +179,4 @@ struct ExplainFunction: public ClassifyFunction {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

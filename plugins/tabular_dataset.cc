@@ -26,7 +26,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
@@ -1501,4 +1501,4 @@ regTabular(builtinPackage(),
 } // file scope*/
 
 } // MLDB
-} // Datacratic
+

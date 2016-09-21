@@ -21,8 +21,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 #define CHECK_EQUAL_EXPR(val, expected) \
 BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
@@ -1144,7 +1144,7 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         auto statement = SelectStatement::parse("select 1 from table");
         BOOST_CHECK_EQUAL(statement.select.clauses.size(), 1);
         BOOST_CHECK_EQUAL(ML::type_name(*statement.select.clauses[0].get()),
-                          "Datacratic::MLDB::NamedColumnExpression");
+                          "MLDB::NamedColumnExpression");
         auto cast = dynamic_cast<NamedColumnExpression *>(statement.select.clauses[0].get());
         BOOST_CHECK_EQUAL(cast->alias, ColumnName("1"));
     }

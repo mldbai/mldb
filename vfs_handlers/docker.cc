@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /** A docker URI we break down to:
@@ -466,4 +466,4 @@ struct RegisterDockerHandler {
 
 } registerDockerHandler;
 
-} // namespace Datacratic
+} // namespace MLDB

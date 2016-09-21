@@ -15,7 +15,7 @@
 
 using namespace std;
 using namespace std::chrono;
-using namespace Datacratic;
+using namespace MLDB;
 
 int fib(int x) {
     if (x == 1) {

@@ -33,7 +33,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -450,4 +450,4 @@ getPluginDir() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

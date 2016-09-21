@@ -33,7 +33,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -1224,5 +1224,5 @@ New(const v8::FunctionCallbackInfo<v8::Value> & args)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

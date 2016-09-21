@@ -15,7 +15,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* PACKAGE                                                                   */
@@ -179,4 +179,4 @@ bool operator==(const PolyConfigT<Entity> & lhs, const PolyConfigT<Entity> & rhs
 typedef std::function<RestRequestMatchResult (RestDirectory *, RestConnection &, const RestRequest &, RestRequestParsingContext &)> TypeCustomRouteHandler;
 
 
-} // namespace Datacratic
+} // namespace MLDB

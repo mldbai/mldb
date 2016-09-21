@@ -18,7 +18,7 @@
 #include <atomic>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct StatReading {
@@ -121,4 +121,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

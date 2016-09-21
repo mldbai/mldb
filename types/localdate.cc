@@ -46,7 +46,7 @@ epoch(boost::gregorian::date(1970, 1, 1));
 
 } // file scope
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DATE                                                                      */
@@ -239,4 +239,4 @@ recomputeTZOffset()
     //      << endl;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

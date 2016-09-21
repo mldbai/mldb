@@ -34,11 +34,11 @@ or compatible across releases.
 
 The `consistencyLevel` values are as follows:
 
-![](%%type Datacratic::MLDB::WriteTransactionLevel)
+![](%%type MLDB::WriteTransactionLevel)
 
 The `favor` values are as follows:
 
-![](%%type Datacratic::MLDB::TransactionFavor)
+![](%%type MLDB::TransactionFavor)
 
 ## Committing
 

@@ -11,7 +11,7 @@
 #include "value_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -234,4 +234,4 @@ struct DescriptionFromBase
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

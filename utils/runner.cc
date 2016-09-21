@@ -39,7 +39,7 @@
 #include <future>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 namespace {
 
@@ -65,7 +65,7 @@ CreateStdPipe(bool forWriting)
 } // namespace
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* RUNNER                                                                   */
@@ -972,4 +972,4 @@ execute(const vector<string> & command,
     return runner.runSync(command, stdOutSink, stdErrSink, stdInData);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

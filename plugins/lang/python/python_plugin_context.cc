@@ -22,7 +22,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /****************************************************************************/
@@ -666,5 +666,5 @@ setPathOptimizationLevel(const std::string & val)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

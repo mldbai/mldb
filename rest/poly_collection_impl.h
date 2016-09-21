@@ -13,7 +13,7 @@
 #include "mldb/types/meta_value_description_impl.h"
 #include "mldb/types/pointer_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* POLYMORPHIC COLLECTION                                                    */
@@ -459,5 +459,5 @@ createCollection(int numResourcesProducedByPathSpec,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

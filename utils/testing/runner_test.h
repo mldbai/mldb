@@ -4,7 +4,7 @@
 #include <string>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct RunnerTestHelperCommands : std::vector<std::string>
 {
@@ -65,4 +65,4 @@ struct RunnerTestHelperCommands : std::vector<std::string>
     int active_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

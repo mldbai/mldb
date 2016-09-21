@@ -17,7 +17,7 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -277,4 +277,4 @@ struct StatsTablePosNegFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

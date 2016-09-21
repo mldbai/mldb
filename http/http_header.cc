@@ -65,7 +65,7 @@ const string UnknownResponseCode("Unknown response code");
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -430,4 +430,4 @@ HttpHeaderDescription()
              "Headers of request");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

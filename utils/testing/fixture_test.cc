@@ -18,7 +18,7 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 // I'm lazy...

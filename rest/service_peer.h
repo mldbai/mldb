@@ -15,7 +15,7 @@
 #include "mldb/rest/http_rest_service.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct RestRequestRouter;
@@ -255,4 +255,4 @@ private:
 
 extern template class RestCollection<std::string, RemotePeer>;
 
-} // namespace Datacratic
+} // namespace MLDB

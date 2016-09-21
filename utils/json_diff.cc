@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 JsonDiff::Deleted JsonDiff::deleted;
 
@@ -732,4 +732,4 @@ JsonArrayElementDiffDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

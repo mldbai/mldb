@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -280,4 +280,4 @@ regStemmerOnDocumentFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -16,7 +16,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/ml/jml/feature_info.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -83,5 +83,4 @@ struct RandomForestProcedure: public Procedure {
 };
 
 
-}
-}
+} // namespace MLDB

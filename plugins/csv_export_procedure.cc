@@ -28,7 +28,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
@@ -234,4 +234,4 @@ regCsvExportProcedure(
     "procedures/CsvExportProcedure.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+

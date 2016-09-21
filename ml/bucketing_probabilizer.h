@@ -13,7 +13,7 @@
 #include "mldb/jml/db/persistent.h"
 #include "mldb/ml/prediction_accumulator.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* Probabilizer                                                              */
@@ -97,5 +97,5 @@ private:
     const static double TINY_PROB;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

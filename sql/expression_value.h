@@ -27,11 +27,10 @@ template<typename T, typename Underlying>
 struct distribution;
 } // namespace ML
 
-namespace Datacratic {
-struct Date;
 
 namespace MLDB {
 
+struct Date;
 struct MatrixNamedRow;
 struct MatrixRow;
 struct MatrixNamedEvent;
@@ -1653,7 +1652,6 @@ searchRow(const StructValue & columns,
 
 
 } // namespace MLDB
-} // namespace Datacratic
 
 // Allow std::unordered_xxx<ExpressionValue> to work
 namespace std {
@@ -1661,9 +1659,9 @@ namespace std {
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::MLDB::ExpressionValue> : public std::unary_function<Datacratic::MLDB::ExpressionValue, size_t>
+struct hash<MLDB::ExpressionValue> : public std::unary_function<MLDB::ExpressionValue, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::ExpressionValue & val) const { return val.hash(); }
+    size_t operator()(const MLDB::ExpressionValue & val) const { return val.hash(); }
 };
 
 } // namespace std

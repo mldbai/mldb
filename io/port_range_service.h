@@ -17,7 +17,7 @@
 
 namespace Json { struct Value; }
 
-namespace Datacratic {
+namespace MLDB {
 
 /******************************************************************************/
 /* PORT RANGE                                                                 */
@@ -173,4 +173,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

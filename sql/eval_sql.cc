@@ -8,7 +8,7 @@
 #include "eval_sql.h"
 #include "binding_contexts.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 BoundSqlExpression
@@ -67,4 +67,4 @@ ExpressionValue evalSql(SqlBindingScope & scope,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

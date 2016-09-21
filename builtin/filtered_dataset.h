@@ -13,7 +13,7 @@
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -61,4 +61,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

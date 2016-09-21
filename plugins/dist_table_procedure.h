@@ -18,7 +18,7 @@
 #include "mldb/types/string.h"
 #include <boost/thread/shared_mutex.hpp>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -251,4 +251,4 @@ struct DistTableFunction: public Function {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

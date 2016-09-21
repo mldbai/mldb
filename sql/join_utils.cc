@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Turn a list of ANDed clauses into an actual where clause. */
@@ -526,4 +526,4 @@ AnnotatedJoinConditionStyleDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

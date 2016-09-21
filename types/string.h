@@ -13,7 +13,7 @@
 #include "mldb/ext/utf8cpp/source/utf8.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -493,17 +493,17 @@ std::ostream & operator << (std::ostream & stream, const Utf32String & str);
 
 typedef Utf8String UnicodeString;
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::Utf8String>
-    : public std::unary_function<Datacratic::Utf8String, size_t>
+struct hash<MLDB::Utf8String>
+    : public std::unary_function<MLDB::Utf8String, size_t>
 {
-    size_t operator()(const Datacratic::Utf8String & str) const
+    size_t operator()(const MLDB::Utf8String & str) const
     {
         return std::hash<std::string>()(str.rawString());
     }

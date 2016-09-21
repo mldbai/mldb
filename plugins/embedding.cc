@@ -28,7 +28,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 // Defined in stats_table_procedure.cc, until we move them somewhere
@@ -1336,4 +1336,4 @@ regNearestNeighborsFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

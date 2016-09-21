@@ -11,7 +11,7 @@
 #include <string>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* LAUNCH ERROR CODE                                                        */

@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 int connectHostDgram(const std::string & hostname, int port)
 {
@@ -117,4 +117,4 @@ int connectHost(const std::string & hostname, int port)
     return sfd;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

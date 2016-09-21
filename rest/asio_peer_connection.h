@@ -11,7 +11,7 @@
 #include <boost/asio.hpp>
 #include <atomic>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -96,5 +96,5 @@ private:
 
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

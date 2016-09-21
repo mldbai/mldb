@@ -11,7 +11,7 @@
 
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 /******************************************************************************/
 /* TEST FOLDER FIXTURE                                                        */
@@ -57,5 +57,5 @@ private:
     }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

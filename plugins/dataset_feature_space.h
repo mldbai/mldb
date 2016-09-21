@@ -16,7 +16,7 @@
 #include "mldb/server/bucket.h"
 #include "mldb/ml/jml/label.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -180,5 +180,5 @@ std::ostream & operator << (std::ostream & stream,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

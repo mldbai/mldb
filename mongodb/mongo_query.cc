@@ -22,7 +22,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Mongo {
 
@@ -202,4 +202,4 @@ regMongodbDataset(mongodbPackage(),
 
 } // namespace Mongo
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -13,7 +13,7 @@
 #include "mldb/types/value_description.h"
 #include <type_traits>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TupleElementDescription {
     int offset;
@@ -189,22 +189,22 @@ struct TupleDescription
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<typename... T>
-Datacratic::TupleDescription<T...> *
+MLDB::TupleDescription<T...> *
 getDefaultDescription(std::tuple<T...> * = 0)
 {
-    return new Datacratic::TupleDescription<T...>();
+    return new MLDB::TupleDescription<T...>();
 }
 
 template<typename... T>
-Datacratic::TupleDescription<T...> *
+MLDB::TupleDescription<T...> *
 getDefaultDescriptionUninitialized(std::tuple<T...> * = 0)
 {
-    return new Datacratic::TupleDescription<T...>(Datacratic::constructOnly);
+    return new MLDB::TupleDescription<T...>(MLDB::constructOnly);
 }
 
 }

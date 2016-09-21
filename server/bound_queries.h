@@ -11,7 +11,7 @@
 #include "server/analytics.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct GroupContext;
@@ -190,4 +190,4 @@ struct BoundGroupByQuery {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

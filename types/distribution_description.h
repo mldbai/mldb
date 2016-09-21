@@ -18,7 +18,7 @@ struct Feature_Space;
 
 } // namespace ML
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T, typename Underlying>
 struct DistributionValueDescription
@@ -37,7 +37,7 @@ struct DistributionValueDescription
     {
     }
 
-    DistributionValueDescription(Datacratic::ConstructOnly)
+    DistributionValueDescription(MLDB::ConstructOnly)
     {
     }
 
@@ -119,19 +119,19 @@ struct DistributionValueDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(DistributionValueDescription, ML::distribution, typename, T, class, Underlying);
 
-Datacratic::ValueDescriptionT<ML::distribution<float> > *
+MLDB::ValueDescriptionT<ML::distribution<float> > *
 getDefaultDescription(const ML::distribution<float> * = 0);
 
-Datacratic::ValueDescriptionT<ML::distribution<float> > *
+MLDB::ValueDescriptionT<ML::distribution<float> > *
 getDefaultDescriptionUninitialized(const ML::distribution<float> * = 0);
 
-Datacratic::ValueDescriptionT<ML::distribution<double> > *
+MLDB::ValueDescriptionT<ML::distribution<double> > *
 getDefaultDescription(const ML::distribution<double> * = 0);
 
-Datacratic::ValueDescriptionT<ML::distribution<double> > *
+MLDB::ValueDescriptionT<ML::distribution<double> > *
 getDefaultDescriptionUninitialized(const ML::distribution<double> * = 0);
 
 extern template class DistributionValueDescription<float, std::vector<float> >;
 extern template class DistributionValueDescription<double, std::vector<double> >;
 
-} // namespace Datacratic
+} // namespace MLDB

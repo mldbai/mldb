@@ -11,7 +11,7 @@
 
 #include "list_description_base.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* SET DESCRIPTION                                                           */
@@ -117,5 +117,5 @@ struct SetDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(SetDescription, std::set, typename, T);
 
-} // namespace Datacratic
+} // namespace MLDB
 

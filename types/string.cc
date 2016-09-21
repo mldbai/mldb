@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -669,4 +669,4 @@ struct AtInit {
 
 } // file scope
 
-} // namespace Datacratic
+} // namespace MLDB

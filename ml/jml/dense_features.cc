@@ -881,14 +881,14 @@ struct Dense_Training_Data::Data_Source {
     std::string filename;
     const char * data;
     const char * data_end;
-    mutable std::shared_ptr<Datacratic::filter_istream> stream;
+    mutable std::shared_ptr<MLDB::filter_istream> stream;
 
     Parse_Context get_context() const
     {
         if (data)
             return Parse_Context(filename, data, data_end);
         else {
-            stream.reset(new Datacratic::filter_istream(filename));
+            stream.reset(new MLDB::filter_istream(filename));
             return Parse_Context(filename, *stream);
         }
     }

@@ -13,7 +13,8 @@
 using namespace std;
 using namespace Mongo;
 namespace fs = boost::filesystem;
-using namespace Datacratic;
+using namespace MLDB;
+
 
 MongoTemporaryServer::
 MongoTemporaryServer(const string & uniquePath, const int portNum)
@@ -160,7 +161,7 @@ start()
          cerr << "received message on stdout: /" + message + "/" << endl;
         //  receivedStdOut += message;
     };
-    auto stdOutSink = make_shared<Datacratic::CallbackInputSink>(onStdOut);
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
     loop_.addSource("runner", runner_);
     loop_.start();

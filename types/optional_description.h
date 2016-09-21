@@ -11,7 +11,7 @@
 
 #pragma once 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 template<typename T>
@@ -88,4 +88,4 @@ struct OptionalDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(OptionalDescription, Optional, typename, T);
 
-} // namespace Datacratic
+} // namespace MLDB

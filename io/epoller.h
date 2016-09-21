@@ -15,7 +15,7 @@
 
 struct epoll_event;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* EPOLLER                                                                   */
@@ -119,6 +119,6 @@ private:
     size_t numFds_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #endif /* __endpoint__epoller_h__ */

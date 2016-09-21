@@ -12,7 +12,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 namespace MLDB {
 
@@ -379,4 +379,4 @@ validateFunction()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

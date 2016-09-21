@@ -12,7 +12,7 @@
 #include "mldb/utils/compact_vector.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Implementation of a base matrix.  This stores rows (indexed by integers)
@@ -130,4 +130,4 @@ struct BaseMatrix {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

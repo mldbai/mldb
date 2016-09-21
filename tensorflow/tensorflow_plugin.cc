@@ -55,17 +55,17 @@ using namespace std;
 namespace tensorflow {
 #define DEFINE_ENUM_DESCRIPTION_PROTO(Name, Type) \
     struct Name                                                     \
-        : public Datacratic::EnumDescription<Type> {     \
+        : public MLDB::EnumDescription<Type> {                      \
         Name();                                                     \
     };                                                              \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescription(Type *)                        \
     {                                                               \
         return new Name();                                          \
     }                                                               \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescriptionUninitialized(Type *)           \
     {                                                               \
         return new Name();                                          \
@@ -95,18 +95,18 @@ DEFINE_STRUCTURE_DESCRIPTION_NAMED(TensorflowAttrValueDescription,
 
 TensorflowAttrValueDescription::
 TensorflowAttrValueDescription()
-{
-    using namespace Datacratic;
+{    
+    using namespace MLDB;
 
     const ::google::protobuf::Descriptor * desc
         = tensorflow::AttrValue::descriptor();
 
     onUnknownField = [=] (tensorflow::AttrValue * val,
-                          Datacratic::JsonParsingContext & context)
+                          JsonParsingContext & context)
         {
             if (context.fieldName() == "type") {
                 Json::Value j = context.expectJson();
-                val->set_type(Datacratic::jsonDecode<tensorflow::DataType>(j));
+                val->set_type(jsonDecode<tensorflow::DataType>(j));
                 return;
             }
             throw HttpReturnException(400, "Unknown field '" + context.fieldName()
@@ -115,11 +115,11 @@ TensorflowAttrValueDescription()
 }
 #endif
 
-struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
+struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
     virtual void parseJsonTyped(AttrValue * val,
-                                Datacratic::JsonParsingContext & context) const
+                                MLDB::JsonParsingContext & context) const
     {
-        using namespace Datacratic;
+        using namespace MLDB;
 
         if (context.isNull()) {
             context.expectNull();
@@ -137,7 +137,7 @@ struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
             Json::Value v = context.expectJson();
             ExcAssertEqual(v.size(), 1);
             if (v.isMember("type")) {
-                val->set_type(Datacratic::jsonDecode<tensorflow::DataType>(v["type"]));
+                val->set_type(jsonDecode<tensorflow::DataType>(v["type"]));
             }
             else if (v.isMember("shape")) {
                 throw HttpReturnException(500, "shape attributes not done");
@@ -214,9 +214,9 @@ struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
     }
     
     virtual void printJsonTyped(const AttrValue * val,
-                                Datacratic::JsonPrintingContext & context) const
+                                MLDB::JsonPrintingContext & context) const
     {
-        using namespace Datacratic;
+        using namespace MLDB;
 
         switch (val->value_case()) {
         case tensorflow::AttrValue::kS:
@@ -257,7 +257,7 @@ DEFINE_VALUE_DESCRIPTION_NS(AttrValue, AttrValueDescription);
 
 } // namespace tensorflow
 
-namespace Datacratic {
+
 namespace MLDB {
 
 static Json::Value protoToJson(const ::google::protobuf::Message & obj)
@@ -1622,8 +1622,8 @@ struct TensorflowPlugin: public Plugin {
     TensorflowPlugin(MldbServer * server)
         : Plugin(server)
     {
-        using namespace Datacratic;
-        using namespace Datacratic::MLDB;
+        
+        using namespace MLDB;
 
         int argc = 0;
         char ** argv = new char * [2];
@@ -2079,11 +2079,11 @@ struct TensorflowPlugin: public Plugin {
 
 
 } // namespace MLDB
-} // namespace Datacratic
 
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
+
+MLDB::Plugin *
+mldbPluginEnterV100(MLDB::MldbServer * server)
 {
-    return new Datacratic::MLDB::TensorflowPlugin(server);
+    return new MLDB::TensorflowPlugin(server);
 }
 

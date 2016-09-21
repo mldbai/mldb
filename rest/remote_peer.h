@@ -14,7 +14,7 @@
 #include "peer_connection.h"
 #include <atomic>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct ServicePeer;
 

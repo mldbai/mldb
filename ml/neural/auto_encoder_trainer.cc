@@ -238,7 +238,7 @@ train_iter(Auto_Encoder & encoder,
     int ni JML_UNUSED = encoder.inputs();
     int no JML_UNUSED = encoder.outputs();
 
-    int microbatch_size = minibatch_size / (Datacratic::numCpus() * 4);
+    int microbatch_size = minibatch_size / (MLDB::numCpus() * 4);
             
     Lock update_lock;
 
@@ -282,7 +282,7 @@ train_iter(Auto_Encoder & encoder,
                                    progress.get())();
             };
 
-        Datacratic::parallelMapChunked
+        MLDB::parallelMapChunked
             (x, std::min<size_t>(nx2, x + minibatch_size),
              microbatch_size, doMicroBatch);
 
@@ -312,7 +312,7 @@ train_iter(Auto_Encoder & encoder,
     int ni JML_UNUSED = encoder.inputs();
     int no JML_UNUSED = encoder.outputs();
 
-    int microbatch_size = minibatch_size / (Datacratic::numCpus() * 4);
+    int microbatch_size = minibatch_size / (MLDB::numCpus() * 4);
             
     Lock update_lock;
 
@@ -356,7 +356,7 @@ train_iter(Auto_Encoder & encoder,
                                    progress.get())();
             };
 
-        Datacratic::parallelMapChunked
+        MLDB::parallelMapChunked
             (x, std::min<size_t>(nx2, x + minibatch_size),
              microbatch_size, doMicroBatch);
         
@@ -968,7 +968,7 @@ test_and_update(const Auto_Encoder & encoder,
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
 
     // 20 jobs per CPU
-    int batch_size = nx / (Datacratic::numCpus() * 20);
+    int batch_size = nx / (MLDB::numCpus() * 20);
 
     auto doBatch = [&] (size_t x0, size_t x1)
         {
@@ -981,7 +981,7 @@ test_and_update(const Auto_Encoder & encoder,
                               progress.get())();
         };
 
-    Datacratic::parallelMapChunked(0, nx, batch_size, doBatch);
+    MLDB::parallelMapChunked(0, nx, batch_size, doBatch);
 
     return make_pair(sqrt(error_exact / nx),
                      sqrt(error_noisy / nx));

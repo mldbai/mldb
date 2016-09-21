@@ -25,7 +25,7 @@ which comes from a JSON file with varying fields.  This can be accessed
 by setting the `unknownColumns` field to `add`.  The other possible values
 are listed below:
 
-![](%%type Datacratic::MLDB::UnknownColumnAction)
+![](%%type MLDB::UnknownColumnAction)
 
 
 ## Limitations

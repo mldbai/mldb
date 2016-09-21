@@ -23,7 +23,7 @@
 #include <sys/resource.h>
 
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 using namespace boost;
 

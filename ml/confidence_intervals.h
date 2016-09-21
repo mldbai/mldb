@@ -13,7 +13,7 @@
 #include <functional>
 #include "mldb/jml/db/persistent.h"
 
-namespace Datacratic
+namespace MLDB
 {
     class ConfidenceIntervals
     {

@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -246,4 +246,4 @@ AsioThreadPoolStatsDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

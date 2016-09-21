@@ -199,7 +199,7 @@ log(const std::string & module, int level) const
 {
     //cerr << "level " << level << " verbosity " << verbosity << endl;
 
-    static Datacratic::filter_ostream cnull("");
+    static MLDB::filter_ostream cnull("");
 
     if (level <= verbosity)
         return cerr;

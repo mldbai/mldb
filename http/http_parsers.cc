@@ -15,7 +15,7 @@
 #include "http_parsers.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/

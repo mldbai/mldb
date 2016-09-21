@@ -12,7 +12,7 @@
 #include "mldb/watch/watch.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct EventLoop;
@@ -56,4 +56,4 @@ private:
 
 DECLARE_STRUCTURE_DESCRIPTION_NAMED(AsioThreadPoolStatsDescription, AsioThreadPool::Stats);
 
-} // namespace Datacratic
+} // namespace MLDB

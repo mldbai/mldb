@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -944,7 +944,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
     std::unique_ptr<EntityLinkToken> acceptEnd(new EntityLinkToken(targetPath2));
 
     std::tie(res, entry->token)
-        = Datacratic::createLinkT<EntityLinkToken>(std::move(connectEnd),
+        = MLDB::createLinkT<EntityLinkToken>(std::move(connectEnd),
                                                    std::move(acceptEnd),
                                                    LS_CONNECTING, linkParams, nullptr);
     
@@ -1729,4 +1729,4 @@ LinkStatusDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

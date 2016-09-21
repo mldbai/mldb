@@ -29,7 +29,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 // Fix GCC error message about unused function
 auto __fixGccError = &CryptoPP::StringNarrow;
@@ -602,4 +602,4 @@ performGet(RestParams && params,
                            resultSelector);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

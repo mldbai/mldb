@@ -24,7 +24,7 @@
 #include "mldb/base/exc_assert.h"
 #include "maybe.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct ValueDescription;
@@ -1022,4 +1022,4 @@ tryWaitTuple(double timeToWait)
     return WatchT<T...>::doTryWaitTuple(data, timeToWait);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

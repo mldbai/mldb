@@ -26,7 +26,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -403,4 +403,4 @@ regJSON(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

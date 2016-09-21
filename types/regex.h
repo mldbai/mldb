@@ -13,7 +13,7 @@
 #include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -181,4 +181,4 @@ bool regex_match(const Utf8String & str,
                  std::regex_constants::match_flag_type flags
                      = std::regex_constants::match_default);
 
-} // namespace Datacratic
+} // namespace MLDB

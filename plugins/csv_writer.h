@@ -17,7 +17,7 @@
 #include "mldb/types/id.h"
 #include "mldb/types/string.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct CsvWriter {
     std::ostream & out;
@@ -38,4 +38,4 @@ struct CsvWriter {
     void endl();
 };
 
-} // Datacratic
+} // namespace MLDB

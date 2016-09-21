@@ -37,7 +37,7 @@ struct Dont_Delete {
 } // file scope
 
 
-namespace Datacratic {
+namespace MLDB {
 
 Logging::Category MessageLoopLogs::print("Message Loop");
 Logging::Category MessageLoopLogs::warning("Message Loop Warning", print);
@@ -561,4 +561,4 @@ checkNeedsPoll()
     if (parent_) parent_->checkNeedsPoll();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

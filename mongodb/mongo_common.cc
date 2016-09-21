@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Mongo {
 
@@ -215,4 +215,4 @@ doGetFunction(const Utf8String & tableName,
 
 } // namespace Mongo
 } // namespace MLDB
-} // namespace Datacratic
+

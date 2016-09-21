@@ -28,7 +28,7 @@
 using namespace std;
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -356,4 +356,4 @@ void serveDocumentationDirectory(RestRequestRouter & parent,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

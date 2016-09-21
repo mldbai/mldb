@@ -18,7 +18,7 @@
 struct hoedown_buffer;
 struct hoedown_renderer_data;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -83,4 +83,4 @@ struct RegisterMacro {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

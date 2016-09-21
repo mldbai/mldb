@@ -18,7 +18,7 @@
 #include <boost/multi_array.hpp>
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct SqlExpression;
@@ -502,4 +502,4 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

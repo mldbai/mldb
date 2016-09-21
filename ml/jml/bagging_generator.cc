@@ -251,7 +251,7 @@ generate(Thread_Context & context,
             Bag_Job(info, contexts[i], i, verbosity)();
         };
 
-    Datacratic::parallelMap(0, num_bags, onBag);
+    MLDB::parallelMap(0, num_bags, onBag);
     
     Committee result(feature_space, predicted);
     

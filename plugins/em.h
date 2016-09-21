@@ -17,7 +17,7 @@
 #include "metric_space.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -120,4 +120,4 @@ struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

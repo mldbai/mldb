@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/string_functions.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 const tinyxml2::XMLNode * extractNode(const tinyxml2::XMLNode * element,
                                       const std::string & path);
@@ -101,5 +101,5 @@ xmlDocumentAsString(const tinyxml2::XMLDocument & xmlDocument)
     return std::string(printer.CStr());
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

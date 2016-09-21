@@ -336,7 +336,7 @@ train_weighted(Thread_Context & thread_context,
             }
         };
     
-    Datacratic::parallelMap(0, indexes.size(), onIndex);
+    MLDB::parallelMap(0, indexes.size(), onIndex);
 
     cerr << "marshalling: " << t.elapsed() << endl;
     t.restart();

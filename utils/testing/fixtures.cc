@@ -16,7 +16,7 @@
 using namespace std;
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+namespace MLDB {
 
 /******************************************************************************/
 /* TEST FOLDER FIXTURE                                                        */
@@ -67,4 +67,4 @@ uniqueName() const
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

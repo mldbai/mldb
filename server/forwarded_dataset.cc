@@ -10,7 +10,7 @@
 #include "forwarded_dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -259,4 +259,4 @@ getRowStream() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

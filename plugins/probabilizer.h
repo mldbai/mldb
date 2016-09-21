@@ -21,7 +21,7 @@ namespace ML {
 struct GLZ_Probabilizer;
 } // namespace ML
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -112,4 +112,4 @@ struct ProbabilizeFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

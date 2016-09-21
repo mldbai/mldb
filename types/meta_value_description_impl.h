@@ -10,7 +10,7 @@
 #include "mldb/types/meta_value_description.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct ValueDescriptionPtrDescription
     : public ValueDescriptionT<std::shared_ptr<ValueDescription > > {
@@ -88,4 +88,4 @@ struct ValueDescriptionNakedConstPtrDescription
     virtual bool isDefaultTyped(ValueDescription const * const * val) const;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

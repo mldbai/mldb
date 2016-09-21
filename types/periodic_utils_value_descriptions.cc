@@ -9,7 +9,7 @@
 #include "periodic_utils.h"
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TimePeriodDescription: public ValueDescriptionT<TimePeriod> {
     virtual void parseJsonTyped(TimePeriod * val,
@@ -28,4 +28,4 @@ struct TimePeriodDescription: public ValueDescriptionT<TimePeriod> {
 DEFINE_VALUE_DESCRIPTION(TimePeriod, TimePeriodDescription);
 
 
-} // namespace Datacratic
+} // namespace MLDB

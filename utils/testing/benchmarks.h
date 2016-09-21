@@ -21,7 +21,7 @@
 #include "mldb/types/date.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Benchmark;
 
@@ -88,4 +88,4 @@ struct Benchmark {
     Date start_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

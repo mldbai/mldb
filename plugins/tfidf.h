@@ -17,7 +17,7 @@
 #include "mldb/types/optional.h"
 #include "metric_space.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum TFType {
@@ -109,4 +109,4 @@ struct TfidfFunction: public Function {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

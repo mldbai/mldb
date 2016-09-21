@@ -23,7 +23,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -699,4 +699,4 @@ watchChannel(const Utf8String & channel,
 
 template class RestCollection<std::string, RemotePeer>;
 
-} // namespace Datacratic
+} // namespace MLDB

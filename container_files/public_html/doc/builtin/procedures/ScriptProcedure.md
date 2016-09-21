@@ -8,7 +8,7 @@ The script procedure is used to run a Python or Javascript script as a procedure
 
 With `ScriptResource` defined as:
 
-![](%%type Datacratic::MLDB::ScriptResource)
+![](%%type MLDB::ScriptResource)
 
 ### Passing arguments to the procedure for a run
 
@@ -28,7 +28,7 @@ mldb.put("/v1/procedures/<id>/runs/<runid>", {
 output of the run.
 - The full headers and details will be returned in the `details` output of the run.
 
-![](%%type Datacratic::MLDB::ScriptOutput)
+![](%%type MLDB::ScriptOutput)
 
 ## See also
 

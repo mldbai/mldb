@@ -24,11 +24,11 @@
 
 
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 
 // Defined in gc_lock.cc
-namespace Datacratic {
+namespace MLDB {
 extern int32_t gcLockStartingEpoch;
 };
 

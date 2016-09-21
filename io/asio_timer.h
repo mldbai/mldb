@@ -22,7 +22,7 @@ struct io_service;
 } // namespace boost
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct EventLoop;
 
@@ -108,4 +108,4 @@ WatchT<Date> getTimer(Date nextExpiry,
 extern template class WatchT<Date>;
 extern template class WatchesT<Date>;
 
-} // namespace Datacratic
+} // namespace MLDB

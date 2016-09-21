@@ -14,8 +14,8 @@
 #include "mldb/arch/timers.h"
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 void testMtInsert(MutableSparseMatrixDatasetConfig config)
 {

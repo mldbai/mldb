@@ -26,7 +26,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -584,4 +584,4 @@ regContinuousWindow(builtinPackage(),
                     {MldbEntity::INTERNAL_ENTITY});
 
 } // namespace MLDB
-} // namespace Datacratic
+

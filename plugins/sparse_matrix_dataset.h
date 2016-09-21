@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -127,5 +127,5 @@ struct MutableSparseMatrixDataset: public SparseMatrixDataset {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

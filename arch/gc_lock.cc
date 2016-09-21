@@ -26,7 +26,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* Utility                                                                   */
@@ -1003,5 +1003,5 @@ unlink()
 
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

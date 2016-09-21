@@ -21,7 +21,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 // Disarm from a different thread whilst it's firing; check there is no

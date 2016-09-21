@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TestFunctionConfig);
@@ -84,4 +84,4 @@ regTestFunction(testPackage,
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -14,7 +14,7 @@
 #include "mldb/io/tcp_socket_handler.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct TcpSocket;
@@ -68,4 +68,4 @@ private:
     std::atomic<bool> closed_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

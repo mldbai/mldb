@@ -11,7 +11,7 @@
 #include "frozen_column.h"
 #include <mutex>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -388,4 +388,4 @@ struct MutableTabularDatasetChunk {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

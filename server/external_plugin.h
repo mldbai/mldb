@@ -15,9 +15,7 @@
 #include "mldb/utils/command_expression.h"
 
 
-namespace Datacratic {
 namespace MLDB {
-
 
 
 /*****************************************************************************/
@@ -221,7 +219,7 @@ struct ExternalPlugin: public Plugin {
 /** External plugin that runs itself in a subprocess. */
 
 struct SubprocessExternalPluginConfig {
-    CommandTemplate command;   ///< Command to run
+    PluginCommand::CommandTemplate command;   ///< Command to run
 };
 
 
@@ -288,4 +286,4 @@ registerPluginStartupType(const Package & package,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

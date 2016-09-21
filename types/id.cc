@@ -28,7 +28,7 @@ using namespace ML;
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 #if JML_BITS < 64
 
@@ -883,23 +883,23 @@ std::istream & operator >> (std::istream & stream, Id & id)
 /*****************************************************************************/
 
 struct IdDescription 
-    : public ValueDescriptionI<Datacratic::Id, ValueKind::ATOM, IdDescription> {
+    : public ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription> {
 
-    virtual void parseJsonTyped(Datacratic::Id * val,
+    virtual void parseJsonTyped(MLDB::Id * val,
                                 JsonParsingContext & context) const;
 
-    virtual void printJsonTyped(const Datacratic::Id * val,
+    virtual void printJsonTyped(const MLDB::Id * val,
                                 JsonPrintingContext & context) const;
 
-    virtual bool isDefaultTyped(const Datacratic::Id * val) const;
+    virtual bool isDefaultTyped(const MLDB::Id * val) const;
 };
 
-//extern template class ValueDescriptionT<Datacratic::Id>;
-//extern template class ValueDescriptionI<Datacratic::Id, ValueKind::ATOM, IdDescription>;
+//extern template class ValueDescriptionT<MLDB::Id>;
+//extern template class ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
 
 struct StringIdDescription: public IdDescription {
 
-    virtual void printJsonTyped(const Datacratic::Id * val,
+    virtual void printJsonTyped(const MLDB::Id * val,
                                 JsonPrintingContext & context) const;
 };
 
@@ -960,15 +960,15 @@ void parseJson(Id * output, Context & context)
 
 void
 IdDescription::
-parseJsonTyped(Datacratic::Id * val,
+parseJsonTyped(MLDB::Id * val,
                JsonParsingContext & context) const
 {
-    Datacratic::parseJson(val, context);
+    MLDB::parseJson(val, context);
 }
 
 void
 IdDescription::
-printJsonTyped(const Datacratic::Id * val,
+printJsonTyped(const MLDB::Id * val,
                JsonPrintingContext & context) const
 {
     if (val->type == Id::Type::BIGDEC &&
@@ -981,19 +981,19 @@ printJsonTyped(const Datacratic::Id * val,
 
 bool
 IdDescription::
-isDefaultTyped(const Datacratic::Id * val) const
+isDefaultTyped(const MLDB::Id * val) const
 {
     return !val->notNull();
 }
 
-template class ValueDescriptionI<Datacratic::Id, ValueKind::ATOM, IdDescription>;
+template class ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
 
 void
 StringIdDescription::
-printJsonTyped(const Datacratic::Id * val,
+printJsonTyped(const MLDB::Id * val,
                JsonPrintingContext & context) const
 {
     context.writeStringUtf8(val->toUtf8String());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

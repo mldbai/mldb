@@ -12,7 +12,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Create a bound table expression that implements the binding of
@@ -789,4 +789,4 @@ getUnbound() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

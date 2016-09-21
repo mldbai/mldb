@@ -23,7 +23,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -791,4 +791,4 @@ regSqlite(builtinPackage(),
           "datasets/SqliteSparseDataset.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+

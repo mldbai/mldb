@@ -22,7 +22,7 @@
 #include "signals.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 /* OUTPUT SINK */
 #if 1

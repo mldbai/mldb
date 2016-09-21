@@ -18,7 +18,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Path;
@@ -349,9 +349,9 @@ inline PathElement stringToKey(const std::string & str, PathElement *)
 PREDECLARE_VALUE_DESCRIPTION(PathElement);
 
 struct PathElementNewHasher
-    : public std::unary_function<Datacratic::MLDB::PathElement, size_t>
+    : public std::unary_function<MLDB::PathElement, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::PathElement & path) const
+    size_t operator()(const MLDB::PathElement & path) const
     {
         return path.newHash();
     }
@@ -962,34 +962,34 @@ inline Path stringToKey(const std::string & str, Path *)
 PREDECLARE_VALUE_DESCRIPTION(Path);
 
 struct PathNewHasher
-    : public std::unary_function<Datacratic::MLDB::Path, size_t>
+    : public std::unary_function<MLDB::Path, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Path & path) const
+    size_t operator()(const MLDB::Path & path) const
     {
         return path.newHash();
     }
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 
 namespace std {
 
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::MLDB::PathElement> : public std::unary_function<Datacratic::MLDB::PathElement, size_t>
+struct hash<MLDB::PathElement> : public std::unary_function<MLDB::PathElement, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::PathElement & path) const
+    size_t operator()(const MLDB::PathElement & path) const
     {
         return path.hash();
     }
 };
 
 template<>
-struct hash<Datacratic::MLDB::Path> : public std::unary_function<Datacratic::MLDB::Path, size_t>
+struct hash<MLDB::Path> : public std::unary_function<MLDB::Path, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Path & paths) const
+    size_t operator()(const MLDB::Path & paths) const
     {
         return paths.hash();
     }

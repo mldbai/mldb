@@ -13,7 +13,7 @@
 #include "value_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 template<typename T>
@@ -102,7 +102,7 @@ ValueDescriptionT<T *> * getDefaultDescriptionUninitialized(T ** ptr)
 
 template<typename T>
 struct ValueDescriptionInit<T *> {
-    static Datacratic::ValueDescription * create()
+    static MLDB::ValueDescription * create()
     {
         return getDefaultDescriptionUninitialized((T**)0);
     }
@@ -334,14 +334,14 @@ struct PointerValueDescription
 };
 
 template<typename T>
-Datacratic::ValueDescriptionT<T *> *
+MLDB::ValueDescriptionT<T *> *
 getDefaultDescription(T * * = 0)
 {
-    return new Datacratic::PointerValueDescription<T>();
+    return new MLDB::PointerValueDescription<T>();
 }
 
 #endif
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

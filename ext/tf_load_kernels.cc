@@ -20,7 +20,6 @@ using namespace std;
 using namespace ML;
 #endif
 
-namespace Datacratic {
 namespace MLDB {
 
 // This is defined in the MLDB server
@@ -92,5 +91,4 @@ struct AtInit {
 
 } // file scope
 } // namespace MLDB
-} // namespace Datacratic
 

@@ -35,7 +35,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 const Utf8String NO_FUNCTION_NAME;
@@ -3277,4 +3277,4 @@ static RegisterBuiltin registerFetcherFunction(fetcher, "fetcher");
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -10,7 +10,7 @@
 
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -132,4 +132,4 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     std::map<Enum, std::pair<std::string, std::string> > print;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

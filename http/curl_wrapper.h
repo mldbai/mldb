@@ -17,7 +17,7 @@
 #include <vector>
 #include <memory>
 
-namespace Datacratic
+namespace MLDB
 {
     class RestParams;
     

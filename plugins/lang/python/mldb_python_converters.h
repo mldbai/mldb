@@ -16,7 +16,7 @@
 #include "mldb/http/http_exception.h"
 #include "python_converters.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct RestParamsConverter
@@ -186,5 +186,5 @@ struct PathConverter
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -388,11 +388,11 @@ toString() const
     case ST_EMPTY:
         return "";
     case ST_INTEGER:
-        return Datacratic::itoa(intVal);
+        return itoa(intVal);
     case ST_UNSIGNED:
-        return Datacratic::itoa(uintVal);
+        return itoa(uintVal);
     case ST_FLOAT: {
-        return Datacratic::dtoa(floatVal);
+        return dtoa(floatVal);
     }
     case ST_ASCII_SHORT_STRING:
         return string(shortString, shortString + strLength);
@@ -1511,5 +1511,5 @@ std::ostream & operator << (std::ostream & stream, const CellValue::CellType & t
 }
 
 } // namespace MLDB
-} // namespace Datacratic 
+ 
 

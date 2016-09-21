@@ -48,7 +48,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(ClassifierMode);
@@ -1224,4 +1224,4 @@ regExplainFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

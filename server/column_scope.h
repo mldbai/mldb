@@ -11,7 +11,7 @@
 
 #include "mldb/server/dataset_context.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Dataset;
@@ -149,5 +149,5 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

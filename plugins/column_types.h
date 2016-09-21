@@ -11,7 +11,7 @@
 #include <memory>
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct CellValue;
@@ -74,6 +74,6 @@ struct ColumnTypes {
 DECLARE_STRUCTURE_DESCRIPTION(ColumnTypes);
 
 } // namespace MLDB
-} // namespace Datacratic
+
 
 

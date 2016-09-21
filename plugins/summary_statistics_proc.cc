@@ -27,8 +27,6 @@
 
 using namespace std;
 
-
-namespace Datacratic {
 namespace MLDB {
 
 SummaryStatisticsProcedureConfig::
@@ -306,7 +304,8 @@ struct NumericRowHandler {
         toRecord.emplace_back(value + "3rd_quartile", quartiles[2], now);
         for (int i = 0; i < mostFrequents.currSize; ++ i) {
             toRecord.emplace_back(
-                value + "most_frequent_items" + to_string(mostFrequents.top[i].second),
+                // CellValue::to_string returns "1" instead of "1.00000"
+                value + "most_frequent_items" + to_string(CellValue(mostFrequents.top[i].second)),
                 mostFrequents.top[i].first, now);
         }
         output->recordRow(rowName, toRecord);
@@ -519,4 +518,4 @@ regSummaryStatisticsProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

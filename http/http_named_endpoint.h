@@ -13,7 +13,7 @@
 #include "http_rest_endpoint.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -58,5 +58,5 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpRestEndpoint {
 
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

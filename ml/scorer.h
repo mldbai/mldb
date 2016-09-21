@@ -15,7 +15,7 @@
 #include "tuple_encoder.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -79,6 +79,6 @@ struct ScorerT
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #endif /* __ml__scorer_h__ */

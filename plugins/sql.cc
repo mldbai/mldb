@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -658,4 +658,4 @@ PluginCollection::RegisterType<SqlitePlugin> regSqlite("sql");
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

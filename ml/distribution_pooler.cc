@@ -19,7 +19,7 @@ using namespace ML;
 
 
 
-namespace Datacratic {
+namespace MLDB {
 
 void DistributionPooler::add(std::shared_ptr<ML::distribution<float>> d)
 {

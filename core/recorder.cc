@@ -5,7 +5,7 @@
 
 #include "recorder.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -90,4 +90,4 @@ recordTabularImpl(RowName rowName,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

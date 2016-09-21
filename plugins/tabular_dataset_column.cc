@@ -8,7 +8,7 @@
 #include "tabular_dataset_column.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -123,4 +123,4 @@ memusage() const
 #endif
 
 } // namespace MLDB
-} // namespace Datacratic
+

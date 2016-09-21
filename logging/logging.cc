@@ -17,7 +17,7 @@
 #include <sys/time.h>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 void Logging::ConsoleWriter::head(char const * timestamp,
                                   char const * name,
@@ -356,4 +356,4 @@ void Logging::Thrower::operator&(std::ostream & stream) {
     throw ML::Exception(message);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

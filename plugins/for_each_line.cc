@@ -57,7 +57,7 @@ struct Processing {
 
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -548,4 +548,4 @@ void forEachChunk(std::istream & stream,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

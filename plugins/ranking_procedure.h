@@ -10,7 +10,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum RankingType {
@@ -49,4 +49,4 @@ struct RankingProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
