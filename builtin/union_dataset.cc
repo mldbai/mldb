@@ -68,19 +68,17 @@ struct UnionDataset::Itl
 
         virtual std::shared_ptr<RowStream> clone() const
         {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
             return make_shared<UnionRowStream>(source);
         }
 
         /* set where the stream should start*/
         virtual void initAt(size_t start)
         {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
+            throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
         }
 
         virtual RowName next()
         {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
             uint64_t hash = (*it).first;
             ++it;
 
@@ -89,7 +87,6 @@ struct UnionDataset::Itl
 
         virtual const RowName & rowName(RowName & storage) const
         {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
             uint64_t hash = (*it).first;
             return storage = source->getRowName(RowHash(hash));
         }
@@ -99,17 +96,21 @@ struct UnionDataset::Itl
 
     };
 
-    string getStrFix(int count, bool begin) const {
-        if (count == 0) {
-            return begin ? "[" : "]";
-        }
-        string s = "";
-        for (; count > 0; --count) {
-            s += "[]-";
-        }
-        return begin ? s + "[" : "]-" + s.substr(0, s.size() - 1);
+    pair<string, string> getStrFix(int pos, int length) const
+    {
+        auto fct = [] (int count, bool begin) -> string {
+            if (count == 0) {
+                return begin ? "[" : "]";
+            }
+            string s = "";
+            for (; count > 0; --count) {
+                s += "[]-";
+            }
+            return begin ? s + "[" : "]-" + s.substr(0, s.size() - 1);
+        };
+        return make_pair(fct(pos, true), fct(length - pos - 1, false));
     }
-       
+
     virtual vector<Path>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
@@ -118,8 +119,9 @@ struct UnionDataset::Itl
         vector<Path> result;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            string prefix = getStrFix(i, true);
-            string suffix = getStrFix(datasets.size() - i - 1, false);
+            string prefix;
+            string suffix;
+            tie(prefix, suffix) = getStrFix(i, datasets.size());
             for (const auto & name: d->getMatrixView()->getRowNames()) {
                 result.push_back(Path(prefix + name.toUtf8String().rawString() + suffix));
             }
@@ -131,14 +133,13 @@ struct UnionDataset::Itl
     virtual vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
+        throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
         vector<RowHash> result;
         return result;
     }
 
     virtual bool knownRow(const Path & rowName) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         for (const auto & curr: getRowNames()) {
             if (rowName == curr) {
                 return true;
@@ -149,7 +150,6 @@ struct UnionDataset::Itl
 
     virtual bool knownRowHash(const RowHash & rowHash) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         for (const auto & curr: getRowNames()) {
             if (rowHash == curr.hash()) {
                 return true;
@@ -160,7 +160,6 @@ struct UnionDataset::Itl
 
     virtual RowName getRowName(const RowHash & rowHash) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         for (const auto & curr: getRowNames()) {
             if (rowHash == curr.hash()) {
                 return curr;
@@ -173,8 +172,9 @@ struct UnionDataset::Itl
     {
         string name = rowName.toUtf8String().rawString();
         for (int i = 0; i < datasets.size(); ++i) {
-            string prefix = getStrFix(i, true);
-            string suffix = getStrFix(datasets.size() - i - 1, false);
+            string prefix;
+            string suffix;
+            tie(prefix, suffix) = getStrFix(i, datasets.size());
             if (name.find(prefix) == 0 && name.rfind(suffix) == name.size() - suffix.size()) {
                 string subRowName = name.substr(prefix.size(), name.size() - prefix.size() - suffix.size());
                 MatrixNamedRow result =
@@ -190,7 +190,6 @@ struct UnionDataset::Itl
 
     virtual bool knownColumn(const Path & column) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         for (const auto & curr: getColumnNames()) {
             if (curr == column) {
                 return true;
@@ -201,7 +200,6 @@ struct UnionDataset::Itl
 
     virtual ColumnName getColumnName(ColumnHash columnHash) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         for (const auto & curr: getColumnNames()) {
             if (columnHash == curr.hash()) {
                 return curr;
@@ -213,7 +211,6 @@ struct UnionDataset::Itl
     /** Return a list of all columns. */
     virtual vector<ColumnName> getColumnNames() const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         std::set<ColumnName> preResult;
         for (const auto & d: datasets) {
             auto columnNames = d->getColumnNames();
@@ -224,15 +221,15 @@ struct UnionDataset::Itl
 
     virtual MatrixColumn getColumn(const ColumnName & columnName) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         MatrixColumn result;
         result.columnName = columnName;
         //result.columnHash = columnName.hash(); //TODO
         vector<std::tuple<RowName, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            string prefix = getStrFix(i, true);
-            string suffix = getStrFix(datasets.size() - i - 1, false);
+            string prefix;
+            string suffix;
+            tie(prefix, suffix) = getStrFix(i, datasets.size());
             const auto & subCol = d->getColumnIndex()->getColumn(columnName);
             for (const auto & curr: subCol.rows) {
                 result.rows.emplace_back(
@@ -249,12 +246,12 @@ struct UnionDataset::Itl
     getColumnValues(const ColumnName & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
         vector<std::tuple<RowName, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            string prefix = getStrFix(i, true);
-            string suffix = getStrFix(datasets.size() - i - 1, false);
+            string prefix;
+            string suffix;
+            tie(prefix, suffix) = getStrFix(i, datasets.size());
             for (const auto curr: d->getColumnIndex()->getColumnValues(columnName)) {
                 res.emplace_back(
                     Path(prefix + std::get<0>(curr).toUtf8String().rawString() + suffix),
@@ -325,7 +322,6 @@ UnionDataset(MldbServer * owner,
               vector<std::shared_ptr<Dataset> > datasetsToMerge)
     : Dataset(owner)
 {
-            cerr << __FILE__ << ":" << __LINE__ << endl;
     itl.reset(new Itl(server, datasetsToMerge));
 }
 

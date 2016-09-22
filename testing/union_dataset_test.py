@@ -31,5 +31,17 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             ['[row1]-[]', 'A', None]
         ])
 
+        res = mldb.query("SELECT * FROM union_ds ORDER BY rowName() LIMIT 1")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colB'],
+            ['[]-[row1]', 'B']
+        ])
+
+        res = mldb.query("SELECT * FROM union_ds ORDER BY rowName() OFFSET 1")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA'],
+            ['[row1]-[]', 'A']
+        ])
+
 if __name__ == '__main__':
     mldb.run_tests()
