@@ -17,7 +17,6 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         ds.record_row('row1', [['colB', 'B', 1]])
         ds.commit()
 
-        mldb.log("===CREATING===")
         mldb.put('/v1/datasets/union_ds', {
             'type' : 'union',
             'params' : {
@@ -25,7 +24,12 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             }
         })
 
-        mldb.log(mldb.query("SELECT * FROM union_ds"))
+        res = mldb.query("SELECT colA, colB FROM union_ds ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA', 'colB'],
+            ['[]-[row1]', None, 'B'],
+            ['[row1]-[]', 'A', None]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()
