@@ -13,7 +13,7 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* MERGED DATASET CONFIG                                                     */
+/* UNION DATASET CONFIG                                                      */
 /*****************************************************************************/
 
 struct UnionDatasetConfig {
@@ -24,7 +24,7 @@ DECLARE_STRUCTURE_DESCRIPTION(UnionDatasetConfig);
 
 
 /*****************************************************************************/
-/* MERGED DATASET                                                            */
+/* UNION DATASET                                                             */
 /*****************************************************************************/
 
 struct UnionDataset: public Dataset {
@@ -33,7 +33,7 @@ struct UnionDataset: public Dataset {
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress);
     
-    /** Constructor used internally when creating a tree of merged datasets */
+    /** Constructor used internally when creating a datasets */
     UnionDataset(MldbServer * owner,
                  std::vector<std::shared_ptr<Dataset> > datasetsToMerge);
 

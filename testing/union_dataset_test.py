@@ -8,7 +8,8 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class UnionDatasetTest(MldbUnitTest):  # noqa
 
-    def test_it(self):
+    @classmethod
+    def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
         ds.record_row('row1', [['colA', 'A', 1]])
         ds.commit()
@@ -17,6 +18,7 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         ds.record_row('row1', [['colB', 'B', 1]])
         ds.commit()
 
+    def test_dataset(self):
         mldb.put('/v1/datasets/union_ds', {
             'type' : 'union',
             'params' : {
@@ -38,6 +40,29 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         ])
 
         res = mldb.query("SELECT * FROM union_ds ORDER BY rowName() OFFSET 1")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA'],
+            ['[row1]-[]', 'A']
+        ])
+
+    def test_query(self):
+        res = mldb.query(
+            "SELECT colA, colB FROM union(ds1, ds2) ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA', 'colB'],
+            ['[]-[row1]', None, 'B'],
+            ['[row1]-[]', 'A', None]
+        ])
+
+        res = mldb.query(
+            "SELECT * FROM union(ds1, ds2) ORDER BY rowName() LIMIT 1")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colB'],
+            ['[]-[row1]', 'B']
+        ])
+
+        res = mldb.query(
+            "SELECT * FROM union(ds1, ds2) ORDER BY rowName() OFFSET 1")
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA'],
             ['[row1]-[]', 'A']
