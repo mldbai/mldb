@@ -364,14 +364,13 @@ $(TENSORFLOW_KERNEL_CC_FILES):	$(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INC
 # TensorFlow is built multiple times, in that case you
 # might want to set TF_KERNEL_VARIANTS:=(whichever one applies) to
 # speed up compile times
-TF_KERNEL_VARIANTS_x86_64?=sse2 sse42 avx avx2
+TF_KERNEL_VARIANTS_x86_64?=sse42 avx avx2
 TF_KERNEL_VARIANTS_aarch64:=generic
 TF_KERNEL_VARIANTS_arm:=generic
 
 # For each variant, this provides the optimization flags passed in
 # The correct kernels library is detected at runtime and loaded
 # dynamically on Tensorflow initialization
-TF_KERNEL_VARIANT_x86_64_sse2:=-msse2
 TF_KERNEL_VARIANT_x86_64_sse42:=-msse4.2
 TF_KERNEL_VARIANT_x86_64_avx:=-mavx
 TF_KERNEL_VARIANT_x86_64_avx2:=-mavx2 -mfma
