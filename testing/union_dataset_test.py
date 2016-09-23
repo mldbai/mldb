@@ -34,20 +34,20 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         res = mldb.query("SELECT colA, colB FROM union_ds ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA', 'colB'],
-            ['[]-[row1]', None, 'B'],
-            ['[row1]-[]', 'A', None]
+            ['0.row1', 'A', None],
+            ['1.row1', None, 'B']
         ])
 
         res = mldb.query("SELECT * FROM union_ds ORDER BY rowName() LIMIT 1")
         self.assertTableResultEquals(res, [
-            ['_rowName', 'colB'],
-            ['[]-[row1]', 'B']
+            ['_rowName', 'colA'],
+            ['0.row1', 'A']
         ])
 
         res = mldb.query("SELECT * FROM union_ds ORDER BY rowName() OFFSET 1")
         self.assertTableResultEquals(res, [
-            ['_rowName', 'colA'],
-            ['[row1]-[]', 'A']
+            ['_rowName', 'colB'],
+            ['1.row1', 'B']
         ])
 
         mldb.put('/v1/datasets/union_ds2', {
@@ -60,10 +60,10 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             "SELECT colA, colB, colC FROM union_ds2 ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA', 'colB', 'colC'],
-            ['[]-[row1]', 'AA', 'BB', None],
-            ['[]-[row2]', 'A', None, 'C'],
-            ['[row1]-[]', 'AA', 'BB', None],
-            ['[row2]-[]', 'A', None, 'C']
+            ['0.row1', 'AA', 'BB', None],
+            ['0.row2', 'A', None, 'C'],
+            ['1.row1', 'AA', 'BB', None],
+            ['1.row2', 'A', None, 'C']
         ])
 
     def test_query(self):
@@ -71,32 +71,32 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             "SELECT colA, colB FROM union(ds1, ds2) ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA', 'colB'],
-            ['[]-[row1]', None, 'B'],
-            ['[row1]-[]', 'A', None]
+            ['0.row1', 'A', None],
+            ['1.row1', None, 'B']
         ])
 
         res = mldb.query(
             "SELECT * FROM union(ds1, ds2) ORDER BY rowName() LIMIT 1")
         self.assertTableResultEquals(res, [
-            ['_rowName', 'colB'],
-            ['[]-[row1]', 'B']
+            ['_rowName', 'colA'],
+            ['0.row1', 'A']
         ])
 
         res = mldb.query(
             "SELECT * FROM union(ds1, ds2) ORDER BY rowName() OFFSET 1")
         self.assertTableResultEquals(res, [
-            ['_rowName', 'colA'],
-            ['[row1]-[]', 'A']
+            ['_rowName', 'colB'],
+            ['1.row1', 'B']
         ])
 
         res = mldb.query(
             "SELECT colA, colB, colC FROM union(ds3, ds3) ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA', 'colB', 'colC'],
-            ['[]-[row1]', 'AA', 'BB', None],
-            ['[]-[row2]', 'A', None, 'C'],
-            ['[row1]-[]', 'AA', 'BB', None],
-            ['[row2]-[]', 'A', None, 'C']
+            ['0.row1', 'AA', 'BB', None],
+            ['0.row2', 'A', None, 'C'],
+            ['1.row1', 'AA', 'BB', None],
+            ['1.row2', 'A', None, 'C']
         ])
 
     # TODO MLDB-1958
@@ -109,8 +109,8 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         """)
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA', 'colB'],
-            ['[]-[row1]', None, 'B'],
-            ['[row1]-[]', 'A', None]
+            ['0.row1', 'A', None],
+            ['1.row1', None, 'B']
         ])
 
     def test_query_function(self):

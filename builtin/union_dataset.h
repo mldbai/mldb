@@ -37,20 +37,21 @@ struct UnionDataset: public Dataset {
     UnionDataset(MldbServer * owner,
                  std::vector<std::shared_ptr<Dataset> > datasetsToMerge);
 
-    virtual ~UnionDataset();
+    virtual ~UnionDataset() override;
 
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
     virtual void recordRowItl(const RowName & rowName,
-        const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+        const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
     {
         throw ML::Exception("Dataset type doesn't allow recording");
     }
 
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-    virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
 
-    virtual std::pair<Date, Date> getTimestampRange() const;
+    virtual std::pair<Date, Date> getTimestampRange() const override;
+    virtual ExpressionValue getRowExpr(const RowName & rowName) const override;
 
 private:
     UnionDatasetConfig datasetConfig;

@@ -74,12 +74,12 @@ struct UnionDataset::Itl
         /* set where the stream should start*/
         virtual void initAt(size_t start)
         {
-            throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
+            throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
         virtual RowName next()
         {
-            throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
+            throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
             uint64_t hash = (*it).first;
             ++it;
 
@@ -88,7 +88,7 @@ struct UnionDataset::Itl
 
         virtual const RowName & rowName(RowName & storage) const
         {
-            throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
+            throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
             uint64_t hash = (*it).first;
             return storage = source->getRowName(RowHash(hash));
         }
@@ -98,34 +98,16 @@ struct UnionDataset::Itl
 
     };
 
-    pair<string, string> getStrFix(int pos, int length) const
-    {
-        auto fct = [] (int count, bool begin) -> string {
-            if (count == 0) {
-                return begin ? "[" : "]";
-            }
-            string s = "";
-            for (; count > 0; --count) {
-                s += "[]-";
-            }
-            return begin ? s + "[" : "]-" + s.substr(0, s.size() - 1);
-        };
-        return make_pair(fct(pos, true), fct(length - pos - 1, false));
-    }
-
     virtual vector<Path>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        // Row names are []-[]-[]-...[] where the original row name goes into
-        // the [] at the index of the dataset within the union.
-        vector<Path> result;
+        // Row names are idx.rowName where id is the index of the dataset
+        // the union and rowName is the original rowName.
+        vector<RowName> result;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            string prefix;
-            string suffix;
-            tie(prefix, suffix) = getStrFix(i, datasets.size());
             for (const auto & name: d->getMatrixView()->getRowNames()) {
-                result.push_back(Path(prefix + name.toUtf8String().rawString() + suffix));
+                result.push_back(PathElement(i) + name);
             }
 
         }
@@ -136,9 +118,7 @@ struct UnionDataset::Itl
     virtual vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
-        throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
-        vector<RowHash> result;
-        return result;
+        throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
     }
 
     virtual bool knownRow(const Path & rowName) const
@@ -174,41 +154,9 @@ struct UnionDataset::Itl
     // DEPRECATED
     virtual MatrixNamedRow getRow(const RowName & rowName) const
     {
-        string name = rowName.toUtf8String().rawString();
-        for (int i = 0; i < datasets.size(); ++i) {
-            string prefix;
-            string suffix;
-            tie(prefix, suffix) = getStrFix(i, datasets.size());
-            if (name.find(prefix) == 0 && name.rfind(suffix) == name.size() - suffix.size()) {
-                string subRowName = name.substr(prefix.size(), name.size() - prefix.size() - suffix.size());
-                MatrixNamedRow result =
-                    datasets[i]->getMatrixView()->getRow(Path(subRowName));
-                result.rowName = rowName;
-                //result.rowHash = ??; //TODO
-                return result;
-            }
-        }
+        throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         MatrixNamedRow result;
         return result;
-    }
-
-    virtual ExpressionValue getRowExpr(const RowName & rowName) const
-    {
-        throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
-#if 0
-        RowHash rowHash(rowName);
-        int shard = getRowShard(rowHash);
-        auto it = rowIndex[shard].find(rowHash);
-        if (it == rowIndex[shard].end()) {
-            throw HttpReturnException
-                (400, "Row not found in tabular dataset: "
-                 + rowName.toUtf8String(),
-                 "rowName", rowName);
-        }
-
-        return chunks.at(it->second.first)
-            .getRowExpr(it->second.second, fixedColumns);
-#endif
     }
 
     virtual bool knownColumn(const Path & column) const
@@ -250,15 +198,11 @@ struct UnionDataset::Itl
         vector<std::tuple<RowName, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            string prefix;
-            string suffix;
-            tie(prefix, suffix) = getStrFix(i, datasets.size());
             const auto & subCol = d->getColumnIndex()->getColumn(columnName);
             for (const auto & curr: subCol.rows) {
-                result.rows.emplace_back(
-                    Path(prefix + std::get<0>(curr).toUtf8String().rawString() + suffix),
-                    std::get<1>(curr),
-                    std::get<2>(curr));
+                result.rows.emplace_back(PathElement(i) + std::get<0>(curr),
+                                         std::get<1>(curr),
+                                         std::get<2>(curr));
             }
         }
         return result;
@@ -272,12 +216,9 @@ struct UnionDataset::Itl
         vector<std::tuple<RowName, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            string prefix;
-            string suffix;
-            tie(prefix, suffix) = getStrFix(i, datasets.size());
             for (const auto curr: d->getColumnIndex()->getColumnValues(columnName)) {
                 res.emplace_back(
-                    Path(prefix + std::get<0>(curr).toUtf8String().rawString() + suffix),
+                    PathElement(i) + std::get<0>(curr).toUtf8String().rawString(),
                     std::get<1>(curr));
             }
         }
@@ -391,6 +332,22 @@ getRowStream() const
 {
     return make_shared<UnionDataset::Itl::UnionRowStream>(itl.get());
 }
+
+ExpressionValue
+UnionDataset::
+getRowExpr(const RowName & rowName) const
+{
+    if (rowName.size() < 2) {
+        return ExpressionValue{};
+    }
+    int idx = atoi((*(rowName.begin())).toUtf8String().rawString().c_str());
+    if (idx > itl->datasets.size()) {
+        return ExpressionValue{};
+    }
+    return itl->datasets[idx]->getRowExpr(
+        Path(rowName.begin() + 1, rowName.end()));
+}
+
 
 namespace {
 struct AtInit {
