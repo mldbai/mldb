@@ -113,5 +113,21 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             ['[row1]-[]', 'A', None]
         ])
 
+    def test_query_function(self):
+        mldb.put('/v1/functions/union_qry', {
+            'type' : 'sql.query',
+            'params' : {
+                'query' : 'SELECT * FROM union(ds3, ds3) ORDER BY rowName()'
+            }
+        })
+
+        res = mldb.get('/v1/functions/union_qry/application').json()
+        self.assertEqual(res, {
+            'output' : {
+                'colB' : 'BB',
+                'colA' : 'AA'
+            }
+        })
+
 if __name__ == '__main__':
     mldb.run_tests()

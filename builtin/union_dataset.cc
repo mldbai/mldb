@@ -1,7 +1,7 @@
 /**                                                                 -*- C++ -*-
  * union_dataset.cc
  * Mich, 2016-09-14
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
  **/
 #include "union_dataset.h"
 
@@ -79,6 +79,7 @@ struct UnionDataset::Itl
 
         virtual RowName next()
         {
+            throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
             uint64_t hash = (*it).first;
             ++it;
 
@@ -87,6 +88,7 @@ struct UnionDataset::Itl
 
         virtual const RowName & rowName(RowName & storage) const
         {
+            throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
             uint64_t hash = (*it).first;
             return storage = source->getRowName(RowHash(hash));
         }
@@ -130,6 +132,7 @@ struct UnionDataset::Itl
         return result;
     }
 
+    // DEPRECATED
     virtual vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
@@ -168,6 +171,7 @@ struct UnionDataset::Itl
         throw ML::Exception("Row not known");
     }
 
+    // DEPRECATED
     virtual MatrixNamedRow getRow(const RowName & rowName) const
     {
         string name = rowName.toUtf8String().rawString();
@@ -186,6 +190,25 @@ struct UnionDataset::Itl
         }
         MatrixNamedRow result;
         return result;
+    }
+
+    virtual ExpressionValue getRowExpr(const RowName & rowName) const
+    {
+        throw ML::Exception("Unimplemented __FILE__ : __LINE__ ");
+#if 0
+        RowHash rowHash(rowName);
+        int shard = getRowShard(rowHash);
+        auto it = rowIndex[shard].find(rowHash);
+        if (it == rowIndex[shard].end()) {
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset: "
+                 + rowName.toUtf8String(),
+                 "rowName", rowName);
+        }
+
+        return chunks.at(it->second.first)
+            .getRowExpr(it->second.second, fixedColumns);
+#endif
     }
 
     virtual bool knownColumn(const Path & column) const
@@ -362,7 +385,7 @@ getColumnIndex() const
     return itl;
 }
 
-std::shared_ptr<RowStream> 
+std::shared_ptr<RowStream>
 UnionDataset::
 getRowStream() const
 {
