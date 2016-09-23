@@ -1,6 +1,6 @@
 # Union Dataset
 
-The union dataset allows for rows from multiple datasets to be concatenated
+The union dataset allows for rows from multiple datasets to be appended
 into a single dataset. Columns that match up between the datasets will be
 combined together. Row names are altered to reflect the dataset they came
 from and avoid having them merged together.
@@ -21,7 +21,7 @@ large datasets together.
 Creating a union dataset is equivalent to the following SQL:
 
 ```sql
-SELECT * FROM (SELECT * FROM ds1 ) AS s1 OUTER JOIN (SELECT * FROM ds2) AS s2
+SELECT * FROM (SELECT * FROM ds1 ) AS s1 OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
 ```
 
 ## Configuration
