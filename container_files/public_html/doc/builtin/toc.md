@@ -14,7 +14,7 @@ ul {
 
 <base target="rh">
 <div align="center">
-<a href="{{HTTP_BASE_URL}}/" target="_top"><img src="{{HTTP_BASE_URL}}/resources/images/mldb_ipython_logo.png" alt="MLDB Logo" /></a>
+<a href="{{HTTP_BASE_URL}}/" target="_top"><img src="{{HTTP_BASE_URL}}/resources/images/mldb_ipython_logo.png" alt="MLDB Logo" /></a><br>
 <span id="version" style="font-size: 12px;"></span>
 </div>
 
