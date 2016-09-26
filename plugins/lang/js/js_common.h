@@ -152,6 +152,7 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Path;
     v8::Persistent<v8::FunctionTemplate> Dataset;
     v8::Persistent<v8::FunctionTemplate> Function;
+    v8::Persistent<v8::FunctionTemplate> Sensor;
     v8::Persistent<v8::FunctionTemplate> Procedure;
     v8::Persistent<v8::FunctionTemplate> RandomNumberGenerator;
 };

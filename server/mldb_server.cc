@@ -27,6 +27,7 @@
 #include "mldb/server/plugin_collection.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
+#include "mldb/server/sensor_collection.h"
 #include "mldb/server/credential_collection.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/fs_utils.h"

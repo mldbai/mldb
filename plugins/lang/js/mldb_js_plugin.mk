@@ -39,7 +39,7 @@ JS_PLUGIN_SOURCE := \
 	function_js.cc \
 	procedure_js.cc \
 	mldb_js.cc \
-
+	sensor_js.cc \
 
 $(eval $(call set_compile_option,$(JS_PLUGIN_SOURCE),-Imldb/ext/v8-cross-build-output/include))
 

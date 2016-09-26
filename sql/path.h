@@ -12,6 +12,7 @@
 #include "mldb/utils/compact_vector.h"
 #include <vector>
 #include <cstring>
+#include <iostream>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -22,6 +23,7 @@
 namespace MLDB {
 
 struct Path;
+std::ostream & operator << (std::ostream & stream, const Path & id);
 
 /*****************************************************************************/
 /* PATH ELEMENT                                                              */
