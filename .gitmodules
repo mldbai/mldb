@@ -55,3 +55,6 @@
 [submodule "ext/giflib"]
 	path = ext/giflib
 	url = https://github.com/mldbai/giflib.git
+[submodule "html/ext/libhubbub"]
+	path = html/ext/libhubbub
+	url = git@github.com:mldbai/libhubbub.git
