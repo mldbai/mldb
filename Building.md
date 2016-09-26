@@ -38,8 +38,18 @@ apt-get install -y \
   valgrind \
   uuid-dev \
   libxml++2.6-dev \
-  libsnappy-dev
+  libsnappy-dev \
+  libavcodec-dev \
+  libavutil-dev \
+  libavformat-dev \
+  libavdevice-dev \
+  
 ```
+
+(The last three are for the av plugin, which will be moved to a separate plugin
+eventually).
+
+
 ## Installing Docker
 
 To build and run the Docker image, you will need to install Docker: https://docs.docker.com/engine/installation/ubuntulinux/

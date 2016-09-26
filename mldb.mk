@@ -24,7 +24,7 @@ MLDB_SUBDIRS := \
 	tensorflow \
 	postgresql \
 	mongodb \
-	video \
+	av \
 	html \
 	testing
 

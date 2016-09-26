@@ -1,0 +1,12 @@
+{
+    "config": {
+        "type": "sharedLibrary",
+        "id": "av",
+        "params": {
+            "library": "lib/libmldb_av_plugin.so",
+            "doc": "doc",
+            "version": "0.9",
+            "apiVersion": "1.0.0"
+        }
+    }
+}

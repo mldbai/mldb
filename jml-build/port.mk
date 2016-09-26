@@ -35,7 +35,7 @@ PORT_ALL_DEPS5:=$(filter-out $(PORT_BLACKOUT_PACKAGES_$(port)),$(sort $(PORT_ALL
 $(foreach package,$(PORT_ALL_DEPS5),$(eval $(call do_port_dev_package,$(package))))
 
 
-PORT_DEPS4:=$(foreach package,$(PORT_ALL_DEPS_COMPUTED) $(PORT_DEV_PACKAGES_$(port)),$(BUILD)/$(ARCH)/osdeps/tmp/installed-$(package))
+PORT_DEPS4:=$(foreach package,$(PORT_ALL_DEPS_COMPUTED),$(BUILD)/$(ARCH)/osdeps/tmp/installed-$(package))
 
 port_deps: $(PORT_DEPS4)
 

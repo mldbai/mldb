@@ -13,9 +13,11 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
+#include "mldb/core/sensor.h"
 #include "mldb/base/optimized_path.h"
 #include "procedure_js.h"
 #include "function_js.h"
+#include "sensor_js.h"
 #include "dataset_js.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/sql/sql_utils.h"
@@ -667,6 +669,35 @@ struct MldbJS::Methods {
     }
 
     static void
+    createSensor(const v8::FunctionCallbackInfo<v8::Value> & args)
+    {
+        v8::Isolate* isolate = args.GetIsolate();
+        try {
+            JsPluginContext * context = MldbJS::getContext(args.This());
+            MldbServer * server = MldbJS::getShared(args.This());
+            Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
+            PolyConfig config = jsonDecode<PolyConfig>(configJson);
+
+            auto sensor = obtainSensor(server, config);
+
+            // We may have changed config (id, params, etc).  Modify the
+            // input argument to reflect these changes
+
+            auto & configOut = sensor->getConfig();
+
+            auto objectIn = JS::toObject(args[0]);
+
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
+            Json::Value paramsOut = jsonEncode(configOut.params);
+            if (paramsOut != configJson["params"]) {
+                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
+            }
+
+            args.GetReturnValue().Set(SensorJS::create(sensor, context));
+        } HANDLE_JS_EXCEPTIONS(args);
+    }
+
+    static void
     createProcedure(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         v8::Isolate* isolate = args.GetIsolate();
@@ -1166,6 +1197,8 @@ registerMe()
                 FunctionTemplate::New(isolate, Methods::createDataset));
     result->Set(String::NewFromUtf8(isolate, "createFunction"),
                 FunctionTemplate::New(isolate, Methods::createFunction));
+    result->Set(String::NewFromUtf8(isolate, "createSensor"),
+                FunctionTemplate::New(isolate, Methods::createSensor));
     result->Set(String::NewFromUtf8(isolate, "createProcedure"),
                 FunctionTemplate::New(isolate, Methods::createProcedure));
     result->Set(String::NewFromUtf8(isolate, "createInterval"),

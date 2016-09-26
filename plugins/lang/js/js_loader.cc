@@ -24,6 +24,7 @@
 #include "dataset_js.h"
 #include "function_js.h"
 #include "procedure_js.h"
+#include "sensor_js.h"
 #include "mldb/ext/v8-cross-build-output/include/v8.h"
 
 #include "mldb/types/string.h"
@@ -406,6 +407,7 @@ JsPluginContext(const Utf8String & pluginName,
     Stream.Reset(this->isolate.isolate, StreamJS::registerMe());
     Dataset.Reset(this->isolate.isolate, DatasetJS::registerMe());
     Function.Reset(this->isolate.isolate, FunctionJS::registerMe());
+    Sensor.Reset(this->isolate.isolate, SensorJS::registerMe());
     Procedure.Reset(this->isolate.isolate, ProcedureJS::registerMe());
     CellValue.Reset(this->isolate.isolate, CellValueJS::registerMe());
     RandomNumberGenerator.Reset(this->isolate.isolate,

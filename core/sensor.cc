@@ -13,8 +13,9 @@
 #include "mldb/server/static_content_handler.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/sql/expression_value.h"
+#include "mldb/sql/builtin_functions.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -54,7 +55,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Sensor of type '" + ML::type_name(*this)
+    error["error"] = "Sensor of type '" + type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
@@ -80,5 +81,31 @@ handleStaticRoute(RestConnection & connection,
     return RestRequestRouter::MR_NO;
 }
 
+BoundFunction readSensorFunction(const Utf8String & fnName,
+                                 const std::vector<BoundSqlExpression> & args,
+                                 SqlBindingScope & context)
+{
+    checkArgsSize(args.size(), 1, "read_sensor");
+
+    Utf8String sensorId = args[0].constantValue().toUtf8String();
+    
+    PolyConfig config;
+    config.id = sensorId;
+
+    std::shared_ptr<Sensor> sensor
+        = obtainSensor(context.getMldbServer(),
+                       config);
+                       
+    auto exec = [=] (const std::vector<ExpressionValue> & input,
+                     const SqlRowScope & context)
+        {
+            return sensor->latest();
+        };
+    
+    return BoundFunction(exec, sensor->resultInfo());
+}
+
+static RegisterFunction registerReadSensor("read_sensor", readSensorFunction);
+
+
 } // namespace MLDB
-} // namespace Datacratic
