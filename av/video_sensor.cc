@@ -31,6 +31,7 @@ extern "C" {
 
 }
 
+
 static AVFormatContext *fmt_ctx = NULL;
 static AVCodecContext *video_dec_ctx = NULL;
 static AVStream *video_stream = NULL;
@@ -156,7 +157,7 @@ int main (int argc, char **argv)
         exit(1);
     }
     src_filename = "/dev/video0"; //argv[1];
-    video_dst_filename = "/dev/stdout";  //argv[2];
+    video_dst_filename = "video.raw";  //argv[2];
 
     // register all formats and codecs
     av_register_all();
@@ -183,7 +184,7 @@ int main (int argc, char **argv)
     // This will not work if the camera does not support h264. In that case
     // remove this line. I wrote this for Raspberry Pi where the camera driver
     // can stream h264.
-    av_dict_set(&options, "input_format", "h264", 0);
+    //av_dict_set(&options, "input_format", "h264", 0);
     av_dict_set(&options, "video_size", "320x224", 0);
 
     // open input file, and allocate format context
@@ -255,7 +256,7 @@ int main (int argc, char **argv)
     }
 
     // read frames from the file
-    while (1) {
+    for (size_t i = 0;  i < 100;  ++i) {
         AVPacket orig_pkt;
 
         ret = av_read_frame(fmt_ctx, &pkt);

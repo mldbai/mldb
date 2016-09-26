@@ -27,6 +27,8 @@ namespace MLDB {
 
 struct MldbServer;
 struct Sensor;
+struct ExpressionValue;
+struct ExpressionValueInfo;
 
 typedef EntityType<Sensor> SensorType;
 
@@ -50,6 +52,17 @@ struct Sensor: MldbEntity {
     virtual Any getStatus() const;
     
     virtual Any getVersion() const;
+
+    /** Return the latest value (and the timestamp at which it was read)
+        for the sensor.  This is non-const but must be thread safe.
+    */
+    virtual ExpressionValue latest() = 0;
+
+    /** Return the ExpressionValueInfo for the result of calling
+        latest().
+    */
+    virtual std::shared_ptr<ExpressionValueInfo>
+    resultInfo() const = 0;
 
     /** Method to overwrite to handle a request.  By default, the sensor
         will return that it can't handle any requests.
@@ -125,7 +138,9 @@ registerSensorType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
-             return new SensorT(SensorT::getOwner(server), config, onProgress);
+             auto res = new SensorT(SensorT::getOwner(server), config, onProgress);
+             res->logger = getMldbLog<SensorT>();
+             return res;
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
