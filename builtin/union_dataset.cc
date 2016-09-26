@@ -10,7 +10,6 @@
 
 #include "mldb/builtin/id_hash.h"
 #include "mldb/builtin/merge_hash_entries.h"
-#include "mldb/ext/cityhash/src/city.h" // Google city hash function
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
@@ -53,7 +52,7 @@ std::shared_ptr<Dataset> createUnionDataset(
 struct UnionDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    IdHashes rowIndex;
+    map<RowHash, pair<int, RowHash> > rowIndex;
 
     // Datasets that it was constructed with
     vector<std::shared_ptr<Dataset> > datasets;
@@ -69,10 +68,8 @@ struct UnionDataset::Itl
         }
         for (int i = 0; i < datasets.size(); ++i) {
             for (const auto & rowName: datasets[i]->getMatrixView()->getRowNames()) {
-                uint64_t first = RowHash(rowName);
-                uint32_t second = (first >> (64 - indexWidth)) + (1 << 31);
-                first = (first << indexWidth) + i;
-                rowIndex.insert(make_pair(first, second));
+                rowIndex[RowHash(PathElement(i) + rowName)] =
+                    make_pair(i, RowHash(rowName));
             }
         }
     }
@@ -161,26 +158,9 @@ struct UnionDataset::Itl
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
         std::vector<RowHash> result;
-
-        size_t index = 0;
-        auto onRow = [&] (uint64_t hash, uint32_t bitmap) {
-            if (index < start) {
-                ++index;
-                return true;
-            }
-
-            if (limit != -1 && result.size() >= index) {
-                return false;
-            }
-
-            RowHash rowHash(hash);
-            result.push_back(rowHash);
-
-            return true;
-        };
-
-        rowIndex.forEach(onRow);
-
+        for (const auto & it: rowIndex) {
+            result.emplace_back(it.first);
+        }
         return result;
     }
 
@@ -196,22 +176,18 @@ struct UnionDataset::Itl
 
     virtual bool knownRowHash(const RowHash & rowHash) const
     {
-        return rowIndex.getDefault(rowHash, 0) != 0;
+        return rowIndex.find(rowHash) != rowIndex.end();
+        //return rowIndex.getDefault(rowHash, 0) != 0;
     }
 
     virtual RowName getRowName(const RowHash & rowHash) const
     {
-        uint64_t second = rowIndex.getDefault(rowHash, 0);
-        if (second == 0) {
+        const auto & it = rowIndex.find(rowHash);
+        if (it == rowIndex.end()) {
             throw ML::Exception("Row not known");
         }
-        uint64_t first = rowHash;
-        second = second - (1 << 31);
-        int indexWidth = getIndexBinaryWidth();
-        int index = first % static_cast<int>((pow(2, indexWidth)));
-        first = (first >> indexWidth) + (second << (64 - indexWidth));
-        return PathElement(index) +
-            datasets[index]->getMatrixView()->getRowName(RowHash(first));
+        const auto & idxAndHash = it->second;
+        return datasets[idxAndHash.first]->getMatrixView()->getRowName(idxAndHash.second);
     }
 
     // DEPRECATED
