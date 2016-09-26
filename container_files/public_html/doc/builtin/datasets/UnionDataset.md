@@ -9,13 +9,12 @@ For example, the row names of to unified datasets will have the following
 format.
 
 ```
-[dataset 1 row name]-[]
+0.dataset index 0 row name
 ...
-[]-[dataset 2 row name]
+n.dataset index n row name
 ```
 
-The union is done on the fly (only an index is created of rows and columns
-in the union dataset), which means it is relatively rapid to unify even
+The union is done on the fly which means it is relatively rapid to unify even
 large datasets together.
 
 Creating a union dataset is equivalent to the following SQL:

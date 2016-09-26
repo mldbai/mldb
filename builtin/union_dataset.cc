@@ -6,9 +6,11 @@
 #include "union_dataset.h"
 
 #include <thread>
+#include <math.h>
 
 #include "mldb/builtin/id_hash.h"
 #include "mldb/builtin/merge_hash_entries.h"
+#include "mldb/ext/cityhash/src/city.h" // Google city hash function
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
@@ -42,13 +44,16 @@ regUnion(builtinPackage(),
 
 extern std::shared_ptr<Dataset> (*createUnionDatasetFn) (MldbServer *, vector<std::shared_ptr<Dataset> > datasets);
 
-std::shared_ptr<Dataset> createUnionDataset(MldbServer * server, vector<std::shared_ptr<Dataset> > datasets)
+std::shared_ptr<Dataset> createUnionDataset(
+    MldbServer * server, vector<std::shared_ptr<Dataset> > datasets)
 {
     return std::make_shared<UnionDataset>(server, datasets);
 }
 
 struct UnionDataset::Itl
     : public MatrixView, public ColumnIndex {
+
+    IdHashes rowIndex;
 
     // Datasets that it was constructed with
     vector<std::shared_ptr<Dataset> > datasets;
@@ -58,12 +63,47 @@ struct UnionDataset::Itl
             throw ML::Exception("Attempt to unify no datasets together");
         }
         this->datasets = datasets;
+        int indexWidth = getIndexBinaryWidth();
+        if (indexWidth > 31) {
+            throw ML::Exception("Too many datasets in the union");
+        }
+        for (int i = 0; i < datasets.size(); ++i) {
+            for (const auto & rowName: datasets[i]->getMatrixView()->getRowNames()) {
+                uint64_t first = RowHash(rowName);
+                uint32_t second = (first >> (64 - indexWidth)) + (1 << 31);
+                first = (first << indexWidth) + i;
+                rowIndex.insert(make_pair(first, second));
+            }
+        }
+    }
+
+    int getIndexBinaryWidth() const {
+        return ceil(log(datasets.size()) / log(2));
+    }
+
+    int getIdxFromRowName(const RowName & rowName) const {
+        // Returns idx > -1 if the index is valid, -1 otherwise
+        if (rowName.size() < 2) {
+            return false;
+        }
+        string idxStr = (*(rowName.begin())).toUtf8String().rawString();
+        int idx = atoi(idxStr.c_str());
+        if (idx == 0 && idxStr != "0") {
+            // atoi returns 0 on error, make sure it's a real 0
+            return -1;
+        }
+        if (idx > datasets.size()) {
+            return -1;
+        }
+        return idx;
     }
 
     struct UnionRowStream : public RowStream {
 
         UnionRowStream(const UnionDataset::Itl* source) : source(source)
         {
+            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
+            //throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
         virtual std::shared_ptr<RowStream> clone() const
@@ -74,11 +114,13 @@ struct UnionDataset::Itl
         /* set where the stream should start*/
         virtual void initAt(size_t start)
         {
-            throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
+            //throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
         virtual RowName next()
         {
+            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
             throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
             uint64_t hash = (*it).first;
             ++it;
@@ -88,6 +130,7 @@ struct UnionDataset::Itl
 
         virtual const RowName & rowName(RowName & storage) const
         {
+            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
             throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
             uint64_t hash = (*it).first;
             return storage = source->getRowName(RowHash(hash));
@@ -101,59 +144,80 @@ struct UnionDataset::Itl
     virtual vector<Path>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        // Row names are idx.rowName where id is the index of the dataset
-        // the union and rowName is the original rowName.
+        // Row names are idx.rowName where idx is the index of the dataset
+        // in the union and rowName is the original rowName.
         vector<RowName> result;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
             for (const auto & name: d->getMatrixView()->getRowNames()) {
-                result.push_back(PathElement(i) + name);
+                result.emplace_back(PathElement(i) + name);
             }
 
         }
         return result;
     }
 
-    // DEPRECATED
     virtual vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
-        throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+        std::vector<RowHash> result;
+
+        size_t index = 0;
+        auto onRow = [&] (uint64_t hash, uint32_t bitmap) {
+            if (index < start) {
+                ++index;
+                return true;
+            }
+
+            if (limit != -1 && result.size() >= index) {
+                return false;
+            }
+
+            RowHash rowHash(hash);
+            result.push_back(rowHash);
+
+            return true;
+        };
+
+        rowIndex.forEach(onRow);
+
+        return result;
     }
 
     virtual bool knownRow(const Path & rowName) const
     {
-        for (const auto & curr: getRowNames()) {
-            if (rowName == curr) {
-                return true;
-            }
+        int idx = getIdxFromRowName(rowName);
+        if (idx == -1) {
+            return false;
         }
-        return false;
+        return datasets[idx]->getMatrixView()->knownRow(
+            Path(rowName.begin() + 1, rowName.end()));
     }
 
     virtual bool knownRowHash(const RowHash & rowHash) const
     {
-        for (const auto & curr: getRowNames()) {
-            if (rowHash == curr.hash()) {
-                return true;
-            }
-        }
-        return false;
+        return rowIndex.getDefault(rowHash, 0) != 0;
     }
 
     virtual RowName getRowName(const RowHash & rowHash) const
     {
-        for (const auto & curr: getRowNames()) {
-            if (rowHash == curr.hash()) {
-                return curr;
-            }
+        uint64_t second = rowIndex.getDefault(rowHash, 0);
+        if (second == 0) {
+            throw ML::Exception("Row not known");
         }
-        throw ML::Exception("Row not known");
+        uint64_t first = rowHash;
+        second = second - (1 << 31);
+        int indexWidth = getIndexBinaryWidth();
+        int index = first % static_cast<int>((pow(2, indexWidth)));
+        first = (first >> indexWidth) + (second << (64 - indexWidth));
+        return PathElement(index) +
+            datasets[index]->getMatrixView()->getRowName(RowHash(first));
     }
 
     // DEPRECATED
     virtual MatrixNamedRow getRow(const RowName & rowName) const
     {
+        cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
         throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         MatrixNamedRow result;
         return result;
@@ -161,8 +225,8 @@ struct UnionDataset::Itl
 
     virtual bool knownColumn(const Path & column) const
     {
-        for (const auto & curr: getColumnNames()) {
-            if (curr == column) {
+        for (const auto & d: datasets) {
+            if (d->getMatrixView()->knownColumn(column)) {
                 return true;
             }
         }
@@ -171,6 +235,7 @@ struct UnionDataset::Itl
 
     virtual ColumnName getColumnName(ColumnHash columnHash) const
     {
+        cerr << "SLOW " << __FILE__ << ":" << __LINE__ << endl;
         for (const auto & curr: getColumnNames()) {
             if (columnHash == curr.hash()) {
                 return curr;
@@ -194,7 +259,7 @@ struct UnionDataset::Itl
     {
         MatrixColumn result;
         result.columnName = columnName;
-        //result.columnHash = columnName.hash(); //TODO
+        result.columnHash = columnName;
         vector<std::tuple<RowName, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
@@ -337,11 +402,8 @@ ExpressionValue
 UnionDataset::
 getRowExpr(const RowName & rowName) const
 {
-    if (rowName.size() < 2) {
-        return ExpressionValue{};
-    }
-    int idx = atoi((*(rowName.begin())).toUtf8String().rawString().c_str());
-    if (idx > itl->datasets.size()) {
+    int idx = itl->getIdxFromRowName(rowName);
+    if (idx == -1) {
         return ExpressionValue{};
     }
     return itl->datasets[idx]->getRowExpr(

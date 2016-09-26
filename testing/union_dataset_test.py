@@ -102,6 +102,7 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
     # TODO MLDB-1958
     @unittest.expectedFailure
     def test_equivalent_query(self):
+        raise Exception('coco')
         res = mldb.query("""
             SELECT * FROM (SELECT * FROM ds1 ) AS s1
             OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
@@ -128,6 +129,23 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
                 'colA' : 'AA'
             }
         })
+
+    @unittest.expectedFailure
+    def test_merge_over_union(self):
+        res = mldb.query("""
+            SELECT * FROM merge(union(ds1, ds2), ds3)
+            ORDER BY rowName()
+        """)
+
+    def test_invalid_where(self):
+        res = mldb.query("SELECT * FROM union(ds1, ds2) WHERE foo='bar'")
+        self.assertEqual(len(res), 1)
+
+    def test_where_index_out_of_range(self):
+        res = mldb.query(
+            "SELECT * FROM union(ds1, ds2) WHERE rowName() = '12.row1'")
+
+    # TEST WHERE pas rapport et idx out of range
 
 if __name__ == '__main__':
     mldb.run_tests()
