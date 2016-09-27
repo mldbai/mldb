@@ -22,6 +22,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/server/static_content_macro.h"
+#include "mldb/sql/builtin_functions.h"
 
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
@@ -336,7 +337,6 @@ struct TensorflowGraphBase: public Function {
 
         // These nodes have constants which we shouldn't need to spend
         // time running one after the other
-        std::map<std::string, Tensor> constants;
 
         size_t constantTotalBytes = 0;
 
@@ -480,7 +480,7 @@ struct TensorflowGraphBase: public Function {
     std::unique_ptr<tensorflow::GraphDef> graph;
 
     /// Timestamp at which the model was created
-    Date modelTs;
+    Date modelTs = Date::notADate();
 
     struct DeviceSession {
         DeviceSession(std::string device,
@@ -499,7 +499,8 @@ struct TensorflowGraphBase: public Function {
         int numQueued;
     };
 
-    std::vector<std::pair<std::string, tensorflow::Tensor> > constants;
+    //std::vector<std::pair<std::string, tensorflow::Tensor> > constants;
+    std::map<std::string, tensorflow::Tensor> constants;  // const once constructed
 
     mutable std::vector<DeviceSession> sessions;  // mutable for numQueued
 
@@ -2077,6 +2078,69 @@ struct TensorflowPlugin: public Plugin {
 };
 
 
+// tf_node function
+
+BoundFunction
+tf_extract_constant (const Utf8String &functionName,
+                     const std::vector<BoundSqlExpression> & args,
+                     SqlBindingScope & context)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 2);
+
+    MldbServer * server = context.getMldbServer();
+
+    auto exec = [=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+        -> ExpressionValue
+        {
+            checkArgsSize(args.size(), 2);
+            Utf8String graphName = args[0].toUtf8String();
+            PolyConfig pconfig;
+            pconfig.id = graphName;
+            auto graph = std::dynamic_pointer_cast<TensorflowGraphBase>
+                (obtainFunction(server, pconfig));
+
+            if (!graph) {
+                throw HttpReturnException
+                    (404, "No TensorFlow graph with name found");
+            }
+
+            Path path = args[1].coerceToPath();
+
+            std::string key;
+            for (PathElement p: path) {
+                if (!key.empty())
+                    key += '/';
+                key += p.toUtf8String().extractAscii();
+            }
+
+            auto it = graph->constants.find(key);
+
+            if (it == graph->constants.end()) {
+                size_t n = 0;
+                for (auto & c: graph->constants) {
+                    cerr << "constant " << c.first << endl;
+                    if (n++ > 100)
+                        break;
+                }
+
+                throw HttpReturnException(500, "Constant " + path.toUtf8String() + " not found (path is " + key + ")");
+            }
+
+            auto result = TensorflowGraphBase::tensorToValue
+            (it->second, graph->modelTs);
+
+            return result;
+        };
+
+    return {
+        exec,
+        std::make_shared<EmbeddingValueInfo>()
+    };
+}
+
+static RegisterFunction registerTfExtractConstant("tf_extract_constant", tf_extract_constant);
 
 } // namespace MLDB
 
