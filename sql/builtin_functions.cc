@@ -2495,6 +2495,82 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerLength(length, "length");
 
+static char32_t getChar32(const string & in, int & idx) {
+    unsigned char c = in[idx];
+    if ((c & 0x80) == 0) {
+        return c;
+    }
+
+    // unicode
+    int remaining;
+    if ((c & 0xE0) == 0xC0) {
+        remaining = 1;
+    }
+    else if ((c & 0xF0) == 0xE0) {
+        remaining = 2;
+    }
+    else if ((c & 0xF8) == 0xF0) {
+        remaining = 3;
+    }
+    else {
+        throw std::runtime_error(
+            "Invalid UTF-8 character sequence encountered in buffer at index "
+            + to_string(idx));
+    }
+
+    char32_t res = static_cast<char32_t>(c << 8 * remaining);
+    for (; remaining > 0; --remaining) {
+        ++idx;
+        c = in[idx];
+        if ((c & 0xC0) != 0x80) {
+            throw std::runtime_error(
+                "Invalid UTF-8 character sequence encountered in buffer at index "
+                + to_string(idx));
+        }
+        res |= static_cast<char32_t>(c << 8 * (remaining - 1));
+    }
+    return res;
+};
+
+int levenshteinDistanceImpl(const string & s1, const string & s2)
+{
+    // source: https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance
+    auto s1len = s1.size();
+    auto s2len = s2.size();
+
+    constexpr char32_t columnStart = 1;
+
+    vector<char32_t> column(s1len + 1);
+    std::iota(column.begin(), column.end(), 0);
+    int utf8Factor = 0;
+    int diagonalUtf8Factor = 0;
+
+    for (int x = 0; x < s2len; ++x) {
+        column[0] = x + columnStart;
+        int prevX = x;
+        char32_t s2Char = getChar32(s2, x);
+        diagonalUtf8Factor += x - prevX;
+        char32_t lastDiagonal = x - diagonalUtf8Factor;
+        utf8Factor = 0;
+        for (int y = 0; y < s1len; ++y) {
+            auto oldDiagonal = column[y + columnStart - utf8Factor];
+            int prevY = y;
+            char32_t s1Char = getChar32(s1, y);
+            utf8Factor += y - prevY;
+            auto possibilities = {
+                column[y + columnStart - utf8Factor] + 1,
+                column[y - utf8Factor] + 1,
+                lastDiagonal + (s1Char == s2Char ? 0 : 1)
+            };
+            column[y + columnStart - utf8Factor] = std::min(possibilities);
+            lastDiagonal = oldDiagonal;
+        }
+    }
+
+    auto result = column[s1len - utf8Factor];
+    return result;
+}
+
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 2);
@@ -2524,18 +2600,7 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                     return ExpressionValue(bestScore,
                                            args[0].getEffectiveTimestamp());
 
-                auto conf = edlibDefaultAlignConfig();
-                conf.k = maxSize;
-
-                EdlibAlignResult alignRes = 
-                    edlibAlign(query.c_str(), query.size(),
-                               target.c_str(), target.size(), conf);
-
-                bestScore = alignRes.editDistance;
-                edlibFreeAlignResult(alignRes);
-
-                if(bestScore == -1)
-                    throw ML::Exception("Error computing Levenshtein distance");
+                bestScore = levenshteinDistanceImpl(query, target);
 
                 return ExpressionValue(bestScore,
                                        args[0].getEffectiveTimestamp());
