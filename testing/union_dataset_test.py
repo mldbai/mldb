@@ -130,7 +130,6 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             }
         })
 
-    @unittest.expectedFailure
     def test_merge_over_union(self):
         res = mldb.query("""
             SELECT * FROM merge(union(ds1, ds2), ds3)

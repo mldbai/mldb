@@ -52,7 +52,7 @@ std::shared_ptr<Dataset> createUnionDataset(
 struct UnionDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    map<RowHash, pair<int, RowHash> > rowIndex;
+    ML::Lightweight_Hash<RowHash, pair<int, RowHash> > rowIndex;
 
     // Datasets that it was constructed with
     vector<std::shared_ptr<Dataset> > datasets;
@@ -176,6 +176,7 @@ struct UnionDataset::Itl
 
     virtual bool knownRowHash(const RowHash & rowHash) const
     {
+        // Unused ?
         return rowIndex.find(rowHash) != rowIndex.end();
         //return rowIndex.getDefault(rowHash, 0) != 0;
     }
@@ -193,10 +194,7 @@ struct UnionDataset::Itl
     // DEPRECATED
     virtual MatrixNamedRow getRow(const RowName & rowName) const
     {
-        cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
         throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
-        MatrixNamedRow result;
-        return result;
     }
 
     virtual bool knownColumn(const Path & column) const
