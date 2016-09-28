@@ -404,6 +404,9 @@ struct JoinedDataset::Itl
                         sideWhere = side.where;
                     }
                     else {
+                        // The constant part is false, hereby the original
+                        // sideWhere is irrelevant and should be evaluated to
+                        // false.
                         sideWhere = condition.constantWhere;
                     }
 

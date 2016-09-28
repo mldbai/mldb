@@ -2125,5 +2125,12 @@ class JoinTest(MldbUnitTest):
         """)
         self.assertTableResultEquals(res, expected)
 
+        res = mldb.query("""
+            SELECT * FROM (SELECT * FROM ds1) AS s1
+            OUTER JOIN (SELECT * FROM ds2) AS s2 ON s1.rowName() = 'wwwwwwwww'
+            AND s2.rowName() = 'wwwwwwwww'
+        """)
+        self.assertTableResultEquals(res, expected)
+
 
 mldb.run_tests()
