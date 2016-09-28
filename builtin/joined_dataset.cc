@@ -220,12 +220,13 @@ struct JoinedDataset::Itl
             cerr << "Analyzed join condition: " << jsonEncode(condition) << endl;
 
         // Run the constant expression
-        ExpressionValue k = condition.constantWhere->constantValue();
-        if (!k.isTrue())
+        if (!condition.constantWhere->constantValue().isTrue()
+            && qualification == JoinQualification::JOIN_INNER)
+        {
             return;
+        }
 
         if (!condition.crossWhere || condition.crossWhere->isConstant()) {
-
             if (condition.crossWhere
                 && !condition.crossWhere->constantValue().isTrue())
                 return;
@@ -398,12 +399,20 @@ struct JoinedDataset::Itl
                     //return all rows
                     sideCondition = SqlExpression::TRUE;
 
+                    shared_ptr<SqlExpression> sideWhere;
+                    if (condition.constantWhere->constantValue().isTrue()) {
+                        sideWhere = side.where;
+                    }
+                    else {
+                        sideWhere = condition.constantWhere;
+                    }
+
                     //but evaluate if the row is valid to join with the other side
                     auto notnullExpr = std::make_shared<IsTypeExpression>
-                        (side.where, true, "null");
+                        (sideWhere, true, "null");
                     auto complementExpr
                         = std::make_shared<BooleanOperatorExpression>
-                        (BooleanOperatorExpression(side.where, notnullExpr, "AND"));
+                        (BooleanOperatorExpression(sideWhere, notnullExpr, "AND"));
 
                     clauses.push_back(complementExpr);
                 }
