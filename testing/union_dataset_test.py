@@ -133,6 +133,13 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             SELECT * FROM merge(union(ds1, ds2), ds3)
             ORDER BY rowName()
         """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "colA", "colB", "colC"],
+            ["row1", "AA", "BB", None],
+            ["row1", "AA", "BB", None],
+            ["row1", "AA", "BB", None],
+            ["row2", "A", None, "C"]
+        ])
 
     def test_invalid_where(self):
         res = mldb.query("SELECT * FROM union(ds1, ds2) WHERE foo='bar'")
@@ -142,6 +149,16 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         res = mldb.query(
             "SELECT * FROM union(ds1, ds2) WHERE rowName() = '12.row1'")
         self.assertEqual(len(res), 1)
+
+    def test_group_by(self):
+        res = mldb.query("""
+            SELECT colA FROM union(ds1, ds2) WHERE true GROUP BY colA
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "colA"],
+            ["[null]", None],
+            ["\"[\"\"A\"\"]\"", "A"]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()
