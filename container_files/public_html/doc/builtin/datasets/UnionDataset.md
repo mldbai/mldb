@@ -17,10 +17,13 @@ n.dataset index n row name
 The union is done on the fly which means it is relatively rapid to unify even
 large datasets together.
 
-Creating a union dataset is equivalent to the following SQL:
+Aside from the resulting row names, creating a union dataset is equivalent to
+the following SQL:
 
 ```sql
-SELECT * FROM (SELECT * FROM ds1 ) AS s1 OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
+SELECT s1.* AS *, s2.* AS *
+FROM (SELECT * FROM ds1 ) AS s1
+OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
 ```
 
 ## Configuration

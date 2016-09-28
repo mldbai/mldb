@@ -99,19 +99,17 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             ['1.row2', 'A', None, 'C']
         ])
 
-    # TODO MLDB-1958
-    @unittest.expectedFailure
     def test_equivalent_query(self):
-        raise Exception('coco')
         res = mldb.query("""
-            SELECT * FROM (SELECT * FROM ds1 ) AS s1
+            SELECT s1.* AS *, s2.* AS *
+            FROM (SELECT * FROM ds1 ) AS s1
             OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
             ORDER BY rowName()
         """)
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA', 'colB'],
-            ['0.row1', 'A', None],
-            ['1.row1', None, 'B']
+            ['[]-[row1]', None, 'B'],
+            ['[row1]-[]', 'A', None]
         ])
 
     def test_query_function(self):
@@ -143,8 +141,7 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
     def test_where_index_out_of_range(self):
         res = mldb.query(
             "SELECT * FROM union(ds1, ds2) WHERE rowName() = '12.row1'")
-
-    # TEST WHERE pas rapport et idx out of range
+        self.assertEqual(len(res), 1)
 
 if __name__ == '__main__':
     mldb.run_tests()
