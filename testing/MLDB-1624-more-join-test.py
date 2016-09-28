@@ -2081,26 +2081,49 @@ class JoinTest(MldbUnitTest):
             ds.commit()
 
         res_std_exec = mldb.query("""
-        SELECT count(*) AS count FROM join_left 
-        JOIN join_right 
+        SELECT count(*) AS count FROM join_left
+        JOIN join_right
         ON join_left.a = join_right.b
         """)
 
-        self.assertAlmostEqual(res_std_exec[1][1], 
+        self.assertAlmostEqual(res_std_exec[1][1],
                                rowCount * rowCount / randomMax, delta = rowCount * rowCount / (randomMax * 10))
 
-        mldb.log(res_std_exec)  
+        mldb.log(res_std_exec)
 
         res_pipe_exec = mldb.query( """
-        SELECT count(*) AS count FROM join_left 
-        JOIN join_right 
-        ON join_left.a = join_right.b 
+        SELECT count(*) AS count FROM join_left
+        JOIN join_right
+        ON join_left.a = join_right.b
         AND join_left.c = join_right.c
         """)
 
         mldb.log(len(res_pipe_exec))
-        self.assertAlmostEqual(res_pipe_exec[1][1], 
+        self.assertAlmostEqual(res_pipe_exec[1][1],
                                rowCount * rowCount / randomMax, delta = rowCount * rowCount / (randomMax * 10))
+
+    def test_join_on_false(self):
+        ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['colA', 1, 0]])
+        ds.commit()
+        ds = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
+        ds.record_row('row2', [['colB', 1, 0]])
+        ds.commit()
+
+        expected = [["_rowName", "s1.colA", "s2.colB"],
+                    [ "[row1]-[]", 1, None],
+                    [ "[]-[row2]", None, 1]]
+        res = mldb.query("""
+            SELECT * FROM (SELECT * FROM ds1) AS s1
+            OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
+        """)
+        self.assertTableResultEquals(res, expected)
+
+        res = mldb.query("""
+            SELECT * FROM (SELECT * FROM ds1) AS s1
+            OUTER JOIN (SELECT * FROM ds2) AS s2 ON s1.rowName() = 'wwwwwwwww'
+        """)
+        self.assertTableResultEquals(res, expected)
 
 
 mldb.run_tests()
