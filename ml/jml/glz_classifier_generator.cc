@@ -60,18 +60,9 @@ configure(const Configuration & config)
     config.findAndRemove(feature_proportion, "feature_proportion", keys);
     config.findAndRemove(verbosity, "verbosity", keys);
 
-    string fullKey = config.find_key("type", true);
-    string prefix = config.prefix() + ".";
-    keys.erase(remove_if(keys.begin(), keys.end(),
-                         [&] (const string & str) {
-                            return str == fullKey || str.find(prefix) != 0;
-                         }),
-                keys.end());
-
-    if (!keys.empty()) {
-        throw ML::Exception("Unknown key(s) encountered in config: %s",
-                            ML::join(keys).c_str());
-    }
+    string typeKey = config.find_key("type", true);
+    config.throwOnUnknwonKeys(
+        keys, [&] (const string & str) { return str == typeKey; });
 }
 
 void

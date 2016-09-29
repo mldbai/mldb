@@ -208,6 +208,10 @@ public:
             throw Exception("required key " + key + " not found");
     }
 
+    void throwOnUnknwonKeys(
+        std::vector<std::string> & keys,
+        const std::function<bool(const std::string &)> & removeIfFct = nullptr) const;
+
 private:
     struct Data;
     std::shared_ptr<Data> data_;

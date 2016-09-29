@@ -127,10 +127,16 @@ configure(const Configuration & config)
 {
     Classifier_Generator::configure(config);
 
-    config.find(trace, "trace");
-    config.find(max_depth, "max_depth");
-    config.find(update_alg, "update_alg");
-    config.find(random_feature_propn, "random_feature_propn");
+    auto keys = config.allKeys();
+    config.findAndRemove(trace, "trace", keys);
+    config.findAndRemove(max_depth, "max_depth", keys);
+    config.findAndRemove(update_alg, "update_alg", keys);
+    config.findAndRemove(random_feature_propn, "random_feature_propn", keys);
+    config.findAndRemove(verbosity, "verbosity", keys);
+
+    string typeKey = config.find_key("type", true);
+    config.throwOnUnknwonKeys(
+        keys, [&] (const string & str) { return str == typeKey; });
 }
 
 void

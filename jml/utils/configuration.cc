@@ -330,4 +330,26 @@ allKeys() const
     return result;
 }
 
+
+/** Call after all keys have been consumed with findAndRemove */
+void
+Configuration::
+throwOnUnknwonKeys(
+    vector<string> & keys,
+    const function<bool(const string & )> & removeIfFct) const
+{
+    string prefixDot = prefix_ + ".";
+    keys.erase(
+        remove_if(keys.begin(), keys.end(),
+                  [&] (const std::string & str) {
+                     return (removeIfFct && removeIfFct(str)) || str.find(prefixDot) != 0;
+                  }),
+        keys.end());
+
+    if (!keys.empty()) {
+        throw ML::Exception("Unknown key(s) encountered in config: %s",
+                            ML::join(keys).c_str());
+    }
+}
+
 } // namespace ML
