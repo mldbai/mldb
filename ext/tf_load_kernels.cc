@@ -53,7 +53,7 @@ struct AtInit {
         if (!handle) {
             cerr << "Couldn't load any TensorFlow kernels library: "
                  << error << endl;
-            cerr << "Tensorflow operations will abort on launch" << endl;
+            cerr << "Tensorflow operations will abort on kernel launch" << endl;
         }
     }
 
