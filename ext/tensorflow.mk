@@ -44,7 +44,7 @@ PROTO_SRCS := $(shell cat $(TF_MAKEFILE_DIR)/tf_proto_files.txt)
 TENSORFLOW_EIGEN_INCLUDES:=-Imldb/ext/eigen -I$(CWD)/third_party/eigen3
 
 # Include flags for all of Tensorflow
-TENSORFLOW_BASE_INCLUDE_FLAGS := -I$(CWD) -I$(INC) -Imldb/ext/re2 $(TENSORFLOW_EIGEN_INCLUDES) -I$(INC)/external/eigen_archive -I$(INC)/external -Imldb/ext
+TENSORFLOW_BASE_INCLUDE_FLAGS := -I$(CWD) -I$(INC) -Imldb/ext/re2 $(TENSORFLOW_EIGEN_INCLUDES) -I$(INC)/external/eigen_archive -I$(INC)/external -Imldb/ext -DPLATFORM_POSIX=1
 
 
 # There is a lightweight Protobuf format that is created by this program
@@ -142,7 +142,7 @@ TF_CUDA_CAPABILITIES:=5.3
 ifeq ($(WITH_CUDA),1)
 
 # Which version of CUDA do we use?
-CUDA_VERSION?=7.0
+CUDA_VERSION?=8.0
 
 # This is the directory that the whole CUDA development kit is installed
 # inside.
@@ -389,7 +389,7 @@ TF_KERNEL_VARIANT_x86_64_avx2:=-mavx2 -mfma
 # ARM variants don't currently detect their CPU capabilities at
 # runtime, so only a generic variant is compiled
 TF_KERNEL_VARIANT_aarch64_generic:=-funsafe-math-optimizations -ftree-vectorize -Os
-TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize
+TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize -Os
 
 # By default, we compile all kernel variants for our architecture
 # This can be overridden to speed up compile times
@@ -417,7 +417,7 @@ define tf_kernel_variant
 mldb/ext/tensorflow/../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%:	$(CWD)/%
 	@mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
 
-TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$(TENSORFLOW_KERNEL_CC_BUILD:%=../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%)
+TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$$(addprefix ../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/,$$(TENSORFLOW_KERNEL_CC_BUILD))
 
 $$(eval $$(call set_compile_option,$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)),$$(TENSORFLOW_COMPILE_FLAGS) $$(TF_KERNEL_VARIANT_$(ARCH)_$(1))))
 $$(eval $$(call library,tensorflow-kernels-$(1),$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)) $$(TENSORFLOW_CUDA_NVCC_BUILD),tensorflow-ops $$(TENSORFLOW_CUDA_LINK),,,,,$$(TENSORFLOW_CUDA_LINKER_FLAGS),$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants))
