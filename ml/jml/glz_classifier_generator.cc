@@ -64,7 +64,7 @@ configure(const Configuration & config)
     string prefix = config.prefix() + ".";
     keys.erase(remove_if(keys.begin(), keys.end(),
                          [&] (const string & str) {
-                            return str == fullKey || str.find(prefix) == string::npos;
+                            return str == fullKey || str.find(prefix) != 0;
                          }),
                 keys.end());
 
