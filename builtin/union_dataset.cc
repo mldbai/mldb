@@ -41,8 +41,6 @@ regUnion(builtinPackage(),
           "Unify together several datasets",
           "datasets/UnionDataset.md.html");
 
-extern std::shared_ptr<Dataset> (*createUnionDatasetFn) (MldbServer *, vector<std::shared_ptr<Dataset> > datasets);
-
 std::shared_ptr<Dataset> createUnionDataset(
     MldbServer * server, vector<std::shared_ptr<Dataset> > datasets)
 {
@@ -378,16 +376,6 @@ getRowExpr(const RowName & rowName) const
     }
     return itl->datasets[idx]->getRowExpr(
         Path(rowName.begin() + 1, rowName.end()));
-}
-
-
-namespace {
-struct AtInit {
-    AtInit()
-    {
-        createUnionDatasetFn = createUnionDataset;
-    }
-} atInit;
 }
 
 } // namespace MLDB

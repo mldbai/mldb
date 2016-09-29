@@ -17,7 +17,6 @@ typedef std::function<BoundTableExpression (const std::vector<BoundTableExpressi
 // and allow expression parsing to be in a separate library
 std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
 std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> >);
-std::shared_ptr<Dataset> (*createUnionDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> >);
 std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
                                                     std::shared_ptr<Dataset> dataset,
                                                     const ExpressionValue & options);
