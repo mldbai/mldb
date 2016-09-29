@@ -48,8 +48,6 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
             })
         mldb.post('/v1/datasets/{}/commit'.format(name))
 
-        mldb.log(mldb.query("""SELECT * FROM """ + name))
-
     @classmethod
     def setUpClass(cls):
         # input dataset for classifier.test
@@ -70,6 +68,11 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
             2  0 0 1  1
             """
         cls.make_dataset(headers, data, 'cat')
+
+        ds = mldb.create_dataset({'id' : 'foo', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['colA', 1, 1], ['label', 1, 1]])
+        ds.record_row('row2', [['colA', 0, 1], ['label', 0, 1]])
+        ds.commit()
 
     def _get_params(self, mode, label, weight):
         return {
@@ -304,6 +307,96 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
         self.assertEqual(truth_conf, conf)
 
+    def test_classifier_rejects_unknown_params(self):
+        msg = "Unknown key\\(s\\) encountered in config: glz_linear.FOO"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.put("/v1/procedures/regression_cls", {
+                "type": "classifier.experiment",
+                "params": {
+                    "inputData": "SELECT {*} AS features, label AS label FROM foo",
+                    "experimentName": "reg_exp",
+                    "keepArtifacts": True,
+                    "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
+                    "algorithm": "glz_linear",
+                    "configuration": {
+                        "glz_linear": {
+                            "type": "glz",
+                            "normalize": True,
+                            "link_function": 'linear',
+                            "regularization": 'l1',
+                            "regularization_factor": 0.001,
+                            "FOO": "linear"
+                        }
+                    },
+                    "kfold": 2,
+                    "mode": "regression",
+                    "outputAccuracyDataset": True
+                }
+            })
+
+    @unittest.expectedFailure
+    def test_classifier_doesnt_rejects_dotted_neighbor_param(self):
+        msg = "No feature vectors were produced as all"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.put("/v1/procedures/regression_cls", {
+                "type": "classifier.experiment",
+                "params": {
+                    "inputData": "SELECT {*} AS features, label AS label FROM foo",
+                    "experimentName": "reg_exp",
+                    "keepArtifacts": True,
+                    "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
+                    "algorithm": "glz_linear",
+                    "configuration": {
+                        "glz_linear": {
+                            "type": "glz",
+                            "normalize": True,
+                            "link_function": 'linear',
+                            "regularization": 'l1',
+                            "regularization_factor": 0.001
+                        },
+
+                        # The key is clearly different, no problem
+                        "FOO": {
+                            "FOO": "linear"
+                        }
+                    },
+                    "kfold": 2,
+                    "mode": "regression",
+                    "outputAccuracyDataset": True
+                }
+            })
+
+        msg = "No feature vectors were produced as all"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.put("/v1/procedures/regression_cls", {
+                "type": "classifier.experiment",
+                "params": {
+                    "inputData": "SELECT {*} AS features, label AS label FROM foo",
+                    "experimentName": "reg_exp",
+                    "keepArtifacts": True,
+                    "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
+                    "algorithm": "glz_linear",
+                    "configuration": {
+                        "glz_linear": {
+                            "type": "glz",
+                            "normalize": True,
+                            "link_function": 'linear',
+                            "regularization": 'l1',
+                            "regularization_factor": 0.001
+                        },
+
+                        # It should be the same error as the previous one, but
+                        # the key is too similar and confuses the error
+                        # detector
+                        "glz_linear.BAR": {
+                            "FOO": "linear"
+                        }
+                    },
+                    "kfold": 2,
+                    "mode": "regression",
+                    "outputAccuracyDataset": True
+                }
+            })
 
 if __name__ == '__main__':
     mldb.run_tests()

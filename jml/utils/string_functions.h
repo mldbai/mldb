@@ -69,6 +69,8 @@ unsigned replace_all(std::string & haystack, const std::string & search,
  * string. */
 std::string trim(const std::string & other);
 
+std::string join(const std::vector<std::string> strings);
+
 } // namespace ML
 
 

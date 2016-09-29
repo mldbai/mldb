@@ -212,6 +212,22 @@ run(const ProcedureRunConfig & run,
         throw HttpReturnException(400, "Unknown classifier mode");
     }
 
+    ML::Configuration classifierConfig;
+
+    if (!runProcConf.configuration.isNull()) {
+        classifierConfig =
+            jsonDecode<ML::Configuration>(runProcConf.configuration);
+    }
+    else {
+        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
+                                  runProcConf.configurationFile :
+                                  "/opt/bin/classifiers.json");
+        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
+    }
+    std::shared_ptr<ML::Classifier_Generator> trainer
+        = ML::get_trainer(runProcConf.algorithm,
+                          classifierConfig);
+
     labelInfo.set_biased(true);
 
     auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr)
@@ -633,23 +649,8 @@ run(const ProcedureRunConfig & run,
         trainingFeatures.push_back(allFeatures[i]);
     }
 
-    ML::Configuration classifierConfig;
-
-    if (!runProcConf.configuration.isNull()) {
-        classifierConfig = jsonDecode<ML::Configuration>(runProcConf.configuration);
-    }
-    else {
-        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
-                                  runProcConf.configurationFile :
-                                  "/opt/bin/classifiers.json");
-        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
-    }
-
     timer.restart();
 
-    std::shared_ptr<ML::Classifier_Generator> trainer
-        = ML::get_trainer(runProcConf.algorithm,
-                          classifierConfig);
 
     trainer->init(featureSpace, labelFeature);
 

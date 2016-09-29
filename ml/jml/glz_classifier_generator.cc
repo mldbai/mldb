@@ -19,6 +19,7 @@
 #include "mldb/ml/algebra/least_squares.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
+#include "mldb/jml/utils/string_functions.h"
 
 using namespace std;
 
@@ -46,16 +47,31 @@ configure(const Configuration & config)
 {
     Classifier_Generator::configure(config);
 
-    config.find(add_bias, "add_bias");
-    config.find(do_decode, "decode");
-    config.find(link_function, "link_function");
-    config.find(normalize, "normalize");
-    config.find(condition, "condition");
-    config.find(regularization, "regularization");
-    config.find(regularization_factor, "regularization_factor");
-    config.find(max_regularization_iteration, "max_regularization_iteration");
-    config.find(regularization_epsilon, "regularization_epsilon");
-    config.find(feature_proportion, "feature_proportion");
+    auto keys = config.allKeys();
+    config.findAndRemove(add_bias, "add_bias", keys);
+    config.findAndRemove(do_decode, "decode", keys);
+    config.findAndRemove(link_function, "link_function", keys);
+    config.findAndRemove(normalize, "normalize", keys);
+    config.findAndRemove(condition, "condition", keys);
+    config.findAndRemove(regularization, "regularization", keys);
+    config.findAndRemove(regularization_factor, "regularization_factor", keys);
+    config.findAndRemove(max_regularization_iteration, "max_regularization_iteration", keys);
+    config.findAndRemove(regularization_epsilon, "regularization_epsilon", keys);
+    config.findAndRemove(feature_proportion, "feature_proportion", keys);
+    config.findAndRemove(verbosity, "verbosity", keys);
+
+    string fullKey = config.find_key("type", true);
+    string prefix = config.prefix() + ".";
+    keys.erase(remove_if(keys.begin(), keys.end(),
+                         [&] (const string & str) {
+                            return str == fullKey || str.find(prefix) == string::npos;
+                         }),
+                keys.end());
+
+    if (!keys.empty()) {
+        throw ML::Exception("Unknown key(s) encountered in config: %s",
+                            ML::join(keys).c_str());
+    }
 }
 
 void
