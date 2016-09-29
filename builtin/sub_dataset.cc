@@ -457,7 +457,8 @@ querySubDataset(MldbServer * server,
     std::vector<MatrixNamedRow> output
         = dataset
         ->queryStructured(select, when, where, orderBy, groupBy,
-                          having, named, offset, limit, "" /* alias */);
+                          having, named, offset, limit,
+                          -1, /* unionIndex */ "" /* alias */);
     
     std::vector<NamedRowValue> result;
     result.reserve(output.size());

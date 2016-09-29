@@ -588,6 +588,16 @@ toIndex() const
     return val;
 }
 
+size_t
+PathElement::
+requireIndex() const
+{
+    ssize_t result = toIndex();
+    if (result == -1)
+        throw HttpReturnException(400, "Path was not an index");
+    return result;
+}
+
 bool
 PathElement::
 hasStringView() const

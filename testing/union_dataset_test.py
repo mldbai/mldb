@@ -66,99 +66,118 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             ['1.row2', 'A', None, 'C']
         ])
 
-    def test_query(self):
-        res = mldb.query(
-            "SELECT colA, colB FROM union(ds1, ds2) ORDER BY rowName()")
+    def test_query_from_ds(self):
+        res = mldb.query("""
+            SELECT colA FROM ds1
+            UNION
+            SELECT colB FROM ds2
+        """)
         self.assertTableResultEquals(res, [
             ['_rowName', 'colA', 'colB'],
             ['0.row1', 'A', None],
             ['1.row1', None, 'B']
         ])
 
-        res = mldb.query(
-            "SELECT * FROM union(ds1, ds2) ORDER BY rowName() LIMIT 1")
-        self.assertTableResultEquals(res, [
-            ['_rowName', 'colA'],
-            ['0.row1', 'A']
-        ])
-
-        res = mldb.query(
-            "SELECT * FROM union(ds1, ds2) ORDER BY rowName() OFFSET 1")
-        self.assertTableResultEquals(res, [
-            ['_rowName', 'colB'],
-            ['1.row1', 'B']
-        ])
-
-        res = mldb.query(
-            "SELECT colA, colB, colC FROM union(ds3, ds3) ORDER BY rowName()")
-        self.assertTableResultEquals(res, [
-            ['_rowName', 'colA', 'colB', 'colC'],
-            ['0.row1', 'AA', 'BB', None],
-            ['0.row2', 'A', None, 'C'],
-            ['1.row1', 'AA', 'BB', None],
-            ['1.row2', 'A', None, 'C']
-        ])
-
-    def test_equivalent_query(self):
+    def test_query_w_and_wo_ds(self):
         res = mldb.query("""
-            SELECT s1.* AS *, s2.* AS *
-            FROM (SELECT * FROM ds1 ) AS s1
-            OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
-            ORDER BY rowName()
+            SELECT 1
+            UNION
+            SELECT colB FROM ds2
         """)
         self.assertTableResultEquals(res, [
-            ['_rowName', 'colA', 'colB'],
-            ['[]-[row1]', None, 'B'],
-            ['[row1]-[]', 'A', None]
+            ['_rowName', '1', 'colB'],
+            ['0.result', 1, None],
+            ['1.row1', None, 'B']
         ])
 
-    def test_query_function(self):
-        mldb.put('/v1/functions/union_qry', {
-            'type' : 'sql.query',
-            'params' : {
-                'query' : 'SELECT * FROM union(ds3, ds3) ORDER BY rowName()'
-            }
-        })
-
-        res = mldb.get('/v1/functions/union_qry/application').json()
-        self.assertEqual(res, {
-            'output' : {
-                'colB' : 'BB',
-                'colA' : 'AA'
-            }
-        })
-
-    def test_merge_over_union(self):
         res = mldb.query("""
-            SELECT * FROM merge(union(ds1, ds2), ds3)
-            ORDER BY rowName()
+            SELECT colB FROM ds2
+            UNION
+            SELECT 1
         """)
         self.assertTableResultEquals(res, [
-            ["_rowName", "colA", "colB", "colC"],
-            ["row1", "AA", "BB", None],
-            ["row1", "AA", "BB", None],
-            ["row1", "AA", "BB", None],
-            ["row2", "A", None, "C"]
+            ['_rowName', 'colB', '1'],
+            ['0.row1', 'B', None],
+            ['1.result', None, 1]
         ])
 
-    def test_invalid_where(self):
-        res = mldb.query("SELECT * FROM union(ds1, ds2) WHERE foo='bar'")
-        self.assertEqual(len(res), 1)
-
-    def test_where_index_out_of_range(self):
-        res = mldb.query(
-            "SELECT * FROM union(ds1, ds2) WHERE rowName() = '12.row1'")
-        self.assertEqual(len(res), 1)
-
-    def test_group_by(self):
+    def test_query_wo_ds(self):
         res = mldb.query("""
-            SELECT colA FROM union(ds1, ds2) WHERE true GROUP BY colA
+            SELECT 1
+            UNION
+            SELECT 2
+            UNION
+            SELECT 1, 2
+            UNION
+            SELECT 3
         """)
         self.assertTableResultEquals(res, [
-            ["_rowName", "colA"],
-            ["[null]", None],
-            ["\"[\"\"A\"\"]\"", "A"]
+            ['_rowName', '1', '2', '3'],
+            ['0.result', 1, None, None],
+            ['1.result', None, 2, None],
+            ['2.result', 1, 2, None],
+            ['3.result', None, None, 3]
         ])
+
+    def test_query_wo_ds_nested(self):
+        res = mldb.query("""
+            SELECT * FROM (
+                SELECT 1
+                UNION
+                SELECT 2
+            )
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', '1', '2'],
+            ['0.result', 1, None],
+            ['1.result', None, 2]
+        ])
+
+    def test_query_wo_ds_nested_over_union(self):
+        res = mldb.query("""
+            SELECT * FROM (
+                SELECT 1
+                UNION
+                SELECT 2
+            )
+            UNION
+            SELECT 3
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', '1', '2', '3'],
+            ['0.0.result', 1, None, None],
+            ['0.1.result', None, 2, None],
+            ['1.result', None, None, 3]
+        ])
+
+    def test_query_over_union(self):
+        res = mldb.query("""
+            SELECT * FROM (
+                SELECT 1
+                UNION
+                SELECT 2
+            )
+            WHERE rowName() = '0.result'
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', '1'],
+            ['0.result', 1]
+        ])
+
+        res = mldb.query("""
+            SELECT count({*}) AS * FROM (
+                SELECT 1, 2, 3
+                UNION
+                SELECT 2, 1
+                UNION
+                SELECT 1
+            )
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', '1', '2', '3'],
+            ['[]', 3, 2, 1]
+        ])
+
 
 if __name__ == '__main__':
     mldb.run_tests()

@@ -3878,7 +3878,8 @@ SelectStatement() :
     having(SelectExpression::TRUE),
     rowName(SqlExpression::parse("rowPath()")),
     offset(0),
-    limit(-1)
+    limit(-1),
+    unionIndex(-1)
 {
     //TODO - avoid duplication of default values
 }
@@ -3913,7 +3914,7 @@ parse(const char * body)
 }
 
 SelectStatement
-SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
+SelectStatement::parseImpl(ML::Parse_Context& context, bool acceptUtf8)
 {
     ML::Parse_Context::Hold_Token token(context);
 
@@ -4012,6 +4013,24 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     statement.surface = ML::trim(token.captured());
 
     skip_whitespace(context);
+    return statement;
+}
+
+SelectStatement
+SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
+{
+    SelectStatement statement = parseImpl(context, acceptUtf8);
+
+    if (matchKeyword(context, "UNION ")) {
+        SelectStatement * statementPtr = &statement;
+        statementPtr->unionIndex = 0;
+        do {
+            statementPtr->unionStm =
+                make_shared<SelectStatement>(parseImpl(context, acceptUtf8));
+            statementPtr->unionStm->unionIndex = statementPtr->unionIndex + 1;
+            statementPtr = statementPtr->unionStm.get();
+        } while (matchKeyword(context, "UNION "));
+    }
 
     //cerr << jsonEncode(statement) << endl;
     return statement;
@@ -4021,14 +4040,15 @@ Utf8String
 SelectStatement::
 print() const
 {
-    return select.print() + 
+    return select.print() +
         rowName->print() +
         from->print() +
         when.print() +
         where->print() +
         orderBy.print() +
         groupBy.print() +
-        having->print();
+        having->print() +
+        (unionStm == nullptr ? "" : " UNION " + unionStm->print());
 }
 
 UnboundEntities

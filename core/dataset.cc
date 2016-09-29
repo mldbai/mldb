@@ -565,7 +565,10 @@ getTimestampRange() const
                           TupleExpression(),
                           SqlExpression::TRUE /* having */,
                           SqlExpression::TRUE,/* rowName */
-                          0, 1, "" /* alias */);
+                          0, /* limit */
+                          1, /* offset */
+                          -1, /* unionIndex */
+                          "" /* alias */);
     
     std::pair<Date, Date> result;
 
@@ -772,6 +775,7 @@ queryStructured(const SelectExpression & select,
                 const std::shared_ptr<SqlExpression> rowName,
                 ssize_t offset,
                 ssize_t limit,
+                int unionIndex,
                 Utf8String alias) const
 {
     std::vector<MatrixNamedRow> output;
@@ -785,6 +789,7 @@ queryStructured(const SelectExpression & select,
                                     rowName,
                                     offset,
                                     limit,
+                                    unionIndex,
                                     alias);
 
     for (auto& r : std::get<0>(rows)) {
@@ -805,6 +810,7 @@ queryStructuredExpr(const SelectExpression & select,
                 const std::shared_ptr<SqlExpression> rowName,
                 ssize_t offset,
                 ssize_t limit,
+                int unionIndex,
                 Utf8String alias) const
 {
     ExcAssert(having);
@@ -832,7 +838,13 @@ queryStructuredExpr(const SelectExpression & select,
         auto processor = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
-                row_.rowName = getValidatedRowName(calc.at(0));
+                if (unionIndex == -1) {
+                    row_.rowName = getValidatedRowName(calc.at(0));
+                }
+                else {
+                    row_.rowName = PathElement(unionIndex)
+                                   + getValidatedRowName(calc.at(0));
+                }
                 row_.rowHash = row_.rowName;
                 output.push_back(std::move(row_));
                 return true;
@@ -2125,15 +2137,46 @@ queryString(const Utf8String & query) const
     ExcCheck(!stm.from, "FROM clauses are not allowed on dataset queries");
     ExcAssert(stm.where && stm.having && stm.rowName);
 
-    return queryStructured(
-            stm.select,
-            stm.when,
-            *stm.where,
-            stm.orderBy,
-            stm.groupBy,
-            stm.having,
-            stm.rowName,
-            stm.offset, stm.limit);
+    if (stm.unionStm == nullptr) {
+        return queryStructured(
+                stm.select,
+                stm.when,
+                *stm.where,
+                stm.orderBy,
+                stm.groupBy,
+                stm.having,
+                stm.rowName,
+                stm.offset,
+                stm.limit,
+                stm.unionIndex);
+    }
+    auto result = queryStructured(stm.select,
+                                  stm.when,
+                                  *stm.where,
+                                  stm.orderBy,
+                                  stm.groupBy,
+                                  stm.having,
+                                  stm.rowName,
+                                  stm.offset,
+                                  stm.limit,
+                                  stm.unionIndex);
+    SelectStatement * stmtPtr = &stm;
+    while (stmtPtr->unionStm != nullptr) {
+        stmtPtr = stmtPtr->unionStm.get();
+        auto partial = queryStructured(stmtPtr->select,
+                                       stmtPtr->when,
+                                       *stmtPtr->where,
+                                       stmtPtr->orderBy,
+                                       stmtPtr->groupBy,
+                                       stmtPtr->having,
+                                       stmtPtr->rowName,
+                                       stmtPtr->offset,
+                                       stmtPtr->limit,
+                                       stmtPtr->unionIndex);
+        result.insert(result.end(), partial.begin(), partial.end());
+    }
+    return result;
+
 }
 
 Json::Value

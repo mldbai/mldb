@@ -67,6 +67,7 @@ struct ForwardedDataset: public Dataset {
                     const std::shared_ptr<SqlExpression> rowName,
                     ssize_t offset,
                     ssize_t limit,
+                    int unionIndex,
                     Utf8String alias = "") const;
 
     virtual std::vector<MatrixNamedRow>

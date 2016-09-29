@@ -132,11 +132,12 @@ queryStructured(const SelectExpression & select,
                 const std::shared_ptr<SqlExpression> rowName,
                 ssize_t offset,
                 ssize_t limit,
+                int unionIndex,
                 Utf8String alias) const
 {
     ExcAssert(underlying);
     return underlying->queryStructured(select, when, where, orderBy,
-            groupBy, having, rowName, offset, limit, alias);
+            groupBy, having, rowName, offset, limit, unionIndex, alias);
 }
 
 std::vector<MatrixNamedRow>

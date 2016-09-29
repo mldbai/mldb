@@ -83,15 +83,11 @@ struct UnionDataset::Itl
         if (rowName.size() < 2) {
             return false;
         }
-        string idxStr = (*(rowName.begin())).toUtf8String().rawString();
-        int idx = atoi(idxStr.c_str());
-        if (idx == 0 && idxStr != "0") {
-            // atoi returns 0 on error, make sure it's a real 0
-            return -1;
-        }
+        int idx = static_cast<int>(rowName.at(0).toIndex());
         if (idx > datasets.size()) {
             return -1;
         }
+        ExcAssert(idx == -1 || idx <= datasets.size());
         return idx;
     }
 
@@ -170,8 +166,7 @@ struct UnionDataset::Itl
         if (idx == -1) {
             return false;
         }
-        return datasets[idx]->getMatrixView()->knownRow(
-            Path(rowName.begin() + 1, rowName.end()));
+        return datasets[idx]->getMatrixView()->knownRow(rowName.tail());
     }
 
     virtual bool knownRowHash(const RowHash & rowHash) const
@@ -209,10 +204,11 @@ struct UnionDataset::Itl
 
     virtual ColumnName getColumnName(ColumnHash columnHash) const
     {
-        cerr << "SLOW " << __FILE__ << ":" << __LINE__ << endl;
-        for (const auto & curr: getColumnNames()) {
-            if (columnHash == curr.hash()) {
-                return curr;
+        for (const auto & d: datasets) {
+            try {
+                return d->getMatrixView()->getColumnName(columnHash);
+            }
+            catch (const ML::Exception & exc) {
             }
         }
         throw ML::Exception("Column not known");

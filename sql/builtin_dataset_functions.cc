@@ -124,38 +124,6 @@ BoundTableExpression merge(const SqlBindingScope & context,
 static RegisterBuiltin registerMerge(merge, "merge");
 
 /*****************************************************************************/
-/* UNION DATASET                                                             */
-/*****************************************************************************/
-
-BoundTableExpression unionExpr(const SqlBindingScope & context,
-                               const std::vector<BoundTableExpression> & args,
-                               const ExpressionValue & options,
-                               const Utf8String& alias)
-{
-    if (args.size() < 2) {
-        throw HttpReturnException(500, "union() needs at least 2 arguments");
-    }
-    if(!options.empty()) {
-        throw HttpReturnException(500, "union() does not take any options");
-    }
-
-    std::vector<std::shared_ptr<Dataset> > datasets;
-    datasets.reserve(args.size());
-    for (auto arg : args) {
-        if (arg.dataset) {
-            datasets.push_back(arg.dataset);
-        }
-    }
-
-    auto ds = createUnionDatasetFn(context.getMldbServer(), datasets);
-
-    return bindDataset(ds, alias);
-}
-
-static RegisterBuiltin registerUnion(unionExpr, "union");
-
-
-/*****************************************************************************/
 /* SAMPLED DATASET                                                           */
 /*****************************************************************************/
 

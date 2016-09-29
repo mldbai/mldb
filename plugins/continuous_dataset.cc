@@ -513,6 +513,7 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
                           SqlExpression::parse("rowPath()") /* rowName */,
                           0 /* offset */,
                           -1 /* limit */,
+                          -1, /* unionIndex */
                           "" /* alias */);
 
     // TODO:

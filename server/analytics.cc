@@ -378,6 +378,9 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
         auto boundRowName = stm.rowName->bind(scope);
 
         row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
+        if (stm.unionIndex != -1) {
+            row.rowName = PathElement(stm.unionIndex) + row.rowName;
+        }
         row.rowHash = row.rowName;
         val.mergeToRowDestructive(row.columns);
         std::vector<NamedRowValue> outputcolumns = {std::move(row)};
@@ -399,6 +402,14 @@ queryFromStatement(const SelectStatement & stm,
     for (auto& r : std::get<0>(rows)) {
         output.push_back(r.flattenDestructive());
     }
+//     const SelectStatement * stmtPtr = &stm;
+//     do {
+//         auto rows = queryFromStatementExpr(*stmtPtr, scope, params);
+//         for (auto& r : std::get<0>(rows)) {
+//             output.push_back(r.flattenDestructive());
+//         }
+//         stmtPtr = stmtPtr->unionStm.get();
+//     } while (stmtPtr != nullptr);
     return output;
 }
 
@@ -408,14 +419,16 @@ queryFromStatementExpr(const SelectStatement & stm,
                    BoundParameters params)
 {
     BoundTableExpression table = stm.from->bind(scope);
+    tuple<vector<NamedRowValue>, shared_ptr<ExpressionValueInfo> > result;
     
     if (table.dataset) {
-        return table.dataset->queryStructuredExpr(stm.select, stm.when,
+        result = table.dataset->queryStructuredExpr(stm.select, stm.when,
                                               *stm.where,
                                               stm.orderBy, stm.groupBy,
                                               stm.having,
                                               stm.rowName,
-                                              stm.offset, stm.limit, 
+                                              stm.offset, stm.limit,
+                                              stm.unionIndex,
                                               table.asName);
     }
     else if (table.table.runQuery && stm.from) {
@@ -458,19 +471,33 @@ queryFromStatementExpr(const SelectStatement & stm,
             NamedRowValue row;
             // Second last element is the row name
             row.rowName = output->values.at(output->values.size() - 2)
-                .coerceToPath(); 
+                .coerceToPath();
             row.rowHash = row.rowName;
             output->values.back().mergeToRowDestructive(row.columns);
             rows.emplace_back(std::move(row));
         }
             
-        return std::make_tuple<std::vector<NamedRowValue>, 
-                              std::shared_ptr<ExpressionValueInfo> >(std::move(rows), std::make_shared<UnknownRowValueInfo>());
+        result = make_tuple<
+            vector<NamedRowValue>,
+            shared_ptr<ExpressionValueInfo> >(std::move(rows), make_shared<UnknownRowValueInfo>());
     }
     else {
         // No from at all
-        return queryWithoutDatasetExpr(stm, scope);
+        result = queryWithoutDatasetExpr(stm, scope);
     }
+
+    if (stm.unionStm != nullptr) {
+        auto subResult = queryFromStatementExpr(*stm.unionStm.get(),
+                                                scope,
+                                                params);
+        // TODO what happens with ExpressionValueInfo
+        auto & namedRowValues = std::get<0>(result);
+        auto & subNamedRowValues = std::get<0>(subResult);
+        namedRowValues.insert(namedRowValues.end(),
+                              subNamedRowValues.begin(),
+                              subNamedRowValues.end());
+    }
+    return result;
 }
 
 /** Select from the given statement.  This will choose the most

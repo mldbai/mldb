@@ -531,6 +531,7 @@ struct Dataset: public MldbEntity {
                     const std::shared_ptr<SqlExpression> rowName,
                     ssize_t offset,
                     ssize_t limit,
+                    int unionIndex,
                     Utf8String alias = "") const;
 
     std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
@@ -543,6 +544,7 @@ struct Dataset: public MldbEntity {
                     const std::shared_ptr<SqlExpression> rowName,
                     ssize_t offset,
                     ssize_t limit,
+                    int unionIndex,
                     Utf8String alias = "") const;
 
     /** Select from the database. */

@@ -570,7 +570,7 @@ queryStructured(const Dataset * dataset,
         {
             return dataset->queryStructured
                 (selectParsed, whenParsed, *whereParsed, orderByParsed,
-                 groupByParsed,havingParsed, rowNameParsed, offset, limit);
+                 groupByParsed,havingParsed, rowNameParsed, offset, limit, -1);
         };
 
     runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes, sortColumns);
