@@ -63,5 +63,5 @@ endef
 ifneq ($(ARCH),$(HOSTARCH))
 $(eval $(call build_protobuf_for_arch,$(HOSTARCH),$(BUILD)/$(HOSTARCH)/lib,$(BUILD)/$(HOSTARCH)/include,$(BUILD)/$(HOSTARCH)/bin))
 endif
-$(eval $(call build_protobuf_for_arch,$(ARCH),$(LIB),$(INC),$(BIN)))
+$(eval $(call build_protobuf_for_arch,$(ARCH),$(LIB),$(INC),$(HOSTBIN)))
 endif
