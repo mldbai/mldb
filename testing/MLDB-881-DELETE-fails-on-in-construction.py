@@ -20,7 +20,7 @@ assert resp.json()['state'] == 'initializing', \
     'the resource should still be under construction'
 
 # deleting that resource will wait until it is constructed
-resp = mldb.delete_async("/v1/datasets/dummy2")
+resp = mldb.delete("/v1/datasets/dummy2")
 assert resp.status_code == 204
 
 # once the DELETE returns the resource should have been deleted

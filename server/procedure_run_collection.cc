@@ -12,6 +12,7 @@
 #include "mldb/rest/service_peer.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/rest/rest_request_binding.h"
+#include "mldb/server/procedure_collection.h"
 
 
 using namespace std;
@@ -44,9 +45,126 @@ initRoutes(RouteManager & manager)
 
     ExcAssert(manager.getKey);
 
-    manager.addPutRoute();
     manager.addPostRoute();
     manager.addDeleteRoute();
+
+    Json::Value help;
+    help["result"] = manager.nounSingular + " status after creation";
+
+    Json::Value & v = help["jsonParams"];
+    Json::Value & v2 = v[0];
+    v2["description"] = "Configuration of new " + manager.nounSingular;
+    v2["cppType"] = ML::type_name<ProcedureRunConfig>();
+    v2["encoding"] = "JSON";
+    v2["location"] = "Request Body";
+
+    auto validater = createRequestValidater(help, {});
+
+    RestRequestRouter::OnProcessRequest putAsyncRoute
+        = [=] (RestConnection & connection,
+               const RestRequest & req,
+               const RestRequestParsingContext & cxt)
+        {
+            try {
+                if (!validater(connection, req, cxt))
+                    return RestRequestRouter::MR_ERROR;
+
+                validatePayloadForPut(req, manager.nounPlural);
+
+                auto collection = manager.getCollection(cxt);
+                Utf8String key = manager.getKey(cxt);
+
+                JML_TRACE_EXCEPTIONS(false);
+                auto config = jsonDecodeStr<ProcedureRunConfig>(req.payload);
+
+                ProcedureRunStatus status = collection->handlePut(key, config);
+
+                ResourcePath path = collection->getPath();
+                path.push_back(encodeUriComponent(restEncode(key)));
+                Utf8String uri = collection->getUriForPath(path);
+
+                RestParams headers = {
+                    { "Location", uri, },
+                    { "EntityPath", jsonEncodeStr(path) }
+                };
+
+                connection.sendHttpResponse(202, jsonEncodeStr(status),
+                                            "application/json", headers);
+
+                return RestRequestRouter::MR_YES;
+            } catch (const std::exception & exc) {
+                return sendExceptionResponse(connection, exc);
+            }
+        };
+
+    manager.valueNode->addRoute("", { "PUT", "header:async=true" },
+                              "Create a new " + manager.nounSingular + " asynchronously",
+                              putAsyncRoute, help);
+
+    RestRequestRouter::OnProcessRequest putSyncRoute
+        = [=] (RestConnection & connection,
+               const RestRequest & req,
+               const RestRequestParsingContext & cxt)
+        {
+            try {
+                if (!validater(connection, req, cxt))
+                    return RestRequestRouter::MR_ERROR;
+
+                auto collection = manager.getCollection(cxt);
+                Utf8String key = manager.getKey(cxt);
+
+                validatePayloadForPut(req, manager.nounPlural);
+
+                JML_TRACE_EXCEPTIONS(false);
+                auto config = jsonDecodeStr<ProcedureRunConfig>(req.payload);
+                cerr << jsonEncode(config) << endl;
+
+                if (config.state == "cancelled") {
+                    auto runEntry = collection->getEntry(key);
+                    if (runEntry.second) {
+                        runEntry.second->cancel();
+                    }
+
+                    ResourcePath path = collection->getPath();
+                    path.push_back(encodeUriComponent(restEncode(key)));
+                    Utf8String uri = collection->getUriForPath(path);
+
+                    RestParams headers = {
+                        { "Location", uri, },
+                        { "EntityPath", jsonEncodeStr(path) }
+                    };
+
+                    ProcedureRunStatus status;
+                    connection.sendHttpResponse(200, jsonEncodeStr(status),
+                                                "application/json", headers);
+                     return RestRequestRouter::MR_YES;
+                }
+
+                ProcedureRunStatus status = collection->handlePutSync(key, config);
+
+                ResourcePath path = collection->getPath();
+                path.push_back(encodeUriComponent(restEncode(key)));
+                Utf8String uri = collection->getUriForPath(path);
+
+                RestParams headers = {
+                    { "Location", uri, },
+                    { "EntityPath", jsonEncodeStr(path) }
+                };
+
+                connection.sendHttpResponse(201, jsonEncodeStr(status),
+                                            "application/json", headers);
+
+                return RestRequestRouter::MR_YES;
+            } catch (const std::exception & exc) {
+                return sendExceptionResponse(connection, exc);
+            }
+        };
+
+    manager.valueNode->addRoute("", { "PUT" },
+                      "Create a new " + manager.nounSingular
+                      + " and wait for it to appear",
+                      putSyncRoute, help);
+
 
     std::function<Procedure * (const RestRequestParsingContext & cxt) > getProcedure = [=] (const RestRequestParsingContext & cxt)
         -> Procedure *

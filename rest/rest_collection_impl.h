@@ -163,7 +163,7 @@ clear()
         if (e.second.underConstruction) {
             // Stop it, and wait for it to finish
             e.second.underConstruction->cancel();
-            ExcAssert(e.second.underConstruction->cancelled);
+            ExcAssert(!e.second.underConstruction->running);
 
             // Note that even if there is a race condition where the
             // construction finished after we swapped the collections,
@@ -274,12 +274,12 @@ initNodes(RouteManager & result)
                 if (task) {
                     error["state"] = task->getState();
                     error["progress"] = task->getProgress();
-                    if (task->error) {
+                    if (task->state == BackgroundTaskBase::State::_error) {
                         error["error"]
                             = nounSingular + " entry '"
                             + resource + "' not available due to error in creation";
                     }
-                    else if (task->cancelled) {
+                    else if (task->state == BackgroundTaskBase::State::_cancelled) {
                         error["error"]
                             = nounSingular + " entry '"
                             + resource + "' not available due to cancellation";
@@ -540,12 +540,12 @@ addBackgroundJobInThread(Key key,
                 std::unique_lock<std::mutex> guard(task->mutex);
 
                 // MLDB-748 - bail out if the task is not completed
-                if (!task->cancelled && !task->error) {
+                if (task->running) {
                     throw HttpReturnException(409, "entry '"
                                               +  restEncode(key)
                                               + "' in "
                                               + this->nounSingular
-                                              + "could not be overwritten because it is being constructed");
+                                              + " could not be overwritten because it is being constructed");
                 }
             }
         }
@@ -560,7 +560,8 @@ addBackgroundJobInThread(Key key,
             {
                 std::unique_lock<std::mutex> guard(task->mutex);
                 task->setProgress(progress);
-                return !task->cancelled;
+
+                return !(task->state == BackgroundTaskBase::State::_cancelled);
             };
 
 
@@ -581,6 +582,7 @@ addBackgroundJobInThread(Key key,
 
                     task->progress["exception"] = extractException(exc, 500);
                     task->setError(std::current_exception());
+                    task->setFinished();
                 }
 
                 auto taskCopy = task;
@@ -625,30 +627,33 @@ finishedBackgroundJob(Key key,
 
     std::unique_lock<std::mutex> guard(task->mutex);
 
-    if (task->cancelled) {
+    if (task->state == BackgroundTaskBase::State::_cancelled ||
+        task->state == BackgroundTaskBase::State::_error) {
+
+        // there are no object created
         for (auto & f: task->onDoneFunctions)
             f(nullptr);
-        return;
     }
+    else {
 
-    // If this check triggers, we've somehow destroyed our object
-    // without waiting for background tasks to finish.
-    ExcAssert(impl);
-
-    // Only promote it if it's not in the error state
-    // If we're currently clearing, then we shouldn't add anything
-    // at all.
-    if (task->value) {
-        if (mustBeNewEntry)
-            this->addEntryItl(key, task->value, true /* must add */,
-                              task->cancelled);
-        else
-            this->replaceEntry(key, task->value,
-                               task->cancelled);
+        // If this check triggers, we've somehow destroyed our object
+        // without waiting for background tasks to finish.
+        ExcAssert(impl);
+        //ExcAssertEqual(task->state, BackgroundTaskBase::State::_finished);
+        
+        // Only promote it if it's not in the error state
+        // If we're currently clearing, then we shouldn't add anything
+        // at all.
+        if (task->value) {
+            if (mustBeNewEntry)
+                this->addEntryItl(key, task->value, true /* must add */, task->state);
+            else
+                this->replaceEntry(key, task->value, task->state);
+        }
+        
+        for (auto & f: task->onDoneFunctions)
+            f(task->value);
     }
-
-    for (auto & f: task->onDoneFunctions)
-        f(task->value);
 }
 
 template<typename Key, class Value>
@@ -657,7 +662,7 @@ RestCollection<Key, Value>::
 addEntryItl(Key key,
             std::shared_ptr<Value> val,
             bool mustBeNewEntry,
-            std::atomic<bool> & wasCancelled)
+            std::atomic<BackgroundTaskBase::State> & state)
 {
     if (!val)
         return false;  // should only happen when being destroyed
@@ -667,7 +672,7 @@ addEntryItl(Key key,
     // In the case of an entry that's created and then removed before
     // it can be added, it may be cancelled before it can obtain the
     // mutate guard.  In that case, we don't add it.
-    if (wasCancelled)
+    if (state == BackgroundTaskBase::State::_cancelled)
         return false;
 
     // NOTE: Should not be necessary... investigation needed
@@ -726,14 +731,14 @@ RestCollection<Key, Value>::
 replaceEntryItl(Key key,
                 std::shared_ptr<Value> val,
                 bool mustAlreadyExist,
-                std::atomic<bool> & wasCancelled)
+                std::atomic<BackgroundTaskBase::State> & state)
 {
     std::unique_lock<typename Impl::MutateMutex> mutateGuard(impl->mutateMutex);
 
     // In the case of an entry that's created and then removed before
     // it can be added, it may be cancelled before it can obtain the
     // mutate guard.  In that case, we don't add it.
-    if (wasCancelled)
+    if (state == BackgroundTaskBase::State::_cancelled)
         return false;
 
     // NOTE: Should not be necessary... investigation needed
@@ -1503,7 +1508,7 @@ addPutRoute()
                     { "EntityPath", jsonEncodeStr(path) }
                 };
 
-                connection.sendHttpResponse(201, jsonEncodeStr(status),
+                connection.sendHttpResponse(202, jsonEncodeStr(status),
                                             "application/json", headers);
 
                 return RestRequestRouter::MR_YES;
@@ -1755,11 +1760,11 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
     }
     else {
         WatchT<bool> cancelled;
-        std::atomic<bool> wasCancelled(false);
+        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::_finished);
         this->addEntryItl(key, constructCancellable(std::move(config), nullptr,
                                                     std::move(cancelled)),
                           true /* must add */,
-                          wasCancelled);
+                          state);
     }
 
     bool isPersistent = objectIsPersistent(key, config);

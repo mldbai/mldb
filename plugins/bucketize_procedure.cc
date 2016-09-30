@@ -163,18 +163,20 @@ run(const ProcedureRunConfig & run,
         return onProgress(jsonEncode(bucketizeProgress));
     };
 
-    BoundSelectQuery(select,
+    if (!BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
                      runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-
         .execute({getSize, false/*processInParallel*/},
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
-                 onProgress2);
+                 onProgress2)) {
+        DEBUG_MSG(logger) << BucketizeProcedureConfig::name << " procedure was cancelled";
+        return RunOutput();
+    }
 
     int64_t rowCount = orderedRowNames.size();
     DEBUG_MSG(logger) << "Row count: " << rowCount;
@@ -210,8 +212,13 @@ run(const ProcedureRunConfig & run,
                 if (newVal > bucketizeStep->value) {
                     bucketizeStep->value = newVal;
                 }
-                onProgress(jsonEncode(bucketizeProgress));
+                bool keepGoing = onProgress(jsonEncode(bucketizeProgress));
+                if (!keepGoing) {
+                    DEBUG_MSG(logger) << BucketizeProcedureConfig::name << " procedure was cancelled";
+                    return false;
+                }
             }
+            return true;
         };
         auto range = mappedRange.second;
 
@@ -224,7 +231,9 @@ run(const ProcedureRunConfig & run,
         DEBUG_MSG(logger) << "Bucket " << mappedRange.first << " from "
                           << lowerBound << " to " << higherBound;
 
-        parallelMap(lowerBound, higherBound, applyFct);
+        if (!parallelMapHaltable(lowerBound, higherBound, applyFct)) {
+            DEBUG_MSG(logger) << BucketizeProcedureConfig::name << " procedure was cancelled";
+        }
     }
 
     // record remainder

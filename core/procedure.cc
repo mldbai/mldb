@@ -38,6 +38,7 @@ ProcedureRunConfigDescription()
     nullAccepted = true;
 
     addField("id", &ProcedureRunConfig::id, "ID of run");
+    addField("state", &ProcedureRunConfig::state, "State of the run");
     addField("params", &ProcedureRunConfig::params, "Parameters of run");
 }
 

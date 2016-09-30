@@ -108,6 +108,8 @@ getDefaultDescription(RestCollectionChildEvent<Key, Value> * = 0);
 /** Base class for background tasks. */
 
 struct BackgroundTaskBase {
+    /// _initializing and _executing are transient states while 
+    /// _cancelled, _finished and _error are final states 
     enum State {_initializing, _executing, _cancelled, _finished, _error};
 
     BackgroundTaskBase();
@@ -125,8 +127,13 @@ struct BackgroundTaskBase {
     */
     void cancel();
 
+    /** Set state to _error */
     void setError(std::exception_ptr exc = nullptr);
+
+    /** Set state to _executing */
     void setProgress(const Json::Value & progress);
+
+    /** Set state to _finished */
     void setFinished();
 
     /** Set the handle of the thread that's doing this task, so we know what
@@ -142,7 +149,8 @@ struct BackgroundTaskBase {
 
     typedef std::function<bool (const Json::Value &)> OnProgress;
 
-    std::atomic<bool> cancelled, error, finished;
+    /** A task is running until it is cancel, finished or in error state */
+    std::atomic<bool>  running;
     std::atomic<State> state;
     WatchesT<bool> cancelledWatches;
     
@@ -327,18 +335,16 @@ struct RestCollection : public RestCollectionBase {
                   std::shared_ptr<Value> value,
                   bool mustBeNewEntry = true)
     {
-        std::atomic<bool> wasCancelled(false);
-        return addEntryItl(key, std::move(value), mustBeNewEntry,
-                           wasCancelled);
+        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::_finished);
+        return addEntryItl(key, std::move(value), mustBeNewEntry, state);
     }
 
     bool replaceEntry(Key key,
                       std::shared_ptr<Value> value,
                       bool mustAlreadyExist = true)
     {
-        std::atomic<bool> wasCancelled(false);
-        return replaceEntryItl(key, std::move(value), mustAlreadyExist,
-                               wasCancelled);
+        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::_finished);
+        return replaceEntryItl(key, std::move(value), mustAlreadyExist, state);
     }
 
     std::pair<std::shared_ptr<Value>,
@@ -416,12 +422,12 @@ protected:
     bool addEntryItl(Key key,
                      std::shared_ptr<Value> value,
                      bool mustBeNewEntry,
-                     std::atomic<bool> & wasCancelled);
+                     std::atomic<BackgroundTaskBase::State> & state);
 
     bool replaceEntryItl(Key key,
                          std::shared_ptr<Value> value,
                          bool mustAlreadyExist,
-                         std::atomic<bool> & wasCancelled);
+                         std::atomic<BackgroundTaskBase::State> & state);
     struct Entry {
         std::shared_ptr<BackgroundTask> underConstruction;
         std::shared_ptr<Value> value;

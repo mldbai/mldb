@@ -646,14 +646,14 @@ initRoutes(RouteManager & manager)
 
 BackgroundTaskBase::
 BackgroundTaskBase()
-    : cancelled(false), error(false), finished(false), state(State::_initializing)
+    : running(true), state(State::_initializing)
 {
 }
 
 BackgroundTaskBase::
 ~BackgroundTaskBase()
 {
-    if (!cancelled) {
+    if (running) {
         cancel();
     }
 }
@@ -670,10 +670,10 @@ void
 BackgroundTaskBase::
 cancel()
 {
-    bool wasCancelled = this->cancelled.exchange(true);
-    if (!wasCancelled) {
+    auto old_state = state.exchange(State::_cancelled);
+    if (old_state != State::_cancelled && 
+        old_state != State::_finished) {
         cancelledWatches.trigger(true);
-        state = State::_cancelled;
     }
 
 #if 0
@@ -693,7 +693,7 @@ cancel()
             
     //thread->join();
 
-    while (!error && !finished) {
+    while (running) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 }
@@ -702,24 +702,30 @@ void
 BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
-    error = true;
+    auto old_state = state.exchange(State::_error);
+    ExcAssertNotEqual(old_state, State::_cancelled);
+    ExcAssertNotEqual(old_state, State::_finished);
     this->exc = std::move(exc);
-    state = State::_error;
 }
 
 void
 BackgroundTaskBase::
 setFinished()
 {
-    finished = true;
-    state = State::_finished;
+    running = false;
+    if (state != State::_cancelled &&
+        state != State::_error) {
+        state = State::_finished;
+    }
 }
 
 void
 BackgroundTaskBase::
 setProgress(const Json::Value & _progress)
 {
+    ExcAssert(running);
     state = State::_executing;
+
     auto type = _progress.type();
     if (type == Json::nullValue  ||  
         type == Json::arrayValue  || 
@@ -752,6 +758,7 @@ getState() const
     case State::_executing:
         return L"executing";
     default:
+        ExcAssert(!"update the BackgroundTaskBase::getState");
         return L"unknown state";
     }
 }

@@ -44,6 +44,7 @@ constexpr char GENERIC_OUTPUT_DS_DESC[] =
 
 struct ProcedureRunConfig {
     Utf8String id;
+    Utf8String state;
     Any params;
 };
 

@@ -209,7 +209,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     if (onProgress) {
                         Json::Value progress;
                         progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
-                        onProgress(progress);
+                        return onProgress(progress);
                     }
                     return true;
                 };
@@ -248,8 +248,9 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     for (size_t i = offset; i < upper; ++i) {
                         auto& outputRow = output[i-offset];
                         if (!processor(std::get<0>(outputRow), std::get<1>(outputRow),
-                                       std::get<2>(outputRow), -1))
+                                       std::get<2>(outputRow), -1)) {
                             return false;
+                        }
                     }
                 }
             }
@@ -316,7 +317,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 if (onProgress) {
                     Json::Value progress;
                     progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
-                    onProgress(progress);
+                    return onProgress(progress);
                 }
                 return true;
             };
@@ -444,7 +445,11 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 if (onProgress && rowsAdded % 1000 == 0) {
                     Json::Value progress;
                     progress["percent"] = (float) rowsAdded / rows.size();
-                    onProgress(progress);
+                    bool continuing = onProgress(progress);
+                    if (!continuing) {
+                        cerr << "cancelling" << endl;
+                        return false;
+                    }
                 }
 
                 // Check it matches the where expression.  If not, we don't process
@@ -492,7 +497,9 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ML::Timer timer;
 
-        parallelMap(0, rows.size(), doWhere);
+        if (!parallelMapHaltable(0, rows.size(), doWhere)) {
+            return false;  // the processing has been cancelled
+        }
 
         //cerr << "map took " << timer.elapsed() << endl;
         timer.restart();
@@ -570,8 +577,9 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 auto & calcd = std::get<2>(rowsSorted[i]);
 
                 /* Finally, pass to the terminator to continue. */
-                if (!processor(row, calcd, i))
+                if (!processor(row, calcd, i)) {
                     return false;
+                }
             }
         }
 
@@ -887,8 +895,9 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     return true;
                 };
 
-            if (!parallelMapHaltable(begin, end, onOutput))
+            if (!parallelMapHaltable(begin, end, onOutput)) {
                 return false;
+            }
         }
 
         cerr << "Output " << sorted.size() << " in " << scanTimer.elapsed()
@@ -1027,8 +1036,9 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 ExpressionValue selectOutput = boundSelect(rowContext, GET_ALL);
                 selectOutput.mergeToRowDestructive(outputRow.columns);
             }
-            if (!processor(outputRow, calcd, count))
+            if (!processor(outputRow, calcd, count)) {
                 return false;
+            }
 
             ++count;
         }      
