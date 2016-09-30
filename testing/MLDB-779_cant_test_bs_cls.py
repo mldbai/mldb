@@ -62,7 +62,6 @@ for cls in ["bdt", "glz", "bs"]:
                         "type": "boosted_stumps",
                         "min_iter": 10,
                         "max_iter": 200,
-                        "update_alg": "gentle",
                         "verbosity": 3
                     },
                     "bdt": {

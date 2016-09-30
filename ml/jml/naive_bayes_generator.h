@@ -32,7 +32,8 @@ public:
 
     /** Configure the generator with its parameters. */
     virtual void
-    configure(const Configuration & config) override;
+    configure(const Configuration & config,
+              std::vector<std::string> & unparsedKeys) override;
     
     /** Return to the default configuration. */
     virtual void defaults() override;

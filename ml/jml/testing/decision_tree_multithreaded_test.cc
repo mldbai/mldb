@@ -71,7 +71,8 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded1 )
     config.parse_string(config_options, "inbuilt config file");
 
     Decision_Tree_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to validade invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
