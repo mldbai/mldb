@@ -43,24 +43,19 @@ GLZ_Classifier_Generator::~GLZ_Classifier_Generator()
 
 void
 GLZ_Classifier_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
-
-    auto keys = config.allKeys();
-    config.findAndRemove(add_bias, "add_bias", keys);
-    config.findAndRemove(do_decode, "decode", keys);
-    config.findAndRemove(link_function, "link_function", keys);
-    config.findAndRemove(normalize, "normalize", keys);
-    config.findAndRemove(condition, "condition", keys);
-    config.findAndRemove(regularization, "regularization", keys);
-    config.findAndRemove(regularization_factor, "regularization_factor", keys);
-    config.findAndRemove(max_regularization_iteration, "max_regularization_iteration", keys);
-    config.findAndRemove(regularization_epsilon, "regularization_epsilon", keys);
-    config.findAndRemove(feature_proportion, "feature_proportion", keys);
-    config.findAndRemove(verbosity, "verbosity", keys);
-
-    Classifier_Generator::assertNoRemainingKeys(keys, config);
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(add_bias, "add_bias", unparsedKeys);
+    config.findAndRemove(do_decode, "decode", unparsedKeys);
+    config.findAndRemove(link_function, "link_function", unparsedKeys);
+    config.findAndRemove(normalize, "normalize", unparsedKeys);
+    config.findAndRemove(condition, "condition", unparsedKeys);
+    config.findAndRemove(regularization, "regularization", unparsedKeys);
+    config.findAndRemove(regularization_factor, "regularization_factor", unparsedKeys);
+    config.findAndRemove(max_regularization_iteration, "max_regularization_iteration", unparsedKeys);
+    config.findAndRemove(regularization_epsilon, "regularization_epsilon", unparsedKeys);
+    config.findAndRemove(feature_proportion, "feature_proportion", unparsedKeys);
 }
 
 void

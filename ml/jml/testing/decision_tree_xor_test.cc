@@ -68,7 +68,8 @@ BOOST_AUTO_TEST_CASE( test_xor_function )
     config.parse_string(config_options, "inbuilt config file");
 
     Decision_Tree_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to validade invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(data.feature_space(),
                    fs.features()[0]);
 

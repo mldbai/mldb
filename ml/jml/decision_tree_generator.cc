@@ -123,18 +123,15 @@ Decision_Tree_Generator::~Decision_Tree_Generator()
 
 void
 Decision_Tree_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
+    Classifier_Generator::configure(config, unparsedKeys);
 
-    auto keys = config.allKeys();
-    config.findAndRemove(trace, "trace", keys);
-    config.findAndRemove(max_depth, "max_depth", keys);
-    config.findAndRemove(update_alg, "update_alg", keys);
-    config.findAndRemove(random_feature_propn, "random_feature_propn", keys);
-    config.findAndRemove(verbosity, "verbosity", keys);
-
-    Classifier_Generator::assertNoRemainingKeys(keys, config);
+    config.findAndRemove(trace, "trace", unparsedKeys);
+    config.findAndRemove(max_depth, "max_depth", unparsedKeys);
+    config.findAndRemove(update_alg, "update_alg", unparsedKeys);
+    config.findAndRemove(random_feature_propn, "random_feature_propn", unparsedKeys);
+    config.findAndRemove(verbosity, "verbosity", unparsedKeys);
 }
 
 void

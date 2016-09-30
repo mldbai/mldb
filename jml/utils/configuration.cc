@@ -342,7 +342,9 @@ throwOnUnknwonKeys(
     keys.erase(
         remove_if(keys.begin(), keys.end(),
                   [&] (const std::string & str) {
-                     return (ignoreKeyFct && ignoreKeyFct(str)) || str.find(prefixDot) != 0;
+                     return (ignoreKeyFct && ignoreKeyFct(str)) // fct says to ignore
+                        || str.find(prefixDot) != 0 // prefix not found
+                        || str.rfind(".") != prefixDot.size() - 1; // prefix found, but non terminal key
                   }),
         keys.end());
 
