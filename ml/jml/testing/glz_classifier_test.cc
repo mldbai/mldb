@@ -74,7 +74,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
     config.parse_string(config_options, "inbuilt config file");
 
     GLZ_Classifier_Generator generator;
-    vector<string> unparsedKeys; // should be used to validade invalid keys
+    vector<string> unparsedKeys; // should be used to root out invalid keys
     generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
     config.parse_string(config_options, "inbuilt config file");
 
     GLZ_Classifier_Generator generator;
-    vector<string> unparsedKeys; // should be used to validade invalid keys
+    vector<string> unparsedKeys; // should be used to root out invalid keys
     generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
     config.parse_string(config_options, "inbuilt config file");
 
     GLZ_Classifier_Generator generator;
-    vector<string> unparsedKeys; // should be used to validade invalid keys
+    vector<string> unparsedKeys; // should be used to root out invalid keys
     generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 

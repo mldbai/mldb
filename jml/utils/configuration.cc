@@ -291,7 +291,6 @@ raw_set(const std::string & key, const std::string & value)
     if (!writeable_)
         throw Exception("Configuration::operator []: "
                         "object is not writeable");
-
     data_->entries[key] = value;
 }
 

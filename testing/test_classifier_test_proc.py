@@ -336,6 +336,8 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     @unittest.expectedFailure
     def test_classifier_doesnt_rejects_dotted_neighbor_param(self):
+
+        # This assertion works
         msg = "No feature vectors were produced as all"
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
@@ -366,6 +368,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
                 }
             })
 
+        # This assertion fails, see below
         msg = "No feature vectors were produced as all"
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
@@ -387,7 +390,9 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
                         # It should be the same error as the previous one, but
                         # the key is too similar and confuses the error
-                        # detector
+                        # detector (because it contains a dot) Should the
+                        # Configure class stop accepting dotted key it would
+                        # solve this.
                         "glz_linear.BAR": {
                             "FOO": "linear"
                         }
@@ -398,7 +403,6 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
                 }
             })
 
-    @unittest.expectedFailure
     def test_classifier_allows_underscored_key_param(self):
         msg = "No feature vectors were produced as all"
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
