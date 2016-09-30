@@ -69,6 +69,12 @@ COMPILER_CACHE:=ccache
 
 *N.B.* To use `ccache` to maximum effect, you should set the cache size to something like 10GB if you have the disk space with `ccache -M 10G`.
 
+To avoid building MLDB for all supported architectures and save time, check [sample.local.mk](https://github.com/mldbai/mldb/blob/master/jml-build/sample.local.mk)
+
+To have a faster build, you can use clang instead of gcc. Simply add `toolchain=clang` at the end of your make command.
+
+To run a single test, simply specify its name as the target. For python and javascript, include the extension (.py and .js). For C++, omit it.
+
 ## Building a Docker image
 
 You'll need to add your user to the `docker` group otherwise you'll need to `sudo` to build the Docker image:
