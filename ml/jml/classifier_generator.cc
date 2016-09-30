@@ -269,7 +269,7 @@ get_trainer(const std::string & name, const Configuration & config)
     auto allowKeyFct = [&] (const string & str) {
         return str == typeKey || str.find(allowPrefix) == 0;
     };
-    config2.throwOnUnknwonKeys(remainingKeys, allowKeyFct);
+    config2.throwOnUnknwonKeys(unparsedKeys, allowKeyFct);
 
     return result;
 }
