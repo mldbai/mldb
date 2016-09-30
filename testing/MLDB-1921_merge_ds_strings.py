@@ -24,8 +24,17 @@ class Mldb1921MergeDsStrings(MldbUnitTest):  # noqa
             'type' : 'merged',
             'params' : {
                 'datasets' : ['ds1', 'ds2']
+
+                # explicit way to define datasets
+                #'datasets' : [{'id' : 'ds1'}, {'id' : 'ds2'}]
             }
         })
+
+        res = mldb.query("SELECT A, B FROM merged_ds ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'A', 'B'],
+            ['row1', 1, 2]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()
