@@ -142,6 +142,7 @@ struct BackgroundTaskBase {
     void setHandle(int64_t handle)
     {
         std::unique_lock<std::mutex> guard(mutex);
+        std::cerr << "new task with handle " << handle << std::endl;
         this->handle = handle;
     }
 

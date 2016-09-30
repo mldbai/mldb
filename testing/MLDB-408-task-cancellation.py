@@ -6,20 +6,21 @@
 
 import time
 
-wrapper = mldb_wrapper.wrap(mldb)  # noqa
+mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class MLDB408TaskCancellation(MldbUnitTest):  # noqa
 
     def run_procedure_async(self, name, config):
-        wrapper.put("/v1/procedures/" + name, config)
-        response = wrapper.post_async("/v1/procedures/" + name + "/runs")
+        mldb.put("/v1/procedures/" + name, config)
+        response = mldb.post_async("/v1/procedures/" + name + "/runs")
+        mldb.log(response)
         return response.headers['Location']
         
     @classmethod
     def setUpClass(cls):
         # create a dummy dataset
-        ds = wrapper.create_dataset({ "id": "sample", "type": "sparse.mutable" })
-        row_count = 100000
+        ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
+        row_count = 1000000
         for i in xrange(row_count):
             # row name is x's value
             ds.record_row(str(i), [['x', i, 0]])
@@ -44,21 +45,21 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
             }
         })
 
-        resp = mldb.perform('PUT', location, [], {'state': 'cancelled'});
+        resp = mldb.get(location)
         mldb.log(resp)
 
-        #self.assertEquals(resp['statusCode'], 200)
+        resp = mldb.put(location, {'state': 'cancelled'})
 
-        resp = wrapper.get(location).json()
-        mldb.log(resp)
+        self.assertEquals(resp.status_code, 200)
+
         running = True
         while(running):
-            resp = wrapper.get(location).json()
-            #mldb.log(resp)
-            if resp['state'] == 'cancelled' or 'finished':
+            resp = mldb.get(location).json()
+            mldb.log(resp)
+            if resp['state'] == 'cancelled':
                 running = False
             time.sleep(0.1)
 
         
 if __name__ == '__main__':
-    wrapper.run_tests()
+    mldb.run_tests()

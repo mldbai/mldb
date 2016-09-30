@@ -212,11 +212,8 @@ run(const ProcedureRunConfig & run,
                 if (newVal > bucketizeStep->value) {
                     bucketizeStep->value = newVal;
                 }
-                bool keepGoing = onProgress(jsonEncode(bucketizeProgress));
-                if (!keepGoing) {
-                    DEBUG_MSG(logger) << BucketizeProcedureConfig::name << " procedure was cancelled";
+                if (!onProgress(jsonEncode(bucketizeProgress)))
                     return false;
-                }
             }
             return true;
         };

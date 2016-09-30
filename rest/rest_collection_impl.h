@@ -560,7 +560,8 @@ addBackgroundJobInThread(Key key,
             {
                 std::unique_lock<std::mutex> guard(task->mutex);
                 task->setProgress(progress);
-
+                if (task->state == BackgroundTaskBase::State::_cancelled)
+                    cerr << "calling progress when cancelled" << endl;
                 return !(task->state == BackgroundTaskBase::State::_cancelled);
             };
 

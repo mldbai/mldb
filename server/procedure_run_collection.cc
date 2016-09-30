@@ -117,7 +117,6 @@ initRoutes(RouteManager & manager)
 
                 JML_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<ProcedureRunConfig>(req.payload);
-                cerr << jsonEncode(config) << endl;
 
                 if (config.state == "cancelled") {
                     auto runEntry = collection->getEntry(key);

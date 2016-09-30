@@ -675,6 +675,7 @@ cancel()
         old_state != State::_finished) {
         cancelledWatches.trigger(true);
     }
+    cerr << "state is now _cancelled " << handle << endl;
 
 #if 0
     // Give it one second to stop
@@ -703,6 +704,7 @@ BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
     auto old_state = state.exchange(State::_error);
+    cerr << "state is now _error " << handle << endl;
     ExcAssertNotEqual(old_state, State::_cancelled);
     ExcAssertNotEqual(old_state, State::_finished);
     this->exc = std::move(exc);
@@ -713,8 +715,10 @@ BackgroundTaskBase::
 setFinished()
 {
     running = false;
-    if (state != State::_cancelled &&
-        state != State::_error) {
+    State oldState = state.load();
+    if (oldState != State::_cancelled &&
+        oldState != State::_error) {
+        cerr << "state is now _finished " << handle << " was " << oldState << endl;
         state = State::_finished;
     }
 }
@@ -724,20 +728,26 @@ BackgroundTaskBase::
 setProgress(const Json::Value & _progress)
 {
     ExcAssert(running);
-    state = State::_executing;
+    
+    State oldState = state.load();
+    if (oldState != State::_cancelled &&
+        oldState != State::_error) {
+        cerr << "state is now _executing " << handle << endl;
+        state = State::_executing;
 
-    auto type = _progress.type();
-    if (type == Json::nullValue  ||  
-        type == Json::arrayValue  || 
-        type == Json::objectValue)
-        progress.clear();
+        auto type = _progress.type();
+        if (type == Json::nullValue  ||  
+            type == Json::arrayValue  || 
+            type == Json::objectValue)
+            progress.clear();
 
-    ExcAssert(type != Json::stringValue);
+        ExcAssert(type != Json::stringValue);
 
-    if(!_progress.isNull()) {
-        progress = _progress;
-        for (auto & f: onProgressFunctions) {
-            f(progress);
+        if(!_progress.isNull()) {
+            progress = _progress;
+            for (auto & f: onProgressFunctions) {
+                f(progress);
+            }
         }
     }
 }
