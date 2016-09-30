@@ -386,7 +386,7 @@ SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer,
                           std::shared_ptr<ExpressionValueInfo> inputInfo)
     : outer(outer),
-      inputInfo(ExpressionValueInfo::toRow(inputInfo)),
+      inputInfo(inputInfo),
       wildcardsInInput(false)
 {
     ExcAssert(this->inputInfo);

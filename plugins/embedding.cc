@@ -25,6 +25,10 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
 
+#include "mldb/server/dataset_context.h"
+
+#include <boost/algorithm/clamp.hpp>
+
 using namespace std;
 
 
@@ -1333,6 +1337,292 @@ regNearestNeighborsFunction(builtinPackage(),
                             "embedding.neighbors",
                             "Return the nearest neighbors of a known row in an embedding dataset",
                             "functions/NearestNeighborsFunction.md.html");
+
+/*****************************************************************************/
+/* Image Wrapper function                                                */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(ImageWrapperFunctionConfig);
+
+ImageWrapperFunctionConfigDescription::
+ImageWrapperFunctionConfigDescription()
+{
+    addField("expression",
+             &ImageWrapperFunctionConfig::expression,
+             "");           
+}
+
+ImageWrapperInput::
+ImageWrapperInput()
+{
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ImageWrapperInput);
+
+ImageWrapperInputDescription::
+ImageWrapperInputDescription()
+{
+    addField("x", &ImageWrapperInput::x,
+             "");
+    addField("y", &ImageWrapperInput::y,
+             "");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ImageWrapperOutput);
+
+ImageWrapperOutputDescription::
+ImageWrapperOutputDescription()
+{
+    addField("value", &ImageWrapperOutput::value,
+             "");
+}
+
+ImageWrapperFunction::
+ImageWrapperFunction(MldbServer * owner,
+                         PolyConfig config,
+                         const std::function<bool (const Json::Value &)> & onProgress)
+    : BaseT(owner)
+{
+    functionConfig = config.params.convert<ImageWrapperFunctionConfig>();
+
+    SqlExpressionMldbScope context(owner);
+
+    auto boundExpr = functionConfig.expression->bind(context);
+
+    SqlRowScope scope;
+
+    embedding = boundExpr(scope, GET_ALL);
+}
+
+ImageWrapperFunction::
+~ImageWrapperFunction()
+{
+}
+
+struct ImageWrapperFunctionApplier
+    : public FunctionApplierT<ImageWrapperInput, ImageWrapperOutput> {
+
+    ImageWrapperFunctionApplier(const Function * owner)
+        : FunctionApplierT<ImageWrapperInput, ImageWrapperOutput>(owner)
+    {
+        info = owner->getFunctionInfo();
+    }
+};
+
+ImageWrapperOutput
+ImageWrapperFunction::
+applyT(const ApplierT & applier_, ImageWrapperInput input) const
+{
+   
+    ImageWrapperOutput output;
+
+    ColumnName columnName;
+
+    int x = input.x.coerceToInteger().toInt();
+    int y = input.y.coerceToInteger().toInt();
+    x = boost::algorithm::clamp(x, 0, shape[0]-1);
+    y = boost::algorithm::clamp(y, 0, shape[1]-1);
+
+   /* if (x < 0 || y < 0 || x >= shape[0] || y >= shape[1])
+    {
+        cerr << x << "," << y << endl;
+        cerr << "requesting bad coords" << endl;
+        
+        //ExcAssert(false);
+    }*/
+
+    columnName = columnName + PathElement(y);
+    columnName = columnName + PathElement(x);
+
+    ExpressionValue storage;
+    auto pValue = embedding.tryGetNestedColumn(columnName, storage);
+
+    if (pValue) {
+        return {*pValue};
+    }
+    else {
+        //cerr << columnName << endl;
+        ExcAssert(false);
+        return {ExpressionValue(0, Date::negativeInfinity())};
+    }
+}
+    
+std::unique_ptr<FunctionApplierT<ImageWrapperInput, ImageWrapperOutput> >
+ImageWrapperFunction::
+bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+{
+    std::unique_ptr<ImageWrapperFunctionApplier> result
+        (new ImageWrapperFunctionApplier(this));
+ 
+    return std::move(result);
+}
+
+static RegisterFunctionType<ImageWrapperFunction, ImageWrapperFunctionConfig>
+regImageWrapperFunction(builtinPackage(),
+                            "image.wrapper",
+                            "",
+                            "functions/ImageWrapperFunction.md.html");
+
+/*****************************************************************************/
+/* Get N Neighbor function                                                   */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(GetNeighborsFunctionConfig);
+
+GetNeighborsFunctionConfigDescription::
+GetNeighborsFunctionConfigDescription()
+{
+    addField("expression",
+             &GetNeighborsFunctionConfig::expression,
+             "");
+    addField("range",
+             &GetNeighborsFunctionConfig::range,
+             "");
+}
+
+GetNeighborsInput::
+GetNeighborsInput()
+{
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(GetNeighborsInput);
+
+GetNeighborsInputDescription::
+GetNeighborsInputDescription()
+{
+    addField("x", &GetNeighborsInput::x,
+             "");
+    addField("y", &GetNeighborsInput::y,
+             "");
+    addField("z", &GetNeighborsInput::z,
+             "");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(GetNeighborsOutput);
+
+GetNeighborsOutputDescription::
+GetNeighborsOutputDescription()
+{
+    addField("value", &GetNeighborsOutput::value,
+             "");
+}
+
+GetNeighborsFunction::
+GetNeighborsFunction(MldbServer * owner,
+                         PolyConfig config,
+                         const std::function<bool (const Json::Value &)> & onProgress)
+    : BaseT(owner)
+{
+    functionConfig = config.params.convert<GetNeighborsFunctionConfig>();
+
+    N = functionConfig.range;
+
+    SqlExpressionMldbScope context(owner);
+
+    auto boundExpr = functionConfig.expression->bind(context);
+
+    SqlRowScope scope;
+
+    embedding = boundExpr(scope, GET_ALL);
+}
+
+GetNeighborsFunction::
+~GetNeighborsFunction()
+{
+}
+
+struct GetNeighborsFunctionApplier
+    : public FunctionApplierT<GetNeighborsInput, GetNeighborsOutput> {
+
+    GetNeighborsFunctionApplier(const Function * owner)
+        : FunctionApplierT<GetNeighborsInput, GetNeighborsOutput>(owner)
+    {
+        info = owner->getFunctionInfo();
+    }
+};
+
+GetNeighborsOutput
+GetNeighborsFunction::
+applyT(const ApplierT & applier_, GetNeighborsInput input) const
+{
+    
+    GetNeighborsOutput output;
+
+    int x = input.x.coerceToInteger().toInt();
+    int y = input.y.coerceToInteger().toInt();
+    int z = input.z.coerceToInteger().toInt();
+
+    //const int N = 2;// TODO: param
+    const size_t num_values = (N*2+1)*(N*2+1)*(N*2+1)*3;
+    auto shape = embedding.getEmbeddingShape();
+
+    std::shared_ptr<float> buffer(new float[num_values],
+                                      [] (float * p) { delete[] p; });
+
+    float* p = buffer.get();
+    for (int i = -N; i <= N; ++i) {
+        for (int j = -N; j <= N; ++j) {
+            for (int k = -N; k <= N; ++k) {
+                for (int c = 0; c < 3; ++c) {
+
+                    int ii = x + i;
+                    int jj = y + j;
+                    int kk = z + k;
+
+                    ColumnName columnName;
+                  
+                    //voxelize is z, y, x...
+
+                    columnName = columnName + PathElement(kk);
+                    columnName = columnName + PathElement(jj);
+                    columnName = columnName + PathElement(ii);
+                    columnName = columnName + PathElement(c);
+
+                    //cerr << columnName << endl;
+
+                    ExpressionValue storage;
+                    auto pValue = embedding.tryGetNestedColumn(columnName, storage);
+
+                    float val = 0.0f;
+
+                    if (!pValue) {
+                        cerr << columnName << endl;
+                        ExcAssert(pValue);
+                    }
+
+                    //if (pValue)
+                       val = pValue->coerceToNumber().toDouble();
+
+                    if (!std::isfinite(val))
+                        throw HttpReturnException(400, "GetNeighborsFunction : found Nan");
+                    *p = val;
+                    p++;
+                }
+            }
+        }
+    }
+
+    auto tensor = ExpressionValue::embedding
+        (Date::notADate(), buffer, ST_FLOAT32, DimsVector{ num_values });
+
+    return {tensor};
+}
+    
+std::unique_ptr<FunctionApplierT<GetNeighborsInput, GetNeighborsOutput> >
+GetNeighborsFunction::
+bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+{
+    std::unique_ptr<GetNeighborsFunctionApplier> result
+        (new GetNeighborsFunctionApplier(this));
+ 
+    return std::move(result);
+}
+
+static RegisterFunctionType<GetNeighborsFunction, GetNeighborsFunctionConfig>
+regGetNeighborsFunction(builtinPackage(),
+                            "image.getneighbors",
+                            "",
+                            "functions/GetNeighborsFunction.md.html");
 
 
 } // namespace MLDB

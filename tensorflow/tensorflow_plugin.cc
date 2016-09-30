@@ -992,7 +992,7 @@ struct TensorflowGraphBase: public Function {
             return castToTypedTensor(val, storageToDatatype(storageType));
         }
 
-        cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
+        //cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
         throw HttpReturnException(500, "Unable to cast value to tensor");
     }
     
@@ -1024,6 +1024,10 @@ struct TensorflowGraphBase: public Function {
 
                     // It has a datatype, but no value (and hence size).
                     // Attempt to match the data type only.
+
+                    //cerr << "casting type-no-sizE: " << layer << endl;
+                    //cerr << "value: " << jsonEncode(val) << endl;
+
                     return castToTypedTensor(val, it->second.type());
                 }
 
@@ -1384,6 +1388,8 @@ struct TensorflowGraphBase: public Function {
     apply(const FunctionApplier & applier,
           const ExpressionValue & context) const
     {
+        //cerr << "applying tensor flow function, context: " << jsonEncode(context) << endl;
+
         return static_cast<const Applier &>(applier)
             .apply(context);
     }
@@ -1407,7 +1413,7 @@ struct TensorflowGraphBase: public Function {
         functionScope.inferInput();
         
         FunctionInfo result;
-        result.input = std::move(functionScope.inputInfo);
+        result.input = std::move(std::dynamic_pointer_cast<RowValueInfo>(functionScope.inputInfo));
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;

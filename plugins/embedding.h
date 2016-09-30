@@ -142,7 +142,113 @@ struct NearestNeighborsFunction
           const std::shared_ptr<RowValueInfo> & input) const override;
     
     NearestNeighborsFunctionConfig functionConfig;
+
+    ExpressionValue embedding;
 };
+
+/*****************************************************************************/
+/* Image Wrapper FUNCTION                                                    */
+/*****************************************************************************/
+
+struct ImageWrapperFunctionConfig {
+    ImageWrapperFunctionConfig()
+    {
+    }
+
+    std::shared_ptr<SqlExpression> expression;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ImageWrapperFunctionConfig);
+
+struct ImageWrapperInput {
+    ImageWrapperInput();
+    ExpressionValue x;
+    ExpressionValue y;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ImageWrapperInput);
+
+struct ImageWrapperOutput {
+    ExpressionValue value;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ImageWrapperOutput);
+
+struct ImageWrapperFunction
+    : public ValueFunctionT<ImageWrapperInput, ImageWrapperOutput> {
+
+    ImageWrapperFunction(MldbServer * owner,
+                             PolyConfig config,
+                             const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual ~ImageWrapperFunction();
+
+    virtual ImageWrapperOutput
+    applyT(const ApplierT & applier, ImageWrapperInput input) const override;
+    
+    virtual std::unique_ptr<ApplierT>
+    bindT(SqlBindingScope & outerContext,
+          const std::shared_ptr<RowValueInfo> & input) const override;
+    
+    ImageWrapperFunctionConfig functionConfig;
+
+    ExpressionValue embedding;
+    DimsVector shape;
+};
+
+/*****************************************************************************/
+/* Get Neighbors FUNCTION                                                    */
+/*****************************************************************************/
+
+struct GetNeighborsFunctionConfig {
+    GetNeighborsFunctionConfig()
+    {
+    }
+
+    std::shared_ptr<SqlExpression> expression;
+    int range;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(GetNeighborsFunctionConfig);
+
+struct GetNeighborsInput {
+    GetNeighborsInput();
+    ExpressionValue x;
+    ExpressionValue y;
+    ExpressionValue z;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(GetNeighborsInput);
+
+struct GetNeighborsOutput {
+    ExpressionValue value;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(GetNeighborsOutput);
+
+struct GetNeighborsFunction
+    : public ValueFunctionT<GetNeighborsInput, GetNeighborsOutput> {
+
+    GetNeighborsFunction(MldbServer * owner,
+                             PolyConfig config,
+                             const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual ~GetNeighborsFunction();
+
+    virtual GetNeighborsOutput
+    applyT(const ApplierT & applier, GetNeighborsInput input) const override;
+    
+    virtual std::unique_ptr<ApplierT>
+    bindT(SqlBindingScope & outerContext,
+          const std::shared_ptr<RowValueInfo> & input) const override;
+    
+    GetNeighborsFunctionConfig functionConfig;
+
+    ExpressionValue embedding;
+
+    int N;
+};
+
 
 
 } // namespace MLDB

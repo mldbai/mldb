@@ -482,6 +482,7 @@ struct SparseMatrixDataset::Itl
             return { hash, 24 };
         }
         default:
+            cerr << "WIERD TYPE: " << val.cellType() << endl;
             ExcAssert(false);
         }
     }

@@ -114,7 +114,8 @@ struct ColumnScope: public SqlExpressionMldbScope {
     bool
     runIncremental(const std::vector<BoundSqlExpression> & exprs,
                    std::function<bool (size_t rowNum,
-                                       CellValue * vals)> onVal) const;
+                                       CellValue * vals)> onVal,
+                   std::shared_ptr<SqlExpression> where = SqlExpression::TRUE) const;
 
     /** Run the expression over a dataset, calling the given
         lambda for each row that is generated.  This method of
@@ -138,14 +139,16 @@ struct ColumnScope: public SqlExpressionMldbScope {
     bool
     runIncrementalDouble(const std::vector<BoundSqlExpression> & exprs,
                          std::function<bool (size_t rowNum,
-                                             double * vals)> onVal) const;
+                                             double * vals)> onVal,
+                         std::shared_ptr<SqlExpression> where = SqlExpression::TRUE) const;
 
 private:
     template<typename Val>
     bool
     runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                     std::function<bool (size_t rowNum,
-                                        Val * vals)> onVal) const;
+                                        Val * vals)> onVal,
+                    std::shared_ptr<SqlExpression> where) const;
 };
 
 } // namespace MLDB

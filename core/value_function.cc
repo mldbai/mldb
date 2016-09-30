@@ -49,6 +49,11 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
                 info.desc = field;
                 std::tie(info.info, info.fromInput, info.toOutput)
                     = toValueInfo(field.description);
+
+                if (!info.info)
+                    throw HttpReturnException
+                            (500, "No info for field " + info.fieldName.toUtf8String());
+
                 knownColumns.emplace_back(PathElement(field.fieldName),
                                           info.info,
                                           COLUMN_IS_SPARSE /* todo: optional? */

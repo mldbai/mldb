@@ -366,7 +366,7 @@ SqlExpressionFunction(MldbServer * owner,
 
         // 4.  Our required input is known by the binding context, as it records
         //     what was read.
-        info.input = innerScope->inputInfo;
+        info.input = std::dynamic_pointer_cast<RowValueInfo>(innerScope->inputInfo);
     }
 }
 
@@ -483,7 +483,7 @@ getFunctionInfo() const
 
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.
-    result.input = outerScope.inputInfo;
+    result.input = std::dynamic_pointer_cast<RowValueInfo>(outerScope.inputInfo);
 
     return result;
 }
