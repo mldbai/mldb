@@ -213,6 +213,19 @@ type() const
     return demangle(typeid(*this).name());
 }
 
+void
+Classifier_Generator::
+assertNoRemainingKeys(std::vector<std::string> remainingKeys,
+                      const Configuration & config)
+{
+    string typeKey = config.prefix() + ".type";
+    string allowPrefix = config.prefix() + "._";
+    auto allowKeyFct = [&] (const string & str) {
+        return str == typeKey || str.find(allowPrefix) == 0;
+    };
+    config.throwOnUnknwonKeys(remainingKeys, allowKeyFct);
+}
+
 
 /*****************************************************************************/
 /* FACTORIES                                                                 */
@@ -266,6 +279,5 @@ get_trainer(const std::string & name, const Configuration & config)
 
     return result;
 }
-
 } // namespace ML
 

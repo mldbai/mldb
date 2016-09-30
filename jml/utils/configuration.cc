@@ -336,13 +336,13 @@ void
 Configuration::
 throwOnUnknwonKeys(
     vector<string> & keys,
-    const function<bool(const string & )> & removeIfFct) const
+    const function<bool(const string & )> & ignoreKeyFct) const
 {
     string prefixDot = prefix_ + ".";
     keys.erase(
         remove_if(keys.begin(), keys.end(),
                   [&] (const std::string & str) {
-                     return (removeIfFct && removeIfFct(str)) || str.find(prefixDot) != 0;
+                     return (ignoreKeyFct && ignoreKeyFct(str)) || str.find(prefixDot) != 0;
                   }),
         keys.end());
 

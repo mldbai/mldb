@@ -208,9 +208,12 @@ public:
             throw Exception("required key " + key + " not found");
     }
 
+    /** Empties the key vector from keys not starting with "prefix().".
+     *  If ignoreKeyFct is provided, also removes the key when the function returns true.
+     *  After that cleaning, throws if any key is left in the vector. */
     void throwOnUnknwonKeys(
         std::vector<std::string> & keys,
-        const std::function<bool(const std::string &)> & removeIfFct = nullptr) const;
+        const std::function<bool(const std::string &)> & ignoreKeyFct = nullptr) const;
 
 private:
     struct Data;

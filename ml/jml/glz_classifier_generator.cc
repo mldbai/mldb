@@ -60,9 +60,7 @@ configure(const Configuration & config)
     config.findAndRemove(feature_proportion, "feature_proportion", keys);
     config.findAndRemove(verbosity, "verbosity", keys);
 
-    string typeKey = config.find_key("type", true);
-    config.throwOnUnknwonKeys(
-        keys, [&] (const string & str) { return str == typeKey; });
+    Classifier_Generator::assertNoRemainingKeys(keys, config);
 }
 
 void

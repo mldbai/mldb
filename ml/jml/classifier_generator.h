@@ -106,6 +106,11 @@ public:
     /** Log a message for the given module at the given debug level. */
     std::ostream & log(const std::string & module, int level) const;
 
+    /** Checks if any key of the current config.prefix() is left EXCEPT for
+     *  prefix().type and keys starting with prefix()._ */
+    static void assertNoRemainingKeys(std::vector<std::string> remainingKeys,
+                                      const Configuration & config);
+
     /** Current verbosity level. */
     int verbosity;
 

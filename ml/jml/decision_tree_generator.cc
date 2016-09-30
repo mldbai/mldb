@@ -134,9 +134,7 @@ configure(const Configuration & config)
     config.findAndRemove(random_feature_propn, "random_feature_propn", keys);
     config.findAndRemove(verbosity, "verbosity", keys);
 
-    string typeKey = config.find_key("type", true);
-    config.throwOnUnknwonKeys(
-        keys, [&] (const string & str) { return str == typeKey; });
+    Classifier_Generator::assertNoRemainingKeys(keys, config);
 }
 
 void

@@ -398,5 +398,39 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
                 }
             })
 
+    @unittest.expectedFailure
+    def test_classifier_allows_underscored_key_param(self):
+        msg = "No feature vectors were produced as all"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.put("/v1/procedures/regression_cls", {
+                "type": "classifier.experiment",
+                "params": {
+                    "inputData": "SELECT {*} AS features, label AS label FROM foo",
+                    "experimentName": "reg_exp",
+                    "keepArtifacts": True,
+                    "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
+                    "algorithm": "glz_linear",
+                    "configuration": {
+                        "glz_linear": {
+                            "type": "glz",
+                            "normalize": True,
+                            "link_function": 'linear',
+                            "regularization": 'l1',
+                            "regularization_factor": 0.001,
+                            "_ignored" : "this key is ignored"
+                        },
+
+                        # The key is clearly different, no problem
+                        "FOO": {
+                            "FOO": "linear"
+                        }
+                    },
+                    "kfold": 2,
+                    "mode": "regression",
+                    "outputAccuracyDataset": True
+                }
+            })
+
+
 if __name__ == '__main__':
     mldb.run_tests()
