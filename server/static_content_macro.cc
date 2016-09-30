@@ -37,8 +37,6 @@ using namespace Json;
 
 static std::string printTypeName(std::string t)
 {
-    if (t.find("") == 0)
-        t = string(t, 12);
     if (t.find("MLDB::") == 0)
         t = string(t, 6);
     return t;
