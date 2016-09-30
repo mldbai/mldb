@@ -6,6 +6,7 @@
 
    Configuration file parser.
 */
+#include <boost/algorithm/string/join.hpp>
 
 #include "configuration.h"
 #include "mldb/base/parse_context.h"
@@ -349,7 +350,7 @@ throwOnUnknwonKeys(
 
     if (!keys.empty()) {
         throw ML::Exception("Unknown key(s) encountered in config: %s",
-                            ML::join(keys).c_str());
+                            boost::algorithm::join(keys, " ").c_str());
     }
 }
 

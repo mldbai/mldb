@@ -240,21 +240,4 @@ trim(const string & other)
     return result;
 }
 
-std::string
-join(const std::vector<std::string> strings)
-{
-    stringstream ss;
-    bool first = true;
-    for (const auto & s: strings) {
-        if (JML_UNLIKELY(first)) {
-            first = false;
-        }
-        else {
-            ss << " ";
-        }
-        ss << s;
-    }
-    return ss.str();
-}
-
 } // namespace ML
