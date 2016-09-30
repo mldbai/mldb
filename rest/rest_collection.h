@@ -149,7 +149,7 @@ struct BackgroundTaskBase {
 
     typedef std::function<bool (const Json::Value &)> OnProgress;
 
-    /** A task is running until it is cancel, finished or in error state */
+    /** A task is running until it is cancelled, finished or in error state */
     std::atomic<bool>  running;
     std::atomic<State> state;
     WatchesT<bool> cancelledWatches;
