@@ -43,7 +43,7 @@ HUBBUB_CWD:=$(CWD)
 $(CWD)/src/tokeniser/entities.inc:
 	cd $(HUBBUB_CWD) && perl build/make-entities.pl
 
-$(eval $(call library,hubbub,$(LIBHUBBUB_SRC),parserutils))
+$(eval $(call mldb_plugin_library,html,hubbub,$(LIBHUBBUB_SRC),parserutils))
 
 
 endif

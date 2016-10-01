@@ -5,13 +5,7 @@ var html = mldb.get('/doc/builtin/functions/FunctionConfig.md.html').response;
 
 mldb.log(html);
 
-
-
-var fn = mldb.createFunction({id: 'htmlparser', type: 'html.extractLinks', params: {}});
-
-var html = mldb.get('/doc/builtin/functions/FunctionConfig.md.html').response;
-
-var res = mldb.query("select htmlparser({ text: " + mldb.sqlEscape(html) + "}) as *",
+var res = mldb.query("select extract_text(" + mldb.sqlEscape(html) + ") as txt",
                   { format: 'table'});
 
 mldb.log(res);
