@@ -1377,9 +1377,15 @@ extractStructuredJson(JsonPrintingContext & context) const
         const unsigned char * p = blobData();
         const unsigned char * e = p + blobLength();
 
+        auto isString = [] (char c)
+            {
+                return (c >= ' ' && c < 127)
+                    || (c == '\n' || c == '\r' || c == '\t');
+            };
+
         while (p < e) {
             const unsigned char * s = p;
-            while (p < e && *p >= ' ' && *p < 127 && isascii(*p))
+            while (isString(*p))
                 ++p;
             size_t len = p - s;
             //cerr << "len = " << len << endl;
@@ -1391,8 +1397,8 @@ extractStructuredJson(JsonPrintingContext & context) const
                 context.newArrayElement();
                 context.writeString((const char *)s, len);
             }
-                
-            while (p < e && (*p <= ' ' || *p >= 127 || !isascii(*p))) {
+
+            while (p < e && !isString(*p)) {
                 context.newArrayElement();
                 context.writeInt(*p++);
             }
