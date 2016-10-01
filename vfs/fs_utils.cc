@@ -73,6 +73,8 @@ FsObjectInfoDescription()
              "ID of owner");
     addField("ownerName", &FsObjectInfo::ownerName,
              "Name of owner");
+    addField("contentType", &FsObjectInfo::contentType,
+             "Content type of object");
     addField("objectMetadata", &FsObjectInfo::objectMetadata,
              "Metadata about the object");
     addField("userMetadata", &FsObjectInfo::userMetadata,

@@ -44,6 +44,7 @@ struct FsObjectInfo {
     std::string storageClass;   ///< Storage class of object (S3 only)
     std::string ownerId;        ///< ID of the owner (uid or identifier)
     std::string ownerName;      ///< Name of owner
+    std::string contentType;    ///< Content-type of object if known
 
     std::map<std::string, Json::Value> userMetadata;  ///< Metadata from user
     std::map<std::string, Json::Value> objectMetadata;  ///< Metadata from obj
