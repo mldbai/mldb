@@ -9,7 +9,7 @@
 
 #include "dataset_js.h"
 #include "mldb/core/dataset.h"
-
+#include "js_common.h"
 
 using namespace std;
 
@@ -111,12 +111,49 @@ recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
     try {
         Dataset * dataset = getShared(args.This());
         
-        auto rows = JS::getArg<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >(args, 0, "rows", {});
+        // Look at rows
+        // If it's an array of arrays, it's in the vector<pair> format
+        // If it's an array of objects, it's in vector<MatrixNamedRow> format
 
-        {
-            //v8::Unlocker unlocker(args.GetIsolate());
+        auto array = args[0].As<v8::Array>();
+        if (array.IsEmpty())
+            throw HttpReturnException(400, "value " + JS::cstr(args[0]) + " is not an array");
+        if (array->Length() == 0)
+            return;
+
+        auto el = array->Get(0);
+        if (el->IsArray()) {
+            // Note: goes first, because an array is also an object
+            auto rows = JS::getArg<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >(args, 0, "rows", {});
+            v8::Unlocker unlocker(args.GetIsolate());
             dataset->recordRows(std::move(rows));
         }
+        else if (el->IsObject()) {
+            std::vector<std::pair<RowPath, ExpressionValue> > toRecord;
+            toRecord.reserve(array->Length());
+
+            auto columns = v8::String::NewFromUtf8(args.GetIsolate(), "columns");
+            auto rowPath = v8::String::NewFromUtf8(args.GetIsolate(), "rowPath");
+
+            for (size_t i = 0;  i < array->Length();  ++i) {
+                MatrixNamedRow row;
+                auto obj = array->Get(i).As<v8::Object>();
+
+                if (obj.IsEmpty()) {
+                    throw HttpReturnException(400, "recordRow element is not object");
+                }
+
+                toRecord.emplace_back(from_js(JS::JSValue(obj->Get(rowPath)),
+                                              &row.rowName),
+                                      from_js(JS::JSValue(obj->Get(columns)),
+                                              &row.columns));
+            }
+            
+            v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordRowsExpr(std::move(toRecord));
+        }
+        else throw HttpReturnException(400, "Can't call recordRows with argument "
+                                       + JS::cstr(el));
         
         args.GetReturnValue().Set(args.This());
     } HANDLE_JS_EXCEPTIONS(args);

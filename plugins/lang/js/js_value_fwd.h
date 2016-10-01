@@ -20,6 +20,7 @@ class Value;
 } // namespace Json
 
 namespace MLDB {
+struct Date;
 
 namespace JS {
 
@@ -40,6 +41,7 @@ void to_js(JSValue & jsval, const std::string & value);
 void to_js(JSValue & jsval, const Utf8String & value);
 void to_js(JSValue & jsval, const Json::Value & value);
 void to_js(JSValue & jsval, const JSValue & value);
+void to_js(JSValue & jsval, Date value);
 
 /** Avoid implicit conversion from pointers to bool */
 template<typename T>
@@ -62,6 +64,8 @@ Utf8String from_js(const JSValue & val, Utf8String *);
 bool from_js(const JSValue & val, bool *);
 Json::Value from_js(const JSValue & val, Json::Value *);
 Json::Value from_js_ref(const JSValue & val, Json::Value *);
+Date from_js(const JSValue & val, Date *);
+Date from_js_ref(const JSValue & val, Date *);
 
 inline const JSValue & from_js(const JSValue & val, JSValue *) { return val; }
 
