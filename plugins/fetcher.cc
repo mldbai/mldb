@@ -166,7 +166,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
             FsObjectInfo info = stream.info();
             ExcAssert(info.exists);
             result.content = ExpressionValue(std::move(blob),
-                                             info.lastModified);
+                                             info.lastModified.isADate()
+                                             ? info.lastModified
+                                             : Date::now());
             result.error = ExpressionValue::null(Date::notADate());
         }
         MLDB_CATCH_ALL {
