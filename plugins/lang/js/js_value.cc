@@ -464,10 +464,14 @@ Json::Value from_js(const JSValue & val, Json::Value *)
 
 Date from_js(const JSValue & val, Date *)
 {
-    if(!v8::Date::Cast(*val)->IsDate())
-        throw MLDB::Exception("Couldn't convert from " + cstr(val) + " to MLDB::Date");
-    return Date::fromSecondsSinceEpoch(v8::Date::Cast(*val)->NumberValue()
-                                       / 1000.0);
+    if(v8::Date::Cast(*val)->IsDate()) {
+        return Date::fromSecondsSinceEpoch(v8::Date::Cast(*val)->NumberValue()
+                                           / 1000.0);
+    }
+    if (val->IsString()) {
+        return jsonDecode<Date>(cstr(val));
+    }
+    throw MLDB::Exception("Couldn't convert from " + cstr(val) + " to MLDB::Date");
 }
 
 Utf8String from_js(const JSValue & val, Utf8String *)
