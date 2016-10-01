@@ -8,15 +8,19 @@
 #include "html_plugin.h"
 #include "parse_html.h"
 #include "mldb/server/mldb_server.h"
-#include "types/structure_description.h"
+#include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/html/ext/hubbub/parser.h"
 #include "mldb/base/scope.h"
+#include "mldb/sql/builtin_functions.h"
+#include "mldb/html/css.h"
+#include "mldb/jml/utils/string_functions.h"
 
 using namespace std;
 
 
 namespace MLDB {
+
 
 
 /*****************************************************************************/
@@ -50,7 +54,7 @@ struct ParseHandler {
             default:
                 return HUBBUB_UNKNOWN;
             }
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             return HUBBUB_UNKNOWN;
         }
     }
@@ -81,7 +85,7 @@ struct ParseHandler {
         try {
             ParseHandler * parse = (ParseHandler *)pw;
             parse->handleError(line, col, message);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             return;
         }
     }
@@ -119,19 +123,19 @@ struct ParseHandler {
 
     virtual hubbub_error handleStartTag(const hubbub_tag & tag)
     {
-        cerr << "start tag " << toString(tag.name) << " with "
-             << tag.n_attributes << " attributes" << endl;
-        for (unsigned i = 0;  i < tag.n_attributes;  ++i) {
-            cerr << "  " << toString(tag.attributes[i].name) << " = "
-                 << toString(tag.attributes[i].value) << endl;
-        }
+        //cerr << "start tag " << toString(tag.name) << " with "
+        //     << tag.n_attributes << " attributes" << endl;
+        //for (unsigned i = 0;  i < tag.n_attributes;  ++i) {
+        //    cerr << "  " << toString(tag.attributes[i].name) << " = "
+        //         << toString(tag.attributes[i].value) << endl;
+        //}
         
         return HUBBUB_OK;
     }
 
     virtual hubbub_error handleEndTag(const hubbub_tag & tag)
     {
-        cerr << "end tag " << toString(tag.name) << endl;
+        //cerr << "end tag " << toString(tag.name) << endl;
         return HUBBUB_OK;
     }
 
@@ -142,7 +146,7 @@ struct ParseHandler {
 
     virtual hubbub_error handleText(const hubbub_string & text)
     {
-        cerr << "got text " << toString(text) << endl;
+        //cerr << "got text " << toString(text) << endl;
         return HUBBUB_OK;
     }
 
@@ -153,7 +157,7 @@ struct ParseHandler {
 
 };
 
-void parseHtml(const Utf8String & html,
+void parseHtml(const CellValue & html,
                ParseHandler & handler)
 {
     hubbub_parser * parser;
@@ -178,8 +182,8 @@ void parseHtml(const Utf8String & html,
     }
     
     err = hubbub_parser_parse_chunk(parser,
-                                    (const uint8_t *)html.rawData(),
-                                    html.rawLength());
+                                    (const uint8_t *)html.blobData(),
+                                    html.blobLength());
     if (err != HUBBUB_OK) {
         throw HttpReturnException(500, "Error running HTTP parser: "
                                   + string(hubbub_error_to_string(err)));
@@ -197,10 +201,91 @@ void parseHtml(const Utf8String & html,
          << endl;
 }
 
+struct ExtractHandler: public ParseHandler {
 
+    std::shared_ptr<Css::Selector> selector = Css::Selector::STAR;
+    
+    Css::Path path;
+
+    Utf8String pathToString() const
+    {
+        return path.toString();
+        Utf8String result;
+        for (auto & p: path) {
+            if (!result.empty())
+                result += " ";
+            result += p.toString();
+        }
+        return result;
+    }
+
+    virtual hubbub_error handleError(uint32_t line, uint32_t col,
+                                     const char * message)
+    {
+        return HUBBUB_OK;
+    }
+
+    virtual hubbub_error handleDoctype(const hubbub_doctype & doctype)
+    {
+        return HUBBUB_OK;
+    }
+
+    virtual hubbub_error handleStartTag(const hubbub_tag & tag)
+    {
+#if 0
+        cerr << "start tag " << toString(tag.name) << " with "
+             << tag.n_attributes << " attributes" << endl;
+        for (unsigned i = 0;  i < tag.n_attributes;  ++i) {
+            cerr << "  " << toString(tag.attributes[i].name) << " = "
+                 << toString(tag.attributes[i].value) << endl;
+        }
+#endif     
+   
+        Css::PathElement element;
+        element.tag = toString(tag.name);
+        element.id = getAttr(tag, "id");
+        for (std::string & s: ML::split(getAttr(tag, "class").rawString(), ' ')) {
+            element.classes.emplace_back(std::move(s));
+        }
+
+        path.emplace_back(std::move(element));
+
+        return HUBBUB_OK;
+    }
+
+    virtual hubbub_error handleEndTag(const hubbub_tag & tag)
+    {
+        if (path.empty())
+            return HUBBUB_OK;
+        if (toString(tag.name) != path.back().tag)
+            return HUBBUB_OK;
+        path.pop_back();
+        return HUBBUB_OK;
+    }
+
+    virtual hubbub_error handleComment(const hubbub_string & comment)
+    {
+        return HUBBUB_OK;
+    }
+
+    virtual hubbub_error handleText(const hubbub_string & text)
+    {
+        return HUBBUB_OK;
+    }
+
+    virtual hubbub_error handleEof()
+    {
+        //ExcAssert(path.empty());
+        return HUBBUB_OK;
+    }
+};
+
+#if 0
 /*****************************************************************************/
 /* PARSE HTML FUNCTION                                                       */
 /*****************************************************************************/
+
+
 
 DEFINE_STRUCTURE_DESCRIPTION(ParseHtmlConfig);
 
@@ -265,43 +350,32 @@ getFunctionInfo() const
             };
 }
 
+RegisterFunctionType<ParseHtml, ParseHtmlConfig>
+regParseHtml(htmlPackage(),
+             "html.parse",
+             "Parse HTML into a structured document",
+             "ParseHtml.md.html");
+
+#endif
 
 /*****************************************************************************/
 /* EXTRACT LINKS FUNCTION                                                    */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(ExtractLinksConfig);
-
-ExtractLinksConfigDescription::
-ExtractLinksConfigDescription()
-{
-}
-
-ExtractLinks::
-ExtractLinks(MldbServer * owner,
-             PolyConfig config,
-             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
-{
-    functionConfig = config.params.convert<ExtractLinksConfig>();   
-}
-
-Any
-ExtractLinks::
-getStatus() const
-{
-    return Any();
-}
-
-struct LinkExtracter: public ParseHandler {
+struct LinkExtracter: public ExtractHandler {
 
     vector<Utf8String> links;
 
     virtual hubbub_error handleStartTag(const hubbub_tag & tag)
     {
-        if (toString(tag.name) == "a") {
+        ExtractHandler::handleStartTag(tag);
+
+        if (toString(tag.name) == "a"
+            && selector->match(path)) {
             Utf8String loc = getAttr(tag, "href");
             links.push_back(loc);
+            
+            cerr << "link " << pathToString() << " at loc " << loc << endl;
         }
         return HUBBUB_OK;
     }
@@ -322,67 +396,111 @@ struct LinkExtracter: public ParseHandler {
     
 };
 
-ExpressionValue
-ExtractLinks::
-apply(const FunctionApplier & applier,
-      const ExpressionValue & context) const
-{
-    StructValue result;
+struct ExtractLinksOptions {
+    std::shared_ptr<Css::Selector> selector = Css::Selector::STAR;
+};
 
-    const ExpressionValue & text = context.getColumn("text");
-    Utf8String textString = text.toUtf8String();
+DECLARE_STRUCTURE_DESCRIPTION(ExtractLinksOptions);
+DEFINE_STRUCTURE_DESCRIPTION(ExtractLinksOptions);
+
+ExtractLinksOptionsDescription::
+ExtractLinksOptionsDescription()
+{
+    addField("selector", &ExtractLinksOptions::selector,
+             "CSS selector for which elements should be extracted");
+}
+
+ExpressionValue
+extract_links(const std::vector<ExpressionValue> & args,
+              const SqlRowScope & context)
+{
+    checkArgsSize(args.size(), 1, 2, "extract_links");
+
+    ExtractLinksOptions options;
+
+    if (args.size() > 1) {
+        options = args[1].extractT<ExtractLinksOptions>();
+    }
+
+    CellValue input = args[0].coerceToBlob();
 
     LinkExtracter parser;
-    parseHtml(textString, parser);
+    parser.selector = options.selector;
+    parseHtml(input, parser);
     
     vector<CellValue> vals;
+    vals.reserve(parser.links.size());
     for (auto & l: parser.links) {
         vals.emplace_back(std::move(l));
     }
 
-    result.emplace_back("output",
-                        ExpressionValue(std::move(vals),
-                                        text.getEffectiveTimestamp()));
-    
-    return std::move(result);
+    return ExpressionValue(std::move(vals),
+                           args[0].getEffectiveTimestamp());
 }
 
-FunctionInfo
-ExtractLinks::
-getFunctionInfo() const
+BoundFunction
+bind_extract_links(const Utf8String &functionName,
+                   const std::vector<BoundSqlExpression> & args,
+                   SqlBindingScope & context)
 {
-    std::vector<KnownColumn> in, out;
-    
-    in.emplace_back(ColumnPath("text"),
-                    std::make_shared<BlobValueInfo>(),
-                    COLUMN_IS_DENSE, 0);
-    out.emplace_back(ColumnPath("output"),
-                     std::make_shared<UnknownRowValueInfo>(),
-                     COLUMN_IS_DENSE, 0);
-    
-    return { std::make_shared<RowValueInfo>(std::move(in),
-                                            SCHEMA_CLOSED),
-            std::make_shared<RowValueInfo>(std::move(out),
-                                           SCHEMA_CLOSED)
-            };
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1, 2, "extract_links");
+
+    return {
+        extract_links,
+        std::make_shared<EmbeddingValueInfo>(ST_UTF8STRING)
+    };
 }
 
+static RegisterFunction
+register_extract_links("extract_links", bind_extract_links);
 
 
-namespace {
+/*****************************************************************************/
+/* EXTRACT TEXT FUNCTION                                                    */
+/*****************************************************************************/
 
-RegisterFunctionType<ParseHtml, ParseHtmlConfig>
-regParseHtml(htmlPackage(),
-             "html.parse",
-             "Parse HTML into a structured document",
-             "ParseHtml.md.html");
+struct TextExtracter: public ParseHandler {
 
-RegisterFunctionType<ExtractLinks, ExtractLinksConfig>
-regExtractLinks(htmlPackage(),
-                "html.extractLinks",
-                "Extract links from an HTML document",
-                "ExtractLinks.md.html");
+    Utf8String text;
 
-} // file scope
+    virtual hubbub_error handleText(const hubbub_string & text)
+    {
+        this->text += toString(text);
+        return HUBBUB_OK;
+    }
+};
+
+ExpressionValue
+extract_text(const std::vector<ExpressionValue> & args,
+              const SqlRowScope & context)
+{
+    checkArgsSize(args.size(), 1);
+
+    CellValue input = args[0].coerceToBlob();
+
+    TextExtracter parser;
+    parseHtml(input, parser);
+    
+    return ExpressionValue(std::move(parser.text),
+                           args[0].getEffectiveTimestamp());
+}
+
+BoundFunction
+bind_extract_text(const Utf8String &functionName,
+                   const std::vector<BoundSqlExpression> & args,
+                   SqlBindingScope & context)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {
+        extract_text,
+        std::make_shared<Utf8StringValueInfo>()
+    };
+}
+
+static RegisterFunction
+register_extract_text("extract_text", bind_extract_text);
 
 } // namespace MLDB
