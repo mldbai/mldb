@@ -46,6 +46,7 @@ ul {
 * [Files and URLs](Url.md)
 * [MLDB Pro](ProPlugin.md)
 * [Algorithm Support](Algorithms.md)
+* [Classifier configuration](ClassifierConf.md)
 * [Scaling MLDB](Scaling.md)
 * [Help and Feedback](help.md)
 * [Licenses](licenses.md)
