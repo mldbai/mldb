@@ -112,9 +112,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
 
 static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
 regFetcherFunction(builtinPackage(),
-                   "fetcher",
+                   "fetch",
                    "Fetches the contents of a URL each time it's invoked",
-                   "functions/Fetcher.md.html",
+                   "functions/Fetch.md.html",
                    nullptr, //static route
                    { MldbEntity::INTERNAL_ENTITY });
 

@@ -8,13 +8,13 @@ import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb1694(MldbUnitTest):  
+class Mldb1694(MldbUnitTest):
     @classmethod
     def setUpClass(self):
         inceptionUrl = 'http://public.mldb.ai/models/inception_dec_2015.zip'
 
-        mldb.put('/v1/functions/fetch', {
-            "type": 'fetcher',
+        mldb.put('/v1/functions/my_fetch', {
+            "type": 'fetch',
             "params": {}
         })
 
@@ -22,7 +22,7 @@ class Mldb1694(MldbUnitTest):
             "type": 'tensorflow.graph',
             "params": {
                 "modelFileUrl": 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
-                "inputs": 'fetch({url})[content] AS "DecodeJpeg/contents"',
+                "inputs": 'my_fetch({url})[content] AS "DecodeJpeg/contents"',
                 "outputs": "softmax"
             }
         })
@@ -30,7 +30,7 @@ class Mldb1694(MldbUnitTest):
         mldb.log("pwet!")
 
         self.amazingGrace = "https://public.mldb.ai/datasets/tensorflow-demo/grace_hopper.jpg"
- 
+
     def test_prediction_works(self):
         self.assertTableResultEquals(
             mldb.query("""select round(pred * 10000) as pred from transpose(
