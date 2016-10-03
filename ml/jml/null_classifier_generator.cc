@@ -34,9 +34,9 @@ Null_Classifier_Generator::~Null_Classifier_Generator()
 
 void
 Null_Classifier_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
+    Classifier_Generator::configure(config, unparsedKeys);
 }
 
 void

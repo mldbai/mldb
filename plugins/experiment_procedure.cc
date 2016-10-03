@@ -139,18 +139,18 @@ ExperimentProcedureConfigDescription()
     addField("algorithm", &ExperimentProcedureConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
              "an entry in the configuration or configurationFile parameters. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.");
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.");
     addField("configuration", &ExperimentProcedureConfig::configuration,
              "Configuration object to use for the classifier.  Each one has "
              "its own parameters.  If none is passed, then the configuration "
              "will be loaded from the ConfigurationFile parameter. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.",
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              Json::Value());
     addField("configurationFile", &ExperimentProcedureConfig::configurationFile,
              "File to load configuration from.  This is a JSON file containing "
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.",
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              string("/opt/bin/classifiers.json"));
     addField("equalizationFactor", &ExperimentProcedureConfig::equalizationFactor,
               "Amount to adjust weights so that all classes have an equal "
@@ -159,7 +159,7 @@ ExperimentProcedureConfigDescription()
               "both positive and negative examples is exactly identical. "
               "A number between will choose a balanced tradeoff.  Typically 0.5 "
               "is a good number to use for unbalanced probabilities. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.", 0.5);
+              "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.", 0.5);
     addField("modelFileUrlPattern", &ExperimentProcedureConfig::modelFileUrlPattern,
              "URL where the model file (with extension '.cls') should be saved. It "
              "should include the string $runid that will be replaced by an identifier "

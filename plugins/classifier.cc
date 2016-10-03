@@ -93,16 +93,19 @@ ClassifierConfigDescription()
              "the derived columns as a previous step and use a query on that dataset instead.");
     addField("algorithm", &ClassifierConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
-             "an entry in the configuration or configurationFile parameters");
+             "an entry in the configuration or configurationFile parameters. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.");
     addField("configuration", &ClassifierConfig::configuration,
              "Configuration object to use for the classifier.  Each one has "
              "its own parameters.  If none is passed, then the configuration "
-             "will be loaded from the ConfigurationFile parameter",
+             "will be loaded from the ConfigurationFile parameter. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              Json::Value());
     addField("configurationFile", &ClassifierConfig::configurationFile,
              "File to load configuration from.  This is a JSON file containing "
              "only objects, strings and numbers.  If the configuration object is "
-             "non-empty, then that will be used preferentially.",
+             "non-empty, then that will be used preferentially. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              string("/opt/bin/classifiers.json"));
     addField("equalizationFactor", &ClassifierConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
@@ -110,7 +113,8 @@ ClassifierConfigDescription()
              "at all.  A value of 1 will ensure that the total weight for "
              "both positive and negative examples is exactly identical. "
              "A number between will choose a balanced tradeoff.  Typically 0.5 (default) "
-             "is a good number to use for unbalanced probabilities",
+             "is a good number to use for unbalanced probabilities. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              0.5);
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
@@ -211,6 +215,22 @@ run(const ProcedureRunConfig & run,
     default:
         throw HttpReturnException(400, "Unknown classifier mode");
     }
+
+    ML::Configuration classifierConfig;
+
+    if (!runProcConf.configuration.isNull()) {
+        classifierConfig =
+            jsonDecode<ML::Configuration>(runProcConf.configuration);
+    }
+    else {
+        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
+                                  runProcConf.configurationFile :
+                                  "/opt/bin/classifiers.json");
+        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
+    }
+    std::shared_ptr<ML::Classifier_Generator> trainer
+        = ML::get_trainer(runProcConf.algorithm,
+                          classifierConfig);
 
     labelInfo.set_biased(true);
 
@@ -633,23 +653,8 @@ run(const ProcedureRunConfig & run,
         trainingFeatures.push_back(allFeatures[i]);
     }
 
-    ML::Configuration classifierConfig;
-
-    if (!runProcConf.configuration.isNull()) {
-        classifierConfig = jsonDecode<ML::Configuration>(runProcConf.configuration);
-    }
-    else {
-        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
-                                  runProcConf.configurationFile :
-                                  "/opt/bin/classifiers.json");
-        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
-    }
-
     timer.restart();
 
-    std::shared_ptr<ML::Classifier_Generator> trainer
-        = ML::get_trainer(runProcConf.algorithm,
-                          classifierConfig);
 
     trainer->init(featureSpace, labelFeature);
 

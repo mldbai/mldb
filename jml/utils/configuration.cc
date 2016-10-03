@@ -6,6 +6,7 @@
 
    Configuration file parser.
 */
+#include <boost/algorithm/string/join.hpp>
 
 #include "configuration.h"
 #include "mldb/base/parse_context.h"
@@ -291,7 +292,6 @@ raw_set(const std::string & key, const std::string & value)
     if (!writeable_)
         throw Exception("Configuration::operator []: "
                         "object is not writeable");
-
     data_->entries[key] = value;
 }
 
@@ -328,6 +328,30 @@ allKeys() const
         result.push_back(it->first);
 
     return result;
+}
+
+
+/** Call after all keys have been consumed with findAndRemove */
+void
+Configuration::
+throwOnUnknwonKeys(
+    vector<string> & keys,
+    const function<bool(const string & )> & ignoreKeyFct) const
+{
+    string prefixDot = prefix_ + ".";
+    keys.erase(
+        remove_if(keys.begin(), keys.end(),
+                  [&] (const std::string & str) {
+                     return (ignoreKeyFct && ignoreKeyFct(str)) // fct says to ignore
+                        || str.find(prefixDot) != 0 // prefix not found
+                        || str.rfind(".") != prefixDot.size() - 1; // prefix found, but non terminal key
+                  }),
+        keys.end());
+
+    if (!keys.empty()) {
+        throw ML::Exception("Unknown key(s) encountered in config: %s",
+                            boost::algorithm::join(keys, " ").c_str());
+    }
 }
 
 } // namespace ML

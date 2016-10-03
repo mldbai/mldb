@@ -175,12 +175,23 @@ public:
     template<class X>
     bool find(X & val, const std::string & key) const
     {
-        //std::cerr << "find: key = " << key << std::endl;
         std::string full_key = find_key(key, true);
         if (!raw_count(full_key)) return false;
         std::string value = raw_get(full_key);
         parse_value(val, value, full_key);
         return true;
+    }
+
+    template<class X>
+    bool findAndRemove(X & val,
+                       const std::string & key,
+                       std::vector<std::string> & list) const
+    {
+        if (find(val, key)) {
+            list.erase(remove(list.begin(), list.end(), find_key(key, true)),
+                       list.end());
+        }
+        return false;
     }
 
     template<class X>
@@ -196,6 +207,13 @@ public:
         if (!find(val, key))
             throw Exception("required key " + key + " not found");
     }
+
+    /** Empties the key vector from keys not starting with "prefix().".
+     *  If ignoreKeyFct is provided, also removes the key when the function returns true.
+     *  After that cleaning, throws if any key is left in the vector. */
+    void throwOnUnknwonKeys(
+        std::vector<std::string> & keys,
+        const std::function<bool(const std::string &)> & ignoreKeyFct = nullptr) const;
 
 private:
     struct Data;

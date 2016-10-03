@@ -42,12 +42,11 @@ Naive_Bayes_Generator::~Naive_Bayes_Generator()
 
 void
 Naive_Bayes_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
-    
-    config.find(trace,        "trace");
-    config.find(feature_prop, "feature_prop");
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(trace, "trace", unparsedKeys);
+    config.findAndRemove(feature_prop, "feature_prop", unparsedKeys);
 }
 
 void

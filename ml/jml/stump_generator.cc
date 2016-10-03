@@ -70,15 +70,15 @@ Stump_Generator::~Stump_Generator()
 
 void
 Stump_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
+    Classifier_Generator::configure(config, unparsedKeys);
     
-    config.find(committee_size,       "committee_size");
-    config.find(feature_prop,         "feature_prop");
-    config.find(trace,                "trace");
-    config.find(update_alg,           "update_alg");
-    config.find(ignore_highest,       "ignore_highest");
+    config.findAndRemove(committee_size, "committee_size", unparsedKeys);
+    config.findAndRemove(feature_prop, "feature_prop", unparsedKeys);
+    config.findAndRemove(trace, "trace", unparsedKeys);
+    config.findAndRemove(update_alg, "update_alg", unparsedKeys);
+    config.findAndRemove(ignore_highest, "ignore_highest", unparsedKeys);
 }
 
 void
