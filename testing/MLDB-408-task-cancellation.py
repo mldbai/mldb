@@ -4,9 +4,20 @@
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
-import time
+from time import time, sleep
+from functools import wraps
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
+
+def timed(f):
+  @wraps(f)
+  def wrapper(*args, **kwds):
+    start = time()
+    result = f(*args, **kwds)
+    elapsed = time() - start
+    mldb.log("%s took %f seconds to finish" % (f.__name__, elapsed))
+    return result
+  return wrapper
 
 class MLDB408TaskCancellation(MldbUnitTest):  # noqa
 
@@ -26,13 +37,14 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
             ds.record_row(str(i), [['x', i, 0]])
         ds.commit()
 
+    @timed
     def test_bucketize_cancellation(self):
         location = self.run_procedure_async('bucketize',  {
             'type' : 'bucketize',
             'params' : {
                 'inputData' : 'SELECT * FROM sample ORDER BY x',
                 'outputDataset' : {
-                    'id' : 'output',
+                    'id' : 'bucketize_output',
                     'type' : 'sparse.mutable'
                 },
                 'percentileBuckets': {
@@ -58,8 +70,38 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
             mldb.log(resp)
             if resp['state'] == 'cancelled':
                 running = False
-            time.sleep(0.1)
+            sleep(0.1)
 
         
+    @timed
+    def test_transform_cancellation(self):
+        location = self.run_procedure_async('transform',  {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT x + 10 FROM sample',
+                'outputDataset' : {
+                    'id' : 'transform_output',
+                    'type' : 'sparse.mutable'
+                },
+                'runOnCreation' : False
+            }
+        })
+
+        resp = mldb.get(location)
+        mldb.log(resp)
+
+        resp = mldb.put(location, {'state': 'cancelled'})
+
+        self.assertEquals(resp.status_code, 200)
+
+        running = True
+        while(running):
+            resp = mldb.get(location).json()
+            mldb.log(resp)
+            if resp['state'] == 'cancelled':
+                running = False
+            sleep(0.1)
+
+
 if __name__ == '__main__':
     mldb.run_tests()

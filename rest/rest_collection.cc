@@ -675,7 +675,7 @@ cancel()
         old_state != State::_finished) {
         cancelledWatches.trigger(true);
     }
-    cerr << "state is now _cancelled " << handle << endl;
+    // cerr << "state is now _cancelled " << handle << endl;
 
 #if 0
     // Give it one second to stop
@@ -704,7 +704,7 @@ BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
     auto old_state = state.exchange(State::_error);
-    cerr << "state is now _error " << handle << endl;
+    // cerr << "state is now _error " << handle << endl;
     ExcAssertNotEqual(old_state, State::_cancelled);
     ExcAssertNotEqual(old_state, State::_finished);
     this->exc = std::move(exc);
@@ -718,7 +718,7 @@ setFinished()
     State oldState = state.load();
     if (oldState != State::_cancelled &&
         oldState != State::_error) {
-        cerr << "state is now _finished " << handle << " was " << oldState << endl;
+        // cerr << "state is now _finished " << handle << " was " << oldState << endl;
         state = State::_finished;
     }
 }
@@ -732,7 +732,7 @@ setProgress(const Json::Value & _progress)
     State oldState = state.load();
     if (oldState != State::_cancelled &&
         oldState != State::_error) {
-        cerr << "state is now _executing " << handle << endl;
+        // cerr << "state is now _executing " << handle << endl;
         state = State::_executing;
 
         auto type = _progress.type();
