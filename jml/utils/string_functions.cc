@@ -240,5 +240,4 @@ trim(const string & other)
     return result;
 }
 
-
 } // namespace ML

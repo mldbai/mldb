@@ -55,7 +55,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
                         "regularization": 'l2'
                     }
                 },
@@ -258,7 +257,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
                         "regularization": 'l2'
                     }
                 },
@@ -304,7 +302,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
                         "regularization": 'l2'
                     }
                 },
@@ -434,7 +431,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -464,7 +460,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -492,7 +487,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -522,7 +516,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -604,7 +597,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -634,7 +626,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
