@@ -21,7 +21,8 @@ SQL_EXPRESSION_SOURCES := \
 	dataset_types.cc \
 	sql_expression_operations.cc \
 	eval_sql.cc \
-	expression_value_conversions.cc
+	expression_value_conversions.cc \
+	fetch_function.cc \
 
 # Unfortunately the S2 library needs you to mess with the include path as its includes
 # aren't prefixed.

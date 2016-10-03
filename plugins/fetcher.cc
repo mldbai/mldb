@@ -8,6 +8,7 @@
 */
 
 #include "mldb/core/value_function.h"
+#include "mldb/sql/fetch_function.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/value_description.h"
@@ -92,32 +93,16 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     {
         FetcherOutput result;
         Utf8String url = args.url;
-        try {
-            filter_istream stream(url.rawString(), { { "mapped", "true" } });
-
-            FsObjectInfo info = stream.info();
-            
-            const char * mappedAddr;
-            size_t mappedSize;
-            std::tie(mappedAddr, mappedSize) = stream.mapped();
-
-            CellValue blob;
-            if (mappedAddr) {
-                blob = CellValue::blob(mappedAddr, mappedSize);
+        auto fetchStructVal = FetchFunction::fetch(url.rawString());
+        for (const auto & col: fetchStructVal) {
+            auto colName = std::get<0>(col).toUtf8String();
+            if (colName == "content") {
+                result.content = std::move(std::get<1>(col));
             }
             else {
-                std::ostringstream streamo;
-                streamo << stream.rdbuf();
-                blob = CellValue::blob(streamo.str());
+                ExcAssert(colName == "error");
+                result.error = std::move(std::get<1>(col));
             }
-
-            result.content = ExpressionValue(std::move(blob), info.lastModified);
-            result.error = ExpressionValue::null(Date::notADate());
-            return result;
-        }
-        JML_CATCH_ALL {
-            result.content = ExpressionValue::null(Date::notADate());
-            result.error = ExpressionValue(ML::getExceptionString(), Date::now());
         }
         return result;
     }
