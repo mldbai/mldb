@@ -9,7 +9,6 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class WhereOuterJoinTest(MldbUnitTest):
 
-    @unittest.expectedFailure
     def test_it(self):
         url = '/v1/datasets/ds'
         mldb.put(url, {
