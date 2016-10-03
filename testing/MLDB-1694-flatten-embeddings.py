@@ -14,7 +14,7 @@ class Mldb1694(MldbUnitTest):
         inceptionUrl = 'http://public.mldb.ai/models/inception_dec_2015.zip'
 
         mldb.put('/v1/functions/my_fetch', {
-            "type": 'fetch',
+            "type": 'fetcher',
             "params": {}
         })
 

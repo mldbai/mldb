@@ -8,16 +8,56 @@
 */
 
 #include "mldb/core/value_function.h"
-#include "mldb/sql/fetch_function.h"
+#include "mldb/sql/builtin_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 
+using namespace std;
 
 namespace MLDB {
 
+namespace {
+
+StructValue
+fetch(const string & url)
+{
+    StructValue result;
+    auto content = ExpressionValue::null(Date::notADate());
+    auto error = ExpressionValue::null(Date::notADate());
+    try {
+        filter_istream stream(url, { { "mapped", "true" } });
+
+        FsObjectInfo info = stream.info();
+
+        const char * mappedAddr;
+        size_t mappedSize;
+        std::tie(mappedAddr, mappedSize) = stream.mapped();
+
+        CellValue blob;
+        if (mappedAddr) {
+            blob = CellValue::blob(mappedAddr, mappedSize);
+        }
+        else {
+            std::ostringstream streamo;
+            streamo << stream.rdbuf();
+            blob = CellValue::blob(streamo.str());
+        }
+        content = ExpressionValue(std::move(blob),
+                                  info.lastModified);
+    }
+    JML_CATCH_ALL {
+        error = ExpressionValue(ML::getExceptionString(),
+                                Date::now());
+    }
+    result.emplace_back("content", content);
+    result.emplace_back("error", error);
+    return result;
+}
+} // nameless namespace
 
 /*****************************************************************************/
 /* FETCHER FUNCTION                                                          */
@@ -93,7 +133,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     {
         FetcherOutput result;
         Utf8String url = args.url;
-        auto fetchStructVal = FetchFunction::fetch(url.rawString());
+        auto fetchStructVal = fetch(url.rawString());
         for (const auto & col: fetchStructVal) {
             auto colName = std::get<0>(col).toUtf8String();
             if (colName == "content") {
@@ -112,11 +152,36 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
 
 static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
 regFetcherFunction(builtinPackage(),
-                   "fetch",
+                   "fetcher",
                    "Fetches the contents of a URL each time it's invoked",
-                   "functions/Fetch.md.html",
+                   "functions/Fetcher.md.html",
                    nullptr, //static route
                    { MldbEntity::INTERNAL_ENTITY });
+
+namespace Builtins {
+
+BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
+{
+    MLDB::checkArgsSize(args.size(), 1);
+
+    vector<KnownColumn> columnsInfo;
+    columnsInfo.emplace_back(Path("content"), make_shared<BlobValueInfo>(),
+                             ColumnSparsity::COLUMN_IS_DENSE);
+    columnsInfo.emplace_back(Path("error"), make_shared<StringValueInfo>(),
+                             ColumnSparsity::COLUMN_IS_DENSE);
+    auto outputInfo
+        = std::make_shared<RowValueInfo>(columnsInfo);
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                return fetch(args[0].toString());
+            },
+            outputInfo
+        };
+}
+static RegisterBuiltin registerFetcherFunction(fetcher, "fetch");
+
+} // namespace Builtins
 
 } // namespace MLDB
 

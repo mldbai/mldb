@@ -9,7 +9,7 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 class FetcherFunction(MldbUnitTest):  # noqa
 
     def test_non_builtin(self):
-        mldb.put('/v1/functions/my_fetch', { 'type': 'fetch' })
+        mldb.put('/v1/functions/my_fetch', { 'type': 'fetcher' })
 
         mldb.put('/v1/functions/getCountryNonBuiltin', {
             'type': 'sql.expression',

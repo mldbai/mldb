@@ -1,10 +1,10 @@
-# Fetch Function
+# Fetcher Function
 
 The fetch function is used to fetch resources from a given file or
 URL.
 
 ## Configuration
-![](%%config function fetch)
+![](%%config function fetcher)
 
 ## Input and Output Values
 
@@ -24,11 +24,11 @@ The following Javascript creates and calls a function that will return the
 country code from an IP address from an external web service.
 
 ```python
-mldb.put("/v1/functions/fetch", { "type": "fetch" })
+mldb.put("/v1/functions/my_fetch", { "type": "fetcher" })
 ```
 
 ```sql
-SELECT CAST (fetch({url: 'http://www.google.com'})[content] AS STRING)
+SELECT CAST (my_fetch({url: 'http://www.google.com'})[content] AS STRING)
 ```
 
 ## Limitations
