@@ -420,7 +420,13 @@ and the possible values for the `arrays` field are:
 - `isnan(x)`: returns true if `x` is `NaN` in the floating point representation.
 - `isinf(x)`: return true if `x` is +/- infinity in the floating point representation.
 - `isfinite(x)`: returns true if `x` is neither infinite nor `NaN`.
-
+- `sin(x)`, `cos(x)` and `tan(x)` are the normal trigononic functions;
+- `asin(x)`, `acos(x)` and `atan(x)` are the normal invese trigonomic functions;
+- `atan2(x, y)` returns the two-argument arctangent of `x` and `y`, in other
+  words the angle (in radians) of the point through `x` and `y` from the origin
+  with respect to the positive `x` axis;
+- `sinh(x)`, `cosh(x)` and `tanh(x)` are the normal hyperbolic functions;
+- `asinh(x)`, `acosh(x)` and `atanh(x)` are the normal invese hyperbolic functions.
 - `quantize(x, y)`: returns `x` rounded to the precision of `y`.  Here are some examples:
 
 expression|result
@@ -534,10 +540,16 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
-- `reshape(val, shape)` will take a n-dimensional embedding and reinterpret it 
-as a N-dimensional embedding of the provided shape containing all of the elements, allowing
-for example a 1-dimensional vector to be re-interpreted as a 2-dimensional array. The shape
-argument is an embedding containing the size of each dimension.
+- `reshape(val, shape)` will take a n-dimensional embedding and reinterpret it
+  as a N-dimensional embedding of the provided shape containing all of the
+  elements, allowing for example a 1-dimensional vector to be re-interpreted
+  as a 2-dimensional array. The shape argument is an embedding containing the
+  size of each dimension.  This will fail if the number of elements in `shape`
+  is not the same as the number of elements in `val`.
+- `reshape(val, shape, newel)` is similar to the two argument version of
+  `reshape`, but allows for the number of elements to be different.  If the
+  number of elements increases, new elements will be filled in with the
+  `newel` parameter.
 - `shape(val)` will take a n-dimensional embedding and return the size of each dimension as as array.
 
 ### <a name="geofunctions"></a>Geographical functions

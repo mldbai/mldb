@@ -780,6 +780,14 @@ CellValue mod(const CellValue & v1, const CellValue & v2)
 static RegisterBuiltinBinaryScalar
 registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 
+CellValue atan2(const CellValue & v1, const CellValue & v2)
+{
+    return std::atan2(v1.toDouble(), v2.toDouble());
+}
+
+static RegisterBuiltinBinaryScalar
+registerAtan2(atan2, std::make_shared<Float64ValueInfo>(), "atan2");
+
 double ln(double v)
 {
     return std::log(v);
@@ -844,6 +852,12 @@ WRAP_UNARY_MATH_OP(tan, std::tan);
 WRAP_UNARY_MATH_OP(asin, std::asin);
 WRAP_UNARY_MATH_OP(acos, std::acos);
 WRAP_UNARY_MATH_OP(atan, std::atan);
+WRAP_UNARY_MATH_OP(sinh, std::sinh);
+WRAP_UNARY_MATH_OP(cosh, std::cosh);
+WRAP_UNARY_MATH_OP(tanh, std::tanh);
+WRAP_UNARY_MATH_OP(asinh, std::asinh);
+WRAP_UNARY_MATH_OP(acosh, std::acosh);
+WRAP_UNARY_MATH_OP(atanh, std::atanh);
 WRAP_UNARY_MATH_OP(ln, Builtins::ln);
 WRAP_UNARY_MATH_OP(sqrt, Builtins::sqrt);
 WRAP_UNARY_MATH_OP(isfinite, std::isfinite);
@@ -2631,46 +2645,130 @@ static RegisterBuiltin registerFlatten(flatten, "flatten");
 
 BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
 {
-    checkArgsSize(args.size(), 2);
+    checkArgsSize(args.size(), 2, 3, "reshape");
 
-    if (!args[0].info->couldBeEmbedding())
-        throw HttpReturnException(400, "requires an embedding as first argument");
+    // A null first argument is OK for the empty embedding
+    // this means basically n times the given value
+    if (!args[0].info->couldBeEmbedding()) {
+        if (args[0].info->couldBeScalar()) {
+            // Shape is not a constant, so we need to evaluate after binding
+            if (args.size() != 3)
+                throw HttpReturnException
+                    (400,"Null embedding needs third argument to reshape()");
+            auto shape = args[1].info->getEmbeddingShape();
+            auto st = args[2].metadata.isConstant
+                ? valueStorageType(args[2].constantValue().getAtom())
+                : ST_ATOM;
+            auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
+
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope) -> ExpressionValue
+                    {
+                        checkArgsSize(args.size(), 3, "reshape");
+                        if (!args[0].getAtom().empty()) {
+                            throw HttpReturnException
+                                (400, "Expected null first argument for scalar reshape()");
+                        }
+
+                        size_t n = 1;
+                        DimsVector shape;
+                        auto addDim = [&] (const Path & columnName,
+                                           const Path & prefix,
+                                           const CellValue & val,
+                                           Date ts)
+                            {
+                                shape.push_back(val.toInt());
+                                n += shape.back();
+                                return true;
+                            };
+
+                        args[1].forEachAtom(addDim);
+
+                        std::vector<CellValue> vals(n, args[2].getAtom());
+                        return ExpressionValue(vals,
+                                               calcTs(args[0], args[1], args[2]),
+                                               shape);
+                    },
+                    outputInfo
+                        };
+            
+        }
+        throw HttpReturnException(400, "requires an embedding as first argument, got " + jsonEncodeStr(args[0].info));
+    }
 
     if (!args[1].info->isEmbedding())
         throw HttpReturnException(400, "requires an embedding as second argument");
 
-    if (!args[1].metadata.isConstant)
-        throw HttpReturnException(400, "requires a constant value as a second argument");
+    if (args[1].metadata.isConstant) {
+        //Dont know the type without evaluating second arg;
+        auto embeddingFormat = args[1].constantValue();
 
-    //Dont know the type without evaluating second arg;
-    auto embeddingFormat = args[1].constantValue();
+        DimsVector shape;
 
-    DimsVector shape;
-
-    auto addDim = [&] (const Path & columnName,
-           const Path & prefix,
-           const CellValue & val,
-           Date ts)
-    {
-        shape.push_back(val.toInt());
-        return true;
-    };
-
-    embeddingFormat.forEachAtom(addDim);
-
-    auto st = args[0].info->getEmbeddingType();
-
-    auto outputInfo = EmbeddingValueInfo::fromShape(shape, st);
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
+        auto addDim = [&] (const Path & columnName,
+                           const Path & prefix,
+                           const CellValue & val,
+                           Date ts)
             {
-                checkArgsSize(args.size(), 2);
+                shape.push_back(val.toInt());
+                return true;
+            };
 
-                return args[0].reshape(shape);
-            },
-            outputInfo
-    };
+        embeddingFormat.forEachAtom(addDim);
+
+        auto st = args[0].info->getEmbeddingType();
+
+        auto outputInfo = EmbeddingValueInfo::fromShape(shape, st);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    checkArgsSize(args.size(), 2, 3, "reshape");
+
+                    if (args.size() == 2) {
+                        return args[0].reshape(shape);
+                    }
+                    else {
+                        return args[0].reshape(shape, args[2]);
+                    }
+                },
+                outputInfo
+           };
+    }
+    else {
+        // Shape is not a constant, so we need to evaluate after binding
+        auto shape = args[1].info->getEmbeddingShape();
+        auto st = args[0].info->getEmbeddingType();
+
+        auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    checkArgsSize(args.size(), 2, 3, "reshape");
+
+                    DimsVector shape;
+                    auto addDim = [&] (const Path & columnName,
+                                       const Path & prefix,
+                                       const CellValue & val,
+                                       Date ts)
+                        {
+                            shape.push_back(val.toInt());
+                            return true;
+                        };
+
+                    args[1].forEachAtom(addDim);
+
+                    if (args.size() == 2) {
+                        return args[0].reshape(shape);
+                    }
+                    else {
+                        return args[0].reshape(shape, args[2]);
+                    }
+                },
+                outputInfo
+           };
+    }
 }
 
 static RegisterBuiltin registerReshape(reshape, "reshape");

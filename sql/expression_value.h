@@ -138,6 +138,71 @@ SPECIALIZE_STORAGE_TYPE(Path,                 ST_ATOM);
 std::shared_ptr<ExpressionValueInfo>
 getValueInfoForStorage(StorageType type);
 
+/** Return the minimum storage type for a given CellValue. */
+StorageType valueStorageType(const CellValue & val);
+StorageType valueStorageType(const ExpressionValue & val);
+
+/** Return a storage type that can store both. */
+StorageType coveringStorageType(StorageType type1, StorageType type2);
+StorageType coveringStorageType(StorageType type1, const CellValue & val2);
+StorageType coveringStorageType(StorageType type1, const ExpressionValue & val2);
+
+/** How many bytes is a single instance of the given storage type? */
+size_t sizeofStorageType(StorageType type);
+
+/** Allocate a buffer of storage of the given type.  The elements will be
+    initialized with their default constructor.
+*/
+std::shared_ptr<void>
+allocateStorageBuffer(size_t size, StorageType storage);
+
+std::shared_ptr<void>
+allocateStorageBuffer(const DimsVector & size, StorageType storage);
+
+/** Return the size of a storage buffer of the given type.  Includes only
+    direct (no indirect) storage.
+*/
+uint64_t storageBufferBytes(size_t size, StorageType storage);
+
+uint64_t storageBufferBytes(const DimsVector & size, StorageType storage);
+
+/** Copy part of a storage buffer into another.  The elements in to must be
+    initialized already.
+*/
+void copyStorageBuffer(const void * from, size_t fromOffset, StorageType fromType,
+                       void * to, size_t toOffset, StorageType toType,
+                       size_t numElements);
+
+/** Move part of a storage buffer into another.  If the elements that were
+    moved from from are accessed afterwards, it's undefined what the result
+    will be, but they still must be destroyed.
+
+
+*/
+void moveStorageBuffer(void * from, size_t fromOffset, StorageType fromType,
+                       void * to, size_t toOffset, StorageType toType,
+                       size_t numElements);
+
+/** Fill in the given range of elements of the storage buffer with the
+    contents of the given CellValue.  The elements should already be
+    initialized.
+*/
+void fillStorageBuffer(void * buffer, size_t offset, StorageType storageType,
+                       size_t numElements, const CellValue & val);
+
+/** Fill in the given range of elements of the storage buffer with the
+    contents of the given CellValue.  The elements should not already be
+    initialized.
+*/
+void initializeStorageBuffer(void * buffer, StorageType storageType,
+                             size_t numElements, const CellValue & val);
+
+/** Fill in the given range of elements of the storage buffer with the
+    default constructor.
+*/
+void initializeStorageBuffer(void * buffer, StorageType storageType,
+                             size_t numElements);
+
 
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO                                                     */
@@ -893,6 +958,13 @@ struct ExpressionValue {
     */
     ExpressionValue reshape(DimsVector newShape) const;
 
+    /** Reshape the embedding into a new shape.  Any new elements
+        will be initialized with newVal.  Any extra elements
+        will be removed.
+    */
+    ExpressionValue reshape(DimsVector newShape,
+                            const ExpressionValue & newVal) const;
+
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
         it will only assert that the names in the value are the same as
@@ -1152,6 +1224,9 @@ private:
 
     static std::string print(Type t);
     void assertType(Type requested, const std::string & details="") const;
+
+    /** Return the current value, coerced to an embedding. */
+    ExpressionValue coercedToEmbedding() const;
 
     /// This is how we store a structure with a single value for each
     /// element and an external set of column names
@@ -1450,7 +1525,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
         input. */
     EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
 
-    static std::shared_ptr<EmbeddingValueInfo> fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
+    static std::shared_ptr<EmbeddingValueInfo>
+    fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
 
     std::vector<ssize_t> shape;
     StorageType storageType;

@@ -153,7 +153,7 @@ struct RegisterBuiltin {
 
     Example:
 
-    DEF_SQL_BUILTIN(sincos, 2, "[sin($1), cos($1)]");
+    DEF_SQL_BUILTIN(sincos, 1, "[sin($1), cos($1)]");
 
     This will add a builtin function called sincos that is essentially a
     macro for the given implementation.
