@@ -9,6 +9,11 @@ The `classifier.experiment` procedure will run multiple rounds of training and t
 
 ![](%%config procedure classifier.experiment)
 
+### Algorithm configuration
+
+This procedures supports many training algorithm. The configuration is explained
+on the [classifier configuration](../ClassifierConf.md) page.
+
 <a name="DatasetFoldConfig"></a>
 ## Dataset Folds and Cross-validation
 
