@@ -134,6 +134,40 @@ class SampledDatasetTest(unittest.TestCase):
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.get("/v1/query", q="select * from sample(toy, {fraction: 2})")
 
+    def test_sampled_over_merged(self):
+        # MLDB-1431
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : "SELECT * FROM toy LIMIT 100",
+                'outputDataset' : {'id' : 'test_sampled_over_merged_ds1'}
+            }
+
+        })
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : "SELECT * FROM toy LIMIT 100 OFFSET 100",
+                'outputDataset' : {'id' : 'test_sampled_over_merged_ds2'}
+            }
+
+        })
+        mldb.put('/v1/datasets/test_sampled_over_merged_merged', {
+            'type' : 'merged',
+            'params' : {
+                'datasets' : [{'id' : 'test_sampled_over_merged_ds1'},
+                              {'id' : 'test_sampled_over_merged_ds2'}]
+            }
+        })
+        mldb.put('/v1/datasets/test_sampled_over_merged_sampled', {
+            'type' : 'sampled',
+            'params' : {
+                'datasets' : {'id' : 'test_sampled_over_merged_merged'}
+            }
+        })
+        mldb.query("""
+            SELECT COLUMN EXPR (AS columnName() ORDER BY rowCount() DESC)
+            FROM test_sampled_over_merged_sampled""")
 
 if __name__ == '__main__':
     mldb.run_tests()

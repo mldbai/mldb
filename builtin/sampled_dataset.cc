@@ -265,7 +265,7 @@ struct SampledDataset::Itl
             if(it == rowIndex.end())
                 throw ML::Exception("Unknown row in index");
 
-            col.rows.emplace_back(col.rows[it->second]);
+            col.rows.emplace_back(allRows[it->second]);
         }
 
         return col;
