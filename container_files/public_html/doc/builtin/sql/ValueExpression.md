@@ -218,7 +218,7 @@ For example: `expr IN (3,5,7,11)`
 
 #### IN (KEYS OF ...) expression
 
-For example: `expr IN (KEYS OF tokenize({text: sentence}))`
+For example: `expr IN (KEYS OF tokenize('sentence'))`
 
 That will evaluate to true if expr is a word within the given sentence.
 
