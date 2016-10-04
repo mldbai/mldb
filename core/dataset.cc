@@ -139,7 +139,7 @@ supportsExtendedInterface() const
 void
 RowStream::
 extractColumns(size_t numValues,
-               const std::vector<ColumnName> & columnNames,
+               const std::vector<ColumnPath> & columnNames,
                CellValue * output)
 {
     throw HttpReturnException(600, "unimplemented rowStream method");
@@ -148,7 +148,7 @@ extractColumns(size_t numValues,
 void
 RowStream::
 extractNumbers(size_t numValues,
-               const std::vector<ColumnName> & columnNames,
+               const std::vector<ColumnPath> & columnNames,
                double * output)
 {
     std::unique_ptr<CellValue[]> tmpOutput
@@ -289,7 +289,7 @@ ColumnIndex::
 
 uint64_t
 ColumnIndex::
-getColumnRowCount(const ColumnName & column) const
+getColumnRowCount(const ColumnPath & column) const
 {
     ColumnStats toStoreResult;
     return getColumnStats(column, toStoreResult).rowCount();
@@ -310,7 +310,7 @@ forEachColumnGetStats(const OnColumnStats & onColumnStats) const
 
 const ColumnStats &
 ColumnIndex::
-getColumnStats(const ColumnName & column, ColumnStats & stats) const
+getColumnStats(const ColumnPath & column, ColumnStats & stats) const
 {
     auto col = getColumnValues(column);
 
@@ -341,7 +341,7 @@ getColumnStats(const ColumnName & column, ColumnStats & stats) const
 
 std::vector<std::tuple<RowPath, CellValue> >
 ColumnIndex::
-getColumnValues(const ColumnName & column,
+getColumnValues(const ColumnPath & column,
                 const std::function<bool (const CellValue &)> & filter) const
 {
     auto col = getColumn(column);
@@ -383,7 +383,7 @@ getColumnValues(const ColumnName & column,
 
 std::vector<CellValue>
 ColumnIndex::
-getColumnDense(const ColumnName & column) const
+getColumnDense(const ColumnPath & column) const
 {
     auto columnValues = getColumn(column);
     // getRowNames can return row names in an arbitrary order as long as it is deterministic.
@@ -413,7 +413,7 @@ getColumnDense(const ColumnName & column) const
 
 std::tuple<BucketList, BucketDescriptions>
 ColumnIndex::
-getColumnBuckets(const ColumnName & column,
+getColumnBuckets(const ColumnPath & column,
                  int maxNumBuckets) const
 {
     auto vals = getColumnDense(column);
@@ -477,14 +477,14 @@ recordRowExpr(const RowPath & rowName,
 void
 DatasetRecorder::
 recordRow(const RowPath & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     dataset->recordRow(rowName, vals);
 }
 
 void
 DatasetRecorder::
-recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     dataset->recordRows(rows);
 }
@@ -536,7 +536,7 @@ Dataset::
 void
 Dataset::
 recordRow(const RowPath & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     validateNames(rowName, vals);
     recordRowItl(rowName, vals);
@@ -545,7 +545,7 @@ recordRow(const RowPath & rowName,
 void
 Dataset::
 recordRowItl(const RowPath & rowName,
-             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+             const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     throw ML::Exception(("Dataset type '" + getType() + "' doesn't allow recording").rawString());
 }
@@ -572,7 +572,7 @@ getTimestampRange() const
     ExcAssertEqual(res.size(), 1);
     ExcAssertEqual(res[0].columns.size(), 2);
 
-    static ColumnName cmin("earliest"), cmax("latest");
+    static ColumnPath cmin("earliest"), cmax("latest");
 
     for (auto & c: res[0].columns) {
         if (std::get<0>(c) == cmin)
@@ -595,7 +595,7 @@ quantizeTimestamp(Date timestamp) const
 void 
 Dataset::
 validateNames(const RowPath & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     if (rowName.empty())
         throw HttpReturnException(400, "empty row names are not allowed");
@@ -607,7 +607,7 @@ validateNames(const RowPath & rowName,
 
 void 
 Dataset::
-validateNames(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+validateNames(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     for (auto& r : rows)
     {
@@ -617,7 +617,7 @@ validateNames(const std::vector<std::pair<RowPath, std::vector<std::tuple<Column
 
 void
 Dataset::
-recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     for (auto & r: rows)
         recordRow(r.first, r.second);
@@ -625,7 +625,7 @@ recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnNam
 
 void
 Dataset::
-recordColumn(const ColumnName & columnName,
+recordColumn(const ColumnPath & columnName,
              const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
 {
     recordColumns({{columnName, vals}});
@@ -633,9 +633,9 @@ recordColumn(const ColumnName & columnName,
 
 void
 Dataset::
-recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
+recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
 {
-    std::map<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > transposed;
+    std::map<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > transposed;
 
     for (auto & c: cols) {
         for (auto & r: c.second) {
@@ -643,7 +643,7 @@ recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<Row
         }
     }
 
-    std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows
+    std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows
         (std::make_move_iterator(transposed.begin()),
          std::make_move_iterator(transposed.end()));
 
@@ -656,7 +656,7 @@ recordRowExpr(const RowPath & rowName,
               const ExpressionValue & expr)
 {
     RowValue row;
-    expr.appendToRow(ColumnName(), row);
+    expr.appendToRow(ColumnPath(), row);
     recordRow(rowName, std::move(row));
 }
 
@@ -670,7 +670,7 @@ recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
         const RowPath & rowName = r.first;
         const ExpressionValue & expr = r.second;
         RowValue row;
-        expr.appendToRow(ColumnName(), row);
+        expr.appendToRow(ColumnPath(), row);
         rowsOut.emplace_back(rowName, std::move(row));
     }
     recordRows(std::move(rowsOut));
@@ -678,13 +678,13 @@ recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
 
 void
 Dataset::
-recordEmbedding(const std::vector<ColumnName> & columnNames,
+recordEmbedding(const std::vector<ColumnPath> & columnNames,
                 const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows)
 {
-    vector<pair<RowPath, vector<tuple<ColumnName, CellValue, Date> > > > rowsOut;
+    vector<pair<RowPath, vector<tuple<ColumnPath, CellValue, Date> > > > rowsOut;
 
     for (auto & r: rows) {
-        vector<tuple<ColumnName, CellValue, Date> > row;
+        vector<tuple<ColumnPath, CellValue, Date> > row;
         row.reserve(columnNames.size());
 
         const RowPath & rowName = std::get<0>(r);
@@ -720,7 +720,7 @@ getChunkRecorder()
 
 KnownColumn
 Dataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     // TODO: do a better job with this... we are conservative but the column may have
     // a much tighter domain than this.
@@ -730,7 +730,7 @@ getKnownColumnInfo(const ColumnName & columnName) const
 
 std::vector<KnownColumn>
 Dataset::
-getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
+getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const
 {
     std::vector<KnownColumn> result;
     result.reserve(columnNames.size());
@@ -945,7 +945,7 @@ static std::pair<std::vector<RowPath>, Any>
 executeFilteredColumnExpression(const Dataset & dataset,
                                 ssize_t numToGenerate, Any token,
                                 const BoundParameters & params,
-                                const ColumnName & columnName,
+                                const ColumnPath & columnName,
                                 const Filter & filter)
 {
     auto columnIndex = dataset.getColumnIndex();
@@ -977,7 +977,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
 template<typename Filter>
 static GenerateRowsWhereFunction
 generateFilteredColumnExpression(const Dataset & dataset,
-                                 const ColumnName & columnName,
+                                 const ColumnPath & columnName,
                                  const Filter & filter,
                                  const Utf8String & explanation)
 {
@@ -1000,7 +1000,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
                                const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
-    ColumnName columnName(removeTableName(alias,variable.columnName));
+    ColumnPath columnName(removeTableName(alias,variable.columnName));
     CellValue constantValue(constant.constant.getAtom());
 
     auto filter = [=] (const CellValue & val)
@@ -1020,7 +1020,7 @@ generateVariableIsTrue(const Dataset & dataset,
                        const Utf8String& alias,
                        const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.columnName));
+    ColumnPath columnName(removeTableName(alias,variable.columnName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -1038,7 +1038,7 @@ generateVariableIsNotNull(const Dataset & dataset,
                           const Utf8String& alias,
                           const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.columnName));
+    ColumnPath columnName(removeTableName(alias,variable.columnName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -1541,7 +1541,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                                     // Lambda for KEYS, which looks for a
                                     // matching row from the key
-                                    auto onKey = [&] (const ColumnName & key,
+                                    auto onKey = [&] (const ColumnPath & key,
                                                       const ExpressionValue & val)
                                         {
                                             if (matrixView->knownRow(key)) {
@@ -1552,7 +1552,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                                 
                                     // Lambda for VALUES, which looks for a
                                     // matching row from the value
-                                    auto onValue = [&] (const ColumnName & key,
+                                    auto onValue = [&] (const ColumnPath & key,
                                                         const ExpressionValue & val)
                                         {
                                             auto str = extractPath(val);
@@ -2188,7 +2188,7 @@ std::vector<T> frame(std::vector<T> & vec, ssize_t offset, ssize_t limit)
     return std::move(vec);
 }
 
-std::vector<ColumnName>
+std::vector<ColumnPath>
 Dataset::
 getColumnNames(ssize_t offset, ssize_t limit) const
 {
@@ -2196,7 +2196,7 @@ getColumnNames(ssize_t offset, ssize_t limit) const
     return frame(names, offset, limit);
 }
 
-std::vector<ColumnName>
+std::vector<ColumnPath>
 Dataset::
 getFlattenedColumnNames() const
 {

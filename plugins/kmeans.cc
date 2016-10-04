@@ -173,7 +173,7 @@ run(const ProcedureRunConfig & run,
         = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;
 
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
     for (auto & v: vars) {
         columnNames.push_back(v.columnName);
     }
@@ -233,8 +233,8 @@ run(const ProcedureRunConfig & run,
         Date applyDate = Date::now();
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-            cols.emplace_back(ColumnName("cluster"), inCluster[i], applyDate);
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
+            cols.emplace_back(ColumnPath("cluster"), inCluster[i], applyDate);
             output->recordRow(std::get<1>(rows[i]), cols);
         }
 
@@ -254,7 +254,7 @@ run(const ProcedureRunConfig & run,
         for (unsigned i = 0;  i < kmeans.clusters.size();  ++i) {
             auto & cluster = kmeans.clusters[i];
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
 
             for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
@@ -336,7 +336,7 @@ KmeansExpressionValueDescription::KmeansExpressionValueDescription()
 
 struct KmeansFunction::Impl {
     ML::KMeans kmeans;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     Impl(const Url & modelFileUrl)
     {
@@ -350,7 +350,7 @@ struct KmeansFunction::Impl {
         if (md["version"].asInt() != 1) {
             throw HttpReturnException(400, "k-Means model version is wrong");
         }
-        columnNames = jsonDecode<std::vector<ColumnName> >(md["columnNames"]);
+        columnNames = jsonDecode<std::vector<ColumnPath> >(md["columnNames"]);
         
         ML::DB::Store_Reader store(stream);
         kmeans.reconstitute(store);

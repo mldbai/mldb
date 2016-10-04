@@ -53,7 +53,7 @@ struct Recorder {
     /** Record a pre-flattened row. */
     virtual void
     recordRow(const RowPath & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) = 0;
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) = 0;
 
     /** See recordRow().  This has the same effect, but takes an rvalue
         which is destroyed by the call.  This may result in performance
@@ -61,20 +61,20 @@ struct Recorder {
     */
     virtual void
     recordRowDestructive(RowPath rowName,
-                         std::vector<std::tuple<ColumnName, CellValue, Date> > vals);
+                         std::vector<std::tuple<ColumnPath, CellValue, Date> > vals);
 
     /** Record multiple flattened rows in a single transaction.  Default
         implementation forwards to recordRow.
     */
     virtual void
-    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) = 0;
+    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) = 0;
 
     /** See recordRows().  This has the same effect, but takes an rvalue
         which is destroyed by the call.  This may result in performance
         improvements.
     */
     virtual void
-    recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows);
+    recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows);
 
     /** Record multiple rows from ExpressionValues.  */
     virtual void
@@ -104,8 +104,8 @@ struct Recorder {
                         Date timestamp,
                         CellValue * vals,
                         size_t numVals,
-                        std::vector<std::pair<ColumnName, CellValue> > extra)>
-    specializeRecordTabular(const std::vector<ColumnName> & columns);
+                        std::vector<std::pair<ColumnPath, CellValue> > extra)>
+    specializeRecordTabular(const std::vector<ColumnPath> & columns);
 
 
     /** Default implementation of specializeRecordTabular.  It will construct
@@ -115,8 +115,8 @@ struct Recorder {
                            Date timestamp,
                            CellValue * vals,
                            size_t numVals,
-                           std::vector<std::pair<ColumnName, CellValue> > extra,
-                           const std::vector<ColumnName> & columnNames);
+                           std::vector<std::pair<ColumnPath, CellValue> > extra,
+                           const std::vector<ColumnPath> & columnNames);
     
 
     virtual void finishedChunk();

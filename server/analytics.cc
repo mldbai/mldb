@@ -241,7 +241,7 @@ getEmbedding(const SelectExpression & select,
 
     ExcAssertGreaterEqual(maxDimensions, 0);
 
-    std::vector<ColumnName> varNames;
+    std::vector<ColumnPath> varNames;
     varNames.reserve(vars.size());
     for (auto & v: vars)
         varNames.emplace_back(v.columnName);

@@ -23,8 +23,8 @@ using namespace MLDB::Python;
 namespace MLDB {
 
 
-typedef std::tuple<ColumnName, CellValue, Date> RowCellTuple;
-typedef std::tuple<ColumnName, CellValue, Date> ColumnCellTuple;
+typedef std::tuple<ColumnPath, CellValue, Date> RowCellTuple;
+typedef std::tuple<ColumnPath, CellValue, Date> ColumnCellTuple;
 
 /****************************************************************************/
 /* DatasetPy                                                                */
@@ -39,9 +39,9 @@ struct DatasetPy {
                    const std::vector<RowCellTuple> & columns);
     void recordRows(const std::vector<std::pair<RowPath, std::vector<RowCellTuple> > > & rows);
     
-    void recordColumn(const ColumnName & columnName,
+    void recordColumn(const ColumnPath & columnName,
                       const std::vector<ColumnCellTuple> & rows);
-    void recordColumns(const std::vector<std::pair<ColumnName, std::vector<ColumnCellTuple> > > & columns);
+    void recordColumns(const std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > & columns);
 
     void commit();
     

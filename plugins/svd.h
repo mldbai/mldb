@@ -61,7 +61,7 @@ struct SimpleSvdColumnEntry: public ColumnSpec {
 DECLARE_STRUCTURE_DESCRIPTION(SimpleSvdColumnEntry);
 
 struct SvdColumnIndexEntry {
-    ColumnName columnName;
+    ColumnPath columnName;
     std::map<CellValue, int> values;
 };
 
@@ -95,7 +95,7 @@ struct SvdBasis {
                        bool acceptUnknownValues) const;
 
     std::pair<ML::distribution<float>, Date>
-    leftSingularVector(const std::vector<std::tuple<ColumnName, CellValue, Date> > & row,
+    leftSingularVector(const std::vector<std::tuple<ColumnPath, CellValue, Date> > & row,
                        int maxValues,
                        bool acceptUnknownValues) const;
 

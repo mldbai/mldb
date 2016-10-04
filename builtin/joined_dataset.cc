@@ -111,8 +111,8 @@ struct JoinedDataset::Itl
     SideRowIndex rightRowIndex;
 
     struct ColumnEntry {
-        ColumnName columnName;       ///< Name of the column in this dataset
-        ColumnName childColumnName;  ///< Name of the column in the child dataset
+        ColumnPath columnName;       ///< Name of the column in this dataset
+        ColumnPath childColumnName;  ///< Name of the column in the child dataset
         uint32_t bitmap;             ///< Which rows contribute to this column?
     };
 
@@ -120,7 +120,7 @@ struct JoinedDataset::Itl
     std::unordered_map<ColumnHash, ColumnEntry> columnIndex;
 
     /// Mapping from the table column hash to output column name
-    std::unordered_map<ColumnHash, ColumnName> leftColumns, rightColumns;
+    std::unordered_map<ColumnHash, ColumnPath> leftColumns, rightColumns;
 
     /// Structure used to implement operations from each table
     TableOperations leftOps, rightOps;
@@ -270,9 +270,9 @@ struct JoinedDataset::Itl
         // Finally, the column indexes
         for (auto & c: leftDataset->getFlattenedColumnNames()) {
 
-            ColumnName newColumnName;
+            ColumnPath newColumnName;
             if (!left.asName.empty())
-                newColumnName = ColumnName(left.asName) + c;
+                newColumnName = ColumnPath(left.asName) + c;
             else newColumnName = c;
 
             ColumnHash newColumnHash(newColumnName);
@@ -288,10 +288,10 @@ struct JoinedDataset::Itl
 
         for (auto & c: rightDataset->getFlattenedColumnNames()) {
 
-            ColumnName newColumnName;
+            ColumnPath newColumnName;
 
             if (!right.asName.empty())
-                newColumnName = ColumnName(right.asName) + c;
+                newColumnName = ColumnPath(right.asName) + c;
             else newColumnName = c;
             ColumnHash newColumnHash(newColumnName);
 
@@ -669,7 +669,7 @@ struct JoinedDataset::Itl
 
         auto doRow = [&] (const Dataset & dataset,
                           const RowPath & rowName,
-                          const std::unordered_map<ColumnHash, ColumnName> & mapping)
+                          const std::unordered_map<ColumnHash, ColumnPath> & mapping)
             {
                 ExpressionValue rowValue;
                 if (!rowName.empty())
@@ -713,12 +713,12 @@ struct JoinedDataset::Itl
         return row.rowName;
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         return columnIndex.count(column);
     }
 
-    virtual ColumnName getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnName(ColumnHash columnHash) const
     {
         auto it = columnIndex.find(columnHash);
 
@@ -730,9 +730,9 @@ struct JoinedDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnNames() const
     {
-        std::vector<ColumnName> result;
+        std::vector<ColumnPath> result;
 
         for (auto & c: columnIndex) {
             result.emplace_back(c.second.columnName);
@@ -744,7 +744,7 @@ struct JoinedDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & columnName) const
+    virtual MatrixColumn getColumn(const ColumnPath & columnName) const
     {
         auto it = columnIndex.find(columnName);
 
@@ -754,7 +754,7 @@ struct JoinedDataset::Itl
         
         auto doGetColumn = [&] (const Dataset & dataset,
                                 const SideRowIndex & index,
-                                const ColumnName & columnName) -> MatrixColumn
+                                const ColumnPath & columnName) -> MatrixColumn
             {
                 MatrixColumn result;
 

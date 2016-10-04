@@ -49,22 +49,22 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     
     MatrixNamedRow row;
     row.rowName = RowPath("row1");
-    row.columns.emplace_back(ColumnName("techno"), "yes", Date());
-    row.columns.emplace_back(ColumnName("dance"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("techno"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("dance"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     row.columns.clear();
 
     row.rowName = RowPath("row2");
-    row.columns.emplace_back(ColumnName("dance"), "yes", Date());
-    row.columns.emplace_back(ColumnName("country"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("dance"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("country"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     row.columns.clear();
 
     row.rowName = RowPath("row3");
-    row.columns.emplace_back(ColumnName("tag with spaces"), "yes", Date());
-    row.columns.emplace_back(ColumnName("tag:with spaces"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("tag with spaces"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("tag:with spaces"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     

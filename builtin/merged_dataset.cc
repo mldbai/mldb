@@ -132,7 +132,7 @@ struct MergedDataset::Itl
             {
                 auto dataset = toMerge[datasetIndex];
                 MergeHashEntries result;
-                vector<ColumnName> cols = dataset->getMatrixView()->getColumnNames();
+                vector<ColumnPath> cols = dataset->getMatrixView()->getColumnNames();
                 std::sort(cols.begin(), cols.end());
                 ExcAssert(std::unique(cols.begin(), cols.end()) == cols.end());
                 result.reserve(cols.size());
@@ -309,12 +309,12 @@ struct MergedDataset::Itl
         return result;
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         return getColumnBitmap(column) != 0;
     }
 
-    virtual ColumnName getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnName(ColumnHash columnHash) const
     {
         uint32_t bitmap = getColumnBitmap(columnHash);
 
@@ -327,9 +327,9 @@ struct MergedDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnNames() const
     {
-        std::vector<ColumnName> result;
+        std::vector<ColumnPath> result;
 
         auto onColumn = [&] (uint64_t hash, uint32_t bitmap)
             {
@@ -348,7 +348,7 @@ struct MergedDataset::Itl
 
 #if 0  // default version in dataset.cc is correct but less efficient
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & columnName, ColumnStats & toStoreResult) const
+    getColumnStats(const ColumnPath & columnName, ColumnStats & toStoreResult) const
     {
         uint32_t bitmap = getColumnBitmap(columnName);
         if (!bitmap)
@@ -372,7 +372,7 @@ struct MergedDataset::Itl
 #endif
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & columnHash) const
+    virtual MatrixColumn getColumn(const ColumnPath & columnHash) const
     {
         uint32_t bitmap = getColumnBitmap(columnHash);
         if (!bitmap)
@@ -399,7 +399,7 @@ struct MergedDataset::Itl
 
     /** Return the value of the column for all rows and timestamps. */
     virtual std::vector<std::tuple<RowPath, CellValue> >
-    getColumnValues(const ColumnName & columnName,
+    getColumnValues(const ColumnPath & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
         std::vector<std::tuple<RowPath, CellValue> > result;

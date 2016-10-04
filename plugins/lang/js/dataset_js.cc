@@ -92,7 +92,7 @@ recordRow(const v8::FunctionCallbackInfo<v8::Value> & args)
         Dataset * dataset = getShared(args.This());
          
         auto rowName = JS::getArg<RowPath>(args, 0, "rowName");
-        auto values = JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {});
+        auto values = JS::getArg<std::vector<std::tuple<ColumnPath, CellValue, Date> > >(args, 1, "values", {});
 
         {
             //v8::Unlocker unlocker(args.GetIsolate());
@@ -111,7 +111,7 @@ recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
     try {
         Dataset * dataset = getShared(args.This());
         
-        auto rows = JS::getArg<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "rows", {});
+        auto rows = JS::getArg<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >(args, 0, "rows", {});
 
         {
             //v8::Unlocker unlocker(args.GetIsolate());
@@ -130,8 +130,8 @@ recordColumn(const v8::FunctionCallbackInfo<v8::Value> & args)
     try {
         Dataset * dataset = getShared(args.This());
         
-        auto columnName = JS::getArg<ColumnName>(args, 0, "columnName");
-        auto column = JS::getArg<std::vector<std::tuple<ColumnName, CellValue, Date> > >(args, 1, "values", {});
+        auto columnName = JS::getArg<ColumnPath>(args, 0, "columnName");
+        auto column = JS::getArg<std::vector<std::tuple<ColumnPath, CellValue, Date> > >(args, 1, "values", {});
 
         {
             //v8::Unlocker unlocker(args.GetIsolate());
@@ -150,7 +150,7 @@ recordColumns(const v8::FunctionCallbackInfo<v8::Value> & args)
     try {
         Dataset * dataset = getShared(args.This());
             
-        auto columns = JS::getArg<std::vector<std::pair<ColumnName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >(args, 0, "columns", {});
+        auto columns = JS::getArg<std::vector<std::pair<ColumnPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >(args, 0, "columns", {});
         dataset->recordColumns(std::move(columns));
 
         args.GetReturnValue().Set(args.This());

@@ -28,7 +28,7 @@ struct Path;
 typedef Path RowPath;
 
 typedef HashWrapper<3> ColumnHash;
-typedef Path ColumnName;
+typedef Path ColumnPath;
 
 struct Dataset;
 

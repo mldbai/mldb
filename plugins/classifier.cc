@@ -255,7 +255,7 @@ run(const ProcedureRunConfig & run,
 
     SelectExpression select({subSelect});
 
-    std::set<ColumnName> knownInputColumns;
+    std::set<ColumnPath> knownInputColumns;
     {
         // Find only those variables used
         SqlExpressionDatasetScope context(boundDataset);
@@ -825,7 +825,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
                            const CellValue & value,
                            Date tsIn)
             {
-                ColumnName columnName(prefix + suffix);
+                ColumnPath columnName(prefix + suffix);
                 ColumnHash columnHash(columnName);
                 
                 auto it = itl->featureSpace->columnInfo.find(columnHash);
@@ -859,7 +859,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
                        const CellValue & value,
                        Date tsIn)
         {
-            ColumnName columnName(prefix + suffix);
+            ColumnPath columnName(prefix + suffix);
             ColumnHash columnHash(columnName);
 
             auto it = itl->featureSpace->columnInfo.find(columnHash);
@@ -1060,7 +1060,7 @@ getFunctionInfo() const
         std::vector<KnownColumn> scoreColumns;
 
         for (unsigned i = 0;  i < labelCount;  ++i) {
-            scoreColumns.emplace_back(ColumnName::parse(cat->print(i)),
+            scoreColumns.emplace_back(ColumnPath::parse(cat->print(i)),
                                       std::make_shared<Float32ValueInfo>(),
                                       COLUMN_IS_DENSE, i);
         }
@@ -1140,7 +1140,7 @@ apply(const FunctionApplier & applier,
     Date effectiveDate = ts;
 
     for(auto iter=expl.feature_weights.begin(); iter!=expl.feature_weights.end(); iter++) {
-        features.emplace_back(ColumnName::parse(itl->featureSpace->print(iter->first)),
+        features.emplace_back(ColumnPath::parse(itl->featureSpace->print(iter->first)),
                               iter->second,
                               effectiveDate);
     }

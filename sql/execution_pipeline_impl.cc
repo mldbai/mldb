@@ -48,7 +48,7 @@ TableLexicalScope(std::shared_ptr<RowValueInfo> rowInfo,
 
 ColumnGetter
 TableLexicalScope::
-doGetColumn(const ColumnName & columnName, int fieldOffset)
+doGetColumn(const ColumnPath & columnName, int fieldOffset)
 {
     //cerr << "dataset lexical scope: fieldOffset = " << fieldOffset << endl;
     ExcAssertGreaterEqual(fieldOffset, 0);
@@ -88,11 +88,11 @@ doGetAllColumns(const Utf8String & tableName,
     ExcAssertGreaterEqual(fieldOffset, 0);
 
     std::vector<KnownColumn> columnsWithInfo;
-    std::map<ColumnHash, ColumnName> index;
+    std::map<ColumnHash, ColumnPath> index;
 
     for (auto & column: knownColumns) {
 
-        ColumnName outputName = keep(column.columnName);
+        ColumnPath outputName = keep(column.columnName);
 
         if (outputName.empty() && !asName.empty()) {
             // BAD SMELL
@@ -105,9 +105,9 @@ doGetAllColumns(const Utf8String & tableName,
         }
 
         KnownColumn out = column;
-        out.columnName = ColumnName(outputName);
+        out.columnName = ColumnPath(outputName);
         columnsWithInfo.emplace_back(std::move(out));
-        index[column.columnName] = ColumnName(outputName);
+        index[column.columnName] = ColumnPath(outputName);
     }
 
     auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter)
@@ -125,11 +125,11 @@ doGetAllColumns(const Utf8String & tableName,
                        const CellValue & val,
                        Date ts)
         {
-            ColumnName newColumnName = prefix + columnName;
+            ColumnPath newColumnName = prefix + columnName;
             auto it = index.find(newColumnName);
             if (it == index.end()) {
                 if (hasUnknownColumns) {
-                    ColumnName outputName = keep(newColumnName);
+                    ColumnPath outputName = keep(newColumnName);
                     if (!outputName.empty())
                         result.emplace_back(std::move(outputName), val, ts);
                 }
@@ -407,7 +407,7 @@ doGetAllColumns(const Utf8String & tableName,
 
 ColumnGetter
 SubSelectLexicalScope::
-doGetColumn(const ColumnName & columnName, int fieldOffset)
+doGetColumn(const ColumnPath & columnName, int fieldOffset)
 {
     //We want the last two that were added by the sub pipeline.
     //for example if the subpipeline queries from a dataset, it will add 4
@@ -558,7 +558,7 @@ JoinLexicalScope(std::shared_ptr<PipelineExpressionScope> inner,
 
 ColumnGetter
 JoinLexicalScope::
-doGetColumn(const ColumnName & columnName, int fieldOffset)
+doGetColumn(const ColumnPath & columnName, int fieldOffset)
 {
 #if 0
     cerr << "join getting variable " << columnName << " with field offset "
@@ -578,7 +578,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
                 if (columnName.startsWith(prefix)) {
                     //cerr << "matches this side" << endl;
 
-                    ColumnName name = columnName;
+                    ColumnPath name = columnName;
 
                     // If this scope has an as() field which is equal
                     // to the table name we asked for, then it's a
@@ -1960,7 +1960,7 @@ AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, int numVal
 
 ColumnGetter
 AggregateLexicalScope::
-doGetColumn(const ColumnName & columnName, int fieldOffset)
+doGetColumn(const ColumnPath & columnName, int fieldOffset)
 {
     //cerr << "aggregate scope getting variable " << columnName
     //     << " at field offset " << fieldOffset << endl;

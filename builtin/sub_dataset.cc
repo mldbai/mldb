@@ -49,7 +49,7 @@ struct SubDataset::Itl
 
     std::vector<NamedRowValue> subOutput;
     std::vector<PathElement> columnNames;
-    std::vector<ColumnName> fullFlattenedColumnNames;
+    std::vector<ColumnPath> fullFlattenedColumnNames;
     ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date earliest, latest;
     std::shared_ptr<ExpressionValueInfo> columnInfo;
@@ -78,7 +78,7 @@ struct SubDataset::Itl
         earliest = latest = Date::notADate();
 
         std::unordered_set<PathElement> columnNameSet;
-        std::unordered_set<ColumnName> fullflattenColumnNameSet;
+        std::unordered_set<ColumnPath> fullflattenColumnNameSet;
         bool first = true;
 
         // Scan all rows for the columns that are there
@@ -217,7 +217,7 @@ struct SubDataset::Itl
         return subOutput[it->second].rowName;
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         if (column.size() == 1)
             return std::find(columnNames.begin(), columnNames.end(), column[0]) != columnNames.end();
@@ -225,34 +225,34 @@ struct SubDataset::Itl
             return std::find(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end(), column) != fullFlattenedColumnNames.end();
     }
 
-    virtual ColumnName getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnName(ColumnHash columnHash) const
     {        
         for (const auto& c : columnNames)
         {
-            if (ColumnHash(ColumnName(c)) == columnHash)
+            if (ColumnHash(ColumnPath(c)) == columnHash)
             {
                 return c;
             }
         }
 
-        return ColumnName();
+        return ColumnPath();
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnNames() const
     {
-        std::vector<ColumnName> fullColumnNames;
+        std::vector<ColumnPath> fullColumnNames;
         fullColumnNames.reserve(columnNames.size());
         for (const auto& c : columnNames)
         {
-            fullColumnNames.push_back(ColumnName(c));
+            fullColumnNames.push_back(ColumnPath(c));
         }
 
         return fullColumnNames;
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & columnName) const
+    virtual MatrixColumn getColumn(const ColumnPath & columnName) const
     {
         MatrixColumn output;
         output.columnHash = columnName;
@@ -264,7 +264,7 @@ struct SubDataset::Itl
 
             for (const auto& c : flattened.columns)
             {
-                const ColumnName & cName = std::get<0>(c);
+                const ColumnPath & cName = std::get<0>(c);
 
                 if (cName == columnName)
                 {
@@ -278,7 +278,7 @@ struct SubDataset::Itl
 
     /** Return the value of the column for all rows and timestamps. */
     virtual std::vector<std::tuple<RowPath, CellValue> >
-    getColumnValues(const ColumnName & columnName,
+    getColumnValues(const ColumnPath & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
         std::vector<std::tuple<RowPath, CellValue> > result; 
@@ -289,7 +289,7 @@ struct SubDataset::Itl
 
             for (const auto& c : flattened.columns)
             {
-                const ColumnName & cName = std::get<0>(c);
+                const ColumnPath & cName = std::get<0>(c);
 
                 if (cName == columnName)
                 {
@@ -396,7 +396,7 @@ getRowStream() const
 
 KnownColumn
 SubDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     if (itl->columnInfo) {
         std::shared_ptr<ExpressionValueInfo> columnInfo = itl->columnInfo->findNestedColumn(columnName);
@@ -407,7 +407,7 @@ getKnownColumnInfo(const ColumnName & columnName) const
     return Dataset::getKnownColumnInfo(columnName);
 }
 
-std::vector<ColumnName> 
+std::vector<ColumnPath> 
 SubDataset::
 getFlattenedColumnNames() const
 {

@@ -182,14 +182,14 @@ run(const ProcedureRunConfig & run,
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> Cell;
+    typedef tuple<ColumnPath, CellValue, Date> Cell;
     PerThreadAccumulator<vector<pair<RowPath, vector<Cell>>>> accum;
 
     auto bucketizeStep = iterationStep->nextStep(1);
     atomic<ssize_t> rowIndex(0);
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
-        rowValue.emplace_back(ColumnName("bucket"),
+        rowValue.emplace_back(ColumnPath("bucket"),
                               mappedRange.first,
                               globalMaxOrderByTimestamp);
 

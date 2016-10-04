@@ -51,8 +51,8 @@ BOOST_AUTO_TEST_CASE( test_two_members )
         {
             MatrixNamedRow row;
             row.rowName = RowPath(rowPath);
-            row.columns.emplace_back(ColumnName("x"), x, Date());
-            row.columns.emplace_back(ColumnName("y"), y, Date());
+            row.columns.emplace_back(ColumnPath("x"), x, Date());
+            row.columns.emplace_back(ColumnPath("y"), y, Date());
             cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
         };
 

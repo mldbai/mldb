@@ -50,9 +50,9 @@ struct SqliteSparseDataset: public Dataset {
         All other views are built on top of this.
     */
     virtual void recordRowItl(const RowPath & rowName,
-                           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                           const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
     /** Commit changes to the database.  Default is a no-op. */
     virtual void commit();

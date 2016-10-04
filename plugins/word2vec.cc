@@ -97,7 +97,7 @@ struct Word2VecImporter: public Procedure {
             output = createDataset(server, runProcConf.output, nullptr, true /*overwrite*/);
         }
 
-        vector<ColumnName> columnNames;
+        vector<ColumnPath> columnNames;
         for (unsigned i = 0;  i < numDims;  ++i) {
             columnNames.emplace_back(ML::format("%06d", i));
         }

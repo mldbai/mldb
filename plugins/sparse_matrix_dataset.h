@@ -31,9 +31,9 @@ struct SparseMatrixDataset: public Dataset {
         All other views are built on top of this.
     */
     virtual void recordRowItl(const RowPath & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override;
 
-    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override;
 
     virtual void
     recordRowExpr(const RowPath & rowName,
@@ -47,7 +47,7 @@ struct SparseMatrixDataset: public Dataset {
         an "any value" result, ie nothing is known about the column.
     */
     virtual KnownColumn
-    getKnownColumnInfo(const ColumnName & columnName) const override;
+    getKnownColumnInfo(const ColumnPath & columnName) const override;
 
     /** Commit changes to the database. */
     virtual void commit() override;

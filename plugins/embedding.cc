@@ -77,7 +77,7 @@ struct EmbeddingDatasetRepr {
     {
     }
 
-    EmbeddingDatasetRepr(std::vector<ColumnName> columnNames,
+    EmbeddingDatasetRepr(std::vector<ColumnPath> columnNames,
                          MetricSpace metric)
         : columnNames(std::move(columnNames)), columns(this->columnNames.size()),
           vpTree(new ML::VantagePointTreeT<int>()),
@@ -192,7 +192,7 @@ struct EmbeddingDatasetRepr {
         return { earliest, latest };
     }
     
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
     std::vector<std::vector<float> > columns;
     ML::Lightweight_Hash<ColumnHash, int> columnIndex;
 
@@ -426,7 +426,7 @@ struct EmbeddingDataset::Itl
         return repr->rows[it->second].rowName;
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -435,7 +435,7 @@ struct EmbeddingDataset::Itl
         return repr->columnIndex.count(column);
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnName(ColumnHash column) const
     {
         // TODO: shouldn't need to
         auto repr = committed();
@@ -449,7 +449,7 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnNames() const
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -483,7 +483,7 @@ struct EmbeddingDataset::Itl
 
         for (auto & col: repr->columnIndex) {
             ColumnStats toStoreResult;
-            const ColumnName & columnName = repr->columnNames.at(col.second);
+            const ColumnPath & columnName = repr->columnNames.at(col.second);
             if (!onColumnStats(columnName,
                                getColumnStats(columnName, toStoreResult)))
                 return false;
@@ -493,7 +493,7 @@ struct EmbeddingDataset::Itl
     }
 
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & ch, ColumnStats & toStoreResult) const
+    getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -517,7 +517,7 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -561,7 +561,7 @@ struct EmbeddingDataset::Itl
         return std::make_shared<RowValueInfo>(knownColumns);
     }
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const
     {
         auto repr = committed();
         if (!repr->initialized()) {
@@ -582,7 +582,7 @@ struct EmbeddingDataset::Itl
     
 
     virtual std::vector<KnownColumn>
-    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
+    getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const
     {
         std::vector<KnownColumn> result;
 
@@ -612,7 +612,7 @@ struct EmbeddingDataset::Itl
     }
 
     virtual void
-    recordEmbedding(const std::vector<ColumnName> & columnNames,
+    recordEmbedding(const std::vector<ColumnPath> & columnNames,
                     const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows)
     {
         auto repr = committed();
@@ -692,7 +692,7 @@ struct EmbeddingDataset::Itl
 
     virtual void
     recordRowItl(const RowPath & rowName,
-                 const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+                 const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         auto repr = committed();
 
@@ -724,7 +724,7 @@ struct EmbeddingDataset::Itl
                 // First commit; we just learnt the column names
 
                 // Here is our list of columns
-                std::vector<ColumnName> columnNames;
+                std::vector<ColumnPath> columnNames;
                 for (auto & c: vals) {
                     columnNames.push_back(std::get<0>(c));
                 }
@@ -1003,14 +1003,14 @@ getStatus() const
 void
 EmbeddingDataset::
 recordRowItl(const RowPath & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     return itl->recordRowItl(rowName, vals);
 }
 
 void
 EmbeddingDataset::
-recordEmbedding(const std::vector<ColumnName> & columnNames,
+recordEmbedding(const std::vector<ColumnPath> & columnNames,
                 const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows)
 {
     itl->recordEmbedding(columnNames, rows);
@@ -1083,14 +1083,14 @@ getRowNeighbors(const RowPath & row, int numNeighbors, double maxDistance) const
 
 KnownColumn
 EmbeddingDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     return itl->getKnownColumnInfo(columnName);
 }
 
 std::vector<KnownColumn>
 EmbeddingDataset::
-getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
+getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const
 {
     return itl->getKnownColumnInfos(columnNames);
 }
@@ -1134,7 +1134,7 @@ NearestNeighborsFunctionConfigDescription()
              "are not of the format `columnName.0, columnName.1, ...` but "
              "instead look like `name1, name2, ...`), then pass "
              "in `[]` which signifies use all columns (and is the default).",
-             ColumnName());
+             ColumnPath());
 }
 
 NearestNeighborsInput::
@@ -1264,17 +1264,17 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
     
     std::shared_ptr<ExpressionValueInfo> datasetInput
         = boundDataset.dataset->getRowInfo();
-    vector<ColumnName> columnNames
+    vector<ColumnPath> columnNames
         = datasetInput->allColumnNames();
 
     // Remove the columnName from these columns, to allow us to get the actual
     // embedding
-    vector<ColumnName> reducedColumnNames;
+    vector<ColumnPath> reducedColumnNames;
 
     if (!functionConfig.columnName.empty()) {
         for (auto & c: columnNames) {
             if (c.startsWith(functionConfig.columnName)) {
-                ColumnName tail = c.removePrefix(functionConfig.columnName);
+                ColumnPath tail = c.removePrefix(functionConfig.columnName);
                 if (tail.size() != 1 || !tail.at(0).isIndex()) {
                     throw HttpReturnException
                         (400, "The column name passed into the embedding.neighbors "
@@ -1287,11 +1287,11 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
         }
         
         if (reducedColumnNames.empty()) {
-            std::set<ColumnName> knownEmbeddings;
+            std::set<ColumnPath> knownEmbeddings;
 
             for (auto & c: columnNames) {
                 if (!c.empty() || c.back().isIndex()) {
-                    ColumnName knownEmbedding(c.begin(), c.end() - 1);
+                    ColumnPath knownEmbedding(c.begin(), c.end() - 1);
                     knownEmbeddings.insert(knownEmbedding);
                 }
             }

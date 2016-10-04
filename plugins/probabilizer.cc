@@ -370,13 +370,13 @@ ProbabilizeFunction::
 getFunctionInfo() const
 {
     std::vector<KnownColumn> knownInputColumns;
-    knownInputColumns.emplace_back(ColumnName("score"),
+    knownInputColumns.emplace_back(ColumnPath("score"),
                                    std::make_shared<NumericValueInfo>(),
                                    COLUMN_IS_DENSE,
                                    0 /* position */);
 
     std::vector<KnownColumn> knownOutputColumns;
-    knownOutputColumns.emplace_back(ColumnName("prob"),
+    knownOutputColumns.emplace_back(ColumnPath("prob"),
                                     std::make_shared<NumericValueInfo>(),
                                     COLUMN_IS_DENSE,
                                     0 /* position */);

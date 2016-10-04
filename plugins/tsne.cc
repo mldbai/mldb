@@ -122,7 +122,7 @@ struct TsneItl {
     std::unique_ptr<ML::Quadtree> qtree;
     std::vector<Utf8String> inputColumnNames;
     std::vector<Utf8String> outputColumnNames;
-    std::shared_ptr<const std::vector<ColumnName> > outputColumnNamesShared;
+    std::shared_ptr<const std::vector<ColumnPath> > outputColumnNamesShared;
 
     size_t numOutputDimensions() const { return outputPath.shape()[1]; }
 
@@ -184,7 +184,7 @@ struct TsneItl {
 
         store >> inputColumnNames >> outputColumnNames;
 
-        outputColumnNamesShared.reset(new vector<ColumnName>(outputColumnNames.begin(), outputColumnNames.end()));
+        outputColumnNamesShared.reset(new vector<ColumnPath>(outputColumnNames.begin(), outputColumnNames.end()));
 
         vpTree.reset(ML::VantagePointTree::reconstitutePtr(store));
         qtree.reset(new ML::Quadtree(store));
@@ -320,13 +320,13 @@ run(const ProcedureRunConfig & run,
     ExcAssert(itl->qtree);
     ExcAssert(itl->vpTree);
 
-    vector<ColumnName> names = { ColumnName("x"), ColumnName("y"), ColumnName("z") };
+    vector<ColumnPath> names = { ColumnPath("x"), ColumnPath("y"), ColumnPath("z") };
     if (runProcConf.numOutputDimensions <= 3)
         names.resize(runProcConf.numOutputDimensions);
     else {
         names.clear();
         for (unsigned i = 0; i < runProcConf.numOutputDimensions;  ++i)
-            names.push_back(ColumnName(ML::format("dim%04d", i)));
+            names.push_back(ColumnPath(ML::format("dim%04d", i)));
     }
 
 
@@ -339,7 +339,7 @@ run(const ProcedureRunConfig & run,
     }
 
     itl->outputColumnNamesShared
-        .reset(new vector<ColumnName>(itl->outputColumnNames.begin(),
+        .reset(new vector<ColumnPath>(itl->outputColumnNames.begin(),
                                       itl->outputColumnNames.end()));
 
     if (!runProcConf.modelFileUrl.empty()) {
@@ -354,7 +354,7 @@ run(const ProcedureRunConfig & run,
         for (unsigned i = 0;  i < rows.size();  ++i) {
             //cerr << "row " << i << " had coords " << itl->outputPath[i][0] << ","
             //     << itl->outputPath[i][1] << endl;
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
             for (unsigned j = 0;  j < runProcConf.numOutputDimensions;  ++j) {
                 ExcAssert(isfinite(itl->outputPath[i][j]));
                 cols.emplace_back(names[j], itl->outputPath[i][j], Date());

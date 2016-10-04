@@ -58,7 +58,7 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
     virtual MldbServer * getMldbServer() const override;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName) override;
+                                     const ColumnPath & columnName) override;
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -117,7 +117,7 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
             Either returns a reference to the value, or a reference to
             storage which has the value stored inside it.
         */
-        const ExpressionValue & getColumn(const ColumnName & columnName,
+        const ExpressionValue & getColumn(const ColumnPath & columnName,
                                           const VariableFilter & filter,
                                           ExpressionValue & storage,
                                           ssize_t knownOffset = -1) const;
@@ -142,7 +142,7 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
             - dropped if not
         */
         ExpressionValue
-        getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
+        getReshaped(const std::unordered_map<ColumnHash, ColumnPath> & index,
                     const VariableFilter & filter) const;
 
         /** If we contain a MatrixNamedRow (legacy), this contains a pointer
@@ -173,7 +173,7 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     std::vector<Utf8String> childaliases;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -213,8 +213,8 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
         return RowScope(rowName, row, params);
     }
 
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullColumnName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullColumnName,
                        Utf8String & tableName) const;
 
 private:
@@ -253,7 +253,7 @@ struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
         and then fall back to the underlying row.
     */
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
     
     RowScope getRowScope(const SqlRowScope & outer,
                              const NamedRowValue & output) const

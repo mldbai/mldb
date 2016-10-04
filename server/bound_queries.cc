@@ -1392,7 +1392,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
     // 1.  The value of the variable in the row
     // 2.  The value of the variable within the group by expression
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName)
+                                     const ColumnPath & columnName)
     {
         // First, search for something that matches the surface (ugh)
         // of a group by clause.  We can use that directly.
@@ -1406,7 +1406,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
             // names.  For the moment, we're just hacking it so that it will
             // work with variable names.
 
-            ColumnName simplifiedSurface;
+            ColumnPath simplifiedSurface;
             if (columnName[0] == alias) {
                 simplifiedSurface = columnName.removePrefix();
             }

@@ -142,12 +142,12 @@ struct PostgresqlDataset: public Dataset {
     }
 
     virtual void recordRowItl(const RowPath & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
@@ -283,11 +283,11 @@ struct PostgresqlDataset: public Dataset {
 
         POSTGRESQL_VERBOSE(cerr << ntuples << "," << nfields << endl;)
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > rowValues;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > rowValues;
         if (ntuples > 0) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
             for(int j = 0; j < nfields; j++) {
-                rowValues.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
+                rowValues.emplace_back(ColumnPath(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
                 POSTGRESQL_VERBOSE(printf("[%d,%d] %s %s\n", 0, j, PQgetvalue(res, 0, j), PQfname(res, j));)
             }       
         }
@@ -344,7 +344,7 @@ PostgresqlRecorderDatasetConfigDescription()
 struct PostgresqlRecorderDataset: public Dataset {
 
     PostgresqlRecorderDatasetConfig config_;
-    std::unordered_set<ColumnName> insertedColumns;
+    std::unordered_set<ColumnPath> insertedColumns;
 
     pg_conn* startConnection() 
     {
@@ -428,10 +428,10 @@ struct PostgresqlRecorderDataset: public Dataset {
         }
     }
 
-    void alterColumns(pg_conn* conn, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    void alterColumns(pg_conn* conn, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         for (auto& p : vals) {
-            ColumnName column = std::get<0>(p);
+            ColumnPath column = std::get<0>(p);
             if (insertedColumns.count(column) == 0){
                 insertedColumns.insert(column);
                 string alterString = "ALTER TABLE " +
@@ -456,7 +456,7 @@ struct PostgresqlRecorderDataset: public Dataset {
         }
     }
 
-    void insertRowPostgresql(pg_conn* conn, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) 
+    void insertRowPostgresql(pg_conn* conn, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) 
     {
         alterColumns(conn, vals);
 
@@ -502,7 +502,7 @@ struct PostgresqlRecorderDataset: public Dataset {
     }
 
     virtual void recordRowItl(const RowPath & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
     {
         auto conn = startConnection();
 
@@ -511,7 +511,7 @@ struct PostgresqlRecorderDataset: public Dataset {
         PQfinish(conn);
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
     {
         auto conn = startConnection();
 
@@ -652,11 +652,11 @@ struct PostgresqlImportProcedure: public Procedure {
         int nfields = PQnfields(res);
         int ntuples = PQntuples(res);
 
-        std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+        std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows;
         for(int i = 0; i < ntuples; i++) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
             for(int j = 0; j < nfields; j++) {
-                cols.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, i, j), Date::Date::notADate());
+                cols.emplace_back(ColumnPath(PQfname(res, j)), getCellValueFromPostgres(res, i, j), Date::Date::notADate());
             }
             rows.emplace_back(Path(string("row_" + std::to_string(i))), std::move(cols));            
         }
@@ -774,11 +774,11 @@ struct PostgresqlQueryFunction : public Function
             int nfields = PQnfields(res);
             int ntuples = PQntuples(res);
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > row;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > row;
             if (ntuples > 0) {
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
                 for(int j = 0; j < nfields; j++) {
-                    row.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
+                    row.emplace_back(ColumnPath(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
                 }       
             }
 

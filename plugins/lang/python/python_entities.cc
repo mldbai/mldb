@@ -39,14 +39,14 @@ recordRows(const std::vector<std::pair<RowPath, std::vector<RowCellTuple> > > & 
 }
     
 void  DatasetPy::
-recordColumn(const ColumnName & columnName,
+recordColumn(const ColumnPath & columnName,
              const std::vector<ColumnCellTuple> & columns)
 {
     dataset->recordColumn(columnName, columns);
 }
 
 void  DatasetPy::
-recordColumns(const std::vector<std::pair<ColumnName, std::vector<ColumnCellTuple> > > & columns)
+recordColumns(const std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > & columns)
 {
     dataset->recordColumns(columns);
 }

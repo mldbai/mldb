@@ -421,11 +421,11 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
             // extract the column names and the distribution from the first,
             // then get the same values for the second, and return enough to
             // reconstitute the same structure again.
-            std::vector<ColumnName> columnNames;
+            std::vector<ColumnPath> columnNames;
             ML::distribution<double> d1;
 
-            auto onAtom = [&] (const ColumnName & name,
-                               const ColumnName & prefix,
+            auto onAtom = [&] (const ColumnPath & name,
+                               const ColumnPath & prefix,
                                const CellValue & val,
                                Date ts)
             {
@@ -439,7 +439,7 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
             DoubleDist d2
                 = val2.getEmbedding(columnNames.data(), columnNames.size());
 
-            auto token = std::make_shared<std::vector<ColumnName> >
+            auto token = std::make_shared<std::vector<ColumnPath> >
                 (std::move(columnNames));
             Date ts = std::min(val1.getEffectiveTimestamp(),
                                val2.getEffectiveTimestamp());
@@ -456,7 +456,7 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
             ExcAssert(token);
             // Get our column names back out
             auto columnNames
-                = std::static_pointer_cast<const std::vector<ColumnName> >
+                = std::static_pointer_cast<const std::vector<ColumnPath> >
                   (token);
 
             return ExpressionValue(std::move(vals), std::move(columnNames),

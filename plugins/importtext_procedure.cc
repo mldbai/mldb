@@ -149,7 +149,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
     };
 
     SqlCsvScope(MldbServer * server,
-                const std::vector<ColumnName> & columnNames,
+                const std::vector<ColumnPath> & columnNames,
                 Date fileTimestamp, Utf8String dataFileUrl)
         : SqlExpressionMldbScope(server), columnNames(columnNames),
           fileTimestamp(fileTimestamp),
@@ -160,7 +160,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
     }
 
     /// Column names passed in to the scope
-    const std::vector<ColumnName> & columnNames;
+    const std::vector<ColumnPath> & columnNames;
 
     /// Which columns are accessed by the bound expressions?
     std::vector<int> columnsUsed;
@@ -177,7 +177,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
     Utf8String dataFileUrl;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName)
+                                     const ColumnPath & columnName)
     {
         if (!tableName.empty()) {
             throw HttpReturnException(400, "Unknown table name in import.text procedure",
@@ -207,12 +207,12 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
     doGetAllColumns(const Utf8String & tableName,
                     const ColumnFilter& keep)
     {
-        vector<ColumnName> toKeep;
+        vector<ColumnPath> toKeep;
         std::vector<KnownColumn> columnsWithInfo;
 
         for (unsigned i = 0;  i < columnNames.size();  ++i) {
-            const ColumnName & columnName = columnNames[i];
-            ColumnName outputName(keep(columnName));
+            const ColumnPath & columnName = columnNames[i];
+            ColumnPath outputName(keep(columnName));
 
             bool keep = !outputName.empty();
             toKeep.emplace_back(outputName);
@@ -671,13 +671,13 @@ struct ImportTextProcedureWorkInstance
 
     }
 
-    vector<ColumnName> knownColumnNames;
+    vector<ColumnPath> knownColumnNames;
     ML::Lightweight_Hash<ColumnHash, int> columnIndex; //To check for duplicates column names
     int64_t lineOffset;
     // Column names in the CSV file.  This is distinct from the
     // output column names that will be created once parsing has
     // happened.
-    vector<ColumnName> inputColumnNames;
+    vector<ColumnPath> inputColumnNames;
     bool isTextLine;
     std::atomic<int> areOutputColumnNamesKnown;
     char separator;
@@ -745,7 +745,7 @@ struct ImportTextProcedureWorkInstance
         if (isTextLine) {
             //MLDB-1312 optimize if there is no delimiter: only 1 column
             if (config.headers.empty()) {
-                inputColumnNames = { ColumnName(config.autoGenerateHeaders ? 0 : "lineText") };
+                inputColumnNames = { ColumnPath(config.autoGenerateHeaders ? 0 : "lineText") };
             }
             else if (config.headers.size() != 1) {
                 throw HttpReturnException(
@@ -754,19 +754,19 @@ struct ImportTextProcedureWorkInstance
                     "no delimiter");
             }
             else {
-                inputColumnNames = { ColumnName(config.headers[0]) };
+                inputColumnNames = { ColumnPath(config.headers[0]) };
             }
         }
         else {
             // Turn a string into a column name, depending upon how the plugin
             // is configured.
-            auto parseColumnName = [&] (const Utf8String & str) -> ColumnName
+            auto parseColumnName = [&] (const Utf8String & str) -> ColumnPath
                 {
                     if (config.structuredColumnNames) {
-                        return ColumnName::parse(str);
+                        return ColumnPath::parse(str);
                     }
                     else {
-                        return ColumnName(str);
+                        return ColumnPath(str);
                     }
                 };
 
@@ -840,7 +840,7 @@ struct ImportTextProcedureWorkInstance
         // Early check for duplicate column names in input
         ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
         for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
-            const ColumnName & c = inputColumnNames[i];
+            const ColumnPath & c = inputColumnNames[i];
             ColumnHash ch(c);
             if (!inputColumnIndex.insert(make_pair(ch, i)).second)
                 throw HttpReturnException(400, "Duplicate column name in CSV file",
@@ -960,7 +960,7 @@ struct ImportTextProcedureWorkInstance
                                 Date timestamp,
                                 CellValue * vals,
                                 size_t numVals,
-                                std::vector<std::pair<ColumnName, CellValue> > extra)>
+                                std::vector<std::pair<ColumnPath, CellValue> > extra)>
             specializedRecorder;
 
         };

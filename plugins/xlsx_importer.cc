@@ -777,7 +777,7 @@ struct XlsxImporter: public Procedure {
                         }
                     }
 
-                    return ColumnName(result);
+                    return ColumnPath(result);
                 };
 
             if (output && !sheet.rows.empty()) {

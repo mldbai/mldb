@@ -51,7 +51,7 @@ struct AnnotatedClause {
     std::shared_ptr<SqlExpression> expr;
 
     /// Lists of variables on the left, the right, and satisfied by neither side
-    std::vector<ColumnName> leftVars, rightVars, externalVars;
+    std::vector<ColumnPath> leftVars, rightVars, externalVars;
 
     /// Lists of functions on the left, the right, and satisfied by neither side
     /// We still need to keep the scope, as table1.rowName() is not the same as

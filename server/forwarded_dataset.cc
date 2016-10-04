@@ -66,7 +66,7 @@ getStatus() const
 void
 ForwardedDataset::
 recordRowItl(const RowPath & rowName,
-             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+             const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     ExcAssert(underlying);
     underlying->recordRowItl(rowName, vals);
@@ -74,7 +74,7 @@ recordRowItl(const RowPath & rowName,
 
 void
 ForwardedDataset::
-recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     ExcAssert(underlying);
     underlying->recordRows(rows);
@@ -82,7 +82,7 @@ recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnNam
 
 void
 ForwardedDataset::
-recordColumn(const ColumnName & columnName,
+recordColumn(const ColumnPath & columnName,
              const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
 {
     ExcAssert(underlying);
@@ -91,7 +91,7 @@ recordColumn(const ColumnName & columnName,
     
 void
 ForwardedDataset::
-recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
+recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
 {
     ExcAssert(underlying);
     underlying->recordColumns(cols);
@@ -99,7 +99,7 @@ recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<Row
 
 KnownColumn
 ForwardedDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     ExcAssert(underlying);
     return underlying->getKnownColumnInfo(columnName);
@@ -156,7 +156,7 @@ selectExplainString(const Utf8String & select,
     return underlying->selectExplainString(select, where);
 }
 
-std::vector<ColumnName>
+std::vector<ColumnPath>
 ForwardedDataset::
 getColumnNames(ssize_t offset, ssize_t limit) const
 {

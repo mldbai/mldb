@@ -92,12 +92,12 @@ struct MatrixView {
 
     //virtual bool knownColumn(ColumnHash column) const = 0;
 
-    virtual bool knownColumn(const ColumnName & column) const = 0;
+    virtual bool knownColumn(const ColumnPath & column) const = 0;
     
-    virtual ColumnName getColumnName(ColumnHash column) const = 0;
+    virtual ColumnPath getColumnName(ColumnHash column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const = 0;
+    virtual std::vector<ColumnPath> getColumnNames() const = 0;
 
     /** Return the number of distinct columns known. */
     virtual size_t getColumnCount() const = 0;
@@ -156,7 +156,7 @@ struct ColumnStats {
 struct ColumnIndex {
     virtual ~ColumnIndex();
     
-    typedef std::function<bool (const ColumnName & columnName,
+    typedef std::function<bool (const ColumnPath & columnName,
                                 const ColumnStats & stats)> OnColumnStats;
 
     /** Return stats for each column.  Default uses getColumnNames() and
@@ -167,11 +167,11 @@ struct ColumnIndex {
         calculates from there.
     */
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & column, ColumnStats & toStoreResult) const;
+    getColumnStats(const ColumnPath & column, ColumnStats & toStoreResult) const;
 
     /** Return the value of the column for all rows and timestamps. */
     /** Will throw if column is unknown                              */
-    virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
+    virtual MatrixColumn getColumn(const ColumnPath & column) const = 0;
 
     /** Return a dense column, with one value for every row in the same order as
         getRowNames().
@@ -180,7 +180,7 @@ struct ColumnIndex {
         quite inefficient.
     */
     virtual std::vector<CellValue>
-    getColumnDense(const ColumnName & column) const;
+    getColumnDense(const ColumnPath & column) const;
 
     /** Return a bucketed dense column, with one value for every row in the same
         order as rowNames().  Numerical values will be split into a maximum of
@@ -190,7 +190,7 @@ struct ColumnIndex {
         Default builds on top of getColumnDense().
     */
     virtual std::tuple<BucketList, BucketDescriptions>
-    getColumnBuckets(const ColumnName & column,
+    getColumnBuckets(const ColumnPath & column,
                      int maxNumBuckets = -1) const;
 
     /** Return the value of the column for all rows, ignoring timestamps. 
@@ -198,19 +198,19 @@ struct ColumnIndex {
         Will throw if column is unknown
     */
     virtual std::vector<std::tuple<RowPath, CellValue> >
-    getColumnValues(const ColumnName & column,
+    getColumnValues(const ColumnPath & column,
                     const std::function<bool (const CellValue &)> & filter = nullptr) const;
 
     /** Is this column known? */
-    virtual bool knownColumn(const ColumnName & column) const = 0;
+    virtual bool knownColumn(const ColumnPath & column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const = 0;
+    virtual std::vector<ColumnPath> getColumnNames() const = 0;
 
     /** Return the number of rows that have this column set.  Default
         implementation uses getColumnStats.
     */
-    virtual uint64_t getColumnRowCount(const ColumnName & column) const;
+    virtual uint64_t getColumnRowCount(const ColumnPath & column) const;
 
     virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
@@ -315,7 +315,7 @@ struct RowStream {
     */
     virtual void
     extractColumns(size_t numRows,
-                   const std::vector<ColumnName> & columnNames,
+                   const std::vector<ColumnPath> & columnNames,
                    CellValue * output);
     
     /** Extract the given set of columns for the given stream,
@@ -333,7 +333,7 @@ struct RowStream {
     */
     virtual void
     extractNumbers(size_t numRows,
-                   const std::vector<ColumnName> & columnNames,
+                   const std::vector<ColumnPath> & columnNames,
                    double * output);
     
 };
@@ -356,10 +356,10 @@ struct DatasetRecorder: public Recorder {
                   const ExpressionValue & expr) override;
     virtual void
     recordRow(const RowPath & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override;
 
     virtual void
-    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override;
 
     virtual void
     recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows) override;
@@ -397,18 +397,18 @@ struct Dataset: public MldbEntity {
         recording operation.  Datasets must implement recordRowItl.
     */
     void recordRow(const RowPath & rowName,
-                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                   const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
     /** Internal handler for recording rows.  Default implementation throws that
         this dataset type does not support recording.
     */
     virtual void recordRowItl(const RowPath & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
     static void validateNames(const RowPath & rowName,
-                      const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                      const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    static void validateNames(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    static void validateNames(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
     /** Record multiple rows in a single transaction.  Default implementation
         forwards to recordRow.
@@ -419,7 +419,7 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
     /** Record a column.  Default will forward to recordRows after transposing
         the input data.
@@ -427,7 +427,7 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordColumn(const ColumnName & columnName,
+    virtual void recordColumn(const ColumnPath & columnName,
                               const std::vector<std::tuple<RowPath, CellValue, Date> > & vals);
     
     /** Record multiple columns in a single transaction.  Default implementation
@@ -436,7 +436,7 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols);
+    virtual void recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols);
 
     /** Record an expression value as a row.  This will be flattened by
         datasets that require flattening.
@@ -481,20 +481,20 @@ struct Dataset: public MldbEntity {
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
     */
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
 
     /** Return what is known about the given columns.  Default forwards
         to getKnownColumnInfo.  Some datasets can do a batch much more
         efficiently, so this function should be preferred if possible.
     */
     virtual std::vector<KnownColumn>
-    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
+    getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const;
 
     /** Record multiple embedding rows.  This forwards to recordRows in the
         default implementation, but is much more efficient in datasets that
         are designed for embeddings.
     */
-    virtual void recordEmbedding(const std::vector<ColumnName> & columnNames,
+    virtual void recordEmbedding(const std::vector<ColumnPath> & columnNames,
                                  const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows);
 
     /** Return a RowValueInfo that describes all rows that could be returned
@@ -571,12 +571,12 @@ struct Dataset: public MldbEntity {
     /** Return a list of the column names in the dataset, with the given offset
         and limit.
     */
-    virtual std::vector<ColumnName>
+    virtual std::vector<ColumnPath>
     getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
 
     /** Return a list of flattened column names in the dataset
     */
-    virtual std::vector<ColumnName> 
+    virtual std::vector<ColumnPath> 
     getFlattenedColumnNames() const;
 
     /** Return the number of distinct flattened known columns

@@ -92,8 +92,8 @@ struct TransposedDataset::Itl
         //todo: suboptimal for large number of columns
         //need a column iter interface
         //or cache this in the transposed dataset
-        vector<ColumnName>::const_iterator column_iterator;
-        vector<ColumnName> columns;
+        vector<ColumnPath>::const_iterator column_iterator;
+        vector<ColumnPath> columns;
         std::shared_ptr<MatrixView> matrix;
         TransposedDataset::Itl* source;
     };
@@ -103,18 +103,18 @@ struct TransposedDataset::Itl
         return RowHash(col.hash());
     }
 
-    static const RowPath & colToRow(const ColumnName & col)
+    static const RowPath & colToRow(const ColumnPath & col)
     {
         return col;
     }
 
-    static RowPath colToRow(ColumnName && col)
+    static RowPath colToRow(ColumnPath && col)
     {
         return std::move(col);
     }
 
     static std::vector<std::tuple<RowPath, CellValue, Date> >
-    colToRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    colToRow(const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         std::vector<std::tuple<RowPath, CellValue, Date> > result;
         result.reserve(vals.size());
@@ -125,7 +125,7 @@ struct TransposedDataset::Itl
     }
     
     static std::vector<std::tuple<RowPath, CellValue, Date> >
-    colToRow(std::vector<std::tuple<ColumnName, CellValue, Date> > && vals)
+    colToRow(std::vector<std::tuple<ColumnPath, CellValue, Date> > && vals)
     {
         std::vector<std::tuple<RowPath, CellValue, Date> > result;
         result.reserve(vals.size());
@@ -135,10 +135,10 @@ struct TransposedDataset::Itl
         return result;
     }
     
-    static std::vector<std::tuple<ColumnName, CellValue, Date> >
+    static std::vector<std::tuple<ColumnPath, CellValue, Date> >
     rowToCol(const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
     {
-        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
         result.reserve(vals.size());
         for (auto & v: vals)
             result.emplace_back(rowToCol(std::get<0>(v)),
@@ -146,10 +146,10 @@ struct TransposedDataset::Itl
         return result;
     }
     
-    static std::vector<std::tuple<ColumnName, CellValue, Date> >
+    static std::vector<std::tuple<ColumnPath, CellValue, Date> >
     rowToCol(std::vector<std::tuple<RowPath, CellValue, Date> > && vals)
     {
-        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
         result.reserve(vals.size());
         for (auto & v: vals)
             result.emplace_back(rowToCol(std::move(std::get<0>(v))),
@@ -162,12 +162,12 @@ struct TransposedDataset::Itl
         return ColumnHash(row.hash());
     }
 
-    static const ColumnName & rowToCol(const RowPath & row)
+    static const ColumnPath & rowToCol(const RowPath & row)
     {
         return row;
     }
 
-    static ColumnName rowToCol(RowPath && row)
+    static ColumnPath rowToCol(RowPath && row)
     {
         return std::move(row);
     }
@@ -175,7 +175,7 @@ struct TransposedDataset::Itl
     virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        vector<ColumnName> cols = dataset->getFlattenedColumnNames();
+        vector<ColumnPath> cols = dataset->getFlattenedColumnNames();
 
         vector<RowPath> result;
         for (unsigned i = start; i < cols.size();  ++i) {
@@ -202,7 +202,7 @@ struct TransposedDataset::Itl
         return index->knownColumn(rowToCol(rowName));
     }
 
-    virtual bool knownColumn(const ColumnName & columnName) const
+    virtual bool knownColumn(const ColumnPath & columnName) const
     {
         return matrix->knownRow(colToRow(columnName));
     }
@@ -212,7 +212,7 @@ struct TransposedDataset::Itl
         return matrix->getColumnName(rowToCol(row));
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnName(ColumnHash column) const
     {
         return matrix->getRowName(colToRow(column));
     }
@@ -233,9 +233,9 @@ struct TransposedDataset::Itl
         return std::move(col.rows);
     }
 
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnNames() const
     {
-        std::vector<ColumnName> result;
+        std::vector<ColumnPath> result;
         result.reserve(matrix->getColumnCount());
 
         for (auto & c: matrix->getRowNames())
@@ -245,7 +245,7 @@ struct TransposedDataset::Itl
     }
 
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & columnName, ColumnStats & stats) const
+    getColumnStats(const ColumnPath & columnName, ColumnStats & stats) const
     {
         auto row = matrix->getRow(colToRow(columnName));
 
@@ -275,7 +275,7 @@ struct TransposedDataset::Itl
         return stats;
     }
 
-    virtual uint64_t getColumnRowCount(const ColumnName & column) const
+    virtual uint64_t getColumnRowCount(const ColumnPath & column) const
     {
         return matrix->getRowColumnCount(colToRow(column));
     }
@@ -286,7 +286,7 @@ struct TransposedDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const
     {
         auto row = matrix->getRow(colToRow(column));
         MatrixColumn result;

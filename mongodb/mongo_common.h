@@ -48,7 +48,7 @@ struct MongoScope : SqlExpressionMldbScope {
     MongoScope(MldbServer * server) : SqlExpressionMldbScope(server){}
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName) override;
+                                     const ColumnPath & columnName) override;
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,

@@ -344,7 +344,7 @@ doGetAggregator(const Utf8String & aggregatorName,
 
 ColumnGetter
 SqlBindingScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
     throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " must override getColumn: wanted "
@@ -419,9 +419,9 @@ doGetTable(const Utf8String & tableName)
                               + " does not support getting tables");
 }
 
-ColumnName
+ColumnPath
 SqlBindingScope::
-doResolveTableName(const ColumnName & fullColumnName,
+doResolveTableName(const ColumnPath & fullColumnName,
                    Utf8String &tableName) const
 {
     //default behaviour is there is no dataset so return the full column name
@@ -760,9 +760,9 @@ static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
     return result;
 }
 
-static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
+static ColumnPath matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 {
-    ColumnName result;
+    ColumnPath result;
 
     if (context.eof()) {
         return result;
@@ -1352,7 +1352,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     // First, look for a variable or a function name
     if (!lhs) {
-        ColumnName identifier = matchColumnName(context, allowUtf8);
+        ColumnPath identifier = matchColumnName(context, allowUtf8);
         if (!identifier.empty()) {
             lhs = std::make_shared<ReadColumnExpression>(identifier);
             lhs->surface = ML::trim(token.captured());
@@ -2158,7 +2158,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
        as a filtered subset or all columns from the output.
     */
-    auto matchPrefixedWildcard = [&] (ColumnName & prefix)
+    auto matchPrefixedWildcard = [&] (ColumnPath & prefix)
         {
             ML::Parse_Context::Revert_Token token(context);
             skip_whitespace(context);
@@ -2174,11 +2174,11 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
     bool isWildcard = false;
     bool matched = false;
-    ColumnName prefix;
-    ColumnName prefixAs;
-    std::vector<std::pair<ColumnName, bool> > exclusions;   // Prefixes to exclude
+    ColumnPath prefix;
+    ColumnPath prefixAs;
+    std::vector<std::pair<ColumnPath, bool> > exclusions;   // Prefixes to exclude
     std::shared_ptr<SqlExpression> expr;
-    ColumnName columnName;
+    ColumnPath columnName;
 
     {
         ML::Parse_Context::Revert_Token token(context);
@@ -2217,7 +2217,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         ML::Parse_Context::Revert_Token token(context);
 
         // Do we have an identifier?
-        ColumnName asName = matchColumnName(context, allowUtf8);
+        ColumnPath asName = matchColumnName(context, allowUtf8);
         
         if (!asName.empty()) {
 
@@ -2279,7 +2279,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
             auto expectExclusion = [&] ()
                 {
-                    ColumnName prefix = matchColumnName(context, allowUtf8);
+                    ColumnPath prefix = matchColumnName(context, allowUtf8);
                     if (context.match_literal('*')) {
                         if (prefix.empty())
                             context.exception("can't exclude *");

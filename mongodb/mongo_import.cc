@@ -24,7 +24,7 @@ using namespace std;
 namespace MLDB {
 namespace Mongo {
 
-typedef tuple<ColumnName, CellValue, Date> Cell;
+typedef tuple<ColumnPath, CellValue, Date> Cell;
 
 struct MongoImportConfig: ProcedureConfig {
     static constexpr const char * name = "mongodb.import";

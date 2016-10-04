@@ -232,10 +232,10 @@ struct ExpressionValueInfo {
 
     /// Return the set of known atoms for a row.  Default throws that it's not
     /// a row.
-    virtual std::vector<KnownColumn> getKnownAtoms(const ColumnName prefix = ColumnName()) const;
+    virtual std::vector<KnownColumn> getKnownAtoms(const ColumnPath prefix = ColumnPath()) const;
 
     /// Return a list of all known column names
-    virtual std::vector<ColumnName> allColumnNames() const;
+    virtual std::vector<ColumnPath> allColumnNames() const;
     
     /// Is the other value compatible with this info?
     virtual bool isCompatible(const ExpressionValue & value) const = 0;
@@ -257,7 +257,7 @@ struct ExpressionValueInfo {
     /// Function type used to merge together two value information
     /// objects.
     typedef std::function<std::shared_ptr<ExpressionValueInfo>
-                          (const ColumnName & columnName,
+                          (const ColumnPath & columnName,
                            const std::shared_ptr<ExpressionValueInfo> & lhs,
                            const std::shared_ptr<ExpressionValueInfo> & rhs)>
     MergeColumnInfo;
@@ -291,7 +291,7 @@ struct ExpressionValueInfo {
         Default implementation throws an exception.
     */
     virtual void flatten(const ExpressionValue & value,
-                         const std::function<void (const ColumnName & columnName,
+                         const std::function<void (const ColumnPath & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write)
         const;
@@ -305,7 +305,7 @@ struct ExpressionValueInfo {
         with columns name separated by a '.'
     */
     virtual std::shared_ptr<ExpressionValueInfo>
-    findNestedColumn(const ColumnName& columnName) const;
+    findNestedColumn(const ColumnPath& columnName) const;
 
     /** Return the info object for the given column.  Default will throw that
         the column is unknown; row info needs to override.
@@ -338,7 +338,7 @@ struct ExpressionValueInfo {
         compatible with those given.
     */
     virtual ExtractDoubleEmbeddingFunction
-    extractDoubleEmbedding(const std::vector<ColumnName> & cols) const;
+    extractDoubleEmbedding(const std::vector<ColumnPath> & cols) const;
 
     /** Function used to turn two expression values into compatible
         embeddings.  By compatible, we mean that there are the same
@@ -419,7 +419,7 @@ struct KnownColumn {
     {
     }
 
-    KnownColumn(ColumnName columnName,
+    KnownColumn(ColumnPath columnName,
                 std::shared_ptr<ExpressionValueInfo> valueInfo,
                 ColumnSparsity sparsity,
                 int32_t offset = VARIABLE_OFFSET)
@@ -434,7 +434,7 @@ struct KnownColumn {
         return columnName < other.columnName;
     }
     
-    ColumnName columnName;
+    ColumnPath columnName;
     std::shared_ptr<ExpressionValueInfo> valueInfo;
 
     /// Tells is whether we can count on the column being there or not.  The
@@ -604,13 +604,13 @@ struct ExpressionValue {
     // common names.  This is more efficient than a row as only the
     // values are kept in memory; the column names are shared
     ExpressionValue(std::vector<CellValue> values,
-                    std::shared_ptr<const std::vector<ColumnName> > cols,
+                    std::shared_ptr<const std::vector<ColumnPath> > cols,
                     Date ts);
 
     // Construct from an embedding of simple values with common names
     // This is more efficient than a row as only the values are kept
     ExpressionValue(const std::vector<double> & values,
-                    std::shared_ptr<const std::vector<ColumnName> > cols,
+                    std::shared_ptr<const std::vector<ColumnPath> > cols,
                     Date ts);
 
     /** Construct from an embedding, with the given values.  If
@@ -856,11 +856,11 @@ struct ExpressionValue {
 
     // Return the given nested column.  Valid for anything that is a
     // row type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getNestedColumn(const ColumnName & columnName,
+    ExpressionValue getNestedColumn(const ColumnPath & columnName,
                                     const VariableFilter & filter = GET_LATEST) const;
 
     const ExpressionValue *
-    tryGetNestedColumn(const ColumnName & columnName,
+    tryGetNestedColumn(const ColumnPath & columnName,
                        ExpressionValue & storage,
                        const VariableFilter & filter = GET_LATEST) const;
 
@@ -901,7 +901,7 @@ struct ExpressionValue {
         is used as an offset in the knownNames array.
     */
     ML::distribution<double, std::vector<double> >
-    getEmbedding(const ColumnName * knownNames, size_t len) const;
+    getEmbedding(const ColumnPath * knownNames, size_t len) const;
 
     /** Convert an embedding to an array of the given storage type.  The
         elements will be filled in to the existing memory.  Throws an
@@ -988,7 +988,7 @@ struct ExpressionValue {
         dataset row or event, moving values and destroying this object in
         the process.
     */
-    void appendToRowDestructive(ColumnName & columnName, RowValue & row);
+    void appendToRowDestructive(ColumnPath & columnName, RowValue & row);
     void appendToRowDestructive(const Path & columnName, StructValue & row);
 
     /// Destructively merge into the given row
@@ -1021,7 +1021,7 @@ struct ExpressionValue {
     */
     size_t getUniqueAtomCount() const;
     
-    typedef std::function<bool (const ColumnName & columnName,
+    typedef std::function<bool (const ColumnPath & columnName,
                                 std::pair<CellValue, Date> * vals1,
                                 std::pair<CellValue, Date> * vals2,
                                 size_t n1,
@@ -1397,7 +1397,7 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
     virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
 
     virtual void flatten(const ExpressionValue & value,
-                         const std::function<void (const ColumnName & columnName,
+                         const std::function<void (const ColumnPath & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write)
         const override;
@@ -1483,10 +1483,10 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
 
-    virtual std::vector<ColumnName> allColumnNames() const override;
+    virtual std::vector<ColumnPath> allColumnNames() const override;
 
     virtual void flatten(const ExpressionValue & value,
-                         const std::function<void (const ColumnName & columnName,
+                         const std::function<void (const ColumnPath & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write)
         const override;
@@ -1508,7 +1508,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
 
     virtual void flatten(const ExpressionValue & value,
-                         const std::function<void (const ColumnName & columnName,
+                         const std::function<void (const ColumnPath & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write) const override;
 
@@ -1516,7 +1516,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     getColumn(const PathElement & columnName) const override;
 
     virtual std::shared_ptr<ExpressionValueInfo> 
-    findNestedColumn(const ColumnName& columnName) const override;
+    findNestedColumn(const ColumnPath& columnName) const override;
 
     virtual std::vector<KnownColumn> getKnownColumns() const override;
     virtual SchemaCompleteness getSchemaCompleteness() const override;
@@ -1583,7 +1583,7 @@ struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> 
     virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const  override;
 
     virtual void flatten(const ExpressionValue & value,
-                         const std::function<void (const ColumnName & columnName,
+                         const std::function<void (const ColumnPath & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write) const override;
 
@@ -1634,7 +1634,7 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 /** These functions search the given row for the named value. */
 const ExpressionValue *
 searchRow(const RowValue & columns,
-          const ColumnName & columnName,
+          const ColumnPath & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
@@ -1646,7 +1646,7 @@ searchRow(const StructValue & columns,
 
 const ExpressionValue *
 searchRow(const StructValue & columns,
-          const ColumnName & columnName,
+          const ColumnPath & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 

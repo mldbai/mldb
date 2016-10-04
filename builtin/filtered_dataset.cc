@@ -114,7 +114,7 @@ struct FilteredDataset::Itl
         return matrixView->getRowName(rowHash);
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnName(ColumnHash column) const
     {
         return matrixView->getColumnName(column);
     }
@@ -145,8 +145,8 @@ struct FilteredDataset::Itl
     {
         MatrixNamedRow matrixRow = matrixView->getRow(rowName);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
-        auto filterColumn = [=] (const std::tuple<ColumnName, CellValue, Date> & tuple) {
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
+        auto filterColumn = [=] (const std::tuple<ColumnPath, CellValue, Date> & tuple) {
             return filter(get<1>(tuple), get<2>(tuple));
         };
         std::copy_if(matrixRow.columns.begin(), matrixRow.columns.end(),
@@ -155,12 +155,12 @@ struct FilteredDataset::Itl
         return {matrixRow.rowHash, matrixRow.rowName, columns };
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         return matrixView->knownColumn(column);
     }
 
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnNames() const
     {
         return matrixView->getColumnNames();
     }   
@@ -177,12 +177,12 @@ struct FilteredDataset::Itl
     }
 
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & ch, ColumnStats & toStoreResult) const
+    getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const
     {
         return columnIndex->getColumnStats(ch, toStoreResult);
     }
 
-    virtual MatrixColumn getColumn(const ColumnName & columnHash) const
+    virtual MatrixColumn getColumn(const ColumnPath & columnHash) const
     {
         MatrixColumn matrixColumn = columnIndex->getColumn(columnHash);
         
@@ -197,7 +197,7 @@ struct FilteredDataset::Itl
     }
 
     virtual std::vector<std::tuple<RowPath, CellValue> >
-    getColumnValues(const ColumnName & columnName,
+    getColumnValues(const ColumnPath & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
         // TODO apply the predicate here
@@ -206,7 +206,7 @@ struct FilteredDataset::Itl
 
     // Duplicated methods in interfaces - Implemented as part of MatrixView
     //virtual bool knownColumn(ColumnHash column) const
-    //virtual std::vector<ColumnName> getColumnNames() const
+    //virtual std::vector<ColumnPath> getColumnNames() const
 };
 
 
@@ -235,7 +235,7 @@ getStatus() const
 
 KnownColumn
 FilteredDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     return dataset.getKnownColumnInfo(columnName);
 }

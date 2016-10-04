@@ -95,7 +95,7 @@ struct DistTableStats {
 
 struct DistTable {
 
-    DistTable(const ColumnName & colName=ColumnName("ND"),
+    DistTable(const ColumnPath & colName=ColumnPath("ND"),
             const std::vector<Utf8String> & outcome_names = {}):
         colName(colName), outcome_names(outcome_names),
         unknownStats(std::vector<DistTableStats>(outcome_names.size()))
@@ -117,7 +117,7 @@ struct DistTable {
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 
-    ColumnName colName;
+    ColumnPath colName;
 
     std::vector<Utf8String> outcome_names;
 
@@ -170,7 +170,7 @@ DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
 /* DIST TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
-typedef std::map<ColumnName, DistTable> DistTablesMap;
+typedef std::map<ColumnPath, DistTable> DistTablesMap;
 
 struct DistTableProcedure: public Procedure {
 

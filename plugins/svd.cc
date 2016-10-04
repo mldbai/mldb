@@ -316,7 +316,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
 
 std::pair<ML::distribution<float>, Date>
 SvdBasis::
-leftSingularVector(const std::vector<std::tuple<ColumnName, CellValue, Date> > & row,
+leftSingularVector(const std::vector<std::tuple<ColumnPath, CellValue, Date> > & row,
                    int maxValues,
                    bool acceptUnknownValues) const
 {
@@ -512,7 +512,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
         for (unsigned j = 0;  j < numSingularValues;  ++j)
             d[j] = svdResult->Vt->value[j][i];
 
-        ColumnName columnName = result.columns[i].columnName;
+        ColumnPath columnName = result.columns[i].columnName;
         CellValue cellValue = result.columns[i].cellValue;
 
         result.columnIndex[columnName].values[cellValue] = i;
@@ -529,7 +529,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     //cerr << "ndims = " << ndims << endl;
 
     for (auto & i: result.columnIndex)
-        ExcAssertNotEqual(i.second.columnName, ColumnName());
+        ExcAssertNotEqual(i.second.columnName, ColumnPath());
 
 #if 0
     // Test the orthonormal-ness of the singular vectors
@@ -613,7 +613,7 @@ calcRightSingular(const ClassifiedColumns & columns,
     parallelMap(0, totalColumns, calcRightSingular);
 
     for (unsigned i = 0;  i < totalColumns;  ++i) {
-        ColumnName columnName = result.columns[i].columnName;
+        ColumnPath columnName = result.columns[i].columnName;
         CellValue cellValue = result.columns[i].cellValue;
         if (result.columns[i].op == COL_VALUE)
             ExcAssertEqual(cellValue, CellValue());
@@ -627,7 +627,7 @@ calcRightSingular(const ClassifiedColumns & columns,
     }
 
     for (auto & i: result.columnIndex) {
-        ExcAssertNotEqual(i.second.columnName, ColumnName());
+        ExcAssertNotEqual(i.second.columnName, ColumnPath());
         for (auto & v: i.second.values) {
             auto col = result.columns.at(v.second);
             auto val = v.first;
@@ -643,7 +643,7 @@ calcRightSingular(const ClassifiedColumns & columns,
     ExcAssertLessEqual(result.columnIndex.size(), result.columns.size());
 
     for (auto & c: result.columns) {
-        ExcAssertNotEqual(c.columnName, ColumnName());
+        ExcAssertNotEqual(c.columnName, ColumnPath());
     }
 
     return result;
@@ -771,7 +771,7 @@ run(const ProcedureRunConfig & run,
                     cerr << "saving column " << i << " of " << allSvd.columns.size()
                          << endl;
 
-                ColumnName outputName = col.columnName;
+                ColumnPath outputName = col.columnName;
 
                 if (col.op == COL_EQUAL) {
                     if (col.cellValue.empty()) {

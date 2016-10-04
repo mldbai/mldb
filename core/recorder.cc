@@ -24,14 +24,14 @@ recordRowExprDestructive(RowPath rowName,
 void
 Recorder::
 recordRowDestructive(RowPath rowName,
-                     std::vector<std::tuple<ColumnName, CellValue, Date> > vals)
+                     std::vector<std::tuple<ColumnPath, CellValue, Date> > vals)
 {
     recordRow(rowName, vals);
 }
 
 void
 Recorder::
-recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows)
+recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows)
 {
     recordRows(rows);
 }
@@ -51,13 +51,13 @@ finishedChunk()
 
 std::function<void (RowPath rowName, Date timestamp,
                     CellValue * vals, size_t numVals,
-                    std::vector<std::pair<ColumnName, CellValue> > extra)>
+                    std::vector<std::pair<ColumnPath, CellValue> > extra)>
 Recorder::
-specializeRecordTabular(const std::vector<ColumnName> & columnNames)
+specializeRecordTabular(const std::vector<ColumnPath> & columnNames)
 {
     return [=] (RowPath rowName, Date timestamp,
                 CellValue * vals, size_t numVals,
-                std::vector<std::pair<ColumnName, CellValue> > extra)
+                std::vector<std::pair<ColumnPath, CellValue> > extra)
         {
             recordTabularImpl(std::move(rowName), timestamp,
                               vals, numVals, std::move(extra),
@@ -71,11 +71,11 @@ recordTabularImpl(RowPath rowName,
                   Date timestamp,
                   CellValue * vals,
                   size_t numVals,
-                  std::vector<std::pair<ColumnName, CellValue> > extra,
-                  const std::vector<ColumnName> & columnNames)
+                  std::vector<std::pair<ColumnPath, CellValue> > extra,
+                  const std::vector<ColumnPath> & columnNames)
 {
     ExcAssertEqual(columnNames.size(), numVals);
-    std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+    std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
     result.reserve(numVals + extra.size());
 
     for (unsigned i = 0;  i < columnNames.size();  ++i) {

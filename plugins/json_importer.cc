@@ -116,7 +116,7 @@ struct JsonScope : SqlExpressionMldbScope {
     JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                                const ColumnName & columnName) override
+                                const ColumnPath & columnName) override
     {
         return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &

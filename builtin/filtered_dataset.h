@@ -30,19 +30,19 @@ struct FilteredDataset : public Dataset {
 
     virtual Any getStatus() const;
     virtual void recordRowItl(const RowPath & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         throw ML::Exception("Dataset type doesn't allow recording");
     }
 
     // these methods are usually not overriden by the dataset specialization - don't implement
-    // void recordRow(const RowPath & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
-    // virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
-    // virtual void recordColumn(const ColumnName & columnName, const std::vector<std::tuple<RowPath, CellValue, Date> > & vals);
-    // virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > & rows);
+    // void recordRow(const RowPath & rowName, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
+    // virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
+    // virtual void recordColumn(const ColumnPath & columnName, const std::vector<std::tuple<RowPath, CellValue, Date> > & vals);
+    // virtual void recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & rows);
 
     // these methods have been overriden by the dataset specialized classes - implement redirect
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
     virtual BoundFunction overrideFunction(const Utf8String & tableName,
                                            const Utf8String & functionName,
                                            SqlBindingScope & context) const;

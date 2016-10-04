@@ -132,9 +132,9 @@ run(const ProcedureRunConfig & run,
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> Cell;
+    typedef tuple<ColumnPath, CellValue, Date> Cell;
     PerThreadAccumulator<vector<pair<RowPath, vector<Cell> > > > accum;
-    const ColumnName columnName(runProcConf.rankingColumnName);
+    const ColumnPath columnName(runProcConf.rankingColumnName);
     function<void(int64_t)> applyFct;
     float countD100 = (rowCount) / 100.0;
     if (false) {

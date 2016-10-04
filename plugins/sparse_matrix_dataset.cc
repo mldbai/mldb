@@ -486,7 +486,7 @@ struct SparseMatrixDataset::Itl
         }
     }
 
-    static uint64_t encodeCol(const ColumnName & col, WriteTransaction & trans)
+    static uint64_t encodeCol(const ColumnPath & col, WriteTransaction & trans)
     {
         if (col.empty())
             throw HttpReturnException(400,
@@ -646,21 +646,21 @@ struct SparseMatrixDataset::Itl
         return getRowNameTrans(rowHash, *trans);
     }
 
-    virtual bool knownColumn(const ColumnName & column) const override
+    virtual bool knownColumn(const ColumnPath & column) const override
     {
         auto trans = getReadTransaction();
         return trans->inverse->knownRow(column.hash());
     }
 
-    virtual ColumnName
+    virtual ColumnPath
     getColumnNameTrans(ColumnHash column,
                        ReadTransaction & trans) const
     {
-        ColumnName result;
+        ColumnPath result;
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = ColumnName::parse(entry.metadata.at(0).data(),
+                result = ColumnPath::parse(entry.metadata.at(0).data(),
                                            entry.metadata.at(0).length());
                 return false;  // return false to short circuit
             };
@@ -672,16 +672,16 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const override
+    virtual ColumnPath getColumnName(ColumnHash column) const override
     {
         auto trans = getReadTransaction();
         return getColumnNameTrans(column, *trans);
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const override
+    virtual std::vector<ColumnPath> getColumnNames() const override
     {
-        std::vector<ColumnName> result;
+        std::vector<ColumnPath> result;
         auto trans = getReadTransaction();
         trans->inverse
             ->iterateRows([&] (uint64_t row)
@@ -697,14 +697,14 @@ struct SparseMatrixDataset::Itl
     }
 
     virtual KnownColumn
-    getKnownColumnInfo(const ColumnName & columnName) const
+    getKnownColumnInfo(const ColumnPath & columnName) const
     {
         // TODO: make sure it's known...
         return { columnName, std::make_shared<AnyValueInfo>(), COLUMN_IS_SPARSE };
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    MatrixColumn getColumnTrans(const ColumnName & column,
+    MatrixColumn getColumnTrans(const ColumnPath & column,
                                 ReadTransaction & trans) const
     {
         MatrixColumn result;
@@ -724,7 +724,7 @@ struct SparseMatrixDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & column) const override
+    virtual MatrixColumn getColumn(const ColumnPath & column) const override
     {
         auto trans = getReadTransaction();
         return getColumnTrans(column, *trans);
@@ -732,7 +732,7 @@ struct SparseMatrixDataset::Itl
     
     static void
     recordRowTrans(const RowPath & rowName,
-                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals,
+                   const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals,
                    WriteTransaction & trans,
                    double timeQuantumSeconds)
     {
@@ -798,8 +798,8 @@ struct SparseMatrixDataset::Itl
         std::vector<BaseEntry> entries;
         entries.reserve(vals.rowLength());
 
-        auto onAtom = [&] (const ColumnName & suffix,
-                           const ColumnName & prefix,
+        auto onAtom = [&] (const ColumnPath & suffix,
+                           const ColumnPath & prefix,
                            const CellValue & val,
                            Date ts)
             {
@@ -827,7 +827,7 @@ struct SparseMatrixDataset::Itl
 
     virtual void
     recordRow(const RowPath & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         auto rtrans = getReadTransaction();
         std::shared_ptr<WriteTransaction> trans
@@ -837,7 +837,7 @@ struct SparseMatrixDataset::Itl
     }
 
     virtual void
-    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
     {
         auto rtrans = getReadTransaction();
         std::shared_ptr<WriteTransaction> trans
@@ -932,7 +932,7 @@ getStatus() const
 void
 SparseMatrixDataset::
 recordRowItl(const RowPath & rowName,
-             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+             const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     validateNames(rowName, vals);
     return itl->recordRow(rowName, vals);
@@ -940,7 +940,7 @@ recordRowItl(const RowPath & rowName,
 
 void
 SparseMatrixDataset::
-recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     validateNames(rows);
     return itl->recordRows(rows);
@@ -963,7 +963,7 @@ recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
 
 KnownColumn
 SparseMatrixDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     return itl->getKnownColumnInfo(columnName);
 }
@@ -1762,27 +1762,27 @@ struct MutableSparseMatrixDataset::Itl
 
         virtual void
         recordRow(const RowPath & rowName,
-                  const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+                  const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
         {
             Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds);
         }
 
         virtual void
         recordRowDestructive(RowPath rowName,
-                             std::vector<std::tuple<ColumnName, CellValue, Date> > vals) override
+                             std::vector<std::tuple<ColumnPath, CellValue, Date> > vals) override
         {
             Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds);
         }
 
         virtual void
-        recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+        recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
         {
             for (auto & r: rows)
                 recordRow(r.first, r.second);
         }
 
         virtual void
-        recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows) override
+        recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows) override
         {
             for (auto & r: rows)
                 recordRowDestructive(std::move(r.first), std::move(r.second));

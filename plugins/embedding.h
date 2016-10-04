@@ -49,10 +49,10 @@ struct EmbeddingDataset: public Dataset {
     virtual Any getStatus() const;
 
     virtual void recordRowItl(const RowPath & rowName,
-                           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                           const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
     virtual void
-    recordEmbedding(const std::vector<ColumnName> & columnNames,
+    recordEmbedding(const std::vector<ColumnPath> & columnNames,
                     const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows);
 
     virtual void commit();
@@ -69,10 +69,10 @@ struct EmbeddingDataset: public Dataset {
     virtual std::pair<Date, Date> getTimestampRange() const;
     virtual Date quantizeTimestamp(Date timestamp) const;
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
 
     virtual std::vector<KnownColumn>
-    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
+    getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const;
     
     std::vector<std::tuple<RowPath, RowHash, float> >
     getNeighbors(const ML::distribution<float> & coord, int numNeighbors,
@@ -103,7 +103,7 @@ struct NearestNeighborsFunctionConfig {
 
     unsigned defaultNumNeighbors;
     double defaultMaxDistance;
-    ColumnName columnName;
+    ColumnPath columnName;
     std::shared_ptr<TableExpression> dataset;
 };
 

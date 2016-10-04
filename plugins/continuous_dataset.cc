@@ -144,14 +144,14 @@ struct ContinuousDataset::Itl {
 
     virtual void
     recordRowItl(const RowPath & rowName,
-                 const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+                 const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         auto myCurrent = current();
         myCurrent->dataset->recordRow(rowName, vals);
         myCurrent->hasData = true;
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
     {
         auto myCurrent = current();
         myCurrent->dataset->recordRows(rows);
@@ -259,7 +259,7 @@ struct ContinuousDataset::Itl {
 
         RowPath rowName(savedDataset->config_->id);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > metadata;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > metadata;
         Date date = Date::now();
         StructuredJsonParsingContext context(resultsJson);
         auto expr = ExpressionValue::parseJson(context, date);
@@ -270,8 +270,8 @@ struct ContinuousDataset::Itl {
         std::tie(earliest, latest) = savedDataset->getTimestampRange();
 
         // TODO: the procedure should return this...
-        metadata.emplace_back(ColumnName("earliest"), earliest, Date::now());
-        metadata.emplace_back(ColumnName("latest"), latest, Date::now());
+        metadata.emplace_back(ColumnPath("earliest"), earliest, Date::now());
+        metadata.emplace_back(ColumnPath("latest"), latest, Date::now());
 
         metadataDataset->recordRow(rowName, metadata);
 
@@ -364,14 +364,14 @@ getStatus() const
 void
 ContinuousDataset::
 recordRowItl(const RowPath & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     return itl->recordRowItl(rowName, vals);
 }
 
 void
 ContinuousDataset::
-recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     return itl->recordRows(rows);
 }

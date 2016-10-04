@@ -32,12 +32,12 @@ DatasetFeatureSpace()
 DatasetFeatureSpace::
 DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                     ML::Feature_Info labelInfo,
-                    const std::set<ColumnName> & knownInputColumns,
+                    const std::set<ColumnPath> & knownInputColumns,
                     bool bucketize)
     : labelInfo(labelInfo)
 {
     auto columns = dataset->getColumnNames();
-    std::vector<ColumnName> filteredColumns;
+    std::vector<ColumnPath> filteredColumns;
 
     for (auto & columnName: columns) {
         if (!knownInputColumns.count(columnName))
@@ -52,7 +52,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
 
     auto onColumn = [&] (int i)
         {
-            const ColumnName & columnName = filteredColumns[i];
+            const ColumnPath & columnName = filteredColumns[i];
             ColumnHash ch = columnName;
             int oldIndex = columnInfo[ch].index;
             columnInfo[ch] = getColumnInfo(dataset, columnName, bucketize);
@@ -67,7 +67,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
 DatasetFeatureSpace::ColumnInfo
 DatasetFeatureSpace::
 getColumnInfo(std::shared_ptr<Dataset> dataset,
-              const ColumnName & columnName,
+              const ColumnPath & columnName,
               bool bucketize)
 {
     ColumnInfo result;
@@ -198,7 +198,7 @@ ML::Label
 DatasetFeatureSpace::
 encodeLabel(const CellValue & value, bool isRegression) const
 {
-    static ColumnName LABEL("<<LABEL>>");
+    static ColumnPath LABEL("<<LABEL>>");
     float label = encodeValue(value.isString() ? jsonEncodeStr(value) : value,
                            LABEL, labelInfo);
 
@@ -213,7 +213,7 @@ encodeLabel(const CellValue & value, bool isRegression) const
 float
 DatasetFeatureSpace::
 encodeValue(const CellValue & value,
-            const ColumnName & columnName,
+            const ColumnPath & columnName,
             const ML::Feature_Info & info) const
 {
     if (value.empty())
@@ -467,7 +467,7 @@ reconstitute(ML::DB::Store_Reader & store)
         store >> s >> s2;
         ColumnInfo info;
         ColumnHash hash = jsonDecodeStr<ColumnHash>(s);
-        info.columnName = ColumnName(s2);
+        info.columnName = ColumnPath(s2);
         info.index = i;
         store >> info.info;
 

@@ -134,8 +134,8 @@ run(const ProcedureRunConfig & run,
     }
 
 
-    ColumnName keyColumnName(runProcConf.keyColumnName);
-    ColumnName valueColumnName(runProcConf.valueColumnName);
+    ColumnPath keyColumnName(runProcConf.keyColumnName);
+    ColumnPath valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
     auto processor = [&] (NamedRowValue & row_,
@@ -162,7 +162,7 @@ run(const ProcedureRunConfig & run,
                         return true;
                     };
 
-                expr.forEachAtom(onAtom, ColumnName());
+                expr.forEachAtom(onAtom, ColumnPath());
             }
 
             // Melted

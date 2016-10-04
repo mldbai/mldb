@@ -207,17 +207,17 @@ struct SampledDataset::Itl
         return matrix->getRow(rowName);
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         return matrix->knownColumn(column);
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnName(ColumnHash column) const
     {
         return matrix->getColumnName(column);
     }
 
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnNames() const
     {
         return matrix->getColumnNames();
     }
@@ -248,7 +248,7 @@ struct SampledDataset::Itl
         // return dataset->getTimestampRange();
     }
 
-    virtual MatrixColumn getColumn(const ColumnName & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const
     {
         auto col = index->getColumn(column);
 
@@ -272,7 +272,7 @@ struct SampledDataset::Itl
     }
 
     virtual void recordRowItl(const RowPath & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         throw ML::Exception("'sampled' dataset type doesn't allow recording");
     }
