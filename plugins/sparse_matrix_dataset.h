@@ -30,17 +30,17 @@ struct SparseMatrixDataset: public Dataset {
     /** Base database methods require us to be able to iterate through rows.
         All other views are built on top of this.
     */
-    virtual void recordRowItl(const RowName & rowName,
+    virtual void recordRowItl(const RowPath & rowName,
                               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
 
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
 
     virtual void
-    recordRowExpr(const RowName & rowName,
+    recordRowExpr(const RowPath & rowName,
                   const ExpressionValue & vals) override;
 
     virtual void
-    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows)
+    recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
         override;
 
     /** Return what is known about the given column.  Default returns
@@ -66,7 +66,7 @@ struct SparseMatrixDataset: public Dataset {
                   const RestRequest & request,
                   RestRequestParsingContext & context) const override;
 
-    virtual ExpressionValue getRowExpr(const RowName & rowName) const override;
+    virtual ExpressionValue getRowExpr(const RowPath & rowName) const override;
 
 protected:
     struct Itl;

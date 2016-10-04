@@ -104,8 +104,8 @@ struct SampledDataset::Itl
     std::shared_ptr<ColumnIndex> index;
     size_t columnCount;
 
-    std::unordered_set<RowName> sampledRowsIndex;
-    std::vector<RowName> sampledRows;
+    std::unordered_set<RowPath> sampledRowsIndex;
+    std::vector<RowPath> sampledRows;
     std::vector<RowHash> sampledRowsHash;
 
     Itl(MldbServer * server, std::shared_ptr<Dataset> dataset,
@@ -153,7 +153,7 @@ struct SampledDataset::Itl
         }
     }
 
-    virtual RowName getRowName(const RowHash & row) const
+    virtual RowPath getRowName(const RowHash & row) const
     {
         auto rowName = matrix->getRowName(row);
         if(!knownRow(rowName))
@@ -162,10 +162,10 @@ struct SampledDataset::Itl
         return rowName;
     }
 
-    virtual std::vector<RowName>
+    virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        std::vector<RowName> rtn;
+        std::vector<RowPath> rtn;
         rtn.reserve(sampledRows.size() - start);
 
         for(int i=start; i<sampledRows.size(); i++) {
@@ -194,12 +194,12 @@ struct SampledDataset::Itl
         return rtn;
     }
 
-    virtual bool knownRow(const RowName & row) const
+    virtual bool knownRow(const RowPath & row) const
     {
         return sampledRowsIndex.count(row);
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         if(!knownRow(rowName))
             return MatrixNamedRow();
@@ -222,7 +222,7 @@ struct SampledDataset::Itl
         return matrix->getColumnNames();
     }
 
-    virtual uint64_t getRowColumnCount(const RowName & row) const
+    virtual uint64_t getRowColumnCount(const RowPath & row) const
     {
         if(!knownRow(row))
             return 0;
@@ -252,14 +252,14 @@ struct SampledDataset::Itl
     {
         auto col = index->getColumn(column);
 
-        std::vector<std::tuple<RowName, CellValue, Date> > allRows = std::move(col.rows);
-        map<RowName, unsigned> rowIndex;
+        std::vector<std::tuple<RowPath, CellValue, Date> > allRows = std::move(col.rows);
+        map<RowPath, unsigned> rowIndex;
         for(int i=0; i<allRows.size(); i++) {
             rowIndex.insert(make_pair(get<0>(allRows[i]), i));
         }
 
 
-        // std::vector<std::tuple<RowName, CellValue, Date> > rows;
+        // std::vector<std::tuple<RowPath, CellValue, Date> > rows;
         for(auto rowName : sampledRows) {
             auto it = rowIndex.find(rowName);
             if(it == rowIndex.end())
@@ -271,7 +271,7 @@ struct SampledDataset::Itl
         return col;
     }
 
-    virtual void recordRowItl(const RowName & rowName,
+    virtual void recordRowItl(const RowPath & rowName,
           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
         throw ML::Exception("'sampled' dataset type doesn't allow recording");

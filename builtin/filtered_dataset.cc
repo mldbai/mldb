@@ -109,7 +109,7 @@ struct FilteredDataset::Itl
 
     /** MatrixView */
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowName(const RowHash & rowHash) const
     {
         return matrixView->getRowName(rowHash);
     }
@@ -119,7 +119,7 @@ struct FilteredDataset::Itl
         return matrixView->getColumnName(column);
     }
 
-    virtual std::vector<RowName>
+    virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {    
         return matrixView->getRowNames(start, limit);
@@ -136,12 +136,12 @@ struct FilteredDataset::Itl
         return matrixView->getRowCount();
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         return matrixView->knownRow(rowName);
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         MatrixNamedRow matrixRow = matrixView->getRow(rowName);
 
@@ -186,7 +186,7 @@ struct FilteredDataset::Itl
     {
         MatrixColumn matrixColumn = columnIndex->getColumn(columnHash);
         
-        std::vector<std::tuple<RowName, CellValue, Date> > rows;
+        std::vector<std::tuple<RowPath, CellValue, Date> > rows;
         auto filterRow = [=] (const std::tuple<RowHash, CellValue, Date> & tuple) {
             return filter(get<1>(tuple), get<2>(tuple));
         };
@@ -196,7 +196,7 @@ struct FilteredDataset::Itl
         return {matrixColumn.columnHash, matrixColumn.columnName, rows};
     }
 
-    virtual std::vector<std::tuple<RowName, CellValue> >
+    virtual std::vector<std::tuple<RowPath, CellValue> >
     getColumnValues(const ColumnName & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {

@@ -252,7 +252,7 @@ run(const ProcedureRunConfig & run,
     auto embeddingOutput
         = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
 
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+    std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;
 

@@ -65,7 +65,7 @@ getStatus() const
 
 void
 ForwardedDataset::
-recordRowItl(const RowName & rowName,
+recordRowItl(const RowPath & rowName,
              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     ExcAssert(underlying);
@@ -74,7 +74,7 @@ recordRowItl(const RowName & rowName,
 
 void
 ForwardedDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
 {
     ExcAssert(underlying);
     underlying->recordRows(rows);
@@ -83,7 +83,7 @@ recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnNam
 void
 ForwardedDataset::
 recordColumn(const ColumnName & columnName,
-             const std::vector<std::tuple<RowName, CellValue, Date> > & vals)
+             const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
 {
     ExcAssert(underlying);
     underlying->recordColumn(columnName, vals);
@@ -91,7 +91,7 @@ recordColumn(const ColumnName & columnName,
     
 void
 ForwardedDataset::
-recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols)
+recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
 {
     ExcAssert(underlying);
     underlying->recordColumns(cols);

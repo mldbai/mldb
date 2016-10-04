@@ -141,13 +141,13 @@ struct PostgresqlDataset: public Dataset {
         return string("ok");
     }
 
-    virtual void recordRowItl(const RowName & rowName,
+    virtual void recordRowItl(const RowPath & rowName,
                               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
@@ -212,7 +212,7 @@ struct PostgresqlDataset: public Dataset {
         
         POSTGRESQL_VERBOSE(cerr << "keys fetched from " << config_.tableName << " sucessfully!" << endl;)
 
-        std::vector<RowName> rowsToKeep;
+        std::vector<RowPath> rowsToKeep;
 
         int nfields = PQnfields(res);
         int ntuples = PQntuples(res);
@@ -254,7 +254,7 @@ struct PostgresqlDataset: public Dataset {
     /** Return a row as an expression value.  Default forwards to the matrix
     view's getRow() function.
     */
-    virtual ExpressionValue getRowExpr(const RowName & row) const override
+    virtual ExpressionValue getRowExpr(const RowPath & row) const override
     {
         auto conn = startConnection();
         string selectString = "SELECT * FROM ";
@@ -501,7 +501,7 @@ struct PostgresqlRecorderDataset: public Dataset {
         PQclear(res);
     }
 
-    virtual void recordRowItl(const RowName & rowName,
+    virtual void recordRowItl(const RowPath & rowName,
                               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
     {
         auto conn = startConnection();
@@ -511,7 +511,7 @@ struct PostgresqlRecorderDataset: public Dataset {
         PQfinish(conn);
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
     {
         auto conn = startConnection();
 
@@ -652,7 +652,7 @@ struct PostgresqlImportProcedure: public Procedure {
         int nfields = PQnfields(res);
         int ntuples = PQntuples(res);
 
-        std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+        std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
         for(int i = 0; i < ntuples; i++) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
             for(int j = 0; j < nfields; j++) {

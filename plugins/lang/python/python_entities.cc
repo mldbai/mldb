@@ -28,12 +28,12 @@ namespace MLDB {
 /****************************************************************************/
 
 void DatasetPy::
-recordRow(const RowName & rowName, const std::vector<RowCellTuple> & columns) {
+recordRow(const RowPath & rowName, const std::vector<RowCellTuple> & columns) {
     dataset->recordRow(rowName, columns);
 }
 
 void DatasetPy::
-recordRows(const std::vector<std::pair<RowName, std::vector<RowCellTuple> > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<RowCellTuple> > > & rows)
 {
     dataset->recordRows(rows);
 }

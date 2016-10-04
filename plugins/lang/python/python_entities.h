@@ -35,9 +35,9 @@ struct DatasetPy {
     DatasetPy(std::shared_ptr<Dataset> dataset) :
         dataset(dataset) {}
 
-    void recordRow(const RowName & rowName,
+    void recordRow(const RowPath & rowName,
                    const std::vector<RowCellTuple> & columns);
-    void recordRows(const std::vector<std::pair<RowName, std::vector<RowCellTuple> > > & rows);
+    void recordRows(const std::vector<std::pair<RowPath, std::vector<RowCellTuple> > > & rows);
     
     void recordColumn(const ColumnName & columnName,
                       const std::vector<ColumnCellTuple> & rows);

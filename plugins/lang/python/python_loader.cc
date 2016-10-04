@@ -964,7 +964,7 @@ struct AtInit {
         from_python_converter< Utf8String,  Utf8StringPyConverter>();
         bp::to_python_converter< Utf8String, Utf8StringPyConverter>();
 
-        from_python_converter< RowName, StrConstructableIdFromPython<RowName> >();
+        from_python_converter< RowPath, StrConstructableIdFromPython<RowPath> >();
         from_python_converter< ColumnName, StrConstructableIdFromPython<ColumnName> >();
         from_python_converter< CellValue, CellValueConverter >();
 
@@ -974,14 +974,14 @@ struct AtInit {
         from_python_converter< std::vector<RowCellTuple>,
                                VectorConverter<RowCellTuple>>();
 
-        from_python_converter< std::pair<RowName, std::vector<RowCellTuple> >,
-                               PairConverter<RowName, std::vector<RowCellTuple> > >();
+        from_python_converter< std::pair<RowPath, std::vector<RowCellTuple> >,
+                               PairConverter<RowPath, std::vector<RowCellTuple> > >();
 
-        from_python_converter< std::vector<std::pair<RowName, std::vector<RowCellTuple> > >,
-                               VectorConverter<std::pair<RowName, std::vector<RowCellTuple> > > >();
+        from_python_converter< std::vector<std::pair<RowPath, std::vector<RowCellTuple> > >,
+                               VectorConverter<std::pair<RowPath, std::vector<RowCellTuple> > > >();
 
         from_python_converter< ColumnCellTuple,
-                               Tuple3ElemConverter<RowName, CellValue, Date> >();
+                               Tuple3ElemConverter<RowPath, CellValue, Date> >();
 
         from_python_converter< std::vector<ColumnCellTuple>,
                                VectorConverter<ColumnCellTuple>>();

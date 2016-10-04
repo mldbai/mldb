@@ -3926,7 +3926,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         context.exception("Expected SELECT");
     }
 
-    bool needDefaultRowName = false;
+    bool needDefaultRowPath = false;
     if (matchKeyword(context, "NAMED ")) {
         statement.rowName = SqlExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
@@ -3934,18 +3934,18 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     else {
         //default name is "rowPath()" if there is a dataset and "result" if there is none
         //we need to check if there is a FROM first.
-        needDefaultRowName = true;
+        needDefaultRowPath = true;
     }
 
     if (matchKeyword(context, "FROM ")) {
         statement.from = TableExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
-        if (needDefaultRowName)
+        if (needDefaultRowPath)
             statement.rowName = SqlExpression::parse("rowPath()");
     }
     else {
         statement.from = std::make_shared<NoTable>();
-        if (needDefaultRowName)
+        if (needDefaultRowPath)
             statement.rowName = SqlExpression::parse("'result'");
     }
     

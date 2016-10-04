@@ -238,7 +238,7 @@ run(const ProcedureRunConfig & run,
                 cols.emplace_back(ColumnName(ML::format("c%02d", j)), flatmatrix[j], applyDate);
             }
 
-            centroids->recordRow(RowName(ML::format("%i", i)), cols);
+            centroids->recordRow(RowPath(ML::format("%i", i)), cols);
         }
 
         centroids->commit();

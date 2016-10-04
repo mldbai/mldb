@@ -288,14 +288,14 @@ run(const ProcedureRunConfig & run,
         {
         }
 
-        Fv(RowName rowName,
+        Fv(RowPath rowName,
            ML::Mutable_Feature_Set featureSet)
             : rowName(std::move(rowName)),
               featureSet(std::move(featureSet))
         {
         }
 
-        RowName rowName;
+        RowPath rowName;
         ML::Mutable_Feature_Set featureSet;
 
         float label() const

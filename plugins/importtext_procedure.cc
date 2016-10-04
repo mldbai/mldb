@@ -145,7 +145,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
         Date ts;
         int64_t lineNumber;
         int64_t lineOffset;
-        const RowName * rowName;
+        const RowPath * rowName;
     };
 
     SqlCsvScope(MldbServer * server,
@@ -956,7 +956,7 @@ struct ImportTextProcedureWorkInstance
 
             /// Special function to allow rapid insertion of fixed set of
             /// atom valued columns.  Only for isIdentitySelect.
-            std::function<void (RowName rowName,
+            std::function<void (RowPath rowName,
                                 Date timestamp,
                                 CellValue * vals,
                                 size_t numVals,
@@ -1055,7 +1055,7 @@ struct ImportTextProcedureWorkInstance
                                          0 /* todo: chunk ofs */);
 
             ExpressionValue nameStorage;
-            RowName rowName(namedBound(row, nameStorage, GET_ALL)
+            RowPath rowName(namedBound(row, nameStorage, GET_ALL)
                                 .toUtf8String());
             row.rowName = &rowName;
 

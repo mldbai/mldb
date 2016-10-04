@@ -47,10 +47,10 @@ BOOST_AUTO_TEST_CASE( test_two_members )
 
     // Now we have a dataset, put some rows into it
 
-    auto addRow = [&] (const std::string & rowName, float x, float y)
+    auto addRow = [&] (const std::string & rowPath, float x, float y)
         {
             MatrixNamedRow row;
-            row.rowName = RowName(rowName);
+            row.rowName = RowPath(rowPath);
             row.columns.emplace_back(ColumnName("x"), x, Date());
             row.columns.emplace_back(ColumnName("y"), y, Date());
             cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));

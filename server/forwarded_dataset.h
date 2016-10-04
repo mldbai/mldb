@@ -41,15 +41,15 @@ struct ForwardedDataset: public Dataset {
     
     virtual Any getStatus() const;
 
-    virtual void recordRowItl(const RowName & rowName,
+    virtual void recordRowItl(const RowPath & rowName,
                               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
 
     virtual void recordColumn(const ColumnName & columnName,
-                              const std::vector<std::tuple<RowName, CellValue, Date> > & vals);
+                              const std::vector<std::tuple<RowPath, CellValue, Date> > & vals);
     
-    virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & rows);
+    virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > & rows);
 
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
 

@@ -102,7 +102,7 @@ struct Word2VecImporter: public Procedure {
             columnNames.emplace_back(ML::format("%06d", i));
         }
 
-        vector<tuple<RowName, vector<float>, Date> > rows;
+        vector<tuple<RowPath, vector<float>, Date> > rows;
         int64_t numRecorded = 0;
 
         for (unsigned i = 0;  i < numWords;  ++i) {
@@ -117,7 +117,7 @@ struct Word2VecImporter: public Procedure {
             if (runProcConf.limit != -1 && numRecorded >= runProcConf.limit)
                 break;
 
-            rows.emplace_back(RowName(word), std::move(vec), info.lastModified);
+            rows.emplace_back(RowPath(word), std::move(vec), info.lastModified);
             ++numRecorded;
 
             if (rows.size() == 10000) {

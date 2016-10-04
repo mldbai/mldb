@@ -58,7 +58,7 @@ namespace MLDB {
 namespace {
 
 struct SortByRowHash {
-    bool operator () (const RowName & row1, const RowName & row2)
+    bool operator () (const RowPath & row1, const RowPath & row2)
     {
         RowHash h1(row1), h2(row2);
 
@@ -269,7 +269,7 @@ MatrixView::
 
 uint64_t
 MatrixView::
-getRowColumnCount(const RowName & row) const
+getRowColumnCount(const RowPath & row) const
 {
     ML::Lightweight_Hash_Set<ColumnHash> cols;
     for (auto & c: getRow(row).columns)
@@ -339,14 +339,14 @@ getColumnStats(const ColumnName & column, ColumnStats & stats) const
     return stats;
 }
 
-std::vector<std::tuple<RowName, CellValue> >
+std::vector<std::tuple<RowPath, CellValue> >
 ColumnIndex::
 getColumnValues(const ColumnName & column,
                 const std::function<bool (const CellValue &)> & filter) const
 {
     auto col = getColumn(column);
 
-    std::vector<std::tuple<RowName, CellValue> > result;
+    std::vector<std::tuple<RowPath, CellValue> > result;
     result.reserve(col.rows.size());
 
     bool sorted = true;
@@ -354,7 +354,7 @@ getColumnValues(const ColumnName & column,
     for (auto & r: col.rows) {
         if (filter && !filter(std::get<1>(r)))
             continue;
-        std::tuple<RowName, CellValue>
+        std::tuple<RowPath, CellValue>
             current(std::move(std::get<0>(r)),
                     std::move(std::get<1>(r)));
         if (result.empty()) {
@@ -387,16 +387,16 @@ getColumnDense(const ColumnName & column) const
 {
     auto columnValues = getColumn(column);
     // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-    std::vector<RowName> rowNames = getRowNames();
+    std::vector<RowPath> rowNames = getRowNames();
     std::vector<CellValue> result;
     result.reserve(rowNames.size());
 
-    std::unordered_map<RowName, std::pair<CellValue, Date> > values;
+    std::unordered_map<RowPath, std::pair<CellValue, Date> > values;
 
     for (auto & c: columnValues.rows) {
         Date dateToInsert = std::get<2>(c);
         std::pair<CellValue, Date> valToInsert = std::make_pair<CellValue, Date>(std::move(std::get<1>(c)), std::move(dateToInsert));
-        auto keyPair = std::make_pair<RowName, std::pair<CellValue, Date> >(std::move(std::get<0>(c)), std::move(valToInsert));
+        auto keyPair = std::make_pair<RowPath, std::pair<CellValue, Date> >(std::move(std::get<0>(c)), std::move(valToInsert));
         auto res = values.insert(keyPair);
         if (!res.second) {
             if ( dateToInsert > res.first->second.second)
@@ -468,7 +468,7 @@ DatasetRecorder::
 
 void
 DatasetRecorder::
-recordRowExpr(const RowName & rowName,
+recordRowExpr(const RowPath & rowName,
               const ExpressionValue & expr)
 {
     dataset->recordRowExpr(rowName, expr);
@@ -476,7 +476,7 @@ recordRowExpr(const RowName & rowName,
 
 void
 DatasetRecorder::
-recordRow(const RowName & rowName,
+recordRow(const RowPath & rowName,
           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     dataset->recordRow(rowName, vals);
@@ -484,14 +484,14 @@ recordRow(const RowName & rowName,
 
 void
 DatasetRecorder::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
 {
     dataset->recordRows(rows);
 }
 
 void
 DatasetRecorder::
-recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows)
+recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows)
 {
     dataset->recordRowsExpr(rows);
 }
@@ -535,7 +535,7 @@ Dataset::
 
 void
 Dataset::
-recordRow(const RowName & rowName,
+recordRow(const RowPath & rowName,
           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     validateNames(rowName, vals);
@@ -544,7 +544,7 @@ recordRow(const RowName & rowName,
 
 void
 Dataset::
-recordRowItl(const RowName & rowName,
+recordRowItl(const RowPath & rowName,
              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     throw ML::Exception(("Dataset type '" + getType() + "' doesn't allow recording").rawString());
@@ -594,7 +594,7 @@ quantizeTimestamp(Date timestamp) const
 
 void 
 Dataset::
-validateNames(const RowName & rowName,
+validateNames(const RowPath & rowName,
               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     if (rowName.empty())
@@ -607,7 +607,7 @@ validateNames(const RowName & rowName,
 
 void 
 Dataset::
-validateNames(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+validateNames(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
 {
     for (auto& r : rows)
     {
@@ -617,7 +617,7 @@ validateNames(const std::vector<std::pair<RowName, std::vector<std::tuple<Column
 
 void
 Dataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
 {
     for (auto & r: rows)
         recordRow(r.first, r.second);
@@ -626,16 +626,16 @@ recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnNam
 void
 Dataset::
 recordColumn(const ColumnName & columnName,
-             const std::vector<std::tuple<RowName, CellValue, Date> > & vals)
+             const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
 {
     recordColumns({{columnName, vals}});
 }
 
 void
 Dataset::
-recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols)
+recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
 {
-    std::map<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > transposed;
+    std::map<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > transposed;
 
     for (auto & c: cols) {
         for (auto & r: c.second) {
@@ -643,7 +643,7 @@ recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<Row
         }
     }
 
-    std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows
+    std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows
         (std::make_move_iterator(transposed.begin()),
          std::make_move_iterator(transposed.end()));
 
@@ -652,7 +652,7 @@ recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<Row
 
 void
 Dataset::
-recordRowExpr(const RowName & rowName,
+recordRowExpr(const RowPath & rowName,
               const ExpressionValue & expr)
 {
     RowValue row;
@@ -662,12 +662,12 @@ recordRowExpr(const RowName & rowName,
 
 void
 Dataset::
-recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows)
+recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
 {
-    std::vector<std::pair<RowName, RowValue> > rowsOut;
+    std::vector<std::pair<RowPath, RowValue> > rowsOut;
     rowsOut.reserve(rows.size());
     for (auto & r: rows) {
-        const RowName & rowName = r.first;
+        const RowPath & rowName = r.first;
         const ExpressionValue & expr = r.second;
         RowValue row;
         expr.appendToRow(ColumnName(), row);
@@ -679,15 +679,15 @@ recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows)
 void
 Dataset::
 recordEmbedding(const std::vector<ColumnName> & columnNames,
-                const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows)
+                const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows)
 {
-    vector<pair<RowName, vector<tuple<ColumnName, CellValue, Date> > > > rowsOut;
+    vector<pair<RowPath, vector<tuple<ColumnName, CellValue, Date> > > > rowsOut;
 
     for (auto & r: rows) {
         vector<tuple<ColumnName, CellValue, Date> > row;
         row.reserve(columnNames.size());
 
-        const RowName & rowName = std::get<0>(r);
+        const RowPath & rowName = std::get<0>(r);
         const std::vector<float> & embedding = std::get<1>(r);
         Date ts = std::get<2>(r);
 
@@ -755,7 +755,7 @@ getRowInfo() const
 
 ExpressionValue
 Dataset::
-getRowExpr(const RowName & row) const
+getRowExpr(const RowPath & row) const
 {
     MatrixNamedRow flattened = getMatrixView()->getRow(row);
     return std::move(flattened.columns);
@@ -898,7 +898,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto processor = [&] (RowName & rowName,
+        auto processor = [&] (RowPath & rowName,
                               ExpressionValue & row,
                               std::vector<ExpressionValue> & calc)
             {
@@ -941,7 +941,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
 }
 
 template<typename Filter>
-static std::pair<std::vector<RowName>, Any>
+static std::pair<std::vector<RowPath>, Any>
 executeFilteredColumnExpression(const Dataset & dataset,
                                 ssize_t numToGenerate, Any token,
                                 const BoundParameters & params,
@@ -953,12 +953,12 @@ executeFilteredColumnExpression(const Dataset & dataset,
     if (columnIndex->knownColumn(columnName)) {
         auto col = (*dataset.getColumnIndex()).getColumnValues(columnName, filter);
     
-        std::vector<RowName> rows;
+        std::vector<RowPath> rows;
 
         auto matrix = dataset.getMatrixView();
 
         for (auto & r: col) {
-            RowName & rh = std::get<0>(r);
+            RowPath & rh = std::get<0>(r);
             rows.emplace_back(std::move(rh));
         }
 
@@ -966,7 +966,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
         rows.erase(std::unique(rows.begin(), rows.end()),
                    rows.end());
 
-        return std::pair<std::vector<RowName>, Any>(std::move(rows), Any());
+        return std::pair<std::vector<RowPath>, Any>(std::move(rows), Any());
     }
     else {
         return {};
@@ -1058,12 +1058,12 @@ generateRowNameIsConstant(const Dataset & dataset,
     auto datasetPtr = &dataset;
 
     bool wasParsed;
-    RowName rowName;
+    RowPath rowName;
     std::tie(rowName, wasParsed)
-        = RowName::tryParse(rowNameExpr.constant.toUtf8String());
+        = RowPath::tryParse(rowNameExpr.constant.toUtf8String());
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
+            -> std::pair<std::vector<RowPath>, Any>
             {
                 // There should be exactly one row
 
@@ -1071,7 +1071,7 @@ generateRowNameIsConstant(const Dataset & dataset,
                     return { { rowName }, token };
                 else return { {}, token };
             },
-            "generate single row matching rowName()"};
+            "generate single row matching rowPath()"};
 }
 
 static GenerateRowsWhereFunction
@@ -1086,20 +1086,20 @@ generateRowNameIsExpression(const Dataset & dataset,
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
+            -> std::pair<std::vector<RowPath>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
                 bool wasParsed;
-                RowName rowName;
+                RowPath rowName;
                 std::tie(rowName, wasParsed)
-                    = RowName::tryParse(bound(rowScope, GET_LATEST).toUtf8String());
+                    = RowPath::tryParse(bound(rowScope, GET_LATEST).toUtf8String());
 
                 // There should be exactly one row
                 if (datasetPtr->getMatrixView()->knownRow(rowName))
                     return { { rowName }, token };
                 else return { {}, token };
             },
-            "generate single row matching rowName() expression"};
+            "generate single row matching rowPath() expression"};
 }
 
 static GenerateRowsWhereFunction
@@ -1108,18 +1108,18 @@ generateRowPathIsConstant(const Dataset & dataset,
 {
     auto datasetPtr = &dataset;
 
-    RowName rowName = rowNameExpr.constantValue().coerceToPath();
+    RowPath rowName = rowNameExpr.constantValue().coerceToPath();
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
+            -> std::pair<std::vector<RowPath>, Any>
             {
                 // There should be exactly one row
                 if (datasetPtr->getMatrixView()->knownRow(rowName))
                     return { { rowName }, token };
                 else return { {}, token };
             },
-            "generate single row matching rowName()"};
+            "generate single row matching rowPath()"};
 }
 
 static GenerateRowsWhereFunction
@@ -1134,16 +1134,16 @@ generateRowPathIsExpression(const Dataset & dataset,
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
+            -> std::pair<std::vector<RowPath>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
-                RowName rowName = bound(rowScope, GET_LATEST).coerceToPath();
+                RowPath rowName = bound(rowScope, GET_LATEST).coerceToPath();
                 // There should be exactly one row
                 if (datasetPtr->getMatrixView()->knownRow(rowName))
                     return { { rowName }, token };
                 else return { {}, token };
             },
-            "generate single row matching rowName() expression"};
+            "generate single row matching rowPath() expression"};
 }
 
 /*
@@ -1196,8 +1196,8 @@ generateRowsWhere(const SqlBindingScope & scope,
             return dynamic_cast<const BoundParameterExpression *>(&expression);
         };
 
-    //look for rowName() != constant-or-bound 
-    //or constant-or-bound != rowName()
+    //look for rowPath() != constant-or-bound 
+    //or constant-or-bound != rowPath()
     auto isRowNameFilter = [&](const SqlExpression & expression)
     {
         auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
@@ -1254,8 +1254,8 @@ generateRowsWhere(const SqlBindingScope & scope,
         return false;
     };
 
-    // extract x from rowName() != constant or constant != rowName()
-    auto getRowNameFilter = [&](const SqlExpression & expression) -> RowName
+    // extract x from rowPath() != constant or constant != rowPath()
+    auto getRowNameFilter = [&](const SqlExpression & expression) -> RowPath
         {
             auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
             ExcAssert(comparison);
@@ -1263,18 +1263,18 @@ generateRowsWhere(const SqlBindingScope & scope,
             auto crhs = getConstant(*comparison->rhs);
 
             if (clhs) {
-                return RowName::tryParse(clhs->constant.toUtf8String()).first;
+                return RowPath::tryParse(clhs->constant.toUtf8String()).first;
             }
             else if (crhs) {
-                return RowName::tryParse(crhs->constant.toUtf8String()).first;
+                return RowPath::tryParse(crhs->constant.toUtf8String()).first;
             }
             else {
                 throw HttpReturnException(500, "Logic error in dataset execution");
             }
         };
 
-    // extract x from rowName() != constant or constant != rowName()
-    auto getRowPathFilter = [&](const SqlExpression & expression) -> RowName
+    // extract x from rowPath() != constant or constant != rowPath()
+    auto getRowPathFilter = [&](const SqlExpression & expression) -> RowPath
         {
             auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
             ExcAssert(comparison);
@@ -1292,7 +1292,7 @@ generateRowsWhere(const SqlBindingScope & scope,
             }
         };
 
-    // extract bound-parameter from rowName() != bound-parameter or bound-parameter != rowName()
+    // extract bound-parameter from rowPath() != bound-parameter or bound-parameter != rowPath()
     auto getBoundParameterFilter = [&] (const SqlExpression & expression)
     -> const BoundParameterExpression *
     {
@@ -1315,8 +1315,8 @@ generateRowsWhere(const SqlBindingScope & scope,
             bool isLeftRowPath = isRowPathFilter(*boolean->lhs);
             bool isRightRowPath = isRowPathFilter(*boolean->rhs);
 
-            bool isLeft = isLeftRowName || isLeftRowPath;
-            bool isRight = isRightRowName || isRightRowPath;
+            bool isLeft = isLeftRowPath || isLeftRowPath;
+            bool isRight = isRightRowPath || isRightRowPath;
 
             bool isRowName = isLeftRowName || isRightRowName;
 
@@ -1331,13 +1331,13 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 SqlExpressionDatasetScope dsScope(*this, alias);
 
-                RowName filterRowName;
+                RowPath filterRowName;
                 if (isRowName) {
                     filterRowName = getRowNameFilter(*filterExpression);
                 }
                 else filterRowName = getRowPathFilter(*filterExpression);
 
-                std::function<RowName(const BoundParameters & params)>
+                std::function<RowPath(const BoundParameters & params)>
                     filterCallback = [=] (const BoundParameters & params)
                     {
                         return filterRowName;
@@ -1358,7 +1358,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                             = [=] (const BoundParameters & params)
                             {
                                 ExpressionValue value = params(paramName);
-                                return RowName(value.getAtom().toString());
+                                return RowPath(value.getAtom().toString());
                             };
                         
                         throw HttpReturnException(600, "not done");
@@ -1367,9 +1367,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                     
                     return {[=] (ssize_t numToGenerate, Any token,
                                  const BoundParameters & params)
-                            -> std::pair<std::vector<RowName>, Any>
+                            -> std::pair<std::vector<RowPath>, Any>
                             {
-                                RowName except = filterCallback(params);
+                                RowPath except = filterCallback(params);
 
                                 auto rows = gen(-1, Any(), params).first;
                                 auto iter = std::find(rows.begin(), rows.end(),
@@ -1396,7 +1396,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<RowPath>, Any>
                         {
                             auto lhsRows = lhsGen(-1, Any(), params).first;
                             auto rhsRows = rhsGen(-1, Any(), params).first;
@@ -1404,7 +1404,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                             std::sort(lhsRows.begin(), lhsRows.end(), SortByRowHash());
                             std::sort(rhsRows.begin(), rhsRows.end(), SortByRowHash());
 
-                            vector<RowName> intersection;
+                            vector<RowPath> intersection;
                             std::set_intersection(lhsRows.begin(), lhsRows.end(),
                                                   rhsRows.begin(), rhsRows.end(),
                                                   std::back_inserter(intersection),
@@ -1426,7 +1426,7 @@ generateRowsWhere(const SqlBindingScope & scope,
             if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<RowPath>, Any>
                         {
                             auto lhsRows = lhsGen(-1, Any(), params).first;
                             auto rhsRows = rhsGen(-1, Any(), params).first;
@@ -1436,7 +1436,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                             std::sort(rhsRows.begin(), rhsRows.end(),
                                       SortByRowHash());
 
-                            vector<RowName> u;
+                            vector<RowPath> u;
                             std::set_union(lhsRows.begin(), lhsRows.end(),
                                            rhsRows.begin(), rhsRows.end(),
                                            std::back_inserter(u),
@@ -1460,8 +1460,8 @@ generateRowsWhere(const SqlBindingScope & scope,
         return generateVariableIsTrue(*this, alias, *variable);
     }
 
-    // Optimize for rowName() IN (constant, constant, constant)
-    // Optimize for rowName() IN ROWS / IN KEYS (...)
+    // Optimize for rowPath() IN (constant, constant, constant)
+    // Optimize for rowPath() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
 
     if (inExpression && !inExpression->isnegative) {
@@ -1471,19 +1471,19 @@ generateRowsWhere(const SqlBindingScope & scope,
                 || fexpr->functionName == "rowPath")) {
 
             // Get the function to extract a path from the incoming expression
-            std::function<RowName (const ExpressionValue & expr)> extractPath
+            std::function<RowPath (const ExpressionValue & expr)> extractPath
                 = fexpr->functionName == "rowName"
-                ? ([] (const ExpressionValue & expr) -> RowName
+                ? ([] (const ExpressionValue & expr) -> RowPath
                    {
                        bool found;
-                       RowName rowName;
+                       RowPath rowName;
 
                        std::tie(rowName, found)
                            = Path::tryParse(expr.toUtf8String());
 
                        return rowName;
                    })
-                : ([] (const ExpressionValue & expr) -> RowName
+                : ([] (const ExpressionValue & expr) -> RowPath
                     {
                         return expr.coerceToPath();
                     });
@@ -1491,14 +1491,14 @@ generateRowsWhere(const SqlBindingScope & scope,
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<RowPath>, Any>
                         {
-                            std::vector<RowName> filtered;
+                            std::vector<RowPath> filtered;
                             auto matrixView = this->getMatrixView();
 
                             for (auto& c : inExpression->tuple->clauses) {
                                 ExpressionValue v = c->constantValue();
-                                RowName rowName = extractPath(v);
+                                RowPath rowName = extractPath(v);
 
                                 if (matrixView->knownRow(rowName))
                                     filtered.push_back(rowName);
@@ -1515,7 +1515,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 auto unbound = inExpression->setExpr->getUnbound();
                 if (unbound.vars.empty() && unbound.tables.empty()
                     && unbound.wildcards.empty()) {
-                    //cerr << "*** rowName() IN (constant set expr)" << endl;
+                    //cerr << "*** rowPath() IN (constant set expr)" << endl;
 
                     SqlExpressionParamScope paramScope
                         (const_cast<SqlBindingScope &>(scope));
@@ -1531,13 +1531,13 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                         return {[=] (ssize_t numToGenerate, Any token,
                                      const BoundParameters & params)
-                                -> std::pair<std::vector<RowName>, Any>
+                                -> std::pair<std::vector<RowPath>, Any>
                                 {
                                     SqlExpressionParamScope::RowScope rowScope(params);
                                     ExpressionValue evaluatedSet
                                         = boundSet(rowScope, GET_LATEST);
 
-                                    std::vector<RowName> filtered;
+                                    std::vector<RowPath> filtered;
 
                                     // Lambda for KEYS, which looks for a
                                     // matching row from the key
@@ -1593,7 +1593,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
     if (comparison) {
         // To optimize a comparison, we need to have variable == constant, or
-        // rowName() == constant
+        // rowPath() == constant
 
         //cerr << "comparison " << comparison->print() << endl;
 
@@ -1605,14 +1605,14 @@ generateRowsWhere(const SqlBindingScope & scope,
         auto vrhs = getVariable(*comparison->rhs);
         auto alhs = getArith(*comparison->lhs);
 
-        // Optimization for rowName() == constant.  In this case, we can generate a
+        // Optimization for rowPath() == constant.  In this case, we can generate a
         // single row.
         if (flhs && crhs && comparison->op == "=") {
             if (flhs->functionName == "rowName") {
                 return generateRowNameIsConstant(*this, *crhs);
             }
         }
-        // Optimization for constant == rowName().  In this case, we can generate a
+        // Optimization for constant == rowPath().  In this case, we can generate a
         // single row.
         if (frhs && clhs && comparison->op == "=") {
             if (frhs->functionName == "rowName") {
@@ -1620,14 +1620,14 @@ generateRowsWhere(const SqlBindingScope & scope,
             }
         }
 
-        // Optimization for rowName() == constant.  In this case, we can generate a
+        // Optimization for rowPath() == constant.  In this case, we can generate a
         // single row.
         if (flhs && crhs && comparison->op == "=") {
             if (flhs->functionName == "rowPath") {
                 return generateRowPathIsConstant(*this, *crhs);
             }
         }
-        // Optimization for constant == rowName().  In this case, we can generate a
+        // Optimization for constant == rowPath().  In this case, we can generate a
         // single row.
         if (frhs && clhs && comparison->op == "=") {
             if (frhs->functionName == "rowPath") {
@@ -1635,7 +1635,7 @@ generateRowsWhere(const SqlBindingScope & scope,
             }
         }
 
-        // Optimization for rowName() == expression (with dependency only on
+        // Optimization for rowPath() == expression (with dependency only on
         // parameters).  In this case, we can generate a single row (this is
         // a weaker version of the previous).
         if (flhs && comparison->op == "=" && flhs->functionName == "rowName") {
@@ -1654,7 +1654,7 @@ generateRowsWhere(const SqlBindingScope & scope,
             }
         }
 
-        // Optimization for rowName() == expression (with dependency only on
+        // Optimization for rowPath() == expression (with dependency only on
         // parameters).  In this case, we can generate a single row (this is
         // a weaker version of the previous).
         if (flhs && comparison->op == "=" && flhs->functionName == "rowPath") {
@@ -1709,12 +1709,12 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<RowPath>, Any>
                         {
-                            std::vector<RowName> filtered;
+                            std::vector<RowPath> filtered;
 
                             // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-                            for (const RowName & n: this->getMatrixView()
+                            for (const RowPath & n: this->getMatrixView()
                                      ->getRowNames()) {
                                 uint64_t hash = RowHash(n).hash();
                                 
@@ -1801,7 +1801,7 @@ generateRowsWhere(const SqlBindingScope & scope,
         else {
             return { [=] (ssize_t numToGenerate, Any token,
                           const BoundParameters & params)
-                    -> std::pair<std::vector<RowName>, Any>
+                    -> std::pair<std::vector<RowPath>, Any>
                     {
                         return { {}, Any() };
                     },
@@ -1818,7 +1818,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     auto whereBound = where.bind(dsScope);
 
     // Detect if where needs columns or not, by looking at what is unbound
-    // in the expression.  For example rowName() or rowHash() don't need
+    // in the expression.  For example rowPath() or rowHash() don't need
     // the columns at all.
     UnboundEntities unbound = where.getUnbound();
 
@@ -1847,13 +1847,13 @@ generateRowsWhere(const SqlBindingScope & scope,
                 //Row names can be returned in an arbitrary order as long as it is deterministic.
                 auto rows = matrix->getRowNames(start, limit);
 
-                std::vector<RowName> rowsToKeep;
+                std::vector<RowPath> rowsToKeep;
 
-                PerThreadAccumulator<std::vector<RowName> > accum;
+                PerThreadAccumulator<std::vector<RowPath> > accum;
                 
                 auto onRow = [&] (size_t n)
                     {
-                        const RowName & r = rows[n];
+                        const RowPath & r = rows[n];
 
                         MatrixNamedRow row;
                         if (needsColumns)
@@ -1883,7 +1883,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 }
 
                 // Now merge together the results of all the threads
-                auto onThreadOutput = [&] (std::vector<RowName> * vec)
+                auto onThreadOutput = [&] (std::vector<RowPath> * vec)
                     {
                         rowsToKeep.insert(rowsToKeep.end(),
                                           std::make_move_iterator(vec->begin()),
@@ -1894,7 +1894,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 //Need sorting because the parallelisation breaks determinism
                 if (needSort) 
-                    parallelQuickSortRecursive<RowName, SortByRowHash>(rowsToKeep.begin(), rowsToKeep.end());
+                    parallelQuickSortRecursive<RowPath, SortByRowHash>(rowsToKeep.begin(), rowsToKeep.end());
 
                 start += rows.size();
                 Any newToken;
@@ -2229,9 +2229,9 @@ overrideFunction(const Utf8String&,
     return BoundFunction();
 }
 
-RowName 
+RowPath 
 Dataset::
-getOriginalRowName(const Utf8String& tableName, const RowName & name) const
+getOriginalRowName(const Utf8String& tableName, const RowPath & name) const
 {
     return name;
 }

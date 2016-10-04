@@ -168,7 +168,7 @@ run(const ProcedureRunConfig & run,
                                         runProcConf.numInputDimensions,
                                         onProgress2);
 
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+    std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;
@@ -260,7 +260,7 @@ run(const ProcedureRunConfig & run,
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
             }
 
-            centroids->recordRow(RowName(ML::format("%i", i)), cols);
+            centroids->recordRow(RowPath(ML::format("%i", i)), cols);
         }
 
         centroids->commit();

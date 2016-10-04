@@ -163,7 +163,7 @@ struct MongoImportProcedure: public Procedure {
                 }
 
                 if (useNamed) {
-                    rowName = RowName(
+                    rowName = RowPath(
                         namedBound(row, storage, GET_ALL).toUtf8String());
                 }
 

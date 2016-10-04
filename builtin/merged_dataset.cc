@@ -203,7 +203,7 @@ struct MergedDataset::Itl
                 ++it;
         }
 
-        virtual RowName next()
+        virtual RowPath next()
         {
             uint64_t hash = (*it).first;
             ++it;
@@ -211,7 +211,7 @@ struct MergedDataset::Itl
             return source->getRowName(RowHash(hash));
         }
 
-        virtual const RowName & rowName(RowName & storage) const
+        virtual const RowPath & rowName(RowPath & storage) const
         {
             uint64_t hash = (*it).first;
             return storage = source->getRowName(RowHash(hash));
@@ -222,12 +222,12 @@ struct MergedDataset::Itl
 
     };
        
-    virtual std::vector<RowName>
+    virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
         auto hashes = getRowHashes(start, limit);
         
-        std::vector<RowName> result;
+        std::vector<RowPath> result;
 
         for (auto & h: getRowHashes(start, limit))
             result.emplace_back(getRowName(h));
@@ -262,7 +262,7 @@ struct MergedDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         uint32_t bitmap = getRowBitmap(rowName);
         return bitmap != 0;
@@ -274,7 +274,7 @@ struct MergedDataset::Itl
         return bitmap != 0;
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowName(const RowHash & rowHash) const
     {
         uint32_t bitmap = getRowBitmap(rowHash);
         if (!bitmap)
@@ -284,7 +284,7 @@ struct MergedDataset::Itl
         return datasets[bit]->getMatrixView()->getRowName(rowHash);
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         uint32_t bitmap = getRowBitmap(rowName);
         if (!bitmap)
@@ -398,11 +398,11 @@ struct MergedDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual std::vector<std::tuple<RowName, CellValue> >
+    virtual std::vector<std::tuple<RowPath, CellValue> >
     getColumnValues(const ColumnName & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
-        std::vector<std::tuple<RowName, CellValue> > result;
+        std::vector<std::tuple<RowPath, CellValue> > result;
         uint32_t bitmap = getColumnBitmap(columnName);
         if (bitmap)
         {

@@ -527,7 +527,7 @@ struct GitImporter: public Procedure {
                 git_repository_free(repo);
             }
 
-            std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+            std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
 
             git_repository * repo;
         };
@@ -543,7 +543,7 @@ struct GitImporter: public Procedure {
 
                 Accum & threadAccum = accum.get();
                 auto row = processCommit(repo, oids[i]);
-                threadAccum.rows.emplace_back(RowName(encodeOid(oids[i])),
+                threadAccum.rows.emplace_back(RowPath(encodeOid(oids[i])),
                                               std::move(row));
 
                 if (threadAccum.rows.size() == 1000) {

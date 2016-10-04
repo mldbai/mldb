@@ -143,7 +143,7 @@ struct ContinuousDataset::Itl {
     }
 
     virtual void
-    recordRowItl(const RowName & rowName,
+    recordRowItl(const RowPath & rowName,
                  const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
         auto myCurrent = current();
@@ -151,7 +151,7 @@ struct ContinuousDataset::Itl {
         myCurrent->hasData = true;
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
     {
         auto myCurrent = current();
         myCurrent->dataset->recordRows(rows);
@@ -257,7 +257,7 @@ struct ContinuousDataset::Itl {
         Json::Value resultsJson = jsonEncode(saveOutput.results);
         cerr << "metadata is " << jsonEncode(saveOutput) << endl;
 
-        RowName rowName(savedDataset->config_->id);
+        RowPath rowName(savedDataset->config_->id);
 
         std::vector<std::tuple<ColumnName, CellValue, Date> > metadata;
         Date date = Date::now();
@@ -363,7 +363,7 @@ getStatus() const
 
 void
 ContinuousDataset::
-recordRowItl(const RowName & rowName,
+recordRowItl(const RowPath & rowName,
           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     return itl->recordRowItl(rowName, vals);
@@ -371,7 +371,7 @@ recordRowItl(const RowName & rowName,
 
 void
 ContinuousDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
 {
     return itl->recordRows(rows);
 }

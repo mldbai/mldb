@@ -48,12 +48,12 @@ struct EmbeddingDataset: public Dataset {
 
     virtual Any getStatus() const;
 
-    virtual void recordRowItl(const RowName & rowName,
+    virtual void recordRowItl(const RowPath & rowName,
                            const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
     virtual void
     recordEmbedding(const std::vector<ColumnName> & columnNames,
-                    const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows);
+                    const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows);
 
     virtual void commit();
 
@@ -74,12 +74,12 @@ struct EmbeddingDataset: public Dataset {
     virtual std::vector<KnownColumn>
     getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
     
-    std::vector<std::tuple<RowName, RowHash, float> >
+    std::vector<std::tuple<RowPath, RowHash, float> >
     getNeighbors(const ML::distribution<float> & coord, int numNeighbors,
                  double maxDistance) const;
     
-    std::vector<std::tuple<RowName, RowHash, float> >
-    getRowNeighbors(const RowName & row, int numNeighbors,
+    std::vector<std::tuple<RowPath, RowHash, float> >
+    getRowNeighbors(const RowPath & row, int numNeighbors,
                     double maxDistance) const;
 
 private:

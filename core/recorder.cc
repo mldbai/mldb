@@ -15,7 +15,7 @@ namespace MLDB {
 
 void
 Recorder::
-recordRowExprDestructive(RowName rowName,
+recordRowExprDestructive(RowPath rowName,
                          ExpressionValue expr)
 {
     recordRowExpr(rowName, expr);
@@ -23,7 +23,7 @@ recordRowExprDestructive(RowName rowName,
 
 void
 Recorder::
-recordRowDestructive(RowName rowName,
+recordRowDestructive(RowPath rowName,
                      std::vector<std::tuple<ColumnName, CellValue, Date> > vals)
 {
     recordRow(rowName, vals);
@@ -31,14 +31,14 @@ recordRowDestructive(RowName rowName,
 
 void
 Recorder::
-recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows)
+recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows)
 {
     recordRows(rows);
 }
 
 void
 Recorder::
-recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows)
+recordRowsExprDestructive(std::vector<std::pair<RowPath, ExpressionValue > > rows)
 {
     recordRowsExpr(rows);
 }
@@ -49,13 +49,13 @@ finishedChunk()
 {
 }
 
-std::function<void (RowName rowName, Date timestamp,
+std::function<void (RowPath rowName, Date timestamp,
                     CellValue * vals, size_t numVals,
                     std::vector<std::pair<ColumnName, CellValue> > extra)>
 Recorder::
 specializeRecordTabular(const std::vector<ColumnName> & columnNames)
 {
-    return [=] (RowName rowName, Date timestamp,
+    return [=] (RowPath rowName, Date timestamp,
                 CellValue * vals, size_t numVals,
                 std::vector<std::pair<ColumnName, CellValue> > extra)
         {
@@ -67,7 +67,7 @@ specializeRecordTabular(const std::vector<ColumnName> & columnNames)
 
 void
 Recorder::
-recordTabularImpl(RowName rowName,
+recordTabularImpl(RowPath rowName,
                   Date timestamp,
                   CellValue * vals,
                   size_t numVals,

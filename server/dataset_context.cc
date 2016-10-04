@@ -144,7 +144,7 @@ doGetAllColumns(const Utf8String & tableName,
 /* ROW EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
 
-RowName
+RowPath
 SqlExpressionDatasetScope::RowScope::
 getRowName() const
 {
@@ -155,9 +155,9 @@ getRowName() const
     }
 }
 
-const RowName &
+const RowPath &
 SqlExpressionDatasetScope::RowScope::
-getRowName(RowName & storage) const
+getRowName(RowPath & storage) const
 {
     if (rowName) return *rowName;
     else return row->rowName;

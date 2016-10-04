@@ -105,7 +105,7 @@ struct TabularDatasetChunk {
     }
 
     /// Return an owned version of the rowname
-    RowName getRowName(size_t index) const
+    RowPath getRowName(size_t index) const
     {
         if (rowNames.empty()) {
             return PathElement(integerRowNames.at(index));
@@ -114,7 +114,7 @@ struct TabularDatasetChunk {
     }
 
     /// Return a reference to the rowName, stored in storage if it's a temp
-    const RowName & getRowName(size_t index, RowName & storage) const
+    const RowPath & getRowName(size_t index, RowPath & storage) const
     {
         if (rowNames.empty()) {
             return storage = PathElement(integerRowNames.at(index));
@@ -139,7 +139,7 @@ struct TabularDatasetChunk {
     std::vector<std::shared_ptr<FrozenColumn> > columns;
     std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
 private:
-    std::vector<RowName> rowNames;
+    std::vector<RowPath> rowNames;
     std::vector<uint64_t> integerRowNames;
 public:
     std::shared_ptr<FrozenColumn> timestamps;
@@ -197,7 +197,7 @@ public:
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
                      const ColumnName & colName,
-                     std::vector<std::tuple<RowName, CellValue, Date> > & rows,
+                     std::vector<std::tuple<RowPath, CellValue, Date> > & rows,
                      bool dense) const
     {
         const FrozenColumn * col = nullptr;
@@ -295,7 +295,7 @@ struct MutableTabularDatasetChunk {
     std::unordered_map<ColumnName, TabularDatasetColumn> sparseColumns;
 
     /// One per row, or empty if all are simple integers
-    std::vector<RowName> rowNames;
+    std::vector<RowPath> rowNames;
 
     /// One per row, or empty if there is any non-integer row names
     std::vector<uint64_t> integerRowNames;
@@ -331,7 +331,7 @@ struct MutableTabularDatasetChunk {
           - ADD_AWAIT_ROTATION    if it wasn't added, and another thread has
                                   already received ADD_PERFORM_ROTATION
     */
-    int add(RowName & rowName,
+    int add(RowPath & rowName,
             Date ts,
             CellValue * vals,
             size_t numVals,

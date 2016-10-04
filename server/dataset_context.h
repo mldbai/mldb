@@ -89,7 +89,7 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
         {
         }
 
-        RowScope(const RowName & rowName,
+        RowScope(const RowPath & rowName,
                  const ExpressionValue & rowValue,
                  const BoundParameters * params = nullptr)
             : row(nullptr), rowName(&rowName), expr(&rowValue), params(params)
@@ -98,12 +98,12 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
         /** Return a moveable copy of the row name of the row being
             processed. */
-        RowName getRowName() const;
+        RowPath getRowName() const;
 
         /** Return either a reference to the row name, or a reference to
             the row name stored in storage.
         */
-        const RowName & getRowName(RowName & storage) const;
+        const RowPath & getRowName(RowPath & storage) const;
 
         /** Return the hash of the row name of the row being processed.
             INVARIANT: should be equal to RowHash(getRowName()).
@@ -153,7 +153,7 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
         /** If we have an ExpressionValue, this points to the rowName of the
             row.  TODO: don't require a materialized rowName().
         */
-        const RowName * rowName;
+        const RowPath * rowName;
 
         /** If we have an ExpressionValue, this points to the value of the
             row.
@@ -206,7 +206,7 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
         return RowScope(row, params);
     }
 
-    static RowScope getRowScope(const RowName & rowName,
+    static RowScope getRowScope(const RowPath & rowName,
                                 const ExpressionValue & row,
                                 const BoundParameters * params = nullptr)
     {

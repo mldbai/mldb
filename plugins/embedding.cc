@@ -104,7 +104,7 @@ struct EmbeddingDatasetRepr {
     static const uint64_t nullHashOut = 1;
     static const RowHash nullHashIn; //= RowHash(RowName("null"));
     
-    static uint64_t getRowHashForIndex(const RowName & rowName)
+    static uint64_t getRowHashForIndex(const RowPath & rowName)
     {
         uint64_t result = RowHash(rowName).hash();
         if (result == nullHashIn) {
@@ -127,13 +127,13 @@ struct EmbeddingDatasetRepr {
     }
 
     struct Row {
-        Row(RowName rowName, ML::distribution<float> coords, Date timestamp)
+        Row(RowPath rowName, ML::distribution<float> coords, Date timestamp)
             : rowName(std::move(rowName)), coords(std::move(coords)),
               timestamp(timestamp)
         {
         }
 
-        RowName rowName;
+        RowPath rowName;
         ML::distribution<float> coords;
         Date timestamp;
 
@@ -215,7 +215,7 @@ struct EmbeddingDatasetRepr {
     void serialize(ML::DB::Store_Writer & store) const;
 };
 
-const RowHash EmbeddingDatasetRepr::nullHashIn(RowName("null"));
+const RowHash EmbeddingDatasetRepr::nullHashIn(RowPath("null"));
 
 ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const EmbeddingDatasetRepr::Row & row)
@@ -265,14 +265,14 @@ struct EmbeddingDataset::Itl
 
     RestRequestRouter router;
 
-    virtual std::vector<RowName>
+    virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
         auto repr = committed();
         if (!repr->initialized())
             return {};
 
-        std::vector<RowName> result;
+        std::vector<RowPath> result;
 
         if (limit == -1)
             limit = repr->rows.size();
@@ -300,12 +300,12 @@ struct EmbeddingDataset::Itl
             index = start;
         }
 
-        virtual RowName next() {
+        virtual RowPath next() {
             auto repr = source->committed();     
             return repr->rows[index++].rowName;
         }
 
-        virtual const RowName & rowName(RowName & storage) const
+        virtual const RowPath & rowName(RowPath & storage) const
         {
             auto repr = source->committed();     
             return repr->rows[index].rowName;
@@ -340,7 +340,7 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -358,7 +358,7 @@ struct EmbeddingDataset::Itl
         return it != repr->rowIndex.end() && it->second != -1;
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -408,10 +408,10 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowName(const RowHash & rowHash) const
     {
-        static const RowHash nullHash(RowName("null"));
-        static const RowHash nullHashMunged(RowName("\x01null"));
+        static const RowHash nullHash(RowPath("null"));
+        static const RowHash nullHashMunged(RowPath("\x01null"));
         if (rowHash == nullHash)
             return getRowName(nullHashMunged);
 
@@ -613,7 +613,7 @@ struct EmbeddingDataset::Itl
 
     virtual void
     recordEmbedding(const std::vector<ColumnName> & columnNames,
-                    const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows)
+                    const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows)
     {
         auto repr = committed();
         std::unique_lock<Mutex> guard(mutex);
@@ -637,7 +637,7 @@ struct EmbeddingDataset::Itl
         }
 
         for (auto & r: rows) {
-            const RowName & rowName = std::get<0>(r);
+            const RowPath & rowName = std::get<0>(r);
             uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
 
             const auto & vec = std::get<1>(r);
@@ -654,7 +654,7 @@ struct EmbeddingDataset::Itl
                     //cerr << "rowName = " << rowName << endl;
                     //cerr << "rowHash = " << RowHash(rowName) << endl;
                     // Check if it's a double record or a hash collision
-                    RowName oldName
+                    RowPath oldName
                         = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
                         .rowName;
                     if (oldName == rowName)
@@ -691,7 +691,7 @@ struct EmbeddingDataset::Itl
     }
 
     virtual void
-    recordRowItl(const RowName & rowName,
+    recordRowItl(const RowPath & rowName,
                  const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
         auto repr = committed();
@@ -769,7 +769,7 @@ struct EmbeddingDataset::Itl
                 //cerr << "rowName = " << rowName << endl;
                 //cerr << "rowHash = " << RowHash(rowName) << endl;
                 // Check if it's a double record or a hash collision
-                RowName oldName
+                RowPath oldName
                     = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
                     .rowName;
                 if (oldName == rowName)
@@ -883,7 +883,7 @@ struct EmbeddingDataset::Itl
         }
     }
 
-    vector<tuple<RowName, RowHash, float> >
+    vector<tuple<RowPath, RowHash, float> >
     getNeighbors(const ML::distribution<float> & coord,
                  int numNeighbors,
                  double maxDistance)
@@ -907,7 +907,7 @@ struct EmbeddingDataset::Itl
 
         //cerr << "neighbors = " << jsonEncode(neighbors) << endl;
         
-        vector<tuple<RowName, RowHash, float> > result;
+        vector<tuple<RowPath, RowHash, float> > result;
         for (auto & n: neighbors) {
             result.emplace_back(repr->rows[n.second].rowName,
                                 repr->rows[n.second].rowName,
@@ -917,8 +917,8 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    vector<tuple<RowName, RowHash, float> >
-    getRowNeighbors(const RowName & row, int numNeighbors, double maxDistance)
+    vector<tuple<RowPath, RowHash, float> >
+    getRowNeighbors(const RowPath & row, int numNeighbors, double maxDistance)
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -943,7 +943,7 @@ struct EmbeddingDataset::Itl
 
         auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
 
-        vector<tuple<RowName, RowHash, float> > result;
+        vector<tuple<RowPath, RowHash, float> > result;
         for (auto & n: neighbors) {
             result.emplace_back(repr->rows[n.second].rowName,
                                 repr->rows[n.second].rowName,
@@ -1002,7 +1002,7 @@ getStatus() const
 
 void
 EmbeddingDataset::
-recordRowItl(const RowName & rowName,
+recordRowItl(const RowPath & rowName,
           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     return itl->recordRowItl(rowName, vals);
@@ -1011,7 +1011,7 @@ recordRowItl(const RowName & rowName,
 void
 EmbeddingDataset::
 recordEmbedding(const std::vector<ColumnName> & columnNames,
-                const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows)
+                const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows)
 {
     itl->recordEmbedding(columnNames, rows);
 }
@@ -1067,16 +1067,16 @@ overrideFunction(const Utf8String & tableName,
     return BoundFunction();
 }
 
-vector<tuple<RowName, RowHash, float> >
+vector<tuple<RowPath, RowHash, float> >
 EmbeddingDataset::
 getNeighbors(const ML::distribution<float> & coord, int numNeighbors, double maxDistance) const
 {
     return itl->getNeighbors(coord, numNeighbors, maxDistance);
 }
     
-vector<tuple<RowName, RowHash, float> >
+vector<tuple<RowPath, RowHash, float> >
 EmbeddingDataset::
-getRowNeighbors(const RowName & row, int numNeighbors, double maxDistance) const
+getRowNeighbors(const RowPath & row, int numNeighbors, double maxDistance) const
 {
     return itl->getRowNeighbors(row, numNeighbors, maxDistance);
 }
@@ -1218,10 +1218,10 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
         maxDistance = input.maxDistance.toDouble();
     
     Date ts;
-    vector<tuple<RowName, RowHash, float> > neighbors;
+    vector<tuple<RowPath, RowHash, float> > neighbors;
     if (inputRow.isAtom()) {
         neighbors = applier.embeddingDataset
-            ->getRowNeighbors(RowName(inputRow.toUtf8String()),
+            ->getRowNeighbors(RowPath(inputRow.toUtf8String()),
                                numNeighbors, maxDistance);
     }
     else if(inputRow.isEmbedding() || inputRow.isRow()) {

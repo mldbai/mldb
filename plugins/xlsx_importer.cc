@@ -787,7 +787,7 @@ struct XlsxImporter: public Procedure {
                 for (auto & row: sheet.rows) {
                     MatrixNamedRow outputRow;
                     outputRow.rowHash = outputRow.rowName
-                        = RowName(sheetEntry.name + ML::format(":%0*d", indexLength, row.index));
+                        = RowPath(sheetEntry.name + ML::format(":%0*d", indexLength, row.index));
 
                     for (auto & col: row.columns) {
                         outputRow.columns.emplace_back(getColName(std::get<0>(col)),

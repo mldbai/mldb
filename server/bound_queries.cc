@@ -175,7 +175,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 //if (rowNum % 1000 == 0)
                 //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
-                //RowName rowName = rows[rowNum];
+                //RowPath rowName = rows[rowNum];
 
                 ExpressionValue row = dataset.getRowExpr(rows[rowNum]);
                 auto output = processRow(rows[rowNum], row, rowNum, numPerBucket,
@@ -300,7 +300,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 auto stream = whereGenerator.rowStream->clone();
                 stream->initAt(it);
                 for (;  it < stopIt; ++it) {
-                    RowName rowName = stream->next();
+                    RowPath rowName = stream->next();
                     auto row = dataset.getRowExpr(rowName);
 
                     auto output = processRow(rowName, row, it, numPerBucket, selectStar);
@@ -324,8 +324,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         return parallelMapHaltable(0, effectiveNumBucket, doBucket);
     }
 
-    std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
-    processRow(const RowName & rowName,
+    std::tuple<RowPath, ExpressionValue, std::vector<ExpressionValue> >
+    processRow(const RowPath & rowName,
                ExpressionValue & row,
                int rowNum,
                int numPerBucket,
@@ -335,7 +335,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         whenBound.filterInPlace(row, rowContext);
 
-        std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> > output;
+        std::tuple<RowPath, ExpressionValue, std::vector<ExpressionValue> > output;
 
         std::get<0>(output) = rowName;
 
@@ -591,7 +591,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 namespace {
 
 struct SortByRowHash {
-    bool operator () (const RowName & row1, const RowName & row2)
+    bool operator () (const RowPath & row1, const RowPath & row2)
     {
         RowHash h1(row1), h2(row2);
 
@@ -726,7 +726,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     //if (rowNum % 1000 == 0)
                     //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
-                    //RowName rowName = rows[rowNum];
+                    //RowPath rowName = rows[rowNum];
 
                     row = dataset.getRowExpr(rows[rowNum]);
 
@@ -917,7 +917,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         ML::Timer rowsTimer;
 
-        typedef std::vector<RowName> AccumRows;
+        typedef std::vector<RowPath> AccumRows;
         
         PerThreadAccumulator<AccumRows> accum;
 
@@ -941,9 +941,9 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
           while (index < stopIndex)
           {
-              RowName rowName = stream->next();
+              RowPath rowName = stream->next();
 
-              if (rowName == RowName())
+              if (rowName == RowPath())
                   break;
 
               RowHash r1 = RowHash(rowName);
@@ -977,8 +977,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         parallelMap(0, numChunk, doChunk);        
        
         // Compare two rows according to the sort criteria
-        auto compareRows = [&] (const RowName & row1,
-                                const RowName & row2) -> bool
+        auto compareRows = [&] (const RowPath & row1,
+                                const RowPath & row2) -> bool
             {
                 return RowHash(row1) < RowHash(row2);
             };
@@ -1294,7 +1294,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
                                         SqlBindingScope & argScope)
     {
 
-        auto getGroupRowName = [] (const SqlRowScope & context) -> RowName
+        auto getGroupRowName = [] (const SqlRowScope & context) -> RowPath
             {
             auto & row = context.as<RowScope>();
 

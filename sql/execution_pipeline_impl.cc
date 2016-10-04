@@ -1573,7 +1573,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
 
                         if (offset == 0) {
                             NamedRowValue row;
-                            row.rowName = RowName("result");
+                            row.rowName = RowPath("result");
                             row.rowHash = row.rowName;
                             result.push_back(std::move(row));
                         }
@@ -2017,7 +2017,7 @@ doGetFunction(const Utf8String & functionName,
     else if (functionName == "rowPath" 
              || functionName == "rowName" 
                 || functionName == "rowHash") {
-        auto getRowName = [=] (const SqlRowScope & rowScope) {
+        auto getRowPath = [=] (const SqlRowScope & rowScope) {
             auto & row = rowScope.as<PipelineResults>();
 
             // cerr << "rowPath from: " << jsonEncode(row) << " offset: " << fieldOffset << endl;
@@ -2044,7 +2044,7 @@ doGetFunction(const Utf8String & functionName,
             auto exec = [=] (const std::vector<ExpressionValue> & argValues,
                              const SqlRowScope & rowScope) -> ExpressionValue
             {
-                auto result = getRowName(rowScope);
+                auto result = getRowPath(rowScope);
 
                 return ExpressionValue(Path(result),
                                        Date::negativeInfinity());
@@ -2056,7 +2056,7 @@ doGetFunction(const Utf8String & functionName,
             auto exec = [=] (const std::vector<ExpressionValue> & argValues,
                              const SqlRowScope & rowScope) -> ExpressionValue
             {
-                auto result = getRowName(rowScope);
+                auto result = getRowPath(rowScope);
 
                 return ExpressionValue(PathElement(result).toUtf8String(),
                                        Date::negativeInfinity());
@@ -2069,7 +2069,7 @@ doGetFunction(const Utf8String & functionName,
              return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & rowScope)
                 {
-                    auto result = getRowName(rowScope);
+                    auto result = getRowPath(rowScope);
                     return ExpressionValue(Path(result).hash(),
                                            Date::notADate());
                 },

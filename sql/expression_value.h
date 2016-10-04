@@ -1613,7 +1613,7 @@ struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> 
 /** Return value of a row expression, including row name. */
 
 struct NamedRowValue {
-    RowName rowName;
+    RowPath rowName;
     RowHash rowHash;
     StructValue columns;
 

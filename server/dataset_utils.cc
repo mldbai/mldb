@@ -25,11 +25,11 @@ MergedMatrixView(std::vector< std::shared_ptr<MatrixView> > views) :
     views(std::move(views))
 {}
 
-std::vector<RowName>
+std::vector<RowPath>
 MergedMatrixView::
 getRowNames(ssize_t start, ssize_t limit) const
 {
-    std::vector<RowName> names;
+    std::vector<RowPath> names;
 
     for (const auto& view : views) {
         auto rows = view->getRowNames();
@@ -44,7 +44,7 @@ getRowNames(ssize_t start, ssize_t limit) const
 
     auto it = names.begin() + start;
     auto end = start + limit < names.size() ? it + limit : names.end();
-    return std::vector<RowName>(it, end);
+    return std::vector<RowPath>(it, end);
 }
 
 std::vector<RowHash>
@@ -78,7 +78,7 @@ getRowCount() const
 
 bool
 MergedMatrixView::
-knownRow(const RowName & rowName) const
+knownRow(const RowPath & rowName) const
 {
     for (const auto& view : views) {
         if (view->knownRow(rowName)) return true;
@@ -89,7 +89,7 @@ knownRow(const RowName & rowName) const
 
 MatrixNamedRow
 MergedMatrixView::
-getRow(const RowName & row) const
+getRow(const RowPath & row) const
 {
     MatrixNamedRow result;
     result.rowHash = result.rowName = row;

@@ -25,7 +25,7 @@ typedef HashWrapper<1> RowHash;
 struct PathElement;
 struct Path;
 
-typedef Path RowName;
+typedef Path RowPath;
 
 typedef HashWrapper<3> ColumnHash;
 typedef Path ColumnName;

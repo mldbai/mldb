@@ -586,7 +586,7 @@ run(const ProcedureRunConfig & run,
 
         // We accumulate multiple rows per thread and insert with recordRows
         // to be more efficient.
-        PerThreadAccumulator<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
+        PerThreadAccumulator<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
 
         auto recordRowInOutputDataset
             = [&] (NamedRowValue & row_,
@@ -631,7 +631,7 @@ run(const ProcedureRunConfig & run,
                      onProgress);
 
         // Finish off the last bits of each thread
-        accum.forEach([&] (std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
+        accum.forEach([&] (std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
                       {
                           output->recordRows(*rows);
                       });

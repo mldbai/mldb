@@ -360,7 +360,7 @@ initRoutes(RouteManager & manager)
                  "Record the given row into the dataset",
                  &Dataset::recordRow,
                  getDataset,
-                 JsonParam<RowName>("rowName", "Name of the row to record"),
+                 JsonParam<RowPath>("rowName", "Name of the row to record"),
                  JsonParam<std::vector<std::tuple<ColumnName, CellValue, Date> > >
                  ("columns", "[ column name, value, date ] tuples to record"));
 
@@ -368,7 +368,7 @@ initRoutes(RouteManager & manager)
                  "Record many rows into the dataset",
                  &Dataset::recordRows,
                  getDataset,
-                 JsonParam<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >
+                 JsonParam<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >
                  ("", "[ [ row name, [ [ column name, value, timestamp ], ... ] ], ...] tuples to record"));
 
     auto & row JML_UNUSED
@@ -384,14 +384,14 @@ initRoutes(RouteManager & manager)
                  &Dataset::recordColumn,
                  getDataset,
                  JsonParam<ColumnName>("columnName", "Name of the column to record"),
-                 JsonParam<std::vector<std::tuple<RowName, CellValue, Date> > >
+                 JsonParam<std::vector<std::tuple<RowPath, CellValue, Date> > >
                  ("rows", "[ row name, value, date ] tuples to record"));
 
     addRouteSync(*manager.valueNode, "/multicolumns", { "POST" },
                  "Record many columns into the dataset",
                  &Dataset::recordColumns,
                  getDataset,
-                 JsonParam<std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > >
+                 JsonParam<std::vector<std::pair<ColumnName, std::vector<std::tuple<RowPath, CellValue, Date> > > > >
                  ("", "[ [ col name, [ [ row name, value, timestamp ], ... ] ], ...] tuples to record"));
 
 

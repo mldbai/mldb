@@ -1475,7 +1475,7 @@ struct GenerateRowsWhereFunction {
 
     };
 
-    typedef std::function<std::pair<std::vector<RowName>, Any>
+    typedef std::function<std::pair<std::vector<RowPath>, Any>
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
 
@@ -1491,7 +1491,7 @@ struct GenerateRowsWhereFunction {
     {
     }
 
-    std::pair<std::vector<RowName>, Any>
+    std::pair<std::vector<RowPath>, Any>
     operator () (ssize_t numToGenerate, Any token,
                  const BoundParameters & params = BoundParameters()) const
     {

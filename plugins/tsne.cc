@@ -257,7 +257,7 @@ run(const ProcedureRunConfig & run,
                                         runProcConf.numInputDimensions,
                                         onProgress2);
 
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+    std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;

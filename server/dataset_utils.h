@@ -25,15 +25,15 @@ struct MergedMatrixView : public MatrixView
 {
     MergedMatrixView(std::vector< std::shared_ptr<MatrixView> > views);
 
-    std::vector<RowName>
+    std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const;
 
     std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const;
 
     size_t getRowCount() const;
-    bool knownRow(const RowName & row) const;
-    MatrixNamedRow getRow(const RowName & row) const;
+    bool knownRow(const RowPath & row) const;
+    MatrixNamedRow getRow(const RowPath & row) const;
 
     bool knownColumn(const ColumnName & column) const;
     std::vector<ColumnName> getColumnNames() const;

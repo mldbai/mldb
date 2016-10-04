@@ -47,7 +47,7 @@ struct MergedDataset: public Dataset {
     virtual ~MergedDataset();
 
     virtual Any getStatus() const;
-    virtual void recordRowItl(const RowName & rowName,
+    virtual void recordRowItl(const RowPath & rowName,
           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
         throw ML::Exception("Dataset type doesn't allow recording");

@@ -123,15 +123,15 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             return true;
         }
 
-        virtual const RowName & rowName(RowName & storage) const override
+        virtual const RowPath & rowName(RowPath & storage) const override
         {
             return chunkiter->getRowName(rowIndex, storage);
         }
 
-        virtual RowName next() override
+        virtual RowPath next() override
         {
-            RowName storage;
-            const RowName & row = rowName(storage);
+            RowPath storage;
+            const RowPath & row = rowName(storage);
             advance();
             if (&storage == &row)
                 return storage;
@@ -540,10 +540,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    virtual std::vector<RowName>
+    virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const override
     {
-        return getRowNamesT<RowName>(start, limit);
+        return getRowNamesT<RowPath>(start, limit);
     }
 
     virtual std::vector<RowHash>
@@ -552,7 +552,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return getRowNamesT<RowHash>(start, limit);
     }
 
-    std::pair<int, int> tryLookupRow(const RowName & rowName) const
+    std::pair<int, int> tryLookupRow(const RowPath & rowName) const
     {
         int shard = getRowShard(rowName);
         auto it = rowIndex[shard].find(rowName);
@@ -561,7 +561,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return it->second;
     }
     
-    std::pair<int, int> lookupRow(const RowName & rowName) const
+    std::pair<int, int> lookupRow(const RowPath & rowName) const
     {
         auto result = tryLookupRow(rowName);
         if (result.first == -1)
@@ -572,7 +572,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const override
+    virtual bool knownRow(const RowPath & rowName) const override
     {
         int chunkIndex;
         int rowIndex;
@@ -581,7 +581,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return chunkIndex >= 0;
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const override
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const override
     {
         MatrixNamedRow result;
         result.rowHash = rowName;
@@ -603,7 +603,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    virtual ExpressionValue getRowExpr(const RowName & rowName) const
+    virtual ExpressionValue getRowExpr(const RowPath & rowName) const
     {
         RowHash rowHash(rowName);
         int shard = getRowShard(rowHash);
@@ -619,7 +619,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             .getRowExpr(it->second.second, fixedColumns);
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const override
+    virtual RowPath getRowName(const RowHash & rowHash) const override
     {
         int shard = getRowShard(rowHash);
         auto it = rowIndex[shard].find(rowHash);
@@ -762,8 +762,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 
                 // First, extract and sort them
                 for (unsigned j = 0;  j < chunks[chunkNum].rowCount();  ++j) {
-                    RowName rowNameStorage;
-                    const RowName & rowName
+                    RowPath rowNameStorage;
+                    const RowPath & rowName
                         = chunks[chunkNum].getRowName(j, rowNameStorage);
                     RowHash rowHash = rowName;
                     
@@ -799,7 +799,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         //cerr << "rowIndex capacity is " << rowIndex.capacity() << endl;
         for (unsigned i = 0;  i < chunks.size();  ++i) {
             for (unsigned j = 0;  j < chunks[i].rowCount();  ++j) {
-                RowName rowNameStorage;
+                RowPath rowNameStorage;
                 if (!rowIndex.insert({ chunks[i].getRowName(j, rowNameStorage),
                                 { i, j } }).second)
                     throw HttpReturnException
@@ -838,7 +838,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         TabularDataStore * store;
 
         virtual void
-        recordRowExpr(const RowName & rowName,
+        recordRowExpr(const RowPath & rowName,
                       const ExpressionValue & expr) override
         {
             RowValue row;
@@ -847,7 +847,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual void
-        recordRowExprDestructive(RowName rowName,
+        recordRowExprDestructive(RowPath rowName,
                                  ExpressionValue expr) override
         {
             RowValue row;
@@ -857,35 +857,35 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual void
-        recordRow(const RowName & rowName,
+        recordRow(const RowPath & rowName,
                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
         {
             store->recordRow(rowName, vals);
         }
 
         virtual void
-        recordRowDestructive(RowName rowName,
+        recordRowDestructive(RowPath rowName,
                              std::vector<std::tuple<ColumnName, CellValue, Date> > vals) override
         {
             store->recordRow(std::move(rowName), std::move(vals));
         }
 
         virtual void
-        recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+        recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
         {
             for (auto & r: rows)
                 store->recordRow(r.first, r.second);
         }
 
         virtual void
-        recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows) override
+        recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows) override
         {
             for (auto & r: rows)
                 store->recordRow(std::move(r.first), std::move(r.second));
         }
 
         virtual void
-        recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override
+        recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows) override
         {
             for (auto & r: rows) {
                 recordRowExpr(r.first, r.second);
@@ -893,7 +893,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual void
-        recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows) override
+        recordRowsExprDestructive(std::vector<std::pair<RowPath, ExpressionValue > > rows) override
         {
             for (auto & r: rows) {
                 recordRowExprDestructive(std::move(r.first), std::move(r.second));
@@ -925,7 +925,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         std::shared_ptr<MutableTabularDatasetChunk> chunk;
 
         virtual void
-        recordRowExpr(const RowName & rowName,
+        recordRowExpr(const RowPath & rowName,
                       const ExpressionValue & expr) override
         {
             RowValue row;
@@ -934,7 +934,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual void
-        recordRowExprDestructive(RowName rowName,
+        recordRowExprDestructive(RowPath rowName,
                                  ExpressionValue expr) override
         {
             RowValue row;
@@ -944,21 +944,21 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual void
-        recordRow(const RowName & rowName,
+        recordRow(const RowPath & rowName,
                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
         {
             recordRowImpl(rowName, vals);
         }
 
         virtual void
-        recordRowDestructive(RowName rowName,
+        recordRowDestructive(RowPath rowName,
                              std::vector<std::tuple<ColumnName, CellValue, Date> > vals) override
         {
             recordRowImpl(std::move(rowName), std::move(vals));
         }
 
         template<typename Vals>
-        void recordRowImpl(RowName rowName, Vals&& vals)
+        void recordRowImpl(RowPath rowName, Vals&& vals)
         {
             if (!chunk) {
                 {
@@ -995,21 +995,21 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual void
-        recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+        recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
         {
             for (auto & r: rows)
                 recordRow(r.first, r.second);
         }
 
         virtual void
-        recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows) override
+        recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows) override
         {
             for (auto & r: rows)
                 recordRowDestructive(std::move(r.first), std::move(r.second));
         }
 
         virtual void
-        recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override
+        recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows) override
         {
             for (auto & r: rows) {
                 recordRowExpr(r.first, r.second);
@@ -1017,7 +1017,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual void
-        recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows) override
+        recordRowsExprDestructive(std::vector<std::pair<RowPath, ExpressionValue > > rows) override
         {
             for (auto & r: rows) {
                 recordRowExprDestructive(std::move(r.first), std::move(r.second));
@@ -1033,7 +1033,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         virtual
-        std::function<void (RowName rowName,
+        std::function<void (RowPath rowName,
                             Date timestamp,
                             CellValue * vals,
                             size_t numVals,
@@ -1045,7 +1045,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                needing to do any manipulation of column names at all.
             */
 
-            return [=] (RowName rowName, Date timestamp,
+            return [=] (RowPath rowName, Date timestamp,
                         CellValue * vals, size_t numVals,
                         std::vector<std::pair<ColumnName, CellValue> > extra)
                 {
@@ -1281,7 +1281,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     // Vals is std::vector<std::tuple<ColumnName, CellValue, Date> >
     // Same const/non-const as is happening above
     template<typename Vals>
-    void recordRow(RowName rowName,
+    void recordRow(RowPath rowName,
                    Vals&& vals)
     {
         if (rowCount > 0)
@@ -1390,7 +1390,7 @@ getRowStream() const
 
 ExpressionValue
 TabularDataset::
-getRowExpr(const RowName & row) const
+getRowExpr(const RowPath & row) const
 {
     return itl->getRowExpr(row);
 }
@@ -1441,7 +1441,7 @@ getChunkRecorder()
 
 void
 TabularDataset::
-recordRowItl(const RowName & rowName,
+recordRowItl(const RowPath & rowName,
              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     validateNames(rowName, vals);
@@ -1450,7 +1450,7 @@ recordRowItl(const RowName & rowName,
 
 void
 TabularDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
 {
     for (auto & r: rows)
         itl->recordRow(r.first, r.second);

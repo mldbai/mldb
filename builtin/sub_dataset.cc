@@ -86,7 +86,7 @@ struct SubDataset::Itl
         for (size_t i = 0;  i < subOutput.size();  ++i) {
             const NamedRowValue & row = subOutput[i];
 
-            ExcAssert(row.rowName != RowName());
+            ExcAssert(row.rowName != RowPath());
 
             rowIndex[row.rowName] = i;
 
@@ -150,11 +150,11 @@ struct SubDataset::Itl
             iter = source->subOutput.begin() + start;
         }
 
-        virtual RowName next() {
+        virtual RowPath next() {
             return (iter++)->rowName;
         }
 
-        virtual const RowName & rowName(RowName & storage) const
+        virtual const RowPath & rowName(RowPath & storage) const
         {
             return iter->rowName;
         }
@@ -164,10 +164,10 @@ struct SubDataset::Itl
     };
 
 
-    virtual std::vector<RowName>
+    virtual std::vector<RowPath>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {    
-        std::vector<RowName> result;
+        std::vector<RowPath> result;
         
         for (size_t index = start;
              index < subOutput.size() && (limit == -1 || index < start + limit);
@@ -192,12 +192,12 @@ struct SubDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         return rowIndex.count(rowName);
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end()) {
@@ -207,7 +207,7 @@ struct SubDataset::Itl
         return subOutput[it->second].flatten();
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowName(const RowHash & rowHash) const
     {
         auto it = rowIndex.find(rowHash);
         if (it == rowIndex.end()) {
@@ -277,11 +277,11 @@ struct SubDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual std::vector<std::tuple<RowName, CellValue> >
+    virtual std::vector<std::tuple<RowPath, CellValue> >
     getColumnValues(const ColumnName & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
-        std::vector<std::tuple<RowName, CellValue> > result; 
+        std::vector<std::tuple<RowPath, CellValue> > result; 
 
         for (const auto& row : subOutput)
         {

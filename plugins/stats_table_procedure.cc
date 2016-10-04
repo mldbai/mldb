@@ -748,7 +748,7 @@ run(const ProcedureRunConfig & run,
 
         auto onBucketChunk = [&] (size_t i0, size_t i1)
         {
-            std::vector<std::pair<RowName, Columns>> rows;
+            std::vector<std::pair<RowPath, Columns>> rows;
             rows.reserve((i1 - i0)*load_factor);
             // for each bucket of the unordered_map in our chunk
             for (size_t i = i0; i < i1; ++i) {
