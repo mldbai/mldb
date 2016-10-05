@@ -12,13 +12,17 @@
 #include <memory>
 #include <vector>
 
-namespace Datacratic {
+
 namespace MLDB {
 
+// Empty string to avoid construction of temporary object
+extern const Utf8String NO_FUNCTION_NAME;
+
 inline void checkArgsSize(size_t number, size_t expected,
-                          std::string fctName="")
+                          const Utf8String & fctName_=NO_FUNCTION_NAME)
 {
     if (number != expected) {
+        auto fctName = fctName_;
         if (!fctName.empty()) {
             fctName = "function " + fctName + " ";
         }
@@ -26,6 +30,26 @@ inline void checkArgsSize(size_t number, size_t expected,
             throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " arguments, got " + to_string(number));
         else
             throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " argument, got " + to_string(number));
+    }
+}
+
+inline void checkArgsSize(size_t number, size_t minArgs, size_t maxArgs,
+                          const Utf8String & fctName_=NO_FUNCTION_NAME)
+{
+    if (minArgs == maxArgs) {
+        checkArgsSize(number, minArgs, fctName_);
+        return;
+    }
+    if (number < minArgs || number > maxArgs) {
+        auto fctName = fctName_;
+        if (!fctName.empty()) {
+            fctName = "function " + fctName + " ";
+        }
+        throw HttpReturnException
+            (400, fctName + "expected between "
+             + std::to_string(minArgs) + " and "
+             + std::to_string(maxArgs) + " arguments, got "
+             + std::to_string(number));
     }
 }
 
@@ -89,7 +113,7 @@ struct RegisterBuiltin {
             -> BoundFunction
             {
                 try {
-                    BoundFunction result = std::move(function(args));
+                    BoundFunction result = function(args);
                     auto fn = result.exec;
                     result.exec = [=] (const std::vector<ExpressionValue> & args,
                                        const SqlRowScope & scope)
@@ -120,6 +144,38 @@ struct RegisterBuiltin {
     std::vector<std::shared_ptr<void> > handles;
 };
 
+
+/*****************************************************************************/
+/* SQL BUILTIN                                                               */
+/*****************************************************************************/
+
+/** Allows a builtin function to be defined in SQL.
+
+    Example:
+
+    DEF_SQL_BUILTIN(sincos, 2, "[sin($1), cos($1)]");
+
+    This will add a builtin function called sincos that is essentially a
+    macro for the given implementation.
+*/
+
+struct SqlBuiltin {
+    SqlBuiltin(const std::string & name,
+               const Utf8String & expr,
+               size_t arity);
+
+    BoundFunction bind(const std::vector<BoundSqlExpression> & args,
+                       SqlBindingScope & scope) const;
+
+    Utf8String functionName;
+    size_t arity;
+    std::shared_ptr<SqlExpression> parsed;
+    std::shared_ptr<void> handle;
+};
+
+#define DEF_SQL_BUILTIN(op, arity, expr) \
+    static MLDB::Builtins::SqlBuiltin register_##op(#op, expr, arity);
+
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

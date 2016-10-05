@@ -8,7 +8,7 @@ import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb256Test(MldbUnitTest):  
+class Mldb256Test(MldbUnitTest):
 
     @classmethod
     def setUpClass(self):
@@ -97,7 +97,7 @@ class Mldb256Test(MldbUnitTest):
                 }
             })
 
-    
+
     def test_bool_cls_works(self):
         rez = mldb.put("/v1/procedures/bool_cls", {
             "type": "classifier.experiment",
@@ -184,13 +184,13 @@ class Mldb256Test(MldbUnitTest):
         jsRez = rez.json()
         self.assertGreater(jsRez["status"]["folds"][0]["resultsTest"]["auc"], 0.65)
 
-        bestF = jsRez["status"]["folds"][0]["resultsTest"]["bestF"]
+        bestF = jsRez["status"]["folds"][0]["resultsTest"]["bestF1Score"]
         accuracy = (bestF["counts"]["truePositives"] + bestF["counts"]["trueNegatives"]) / \
                         (bestF["population"]["included"] + bestF["population"]["excluded"])
         self.assertEqual(bestF["pr"]["accuracy"], accuracy)
 
-
     def test_toy_categorical_eval_works(self):
+        # note that there is a very similar test in test_classifier_test.py
 
         # TODO test case selecting columns using number
         #mldb.log(mldb.query("SELECT {* EXCLUDING(label)} as score, label as label from toy_categorical"))
@@ -200,7 +200,7 @@ class Mldb256Test(MldbUnitTest):
             "params": {
                 "mode": "categorical",
                 "testingData": """
-                    SELECT {* EXCLUDING(label)} as score, 
+                    SELECT {* EXCLUDING(label)} as score,
                            label as label
                     FROM toy_categorical
                 """,
@@ -212,22 +212,22 @@ class Mldb256Test(MldbUnitTest):
         mldb.log(rez.json())
 
         goodLabelStatistics = {
+                    "0": {
+                        "f1Score": 0.8,
+                        "recall": 1.0,
+                        "support": 2,
+                        "precision": 2./3,
+                        "accuracy": 0.8
+                    },
                     "1": {
-                        "f": 0.0,
+                        "f1Score": 0.0,
                         "recall": 0.0,
                         "support": 1,
                         "precision": 0.0,
-                        "accuracy": 0.0
-                    },
-                    "0": {
-                        "f": 0.8000000143051146,
-                        "recall": 1.0,
-                        "support": 2,
-                        "precision": 0.6666666865348816,
-                        "accuracy": 1.0
+                        "accuracy": 0.8
                     },
                     "2": {
-                        "f": 1.0,
+                        "f1Score": 1.0,
                         "recall": 1.0,
                         "support": 2,
                         "precision": 1.0,
@@ -245,7 +245,7 @@ class Mldb256Test(MldbUnitTest):
         total_support = 0
         total_precision = 0
         for val in goodLabelStatistics.itervalues():
-            total_f1 += val["f"] * val["support"]
+            total_f1 += val["f1Score"] * val["support"]
             total_accuracy += val["accuracy"] * val["support"]
             total_recall += val["recall"] * val["support"]
             total_precision += val["precision"] * val["support"]
@@ -253,7 +253,7 @@ class Mldb256Test(MldbUnitTest):
 
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["weightedStatistics"],
                 {
-                    "f": total_f1 / total_support,
+                    "f1Score": total_f1 / total_support,
                     "recall": total_recall / total_support,
                     "accuracy": total_accuracy / total_support,
                     "support": total_support,
@@ -332,7 +332,7 @@ class Mldb256Test(MldbUnitTest):
 
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["mse"], 0.375)
 
-        quart_rez = mldb.query("""select abs((label-score)/label) as prnct_error, label, score 
+        quart_rez = mldb.query("""select abs((label-score)/label) as prnct_error, label, score
                                   from toy_regression order by prnct_error ASC""")
         mldb.log("------------------------ here")
         mldb.log(quart_rez)

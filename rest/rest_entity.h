@@ -16,7 +16,7 @@
 #include <map>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Event that happens to a collection. */
 enum CollectionEvent {
@@ -618,4 +618,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

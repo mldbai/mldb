@@ -16,7 +16,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /// Frozen column that finds each value in a lookup table
@@ -545,5 +545,5 @@ freeze(TabularDatasetColumn & column)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

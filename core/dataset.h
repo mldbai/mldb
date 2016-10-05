@@ -22,7 +22,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct MldbServer;
@@ -533,6 +533,18 @@ struct Dataset: public MldbEntity {
                     ssize_t limit,
                     Utf8String alias = "") const;
 
+    std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+    queryStructuredExpr(const SelectExpression & select,
+                    const WhenExpression & when,
+                    const SqlExpression & where,
+                    const OrderByExpression & orderBy,
+                    const TupleExpression & groupBy,
+                    const std::shared_ptr<SqlExpression> having,
+                    const std::shared_ptr<SqlExpression> rowName,
+                    ssize_t offset,
+                    ssize_t limit,
+                    Utf8String alias = "") const;
+
     /** Select from the database. */
     virtual bool
     queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
@@ -561,6 +573,21 @@ struct Dataset: public MldbEntity {
     */
     virtual std::vector<ColumnName>
     getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
+
+    /** Return a list of flattened column names in the dataset
+    */
+    virtual std::vector<ColumnName> 
+    getFlattenedColumnNames() const;
+
+    /** Return the number of distinct flattened known columns
+        Defaults to getColumnCount (in matrix interface)
+    */
+    virtual size_t getFlattenedColumnCount() const;
+
+    /** Return whether or not all columns names and info are known.
+        Defaults to true
+    */
+    virtual bool hasColumnNames() const { return true; }
 
     /** Allow the dataset to intercept the binding of a function.  This allows
         it to use a locally defined or optimized version.  Should return a null
@@ -680,6 +707,8 @@ struct Dataset: public MldbEntity {
        This will return the name that the row has in the table with this alias*/
     virtual RowName getOriginalRowName(const Utf8String& tableName,
                                        const RowName & name) const;
+
+    virtual uint64_t getRowCount() const;
 };
 
 
@@ -773,4 +802,4 @@ struct RegisterDatasetType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

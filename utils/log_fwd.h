@@ -18,8 +18,6 @@ namespace spdlog {
     }
 }
 
-namespace Datacratic {
-
 namespace MLDB {
 
 std::shared_ptr<spdlog::logger> getQueryLog();
@@ -51,17 +49,15 @@ struct LogDummy {
 };
 
 #define DEBUG_MSG(logger)                                               \
-    !logger->should_log(spdlog::level::debug) ? (void) 0 : Datacratic::MLDB::LogDummy() & logger->debug()
+    !logger->should_log(spdlog::level::debug) ? (void) 0 : MLDB::LogDummy() & logger->debug()
 
 #define INFO_MSG(logger)                                                \
-    !logger->should_log(spdlog::level::info) ? (void) 0 : Datacratic::MLDB::LogDummy() & logger->info()
+    !logger->should_log(spdlog::level::info) ? (void) 0 : MLDB::LogDummy() & logger->info()
 
 #define WARNING_MSG(logger)                                             \
-    !logger->should_log(spdlog::level::warn) ? (void) 0 :  Datacratic::MLDB::LLogDummy() & logger->warning()
+    !logger->should_log(spdlog::level::warn) ? (void) 0 : MLDB::LogDummy() & logger->warn()
 
 #define ERROR_MSG(logger)                                               \
-    !logger->should_log(spdlog::level::error) ? (void) 0 :  Datacratic::MLDB::LLogDummy() & logger->error()
+    !logger->should_log(spdlog::level::err) ? (void) 0 :  MLDB::LogDummy() & logger->error()
 
 } // MLDB
-
-} // Datacratic

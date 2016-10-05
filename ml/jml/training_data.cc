@@ -165,7 +165,7 @@ Training_Data::all_features() const
 
 void Training_Data::dump(const std::string & filename) const
 {
-    Datacratic::filter_ostream stream(filename);
+    MLDB::filter_ostream stream(filename);
     dump(stream);
 }
 

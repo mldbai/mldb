@@ -26,7 +26,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -135,7 +135,7 @@ struct JsonScope : SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep) override
+                    const ColumnFilter& keep) override
     {
         std::vector<KnownColumn> columnsWithInfo;
 
@@ -298,7 +298,6 @@ struct JSONImporter: public Procedure {
         bool useNamed = config.named != SqlExpression::TRUE;
 
         JsonScope jsonScope(server);
-        ExpressionValue storage;
         const auto whereBound = config.where->bind(jsonScope);
         const auto selectBound = config.select.bind(jsonScope);
         const auto namedBound = config.named->bind(jsonScope);
@@ -342,6 +341,7 @@ struct JSONImporter: public Procedure {
             RowName rowName(actualLineNum);
             if (useWhere || useSelect || useNamed) {
                 JsonRowScope row(expr, actualLineNum);
+                ExpressionValue storage;
                 if (useWhere) {
                     if (!whereBound(row, storage, GET_ALL).isTrue()) {
                         return true;
@@ -403,4 +403,4 @@ regJSON(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -7,14 +7,12 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Int, int Domain> struct IntWrapper;
 template<int Domain> struct HashWrapper;
 
 struct Id;
-
-namespace MLDB {
 
 struct MldbServer;
 
@@ -37,4 +35,4 @@ struct Dataset;
 struct KnownColumn;
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -28,7 +28,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 using namespace ML;
 
 using boost::unit_test_framework::test_suite;
@@ -55,7 +55,7 @@ struct Obj {
         magic = GOOD;
     }
 
-   ~Obj()
+    ~Obj() noexcept(false)
     {
         //cerr << "destroying at " << this << endl;
         ++destroyed;

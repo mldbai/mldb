@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TokenSplitConfig);
@@ -75,7 +75,7 @@ TokenSplit(MldbServer * owner,
             for (auto & c: row.columns) {
                 const CellValue & cellValue = std::get<1>(c);
                 
-                dictionary.emplace_back(std::move(cellValue.toUtf8String()));
+                dictionary.emplace_back(cellValue.toUtf8String());
             }
             
             return true;
@@ -290,4 +290,4 @@ regSvdEmbedRow(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

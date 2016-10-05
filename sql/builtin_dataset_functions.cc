@@ -8,7 +8,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 typedef std::function<BoundTableExpression (const std::vector<BoundTableExpression> &) > BoundDatasetFunction;
@@ -55,7 +55,7 @@ struct RegisterBuiltin {
             -> BoundTableExpression
             {
                 try {
-                    return std::move(function(context, args, options, alias));
+                    return function(context, args, options, alias);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin Dataset function "
                                          + str + ": " + ML::getExceptionString(),
@@ -165,4 +165,4 @@ static RegisterBuiltin registerSample(sample, "sample");
 
 }
 }
-}
+

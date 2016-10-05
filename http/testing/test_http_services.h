@@ -9,7 +9,7 @@
 #include "mldb/http/http_socket_handler.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct HttpHeader;
 struct TestHttpSocketHandler;
@@ -80,4 +80,4 @@ struct TestHttpUploadService : public TestHttpService
                            const std::string & payload);
 };
 
-} // namespace Datacratic
+} // namespace MLDB

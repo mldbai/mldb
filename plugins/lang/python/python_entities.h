@@ -17,9 +17,9 @@
 
 
 using namespace std;
-using namespace Datacratic::Python;
+using namespace MLDB::Python;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -104,4 +104,4 @@ struct PythonFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

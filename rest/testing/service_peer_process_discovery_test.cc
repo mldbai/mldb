@@ -9,7 +9,7 @@
 #include "temporary_etcd_server.h"
 #include "mldb/rest/service_peer.h"
 #include "mldb/rest/etcd_client.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/rest/rest_request_router.h"
 #include <boost/algorithm/string.hpp>
@@ -25,7 +25,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE(test_separate_process_discovery)

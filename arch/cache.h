@@ -7,35 +7,20 @@
    Cache control functions.
 */
 
-#ifndef __jml__arch__cache_h__
-#define __jml__arch__cache_h__
+#pragma once
 
+#include "arch.h"
+
+#if JML_INTEL_ISA
 #include "sse2.h"
+#endif
 #include "mldb/compiler/compiler.h"
 
 namespace ML {
 
 static const size_t l1_cache_size = 32 * 1024;
 
-
-inline void warmup_cache_all_levels(const float * mem, size_t n)
-{
-    // TODO: assumes 64 byte cache lines
-    // TODO: prefetch?
-    float total JML_UNUSED = 0.0;
-    for (unsigned i = 0;  i < n;  i += 16)
-        total += mem[n];
-}
-
-inline void warmup_cache_all_levels(const double * mem, size_t n)
-{
-    // TODO: assumes 64 byte cache lines
-    // TODO: prefetch?
-    double total JML_UNUSED = 0.0;
-    for (unsigned i = 0;  i < n;  i += 8)
-        total += mem[n];
-}
-
+#if JML_INTEL_ISA
 inline void store_non_temporal(float & addr, float val)
 {
     // TODO: use intel compiler intrinsics?
@@ -51,6 +36,17 @@ inline void store_non_temporal(double & addr, double val)
              : [mem] "=m" (addr)
              : [val] "r" (val));
 }
+#else // JML_INTEL_ISA
+inline void store_non_temporal(float & addr, float val)
+{
+    addr = val;
+}
+
+inline void store_non_temporal(double & addr, double val)
+{
+    addr = val;
+}
+#endif // JML_INTEL_ISA
 
 inline bool aligned(void * ptr, int bits)
 {
@@ -63,7 +59,7 @@ inline void streaming_copy_from_strided(float * output, const float * input,
 {
     unsigned i = 0;
 
-#if 1
+#if JML_INTEL_ISA
     for (; i < n && !aligned(output + i, 4);  ++i)
         store_non_temporal(*(output + i), input[i * stride]);
 
@@ -82,7 +78,7 @@ inline void streaming_copy_from_strided(float * output, const float * input,
 
         __builtin_ia32_movntps(output + i, v);
     }
-#endif
+#endif // JML_INTEL_ISA
     
 
     for (; i < n;  ++i)
@@ -94,7 +90,7 @@ inline void streaming_copy_from_strided(double * output, const double * input,
 {
     unsigned i = 0;
 
-#if 1
+#if JML_INTEL_ISA
     for (; i < n && !aligned(output + i, 4);  ++i)
         store_non_temporal(*(output + i), input[i * stride]);
     
@@ -105,13 +101,10 @@ inline void streaming_copy_from_strided(double * output, const double * input,
 
         __builtin_ia32_movntpd(output + i, v);
     }
-#endif
+#endif // JML_INTEL_ISA
     
-
     for (; i < n;  ++i)
         store_non_temporal(*(output + i), input[i * stride]);
 }
 
 } // namespace ML
-
-#endif /* __jml__arch__cache_h__ */

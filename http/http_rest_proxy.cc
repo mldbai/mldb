@@ -23,7 +23,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 static inline std::string lowercase(const std::string & str)
 {
@@ -204,7 +204,7 @@ struct HttpRestProxy::Itl {
             // Set proxy to this, so when it's destroyed it's put on our list
             ExcAssert(res.proxy == nullptr);
             res.proxy = owner;
-            return std::move(res);
+            return res;
         }
     }
     
@@ -477,4 +477,4 @@ operator << (std::ostream & stream, const HttpRestProxy::Response & response)
     return stream << response.header() << "\n" << response.body() << "\n";
 }
 
-} // namespace Datacratic
+} // namespace MLDB

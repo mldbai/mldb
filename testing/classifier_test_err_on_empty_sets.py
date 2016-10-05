@@ -28,7 +28,6 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
                         "regularization": 'l2'
                     }
                 },

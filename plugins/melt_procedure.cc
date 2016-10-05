@@ -23,7 +23,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /**
@@ -36,7 +36,7 @@ struct MeltFixSelect
     {
         if (!containsNamedSubSelect(query, "to_melt") ||
             !containsNamedSubSelect(query, "to_fix") )
-            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fixed'", name.c_str());
+            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fix'", name.c_str());
     }
 };
 
@@ -54,7 +54,7 @@ MeltProcedureConfigDescription()
     addField("inputData", &MeltProcedureConfig::inputData,
              "Specification of the data for input to the melt procedure. "
              "The select expression must contain these two sub-expressions: one row expression "
-             "called `to_fixed` to identify the columns to keep fixed and another row expression "
+             "called `to_fix` to identify the columns to keep fixed and another row expression "
              "called `to_melt` to identify the columns to melt.");
     addField("outputDataset", &MeltProcedureConfig::outputDataset,
              "Configuration for output dataset",
@@ -209,4 +209,4 @@ regMelt(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

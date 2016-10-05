@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -157,4 +157,4 @@ regScriptFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

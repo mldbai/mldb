@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -47,48 +47,56 @@ SubDatasetConfigDescription()
 struct SubDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    std::vector<MatrixNamedRow> subOutput;
-    std::vector<ColumnName> columnNames;
+    std::vector<NamedRowValue> subOutput;
+    std::vector<PathElement> columnNames;
+    std::vector<ColumnName> fullFlattenedColumnNames;
     ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date earliest, latest;
+    std::shared_ptr<ExpressionValueInfo> columnInfo;
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
         SqlExpressionMldbScope mldbContext(owner);
 
-        std::vector<MatrixNamedRow> rows
-            = queryFromStatement(statement, mldbContext);
+        std::vector<NamedRowValue> rows;
+        auto pair = queryFromStatementExpr(statement, mldbContext);
 
-        init(std::move(rows));
+        columnInfo = std::move(std::get<1>(pair));
+
+        init(std::move(std::get<0>(pair)));
     }
 
-    Itl(std::vector<MatrixNamedRow> rows)
+    Itl(std::vector<NamedRowValue> rows)
     {
         init(std::move(rows));
     }
 
-    void init(std::vector<MatrixNamedRow> rows)
+    void init(std::vector<NamedRowValue> rows)
     {
         this->subOutput = std::move(rows);
 
         earliest = latest = Date::notADate();
 
-        std::unordered_set<ColumnName> columnNameSet;
+        std::unordered_set<PathElement> columnNameSet;
+        std::unordered_set<ColumnName> fullflattenColumnNameSet;
         bool first = true;
 
         // Scan all rows for the columns that are there
         
         for (size_t i = 0;  i < subOutput.size();  ++i) {
-            const MatrixNamedRow & row = subOutput[i];
+            const NamedRowValue & row = subOutput[i];
+
+            ExcAssert(row.rowName != RowName());
 
             rowIndex[row.rowName] = i;
 
             for (auto& c : row.columns)
             {
-                const ColumnName & cName = std::get<0>(c);
-                const Date & ts = std::get<2>(c);
+                const PathElement & cName = std::get<0>(c);               
 
                 columnNameSet.insert(cName);
+
+                Date ts = std::get<1>(c).getEffectiveTimestamp();
                 
                 if (ts.isADate()) {
                     if (first) {
@@ -100,6 +108,17 @@ struct SubDataset::Itl
                         latest.setMax(ts);
                     }
                 }
+
+                auto getName = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts) -> bool
+                {
+                    fullflattenColumnNameSet.insert(prefix + columnName);
+                    return true;
+                };
+
+                std::get<1>(c).forEachAtom(getName, cName);
             }
         }
 
@@ -107,6 +126,10 @@ struct SubDataset::Itl
         columnNames.insert(columnNames.end(),
                            columnNameSet.begin(), columnNameSet.end());
         std::sort(columnNames.begin(), columnNames.end());
+
+        fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
+                           fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
+        std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end());
     }
 
     ~Itl() { }
@@ -136,7 +159,7 @@ struct SubDataset::Itl
             return iter->rowName;
         }
 
-        std::vector<MatrixNamedRow>::const_iterator iter;
+        std::vector<NamedRowValue>::const_iterator iter;
         SubDataset::Itl* source;
     };
 
@@ -181,7 +204,7 @@ struct SubDataset::Itl
             throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in sub-table dataset");
         }
 
-        return subOutput[it->second];
+        return subOutput[it->second].flatten();
     }
 
     virtual RowName getRowName(const RowHash & rowHash) const
@@ -196,14 +219,17 @@ struct SubDataset::Itl
 
     virtual bool knownColumn(const ColumnName & column) const
     {
-        return std::find(columnNames.begin(), columnNames.end(), column) != columnNames.end();
+        if (column.size() == 1)
+            return std::find(columnNames.begin(), columnNames.end(), column[0]) != columnNames.end();
+        else
+            return std::find(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end(), column) != fullFlattenedColumnNames.end();
     }
 
     virtual ColumnName getColumnName(ColumnHash columnHash) const
     {        
-        for (auto& c : columnNames)
+        for (const auto& c : columnNames)
         {
-            if (ColumnHash(c) == columnHash)
+            if (ColumnHash(ColumnName(c)) == columnHash)
             {
                 return c;
             }
@@ -215,8 +241,15 @@ struct SubDataset::Itl
     /** Return a list of all columns. */
     virtual std::vector<ColumnName> getColumnNames() const
     {
-        return columnNames;
-    }   
+        std::vector<ColumnName> fullColumnNames;
+        fullColumnNames.reserve(columnNames.size());
+        for (const auto& c : columnNames)
+        {
+            fullColumnNames.push_back(ColumnName(c));
+        }
+
+        return fullColumnNames;
+    }
 
     /** Return the value of the column for all rows and timestamps. */
     virtual MatrixColumn getColumn(const ColumnName & columnName) const
@@ -225,9 +258,11 @@ struct SubDataset::Itl
         output.columnHash = columnName;
         output.columnName = columnName;
 
-        for (auto row : subOutput)
+        for (const auto& row : subOutput)
         {            
-            for (auto c : row.columns)
+            auto flattened = row.flatten();
+
+            for (const auto& c : flattened.columns)
             {
                 const ColumnName & cName = std::get<0>(c);
 
@@ -248,9 +283,11 @@ struct SubDataset::Itl
     {
         std::vector<std::tuple<RowName, CellValue> > result; 
 
-        for (auto row : subOutput)
+        for (const auto& row : subOutput)
         {
-            for (auto c : row.columns)
+            auto flattened = row.flatten();
+
+            for (const auto& c : flattened.columns)
             {
                 const ColumnName & cName = std::get<0>(c);
 
@@ -310,7 +347,7 @@ SubDataset(MldbServer * owner, SubDatasetConfig config)
 }
 
 SubDataset::
-SubDataset(MldbServer * owner, std::vector<MatrixNamedRow> rows)
+SubDataset(MldbServer * owner, std::vector<NamedRowValue> rows)
     : Dataset(owner)
 {
     itl.reset(new Itl(std::move(rows)));
@@ -357,6 +394,33 @@ getRowStream() const
     return make_shared<SubDataset::Itl::SubRowStream>(itl.get());
 }
 
+KnownColumn
+SubDataset::
+getKnownColumnInfo(const ColumnName & columnName) const
+{
+    if (itl->columnInfo) {
+        std::shared_ptr<ExpressionValueInfo> columnInfo = itl->columnInfo->findNestedColumn(columnName);
+        if (columnInfo)
+            return KnownColumn(columnName, columnInfo, COLUMN_IS_SPARSE);
+    }
+
+    return Dataset::getKnownColumnInfo(columnName);
+}
+
+std::vector<ColumnName> 
+SubDataset::
+getFlattenedColumnNames() const
+{
+    return itl->fullFlattenedColumnNames;
+}
+
+size_t 
+SubDataset::
+getFlattenedColumnCount() const
+{
+    return itl->fullFlattenedColumnNames.size();
+}
+
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
        "sub",
@@ -374,7 +438,7 @@ std::shared_ptr<Dataset> createSubDataset(MldbServer * server, const SubDatasetC
 
 std::vector<NamedRowValue>
 querySubDataset(MldbServer * server,
-                std::vector<MatrixNamedRow> rows,
+                std::vector<NamedRowValue> rows,
                 const SelectExpression & select,
                 const WhenExpression & when,
                 const SqlExpression & where,
@@ -416,7 +480,7 @@ querySubDataset(MldbServer * server,
 // and allow expression parsing to be in a separate library
 extern std::vector<NamedRowValue>
 (*querySubDatasetFn) (MldbServer * server,
-                      std::vector<MatrixNamedRow> rows,
+                      std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
                       const SqlExpression & where,
@@ -442,4 +506,4 @@ struct AtInit {
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

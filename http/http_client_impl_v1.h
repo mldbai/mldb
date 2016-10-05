@@ -24,7 +24,7 @@
 #include "mldb/http/http_header.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP CLIENT IMPL V1                                                      */
@@ -40,10 +40,10 @@ struct HttpClientImplV1 : public HttpClientImpl {
     virtual bool processOne() override;
 
     /* HttpClientImpl */
-    void enableDebug(bool value);
-    void enableSSLChecks(bool value);
-    void enableTcpNoDelay(bool value);
-    void enablePipelining(bool value);
+    void enableDebug(bool value) override;
+    void enableSSLChecks(bool value) override;
+    void enableTcpNoDelay(bool value) override;
+    void enablePipelining(bool value) override;
 
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
@@ -51,9 +51,9 @@ struct HttpClientImplV1 : public HttpClientImpl {
                         const HttpRequestContent & content,
                         const RestParams & queryParams,
                         const RestParams & headers,
-                        int timeout = -1);
+                        int timeout = -1) override;
 
-    size_t queuedRequests() const;
+    size_t queuedRequests() const override;
 
 private:
     void cleanupFds() noexcept;
@@ -141,4 +141,4 @@ private:
     std::queue<std::shared_ptr<HttpRequest>> queue_; /* queued requests */
 };
 
-} // namespace Datacratic
+} // namespace MLDB

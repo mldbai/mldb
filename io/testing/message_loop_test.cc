@@ -9,13 +9,13 @@
 
 #include <chrono>
 #include <thread>
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #include "mldb/io/typed_message_channel.h"
 #include "mldb/io/message_loop.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* This test ensures that adding sources works correctly when needsPoll is

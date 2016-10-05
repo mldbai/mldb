@@ -11,12 +11,13 @@
 #include "mldb/core/dataset.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -70,7 +71,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ColumnScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException
         (400, "Attempt to bind expression with wildcard in column scope");
@@ -106,7 +107,7 @@ run(const std::vector<BoundSqlExpression> & exprs) const
 
     runIncremental(exprs, onVal);
     
-    return std::move(results);
+    return results;
 }
 
 /// Allow control over whether the given optimization path is run
@@ -204,9 +205,9 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
 
         auto onChunk = [&] (size_t chunkNum)
             {
-                std::unique_ptr<Val[]> ptr(new Val[requiredColumns.size()
-                                                   * ROWS_AT_ONCE]);
-                Val * values = ptr.get();
+                PossiblyDynamicBuffer<Val> valuesHolder(
+                    requiredColumns.size() * ROWS_AT_ONCE);
+                Val * values = valuesHolder.data();
 
                 RowStream & stream = *chunks[chunkNum];
 
@@ -215,8 +216,9 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                     
                 size_t numRows = endOffset - startOffset;
 
-                Val results[exprs.size()];
-                
+                PossiblyDynamicBuffer<Val> resultsHolder(exprs.size());
+                Val * results = resultsHolder.data();
+
                 for (size_t i = 0;  i < numRows;  i += ROWS_AT_ONCE) {
                     size_t startRow = i + startOffset;
                     size_t endRow
@@ -286,7 +288,8 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     // Apply the expression to everything
     auto doRow = [&] (size_t first, size_t last)
         {
-            Val results[exprs.size()];
+            PossiblyDynamicBuffer<Val> resultsHolder(exprs.size());
+            Val * results = resultsHolder.data();
             for (size_t i = first;  i < last
                      && !stop.load(std::memory_order_relaxed);  ++i) {
                 RowScope scope(i, inputs);
@@ -341,4 +344,4 @@ runIncrementalDouble(const std::vector<BoundSqlExpression> & exprs,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

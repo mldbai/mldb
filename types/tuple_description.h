@@ -11,8 +11,9 @@
 
 
 #include "mldb/types/value_description.h"
+#include <type_traits>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TupleElementDescription {
     int offset;
@@ -26,9 +27,9 @@ template<typename Tuple, int n, typename First, typename... Rest>
 struct AddTupleTypes<Tuple, n, First, Rest...> {
     static void go(std::vector<TupleElementDescription> & elements)
     {
-        auto desc = getDefaultDescriptionShared((First *)0);
+        auto desc = getDefaultDescriptionShared((typename std::remove_reference<First>::type *)0);
         Tuple * tpl = 0;
-        void * el = &std::get<n>(*tpl);
+        const void * el = &std::get<n>(*tpl);
         int offset = (size_t)el;
 
         TupleElementDescription elDesc;
@@ -81,7 +82,9 @@ struct TupleDescription
 
     std::vector<TupleElementDescription> elements;
 
-    virtual void parseJsonTyped(std::tuple<T...> * val, JsonParsingContext & context) const
+    virtual void
+    parseJsonTyped(std::tuple<T...> * val,
+                   JsonParsingContext & context) const override
     {
         if (!context.isArray())
             context.exception("expected array for tuple representation");
@@ -104,7 +107,9 @@ struct TupleDescription
         }
     }
 
-    virtual void printJsonTyped(const std::tuple<T...> * val, JsonPrintingContext & context) const
+    virtual void
+    printJsonTyped(const std::tuple<T...> * val,
+                   JsonPrintingContext & context) const override
     {
         context.startArray(sizeof...(T));
 
@@ -117,34 +122,35 @@ struct TupleDescription
         context.endArray();
     }
 
-    virtual bool isDefaultTyped(const std::tuple<T...> * val) const
+    virtual bool isDefaultTyped(const std::tuple<T...> * val) const override
     {
         return false;
     }
 
-    virtual size_t getArrayLength(void * val) const
+    virtual size_t getArrayLength(void * val) const override
     {
         return sizeof...(T);
     }
 
-    virtual void * getArrayElement(void * val, uint32_t element) const
+    virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         return ((char*) val) + elements.at(element).offset;
     }
 
-    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    virtual const
+    void * getArrayElement(const void * val, uint32_t element) const override
     {
         return ((char*) val) + elements.at(element).offset;
         
     }
 
-    virtual size_t getTupleLength() const
+    virtual size_t getTupleLength() const override
     {
         return sizeof...(T);
     }
 
     virtual std::vector<std::shared_ptr<const ValueDescription> >
-    getTupleElementDescriptions() const
+    getTupleElementDescriptions() const override
     {
         std::vector<std::shared_ptr<const ValueDescription> > result;
         for (auto & e: elements)
@@ -153,51 +159,52 @@ struct TupleDescription
     }
 
     virtual const ValueDescription &
-    getArrayElementDescription(const void * val, uint32_t element) const
+    getArrayElementDescription(const void * val,
+                               uint32_t element) const override
     {
         auto res = elements.at(element).desc.get();
         ExcAssert(res);
         return *res;
     }
 
-    virtual void setArrayLength(void * val, size_t newLength) const
+    virtual void setArrayLength(void * val, size_t newLength) const override
     {
         throw ML::Exception("tuple array lengths can't be set");
     }
     
-    virtual const ValueDescription & contained() const
+    virtual const ValueDescription & contained() const override
     {
         throw ML::Exception("tuple does not have a consistent contained type");
     }
 
     virtual void set(void* obj, void* value,
-                     const ValueDescription* valueDesc) const
+                     const ValueDescription* valueDesc) const override
     {
         throw ML::Exception("tuple type set not done");
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         addTupleTypes<T...>(elements);
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<typename... T>
-Datacratic::TupleDescription<T...> *
+MLDB::TupleDescription<T...> *
 getDefaultDescription(std::tuple<T...> * = 0)
 {
-    return new Datacratic::TupleDescription<T...>();
+    return new MLDB::TupleDescription<T...>();
 }
 
 template<typename... T>
-Datacratic::TupleDescription<T...> *
+MLDB::TupleDescription<T...> *
 getDefaultDescriptionUninitialized(std::tuple<T...> * = 0)
 {
-    return new Datacratic::TupleDescription<T...>(Datacratic::constructOnly);
+    return new MLDB::TupleDescription<T...>(MLDB::constructOnly);
 }
 
 }

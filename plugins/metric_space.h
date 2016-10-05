@@ -12,7 +12,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/jml/stats/distribution.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum MetricSpace {
@@ -95,5 +95,5 @@ struct CosineDistanceMetric: public DistanceMetric {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

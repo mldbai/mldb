@@ -1,18 +1,16 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* live_counting_obj.h                                             -*- C++ -*-
    Jeremy Barnes, 10 December 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test object that counts the number that are live.  Used to test that a
    container properly constructs and destroys its contents.
 */
 
-#ifndef __jml__utils_testing__live_counting_obj_h__
-#define __jml__utils_testing__live_counting_obj_h__
+#pragma once
 
 #include "mldb/arch/exception.h"
-#include "mldb/arch/atomic_ops.h"
+#include <atomic>
 
 namespace ML {
 
@@ -26,7 +24,7 @@ struct Obj {
         : val(0)
     {
         //cerr << "default construct at " << this << endl;
-        atomic_add(constructed, 1);
+        constructed += 1;
         magic = GOOD;
     }
 
@@ -34,14 +32,14 @@ struct Obj {
         : val(val)
     {
         //cerr << "value construct at " << this << endl;
-        atomic_add(constructed, 1);
+        constructed += 1;
         magic = GOOD;
     }
 
-   ~Obj()
+    ~Obj() noexcept(false)
     {
         //cerr << "destroying at " << this << endl;
-        atomic_add(destroyed, 1);
+        destroyed += 1;
         if (magic == BAD)
             throw Exception("object destroyed twice");
 
@@ -55,7 +53,7 @@ struct Obj {
         : val(other.val)
     {
         //cerr << "copy construct at " << this << endl;
-        atomic_add(constructed, 1);
+        constructed += 1;
         magic = GOOD;
     }
 
@@ -134,6 +132,3 @@ std::ostream & operator << (std::ostream & stream, const Obj & obj)
 }
 
 } // namespace ML
-
-
-#endif /* __jml__utils_testing__live_counting_obj_h__ */

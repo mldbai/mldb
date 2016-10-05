@@ -7,7 +7,6 @@
 */
 
 #include "string.h"
-#include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include <iostream>
 #include "mldb/arch/exception.h"
@@ -19,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -588,14 +587,14 @@ Utf8String
 Utf8String::
 toLower() const
 {
-    return std::move(boost::locale::to_lower(data_));
+    return boost::locale::to_lower(data_);
 }
 
 Utf8String
 Utf8String::
 toUpper() const
 {
-    return std::move(boost::locale::to_upper(data_));
+    return boost::locale::to_upper(data_);
 }
 
 Utf8String::iterator
@@ -670,4 +669,4 @@ struct AtInit {
 
 } // file scope
 
-} // namespace Datacratic
+} // namespace MLDB

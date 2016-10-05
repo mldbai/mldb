@@ -1,28 +1,24 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stat_aggregator.cc
    Jeremy Banres, 3 August 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "mldb/soa/service/stat_aggregator.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
 #include <iostream>
-#include "mldb/arch/cmp_xchg.h"
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/jml/utils/floating_point.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/exc_check.h"
-
 #include <algorithm>
 
 
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -47,16 +43,20 @@ record(float value)
 {
     double oldval = total;
 
-    while (!ML::cmp_xchg(total, oldval, oldval + value));
+    // No atomic ops for double, so we need to do it in a compare/exchange
+    // loop.
+    for (;;) {
+        double newval = oldval + value;
+        if (total.compare_exchange_weak(oldval, newval))
+            return;
+    }
 }
 
 std::pair<double, Date>
 CounterAggregator::
 reset()
 {
-    double oldval = total;
-
-    while (!ML::cmp_xchg(total, oldval, 0.0));
+    double oldval = total.exchange(0.0);
 
     Date oldStart = start;
     start = Date::now();
@@ -98,27 +98,28 @@ GaugeAggregator(Verbosity verbosity, const std::vector<int>& extra)
     if (verbosity == Outcome)
         ExcCheck(this->extra.size() > 0, "Can not construct with empty percentiles");
 
-    values->reserve(100);
+    // OK, since nothing should access concurrently until the constructor
+    // has returned.
+    values.load()->reserve(100);
 }
 
 GaugeAggregator::
 ~GaugeAggregator()
 {
-    delete values;
+    delete values.load();
 }
 
 void
 GaugeAggregator::
 record(float value)
 {
-    ML::distribution<float> * current = values;
-    while ((current = values) == 0 || !cmp_xchg(values, current,
-                                     (ML::distribution<float>*)0));
+    ML::distribution<float> * current;
+    while ((current = values) == 0
+           || !values.compare_exchange_weak(current, nullptr));
     
+    ExcCheck(current, "logic error in recording to gauge");
     current->push_back(value);
-
-    memory_barrier();
-
+    
     values = current;
 }
 
@@ -126,12 +127,12 @@ std::pair<ML::distribution<float> *, Date>
 GaugeAggregator::
 reset()
 {
-    ML::distribution<float> * current = values;
+    ML::distribution<float> * current;
     ML::distribution<float> * new_current = new ML::distribution<float>();
+    new_current->reserve(100);
 
-    // TODO: reserve memory for new_current
-
-    while ((current = values) == 0 || !cmp_xchg(values, current, new_current));
+    while ((current = values) == 0
+           || !values.compare_exchange_weak(current, new_current));
 
     // Date oldStart = start;
     start = Date::now();
@@ -192,4 +193,4 @@ read(const std::string & prefix)
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

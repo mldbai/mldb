@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -175,7 +175,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput 
 PipelineExpressionScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     if (tableName.empty()) {
         if (defaultTables.empty())
@@ -267,7 +267,7 @@ doGetBoundParameter(const Utf8String & paramName)
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             auto & row = rowScope.as<PipelineResults>();
-            return storage = std::move(row.getParam(paramName));
+            return storage = row.getParam(paramName);
         };
         
     return { exec, info };
@@ -357,7 +357,7 @@ doGetColumn(const ColumnName & columnName) const
     
 GetAllColumnsOutput
 PipelineExpressionScope::TableEntry::
-doGetAllColumns(const Utf8String & tableName, std::function<ColumnName (const ColumnName &)> keep) const
+doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const
 {
     return scope->doGetAllColumns(tableName, keep, fieldOffset);
 }
@@ -621,4 +621,4 @@ statement(const SelectStatement& stm, GetParamInfo getParamInfo)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

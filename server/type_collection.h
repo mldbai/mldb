@@ -10,7 +10,7 @@
 
 #include "mldb/rest/rest_entity.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct MldbServer;
@@ -47,4 +47,4 @@ struct TypeClassCollection: public RestDirectory {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

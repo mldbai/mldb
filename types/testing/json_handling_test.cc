@@ -18,7 +18,7 @@
 #include "mldb/types/json_printing.h"
 #include "mldb/base/parse_context.h"
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 
 BOOST_AUTO_TEST_CASE(test_utf8_round_trip_streaming_binary)

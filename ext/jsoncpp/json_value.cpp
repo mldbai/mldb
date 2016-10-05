@@ -379,7 +379,7 @@ Value::Value( const std::string &value )
 
 }
 
-Value::Value( const Datacratic::Utf8String &value )
+Value::Value( const MLDB::Utf8String &value )
    : type_( stringValue )
    , allocated_( true )
    , comments_( 0 )
@@ -545,7 +545,8 @@ Value::~Value()
       break;
 #endif
    default:
-      JSON_ASSERT_UNREACHABLE;
+       ::fprintf(stderr, "JSON logic error");
+       std::terminate();
    }
 
    if ( comments_ )
@@ -1458,7 +1459,7 @@ Value::toStringNoNewLine() const
     std::string str = toString();
     if (str.back() == '\n')
         str.erase(str.size() - 1);
-    return std::move(str);
+    return str;
 }
 
 

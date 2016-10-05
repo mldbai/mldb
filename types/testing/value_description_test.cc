@@ -22,6 +22,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/pointer_description.h"
 #include "mldb/types/tuple_description.h"
+#include "mldb/types/array_description.h"
 #include "mldb/types/date.h"
 #include "mldb/types/id.h"
 #include "mldb/base/parse_context.h"
@@ -30,7 +31,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* ensures that signed integers < (1 << 32 - 1) are serialized as integers */
@@ -181,7 +182,7 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 typedef map<string, string> StringDict;
 
@@ -361,7 +362,7 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
     SomeTestStructure data(Id(42), "hello world");
 
     // write the thing
-    using namespace Datacratic;
+    using namespace MLDB;
     ValueDescription * desc = getDefaultDescription(&data);
     std::stringstream stream;
     StreamJsonPrintingContext context(stream);
@@ -646,4 +647,57 @@ BOOST_AUTO_TEST_CASE(test_null_parsing)
     BOOST_CHECK_EQUAL(jsonDecode<int>(Json::parse("-1")), -1);
 
     BOOST_CHECK_EQUAL(jsonDecode<unsigned int>(Json::parse("1")), 1);
+}
+
+// MLDB-1265
+BOOST_AUTO_TEST_CASE(test_array_description)
+{
+    ArrayDescription<int, 3> desc;
+    std::array<int, 3> testArray;
+
+    {
+        // 4 elements, but only 3 in tuple
+        string testJson("[ 1, 2, 3, 4 ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                        + testJson.size());
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
+    }
+
+    {
+        // 2 elements, but 3 required in tuple
+        string testJson("[ 1, 2 ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                        + testJson.size());
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
+    }
+
+    {
+        // 3 elements, wrong type
+        string testJson("[ \"one\", \"two\", 3 ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                            + testJson.size());
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
+    }
+
+    {
+        // 3 elements, correct
+        string testJson("[ 1, 2, 3 ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                            + testJson.size());
+        desc.parseJson(&testArray, context);
+        BOOST_CHECK_EQUAL(std::get<0>(testArray), 1);
+        BOOST_CHECK_EQUAL(std::get<1>(testArray), 2);
+        BOOST_CHECK_EQUAL(std::get<2>(testArray), 3);
+    }
 }

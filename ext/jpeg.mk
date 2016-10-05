@@ -13,11 +13,18 @@ JPEG_SOURCE = jaricom.c jcapimin.c jcapistd.c jcarith.c \
 
 ifneq ($(PREMAKE),1)
 $(CWD)/jconfig.h:
-	cd mldb/ext/jpeg && ./configure
+	@echo " $(COLOR_BLUE)[CONFIG EXTERN]$(COLOR_RESET)                      	jpeg $(1)"
+	@mkdir -p $(TMP)
+	@(cd mldb/ext/jpeg && ./configure) > $(TMP)/jpeg-configure.log
 endif
 
-$(JPEG_SOURCE):	$(CWD)/jconfig.h
-
 JPEG_INCLUDE_FILES:=$(CWD)/jconfig.h
+
+define jpeg_add_dep
+$(CWD)/$(1):	$(2)
+endef
+
+$(foreach source,$(JPEG_SOURCE),$(eval $(call jpeg_add_dep,$(source),$(JPEG_INCLUDE_FILES))))
+
 
 $(eval $(call library,jpeg,$(JPEG_SOURCE)))

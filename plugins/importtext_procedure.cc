@@ -25,7 +25,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(ImportTextConfig);
@@ -198,14 +198,14 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
                     auto & row = scope.as<RowScope>();
-                    return storage = std::move(ExpressionValue(row.row[index], row.ts));
+                    return storage = ExpressionValue(row.row[index], row.ts);
                 },
                 std::make_shared<AtomValueInfo>()};
     }
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep)
+                    const ColumnFilter& keep)
     {
         vector<ColumnName> toKeep;
         std::vector<KnownColumn> columnsWithInfo;
@@ -246,7 +246,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                         result.emplace_back(columnNames[i], row.row[i], row.ts);
                 }
 
-                return std::move(result);
+                return result;
             };
 
         GetAllColumnsOutput result;
@@ -1213,4 +1213,4 @@ regImportText(builtinPackage(),
 } // file scope
 
 } //MLDB
-} //Datacratic
+

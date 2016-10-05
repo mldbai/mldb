@@ -7,7 +7,7 @@
 #include "mldb/http/http_request.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/

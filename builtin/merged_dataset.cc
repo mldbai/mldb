@@ -13,13 +13,14 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/http/http_exception.h"
 #include <thread>
 
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -78,9 +79,7 @@ struct MergedDataset::Itl
                   [] (std::shared_ptr<Dataset> p1,
                       std::shared_ptr<Dataset> p2)
                   {
-                      return false;
-                      //return p1->behaviourCount() + p1->subjectCount()
-                      //    > p2->behaviourCount() + p2->subjectCount();
+                    return p1->getRowCount() > p2->getRowCount();
                   });
 
         std::vector<std::shared_ptr<Dataset> > toMerge;
@@ -215,7 +214,7 @@ struct MergedDataset::Itl
         virtual const RowName & rowName(RowName & storage) const
         {
             uint64_t hash = (*it).first;
-            return source->getRowName(RowHash(hash));
+            return storage = source->getRowName(RowHash(hash));
         }
 
         const MergedDataset::Itl* source;
@@ -231,7 +230,7 @@ struct MergedDataset::Itl
         std::vector<RowName> result;
 
         for (auto & h: getRowHashes(start, limit))
-            result.emplace_back(std::move(getRowName(h)));
+            result.emplace_back(getRowName(h));
 
         return result;
     }
@@ -292,7 +291,7 @@ struct MergedDataset::Itl
             throw ML::Exception("Row not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
-        MatrixNamedRow result = std::move(datasets[bit]->getMatrixView()->getRow(rowName));
+        MatrixNamedRow result = datasets[bit]->getMatrixView()->getRow(rowName);
         bitmap = bitmap & ~(1 << bit);
 
         while (bitmap) {
@@ -380,7 +379,7 @@ struct MergedDataset::Itl
             throw ML::Exception("Column not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
-        MatrixColumn result = std::move(datasets[bit]->getColumnIndex()->getColumn(columnHash));
+        MatrixColumn result = datasets[bit]->getColumnIndex()->getColumn(columnHash);
         bitmap = bitmap & ~(1 << bit);
 
         while (bitmap) {
@@ -408,7 +407,7 @@ struct MergedDataset::Itl
         if (bitmap)
         {
             int bit = ML::lowest_bit(bitmap, -1);
-            result = std::move(datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter));
+            result = datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter);
 
             bitmap = bitmap & ~(1 << bit);
             bool sorted = std::is_sorted(result.begin(), result.end());  // true
@@ -580,4 +579,4 @@ struct AtInit {
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

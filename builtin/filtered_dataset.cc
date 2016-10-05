@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
@@ -264,4 +264,4 @@ getColumnIndex() const
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

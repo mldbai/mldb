@@ -21,16 +21,16 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/ext/jsoncpp/reader.h"
 #include "mldb/arch/futex.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/event_loop.h"
 #include "mldb/io/legacy_event_loop.h"
 #include "mldb/http/http_client.h"
 #include "mldb/http/testing/test_http_services.h"
-#include "mldb/soa/utils/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* helpers functions used in tests */
@@ -501,7 +501,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     auto makeClient = [&] () {
         return HttpClient(legacyLoop, baseUrl, 1);
     };
-    HttpClient client1(move(makeClient()));
+    HttpClient client1(makeClient());
     doGet(client1);
 
     /* move assignment operator */

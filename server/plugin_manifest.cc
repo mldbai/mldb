@@ -9,7 +9,7 @@
 #include "plugin_manifest.h"
 #include "mldb/types/basic_value_descriptions.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -22,6 +22,6 @@ PluginManifestDescription()
              "Configuration of plugin loading");
 }
 
-} // namespace Datacratic
+
 } // namespace MLDB
 

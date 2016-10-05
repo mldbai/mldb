@@ -20,42 +20,76 @@
 #include <iostream>
 #include "mldb/ext/jsoncpp/value.h"
 
+#if JML_BITS == 32
+#include <boost/multiprecision/cpp_int.hpp>
+#endif
+
 using namespace ML;
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
+#if JML_BITS < 64
 
-typedef __uint128_t UInt128;
-
-typedef union {
-    __uint128_t hl;
-    struct {
-        uint64_t l;
-        uint64_t h;
-    };
-} U128Repr;
+typedef boost::multiprecision::number
+    <boost::multiprecision::cpp_int_backend
+     <128, 128,
+      boost::multiprecision::unsigned_magnitude,
+      boost::multiprecision::unchecked, void> > UInt128;
 
 static inline UInt128 make128(uint64_t l, uint64_t h)
 {
-    U128Repr r;
-    r.l = l;  r.h = h;
-    return r.hl;
+    UInt128 result = h;
+    result <<= 64;
+    result += l;
+    return result;
 }
 
 static inline uint64_t getLow(UInt128 res)
 {
-    U128Repr r;
-    r.hl = res;
-    return r.l;
+    return res.convert_to<uint64_t>();
 }
 
 static inline uint64_t getHigh(UInt128 res)
 {
-    U128Repr r;
-    r.hl = res;
-    return r.h;
+    return (res >> 64).convert_to<uint64_t>();
+}
+
+static inline unsigned divmod10(UInt128 & val)
+{
+    unsigned res = (val % 10).convert_to<unsigned>();
+    val /= 10;
+    return res;
+}
+
+static inline unsigned divmod64(UInt128 & val)
+{
+    unsigned res = (val & 63).convert_to<unsigned>();
+    val >>= 6;
+    return res;
+}
+
+#else // 64+ bits
+
+typedef __uint128_t UInt128;
+
+static inline UInt128 make128(uint64_t l, uint64_t h)
+{
+    UInt128 result = h;
+    result <<= 64;
+    result += l;
+    return result;
+}
+
+static inline uint64_t getLow(UInt128 res)
+{
+    return res;
+}
+
+static inline uint64_t getHigh(UInt128 res)
+{
+    return res >> 64;
 }
 
 static inline unsigned divmod10(UInt128 & val)
@@ -64,6 +98,14 @@ static inline unsigned divmod10(UInt128 & val)
     val /= 10;
     return res;
 }
+
+static inline unsigned divmod64(UInt128 & val)
+{
+    unsigned res = val & 63;
+    val >>= 6;
+    return res;
+}
+#endif
 
 
 
@@ -529,7 +571,7 @@ toString() const
 
         auto v = make128(valLow, valHigh);
         for (unsigned i = 0;  i < 21;  ++i) {
-            result[25 - i] = b64Encode(v & 63);  v = v >> 6;
+            result[25 - i] = b64Encode(divmod64(v));
         }
         return result;
     }
@@ -573,7 +615,7 @@ toString() const
         
         auto v = make128(val1, val2);
         for (unsigned i = 0;  i < 16;  ++i) {
-            result[15 - i] = b64Encode(v & 63);  v = v >> 6;
+            result[15 - i] = b64Encode(divmod64(v));
         }
         return result;
     }
@@ -841,23 +883,23 @@ std::istream & operator >> (std::istream & stream, Id & id)
 /*****************************************************************************/
 
 struct IdDescription 
-    : public ValueDescriptionI<Datacratic::Id, ValueKind::ATOM, IdDescription> {
+    : public ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription> {
 
-    virtual void parseJsonTyped(Datacratic::Id * val,
+    virtual void parseJsonTyped(MLDB::Id * val,
                                 JsonParsingContext & context) const;
 
-    virtual void printJsonTyped(const Datacratic::Id * val,
+    virtual void printJsonTyped(const MLDB::Id * val,
                                 JsonPrintingContext & context) const;
 
-    virtual bool isDefaultTyped(const Datacratic::Id * val) const;
+    virtual bool isDefaultTyped(const MLDB::Id * val) const;
 };
 
-//extern template class ValueDescriptionT<Datacratic::Id>;
-//extern template class ValueDescriptionI<Datacratic::Id, ValueKind::ATOM, IdDescription>;
+//extern template class ValueDescriptionT<MLDB::Id>;
+//extern template class ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
 
 struct StringIdDescription: public IdDescription {
 
-    virtual void printJsonTyped(const Datacratic::Id * val,
+    virtual void printJsonTyped(const MLDB::Id * val,
                                 JsonPrintingContext & context) const;
 };
 
@@ -918,15 +960,15 @@ void parseJson(Id * output, Context & context)
 
 void
 IdDescription::
-parseJsonTyped(Datacratic::Id * val,
+parseJsonTyped(MLDB::Id * val,
                JsonParsingContext & context) const
 {
-    Datacratic::parseJson(val, context);
+    MLDB::parseJson(val, context);
 }
 
 void
 IdDescription::
-printJsonTyped(const Datacratic::Id * val,
+printJsonTyped(const MLDB::Id * val,
                JsonPrintingContext & context) const
 {
     if (val->type == Id::Type::BIGDEC &&
@@ -939,19 +981,19 @@ printJsonTyped(const Datacratic::Id * val,
 
 bool
 IdDescription::
-isDefaultTyped(const Datacratic::Id * val) const
+isDefaultTyped(const MLDB::Id * val) const
 {
     return !val->notNull();
 }
 
-template class ValueDescriptionI<Datacratic::Id, ValueKind::ATOM, IdDescription>;
+template class ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
 
 void
 StringIdDescription::
-printJsonTyped(const Datacratic::Id * val,
+printJsonTyped(const MLDB::Id * val,
                JsonPrintingContext & context) const
 {
     context.writeStringUtf8(val->toUtf8String());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

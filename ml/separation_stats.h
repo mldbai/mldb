@@ -13,10 +13,11 @@
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/jml/utils/rng.h"
 #include "mldb/ext/jsoncpp/json.h"
+#include <cmath>
 #include <boost/any.hpp>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -98,10 +99,10 @@ struct BinaryStats {
     {
     	double num = truePositives() * trueNegatives() -
     				falsePositives() * falseNegatives();
-    	double den = sqrt( (truePositives()+falsePositives()) *
-                           (truePositives()+falseNegatives()) *
-                           (trueNegatives()+falsePositives()) *
-                           (trueNegatives()+falseNegatives()));
+    	double den = std::sqrt( (truePositives()+falsePositives()) *
+                                (truePositives()+falseNegatives()) *
+                                (trueNegatives()+falsePositives()) *
+                                (trueNegatives()+falseNegatives()));
     	return ML::xdiv(num, den);
     }
 
@@ -202,8 +203,7 @@ struct ScoredStats {
         entry.weight = weight;
         entry.key = key;
         
-        if (isSorted && !entries.empty()
-            && entry < entries.back())
+        if (isSorted && !entries.empty() && entry < entries.back())
             isSorted = false;
 
         entries.push_back(entry);
@@ -266,4 +266,4 @@ struct ScoredStats {
     Json::Value toJson() const;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

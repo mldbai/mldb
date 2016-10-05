@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* json_service_endpoint.h                                         -*- C++ -*-
    Jeremy Barnes, 9 November 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -18,7 +17,7 @@
 #include "mldb/rest/rest_request.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -66,10 +65,14 @@ struct RestServiceEndpoint {
 
             ~Itl()
             {
-                if (!responseSent)
-                    throw ML::Exception("no response sent on connection");
+                if (!responseSent) {
+                    ::fprintf(stderr, "warning: no response sent on connection");
+                    // no terminate is this could happen when shutting down
+                    // uncleanly.  If it is printed at another time, there is
+                    // a bug.
+                }
             }
-
+            
             std::string requestId;
             std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> http;
             RestServiceEndpoint * endpoint;
@@ -234,4 +237,4 @@ struct RestServiceEndpoint {
     std::shared_ptr<spdlog::logger> logger;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -211,12 +211,12 @@ class DistinctOnTest(MldbUnitTest):
             }
         })
 
-        res = mldb.query("SELECT * from transformed")
+        res = mldb.query("SELECT * from transformed order by rowPath()")
 
         expected = [["_rowName", "x", "z"],
                     ["row1", 1, 1],
-                    ["row3", 1, 2],
                     ["row2", 2, 1],
+                    ["row3", 1, 2],
                     ["row5", 2, 3]]
 
         self.assertEqual(res, expected)

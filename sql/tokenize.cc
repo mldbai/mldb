@@ -13,8 +13,7 @@
 
 using namespace std;
 
-
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TokenizeOptions);
 
@@ -268,7 +267,7 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
     bool another = false;
     while (another || (context && !context.eof())) {
 
-        Utf8String word = std::move(expect_token(context, another));
+        Utf8String word = expect_token(context, another);
 
         if(word.length() < minTokenLength)
             continue;
@@ -387,4 +386,4 @@ Utf8String token_extract(ML::Parse_Context& context,
 }
 
 
-} //Datacratic
+} // namespace MLDB

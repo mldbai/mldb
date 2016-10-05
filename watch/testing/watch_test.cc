@@ -9,7 +9,7 @@
 
 #include "mldb/watch/watch.h"
 #include "mldb/watch/watch_impl.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -17,13 +17,13 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_move )
 {
     WatchesT<std::string> watches;
     std::vector<Watch> w;
-    w.emplace_back(std::move(watches.add()));
+    w.emplace_back(watches.add());
     BOOST_CHECK_EQUAL(watches.size(), 1);
     
     watches.trigger("hello");

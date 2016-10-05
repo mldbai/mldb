@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -220,12 +220,13 @@ struct JoinedDataset::Itl
             cerr << "Analyzed join condition: " << jsonEncode(condition) << endl;
 
         // Run the constant expression
-        ExpressionValue k = condition.constantWhere->constantValue();
-        if (!k.isTrue())
+        if (!condition.constantWhere->constantValue().isTrue()
+            && qualification == JoinQualification::JOIN_INNER)
+        {
             return;
+        }
 
         if (!condition.crossWhere || condition.crossWhere->isConstant()) {
-
             if (condition.crossWhere
                 && !condition.crossWhere->constantValue().isTrue())
                 return;
@@ -267,7 +268,8 @@ struct JoinedDataset::Itl
         }
 
         // Finally, the column indexes
-        for (auto & c: leftDataset->getColumnNames()) {
+        for (auto & c: leftDataset->getFlattenedColumnNames()) {
+
             ColumnName newColumnName;
             if (!left.asName.empty())
                 newColumnName = ColumnName(left.asName) + c;
@@ -284,8 +286,8 @@ struct JoinedDataset::Itl
             leftColumns[c] = newColumnName;
         }
 
-        // Finally, the column indexes
-        for (auto & c: rightDataset->getColumnNames()) {
+        for (auto & c: rightDataset->getFlattenedColumnNames()) {
+
             ColumnName newColumnName;
 
             if (!right.asName.empty())
@@ -318,10 +320,10 @@ struct JoinedDataset::Itl
         RowName rowName;
 
         if (chainedJoinDepth > 0 && !leftName.empty()) {
-            rowName = std::move(RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]"));
+            rowName = RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]");
         }
         else if (chainedJoinDepth == 0) {
-            rowName = std::move(RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]"));
+            rowName = RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]");
         }
         else {
             Utf8String left;
@@ -329,7 +331,7 @@ struct JoinedDataset::Itl
                 left += "[]-";
             }
 
-            rowName = std::move(RowName(left + "[" + rightName.toUtf8String() + "]"));
+            rowName = RowName(left + "[" + rightName.toUtf8String() + "]");
         }
 
 #if 0
@@ -397,12 +399,23 @@ struct JoinedDataset::Itl
                     //return all rows
                     sideCondition = SqlExpression::TRUE;
 
+                    shared_ptr<SqlExpression> sideWhere;
+                    if (condition.constantWhere->constantValue().isTrue()) {
+                        sideWhere = side.where;
+                    }
+                    else {
+                        // The constant part is false, hereby the original
+                        // sideWhere is irrelevant and should be evaluated to
+                        // false.
+                        sideWhere = condition.constantWhere;
+                    }
+
                     //but evaluate if the row is valid to join with the other side
                     auto notnullExpr = std::make_shared<IsTypeExpression>
-                        (side.where, true, "null");
+                        (sideWhere, true, "null");
                     auto complementExpr
                         = std::make_shared<BooleanOperatorExpression>
-                        (BooleanOperatorExpression(side.where, notnullExpr, "AND"));
+                        (BooleanOperatorExpression(sideWhere, notnullExpr, "AND"));
 
                     clauses.push_back(complementExpr);
                 }
@@ -1195,4 +1208,4 @@ struct AtInit {
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -36,7 +36,7 @@
 using namespace std;
 namespace fs = boost::filesystem;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
@@ -449,7 +449,7 @@ struct RegisterExcHandlers {
         handler.reset(new boost::iostreams::stream_buffer<ExceptionSource>
                       (ExceptionSource(onException, throwType),
                        1));
-        Datacratic::FsObjectInfo info;
+        FsObjectInfo info;
         info.exists = true;
         return UriHandler(handler.get(), handler, info);
     }

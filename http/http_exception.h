@@ -14,7 +14,7 @@
 #include "mldb/types/string.h"
 #include "mldb/ext/jsoncpp/value.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /// Indicates on a rethrow that we should keep the HTTP code that was in
 /// the outer exception.
@@ -145,4 +145,4 @@ void rethrowHttpException(int httpCode, const char * message,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /** A docker URI we break down to:
@@ -442,7 +442,7 @@ struct RegisterDockerHandler {
                                     int depth)
             {
                 if (uri == uriToFind) {
-                    result = std::move(open(options));
+                    result = open(options);
                     return false;
                 }
                 return true;
@@ -466,4 +466,4 @@ struct RegisterDockerHandler {
 
 } registerDockerHandler;
 
-} // namespace Datacratic
+} // namespace MLDB

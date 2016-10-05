@@ -12,9 +12,9 @@ For C++ code to compile and the Python modules to install correctly, the followi
 apt-get install -y git valgrind build-essential libboost-all-dev \
 libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
-libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
+libpython-dev libgit2-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en libyaml-cpp-dev
+language-pack-en libyaml-cpp-dev libsasl2-dev
 ```
 ## Installing Docker
 
@@ -68,6 +68,12 @@ COMPILER_CACHE:=ccache
 ```
 
 *N.B.* To use `ccache` to maximum effect, you should set the cache size to something like 10GB if you have the disk space with `ccache -M 10G`.
+
+To avoid building MLDB for all supported architectures and save time, check [sample.local.mk](https://github.com/mldbai/mldb/blob/master/jml-build/sample.local.mk)
+
+To have a faster build, you can use clang instead of gcc. Simply add `toolchain=clang` at the end of your make command.
+
+To run a single test, simply specify its name as the target. For python and javascript, include the extension (.py and .js). For C++, omit it.
 
 ## Building a Docker image
 
@@ -242,18 +248,19 @@ not officially supported
 MLDB is compiled by default using the GCC compiler, version 4.8.
 
 
-#### Compiling with GCC 5.x
+#### Compiling with GCC 5.x or 6.x
 
-In order to use GCC version 5.x, the following commands should be used to
-install the compiler (currently GCC 5.3):
+In order to use GCC version 5.x or 6.x, the following commands should be used to
+install the compiler:
 
 ```
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 sudo apt-get update
 sudo apt-get install gcc-5 g++-5
+sudo apt-get install gcc-6 g++-6
 ```
 
-You can then add `toolchain=gcc5` to the make command line to use the
+You can then add `toolchain=gcc5` or `toolchain=gcc6` to the make command line to use the
 newly installed compiler.
 
 #### Compiling with clang
@@ -262,7 +269,7 @@ In order to compile with the clang compiler, you will firstly need to
 install it:
 
 ```
-sudo apt-get install clang-3.5
+sudo apt-get install clang-3.6
 ```
 
 You can then add `toolchain=clang` to compile with the clang compiler.
@@ -351,3 +358,81 @@ Or the following to the Make command-line:
 ```
 make ... WITH_CUDA=1
 ```
+
+
+### Building MLDB for ARM64 (aarch64, eg for Tegra X1 or Jetson X1)
+
+First, the machine needs to be set up with cross compilers:
+
+```
+sudo apt-get install libc6-arm64-cross libc6-dev-arm64-cross linux-libc-dev-arm64-cross g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+```
+
+Then we need to add arm64 to Debian's multiarch support so that it can find the packages for an arm64 target system:
+
+```
+sudo dpkg --add-architecture arm64
+sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted'
+sudo apt-get update
+```
+
+Thirdly, we need to download the cross development environment for the
+target platform.  This will be installed under build/aarch64/osdeps
+
+```
+make port_deps ARCH=aarch64
+```
+
+Fourthly, we need to make the build tools for the host architecture
+
+```
+make build_tools
+```
+
+Finally, we can build the port itself:
+
+```
+make -j8 -k compile ARCH=aarch64
+```
+
+Note that currently no version of the v8 javascript engine is available
+from Debian for arch64.  We are working on a solution.
+
+
+# Building for ARM with hardware float (eg, Raspberry Pi with a Ubuntu derivative)
+
+First, the machine needs to be set up with cross compilers:
+
+```
+sudo apt-get install libc6-armhf-cross libc6-dev-armhf-cross linux-libc-dev-armhf-cross g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf g++-4.8-multilib-arm-linux-gnueabihf gcc-4.8-multilib-arm-linux-gnueabihf g++-4.8-arm-linux-gnueabihf gcc-4.8-arm-linux-gnueabihf
+```
+
+Then we need to add armhf to Debian's multiarch support so that it can find the packages for an armhf target system:
+
+```
+sudo dpkg --add-architecture armhf
+sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted'
+sudo apt-get update
+```
+
+Thirdly, we need to download the cross development environment for the
+target platform.  This will be installed under build/aarch64/osdeps
+
+```
+make port_deps ARCH=arm
+```
+
+Fourthly, we need to make the build tools for the host architecture
+
+```
+make build_tools
+```
+
+Finally, we can build the port itself:
+
+```
+make -j8 -k compile ARCH=arm
+```
+
+The version of MLDB will be placed in build/arm/bin and build/arm/lib
+

@@ -94,6 +94,37 @@ The following functions are available in the context of a column expression:
 - `value()` is the value of the column.
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.
 
+### Selecting structured columns
+
+When you have structured data, by default COLUMN EXPR will process every atomic column in the flattened 
+representation. If you want to process only the top-most columns in the structured data, you can add the 
+`STRUCTURED` keyword to the column expression. For example:
+
+```
+SELECT [[2,3],[4,5]])
+```
+
+is a structured two-dimensional array. So the expression
+
+```
+COLUMN EXPR (SELECT 1) FROM (SELECT [[2,3],[4,5]])
+```
+
+will return 4 columns while the expression
+
+```
+COLUMN EXPR STRUCTURED (SELECT 1) FROM (SELECT [[2,3],[4,5]])
+```
+
+will return a single column. This is useful when you want to pass structured data
+to functions. For example:
+
+```
+SELECT COLUMN EXPR STRUCTURED (SELECT norm(value(), 2)) FROM (SELECT [2,3],[4,5])
+```
+
+will select the L2 norm of both vectors.
+
 ## Filtering duplicated rows based on an expression
 
 It is possible to filter out rows based on the value of an expression using the `DISTINCT ON` optional

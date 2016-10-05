@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -69,9 +69,9 @@ doComparison(const SqlExpression * expr,
                 // cerr << "left " << l << " " << "right " << r << endl;
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
-                    return storage = std::move(ExpressionValue::null(ts));
+                    return storage = ExpressionValue::null(ts);
  
-                return storage = std::move(ExpressionValue((l .* op)(r), ts));
+                return storage = ExpressionValue((l .* op)(r), ts);
             },
             expr,
             std::make_shared<BooleanValueInfo>()};
@@ -376,7 +376,7 @@ struct BinaryOpHelper {
                               const CellValue & val,
                               Date ts)
                 {
-                    output.emplace_back(std::move(columnName),
+                    output.emplace_back(prefix + columnName,
                                         Op::apply(val, r),
                                         std::max(rts, ts));
                     return true;
@@ -897,9 +897,9 @@ doBinaryArithmetic(const SqlExpression * expr,
                 const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
-                    return storage = std::move(ExpressionValue::null(ts));
-                return storage = std::move(ExpressionValue(op(l.getAtom(),
-                                                              r.getAtom()), ts));
+                    return storage = ExpressionValue::null(ts);
+                return storage = ExpressionValue(op(l.getAtom(),
+                                                    r.getAtom()), ts);
             },
             expr,
             std::make_shared<ReturnInfo>()};
@@ -919,7 +919,7 @@ doUnaryArithmetic(const SqlExpression * expr,
                 ExpressionValue rstorage;
                 const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 if (r.empty())
-                    return storage = std::move(ExpressionValue::null(r.getEffectiveTimestamp()));
+                    return storage = ExpressionValue::null(r.getEffectiveTimestamp());
                 return storage
                     = ExpressionValue(std::move(op(r.getAtom())),
                                       r.getEffectiveTimestamp());
@@ -936,7 +936,7 @@ binaryPlusOnTimestamp(const CellValue & l, const CellValue & r)
     if (r.isInteger())
     {
         //when no interval is specified (integer), operation is done in days
-        return std::move(CellValue(l.toTimestamp().addDays(r.toInt())));
+        return CellValue(l.toTimestamp().addDays(r.toInt()));
     }
     else if (r.isTimeinterval())
     {
@@ -947,14 +947,14 @@ binaryPlusOnTimestamp(const CellValue & l, const CellValue & r)
         std::tie(months, days, seconds) = r.toMonthDaySecond();
 
         if (seconds < 0)
-            return std::move(CellValue(l.toTimestamp().minusMonthDaySecond(months, days, fabs(seconds))));
+            return CellValue(l.toTimestamp().minusMonthDaySecond(months, days, fabs(seconds)));
         else
-            return std::move(CellValue(l.toTimestamp().plusMonthDaySecond(months, days, seconds)));
+            return CellValue(l.toTimestamp().plusMonthDaySecond(months, days, seconds));
     }
 
     throw HttpReturnException(400, "Adding unsupported type to timetamp");
 
-    return std::move(CellValue(l.toTimestamp()));
+    return CellValue(l.toTimestamp());
 
 }
 
@@ -962,7 +962,7 @@ static CellValue binaryPlus(const CellValue & l, const CellValue & r)
 {
     if (l.isString() || r.isString())
     {
-       return std::move(CellValue(l.toUtf8String() + r.toUtf8String())); 
+       return CellValue(l.toUtf8String() + r.toUtf8String());
     }
     else if (l.isTimestamp())
     {
@@ -987,11 +987,11 @@ static CellValue binaryPlus(const CellValue & l, const CellValue & r)
 
         //no implicit quantization;
         
-        return std::move(CellValue::fromMonthDaySecond(lmonths, ldays, lseconds));
+        return CellValue::fromMonthDaySecond(lmonths, ldays, lseconds);
     }
     else
     {
-        return std::move(CellValue(l.toDouble() + r.toDouble()));
+        return CellValue(l.toDouble() + r.toDouble());
     }
 }
 
@@ -1002,7 +1002,7 @@ static CellValue binaryMinusOnTimestamp(const CellValue & l, const CellValue & r
     if (r.isInteger())
     {
         //when no interval is specified (integer), operation is done in days
-        return std::move(CellValue(l.toTimestamp().addDays(-r.toInt())));
+        return CellValue(l.toTimestamp().addDays(-r.toInt()));
     }
     else if (r.isTimeinterval())
     {
@@ -1014,9 +1014,9 @@ static CellValue binaryMinusOnTimestamp(const CellValue & l, const CellValue & r
         std::tie(months, days, seconds) = r.toMonthDaySecond();
 
         if (seconds >= 0)
-            return std::move(CellValue(l.toTimestamp().minusMonthDaySecond(months, days, fabs(seconds))));
+            return CellValue(l.toTimestamp().minusMonthDaySecond(months, days, fabs(seconds)));
         else
-            return std::move(CellValue(l.toTimestamp().plusMonthDaySecond(months, days, seconds)));
+            return CellValue(l.toTimestamp().plusMonthDaySecond(months, days, seconds));
     }
     else if (r.isTimestamp())
     {
@@ -1024,11 +1024,11 @@ static CellValue binaryMinusOnTimestamp(const CellValue & l, const CellValue & r
         int64_t days = 0;
         float seconds = 0;
         std::tie(days, seconds) = l.toTimestamp().getDaySecondInterval(r.toTimestamp());
-        return std::move(CellValue::fromMonthDaySecond(0, days, seconds));
+        return CellValue::fromMonthDaySecond(0, days, seconds);
     }
 
     throw HttpReturnException(400, "Substracting unsupported type to timetamp");
-    return std::move(CellValue(l.toTimestamp()));
+    return CellValue(l.toTimestamp());
 
 }
 
@@ -1052,10 +1052,10 @@ static CellValue binaryMinus(const CellValue & l, const CellValue & r)
 
         //no implicit quantization;
         
-        return std::move(CellValue::fromMonthDaySecond(lmonths, ldays, lseconds));
+        return CellValue::fromMonthDaySecond(lmonths, ldays, lseconds);
     }
 
-    return std::move(CellValue(l.toDouble() - r.toDouble()));
+    return CellValue(l.toDouble() - r.toDouble());
 }
 
 static CellValue unaryMinus(const CellValue & r)
@@ -1076,7 +1076,7 @@ static CellValue unaryMinus(const CellValue & r)
         else 
             seconds = -seconds;
 
-        return std::move(CellValue::fromMonthDaySecond(months, days, seconds));
+        return CellValue::fromMonthDaySecond(months, days, seconds);
     }
     else return -r.toDouble();
 }
@@ -1096,7 +1096,7 @@ static CellValue multiplyInterval(const CellValue & l, double rvalue)
     seconds *= rvalue;
     seconds += fractionalDays*24.0f*60*60;
 
-    return std::move(CellValue::fromMonthDaySecond(months, days, seconds));
+    return CellValue::fromMonthDaySecond(months, days, seconds);
 }
 
 static CellValue binaryMultiplication(const CellValue & l, const CellValue & r)
@@ -1131,7 +1131,7 @@ static CellValue binaryDivision(const CellValue & l, const CellValue & r)
         seconds /= rvalue;
         seconds += fractionalDays*24.0f*60*60;
 
-        return std::move(CellValue::fromMonthDaySecond(months, ddays, seconds));
+        return CellValue::fromMonthDaySecond(months, ddays, seconds);
     }
     else return l.toDouble() / r.toDouble();
 }
@@ -1371,8 +1371,8 @@ doBinaryBitwise(const SqlExpression * expr,
                 const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
-                    return storage = std::move(ExpressionValue::null(ts));
-                return storage = std::move(ExpressionValue(op(l.toInt(), r.toInt()), ts));
+                    return storage = ExpressionValue::null(ts);
+                return storage = ExpressionValue(op(l.toInt(), r.toInt()), ts);
             },
             expr,
             std::make_shared<IntegerValueInfo>()};
@@ -1392,8 +1392,8 @@ doUnaryBitwise(const SqlExpression * expr,
                 ExpressionValue rstorage;
                 const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 if (r.empty())
-                    return storage = std::move(ExpressionValue::null(r.getEffectiveTimestamp()));
-                return storage = std::move(ExpressionValue(std::move(op(r.toInt())), r.getEffectiveTimestamp()));
+                    return storage = ExpressionValue::null(r.getEffectiveTimestamp());
+                return storage = ExpressionValue(std::move(op(r.toInt())), r.getEffectiveTimestamp());
             },
             expr,
             std::make_shared<IntegerValueInfo>()};
@@ -1758,13 +1758,16 @@ bind(SqlBindingScope & scope) const
              true /* is constant */);
     }
 
+    bool isConstant = true;
+
     vector<BoundSqlExpression> boundClauses;
     DimsVector knownDims = {clauses.size()};
 
     std::vector<std::shared_ptr<ExpressionValueInfo> > clauseInfo;
 
     for (auto & c: clauses) {
-        boundClauses.emplace_back(std::move(c->bind(scope)));
+        boundClauses.emplace_back(c->bind(scope));
+        isConstant = isConstant && boundClauses.back().metadata.isConstant;
         clauseInfo.push_back(boundClauses.back().info);
     }   
 
@@ -1837,7 +1840,7 @@ bind(SqlBindingScope & scope) const
             }
         };
 
-    return BoundSqlExpression(exec, this, outputInfo, false);
+    return BoundSqlExpression(exec, this, outputInfo, isConstant);
 }
 
 Utf8String
@@ -1936,26 +1939,26 @@ bind(SqlBindingScope & scope) const
                     if (l.isFalse() && r.isFalse()) {
                         Date ts = std::min(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
-                        return storage = std::move(ExpressionValue(false, ts));
+                        return storage = ExpressionValue(false, ts);
                     }
                     else if (l.isFalse()) {
-                        return storage = std::move(ExpressionValue(false, l.getEffectiveTimestamp()));
+                        return storage = ExpressionValue(false, l.getEffectiveTimestamp());
                     }
                     else if (r.isFalse()) {
-                        return storage = std::move(ExpressionValue(false, r.getEffectiveTimestamp()));
+                        return storage = ExpressionValue(false, r.getEffectiveTimestamp());
                     }
                     else if (l.empty() && r.empty()) {
                         Date ts = std::min(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
-                        return storage = std::move(ExpressionValue::null(ts));
+                        return storage = ExpressionValue::null(ts);
                     }
                     else if (l.empty())
-                        return storage = std::move(ExpressionValue::null(l.getEffectiveTimestamp()));
+                        return storage = ExpressionValue::null(l.getEffectiveTimestamp());
                     else if (r.empty())
-                        return storage = std::move(ExpressionValue::null(r.getEffectiveTimestamp()));
+                        return storage = ExpressionValue::null(r.getEffectiveTimestamp());
                     Date ts = std::max(l.getEffectiveTimestamp(),
                                        r.getEffectiveTimestamp());
-                    return storage = std::move(ExpressionValue(true, ts));
+                    return storage = ExpressionValue(true, ts);
                 },
                 this,
                 std::make_shared<BooleanValueInfo>()};
@@ -1974,26 +1977,26 @@ bind(SqlBindingScope & scope) const
                     if (l.isTrue() && r.isTrue()) {
                         Date ts = std::max(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
-                        return storage = std::move(ExpressionValue(true, ts));
+                        return storage = ExpressionValue(true, ts);
                     }
                     else if (l.isTrue()) {
-                        return storage = std::move(ExpressionValue(true, l.getEffectiveTimestamp()));
+                        return storage = ExpressionValue(true, l.getEffectiveTimestamp());
                     }
                     else if (r.isTrue()) {
-                        return storage = std::move(ExpressionValue(true, r.getEffectiveTimestamp()));
+                        return storage = ExpressionValue(true, r.getEffectiveTimestamp());
                     }
                     else if (l.empty() && r.empty()) {
                         Date ts = std::max(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
-                        return storage = std::move(ExpressionValue::null(ts));
+                        return storage = ExpressionValue::null(ts);
                     }
                     else if (l.empty())
-                        return storage = std::move(ExpressionValue::null(l.getEffectiveTimestamp()));
+                        return storage = ExpressionValue::null(l.getEffectiveTimestamp());
                     else if (r.empty())
-                        return storage = std::move(ExpressionValue::null(r.getEffectiveTimestamp()));
+                        return storage =ExpressionValue::null(r.getEffectiveTimestamp());
                     Date ts = std::min(l.getEffectiveTimestamp(),
                                        r.getEffectiveTimestamp());
-                    return storage = std::move(ExpressionValue(false, ts));
+                    return storage = ExpressionValue(false, ts);
                 },
                 this,
                 std::make_shared<BooleanValueInfo>()};
@@ -2008,7 +2011,7 @@ bind(SqlBindingScope & scope) const
                     const ExpressionValue & r = boundRhs(row, rstorage, filter);
                     if (r.empty())
                         return storage = std::move(r);
-                    return storage = std::move(ExpressionValue(!r.isTrue(), r.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(!r.isTrue(), r.getEffectiveTimestamp());
                 },
                 this,
                 std::make_shared<BooleanValueInfo>()};
@@ -2127,8 +2130,8 @@ bind(SqlBindingScope & scope) const
             {
                 auto v = boundExpr(row, filter);
                 bool val = (v .* fn) ();
-                return storage = std::move(ExpressionValue(notType ? !val : val,
-                                                           v.getEffectiveTimestamp()));
+                return storage = ExpressionValue(notType ? !val : val,
+                                                 v.getEffectiveTimestamp());
             },
             this,
             std::make_shared<BooleanValueInfo>()};
@@ -2213,7 +2216,7 @@ bind(SqlBindingScope & scope) const
 
     std::vector<BoundSqlExpression> boundArgs;
     for (auto& arg : args) {
-        boundArgs.emplace_back(std::move(arg->bind(scope)));
+        boundArgs.emplace_back(arg->bind(scope));
     }
 
     BoundFunction fn = scope.doGetFunction(tableName, functionName,
@@ -2259,7 +2262,7 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     // ??? BAD SMELL
                     //Don't evaluate the args for aggregator
                     evaluatedArgs.resize(boundArgs.size());
-                    return storage = std::move(fn(evaluatedArgs, row));
+                    return storage = fn(evaluatedArgs, row);
                 },
                 this,
                 fn.resultInfo};
@@ -2272,9 +2275,9 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     std::vector<ExpressionValue> evaluatedArgs;
                     evaluatedArgs.reserve(boundArgs.size());
                     for (auto & a: boundArgs)
-                        evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
+                        evaluatedArgs.emplace_back(a(row, fn.filter));
 
-                    return storage = std::move(fn(evaluatedArgs, row));
+                    return storage = fn(evaluatedArgs, row);
                 },
                 this,
                 fn.resultInfo};
@@ -2505,14 +2508,22 @@ BoundSqlExpression
 CaseExpression::
 bind(SqlBindingScope & scope) const
 {
+    std::shared_ptr<ExpressionValueInfo> info;
+
     BoundSqlExpression boundElse;
-    if (elseExpr)
+    if (elseExpr) {
         boundElse = elseExpr->bind(scope);
+        info = boundElse.info;
+    }
 
     std::vector<std::pair<BoundSqlExpression, BoundSqlExpression> > boundWhen;
 
     for (auto & w: when) {
         boundWhen.emplace_back(w.first->bind(scope), w.second->bind(scope));
+        if (info)
+            info = VariantExpressionValueInfo::createVariantValueInfo(info, boundWhen.back().second.info);
+        else
+            info = boundWhen.back().second.info;
     }
 
     if (expr) {
@@ -2546,15 +2557,14 @@ bind(SqlBindingScope & scope) const
                     if (boundWhen.size() > 0 && boundWhen[0].second.info->isRow()) {
                         // No else defined, first when returned a row,
                         // return an empty row as default else
-                        return storage = std::move(ExpressionValue(RowValue()));
+                        return storage = ExpressionValue(RowValue());
                     }
 
                     // default else returns an empty value
-                    return storage = std::move(ExpressionValue());
+                    return storage = ExpressionValue();
                 },
                 this,
-                // TODO: infer the type
-                std::make_shared<AnyValueInfo>()};
+                info};
     }
     else {
         // Searched CASE expression
@@ -2572,10 +2582,10 @@ bind(SqlBindingScope & scope) const
 
                     if (elseExpr)
                         return boundElse(row, storage, filter);
-                    else return storage = std::move(ExpressionValue());
+                    else return storage = ExpressionValue();
                 },
                 this,
-                std::make_shared<AnyValueInfo>()};
+                info};
     }
 }
 
@@ -2694,21 +2704,21 @@ bind(SqlBindingScope & scope) const
                     return storage = l;
 
                 if (v < l)
-                    return storage = std::move(ExpressionValue(notBetween,
-                                                               std::max(v.getEffectiveTimestamp(),
-                                                                        l.getEffectiveTimestamp())));
+                    return storage = ExpressionValue(notBetween,
+                                                     std::max(v.getEffectiveTimestamp(),
+                                                              l.getEffectiveTimestamp()));
 
                 if (u.empty())
                     return storage = u;
                 if (v > u)
-                    return storage = std::move(ExpressionValue(notBetween,
-                                           std::max(v.getEffectiveTimestamp(),
-                                                    u.getEffectiveTimestamp())));
+                    return storage = ExpressionValue(notBetween,
+                                                     std::max(v.getEffectiveTimestamp(),
+                                                              u.getEffectiveTimestamp()));
 
-                return storage = std::move(ExpressionValue(!notBetween,
-                                                           std::max(std::max(v.getEffectiveTimestamp(),
-                                                                             u.getEffectiveTimestamp()),
-                                                                    l.getEffectiveTimestamp())));
+                return storage = ExpressionValue(!notBetween,
+                                                 std::max(std::max(v.getEffectiveTimestamp(),
+                                                                   u.getEffectiveTimestamp()),
+                                                          l.getEffectiveTimestamp()));
             },
             this,
             std::make_shared<BooleanValueInfo>()};
@@ -2889,8 +2899,8 @@ bind(SqlBindingScope & scope) const
                     bool found = valsPtr->count(v);
 
                     // 4.  Return our result
-                    return storage = std::move(ExpressionValue(isnegative ? !found : found,
-                                                               v.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(isnegative ? !found : found,
+                                                     v.getEffectiveTimestamp());
                 };
             
             return { exec, this, std::make_shared<BooleanValueInfo>() };
@@ -2928,13 +2938,13 @@ bind(SqlBindingScope & scope) const
 
                 if ((v == itemValue))
                 {
-                    return storage = std::move(ExpressionValue(!isnegative,
-                                                           std::max(v.getEffectiveTimestamp(),
-                                                                    itemValue.getEffectiveTimestamp())));
+                    return storage = ExpressionValue(!isnegative,
+                                                     std::max(v.getEffectiveTimestamp(),
+                                                              itemValue.getEffectiveTimestamp()));
                 }
             }
 
-            return storage = std::move(ExpressionValue(isnegative, v.getEffectiveTimestamp()));
+            return storage = ExpressionValue(isnegative, v.getEffectiveTimestamp());
         },
         this,
         std::make_shared<BooleanValueInfo>()};
@@ -2958,12 +2968,12 @@ bind(SqlBindingScope & scope) const
             std::pair<bool, Date> found = s.hasKey(v.toUtf8String());
             
             if (found.first) {
-                return storage = std::move(ExpressionValue(!isnegative,
-                                                           std::max(v.getEffectiveTimestamp(),
-                                                                    found.second)));
+                return storage = ExpressionValue(!isnegative,
+                                                 std::max(v.getEffectiveTimestamp(),
+                                                          found.second));
             }
 
-            return storage = std::move(ExpressionValue(isnegative, v.getEffectiveTimestamp()));
+            return storage = ExpressionValue(isnegative, v.getEffectiveTimestamp());
         
         },
         this,
@@ -2988,12 +2998,12 @@ bind(SqlBindingScope & scope) const
             std::pair<bool, Date> found = s.hasValue(v);
             
             if (found.first) {
-                return storage = std::move(ExpressionValue(!isnegative,
-                                                           std::max(v.getEffectiveTimestamp(),
-                                                                    found.second)));
+                return storage = ExpressionValue(!isnegative,
+                                                 std::max(v.getEffectiveTimestamp(),
+                                                          found.second));
             }
 
-            return storage = std::move(ExpressionValue(isnegative, v.getEffectiveTimestamp()));
+            return storage = ExpressionValue(isnegative, v.getEffectiveTimestamp());
         },
         this,
         std::make_shared<BooleanValueInfo>()};
@@ -3127,7 +3137,7 @@ bind(SqlBindingScope & scope) const
 
             if (value.empty()) {
                 return storage =
-                    std::move(ExpressionValue::null(Date::negativeInfinity()));
+                    ExpressionValue::null(Date::negativeInfinity());
             }
             if (!value.isString())
                 throw HttpReturnException(400, "LIKE expression expected its left "
@@ -3144,9 +3154,9 @@ bind(SqlBindingScope & scope) const
 
             bool matched = matchSqlFilter(valueString, filterString);
 
-            return storage = std::move(ExpressionValue(matched != isnegative,
-                                        std::max(value.getEffectiveTimestamp(),
-                                                 filterEV.getEffectiveTimestamp())));
+            return storage = ExpressionValue(matched != isnegative,
+                                             std::max(value.getEffectiveTimestamp(),
+                                                      filterEV.getEffectiveTimestamp()));
         },
         this,
         std::make_shared<BooleanValueInfo>()};
@@ -3163,7 +3173,7 @@ print() const
         + right->print()
         + ")";
 
-    return std::move(result);
+    return result;
 }
 
 std::shared_ptr<SqlExpression>
@@ -3200,7 +3210,7 @@ getChildren() const
     children.emplace_back(std::move(left));
     children.emplace_back(std::move(right));
 
-    return std::move(children);
+    return children;
 
 }
 
@@ -3229,8 +3239,8 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage, filter);
-                    return storage = std::move(ExpressionValue(val.coerceToString(),
-                                                               val.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(val.coerceToString(),
+                                                     val.getEffectiveTimestamp());
                 },
                 this,
                 std::make_shared<StringValueInfo>()};
@@ -3242,8 +3252,8 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage, filter);
-                    return storage = std::move(ExpressionValue(val.coerceToInteger(),
-                                                               val.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(val.coerceToInteger(),
+                                                     val.getEffectiveTimestamp());
                 },
                 this,
                 std::make_shared<IntegerValueInfo>()};
@@ -3255,8 +3265,8 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage, filter);
-                    return storage = std::move(ExpressionValue(val.coerceToNumber(),
-                                                               val.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(val.coerceToNumber(),
+                                                     val.getEffectiveTimestamp());
                 },
                 this,
                 std::make_shared<Float64ValueInfo>()};
@@ -3268,8 +3278,8 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage, filter);
-                    return storage = std::move(ExpressionValue(val.coerceToTimestamp(),
-                                                               val.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(val.coerceToTimestamp(),
+                                                     val.getEffectiveTimestamp());
                 },
                 this,
                 std::make_shared<IntegerValueInfo>()};
@@ -3281,8 +3291,8 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage, filter);
-                    return storage = std::move(ExpressionValue(val.coerceToBoolean(),
-                                                               val.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(val.coerceToBoolean(),
+                                                     val.getEffectiveTimestamp());
                 },
                 this,
                 std::make_shared<BooleanValueInfo>()};
@@ -3294,8 +3304,8 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage, filter);
-                    return storage = std::move(ExpressionValue(val.coerceToBlob(),
-                                                               val.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(val.coerceToBlob(),
+                                                     val.getEffectiveTimestamp());
                 },
                 this,
                     std::make_shared<BlobValueInfo>()};
@@ -3307,8 +3317,8 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage, filter);
-                    return storage = std::move(ExpressionValue(CellValue(val.coerceToPath()),
-                                                               val.getEffectiveTimestamp()));
+                    return storage = ExpressionValue(CellValue(val.coerceToPath()),
+                                                     val.getEffectiveTimestamp());
                 },
                 this,
                 std::make_shared<PathValueInfo>()};
@@ -3461,60 +3471,65 @@ bind(SqlBindingScope & scope) const
     //cerr << "prefix = " << prefix << endl;
     //cerr << "asPrefix = " << asPrefix << endl;
 
-    if (!prefix.empty())
-        simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
+    ColumnFilter newColumnName = ColumnFilter::identity();
 
-    //cerr << "tableName = " << resolvedTableName << endl;
-    //cerr << "simplifiedPrefix = " << simplifiedPrefix << endl;
+    if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()){
+       
+        if (!prefix.empty())
+            simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
 
-    // This function figures out the new name of the column.  If it's excluded,
-    // then it returns the empty column name
-    auto newColumnName = [=] (const ColumnName & inputColumnName) -> ColumnName
-        {
-            //cerr << "input column name " << inputColumnName << endl;
+        //cerr << "tableName = " << resolvedTableName << endl;
+        //cerr << "simplifiedPrefix = " << simplifiedPrefix << endl;
 
-            // First, check it matches the prefix
-            // We have to check the simplified prefix for regular datasets
-            // i.e select x.a.* from x returns a.b
-            // But we have to check the initial prefix for joins
-            // i.e select x.a.* from x join y returns x.a.b
-            if (!inputColumnName.matchWildcard(simplifiedPrefix)
-                && !inputColumnName.matchWildcard(prefix)) {
-                //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
-                return ColumnName();
-            }
+        // This function figures out the new name of the column.  If it's excluded,
+        // then it returns the empty column name
+        newColumnName = ColumnFilter([=] (const ColumnName & inputColumnName) -> ColumnName
+            {
+                //cerr << "input column name " << inputColumnName << endl;
 
-            // Second, check it doesn't match an exclusion
-            for (auto & ex: excluding) {
-                if (ex.second) {
-                    // prefix
-                    if (inputColumnName.matchWildcard(ex.first))
-                        return ColumnName();
+                // First, check it matches the prefix
+                // We have to check the simplified prefix for regular datasets
+                // i.e select x.a.* from x returns a.b
+                // But we have to check the initial prefix for joins
+                // i.e select x.a.* from x join y returns x.a.b
+                if (!inputColumnName.matchWildcard(simplifiedPrefix)
+                    && !inputColumnName.matchWildcard(prefix)) {
+                    //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
+                    return ColumnName();
                 }
-                else {
-                    // exact match
-                    if (inputColumnName == ex.first)
-                        return ColumnName();
+
+                // Second, check it doesn't match an exclusion
+                for (auto & ex: excluding) {
+                    if (ex.second) {
+                        // prefix
+                        if (inputColumnName.matchWildcard(ex.first))
+                            return ColumnName();
+                    }
+                    else {
+                        // exact match
+                        if (inputColumnName == ex.first)
+                            return ColumnName();
+                    }
                 }
-            }
 
-            // Finally, replace the prefix with the new prefix
-            if (!simplifiedPrefix.empty() || (prefix != asPrefix)) {
+                // Finally, replace the prefix with the new prefix
+                if (!simplifiedPrefix.empty() || (prefix != asPrefix)) {
 
-                if (prefix != asPrefix) {
-                    //cerr << "replacing wildcard " << prefix
-                    // << " with " << asPrefix << " on " << inputColumnName << endl;
-                    //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
+                    if (prefix != asPrefix) {
+                        //cerr << "replacing wildcard " << prefix
+                        // << " with " << asPrefix << " on " << inputColumnName << endl;
+                        //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
 
-                    return inputColumnName.replaceWildcard(prefix, asPrefix);
+                        return inputColumnName.replaceWildcard(prefix, asPrefix);
+                    }
                 }
-            }
 
-            //cerr << "kept" << endl;
-            return inputColumnName;
-        };
+                //cerr << "kept" << endl;
+                return inputColumnName;
+            });
+    }   
 
-    auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
+    auto allColumns = scope.doGetAllAtoms(resolvedTableName, newColumnName);
 
     auto exec = [=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
@@ -3718,13 +3733,15 @@ SelectColumnExpression(std::shared_ptr<SqlExpression> select,
                        std::shared_ptr<SqlExpression> where,
                        OrderByExpression orderBy,
                        int64_t offset,
-                       int64_t limit)
+                       int64_t limit,
+                       bool isStructured)
     : select(std::move(select)),
       as(std::move(as)),
       where(std::move(where)),
       orderBy(std::move(orderBy)),
       offset(offset),
-      limit(limit)
+      limit(limit),
+      isStructured(isStructured)
 {
 }
 
@@ -3733,9 +3750,9 @@ SelectColumnExpression::
 bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
-    auto allColumns
-        = scope.doGetAllColumns("" /* table name */,
-                                  [] (ColumnName n) { return std::move(n); });
+    ColumnFilter filter = ColumnFilter::identity();
+    auto allColumns 
+        = isStructured ? scope.doGetAllColumns("" /* table name */, filter) : scope.doGetAllAtoms("" /* table name */, filter);
     
     bool hasDynamicColumns
         = allColumns.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
@@ -3768,7 +3785,9 @@ bind(SqlBindingScope & scope) const
     /// List of all functions to run in our run() operator
     std::vector<std::function<void (const SqlRowScope &, StructValue &)> > functionsToRun;
 
-    std::vector<KnownColumn> knownColumns = allColumns.info->getKnownColumns();
+    std::vector<KnownColumn> knownColumns;
+
+    knownColumns = allColumns.info->getKnownColumns(); 
 
     // For each group of columns, find which match
     for (unsigned j = 0;  j < knownColumns.size();  ++j) {
@@ -3801,9 +3820,7 @@ bind(SqlBindingScope & scope) const
 
         columns.emplace_back(std::move(entry));
     }
-
-    //cerr << "considering " << columns.size() << " columns" << endl;
-    
+   
     // Compare two columns according to the sort criteria
     auto compareColumns = [&] (const ColumnEntry & col1,
                                const ColumnEntry & col2)
@@ -3868,28 +3885,29 @@ bind(SqlBindingScope & scope) const
     for (auto & c: columns)
         keepColumns[c.inputColumnName]
             = c.columnName;
-    
+
     if (selectValue && asColumnPath && !hasDynamicColumns) {
 
-        auto filterColumns = [=] (const ColumnName & name) -> ColumnName
+        ColumnFilter filterColumns([=] (const ColumnName & name) -> ColumnName
             {
                 auto it = keepColumns.find(name);
                 if (it == keepColumns.end()) {
                     return ColumnName();
                 }
                 return it->second;
-            };
+            });
     
         // Finally, return a filtered set from the underlying dataset
         auto outputColumns
-            = scope.doGetAllColumns("" /* prefix */, filterColumns);
+            = isStructured ? scope.doGetAllColumns("" /* prefix */, filterColumns) : 
+                             scope.doGetAllAtoms("" /* prefix */, filterColumns);
 
         auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                return storage = std::move(outputColumns.exec(scope, filter));
+                return storage = outputColumns.exec(scope, filter);
             };
 
         BoundSqlExpression result(exec, this, outputColumns.info);
@@ -3897,13 +3915,8 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
-        auto filterColumns = [=] (const ColumnName & name) -> ColumnName
-            {
-                return name;
-            };
 
-        auto outputColumns
-            = scope.doGetAllColumns("" /* prefix */, filterColumns);
+        ColumnFilter filterColumns = ColumnFilter::identity();
 
         BoundSqlExpression boundSelect = select->bind(colScope);
 
@@ -3912,15 +3925,13 @@ bind(SqlBindingScope & scope) const
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                ExpressionValue input = outputColumns.exec(scope, filter);
+                ExpressionValue input = allColumns.exec(scope, filter);
 
                 RowValue output;
-                
-                auto onAtom = [&] (ColumnName & columnName,
-                                   CellValue & val,
-                                   Date ts)
+               
+                auto onValue = [&] (const ColumnName & columnName,
+                                   ExpressionValue in)
                 {
-                    ExpressionValue in(std::move(val), ts);
                     auto scope = ColumnExpressionBindingScope
                         ::getColumnScope(columnName, in);
 
@@ -3938,7 +3949,7 @@ bind(SqlBindingScope & scope) const
                             : boundSelect(scope, storage, GET_ALL);
 
                     ColumnName columnNameStorage;
-                    ColumnName * columnNameOut = &columnName;
+                    const ColumnName * columnNameOut = &columnName;
                     if (!asColumnPath) {
                         ExpressionValue tmp;
                         columnNameStorage
@@ -3988,13 +3999,28 @@ bind(SqlBindingScope & scope) const
 
                     return true;
                 };
+
+                auto onAtom = [&] (ColumnName & columnName,
+                                   CellValue & val,
+                                   Date ts) -> bool
+                {
+                    return onValue(columnName,ExpressionValue(val, ts));
+                };
+
+                auto onColumn = [&] (PathElement & columnName, ExpressionValue & val) -> bool
+                {
+                    return onValue(ColumnName(columnName), val);
+                };
                 
-                input.forEachAtomDestructive(onAtom);
+                if (isStructured)
+                    input.forEachColumnDestructive(onColumn);
+                else 
+                    input.forEachAtomDestructive(onAtom);
 
                 return storage = std::move(output);
             };
 
-        BoundSqlExpression result(exec, this, outputColumns.info);
+        BoundSqlExpression result(exec, this, allColumns.info);
     
         return result;
     }
@@ -4067,5 +4093,5 @@ wildcards() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

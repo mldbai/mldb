@@ -76,7 +76,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
         };
 
     // Hash the examples in parallel
-    Datacratic::parallelMap(0, dataset.example_count(), doHash);
+    MLDB::parallelMap(0, dataset.example_count(), doHash);
 
     cerr << "hashed examples in " << timer.elapsed() << endl;
 
@@ -156,7 +156,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
         };
 
-    Datacratic::parallelMap(0, 32, processBucket);
+    MLDB::parallelMap(0, 32, processBucket);
 
     // Assemble a final result
     vector<Alias> result;

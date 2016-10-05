@@ -11,7 +11,7 @@
 
 #include "list_description_base.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* SET DESCRIPTION                                                           */
@@ -39,51 +39,56 @@ struct SetDescription
     {
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const
+    virtual void parseJson(void * val,
+                           JsonParsingContext & context) const override
     {
         std::set<T> * val2 = reinterpret_cast<std::set<T> *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(std::set<T> * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(std::set<T> * val,
+                                JsonParsingContext & context) const override
     {
         this->parseJsonTypedSet(val, context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    virtual void printJson(const void * val,
+                           JsonPrintingContext & context) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         return printJsonTyped(val2, context);
     }
 
-    virtual void printJsonTyped(const std::set<T> * val, JsonPrintingContext & context) const
+    virtual void printJsonTyped(const std::set<T> * val,
+                                JsonPrintingContext & context) const override
     {
         this->printJsonTypedList(val, context);
     }
 
-    virtual bool isDefault(const void * val) const
+    virtual bool isDefault(const void * val) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         return isDefaultTyped(val2);
     }
 
-    virtual bool isDefaultTyped(const std::set<T> * val) const
+    virtual bool isDefaultTyped(const std::set<T> * val) const override
     {
         return val->empty();
     }
 
-    virtual size_t getArrayLength(void * val) const
+    virtual size_t getArrayLength(void * val) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         return val2->size();
     }
 
-    virtual void * getArrayElement(void * val, uint32_t element) const
+    virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         throw ML::Exception("can't mutate set elements");
     }
 
-    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    virtual const void * getArrayElement(const void * val,
+                                         uint32_t element) const override
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         if (element >= val2->size())
@@ -93,17 +98,17 @@ struct SetDescription
         return &*it;
     }
 
-    virtual void setArrayLength(void * val, size_t newLength) const
+    virtual void setArrayLength(void * val, size_t newLength) const override
     {
         throw ML::Exception("cannot adjust length of a set");
     }
     
-    virtual const ValueDescription & contained() const
+    virtual const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }
@@ -112,5 +117,5 @@ struct SetDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(SetDescription, std::set, typename, T);
 
-} // namespace Datacratic
+} // namespace MLDB
 

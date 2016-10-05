@@ -17,7 +17,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* BINARY STATS                                                              */
@@ -69,7 +69,7 @@ toJson() const
     result["pr"]["accuracy"] = accuracy();
     result["pr"]["precision"] = precision();
     result["pr"]["recall"] = recall();
-    result["pr"]["f"] = f();
+    result["pr"]["f1Score"] = f();
     result["mcc"] = mcc();
     result["gain"] = gain();
     result["counts"]["truePositives"] = truePositives();
@@ -354,7 +354,7 @@ getRocCurveJson() const
     Json::Value js;
     js["aroc"] = auc;
     js["model"] = modelJs;
-    js["bestF"] = bestF.toJson();
+    js["bestF1Score"] = bestF.toJson();
     js["bestMcc"] = bestMcc.toJson();
 
     return js;
@@ -374,9 +374,9 @@ toJson() const
 {
     Json::Value result;
     result["auc"] = auc;
-    result["bestF"] = bestF.toJson();
+    result["bestF1Score"] = bestF.toJson();
     result["bestMcc"] = bestMcc.toJson();
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

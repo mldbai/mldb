@@ -15,7 +15,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_statsd_connector )

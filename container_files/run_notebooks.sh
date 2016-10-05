@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for nbdir in _tutorials _demos 
+for nbdir in _tutorials _demos _other
 do
     cd /mldb_data/$nbdir/_latest
     for f in *.ipynb

@@ -29,7 +29,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(SVMType);
@@ -332,7 +332,7 @@ run(const ProcedureRunConfig & run,
         if (svm_save_model(model_tmp_name.c_str(),model))
             throw ML::Exception("");
 
-        Datacratic::makeUriDirectory(
+        makeUriDirectory(
             runProcConf.modelFileUrl.toDecodedString());
         filter_istream in(model_tmp_name);
         filter_ostream out(runProcConf.modelFileUrl);
@@ -445,7 +445,7 @@ call(SVMFunctionArgs input) const
     Date ts = input.embedding.getEffectiveTimestamp();
 
     svm_node * x = new svm_node[embedding.size()+1];
-    Scope_Exit(delete x);
+    Scope_Exit(delete[] x);
 
     int nbSparse = 0;
     for (size_t i = 0; i < embedding.size(); ++i) {
@@ -482,4 +482,4 @@ regClassifyFunction(builtinPackage(),
 
 } // filescope
 } // MLDB
-} // Datacratic
+

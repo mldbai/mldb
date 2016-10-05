@@ -27,7 +27,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 BucketizeProcedureConfig::
@@ -46,9 +46,7 @@ BucketizeProcedureConfigDescription()
              "but has no effect.  The order by expression is used to rank the rows prior to "
              "bucketization.");
     addField("outputDataset", &BucketizeProcedureConfig::outputDataset,
-             "Output dataset configuration. This may refer either to an "
-             "existing dataset, or a fully specified but non-existing dataset "
-             "which will be created by the procedure.",
+             GENERIC_OUTPUT_DS_DESC,
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "
@@ -179,7 +177,7 @@ run(const ProcedureRunConfig & run,
                  onProgress2);
 
     int64_t rowCount = orderedRowNames.size();
-    logger->debug() << "Row count: " << rowCount;
+    DEBUG_MSG(logger) << "Row count: " << rowCount;
 
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
@@ -223,8 +221,8 @@ run(const ProcedureRunConfig & run,
 
         ExcAssert(higherBound <= rowCount);
 
-        logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
-                        << " to " << higherBound;
+        DEBUG_MSG(logger) << "Bucket " << mappedRange.first << " from "
+                          << lowerBound << " to " << higherBound;
 
         parallelMap(lowerBound, higherBound, applyFct);
     }
@@ -256,4 +254,4 @@ regBucketizeProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

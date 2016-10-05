@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP REST ENDPOINT                                                       */
@@ -257,11 +257,11 @@ logRequest(int code) const
         timespec now;
         clock_gettime(CLOCK_REALTIME, &now);
         double elapsed = (now.tv_sec - timer.tv_sec) * 1000 + (now.tv_nsec - timer.tv_nsec) * 0.000001;
-        logger->info() << "\"" << httpHeader.verb << " " 
+        INFO_MSG(logger) << "\"" << httpHeader.verb << " " 
                        << httpHeader.resource << "\" " << code
                        << " "  << std::setprecision(3)  << elapsed <<  "ms";
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

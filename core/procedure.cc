@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -429,4 +429,4 @@ ProcedurePolyConfigDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -15,7 +15,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/jml/stats/distribution.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DISTRIBUTION POOLER */

@@ -20,7 +20,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 Logging::Category logEtcd("etcd", false /* enabled by default */);
 //Logger::Category etcdErrors(etcd, "errors");
@@ -344,4 +344,4 @@ runDiscoveryThread()
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

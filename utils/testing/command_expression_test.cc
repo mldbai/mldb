@@ -32,7 +32,8 @@
 using namespace std;
 using namespace ML;
 
-using namespace Datacratic;
+using namespace MLDB;
+using namespace MLDB::PluginCommand;
 
 
 BOOST_AUTO_TEST_CASE( test_command_expression )

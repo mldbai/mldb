@@ -9,7 +9,7 @@ into MLDB to extend its functionality.
 
 With `PackageElementSources` defined as:
 
-![](%%type Datacratic::MLDB::PackageElementSources)
+![](%%type MLDB::PackageElementSources)
 
 ## Returning a result
 
@@ -24,21 +24,21 @@ then the script will return a string "hello" as its result.
 Running a Javsascript script directly as a plugin, procedure or function will
 return a ScriptOutput result, that looks like this:
 
-![](%%type Datacratic::MLDB::ScriptOutput)
+![](%%type MLDB::ScriptOutput)
 
 with log entries looking like
 
-![](%%type Datacratic::MLDB::ScriptLogEntry)
+![](%%type MLDB::ScriptLogEntry)
 
 ### Exceptions
 
 Exceptions are represented as
 
-![](%%type Datacratic::MLDB::ScriptException)
+![](%%type MLDB::ScriptException)
 
 with stack frames like
 
-![](%%type Datacratic::MLDB::ScriptStackFrame)
+![](%%type MLDB::ScriptStackFrame)
 
 
 ## <a name="API"></a> Server-side Javascript API
@@ -211,7 +211,7 @@ MLDB:
   in the directory, with the URI as the key and the following structure
   as the value:
 
-  ![](%%type Datacratic::FsObjectInfo)
+  ![](%%type MLDB::FsObjectInfo)
 
 #### Stream object
 

@@ -10,7 +10,6 @@
 #include "em.h"
 
 #include "mldb/arch/simd_vector.h"
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/arch/math_builtins.h"
 
 #include "mldb/base/exc_assert.h"
@@ -24,7 +23,7 @@
 #include "mldb/types/jml_serialization.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 typedef boost::multi_array<double, 2> MatrixType;
 
@@ -176,7 +175,7 @@ train(const std::vector<ML::distribution<double>> & points,
 
         // How many have changed cluster?  Used to know when the cluster
         // contents are stable
-        int changes = 0;
+        std::atomic<int> changes(0);
 
         //Step 1: assign each point to a distribution in the mixture
 
@@ -185,7 +184,7 @@ train(const std::vector<ML::distribution<double>> & points,
             int best_cluster = this->assign(points[i], distanceMatrix, i);
 
             if (best_cluster != in_cluster[i]) {
-                ML::atomic_inc(changes);
+                ++changes;
                 in_cluster[i] = best_cluster;
             }
         };

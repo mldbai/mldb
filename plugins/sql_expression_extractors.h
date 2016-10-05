@@ -8,7 +8,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /**  Iterates over the select sub expressions of type NamedColumnExpression to match a given name.
@@ -28,4 +28,4 @@ extractNamedSubSelect (const Utf8String & name, const SelectExpression & select)
 }
     
 } // namespace MLDB
-} // namespace Datacratic
+

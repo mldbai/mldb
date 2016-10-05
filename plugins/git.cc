@@ -199,7 +199,7 @@ GitFileStats git_diff_by_file(git_diff *diff)
                                  &result);
 
     if (error < 0) {
-        throw Datacratic::HttpReturnException(400, "Error traversing diff: "
+        throw MLDB::HttpReturnException(400, "Error traversing diff: "
                                               + std::string(giterr_last()->message));
     }
 
@@ -211,9 +211,7 @@ GitFileStats git_diff_by_file(git_diff *diff)
 
 
 using namespace std;
-using Datacratic::getDefaultDescription;
 
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -582,4 +580,4 @@ regGit(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

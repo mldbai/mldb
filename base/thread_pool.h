@@ -13,7 +13,7 @@
 #include <functional>
 #include <memory>
 
-namespace Datacratic {
+namespace MLDB {
 
 typedef std::function<void () noexcept> ThreadJob;
 
@@ -57,6 +57,8 @@ struct ThreadPool {
 
     void work() const;
 
+    size_t numThreads() const;
+
     uint64_t jobsRunning() const;
     uint64_t jobsSubmitted() const;
     uint64_t jobsFinished() const;
@@ -72,4 +74,4 @@ private:
     std::shared_ptr<Itl> itl;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

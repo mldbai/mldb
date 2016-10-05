@@ -17,7 +17,7 @@ using namespace std;
 using namespace boost;
 using boost::math::normal; // typedef provides default type is double.
 
-namespace Datacratic
+namespace MLDB
 {
 
 ConfidenceIntervals::

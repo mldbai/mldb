@@ -1,26 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* gc_lock.h                                                       -*- C++ -*-
    Jeremy Barnes, 19 November 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    "Lock" that works by deferring the destruction of objects into a garbage collection
    process which is only run when nothing could be using them.
 */
 
-#ifndef __mmap__gc_lock_h__
-#define __mmap__gc_lock_h__
-
-#define GC_LOCK_DEBUG 0
+#pragma once
 
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/thread_specific.h"
 #include <vector>
-#include <iostream>
-
-#if GC_LOCK_DEBUG
-#  include <iostream>
-#endif
+#include <memory>
 
 /** Deterministic memory reclamation is a fundamental problem in lock-free
     algorithms and data structures.
@@ -48,7 +40,7 @@
 
 */
 
-namespace Datacratic {
+namespace MLDB {
 
 extern int32_t SpeculativeThreshold;
 
@@ -74,29 +66,8 @@ public:
 
     /// A thread's bookkeeping info about each GC area
     struct ThreadGcInfoEntry {
-        ThreadGcInfoEntry()
-            : inEpoch(-1), readLocked(0), writeLocked(0),
-              specLocked(0), specUnlocked(0),
-              owner(0)
-        {
-        }
-
-        ~ThreadGcInfoEntry() {
-            /* We are not in a speculative critical section, check if
-             * Gc has been left locked
-             */
-            if (!specLocked && !specUnlocked && (readLocked || writeLocked))
-                ExcCheck(false, "Thread died but GcLock is still locked");
-
-            /* We are in a speculative CS but Gc has not beed unlocked
-             */
-            else if (!specLocked && specUnlocked) {
-                unlockShared(RD_YES);
-                specUnlocked = 0;
-            }
-           
-        } 
-
+        ThreadGcInfoEntry();
+        ~ThreadGcInfoEntry();
 
         int inEpoch;  // 0, 1, -1 = not in 
         int readLocked;
@@ -107,78 +78,15 @@ public:
 
         GcLockBase *owner;
 
-        void init(const GcLockBase * const self) {
-            if (!owner) 
-                owner = const_cast<GcLockBase *>(self);
-        }
-                
-
-        void lockShared(RunDefer runDefer) {
-            if (!readLocked && !writeLocked)
-                owner->enterCS(this, runDefer);
-
-            ++readLocked;
-        }
-
-        void unlockShared(RunDefer runDefer) {
-            if (readLocked <= 0)
-                throw ML::Exception("Bad read lock nesting");
-
-            --readLocked;
-            if (!readLocked && !writeLocked) 
-                owner->exitCS(this, runDefer);
-        }
-
-        bool isLockedShared() {
-            return readLocked + writeLocked;
-        }
-
-        void lockExclusive() {
-            if (!writeLocked)
-                owner->enterCSExclusive(this);
-            
-             ++writeLocked;
-        }
-
-        void unlockExclusive() {
-            if (writeLocked <= 0)
-                throw ML::Exception("Bad write lock nesting");
-
-            --writeLocked;
-            if (!writeLocked)
-                owner->exitCSExclusive(this);
-        }
-
-        void lockSpeculative(RunDefer runDefer) {
-            if (!specLocked && !specUnlocked) 
-                lockShared(runDefer);
-
-            ++specLocked;
-        }
-
-        void unlockSpeculative(RunDefer runDefer) {
-            if (!specLocked) 
-                throw ML::Exception("Bad speculative lock nesting");
-
-            --specLocked;
-            if (!specLocked) {
-                if (++specUnlocked == SpeculativeThreshold) {
-                    unlockShared(runDefer);
-                    specUnlocked = 0;
-                }
-            }
-        }
-
-        void forceUnlock(RunDefer runDefer) {
-            ExcCheckEqual(specLocked, 0, "Bad forceUnlock call");
-
-            if (specUnlocked) {
-                unlockShared(runDefer);
-                specUnlocked = 0;
-            }
-        }
-
-
+        void init(const GcLockBase * const self);
+        void lockShared(RunDefer runDefer);
+        void unlockShared(RunDefer runDefer);
+        bool isLockedShared();
+        void lockExclusive();
+        void unlockExclusive();
+        void lockSpeculative(RunDefer runDefer);
+        void unlockSpeculative(RunDefer runDefer);
+        void forceUnlock(RunDefer runDefer);
         std::string print() const;
     };
 
@@ -186,85 +94,16 @@ public:
         GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
 
-    struct Data {
-        Data();
-        Data(const Data & other);
-
-        Data & operator = (const Data & other);
-
-        typedef uint64_t q2 __attribute__((__vector_size__(16)));
-        
-        volatile union {
-            struct {
-                int32_t epoch;       ///< Current epoch number (could be smaller).
-                int16_t in[2];       ///< How many threads in each epoch
-                int32_t visibleEpoch;///< Lowest epoch number that's visible
-                int32_t exclusive;   ///< Mutex value to lock exclusively
-            };
-            struct {
-                uint64_t bits;
-                uint64_t bits2;
-            };
-            struct {
-                q2 q;
-            };
-        } JML_ALIGNED(16);
-
-        int16_t inCurrent() const { return in[epoch & 1]; }
-        int16_t inOld() const { return in[(epoch - 1)&1]; }
-
-        void setIn(int32_t epoch, int val)
-        {
-            //if (epoch != this->epoch && epoch + 1 != this->epoch)
-            //    throw ML::Exception("modifying wrong epoch");
-            in[epoch & 1] = val;
-        }
-
-        void addIn(int32_t epoch, int val)
-        {
-            //if (epoch != this->epoch && epoch + 1 != this->epoch)
-            //    throw ML::Exception("modifying wrong epoch");
-            in[epoch & 1] += val;
-        }
-
-        /** Check that the invariants all hold.  Throws an exception if not. */
-        void validate() const;
-
-        /** Calculate the appropriate value of visibleEpoch from the rest
-            of the fields.  Returns true if waiters should be woken up.
-        */
-        bool calcVisibleEpoch();
-        
-        /** Human readable string. */
-        std::string print() const;
-
-        bool operator == (const Data & other) const
-        {
-            return bits == other.bits && bits2 == other.bits2;
-        }
-
-        bool operator != (const Data & other) const
-        {
-            return ! operator == (other);
-        }
-
-    } JML_ALIGNED(16);
-
+    struct Atomic;
+    struct Data;
 
     void enterCS(ThreadGcInfoEntry * entry = 0, RunDefer runDefer = RD_YES);
     void exitCS(ThreadGcInfoEntry * entry = 0, RunDefer runDefer = RD_YES);
     void enterCSExclusive(ThreadGcInfoEntry * entry = 0);
     void exitCSExclusive(ThreadGcInfoEntry * entry = 0);
 
-    int myEpoch(GcInfo::PerThreadInfo * threadInfo = 0) const
-    {
-        return getEntry(threadInfo).inEpoch;
-    }
-
-    int currentEpoch() const
-    {
-        return data->epoch;
-    }
+    int myEpoch(GcInfo::PerThreadInfo * threadInfo = 0) const;
+    int currentEpoch() const;
 
     JML_ALWAYS_INLINE ThreadGcInfoEntry &
     getEntry(GcInfo::PerThreadInfo * info = 0) const
@@ -284,36 +123,9 @@ public:
     virtual void unlink() = 0;
 
     void lockShared(GcInfo::PerThreadInfo * info = 0,
-                    RunDefer runDefer = RD_YES)
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
-
-        entry.lockShared(runDefer);
-
-#if GC_LOCK_DEBUG
-        using namespace std;
-        cerr << "lockShared "
-             << this << " index " << index
-             << ": now " << entry.print() << " data "
-             << data->print() << endl;
-#endif
-    }
-
+                    RunDefer runDefer = RD_YES);
     void unlockShared(GcInfo::PerThreadInfo * info = 0, 
-                      RunDefer runDefer = RD_YES)
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
-
-        entry.unlockShared(runDefer);
-
-#if GC_LOCK_DEBUG
-        using namespace std;
-        cerr << "unlockShared "
-             << this << " index " << index
-             << ": now " << entry.print() << " data "
-             << data->print() << endl;
-#endif
-    }
+                      RunDefer runDefer = RD_YES);
 
     /** Speculative critical sections should be used for hot loops doing
         repeated but short reads on shared objects where it's acceptable to keep
@@ -345,20 +157,10 @@ public:
         guarantees.
     */
     void lockSpeculative(GcInfo::PerThreadInfo * info = 0,
-                         RunDefer runDefer = RD_YES)
-    {
-        ThreadGcInfoEntry & entry = getEntry(info); 
-
-        entry.lockSpeculative(runDefer);
-    }
+                         RunDefer runDefer = RD_YES);
 
     void unlockSpeculative(GcInfo::PerThreadInfo * info = 0,
-                           RunDefer runDefer = RD_YES)
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
-
-        entry.unlockSpeculative(runDefer);
-    }
+                           RunDefer runDefer = RD_YES);
 
     /** Ensures that after the call, the Gc is "unlocked".
 
@@ -369,61 +171,19 @@ public:
         called automatically when a thread is destroyed.
      */
     void forceUnlock(GcInfo::PerThreadInfo * info = 0,
-                     RunDefer runDefer = RD_YES) {
-        ThreadGcInfoEntry & entry = getEntry(info);
-
-        entry.forceUnlock(runDefer);
-    }
+                     RunDefer runDefer = RD_YES);
         
-    int isLockedShared(GcInfo::PerThreadInfo * info = 0) const
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
+    int isLockedShared(GcInfo::PerThreadInfo * info = 0) const;
 
-        return entry.isLockedShared();
-    }
+    int lockedInEpoch(GcInfo::PerThreadInfo * info = 0) const;
 
-    int lockedInEpoch(GcInfo::PerThreadInfo * info = 0) const
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
+    void lockExclusive(GcInfo::PerThreadInfo * info = 0);
 
-        return entry.inEpoch;
-    }
+    void unlockExclusive(GcInfo::PerThreadInfo * info = 0);
 
-    void lockExclusive(GcInfo::PerThreadInfo * info = 0)
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
+    int isLockedExclusive(GcInfo::PerThreadInfo * info = 0) const;
 
-        entry.lockExclusive();
-#if GC_LOCK_DEBUG
-        using namespace std;
-        cerr << "lockExclusive "
-             << this << " index " << index
-             << ": now " << entry.print() << " data "
-             << data->print() << endl;
-#endif
-    }
-
-    void unlockExclusive(GcInfo::PerThreadInfo * info = 0)
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
-
-        entry.unlockExclusive();
-
-#if GC_LOCK_DEBUG
-        using namespace std;
-        cerr << "unlockExclusive"
-             << this << " index " << index
-             << ": now " << entry.print()
-             << " data " << data->print() << endl;
-#endif
-    }
-
-    int isLockedExclusive(GcInfo::PerThreadInfo * info = 0) const
-    {
-        ThreadGcInfoEntry & entry = getEntry(info);
-
-        return entry.writeLocked;
-    }
+    bool isLockedByAnyThread() const;
 
     enum DoLock {
         DONT_LOCK = 0,
@@ -486,9 +246,9 @@ public:
 
     struct SpeculativeGuard {
         SpeculativeGuard(GcLockBase &lock,
-                         RunDefer runDefer = RD_YES) :
-            lock(lock),
-            runDefer_(runDefer) 
+                         RunDefer runDefer = RD_YES)
+            : lock(lock),
+              runDefer_(runDefer) 
         {
             lock.lockSpeculative(0, runDefer_);
         }
@@ -562,7 +322,10 @@ public:
 
 protected:
     Data* data;
-
+    /// How many bytes does data require?
+    static size_t dataBytesRequired();
+    /// Placement construct a data instance
+    static Data* uninitializedConstructData(void * memory);
 private:
     struct Deferred;
     struct DeferredList;
@@ -581,7 +344,7 @@ private:
         on that value, and will run any deferred handlers registered for
         that value.
     */
-    bool updateData(Data & oldValue, Data & newValue, RunDefer runDefer);
+    bool updateAtomic(Atomic & oldValue, Atomic & newValue, RunDefer runDefer);
 
     /** Executes any available deferred work. */
     void runDefers();
@@ -607,46 +370,7 @@ struct GcLock : public GcLockBase
     virtual void unlink();
 
 private:
-
-    Data localData;
-
+    std::unique_ptr<Data> localData;
 };
 
-
-/*****************************************************************************/
-/* SHARED GC LOCK                                                            */
-/*****************************************************************************/
-
-/** Constants that can be used to control how resources are opened.
-    Note that these are structs so we can more easily overload constructors.
-*/
-extern struct GcCreate {} GC_CREATE; ///< Open and initialize a new resource.
-extern struct GcOpen {} GC_OPEN;     ///< Open an existing resource.
-
-
-/** GcLock to be shared among multiple processes. */
-
-struct SharedGcLock : public GcLockBase
-{
-    SharedGcLock(GcCreate, const std::string& name);
-    SharedGcLock(GcOpen, const std::string& name);
-    virtual ~SharedGcLock();
-
-    /** Permanently deletes any resources associated with the gc lock. */
-    virtual void unlink();
-
-private:
-
-    /** mmap an shm file into memory and set the data member of GcLock. */
-    void doOpen(bool create);
-
-    std::string name;
-    int fd;
-    void* addr;
-
-};
-
-} // namespace Datacratic
-
-#endif /* __mmap__gc_lock_h__ */
-
+} // namespace MLDB

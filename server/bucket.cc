@@ -17,10 +17,10 @@
 #include <algorithm>
 #include <unordered_map>
 
-namespace Datacratic {
+
 namespace MLDB {
 
-namespace{
+namespace {
 
 template<typename T>
 static std::shared_ptr<T>
@@ -260,5 +260,4 @@ numBuckets() const
     return intervals.offset + intervals.numBuckets();
 }
 
-}
 }

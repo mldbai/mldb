@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/rest/etcd_client.h"
@@ -20,7 +20,7 @@
 #include "mldb/types/value_description.h"
 #include <mutex>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TemporaryEtcdServer {
 
@@ -148,4 +148,4 @@ inline std::string getEtcdPath()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

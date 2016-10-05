@@ -7,13 +7,12 @@
 
 #include "function_js.h"
 #include "mldb/core/function.h"
-#include "mldb/types/js/id_js.h"
 
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -25,7 +24,8 @@ v8::Handle<v8::Object>
 FunctionJS::
 create(std::shared_ptr<Function> function, JsPluginContext * context)
 {
-    auto obj = context->Function->GetFunction()->NewInstance();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto obj = context->Function.Get(isolate)->GetFunction()->NewInstance();
     auto * wrapped = new FunctionJS();
     wrapped->function = function;
     wrapped->wrap(obj, context);
@@ -47,80 +47,87 @@ registerMe()
 {
     using namespace v8;
 
-    HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("Function");
     auto prototmpl = fntmpl->PrototypeTemplate();
 
-    prototmpl->Set(String::New("status"), FunctionTemplate::New(status));
-    prototmpl->Set(String::New("details"), FunctionTemplate::New(details));
-    prototmpl->Set(String::New("id"), FunctionTemplate::New(id));
-    prototmpl->Set(String::New("type"), FunctionTemplate::New(type));
-    prototmpl->Set(String::New("config"), FunctionTemplate::New(config));
-    prototmpl->Set(String::New("call"), FunctionTemplate::New(call));
+    prototmpl->Set(String::NewFromUtf8(isolate, "status"),
+                   FunctionTemplate::New(isolate, status));
+    prototmpl->Set(String::NewFromUtf8(isolate, "details"),
+                   FunctionTemplate::New(isolate, details));
+    prototmpl->Set(String::NewFromUtf8(isolate, "id"),
+                   FunctionTemplate::New(isolate, id));
+    prototmpl->Set(String::NewFromUtf8(isolate, "type"),
+                   FunctionTemplate::New(isolate, type));
+    prototmpl->Set(String::NewFromUtf8(isolate, "config"),
+                   FunctionTemplate::New(isolate, config));
+    prototmpl->Set(String::NewFromUtf8(isolate, "call"),
+                   FunctionTemplate::New(isolate, call));
+    
+    return scope.Escape(fntmpl);
+}
+
+
+void
+FunctionJS::
+status(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    try {
+        Function * function = getShared(args.This());
+            
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(function->getStatus())));
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+    
+void
+FunctionJS::
+details(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    try {
+        Function * function = getShared(args.This());
+            
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(function->getDetails())));
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+
+void
+FunctionJS::
+id(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    try {
+        Function * function = getShared(args.This());
+            
+        args.GetReturnValue().Set(JS::toJS(function->getId()));
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+    
+void
+FunctionJS::
+type(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    try {
+        Function * function = getShared(args.This());
+            
+        args.GetReturnValue().Set(JS::toJS(function->getType()));
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+    
+void
+FunctionJS::
+config(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    try {
+        Function * function = getShared(args.This());
         
-    return scope.Close(fntmpl);
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(function->getConfig())));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
-
-v8::Handle<v8::Value>
+void
 FunctionJS::
-status(const v8::Arguments & args)
-{
-    try {
-        Function * function = getShared(args.This());
-            
-        return JS::toJS(jsonEncode(function->getStatus()));
-    } HANDLE_JS_EXCEPTIONS;
-}
-    
-v8::Handle<v8::Value>
-FunctionJS::
-details(const v8::Arguments & args)
-{
-    try {
-        Function * function = getShared(args.This());
-            
-        return JS::toJS(jsonEncode(function->getDetails()));
-    } HANDLE_JS_EXCEPTIONS;
-}
-
-v8::Handle<v8::Value>
-FunctionJS::
-id(const v8::Arguments & args)
-{
-    try {
-        Function * function = getShared(args.This());
-            
-        return JS::toJS(function->getId());
-    } HANDLE_JS_EXCEPTIONS;
-}
-    
-v8::Handle<v8::Value>
-FunctionJS::
-type(const v8::Arguments & args)
-{
-    try {
-        Function * function = getShared(args.This());
-            
-        return JS::toJS(function->getType());
-    } HANDLE_JS_EXCEPTIONS;
-}
-    
-v8::Handle<v8::Value>
-FunctionJS::
-config(const v8::Arguments & args)
-{
-    try {
-        Function * function = getShared(args.This());
-        
-        return JS::toJS(jsonEncode(function->getConfig()));
-    } HANDLE_JS_EXCEPTIONS;
-}
-
-v8::Handle<v8::Value>
-FunctionJS::
-call(const v8::Arguments & args)
+call(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         JsContextScope scope(args.This());
@@ -138,10 +145,10 @@ call(const v8::Arguments & args)
 
         auto result = function->call(std::move(row));
         
-        return JS::toJS(jsonEncode(result));
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(result)));
 
-    } HANDLE_JS_EXCEPTIONS;
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

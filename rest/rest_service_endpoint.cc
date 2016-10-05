@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST SERVICE ENDPOINT CONNECTION ID                                       */
@@ -289,7 +289,7 @@ bindTcp(PortRange const & httpRange,
         std::string host)
 {
     std::string httpAddr = httpEndpoint.bindTcp(httpRange, host);
-    logger->debug() << "http listening on " << httpAddr;
+    DEBUG_MSG(logger) << "http listening on " << httpAddr;
     return httpAddr;
 }
 
@@ -360,4 +360,4 @@ logToStream(std::ostream & stream)
         };
 }
 
-} // namespace Datacratic
+} // namespace MLDB

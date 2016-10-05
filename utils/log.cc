@@ -26,8 +26,6 @@ namespace {
     }
 }
 
-namespace Datacratic {
-
 namespace MLDB {
 
 static constexpr char const * timestampFormat = "%Y-%m-%dT%T.%e%z";
@@ -70,6 +68,4 @@ void dummy() {
     (void)getServerLog();
 }
 
-} // MLDB
-
-} // Datacratic
+} // namespace MLDB

@@ -52,7 +52,7 @@ extern "C" {
     }
 } // extern "C"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
@@ -168,10 +168,10 @@ extractNumbers(size_t numValues,
 /*****************************************************************************/
 
 struct DatasetPolyConfigDescription    
-    :  public Datacratic::StructureDescription<PolyConfigT<Dataset> > {
+    :  public StructureDescription<PolyConfigT<Dataset> > {
     DatasetPolyConfigDescription();
 
-    DatasetPolyConfigDescription(const Datacratic::ConstructOnly &);
+    DatasetPolyConfigDescription(const ConstructOnly &);
 
     virtual void initialize()
     {
@@ -191,26 +191,26 @@ struct DatasetPolyConfigDescription::Regme {
     Regme()
         : done(false)
     {
-        Datacratic::registerValueDescription
+        registerValueDescription
             (typeid(PolyConfigT<Dataset> ), [] () { return new DatasetPolyConfigDescription(); }, true);
     }
 };
 
-DatasetPolyConfigDescription::DatasetPolyConfigDescription(const Datacratic::ConstructOnly &)
+DatasetPolyConfigDescription::DatasetPolyConfigDescription(const ConstructOnly &)
 {
     regme.done = true;
 }
 
-Datacratic::ValueDescriptionT<PolyConfigT<Dataset> > *
+ValueDescriptionT<PolyConfigT<Dataset> > *
 getDefaultDescription(PolyConfigT<Dataset> *)
 {
     return new DatasetPolyConfigDescription();
 }
 
-Datacratic::ValueDescriptionT<PolyConfigT<Dataset> > *
+ValueDescriptionT<PolyConfigT<Dataset> > *
 getDefaultDescriptionUninitialized(PolyConfigT<Dataset> *)
 {
-    return new DatasetPolyConfigDescription(::Datacratic::constructOnly);
+    return new DatasetPolyConfigDescription(::MLDB::constructOnly);
 }
 
 DatasetPolyConfigDescription::Regme DatasetPolyConfigDescription::regme;
@@ -378,7 +378,7 @@ getColumnValues(const ColumnName & column,
                      result.end());
     }
 
-    return std::move(result);
+    return result;
 }
 
 std::vector<CellValue>
@@ -408,7 +408,7 @@ getColumnDense(const ColumnName & column) const
         result.push_back(values.find(name)->second.first);
     } 
 
-    return std::move(result);
+    return result;
 }
 
 std::tuple<BucketList, BucketDescriptions>
@@ -746,7 +746,7 @@ getRowInfo() const
     std::vector<KnownColumn> knownColumns;
 
     for (auto & c: getColumnNames()) {
-        knownColumns.emplace_back(std::move(getKnownColumnInfo(c)));
+        knownColumns.emplace_back(getKnownColumnInfo(c));
     }
 
     return std::make_shared<RowValueInfo>(std::move(knownColumns),
@@ -774,10 +774,44 @@ queryStructured(const SelectExpression & select,
                 ssize_t limit,
                 Utf8String alias) const
 {
+    std::vector<MatrixNamedRow> output;
+
+    auto rows = queryStructuredExpr(select,
+                                    when,
+                                    where,
+                                    orderBy,
+                                    groupBy,
+                                    having,
+                                    rowName,
+                                    offset,
+                                    limit,
+                                    alias);
+
+    for (auto& r : std::get<0>(rows)) {
+        output.push_back(r.flattenDestructive());
+    }
+
+    return output;
+}
+
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+Dataset::
+queryStructuredExpr(const SelectExpression & select,
+                const WhenExpression & when,
+                const SqlExpression & where,
+                const OrderByExpression & orderBy,
+                const TupleExpression & groupBy,
+                const std::shared_ptr<SqlExpression> having,
+                const std::shared_ptr<SqlExpression> rowName,
+                ssize_t offset,
+                ssize_t limit,
+                Utf8String alias) const
+{
     ExcAssert(having);
     ExcAssert(rowName);
     std::mutex lock;
-    std::vector<MatrixNamedRow> output;
+    std::vector<NamedRowValue> output;
+    std::shared_ptr<ExpressionValueInfo> structureInfo;
 
     if (!having->isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
@@ -798,19 +832,18 @@ queryStructured(const SelectExpression & select,
         auto processor = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
-                MatrixNamedRow row = row_.flattenDestructive();
-                row.rowName = getValidatedRowName(calc.at(0));
-                row.rowHash = row.rowName;
-                output.emplace_back(std::move(row));
+                row_.rowName = getValidatedRowName(calc.at(0));
+                row_.rowHash = row_.rowName;
+                output.push_back(std::move(row_));
                 return true;
             };
 
         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
-        iterateDataset(select, *this, alias, when, where,
+        structureInfo = iterateDataset(select, *this, alias, when, where,
                        { rowName->shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                       nullptr);
+                       nullptr).second;
     }
     else {
 
@@ -821,19 +854,19 @@ queryStructured(const SelectExpression & select,
         // Otherwise do it grouped...
         auto processor = [&] (NamedRowValue & row_)
             {
-                MatrixNamedRow row = row_.flattenDestructive();
-                output.emplace_back(row);
+                output.push_back(std::move(row_));
                 return true;
             };
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
-        iterateDatasetGrouped(select, *this, alias, when, where,
+        structureInfo = iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, *having, *rowName,
                               {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                              nullptr);
+                              nullptr).second;
     }
 
-    return output;
+    return make_tuple<std::vector<NamedRowValue>, 
+                      std::shared_ptr<ExpressionValueInfo> >(std::move(output), std::move(structureInfo));
 }
 
 bool
@@ -873,11 +906,12 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                 return onRow(path, row);
             };
 
-        return iterateDatasetExpr(select, *this, alias, when, where,
+        iterateDatasetExpr(select, *this, alias, when, where,
                                   { rowName->shallowCopy() },
                                   { processor, true /*processInParallel*/ },
                                   orderBy, offset, limit,
                                   nullptr);
+        return true;
     }
     else {
 
@@ -896,11 +930,13 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
             };
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
-        return iterateDatasetGrouped(select, *this, alias, when, where,
+        iterateDatasetGrouped(select, *this, alias, when, where,
                                      groupBy, aggregators, *having, *rowName,
                                      {processor, true/*processInParallel*/},
                                      orderBy, offset, limit,
                                      nullptr);
+
+        return true;
     }
 }
 
@@ -930,7 +966,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
         rows.erase(std::unique(rows.begin(), rows.end()),
                    rows.end());
 
-        return std::pair<std::vector<RowName>, Any>(std::move(rows), std::move(Any()));
+        return std::pair<std::vector<RowName>, Any>(std::move(rows), Any());
     }
     else {
         return {};
@@ -1821,7 +1857,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                         MatrixNamedRow row;
                         if (needsColumns)
-                            row = std::move(matrix->getRow(r));
+                            row = matrix->getRow(r);
                         else {
                             row.rowHash = row.rowName = r;
                         }
@@ -1865,8 +1901,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                 if (rows.size() == limit)
                     newToken = start;
                 
-                return std::move(make_pair(std::move(rowsToKeep),
-                                           std::move(newToken)));
+                return make_pair(std::move(rowsToKeep),
+                                 std::move(newToken));
             },
             "scan table filtering by where expression"};
 }
@@ -2160,6 +2196,24 @@ getColumnNames(ssize_t offset, ssize_t limit) const
     return frame(names, offset, limit);
 }
 
+std::vector<ColumnName>
+Dataset::
+getFlattenedColumnNames() const
+{
+    //Most dataset are not structured
+    //Notable exception is the sub query dataset
+    return getMatrixView()->getColumnNames();
+}
+
+size_t 
+Dataset::
+getFlattenedColumnCount() const
+{
+    //Most dataset are not structured
+    //Notable exception is the sub query dataset
+    return getMatrixView()->getColumnCount();
+}
+
 void
 Dataset::
 commit()
@@ -2168,7 +2222,7 @@ commit()
 
 BoundFunction
 Dataset::
-overrideFunction(const Datacratic::Utf8String&,
+overrideFunction(const Utf8String&,
                  const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
@@ -2182,6 +2236,13 @@ getOriginalRowName(const Utf8String& tableName, const RowName & name) const
     return name;
 }
 
+uint64_t
+Dataset::
+getRowCount() const
+{
+    return getMatrixView()->getRowCount();
+}
+
 } // namespace MLDB
-} // namespace Datacratic
+
 

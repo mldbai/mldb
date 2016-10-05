@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -36,7 +36,8 @@ namespace MLDB {
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-bool iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -48,11 +49,16 @@ bool iterateDataset(const SelectExpression & select,
                     ssize_t limit,
                     std::function<bool (const Json::Value &)> onProgress)
 {
-    return BoundSelectQuery(select, from, alias, when, where, orderBy, calc)
-        .execute(processor, offset, limit, onProgress);
+    BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
+
+    bool success = query.execute(processor, offset, limit, onProgress);
+
+    return {success, query.selectInfo};
+
 }
 
-bool iterateDatasetExpr(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetExpr(const SelectExpression & select,
                         const Dataset & from,
                         const Utf8String & alias,
                         const WhenExpression & when,
@@ -64,12 +70,16 @@ bool iterateDatasetExpr(const SelectExpression & select,
                         ssize_t limit,
                         std::function<bool (const Json::Value &)> onProgress)
 {
-    return BoundSelectQuery(select, from, alias, when, where, orderBy, calc)
-        .executeExpr(processor, offset, limit, onProgress);
+    BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
+
+    bool success = query.executeExpr(processor, offset, limit, onProgress);
+
+    return {success, query.selectInfo};
 }
 
 /** Full select function, with grouping. */
-bool iterateDatasetGrouped(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String & alias,
                            const WhenExpression & when,
@@ -84,12 +94,15 @@ bool iterateDatasetGrouped(const SelectExpression & select,
                            ssize_t limit,
                            std::function<bool (const Json::Value &)> onProgress)
 {
-    return BoundGroupByQuery(select, from, alias, when, where, groupBy,
-                             aggregators, having, rowName, orderBy)
-      .execute(processor, offset, limit, onProgress);
+    BoundGroupByQuery query(select, from, alias, when, where, groupBy,
+                             aggregators, having, rowName, orderBy);
+
+    return query.execute(processor, offset, limit, onProgress);
+
 }
 
-bool iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -190,7 +203,7 @@ void iterateDense(const SelectExpression & select,
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                calcd[i] = boundCalc[i](rowContext, GET_LATEST);
             }
             
             /* Finally, pass to the aggregator to continue. */
@@ -314,8 +327,35 @@ getEmbedding(const SelectStatement & stm,
                         stm.offset, stm.limit, onProgress);
 }
 
+void
+validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
+{
+    stm.where->bind(scope);
+    stm.when.bind(scope);
+    stm.orderBy.bindAll(scope);
+    if (!stm.groupBy.clauses.empty()) {
+        throw HttpReturnException(
+            400, "GROUP BY usage requires a FROM statement");
+    }
+    if (!stm.having->isConstantTrue()) {
+        throw HttpReturnException(
+            400, "HAVING usage requires a FROM statement");
+    }
+}
+
 std::vector<MatrixNamedRow>
 queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
+{
+    std::vector<MatrixNamedRow> output;
+    auto rows = queryWithoutDatasetExpr(stm, scope);
+    for (auto& r : std::get<0>(rows)) {
+        output.push_back(r.flattenDestructive());
+    }
+    return output;
+}
+
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
 {
     for (const auto & c: stm.select.clauses) {
         if (c->isWildcard()) {
@@ -324,16 +364,29 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
         }
     }
     auto boundSelect = stm.select.bind(scope);
-    SqlRowScope context;
-    ExpressionValue val = boundSelect(context, GET_ALL);
-    MatrixNamedRow row;
-    auto boundRowName = stm.rowName->bind(scope);
+    auto rowInfo = boundSelect.info;
 
-    row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
-    row.rowHash = row.rowName;
-    val.mergeToRowDestructive(row.columns);
+    validateQueryWithoutDataset(stm, scope);
 
-    return { std::move(row) };
+    if (stm.offset < 1 && stm.limit != 0) {
+        // Fast path when there is no possibility of result since
+        // queryWithoutDataset produces at most single row results.
+
+        NamedRowValue row;
+        SqlRowScope context;
+        ExpressionValue val = boundSelect(context, GET_ALL);
+        auto boundRowName = stm.rowName->bind(scope);
+
+        row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
+        row.rowHash = row.rowName;
+        val.mergeToRowDestructive(row.columns);
+        std::vector<NamedRowValue> outputcolumns = {std::move(row)};
+        return make_tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+                    (std::move(outputcolumns), std::move(rowInfo));
+    }
+
+    return make_tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+            (vector<NamedRowValue>(), make_shared<EmptyValueInfo>());
 }
 
 std::vector<MatrixNamedRow>
@@ -341,10 +394,23 @@ queryFromStatement(const SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params)
 {
+    std::vector<MatrixNamedRow> output;
+    auto rows = queryFromStatementExpr(stm, scope, params);
+    for (auto& r : std::get<0>(rows)) {
+        output.push_back(r.flattenDestructive());
+    }
+    return output;
+}
+
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+queryFromStatementExpr(const SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params)
+{
     BoundTableExpression table = stm.from->bind(scope);
     
     if (table.dataset) {
-        return table.dataset->queryStructured(stm.select, stm.when,
+        return table.dataset->queryStructuredExpr(stm.select, stm.when,
                                               *stm.where,
                                               stm.orderBy, stm.groupBy,
                                               stm.having,
@@ -369,7 +435,7 @@ queryFromStatement(const SelectStatement & stm,
 
         auto executor = boundPipeline->start(params);
         
-        std::vector<MatrixNamedRow> rows;
+        std::vector<NamedRowValue> rows;
 
         ssize_t limit = stm.limit;
         ssize_t offset = stm.offset;
@@ -389,7 +455,7 @@ queryFromStatement(const SelectStatement & stm,
                 continue;
             }
 
-            MatrixNamedRow row;
+            NamedRowValue row;
             // Second last element is the row name
             row.rowName = output->values.at(output->values.size() - 2)
                 .coerceToPath(); 
@@ -398,11 +464,12 @@ queryFromStatement(const SelectStatement & stm,
             rows.emplace_back(std::move(row));
         }
             
-        return rows;
+        return std::make_tuple<std::vector<NamedRowValue>, 
+                              std::shared_ptr<ExpressionValueInfo> >(std::move(rows), std::make_shared<UnknownRowValueInfo>());
     }
     else {
         // No from at all
-        return queryWithoutDataset(stm, scope);
+        return queryWithoutDatasetExpr(stm, scope);
     }
 }
 
@@ -498,10 +565,6 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
 
 RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 {
-    if (rowNameEV.empty()) {
-        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
-    }
-
     RowName name;
     try {
         name = rowNameEV.coerceToPath();
@@ -514,12 +577,11 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
              "value", rowNameEV);
     }
 
-    static const Path empty{""};
-
-    if (name.empty() || name.compare(empty) == 0)
-        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
+    if (name.empty()) {
+        throw HttpReturnException(400, "Can't create a row with a null name.");
+    }
     return name;
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

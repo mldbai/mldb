@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-902-non-ascii-row-names.py
 # datacratic, 2015

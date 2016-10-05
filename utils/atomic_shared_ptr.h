@@ -9,7 +9,7 @@
 #include <memory>
 #include <mutex>
 
-namespace Datacratic {
+namespace MLDB {
 
 // Note: in GCC 4.9+, we can use the std::atomic_xxx overloads for
 // std::shared_ptr.  Once the Concurrency TR is available, we can
@@ -64,4 +64,4 @@ private:
     std::shared_ptr<T> ptr;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

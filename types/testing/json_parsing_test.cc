@@ -16,7 +16,7 @@
 #include <boost/test/auto_unit_test.hpp>
 #include <math.h>
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace ML;
 
 using boost::unit_test::test_suite;

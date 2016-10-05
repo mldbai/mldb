@@ -22,7 +22,7 @@
 #include "mldb/http/http_request.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct S3Config {
     std::string accessKeyId;
@@ -510,4 +510,4 @@ void registerS3Buckets(const std::string & accessKeyId,
 */
 std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
 
-} // namespace Datacratic
+} // namespace MLDB

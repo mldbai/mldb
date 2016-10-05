@@ -11,7 +11,7 @@
 #include <string>
 #include "mldb/rest/rest_request_router.h"
 
-namespace Datacratic {
+
 
 struct RestRequestRouter;
 
@@ -35,5 +35,5 @@ void serveDocumentationDirectory(RestRequestRouter & parent,
                                  bool hideInternalEntities = false);
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

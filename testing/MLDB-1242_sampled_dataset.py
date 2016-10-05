@@ -134,6 +134,17 @@ class SampledDatasetTest(unittest.TestCase):
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.get("/v1/query", q="select * from sample(toy, {fraction: 2})")
 
+    def test_cant_create_wo_ds(self):
+        # MLDB-1977
+        msg = "You need to define the dataset key"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as re:
+            mldb.put('/v1/datasets/sampled', {
+                'type' : 'sampled',
+                'params' : {
+                    'fraction' : 0.99
+                }
+            })
+
 
 if __name__ == '__main__':
     mldb.run_tests()

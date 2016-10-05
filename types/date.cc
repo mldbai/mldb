@@ -11,7 +11,6 @@
 #include <cmath>
 #include <limits>
 #include "mldb/arch/format.h"
-#include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/base/parse_context.h"
 #include <cmath>
@@ -25,7 +24,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 namespace {
 
@@ -91,7 +90,7 @@ epoch(boost::gregorian::date(1970, 1, 1));
 
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -108,12 +107,6 @@ Date(int year, int month, int day,
                            + 3600 * hour + 60 * minute + second
                            + fraction)
 {
-}
-
-Date::
-Date(JS::JSValue & value)
-{
-    throw Exception("Date::Date(JSValue): not done");
 }
 
 Date::
@@ -290,7 +283,7 @@ static void addFractionalSeconds(std::string & result,
             ++decpt;
         }
 
-        //std::string fractional = Datacratic::dtoa(full_seconds);
+        //std::string fractional = MLDB::dtoa(full_seconds);
         //cerr << "fractional = " << fractional << endl;
         //cerr << "decpt = " << decpt << endl;
         //cerr << "sign = " << sign << endl;
@@ -1983,7 +1976,7 @@ isDefaultTyped(const Date * val) const
     return *val == Date();
 }
 
-template struct ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
+template struct ValueDescriptionI<MLDB::Date, ValueKind::ATOM, DateDescription>;
 
 void
 JavaTimestampValueDescription::
@@ -2090,4 +2083,4 @@ TimeUnit ParseTimeUnit(std::string& sinput)
     return ParseTimeUnit(context);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

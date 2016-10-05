@@ -18,7 +18,7 @@
 #include <sys/socket.h>
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/timers.h"
@@ -27,7 +27,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /*****************************************************************************/

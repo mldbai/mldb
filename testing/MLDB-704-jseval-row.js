@@ -38,11 +38,10 @@ recordExample("ex4", 3, 0, "no");
 
 dataset.commit()
 
-var res1 = mldb.get("/v1/datasets/test/query",
+var res1 = mldb.get("/v1/query",
                     {
-                        select: "jseval('mldb.log(''Hello '' + x);  return { x: x, y: ''yes''}', 'x', x) AS *",
-                        format: 'table',
-                        orderBy: 'rowName()'
+                        q: "SELECT jseval('mldb.log(''Hello '' + x);  return { x: x, y: ''yes''}', 'x', x) AS * from test order by rowName()",
+                        format: 'table'
                     });
 
 plugin.log(res1);
@@ -59,11 +58,10 @@ assertEqual(res1.json, expected, "row output from JS function");
 
 // MLDB-757
 
-var res2 = mldb.get("/v1/datasets/test/query",
+var res2 = mldb.get("/v1/query",
                     {
-                        select: "jseval('return Object.keys(x).length', 'x', {*}) AS nvals",
-                        format: 'table',
-                        orderBy: 'rowName()'
+                        q: "SELECT jseval('return Object.keys(x).length', 'x', {*}) AS nvals from test order by rowName()",
+                        format: 'table'
                     });
 
 plugin.log(res2);
@@ -80,11 +78,10 @@ assertEqual(res2.json, expected2, "row input to JS function");
 
 // MLDB-758
 
-var res3 = mldb.get("/v1/datasets/test/query",
+var res3 = mldb.get("/v1/query",
                     {
-                        select: "jseval('', '') AS nulls",
-                        format: 'table',
-                        orderBy: 'rowName()'
+                        q: "SELECT jseval('', '') AS nulls from test order by rowName()",
+                        format: 'table'
                     });
 
 plugin.log(res3);

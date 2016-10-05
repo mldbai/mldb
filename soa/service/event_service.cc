@@ -26,7 +26,7 @@ using namespace std;
 
 extern const char * __progname;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* EVENT SERVICE                                                             */
@@ -154,4 +154,4 @@ recordEventFmt(EventType type,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

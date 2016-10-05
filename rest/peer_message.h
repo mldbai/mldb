@@ -14,7 +14,7 @@
 #include "mldb/types/date.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Controls what priority the message gets.  This allows different
     tradeoffs between latency and throughput to be selected and for
@@ -125,4 +125,4 @@ struct PeerMessage {
               MessageDirection dir);
 };
 
-} // namespace Datacratic
+} // namespace MLDB

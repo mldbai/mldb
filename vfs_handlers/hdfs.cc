@@ -19,7 +19,7 @@
 #include "mldb/types/url.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 constexpr int DEFAULT_PORT(50070);
 

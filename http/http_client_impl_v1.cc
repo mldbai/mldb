@@ -21,7 +21,7 @@
 #include "mldb/http/http_client_impl_v1.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {

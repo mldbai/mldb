@@ -13,7 +13,7 @@
 #include "mldb/sql/binding_contexts.h"
 #include <unordered_map>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct BoundTableExpression;
@@ -44,25 +44,25 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
                   const std::vector<BoundSqlExpression> & args,
-                  SqlBindingScope & argScope);
+                  SqlBindingScope & argScope) override;
     
     virtual std::shared_ptr<Dataset>
-    doGetDataset(const Utf8String & datasetName);
+    doGetDataset(const Utf8String & datasetName) override;
 
     virtual std::shared_ptr<Dataset>
-    doGetDatasetFromConfig(const Any & datasetConfig);
+    doGetDatasetFromConfig(const Any & datasetConfig) override;
 
     virtual TableOperations
-    doGetTable(const Utf8String & tableName);
+    doGetTable(const Utf8String & tableName) override;
 
-    virtual MldbServer * getMldbServer() const;
+    virtual MldbServer * getMldbServer() const override;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName);
+                                     const ColumnName & columnName) override;
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep) override;
+                    const ColumnFilter& keep) override;
 
 };
 
@@ -177,7 +177,11 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
+
+    GetAllColumnsOutput
+    doGetAllAtoms(const Utf8String & tableName,
+                  const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -212,17 +216,10 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     virtual ColumnName
     doResolveTableName(const ColumnName & fullColumnName,
                        Utf8String & tableName) const;
-    
-#if 0
-protected:
 
-    // This is for the context where we have several datasets
-    // resolve ambiguity of different table names
-    // by finding the dataset name that resolves first.
-    Utf8String resolveTableName(const Utf8String& columnName) const;
-    Utf8String resolveTableName(const Utf8String& columnName,
-                                Utf8String& resolvedTableName) const;
-#endif
+private:
+    GetAllColumnsOutput doGetAllColumnsInternal(const Utf8String & tableName, const ColumnFilter& keep, bool atoms);
+
 };
 
 
@@ -266,4 +263,4 @@ struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

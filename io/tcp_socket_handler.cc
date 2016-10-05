@@ -11,7 +11,7 @@
 #include "tcp_socket.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/

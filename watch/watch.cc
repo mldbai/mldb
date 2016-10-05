@@ -14,7 +14,7 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include "watch.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 void crashTheProgram(const WatchError & error)
 {
@@ -205,7 +205,7 @@ waitGeneric(double timeToWait)
     if (!found)
         throw ML::Exception("No event found before timeout");
         
-    return std::move(res);
+    return res;
 }
 
 std::shared_ptr<const ValueDescription>
@@ -800,4 +800,4 @@ throwException(WatchErrorKind kind, const char * msg, ...) const
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

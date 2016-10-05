@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -36,7 +36,7 @@ doGetFunction(const Utf8String & tableName,
         if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
             outerArgs.emplace_back(std::move(arg));		
         else		
-            outerArgs.emplace_back(std::move(rebind(arg)));		
+            outerArgs.emplace_back(rebind(arg));
     }
 
     // Get function from the outer scope
@@ -110,7 +110,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ReadThroughBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     GetAllColumnsOutput result = outer.doGetAllColumns(tableName, keep);
     auto outerFn = result.exec;
@@ -202,7 +202,7 @@ doGetFunction(const Utf8String & tableName,
                         ? col.columnName.size() + elementNum
                         : elementNum;
 
-                    if (index < 0 || index >= col.columnName.size()) {
+                    if (index >= col.columnName.size()) {
                         return ExpressionValue::null(Date::negativeInfinity());
                     }
 
@@ -283,7 +283,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput
 ColumnExpressionBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException(400, "Cannot use wildcard inside COLUMN EXPR");
 }
@@ -342,6 +342,39 @@ doGetBoundParameter(const Utf8String & paramName)
                 return storage = row.params(paramName);
             },
             std::make_shared<AnyValueInfo>() };
+}
+
+
+/*****************************************************************************/
+/* SQL EXPRESSION EVAL SCOPE                                                 */
+/*****************************************************************************/
+
+ColumnGetter
+SqlExpressionEvalScope::
+doGetBoundParameter(const Utf8String & paramName)
+{
+    size_t argNum = jsonDecodeStr<size_t>(paramName);
+
+    if (argNum == 0) {
+        throw HttpReturnException
+            (400, "Arguments start at 1, not 0, in SQL evaluate expression");
+    }
+    if (argNum > argInfo.size()) {
+        throw HttpReturnException
+            (400, "Attempt to obtain more arguments than exist when binding "
+             "SQL evaluate expression");
+    }
+        
+    return {[=] (const SqlRowScope & scope,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                auto & row = scope.as<RowScope>();
+                ExcAssertLessEqual(argNum, row.numArgs);
+                return storage = row.args[argNum - 1];
+            },
+            argInfo[argNum - 1]};
 }
 
 
@@ -462,7 +495,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 SqlExpressionExtractScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     GetAllColumnsOutput result;
 
@@ -664,4 +697,4 @@ getDatasetDerivedFunction(const Utf8String & tableName,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

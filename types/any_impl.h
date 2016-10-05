@@ -12,7 +12,7 @@
 #include "any.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ANY                                                                       */
@@ -128,5 +128,5 @@ struct BareAnyDescription: public ValueDescriptionT<Any> {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

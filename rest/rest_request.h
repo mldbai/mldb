@@ -10,7 +10,7 @@
 
 #include "mldb/http/http_header.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST REQUEST                                                              */
@@ -59,5 +59,5 @@ std::ostream & operator << (std::ostream & stream, const RestRequest & request);
 
 DECLARE_STRUCTURE_DESCRIPTION(RestRequest);
 
-} // namespace Datacratic
+} // namespace MLDB
 

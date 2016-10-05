@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /****************************************************************************/
@@ -170,4 +170,4 @@ createPythonFunction(PythonPluginContext * c,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

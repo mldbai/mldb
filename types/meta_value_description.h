@@ -11,7 +11,7 @@
 #include <vector>
 #include "mldb/ext/jsoncpp/value.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 DECLARE_ENUM_DESCRIPTION(ValueKind);
 
@@ -85,5 +85,5 @@ getDefaultDescription(const ValueDescription * * desc);
 ValueDescriptionT<ValueDescription const *> *
 getDefaultDescriptionUninitialized(const ValueDescription * * desc);
 
-} // namespace Datacratic
+} // namespace MLDB
 

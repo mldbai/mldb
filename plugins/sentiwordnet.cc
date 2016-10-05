@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -190,4 +190,4 @@ regSentiWordNet(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

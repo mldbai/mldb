@@ -15,8 +15,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -25,8 +25,8 @@ using namespace Datacratic::MLDB;
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_two_members )
 {
@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     // 3.  Get some coordinates out of a merged dataset, and check that they are all
     //     there
 
-    auto getResult = proxy.get("/v1/datasets/reddit_embeddings/query?select=rowName(),embedding.\"0\",embedding.\"1\",cluster,x,y&limit=100").jsonBody();
+    auto getResult = proxy.get("/v1/query?q=select rowName(),embedding.\"0\",embedding.\"1\",cluster,x,y from reddit_embeddings limit 100").jsonBody();
 
     BOOST_CHECK_EQUAL(getResult.size(), 100);
 

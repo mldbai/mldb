@@ -18,6 +18,7 @@
 #include "mldb/compiler/compiler.h"
 #include <limits>
 #include <stdint.h>
+#include <cmath>
 
 namespace ML {
 
@@ -73,7 +74,7 @@ template<typename Float>
 struct safe_less {
     bool operator () (Float v1, Float v2) const
     {
-        bool nan1 = isnanf(v1), nan2 = isnanf(v2);
+        bool nan1 = std::isnan(v1), nan2 = std::isnan(v2);
         if (nan1 && nan2) return false;
         return (nan1 > nan2)
             || ((nan1 == nan2) && v1 < v2);

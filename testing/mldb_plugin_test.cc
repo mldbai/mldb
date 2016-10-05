@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** mldb_plugin_test.cc
     Jeremy Barnes, 13 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "mldb/server/mldb_server.h"
@@ -20,8 +19,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_plugin_loading )
 {
@@ -29,11 +28,11 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     signal(SIGABRT, SIG_DFL);
 
     MldbServer server;
-    
+
     server.init();
 
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
-    
+
     cerr << "http listening on " << httpBoundAddress << endl;
 
     server.start();
@@ -41,7 +40,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     HttpRestProxy proxy(httpBoundAddress);
 
     PluginResource plugRes;
- 
+
     PolyConfig pluginConfig2;
     pluginConfig2.type = "javascript";
     plugRes.address = "file://mldb/testing/mldb_js_plugin_nocompile.js";
@@ -96,7 +95,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
 
 
     // Check a plugin that works properly... works properly
-    plugRes.address = "file://mldb/testing/mldb_js_plugin.js";
+    plugRes.address = "file://mldb/testing/mldb_js_plugin";
     pluginConfig2.params = plugRes;
 
     auto putStatus = proxy.put("/v1/plugins/jsplugin",
@@ -114,5 +113,11 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
 
     BOOST_CHECK_EQUAL(getResult.code(), 200);
     BOOST_CHECK_EQUAL(getResult.jsonBody()["how"].asString(), "are you");
+
+    getResult = proxy.get("/v1/plugins/jsplugin/routes/static/index.html");
+    BOOST_CHECK_EQUAL(getResult.code(), 200);
+
+    auto body = getResult.body();
+    BOOST_CHECK_EQUAL(body.substr(0, body.length() -1), "patate");
 
 }

@@ -16,7 +16,6 @@
 #include "mldb/sql/cell_value.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/rest/rest_request_binding.h"
-#include "mldb/types/js/id_js.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/types/any_impl.h"
 
@@ -25,17 +24,17 @@
 #include "dataset_js.h"
 #include "function_js.h"
 #include "procedure_js.h"
-#include <v8.h>
+#include "mldb/ext/v8-cross-build-output/include/v8.h"
 
-#include "mldb/soa/js/js_utils.h"
 #include "mldb/types/string.h"
 
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
 
+namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -82,28 +81,29 @@ struct JsPluginJS {
     static v8::Local<v8::ObjectTemplate>
     registerMe()
     {
+        v8::Isolate* isolate = v8::Isolate::GetCurrent();
         using namespace v8;
 
-        HandleScope scope;
+        EscapableHandleScope scope(isolate);
 
-        v8::Local<v8::ObjectTemplate> result(ObjectTemplate::New());
+        v8::Local<v8::ObjectTemplate> result(ObjectTemplate::New(isolate));
 
         result->SetInternalFieldCount(2);
 
-        result->Set(String::New("log"),
-                                   FunctionTemplate::New(log));
-        result->Set(String::New("setStatusHandler"),
-                    FunctionTemplate::New(setStatusHandler));
-        result->Set(String::New("setRequestHandler"),
-                    FunctionTemplate::New(setRequestHandler));
-        result->Set(String::New("serveStaticFolder"),
-                    FunctionTemplate::New(serveStaticFolder));
-        result->Set(String::New("serveDocumentationFolder"),
-                    FunctionTemplate::New(serveDocumentationFolder));
-        result->Set(String::New("getPluginDir"),
-                    FunctionTemplate::New(getPluginDir));
+        result->Set(String::NewFromUtf8(isolate, "log"),
+                    FunctionTemplate::New(isolate, log));
+        result->Set(String::NewFromUtf8(isolate, "setStatusHandler"),
+                    FunctionTemplate::New(isolate, setStatusHandler));
+        result->Set(String::NewFromUtf8(isolate, "setRequestHandler"),
+                    FunctionTemplate::New(isolate, setRequestHandler));
+        result->Set(String::NewFromUtf8(isolate, "serveStaticFolder"),
+                    FunctionTemplate::New(isolate, serveStaticFolder));
+        result->Set(String::NewFromUtf8(isolate, "serveDocumentationFolder"),
+                    FunctionTemplate::New(isolate, serveDocumentationFolder));
+        result->Set(String::NewFromUtf8(isolate, "getPluginDir"),
+                    FunctionTemplate::New(isolate, getPluginDir));
         
-        return scope.Close(result);
+        return scope.Escape(result);
     }
 
     static JsPluginContext * getShared(const v8::Handle<v8::Object> & val)
@@ -113,8 +113,8 @@ struct JsPluginJS {
          (val->GetInternalField(0))->Value());
     }
 
-    static v8::Handle<v8::Value>
-    log(const v8::Arguments & args)
+    static void
+    log(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         using namespace v8;
         auto itl = getShared(args.This());
@@ -149,12 +149,12 @@ struct JsPluginJS {
                 itl->logs.emplace_back(Date::now(), "logs", Utf8String(line));
             }
 
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    setStatusHandler(const v8::Arguments & args)
+    static void
+    setStatusHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             if (args.Length() < 1)
@@ -171,19 +171,23 @@ struct JsPluginJS {
 
             std::shared_ptr<Args> shargs(new Args());
 
-            shargs->fn = v8::Persistent<v8::Function>::New(v8::Handle<v8::Function>(v8::Function::Cast(*args[0])));
-            shargs->self = v8::Persistent<v8::Object>::New(args.This());
+            shargs->fn.Reset(itl->isolate.isolate,
+                             args[0].As<v8::Function>());
+            shargs->self.Reset(itl->isolate.isolate,
+                               args.This());
             
             auto getStatus = [itl,shargs] () -> Json::Value
                 {
                     v8::Locker locker(itl->isolate.isolate);
                     v8::Isolate::Scope isolate(itl->isolate.isolate);
-                    v8::HandleScope handle_scope;
-                    v8::Context::Scope context_scope(itl->context);
+                    v8::HandleScope handle_scope(itl->isolate.isolate);
+                    v8::Context::Scope context_scope(itl->context.Get(itl->isolate.isolate));
 
                     v8::TryCatch trycatch;
                     trycatch.SetVerbose(true);
-                    auto result = shargs->fn->Call(shargs->self, 0, nullptr);
+                    auto result = shargs->fn.Get(itl->isolate.isolate)
+                        ->Call(shargs->self.Get(itl->isolate.isolate),
+                               0, nullptr);
 
                     if (result.IsEmpty()) {
                         ScriptException exc = convertException(trycatch,
@@ -208,12 +212,12 @@ struct JsPluginJS {
 
             cerr << "done setting status" << endl;
 
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    serveStaticFolder(const v8::Arguments & args)
+    static void
+    serveStaticFolder(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             if (args.Length() < 1)
@@ -224,17 +228,23 @@ struct JsPluginJS {
             auto route = JS::getArg<std::string>(args, 0, "route");
             auto dir = JS::getArg<std::string>(args, 1, "dir");
 
+            fs::path fullDir(fs::path(itl->pluginResource->getPluginDir().string()) / fs::path(dir));
+            if(!fs::exists(fullDir)) {
+                throw ML::Exception("Cannot serve static folder for path that does "
+                        "not exist: " + fullDir.string());
+            }
+
             itl->router.addRoute(Rx(route + "/(.*)", "<resource>"),
                                  "GET", "Static content",
-                                 getStaticRouteHandler(dir, itl->server),
+                                 getStaticRouteHandler(fullDir.string(), itl->server),
                                  Json::Value());
 
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    serveDocumentationFolder(const v8::Arguments & args)
+    static void
+    serveDocumentationFolder(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             if (args.Length() < 1)
@@ -247,23 +257,23 @@ struct JsPluginJS {
 
             serveDocumentationDirectory(itl->router, route, dir, itl->server);
 
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    getPluginDir(const v8::Arguments & args)
+    static void
+    getPluginDir(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             JsPluginContext * itl = getShared(args.This());
 
-            return JS::toJS(itl->pluginResource->getPluginDir().string());
+            args.GetReturnValue().Set(JS::toJS(itl->pluginResource->getPluginDir().string()));
 
-        } HANDLE_JS_EXCEPTIONS;
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Value>
-    setRequestHandler(const v8::Arguments & args)
+    static void
+    setRequestHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         try {
             if (args.Length() < 1)
@@ -280,18 +290,21 @@ struct JsPluginJS {
 
             std::shared_ptr<Args> shargs(new Args());
 
-            shargs->fn = v8::Persistent<v8::Function>::New(v8::Handle<v8::Function>(v8::Function::Cast(*args[0])));
-            shargs->self = v8::Persistent<v8::Object>::New(args.This());
+            shargs->fn.Reset(args.GetIsolate(),
+                             args[0].As<v8::Function>());
+            shargs->self.Reset(args.GetIsolate(), args.This());
             
-            auto handleRequest = [itl,shargs] (RestConnection & connection,
-                                                  const RestRequest & request,
-                                                  RestRequestParsingContext & context)
+            auto handleRequest
+                = [itl,shargs] (RestConnection & connection,
+                                const RestRequest & request,
+                                RestRequestParsingContext & context)
                 -> RestRequestMatchResult
                 {
                     v8::Locker locker(itl->isolate.isolate);
                     v8::Isolate::Scope isolate(itl->isolate.isolate);
-                    v8::HandleScope handle_scope;
-                    v8::Context::Scope context_scope(itl->context);
+                    v8::HandleScope handle_scope(itl->isolate.isolate);
+                    v8::Context::Scope context_scope
+                        (itl->context.Get(itl->isolate.isolate));
 
                     // Create some context
                     v8::Handle<v8::Value> args[8] = {
@@ -308,7 +321,8 @@ struct JsPluginJS {
 
                     v8::TryCatch trycatch;
                     trycatch.SetVerbose(true);
-                    auto result = shargs->fn->Call(shargs->self, 8, args);
+                    auto result = shargs->fn.Get(itl->isolate.isolate)
+                        ->Call(shargs->self.Get(itl->isolate.isolate), 8, args);
 
                     if (result.IsEmpty()) {
                         ScriptException exc = convertException(trycatch,
@@ -331,8 +345,8 @@ struct JsPluginJS {
 
             itl->handleRequest = handleRequest;
 
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
     }
 };
 
@@ -345,8 +359,7 @@ JsPluginContext::
 JsPluginContext(const Utf8String & pluginName,
                 MldbServer * server,
                 std::shared_ptr<LoadedPluginResource> pluginResource)
-    : isolate(false /* for this thread only */),
-      categoryName(pluginName.rawString() + " plugin"),
+    : categoryName(pluginName.rawString() + " plugin"),
       loaderName(pluginName.rawString() + " loader"),
       category(categoryName.c_str()),
       loader(loaderName.c_str()),
@@ -355,41 +368,48 @@ JsPluginContext(const Utf8String & pluginName,
 {
     using namespace v8;
 
+    static V8Init v8Init(server);
+
+    isolate.init(false /* for this thread only */);
+
     v8::Locker locker(this->isolate.isolate);
     v8::Isolate::Scope isolate(this->isolate.isolate);
 
-    HandleScope handle_scope;
+    HandleScope handle_scope(this->isolate.isolate);
 
     // Create a new context.
-    context = v8::Persistent<v8::Context>::New(Context::New());
-
+    context.Reset(this->isolate.isolate,
+                  Context::New(this->isolate.isolate));
+    
     // Enter the created context for compiling and
     // running the hello world script. 
-    Context::Scope context_scope(context);
+    Context::Scope context_scope(context.Get(this->isolate.isolate));
     
     // This is how we set it
     // https://code.google.com/p/v8/issues/detail?id=54
     v8::Local<v8::Object> globalPrototype
-        = v8::Local<v8::Object>::Cast(context->Global()->GetPrototype());
-
+        = context.Get(this->isolate.isolate)->Global()
+        ->GetPrototype().As<v8::Object>();
+    
     auto plugin = JsPluginJS::registerMe()->NewInstance();
-    plugin->SetInternalField(0, v8::External::New(this));
-    plugin->SetInternalField(1, v8::External::New(this));
+    plugin->SetInternalField(0, v8::External::New(this->isolate.isolate, this));
+    plugin->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
     if (pluginResource)
-        plugin->Set(String::New("args"), JS::toJS(jsonEncode(pluginResource->args)));
-    globalPrototype->Set(String::New("plugin"), plugin);
+        plugin->Set(String::NewFromUtf8(this->isolate.isolate, "args"), JS::toJS(jsonEncode(pluginResource->args)));
+    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "plugin"), plugin);
 
     auto mldb = MldbJS::registerMe()->NewInstance();
-    mldb->SetInternalField(0, v8::External::New(this->server));
-    mldb->SetInternalField(1, v8::External::New(this));
-    globalPrototype->Set(String::New("mldb"), mldb);
+    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->server));
+    mldb->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
+    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "mldb"), mldb);
 
-    Stream = v8::Persistent<v8::FunctionTemplate>::New(StreamJS::registerMe());
-    Dataset = v8::Persistent<v8::FunctionTemplate>::New(DatasetJS::registerMe());
-    Function = v8::Persistent<v8::FunctionTemplate>::New(FunctionJS::registerMe());
-    Procedure = v8::Persistent<v8::FunctionTemplate>::New(ProcedureJS::registerMe());
-    CellValue = v8::Persistent<v8::FunctionTemplate>::New(CellValueJS::registerMe());
-    RandomNumberGenerator = v8::Persistent<v8::FunctionTemplate>::New(RandomNumberGeneratorJS::registerMe());
+    Stream.Reset(this->isolate.isolate, StreamJS::registerMe());
+    Dataset.Reset(this->isolate.isolate, DatasetJS::registerMe());
+    Function.Reset(this->isolate.isolate, FunctionJS::registerMe());
+    Procedure.Reset(this->isolate.isolate, ProcedureJS::registerMe());
+    CellValue.Reset(this->isolate.isolate, CellValueJS::registerMe());
+    RandomNumberGenerator.Reset(this->isolate.isolate,
+                                RandomNumberGeneratorJS::registerMe());
 }
 
 JsPluginContext::
@@ -411,8 +431,6 @@ JavascriptPlugin(MldbServer * server,
 {
     using namespace v8;
 
-    static V8Init v8Init;
-
     PluginResource res = config.params.convert<PluginResource>();
     itl.reset(new JsPluginContext(config.id, this->server,
                                   std::make_shared<LoadedPluginResource>
@@ -426,18 +444,21 @@ JavascriptPlugin(MldbServer * server,
     v8::Locker locker(itl->isolate.isolate);
     v8::Isolate::Scope isolate(itl->isolate.isolate);
 
-    HandleScope handle_scope;
-    Context::Scope context_scope(itl->context);
+    HandleScope handle_scope(itl->isolate.isolate);
+    Context::Scope context_scope(itl->context.Get(itl->isolate.isolate));
     
     // Create a string containing the JavaScript source code.
-    Handle<String> source = String::New(jsFunctionSource.rawData(),
-                                        jsFunctionSource.rawLength());
+    Handle<String> source
+        = String::NewFromUtf8(itl->isolate.isolate, jsFunctionSource.rawData());
 
     // Compile the source code.
     TryCatch trycatch;
     trycatch.SetVerbose(true);
 
-    auto script = Script::Compile(source, v8::String::New(itl->pluginResource->getFilenameForErrorMessages().c_str()));
+    auto script = Script::Compile
+        (source,
+         v8::String::NewFromUtf8(itl->isolate.isolate,
+                                 itl->pluginResource->getFilenameForErrorMessages().c_str()));
     
     if (script.IsEmpty()) {  
         auto rep = convertException(trycatch, "Compiling plugin script");
@@ -451,10 +472,10 @@ JavascriptPlugin(MldbServer * server,
         throw HttpReturnException(400, "Exception compiling plugin script", rep);
     }
 
-    itl->script = v8::Persistent<v8::Script>::New(script);
+    itl->script.Reset(itl->isolate.isolate, script);
 
     // Run the script to get the result.
-    Handle<Value> result = itl->script->Run();
+    Handle<Value> result = itl->script.Get(itl->isolate.isolate)->Run();
 
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running plugin script");
@@ -554,22 +575,24 @@ runJavascriptScript(MldbServer * server,
     v8::Locker locker(itl->isolate.isolate);
     v8::Isolate::Scope isolate(itl->isolate.isolate);
 
-    HandleScope handle_scope;
-    Context::Scope context_scope(itl->context);
+    HandleScope handle_scope(itl->isolate.isolate);
+    Context::Scope context_scope(itl->context.Get(itl->isolate.isolate));
         
     v8::Local<v8::Object> globalPrototype
-        = v8::Local<v8::Object>::Cast(itl->context->Global()->GetPrototype());
-    globalPrototype->Set(String::New("args"), JS::toJS(jsonEncode(scriptConfig.args)));
+        = itl->context.Get(itl->isolate.isolate)
+        ->Global()->GetPrototype().As<v8::Object>();
+    globalPrototype->Set(String::NewFromUtf8(itl->isolate.isolate, "args"),
+                         JS::toJS(jsonEncode(scriptConfig.args)));
 
     // Create a string containing the JavaScript source code.
-    Handle<String> source = String::New(jsFunctionSource.rawData(),
-                                        jsFunctionSource.rawLength());
-
+    auto source
+        = String::NewFromUtf8(itl->isolate.isolate, jsFunctionSource.rawData());
+    
     // Compile the source code.
     TryCatch trycatch;
     trycatch.SetVerbose(true);
 
-    auto script = Script::Compile(source, v8::String::New(scriptConfig.address.c_str()));
+    auto script = Script::Compile(source, v8::String::NewFromUtf8(itl->isolate.isolate, scriptConfig.address.c_str()));
     
     ScriptOutput result;
             
@@ -584,10 +607,11 @@ runJavascriptScript(MldbServer * server,
         result.exception.reset(new ScriptException(std::move(rep)));
     }
     else {
-        itl->script = v8::Persistent<v8::Script>::New(script);
+        itl->script.Reset(itl->isolate.isolate, script);
             
         // Run the script to get the result.
-        Handle<Value> scriptResult = itl->script->Run();
+        Handle<Value> scriptResult
+            = itl->script.Get(itl->isolate.isolate)->Run();
             
         if (scriptResult.IsEmpty()) {  
             auto rep = convertException(trycatch, "Running script");
@@ -624,4 +648,4 @@ regJavascript(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

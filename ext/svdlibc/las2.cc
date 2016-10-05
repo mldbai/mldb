@@ -565,7 +565,7 @@ long ritvec(long n, SVDRec R, double kappa, double *ritz, double *bnd,
           R->S[x] = tmp0;
       };
 
-  Datacratic::parallelMap(0, R->d, doOutput);
+  MLDB::parallelMap(0, R->d, doOutput);
 
   return nsig;
 }

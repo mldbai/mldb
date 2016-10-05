@@ -9,7 +9,7 @@ feedback on which features were causing the classifier result.
 
 ## Input and Output Values
 
-Functions of this type have two input values: `label` which is an integer and `features` which is a row. The value of `label` should be compatible with the labels used to train the classifier. The columns that
+Functions of this type have two input values: `label` which is a scalar expression and `features` which is a row. The value of `label` should be compatible with the labels used to train the classifier. The columns that
 are expected in the `feature` row depend on the features that were trained into the classifier.
 For example, if in the training the input was `"select": "x,y"`, then the function will 
 expect two columns called `x` and `y`.

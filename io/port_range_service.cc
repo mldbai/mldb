@@ -19,7 +19,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /******************************************************************************/
@@ -164,4 +164,4 @@ dump(ostream& stream) const
 }
 
 
-} // namepsace Datacratic
+} // namepsace MLDB

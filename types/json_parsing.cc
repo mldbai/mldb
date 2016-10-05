@@ -57,7 +57,7 @@ trim(const string & other)
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 bool expectJsonBool(Parse_Context & context)
@@ -983,7 +983,7 @@ void
 StreamingJsonParsingContext::
 skip()
 {
-    Datacratic::expectJson(*context);
+    MLDB::expectJson(*context);
 }
 
 int
@@ -1046,7 +1046,7 @@ bool
 StreamingJsonParsingContext::
 expectBool()
 {
-    return Datacratic::expectJsonBool(*context);
+    return MLDB::expectJsonBool(*context);
 }
 
 void
@@ -1239,7 +1239,7 @@ Json::Value
 StreamingJsonParsingContext::
 expectJson()
 {
-    return Datacratic::expectJson(*context);
+    return MLDB::expectJson(*context);
 }
 
 std::string
@@ -1328,26 +1328,26 @@ Utf8String
 StreamingJsonParsingContext::
 expectStringUtf8()
 {
-    return Datacratic::expectJsonStringUtf8(*context);
+    return MLDB::expectJsonStringUtf8(*context);
 }
 
 void
 StreamingJsonParsingContext::
 expectJsonObjectUtf8(const std::function<void (const char *, size_t)> & onEntry)
 {
-    Datacratic::skipJsonWhitespace(*context);
+    MLDB::skipJsonWhitespace(*context);
 
     if (context->match_literal("null"))
         return;
 
     context->expect_literal('{');
 
-    Datacratic::skipJsonWhitespace(*context);
+    MLDB::skipJsonWhitespace(*context);
 
     if (context->match_literal('}')) return;
 
     for (;;) {
-        Datacratic::skipJsonWhitespace(*context);
+        MLDB::skipJsonWhitespace(*context);
 
         char keyBuffer[1024];
 
@@ -1833,4 +1833,4 @@ StringJsonParsingContext(std::string str_,
 }
 
 
-}  // namespace Datacratic
+}  // namespace MLDB

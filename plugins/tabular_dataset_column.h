@@ -11,7 +11,7 @@
 #include "frozen_column.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -64,4 +64,4 @@ struct TabularDatasetColumn {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

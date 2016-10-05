@@ -26,7 +26,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
@@ -134,11 +134,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             const RowName & row = rowName(storage);
             advance();
             if (&storage == &row)
-                return std::move(storage);
+                return storage;
             else return row;
         }
 
-        virtual void advance()
+        virtual void advance() override
         {
             ExcAssert(rowIndex < rowCount);
             rowIndex++;
@@ -159,7 +159,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         static CellValue extractVal(CellValue val, CellValue *)
         {
-            return std::move(val);
+            return val;
         }
 
         template<typename T>
@@ -1501,4 +1501,4 @@ regTabular(builtinPackage(),
 } // file scope*/
 
 } // MLDB
-} // Datacratic
+

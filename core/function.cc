@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 
 namespace MLDB {
 
@@ -151,4 +151,4 @@ handleRequest(RestConnection & connection,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

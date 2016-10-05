@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 static ML::Env_Option<int, true /* trace */>
 NUM_CPUS("NUM_CPUS", std::thread::hardware_concurrency());
@@ -660,6 +660,13 @@ work() const
     itl->work();
 }
 
+size_t
+ThreadPool::
+numThreads() const
+{
+    return itl->workers.size();
+}
+
 uint64_t
 ThreadPool::
 jobsRunning() const
@@ -710,4 +717,4 @@ instance()
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

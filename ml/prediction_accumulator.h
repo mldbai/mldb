@@ -16,7 +16,7 @@
 #include "mldb/ml/separation_stats.h"
 #include "mldb/types/id.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct ClassStats {
     int count;
@@ -134,5 +134,5 @@ protected:
             const bucket_config& bC);
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

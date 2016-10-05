@@ -14,7 +14,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Int, int Domain>
 struct IntWrapper {
@@ -107,12 +107,12 @@ std::ostream & operator << (std::ostream & stream,
     return stream << h.toString();
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 template<int N>
-struct hash<Datacratic::HashWrapper<N> > {
-    uint64_t operator () (const Datacratic::HashWrapper<N> & h) const
+struct hash<MLDB::HashWrapper<N> > {
+    uint64_t operator () (const MLDB::HashWrapper<N> & h) const
     {
         return h.hash();
     }
@@ -120,7 +120,7 @@ struct hash<Datacratic::HashWrapper<N> > {
 
 } // namespace std
 
-namespace Datacratic {
+namespace MLDB {
 
 typedef IntWrapper<uint32_t, 0> BI;
 typedef HashWrapper<0> BH;
@@ -167,4 +167,4 @@ IntWrapper<Int, Domain> stringToKey(const std::string & str,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

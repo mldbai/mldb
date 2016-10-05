@@ -8,16 +8,20 @@
 #include "hash.h"
 #include "mldb/arch/format.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
 #include "crypto++/md5.h"
 #include "crypto++/hmac.h"
 #include "crypto++/base64.h"
 #include "crypto++/filters.h"
+#pragma GCC diagnostic pop
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string base64Encode(const std::string & str)
 {
@@ -149,4 +153,4 @@ std::string hmacSha256Base64(const std::string & stringToSign,
         return base64digest;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

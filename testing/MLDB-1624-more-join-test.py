@@ -7,6 +7,7 @@
 
 import unittest
 import json
+import random
 from operator import itemgetter
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -1437,13 +1438,12 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
     def test_precendence_in_on_condition_MLDBFB_503(self):
-        res = mldb.query("""
+        res1 = mldb.query("""
             SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON
             J1_TBL.i = (-J2_TBL.k) + 3 ORDER BY rowName()
         """)
-        self.assertTableResultEquals(res,
+        self.assertTableResultEquals(res1,
             [
                 [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
                 [u'[01]-[02]', 1,  2] ,
@@ -1455,24 +1455,14 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-        res = mldb.query("""
+        res2 = mldb.query("""
             SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON
             J1_TBL.i = -J2_TBL.k + 3 ORDER BY rowName()
         """)
 
-        pprint(res)
+        pprint(res1)
         # output should look as above
-        self.assertTableResultEquals(res,
-            [
-                [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
-                [u'[01]-[02]', 1,  2] ,
-                [u'[03]-[09]', 3,  0] ,
-                [u'[04]-[01]', 4, -1] ,
-                [u'[06]-[03]', 6, -3] ,
-                [u'[08]-[05]', 8, -5] ,
-                [u'[08]-[06]', 8, -5]
-            ]
-        )
+        self.assertTableResultEquals(res1, res2)
 
     def test_left_outer_join(self):
         res = mldb.query("""
@@ -2070,5 +2060,77 @@ class JoinTest(MldbUnitTest):
                 [u'[03]-[]', None, None, 3, 33]
             ]
         )
+
+    def test_equijoin_with_larger_table(self):
+        """ Test that both executors return the same number of rows """
+        rowCount = 1000
+        randomMax = 100
+
+        ds = mldb.create_dataset({ "id": "join_left", "type": "sparse.mutable" })
+        for index, row in enumerate(range(1, rowCount)):
+            r1 = random.randint(1, randomMax)
+            r2 = random.randint(1, randomMax)
+            ds.record_row("row"+str(index),[["a", r1, 0], ["b", r2, 0], ["c", 1, 0]])
+            ds.commit()
+
+        ds = mldb.create_dataset({ "id": "join_right", "type": "sparse.mutable" })
+        for index, row in enumerate(range(1, rowCount)):
+            r1 = random.randint(1, randomMax)
+            r2 = random.randint(1, randomMax)
+            ds.record_row("row"+str(index),[["a", r1, 0], ["b", r2, 0], ["c", 1, 0]])
+            ds.commit()
+
+        res_std_exec = mldb.query("""
+        SELECT count(*) AS count FROM join_left
+        JOIN join_right
+        ON join_left.a = join_right.b
+        """)
+
+        self.assertAlmostEqual(res_std_exec[1][1],
+                               rowCount * rowCount / randomMax, delta = rowCount * rowCount / (randomMax * 10))
+
+        mldb.log(res_std_exec)
+
+        res_pipe_exec = mldb.query( """
+        SELECT count(*) AS count FROM join_left
+        JOIN join_right
+        ON join_left.a = join_right.b
+        AND join_left.c = join_right.c
+        """)
+
+        mldb.log(len(res_pipe_exec))
+        self.assertAlmostEqual(res_pipe_exec[1][1],
+                               rowCount * rowCount / randomMax, delta = rowCount * rowCount / (randomMax * 10))
+
+    def test_join_on_false(self):
+        ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['colA', 1, 0]])
+        ds.commit()
+        ds = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
+        ds.record_row('row2', [['colB', 1, 0]])
+        ds.commit()
+
+        expected = [["_rowName", "s1.colA", "s2.colB"],
+                    [ "[row1]-[]", 1, None],
+                    [ "[]-[row2]", None, 1]]
+        res = mldb.query("""
+            SELECT * FROM (SELECT * FROM ds1) AS s1
+            OUTER JOIN (SELECT * FROM ds2) AS s2 ON false
+        """)
+        self.assertTableResultEquals(res, expected)
+
+        res = mldb.query("""
+            SELECT * FROM (SELECT * FROM ds1) AS s1
+            OUTER JOIN (SELECT * FROM ds2) AS s2 ON s1.rowName() = 'wwwwwwwww'
+        """)
+        self.assertTableResultEquals(res, expected)
+
+        res = mldb.query("""
+            SELECT * FROM (SELECT * FROM ds1) AS s1
+            OUTER JOIN (SELECT * FROM ds2) AS s2 ON s1.rowName() = 'wwwwwwwww'
+            AND s2.rowName() = 'wwwwwwwww'
+        """)
+        self.assertTableResultEquals(res, expected)
+
 
 mldb.run_tests()

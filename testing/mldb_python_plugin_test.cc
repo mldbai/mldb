@@ -17,8 +17,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_python_loading )
 {
@@ -44,6 +44,12 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
     scriptConfig["address"] = "file://mldb/testing/python_script_test1.py";
 
     auto output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
+    BOOST_CHECK_EQUAL(output.code(), 200);
+
+    // Check with more than 65k in the script
+    scriptConfig["address"] = "file://mldb/testing/python_script_test1_big.py";
+
+    output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     BOOST_CHECK_EQUAL(output.code(), 200);
 
     // Check python script with error
@@ -181,6 +187,20 @@ print "a"
     BOOST_CHECK(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
     BOOST_CHECK_EQUAL(putResult.code(), 400);
     auto status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin_nocompile").jsonBody());
+    cerr << "status = " << jsonEncode(status) << endl;
+
+    // ************************
+    // Check a python plugin that does not compile and has more than 65k
+    
+    plugRes.address = "file://mldb/testing/mldb_py_plugin_nocompile_big.py";
+    pluginConfig2.params = plugRes;
+    putResult = proxy.put("/v1/plugins/pyplugin_nocompile",
+                               jsonEncode(pluginConfig2));
+    cerr << putResult << endl;
+    jsPutResult = putResult.jsonBody();
+    BOOST_CHECK(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
+    BOOST_CHECK_EQUAL(putResult.code(), 400);
+    status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin_nocompile").jsonBody());
     cerr << "status = " << jsonEncode(status) << endl;
     
     
@@ -357,5 +377,25 @@ print "a"
     checkCode("git://github.com/mldbai/test_git_plugin.git#6057a0d7cd370adc45eb40de97ebc00e79a7aef1", 1);
     checkCode("git://github.com/mldbai/test_git_plugin.git#5787ed0a4ac8b2b100fbd473b6f03251b929aca5", 2);
     checkCode("git://github.com/mldbai/test_git_plugin.git#patate", -1);
+
+    // ************************
+    // Check a python plugin with more than 64k of text works properly
+    plugRes.source.main = "";
+    plugRes.address = "file://mldb/testing/mldb_py_plugin";
+    pluginConfig2.params = plugRes;
+
+    putStatus = proxy.put("/v1/plugins/pyplugin",
+                          jsonEncode(pluginConfig2));
+
+    // check init output
+    getResult = proxy.get("/v1/plugins/pyplugin/routes/lastoutput");
+    cerr << "getResult = " << getResult << endl;
+    BOOST_CHECK_EQUAL(getResult.code(), 200);
+    BOOST_CHECK_EQUAL(getResult.jsonBody()["logs"][0]["c"].asString(), "testing pluging for MLDB!!");
+
+    status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin").jsonBody());
+    
+    cerr << "status = " << jsonEncode(status) << endl;
+    //BOOST_CHECK_EQUAL(jsonEncode(status)["status"]["message"].asString(), "A-OK");
 
 }

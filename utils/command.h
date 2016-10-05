@@ -16,13 +16,13 @@
 #include <memory>
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/types/periodic_utils.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/any.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -158,4 +158,4 @@ struct CommandStatus {
 
 DECLARE_STRUCTURE_DESCRIPTION(CommandStatus);
 
-} // namespace Datacratic
+} // namespace MLDB

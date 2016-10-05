@@ -18,7 +18,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Path;
@@ -197,8 +197,9 @@ struct PathElement {
     /// with legacy hashes.
     uint64_t newHash() const;
 
-    inline bool empty() const
+    inline bool null() const
     {
+        // The empty string is not a null PathElement
         return complex_ == 0 && simpleLen_ == 0;
     }
 
@@ -254,7 +255,7 @@ struct PathElement {
 
     union {
         // The complex_ flag means we can't simply copy the words around;
-        // we need to do some more work.
+        // we need to do some more work. (Empty strings are considered complex)
         struct {
             uint8_t complex_: 1;   ///< If true, we're stored in an external string
             uint8_t simpleLen_:5;  ///< If complex_ is false, this is the length
@@ -348,9 +349,9 @@ inline PathElement stringToKey(const std::string & str, PathElement *)
 PREDECLARE_VALUE_DESCRIPTION(PathElement);
 
 struct PathElementNewHasher
-    : public std::unary_function<Datacratic::MLDB::PathElement, size_t>
+    : public std::unary_function<MLDB::PathElement, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::PathElement & path) const
+    size_t operator()(const MLDB::PathElement & path) const
     {
         return path.newHash();
     }
@@ -562,7 +563,7 @@ private:
 
 struct Path {
     Path()
-        : length_(0), digits_(0), ofsPtr_(0)
+        : length_(0), digits_(0), ofsPtr_(nullptr)
     {
     }
 
@@ -961,34 +962,34 @@ inline Path stringToKey(const std::string & str, Path *)
 PREDECLARE_VALUE_DESCRIPTION(Path);
 
 struct PathNewHasher
-    : public std::unary_function<Datacratic::MLDB::Path, size_t>
+    : public std::unary_function<MLDB::Path, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Path & path) const
+    size_t operator()(const MLDB::Path & path) const
     {
         return path.newHash();
     }
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 
 namespace std {
 
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::MLDB::PathElement> : public std::unary_function<Datacratic::MLDB::PathElement, size_t>
+struct hash<MLDB::PathElement> : public std::unary_function<MLDB::PathElement, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::PathElement & path) const
+    size_t operator()(const MLDB::PathElement & path) const
     {
         return path.hash();
     }
 };
 
 template<>
-struct hash<Datacratic::MLDB::Path> : public std::unary_function<Datacratic::MLDB::Path, size_t>
+struct hash<MLDB::Path> : public std::unary_function<MLDB::Path, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Path & paths) const
+    size_t operator()(const MLDB::Path & paths) const
     {
         return paths.hash();
     }

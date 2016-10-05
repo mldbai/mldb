@@ -28,9 +28,9 @@
 #include "mldb/rest/in_process_rest_connection.h"
 
 
-//using namespace Datacratic::Python;
+//using namespace Python;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -275,4 +275,4 @@ struct MldbPythonContext {
 };
 
 } // namespace mldb
-} // namespace datacratic
+

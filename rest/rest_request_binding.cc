@@ -12,7 +12,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /** These functions turn an argument to the request binding into a function
     that can generate the value required by the handler function.
@@ -149,4 +149,4 @@ std::set<Utf8String> getIgnoredArgs(const RequestFilter & filter)
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

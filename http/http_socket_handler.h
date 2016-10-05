@@ -13,7 +13,7 @@
 #include "mldb/io/tcp_socket_handler.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP CONNECTION HANDLER                                                  */
@@ -33,6 +33,10 @@ struct HttpSocketHandler : public TcpSocketHandler {
     /* Callback used to report a header-line, including the header key and the
      * value. */
     virtual void onHeader(const char * data, size_t dataSize) = 0;
+
+    /* Callback used to request whether to proceed with a 100-continue
+     * request. */
+    virtual bool onExpect100Continue() = 0;
 
     /* Callback used to report a chunk of the response body. Only invoked
        when the body is larger than 0 byte. */
@@ -121,14 +125,23 @@ struct HttpLegacySocketHandler : public HttpSocketHandler {
               NextAction action = NEXT_CONTINUE,
               OnWriteFinished onWriteFinished = nullptr);
 
+protected:
+    /* Overridable method returning whether the given request should be
+       accepted for processing or not. The default implementation returns
+       "true". */
+    virtual bool shouldReturn100Continue(const HttpHeader & header);
+
 private:
     virtual void onRequestStart(const char * methodData, size_t methodSize,
                                 const char * urlData, size_t urlSize,
                                 const char * versionData,
                                 size_t versionSize);
     virtual void onHeader(const char * data, size_t dataSize);
+    virtual bool onExpect100Continue();
     virtual void onData(const char * data, size_t dataSize);
     virtual void onDone(bool requireClose);
+
+    void handleExpect100Continue();
 
     std::string headerPayload;
     std::string bodyPayload;
@@ -137,4 +150,4 @@ private:
     std::string writeData_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

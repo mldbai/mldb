@@ -12,7 +12,7 @@
 #include "peer_info.h"
 #include "rest_collection.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -61,4 +61,4 @@ struct SinglePeerDiscovery: public PeerDiscovery {
     virtual void wakeup();
 };
 
-} // namespace Datacratic
+} // namespace MLDB

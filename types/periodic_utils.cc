@@ -13,7 +13,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {
@@ -44,7 +44,7 @@ int granularityIndex(TimeGranularity granularity)
 
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 TimeGranularity operator + (TimeGranularity granularity, int steps)
 {
@@ -375,4 +375,4 @@ Utf8String restEncode(const TimePeriod & p)
     return p.toString();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

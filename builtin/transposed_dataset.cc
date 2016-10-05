@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -54,7 +54,7 @@ struct TransposedDataset::Itl
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
           index(dataset->getColumnIndex()),
-          columnCount(matrix->getColumnNames().size())
+          columnCount(dataset->getFlattenedColumnCount())
     {
     }
 
@@ -175,7 +175,7 @@ struct TransposedDataset::Itl
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        vector<ColumnName> cols = matrix->getColumnNames();
+        vector<ColumnName> cols = dataset->getFlattenedColumnNames();
 
         vector<RowName> result;
         for (unsigned i = start; i < cols.size();  ++i) {
@@ -298,7 +298,7 @@ struct TransposedDataset::Itl
 
     virtual size_t getRowCount() const
     {
-        return matrix->getColumnCount();
+        return dataset->getFlattenedColumnCount();
     }
 
     virtual size_t getColumnCount() const
@@ -411,4 +411,4 @@ struct AtInit {
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

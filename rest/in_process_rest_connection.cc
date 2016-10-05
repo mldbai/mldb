@@ -13,7 +13,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* IN PROCESS HTTP REST CONNECTION                                           */

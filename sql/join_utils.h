@@ -10,7 +10,7 @@
 #include "sql_expression.h"
 #include "mldb/sql/table_expression_operations.h" //for join qualification
 
-namespace Datacratic {
+
 namespace MLDB {
 
  enum JoinSide {
@@ -143,22 +143,18 @@ struct AnnotatedJoinCondition {
         /// Original table of the join
         std::shared_ptr<TableExpression> table;
 
-        // WHERE condition on rows on the left side
-        std::vector<AnnotatedClause> whereClauses;
-        
-        /// Left side of equality part of the join expression, for EQUIJOIN
-        std::shared_ptr<SqlExpression> equalExpression;
-
-        /// Clause for the select expression
+        /** Clause for the select expression
+            This is used to evaluated each side of an EQUIJOIN.
+        */
         std::shared_ptr<SqlExpression> selectExpression;
 
         /// Expression to select from the table on this side
         SelectExpression select;
 
-        // left side WHEN condition as an SQL expression
+        // left/right side WHEN condition as an SQL expression
         WhenExpression when;
 
-        // left side WHERE condition as an SQL expression
+        // left/right side WHERE condition as an SQL expression
         std::shared_ptr<SqlExpression> where;
 
         /// Order by clause for the table on this side
@@ -200,4 +196,4 @@ DECLARE_ENUM_DESCRIPTION_NAMED(AnnotatedJoinConditionStyleDescription,
                               AnnotatedJoinCondition::Style);
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -14,7 +14,7 @@ using namespace ML;
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -234,4 +234,4 @@ explainUnbiased(const ML::distribution<float> & features,
     return make_pair(classifier_->explain(*fset, label, 1.0, &context), fset);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 
 // Defined in thread_pool.h, and different from hardware_concurrency() as
 // it can be overridden.
@@ -347,7 +347,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Run the extra calculations before the select, as the select may
         // destroy the input if it's a select star.
         for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-            calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
+            calcd[i] = boundCalc[i](selectRowScope, GET_LATEST);
         }
 
         if (selectStar) {
@@ -470,7 +470,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
                 vector<ExpressionValue> calcd(boundCalc.size());
                 for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                    calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
+                    calcd[i] = boundCalc[i](selectRowScope, GET_LATEST);
                 }
 
                 // Get the order by context, which can read from both the result
@@ -699,8 +699,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 //         << minRowNum << " maxRowNumNeeded " << maxRowNumNeeded
                 //         << " maxRowNum " << maxRowNum << endl;
 
-                QueryThreadTracker childTracker
-                    = std::move(parentTracker.child());
+                QueryThreadTracker childTracker = parentTracker.child();
 
                 ExpressionValue row;
                 try {
@@ -745,7 +744,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     vector<ExpressionValue> calcd(boundCalc.size());
                     for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                        calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                        calcd[i] = boundCalc[i](rowContext, GET_LATEST);
                     }
 
                     if (selectStar) {
@@ -1013,7 +1012,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                calcd[i] = boundCalc[i](rowContext, GET_LATEST);
             }
 
             if (selectStar) {
@@ -1062,9 +1061,9 @@ BoundSelectQuery(const SelectExpression & select,
         // Get a generator for the rows that match 
         auto whereGenerator = context->doCreateRowsWhereGenerator(where, 0, -1);
 
-        auto matrix = from.getMatrixView();
-
         auto boundSelect = select.bind(*context);
+
+        selectInfo = boundSelect.info;
 
         std::vector<BoundSqlExpression> boundCalc;
         for (auto & c: calc) {
@@ -1585,7 +1584,7 @@ BoundGroupByQuery(const SelectExpression & select,
 
 }
 
-bool
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
 BoundGroupByQuery::
 execute(RowProcessor processor,
         ssize_t offset,
@@ -1615,6 +1614,7 @@ execute(RowProcessor processor,
 
     //bind the selectexpression, this will create the bound aggregators (which we wont use, ah!)
     auto boundSelect = select.bind(*groupContext);
+    auto selectInfo = boundSelect.info;
 
     //bind the having expression. Must be bound after the select because
     //we placed the having aggregators after the select aggregator in the list
@@ -1729,7 +1729,7 @@ execute(RowProcessor processor,
     }
 
     if (boundOrderBy.empty())
-        return true;
+        return {true, selectInfo};
 
     // Compare two rows according to the sort criteria
     auto compareRows = [&] (const SortedRow & row1,
@@ -1786,7 +1786,7 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return false;
+                return {false, selectInfo}; //early exis on processor error
 
             if (count - offset == limit)
                 break;
@@ -1803,12 +1803,12 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return false;
+                return {false, selectInfo}; //early exis on processor error
         } 
     }  
 
-    return true;
+    return {true, selectInfo};
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

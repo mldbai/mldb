@@ -21,7 +21,7 @@
 #include "mldb/utils/log_fwd.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 
@@ -207,4 +207,4 @@ struct HttpRestService {
     std::shared_ptr<spdlog::logger> logger;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -10,7 +10,7 @@
 #include <memory>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct MessageLoop;
@@ -40,4 +40,4 @@ private:
     std::unique_ptr<MessageLoop> loop_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

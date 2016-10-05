@@ -13,7 +13,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/server/plugin_resource.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct ExternalPythonProcedureConfig: public ProcedureConfig {
@@ -53,4 +53,4 @@ struct ExternalPythonProcedure: public Procedure {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

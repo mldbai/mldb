@@ -14,7 +14,7 @@
 #include "value_description_fwd.h"
 #include "string.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 enum TimeGranularity {
     MILLISECONDS,
@@ -217,7 +217,7 @@ TimePeriod restDecode(const Utf8String & str, TimePeriod *);
 TimePeriod restDecode(const std::string & str, TimePeriod *);
 Utf8String restEncode(const TimePeriod & p);
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #endif /*  __logger__periodic_utils_h__ */
 

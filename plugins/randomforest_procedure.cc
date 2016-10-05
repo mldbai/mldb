@@ -32,7 +32,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(RandomForestProcedureConfig);
@@ -316,7 +316,7 @@ run(const ProcedureRunConfig & run,
 
     bool saved = true;
     try {
-        Datacratic::makeUriDirectory(
+        makeUriDirectory(
             runProcConf.modelFileUrl.toDecodedString());
         classifier.save(runProcConf.modelFileUrl.toString());
     }
@@ -345,5 +345,4 @@ namespace{
 
 }
 
-}
-}
+} // namespace MLDB

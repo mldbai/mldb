@@ -13,7 +13,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -511,5 +511,5 @@ DFS_REG("MLDB::DatasetFeatureSpace");
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

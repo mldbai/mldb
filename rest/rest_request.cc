@@ -14,7 +14,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -46,4 +46,4 @@ RestRequestDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

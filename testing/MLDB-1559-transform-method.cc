@@ -21,8 +21,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 #define CHECK_EQUAL_EXPR(val, expected) \
 BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
@@ -52,7 +52,7 @@ void TestExpression(const T& expression, int expected)
                 a = a->transform(onChild);
             }
 
-            return std::move(args);
+            return args;
         };
 
     expression.transform(onChild);

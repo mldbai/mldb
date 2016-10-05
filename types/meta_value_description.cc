@@ -14,7 +14,7 @@
 #include "mldb/types/pointer_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(ValueKind);
 
@@ -102,7 +102,7 @@ static Json::Value getDefaultValue(const ValueDescription & description)
     description.printJson(val, context);
     description.destroy(val);
 
-    return std::move(jval);
+    return jval;
 }
 
 static ValueDescriptionRepr
@@ -338,4 +338,4 @@ isDefaultTyped(ValueDescription const * const * val) const
     return !*val;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

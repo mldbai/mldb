@@ -8,10 +8,12 @@
     at the end.
 */
 
+#pragma once
+
 #include "mldb/arch/thread_specific.h"
 #include <functional>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 template<typename Payload>
@@ -70,4 +72,4 @@ struct PerThreadAccumulator {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -7,13 +7,12 @@
 
 #include "procedure_js.h"
 #include "mldb/core/procedure.h"
-#include "mldb/types/js/id_js.h"
 
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -25,7 +24,8 @@ v8::Handle<v8::Object>
 ProcedureJS::
 create(std::shared_ptr<Procedure> procedure, JsPluginContext * context)
 {
-    auto obj = context->Procedure->GetFunction()->NewInstance();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto obj = context->Procedure.Get(isolate)->GetFunction()->NewInstance();
     auto * wrapped = new ProcedureJS();
     wrapped->procedure = procedure;
     wrapped->wrap(obj, context);
@@ -47,68 +47,74 @@ registerMe()
 {
     using namespace v8;
 
-    HandleScope scope;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("Procedure");
     auto prototmpl = fntmpl->PrototypeTemplate();
 
-    prototmpl->Set(String::New("status"), FunctionTemplate::New(status));
-    prototmpl->Set(String::New("id"), FunctionTemplate::New(id));
-    prototmpl->Set(String::New("type"), FunctionTemplate::New(type));
-    prototmpl->Set(String::New("config"), FunctionTemplate::New(config));
-    prototmpl->Set(String::New("run"), FunctionTemplate::New(run));
+    prototmpl->Set(String::NewFromUtf8(isolate, "status"),
+                   FunctionTemplate::New(isolate, status));
+    prototmpl->Set(String::NewFromUtf8(isolate, "id"),
+                   FunctionTemplate::New(isolate, id));
+    prototmpl->Set(String::NewFromUtf8(isolate, "type"),
+                   FunctionTemplate::New(isolate, type));
+    prototmpl->Set(String::NewFromUtf8(isolate, "config"),
+                   FunctionTemplate::New(isolate, config));
+    prototmpl->Set(String::NewFromUtf8(isolate, "run"),
+                   FunctionTemplate::New(isolate, run));
         
-    return scope.Close(fntmpl);
+    return scope.Escape(fntmpl);
 }
 
 
-v8::Handle<v8::Value>
+void
 ProcedureJS::
-status(const v8::Arguments & args)
+status(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Procedure * procedure = getShared(args.This());
             
-        return JS::toJS(jsonEncode(procedure->getStatus()));
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(procedure->getStatus())));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
     
-v8::Handle<v8::Value>
+void
 ProcedureJS::
-id(const v8::Arguments & args)
+id(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Procedure * procedure = getShared(args.This());
             
-        return JS::toJS(procedure->getId());
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(procedure->getId()));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
     
-v8::Handle<v8::Value>
+void
 ProcedureJS::
-type(const v8::Arguments & args)
+type(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Procedure * procedure = getShared(args.This());
             
-        return JS::toJS(procedure->getType());
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(procedure->getType()));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
     
-v8::Handle<v8::Value>
+void
 ProcedureJS::
-config(const v8::Arguments & args)
+config(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Procedure * procedure = getShared(args.This());
         
-        return JS::toJS(jsonEncode(procedure->getConfig()));
-    } HANDLE_JS_EXCEPTIONS;
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(procedure->getConfig())));
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
-v8::Handle<v8::Value>
+void
 ProcedureJS::
-run(const v8::Arguments & args)
+run(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Procedure * procedure = getShared(args.This());
@@ -122,10 +128,10 @@ run(const v8::Arguments & args)
 
         auto result = procedure->run(config, onProgress);
         
-        return JS::toJS(jsonEncode(result));
+        args.GetReturnValue().Set(JS::toJS(jsonEncode(result)));
 
-    } HANDLE_JS_EXCEPTIONS;
+    } HANDLE_JS_EXCEPTIONS(args);
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -18,7 +18,7 @@
 #include "pipeline_execution_context.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -603,4 +603,4 @@ DoInitialize<&CombinedFeatureGeneratorT<Args...>::doInitialize>
 CombinedFeatureGeneratorT<Args...>::init;
 
 
-} // namespace Datacratic
+} // namespace MLDB

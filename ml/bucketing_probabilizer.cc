@@ -18,7 +18,7 @@ using namespace std;
 #include "confidence_intervals.h"
 #include <math.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -356,4 +356,4 @@ save(const string & filename) const
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

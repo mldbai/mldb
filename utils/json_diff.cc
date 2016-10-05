@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 JsonDiff::Deleted JsonDiff::deleted;
 
@@ -186,7 +186,7 @@ jsonDiffObjects(const Json::Value & obj1,
         }
         else if (it1 != end1 && (it2 == end2 || *it1 < *it2)) {
             // Deleted field
-            result.fields[*it1] = std::move(JsonDiff(obj1[*it1], JsonDiff::deleted));
+            result.fields[*it1] = JsonDiff(obj1[*it1], JsonDiff::deleted);
             ++it1;
         }
         else {
@@ -732,4 +732,4 @@ JsonArrayElementDiffDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

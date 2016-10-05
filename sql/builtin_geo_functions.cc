@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Builtins {
 
@@ -69,4 +69,4 @@ static RegisterBuiltin registerFlatten(geo_distance, "geo_distance");
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

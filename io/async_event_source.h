@@ -15,7 +15,7 @@
 #include "mldb/arch/exception.h"
 #include <thread>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct MessageLoop;
 
@@ -199,7 +199,7 @@ private:
 };
 #endif
 
-} // namespace Datacratic
+} // namespace MLDB
 
 
 #endif /* __service__async_event_source_h__ */

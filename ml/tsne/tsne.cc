@@ -27,8 +27,10 @@
 #include "mldb/base/thread_pool.h"
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
-#include "mldb/arch/sse2.h"
-#include "mldb/arch/sse2_log.h"
+#if JML_INTEL_ISA
+# include "mldb/arch/sse2.h"
+# include "mldb/arch/sse2_log.h"
+#endif
 #include "mldb/arch/cache.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/environment.h"
@@ -166,7 +168,7 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
         };
     
     // TODO: in original version, we did chunks in reverse order.
-    Datacratic::parallelMapChunked(0, n, chunk_size, onJob);
+    MLDB::parallelMapChunked(0, n, chunk_size, onJob);
 
     if (fill_upper)
         copy_lower_to_upper(D);
@@ -407,7 +409,7 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
             (D, tolerance, perplexity, P, beta, i0, i1)();
         };
 
-    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
+    MLDB::parallelMapChunked(0, n, chunk_size, onChunk);
 
     cerr << "mean sigma is " << sqrt(1.0 / beta).mean() << endl;
 
@@ -460,6 +462,7 @@ double calc_D_row(float * Di, int n)
     double total = 0.0;
 
     if (false) ;
+#if JML_INTEL_ISA
     else if (n >= 8) {
         using namespace SIMD;
 
@@ -522,6 +525,7 @@ double calc_D_row(float * Di, int n)
 
         total = (results[0] + results[1]);
     }
+#endif // JML_INTEL_ISA
     
     for (;  i < n;  ++i) {
         Di[i] = 1.0f / (1.0f + Di[i]);
@@ -590,6 +594,8 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
     unsigned i = 0;
 
     if (false) ;
+
+#if JML_INTEL_ISA
     else if (true) {
         using namespace SIMD;
 
@@ -624,6 +630,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
         
         cost = results[0] + results[1];
     }
+#endif // JML_INTEL_ISA
 
     for (;  i < n;  ++i) {
         float d = Di[i];
@@ -692,7 +699,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
         };
 
     // TODO: chunks in reverse?
-    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
+    MLDB::parallelMapChunked(0, n, chunk_size, onChunk);
 
     double d_total_offdiag = SIMD::vec_sum(d_totals, n);
 
@@ -714,7 +721,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
         };
 
     // TODO: chunks in reverse?
-    Datacratic::parallelMapChunked(0, n, chunk_size2, onChunk2);
+    MLDB::parallelMapChunked(0, n, chunk_size2, onChunk2);
 
     double cost = 0.0;
     if (calc_cost) cost = SIMD::vec_sum(row_costs, n);
@@ -734,7 +741,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
                 const boost::multi_array<float, 2> & Y,
                 int i, int n)
 {
-#if 1
+#if JML_INTEL_ISA
     using namespace SIMD;
 
     v4sf totals01 = vec_splat(0.0f), totals23 = totals01;
@@ -769,7 +776,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
     __builtin_ia32_storeups(&dY[i][0], totals01);
     __builtin_ia32_storeups(&dY[i + 2][0], totals23);
 
-#else
+#else // JML_INTEL_ISA
     enum { b = 4 };
 
     float totals[b][2];
@@ -791,7 +798,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
         dY[i + ii][0] = totals[ii][0];
         dY[i + ii][1] = totals[ii][1];
     }
-#endif
+#endif // JML_INTEL_ISA
 }
 
 inline void
@@ -888,7 +895,7 @@ void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
             Calc_Gradient_Job(dY, Y, PmQxD, i0, i1)();
         };
 
-    Datacratic::parallelMapChunked(0, n, chunk_size, doJob);
+    MLDB::parallelMapChunked(0, n, chunk_size, doJob);
 }
 
 void tsne_update(boost::multi_array<float, 2> & Y,
@@ -1260,7 +1267,7 @@ sparseProbsFromCoords(const std::function<float (int, int)> & dist,
                 cerr << "done " << x << " in " << timer.elapsed() << "s" << endl;
         };
 
-    Datacratic::parallelMap(0, nx, calcExample);
+    MLDB::parallelMap(0, nx, calcExample);
 
     if (treeOut)
         treeOut->reset(tree.release());
@@ -1997,7 +2004,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
             };
 
 #if 1
-        int totalThreads = std::max(1, std::min(16, Datacratic::numCpus() / 2));
+        int totalThreads = std::max(1, std::min(16, MLDB::numCpus() / 2));
 
         auto doThread = [&] (int n)
             {
@@ -2015,7 +2022,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 //}
             };
 
-        Datacratic::parallelMap(0, totalThreads, doThread);
+        MLDB::parallelMap(0, totalThreads, doThread);
         //parallelMap(0, nx, calcExample);
 #else
         // Each example proceeds more or less independently

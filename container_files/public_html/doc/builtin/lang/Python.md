@@ -9,7 +9,7 @@ into MLDB to extend its functionality.
 
 With `PackageElementSources` defined as:
 
-![](%%type Datacratic::MLDB::PackageElementSources)
+![](%%type MLDB::PackageElementSources)
 
 If the `address` parameter is used, it may contain:
 
@@ -45,7 +45,7 @@ There are two functions that allow access to the virtual filesystem of MLDB:
   in the directory, with the URI as the key and the following structure
   as the value:
 
-  ![](%%type Datacratic::FsObjectInfo)
+  ![](%%type MLDB::FsObjectInfo)
 
 ### `dataset` object (available to plugins and scripts)
 
@@ -108,19 +108,19 @@ If an exception was thrown, the output will look like
 
 The actual output object looks like this:
 
-![](%%type Datacratic::MLDB::ScriptOutput)
+![](%%type MLDB::ScriptOutput)
 
 with log entries looking like
 
-![](%%type Datacratic::MLDB::ScriptLogEntry)
+![](%%type MLDB::ScriptLogEntry)
 
 Exceptions are represented as
 
-![](%%type Datacratic::MLDB::ScriptException)
+![](%%type MLDB::ScriptException)
 
 with stack frames like
 
-![](%%type Datacratic::MLDB::ScriptStackFrame)
+![](%%type MLDB::ScriptStackFrame)
 
 Note that the Python plugin only fills in the `where` field of stack frame
 entries.

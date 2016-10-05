@@ -19,8 +19,6 @@
 using namespace std;
 
 
-namespace Datacratic {
-
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(CredentialRuleConfig);
@@ -219,8 +217,8 @@ createCredentialCollection(MLDB::MldbServer * server, RestRouteManager & routeMa
     return result;
 }
 
+template class RestCollection<std::string, CredentialRule>;
+
 } // namespace MLDB
 
-template class RestCollection<std::string, MLDB::CredentialRule>;
 
-} // namespace datacratic

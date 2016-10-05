@@ -18,7 +18,7 @@
 #include "mldb/types/string.h"
 #include <boost/thread/shared_mutex.hpp>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -185,10 +185,10 @@ struct DistTableProcedure: public Procedure {
 
     DistTableProcedureConfig procConfig;
 
-    static void persist(const Url & modelFileUrl, DistTableMode mode, 
+    static void persist(const Url & modelFileUrl, DistTableMode mode,
                         const DistTablesMap & distTablesMap);
 
-    static const int DIST_TABLE_PERSIST_VERSION = 2;
+    enum { DIST_TABLE_PERSIST_VERSION=2 };
 
 };
 
@@ -217,22 +217,22 @@ struct DistTableFunction: public Function {
 
     ~DistTableFunction();
 
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
 
-    virtual Any getDetails() const;
+    virtual Any getDetails() const override;
 
-    virtual ExpressionValue apply(const FunctionApplier & applier,
-                              const ExpressionValue & context) const;
+    ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const override;
 
     /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual FunctionInfo getFunctionInfo() const override;
 
     void increment(const std::vector<std::pair<Utf8String, Utf8String>> & keys,
                    const std::vector<double> & outcomes) const;
     
     void persist(const Url & modelFileUrl) const;
 
-    RestRequestMatchResult
+    virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
                   const RestRequest & request,
                   RestRequestParsingContext & context) const override;
@@ -251,4 +251,4 @@ struct DistTableFunction: public Function {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

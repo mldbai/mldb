@@ -11,7 +11,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -111,8 +111,6 @@ void expect_interval(ML::Parse_Context & context, uint32_t& months, uint32_t& da
         
     if (signedbit)
         seconds = -seconds;
-}
-
 }
 
 }

@@ -11,7 +11,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -97,4 +97,4 @@ runMainThread()
 
 CallMeBackLater callMeBackLater;
 
-} // namespace Datacratic
+} // namespace MLDB

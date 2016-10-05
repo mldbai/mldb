@@ -24,8 +24,8 @@
 #include <cstring>
 #include "mldb/jml/utils/guard.h"
 
-namespace Datacratic {
 
+namespace MLDB {
 
 /******************************************************************************/
 /* LZ4 ERROR                                                                  */
@@ -136,7 +136,7 @@ struct JML_PACKED Header
         if (head.checkBits != head.checksumOptions())
             throw lz4_error("corrupted options");
 
-        return std::move(head);
+        return head;
     }
 
     template<typename Sink>
@@ -369,4 +369,4 @@ private:
     void* streamChecksumState;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

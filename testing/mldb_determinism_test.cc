@@ -19,10 +19,10 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
-namespace Datacratic {
+using namespace MLDB;
+
 namespace MLDB {
+
 namespace Builtins {
 
 typedef BoundAggregator (&BuiltinAggregator) ();
@@ -47,7 +47,7 @@ struct TestRegisterAggregator {
                        SqlBindingScope & context)
             -> BoundAggregator
             {
-                return std::move(aggregator());
+                return aggregator();
             };
         handles.push_back(registerAggregator(Utf8String(name), fn));
         doRegister(aggregator, std::forward<Names>(names)...);
@@ -55,7 +55,6 @@ struct TestRegisterAggregator {
 
     std::vector<std::shared_ptr<void> > handles;
 };
-}
 }
 }
 
@@ -148,15 +147,15 @@ BOOST_AUTO_TEST_CASE( test_determinism_agggregator )
      // Commit it.  This will also create our distance index
     cerr << proxy.post("/v1/datasets/test1/commit");
 
-    auto result = proxy.get("/v1/datasets/test1/query",
-                      { { "select", "pass(x)" } }).jsonBody();
+    auto result = proxy.get("/v1/query",
+                      { { "q", "SELECT pass(x) from test1" } }).jsonBody();
 
     int expectedValue = result[0]["columns"][0][1].asInt();
 
     for (int i = 0; i < 10; ++i)
     {
-       result = proxy.get("/v1/datasets/test1/query",
-                      { { "select", "pass(x)" } }).jsonBody();
+       result = proxy.get("/v1/query",
+                      { { "q", "SELECT pass(x) from test1" } }).jsonBody();
 
        Json::Value expected = { "pass(x)", expectedValue, "1970-01-01T00:00:00Z" };
        BOOST_CHECK_EQUAL(result[0]["columns"][0], expected);

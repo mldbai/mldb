@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 void
@@ -343,5 +343,5 @@ WatchT<Date> getTimer(Date nextExpiry,
 template class WatchT<Date>;
 template class WatchesT<Date>;
 
-} // namespace Datacratic
+} // namespace MLDB
 

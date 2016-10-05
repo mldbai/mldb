@@ -17,13 +17,13 @@
 #include <sys/socket.h>
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"
 #include "test_connection_error.h"
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_active_endpoint_nothing_listening )

@@ -18,7 +18,7 @@
 #include "mldb/vfs/filter_streams.h"
 
 using namespace std;
-// using namespace Datacratic;
+// using namespace MLDB;
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_hdfs_istream )

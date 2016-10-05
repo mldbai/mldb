@@ -22,7 +22,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 struct RestDirectory;
 
@@ -33,6 +33,10 @@ struct Procedure;
 
 typedef EntityType<Procedure> ProcedureType;
 
+constexpr char GENERIC_OUTPUT_DS_DESC[] =
+    "Output dataset configuration. This may refer either to an "
+    "existing dataset, or a fully specified but non-existing dataset "
+    "which will be created by the procedure.";
 
 /*****************************************************************************/
 /* PROCEDURE TRAINING                                                        */
@@ -373,4 +377,4 @@ struct RegisterProcedureType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -28,40 +28,22 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
-inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const PathElement & coord)
-{
-    // Currently not used, since we haven't exposed serialization
-    // of embedding datasets.
-    throw ML::Exception("PathElement serialization");
-}
+// Defined in stats_table_procedure.cc, until we move them somewhere
+// more sensible
+ML::DB::Store_Writer &
+operator << (ML::DB::Store_Writer & store, const PathElement & coord);
 
-inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, PathElement & coord)
-{
-    // Currently not used, since we haven't exposed serialization
-    // of embedding datasets.
-    throw ML::Exception("PathElement deserialization");
-}
+ML::DB::Store_Reader &
+operator >> (ML::DB::Store_Reader & store, PathElement & coord);
 
-inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Path & coords)
-{
-    // Currently not used, since we haven't exposed serialization
-    // of embedding datasets.
-    throw ML::Exception("Path serialization");
-}
+ML::DB::Store_Writer &
+operator << (ML::DB::Store_Writer & store, const Path & coords);
 
-inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Path & coords)
-{
-    // Currently not used, since we haven't exposed serialization
-    // of embedding datasets.
-    throw ML::Exception("Path deserialization");
-}
+ML::DB::Store_Reader &
+operator >> (ML::DB::Store_Reader & store, Path & coords);
 
 
 /*****************************************************************************/
@@ -1354,4 +1336,4 @@ regNearestNeighborsFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

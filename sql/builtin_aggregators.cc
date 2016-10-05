@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Builtins {
 
@@ -45,7 +45,7 @@ struct RegisterAggregator {
                        SqlBindingScope & context)
             -> BoundAggregator
             {
-                return std::move(aggregator(args, name));
+                return aggregator(args, name);
             };
         handles.push_back(registerAggregator(Utf8String(name), fn));
         doRegister(aggregator, std::forward<Names>(names)...);
@@ -70,7 +70,7 @@ struct AggregatorT {
                                  const string & name)
     {
         // These take the number of arguments given in the State class
-        checkArgsSize(args.size(), State::nargs, name);
+        checkArgsSize(args.size(), State::nargs, State::maxArgs, name);
         ExcAssert(args[0].info);
 
         if (args[0].info->isRow()) {
@@ -137,6 +137,9 @@ struct AggregatorT {
         {
             checkArgsSize(nargs, 1);
             const ExpressionValue & val = args[0];
+
+            if (val.empty())
+                return;
 
             // This must be a row...
             auto onColumn = [&] (const PathElement & columnName,
@@ -506,6 +509,7 @@ struct RegisterAggregatorT: public RegisterAggregator {
 
 struct AverageAccum {
     static constexpr int nargs = 1;
+    static constexpr int maxArgs = nargs;
     
     AverageAccum()
         : total(0.0), n(0.0), ts(Date::negativeInfinity())
@@ -551,6 +555,7 @@ static RegisterAggregatorT<AverageAccum> registerAvg("avg", "vertical_avg");
 template<typename Op, int Init>
 struct ValueAccum {
     static constexpr int nargs = 1;
+    static constexpr int maxArgs = nargs;
     ValueAccum()
         : value(Init), ts(Date::negativeInfinity())
     {
@@ -592,8 +597,9 @@ registerSum("sum", "vertical_sum");
 
 struct StringAggAccum {
     static constexpr int nargs = 2;
+    static constexpr int maxArgs = 3;
     StringAggAccum()
-        : first(true), ts(Date::negativeInfinity())
+        : ts(Date::negativeInfinity())
     {
     }
 
@@ -605,52 +611,80 @@ struct StringAggAccum {
 
     void process(const ExpressionValue * args, size_t nargs)
     {
-        checkArgsSize(nargs, 2);
+        if (nargs < 2 || nargs > 3) {
+            checkArgsSize(nargs, 2, 3);
+        }
         const ExpressionValue & val = args[0];
-        const ExpressionValue & separator = args[1];
 
         if (val.empty())
             return;
 
-        if (first) {
-            this->firstSeparator = separator.empty()
-                ? Utf8String()
-                : separator.coerceToString().toUtf8String();
-        }
-        else if (!separator.empty()) {
-            value += separator.coerceToString().toUtf8String();
-        }
-        first = false;
+        const ExpressionValue & separator = args[1];
+        static const CellValue noSort;
+        const CellValue & sort
+            = nargs > 2 ? args[2].getAtom() : noSort;
         
-        value += val.coerceToString().toUtf8String();
+        values.emplace_back(sort, val.coerceToString().toUtf8String(),
+                            separator.empty() 
+                            ? Utf8String()
+                            : separator.coerceToString().toUtf8String());
 
         ts.setMax(val.getEffectiveTimestamp());
+
+        if (isSorted && values.size() > 1
+            && values[values.size() - 2] > values.back())
+            isSorted = false;
     }
      
     ExpressionValue extract()
     {
-        return ExpressionValue(value, ts);
+        if (!isSorted)
+            std::sort(values.begin(), values.end());
+
+        Utf8String result;
+
+        for (size_t i = 0;  i < values.size();  ++i) {
+            if (i != 0)
+                result += std::get<2>(values[i - 1]);
+            result += std::get<1>(values[i]);
+        }
+        
+        return ExpressionValue(std::move(result), ts);
     }
 
     void merge(StringAggAccum* src)
     {
-        if (src->first)
-            return;  // nothing to do
-        else if (first) {
-            value = std::move(src->value);
-            firstSeparator = std::move(src->firstSeparator);
-            first = src->first;
+        ts.setMax(src->ts);
+
+        if (src->values.size() > values.size()) {
+            values.swap(src->values);
+            std::swap(isSorted, src->isSorted);
+        }
+
+        if (values.size() < 3 * src->values.size()) {
+            if (!isSorted)
+                std::sort(values.begin(), values.end());
+            if (!src->isSorted)
+                std::sort(src->values.begin(), src->values.end());
+            size_t before = values.size();
+            values.insert(values.end(),
+                          std::make_move_iterator(src->values.begin()),
+                          std::make_move_iterator(src->values.end()));
+            std::inplace_merge(values.begin(), values.begin() + before,
+                               values.end());
+            isSorted = true;
         }
         else {
-            value += src->firstSeparator;
-            value += src->value;
+            isSorted = isSorted && src->values.empty();
+            values.insert(values.end(),
+                          std::make_move_iterator(src->values.begin()),
+                          std::make_move_iterator(src->values.end()));
         }
-        ts.setMax(src->ts);
     }
 
-    bool first;  ///< Is this the first thing we add?
-    Utf8String firstSeparator;  ///< First separator, used for merging
-    Utf8String value;      ///< Currently accumulated value
+    // sort key, value, separator
+    std::vector<std::tuple<CellValue, Utf8String, Utf8String> > values;      ///< Currently accumulated values with separators
+    bool isSorted = true;   ///< Is values already sorted?
     Date ts;
 };
 
@@ -660,6 +694,7 @@ registerStringAgg("string_agg", "vertical_string_agg");
 template<typename Cmp>
 struct MinMaxAccum {
     static constexpr int nargs = 1;
+    static constexpr int maxArgs = nargs;
     MinMaxAccum()
         : first(true), ts(Date::negativeInfinity())
     {
@@ -724,6 +759,7 @@ registerMax("max", "vertical_max");
 
 struct CountAccum {
     static constexpr int nargs = 1;
+    static constexpr int maxArgs = nargs;
     CountAccum()
         : n(0), ts(Date::negativeInfinity())
     {
@@ -766,6 +802,7 @@ static RegisterAggregatorT<CountAccum> registerCount("count", "vertical_count");
 
 struct DistinctAccum {
     static constexpr int nargs = 1;
+    static constexpr int maxArgs = nargs;
     DistinctAccum()
         : ts(Date::negativeInfinity())
     {
@@ -952,6 +989,7 @@ static RegisterAggregator registerPivot(pivot, "pivot");
 template<typename AccumCmp>
 struct EarliestLatestAccum {
     static constexpr int nargs = 1;
+    static constexpr int maxArgs = nargs;
     EarliestLatestAccum()
         : value(ExpressionValue::null(AccumCmp::getInitialDate()))
     {
@@ -1009,6 +1047,7 @@ static RegisterAggregatorT<EarliestLatestAccum<LaterAccum> > registerLatest("lat
 
 struct VarAccum {
     static constexpr int nargs = 1;
+    static constexpr int maxArgs = nargs;
     int64_t n;
     double mean;
     double M2;
@@ -1083,5 +1122,5 @@ static RegisterAggregatorT<StdDevAccum> registerStdDevAgg("stddev", "vertical_st
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+
 

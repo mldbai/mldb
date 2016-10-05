@@ -11,7 +11,7 @@
 #include "binding_contexts.h"
 #include "table_expression_operations.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct BoundTableExpression;
@@ -59,7 +59,7 @@ struct LexicalScope {
     */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep,
+                    const ColumnFilter& keep,
                     int fieldOffset) = 0;
 
     /** Return a function accessor for the table.  fieldOffset gives the
@@ -128,7 +128,7 @@ struct PipelineExpressionScope:
 
     virtual GetAllColumnsOutput 
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -183,7 +183,7 @@ private:
         doGetColumn(const ColumnName & variableName) const;
 
         GetAllColumnsOutput
-        doGetAllColumns(const Utf8String & tableName, std::function<ColumnName (const ColumnName &)> keep) const;
+        doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const;
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,
@@ -394,4 +394,4 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

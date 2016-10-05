@@ -692,7 +692,7 @@ accuracy(const Training_Data & data,
             info.calc(xstart, xend);
         };
     
-    Datacratic::parallelMapChunked(0, nx, 1024, onGroup);
+    MLDB::parallelMapChunked(0, nx, 1024, onGroup);
     
     return make_pair(correct / total, sqrt(rmse_accum / total));
 }
@@ -756,7 +756,7 @@ predict(const Training_Data & data,
             Predict_Job(x0, x1, *this, opt_info, data)(output);
         };
     
-    Datacratic::parallelMapChunked(0, data.example_count(), 1024,
+    MLDB::parallelMapChunked(0, data.example_count(), 1024,
                                       predictJob);
 }
 
@@ -772,7 +772,7 @@ predict(const Training_Data & data,
             Predict_Job(x0, x1, *this, opt_info, data)(label, output);
         };
     
-    Datacratic::parallelMapChunked(0, data.example_count(), 1024,
+    MLDB::parallelMapChunked(0, data.example_count(), 1024,
                                       predictJob);
 }
 
@@ -899,8 +899,10 @@ FS_Context(const std::shared_ptr<const Feature_Space> & feature_space)
 
 FS_Context::~FS_Context()
 {
-    if (fs_stack().empty())
-        throw Exception("FS stack was empty in destructor; bad problem");
+    if (fs_stack().empty()) {
+        ::fprintf(stderr, "FS stack was empty in destructor; bad problem");
+        std::terminate();
+    }
     fs_stack().pop_back();
 }
 
@@ -995,7 +997,7 @@ operator >> (DB::Store_Reader & store, Classifier & classifier)
 
 void Classifier::load(const std::string & filename)
 {
-    Datacratic::filter_istream stream(filename);
+    MLDB::filter_istream stream(filename);
     Store_Reader store(stream);
     reconstitute(store);
 }
@@ -1003,7 +1005,7 @@ void Classifier::load(const std::string & filename)
 void Classifier::
 load(const std::string & filename, std::shared_ptr<const Feature_Space> fs)
 {
-    Datacratic::filter_istream stream(filename);
+    MLDB::filter_istream stream(filename);
     Store_Reader store(filename);
     reconstitute(store, fs);
 }

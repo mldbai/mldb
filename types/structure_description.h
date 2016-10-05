@@ -13,7 +13,7 @@
 #include "utility_descriptions.h"
 #include <cstring>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -184,7 +184,7 @@ struct StructureDescription
         const char * fieldName = fieldNames.back().get();
         
         auto it = fields.insert
-            (Fields::value_type(fieldName, std::move(FieldDescription())))
+            (Fields::value_type(fieldName, FieldDescription()))
             .first;
         
         FieldDescription & fd = it->second;
@@ -216,7 +216,7 @@ struct StructureDescription
         const char * fieldName = fieldNames.back().get();
         
         auto it = fields.insert
-            (Fields::value_type(fieldName, std::move(FieldDescription())))
+            (Fields::value_type(fieldName, FieldDescription()))
             .first;
         
         auto desc = std::make_shared<Desc>(defaultValue, baseDesc);
@@ -368,7 +368,7 @@ addParent(ValueDescriptionT<V> * description_)
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
 
-        auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
+        auto it = fields.insert(Fields::value_type(fieldName, FieldDescription())).first;
         FieldDescription & fd = it->second;
         fd.fieldName = fieldName;
         fd.comment = ofd.comment;
@@ -380,4 +380,4 @@ addParent(ValueDescriptionT<V> * description_)
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

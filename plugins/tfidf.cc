@@ -33,7 +33,7 @@ namespace {
 void
 serialize(ML::DB::Store_Writer & store,
           uint64_t corpusSize,
-          const std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+          const std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
     std::string name = "tfidf";
     int version = 0;
@@ -49,7 +49,7 @@ serialize(ML::DB::Store_Writer & store,
 void
 reconstitute(ML::DB::Store_Reader & store,
              uint64_t & corpusSize,
-             std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+             std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
     std::string name;
     store >> name;
@@ -79,9 +79,9 @@ reconstitute(ML::DB::Store_Reader & store,
 void
 save(const std::string & filename,
      uint64_t corpusSize,
-     const std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+     const std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
-    Datacratic::filter_ostream stream(filename);
+    MLDB::filter_ostream stream(filename);
     ML::DB::Store_Writer store(stream);
     serialize(store, corpusSize, dfs);
 }
@@ -89,15 +89,15 @@ save(const std::string & filename,
 void
 load(const std::string & filename,
      uint64_t & corpusSize,
-     std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+     std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
-    Datacratic::filter_istream stream(filename);
+    MLDB::filter_istream stream(filename);
     ML::DB::Store_Reader store(stream);
     reconstitute(store, corpusSize, dfs);
 }
 }
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(TFType);
@@ -225,7 +225,7 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            Datacratic::makeUriDirectory(
+            makeUriDirectory(
                 runProcConf.modelFileUrl.toDecodedString());
             save(runProcConf.modelFileUrl.toDecodedString(), corpusSize, dfs);
             saved = true;
@@ -416,7 +416,7 @@ apply(const FunctionApplier & applier,
     Date ts = inputVal.getEffectiveTimestamp();
 
     // Compute the score for every word in the input
-    logger->debug() << "corpus size: " << corpusSize;
+    DEBUG_MSG(logger) << "corpus size: " << corpusSize;
 
     auto onColumn2 = [&] (const PathElement & name,
                           const ExpressionValue & val)
@@ -429,7 +429,7 @@ apply(const FunctionApplier & applier,
             uint64_t docFrequencyInt = docFrequency != dfs.end() ? docFrequency->second : 0;
             double idf = idf_fct(docFrequencyInt);
 
-            logger->debug()
+            DEBUG_MSG(logger)
                 << "term: '" << term << "', df: "
                 << docFrequencyInt << ", tf: " << tf << ", idf: " << idf;
 
@@ -479,4 +479,4 @@ regTfidfFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

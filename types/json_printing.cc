@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 namespace {
 
@@ -131,7 +131,7 @@ jsonEscape(const std::string & str)
         else if (p == NO_ESCAPING)
             return str;
         heap_buf.resize(p - heap_buf.data());
-        return std::move(heap_buf);
+        return heap_buf;
     }
 }
 
@@ -206,7 +206,7 @@ void jsonEscape(const std::string & str, std::string & out)
     } else {
         // We need an allocation anyway, so use the simple solution
         if (out.empty())
-            out = std::move(jsonEscape(str));
+            out = jsonEscape(str);
         else out += jsonEscape(str);
     }
 }
@@ -232,7 +232,7 @@ void jsonEscape(const char * str, size_t len, std::string & out)
     } else {
         // We need an allocation anyway, so use the simple solution
         if (out.empty())
-            out = std::move(jsonEscape(string(str, str + len)));
+            out = jsonEscape(string(str, str + len));
         else out += jsonEscape(string(str, str + len));
     }
 }
@@ -459,7 +459,7 @@ StreamJsonPrintingContext::
 writeFloat(float f)
 {
     if (std::isfinite(f))
-        stream << Datacratic::dtoa(f);
+        stream << MLDB::dtoa(f);
     else stream << "\"" << f << "\"";
 }
 
@@ -468,7 +468,7 @@ StreamJsonPrintingContext::
 writeDouble(double d)
 {
     if (std::isfinite(d))
-        stream << Datacratic::dtoa(d);
+        stream << MLDB::dtoa(d);
     else stream << "\"" << d << "\"";
 }
 
@@ -771,7 +771,7 @@ StringJsonPrintingContext::
 writeFloat(float f)
 {
     if (std::isfinite(f))
-        str += Datacratic::dtoa(f);
+        str += MLDB::dtoa(f);
     else {
         write('"');
         write(std::to_string(f));
@@ -784,7 +784,7 @@ StringJsonPrintingContext::
 writeDouble(double d)
 {
     if (std::isfinite(d))
-        str += Datacratic::dtoa(d);
+        str += MLDB::dtoa(d);
     else {
         write('"');
         write(std::to_string(d));
@@ -1013,4 +1013,4 @@ writeBool(bool b)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

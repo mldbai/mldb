@@ -10,7 +10,7 @@ dataset.record_row("rowname", [["colname", 0, 0]])
 dataset.commit()
 
 res = [
-    mldb.get("/v1/datasets/x/query", where="colname=\n1"),
+    mldb.get("/v1/query", q="select * from x"),
     mldb.get("/v1/query", q="select *\nfrom x")
     ]
 

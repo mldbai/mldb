@@ -26,7 +26,7 @@
 #include <initializer_list>
 #include <stdint.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Data,
          size_t Internal_ = 0,
@@ -512,8 +512,10 @@ private:
 
         // Move the objects across into the uninitialized memory
         for (; first != last;  ++first, ++p, ++size_) {
-            if (Safe && size_ > to_alloc)
-                throw ML::Exception("compact_vector: internal logic error in init()");
+            if (Safe && size_ > to_alloc) {
+                ::fprintf(stderr, "compact_vector: internal logic error in init()");
+                std::terminate();
+            }
             new (p) Data(std::move_if_noexcept(*first));
         }
     }
@@ -659,4 +661,4 @@ void make_vector_set(compact_vector<D, I, S, Sf, P, A> & vec)
     vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

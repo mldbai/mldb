@@ -13,7 +13,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/jml/classifier.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* PIPELINE EXECUTION CONTEXT                                                */
@@ -56,5 +56,5 @@ struct PipelineExecutionContext: public ML::PredictionContext {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

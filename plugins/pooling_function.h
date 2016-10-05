@@ -13,7 +13,7 @@
 #include "mldb/types/optional.h"
 #include "mldb/plugins/sql_functions.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -73,4 +73,4 @@ struct PoolingFunction: public ValueFunctionT<PoolingInput, PoolingOutput> {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

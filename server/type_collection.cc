@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -245,5 +245,5 @@ initRoutes(RouteManager & manager)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

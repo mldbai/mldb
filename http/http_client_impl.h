@@ -12,7 +12,7 @@
 #include "mldb/http/http_header.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 
@@ -56,4 +56,4 @@ struct HttpClientImpl : public AsyncEventSource {
     virtual size_t queuedRequests() const = 0;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

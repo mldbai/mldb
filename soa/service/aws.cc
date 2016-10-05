@@ -14,18 +14,25 @@
 #include "xml_helpers.h"
 #include <boost/algorithm/string.hpp>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
 #include "crypto++/md5.h"
 #include "crypto++/hmac.h"
 #include "crypto++/base64.h"
 #include "crypto++/hex.h"
+#pragma GCC diagnostic pop
 
 
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
+
+// Fix GCC error message about unused function
+auto __fixGccError = &CryptoPP::StringNarrow;
 
 template<class Hash>
 std::string
@@ -595,4 +602,4 @@ performGet(RestParams && params,
                            resultSelector);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

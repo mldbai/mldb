@@ -31,7 +31,7 @@ var expected = [
       "result",
       "scalar",
       "long",
-      "Datacratic::MLDB::IntegerValueInfo"
+      "MLDB::IntegerValueInfo"
    ]
 ];
 
@@ -65,20 +65,20 @@ expected = [
       0,
       "dense",
       "scalar",
-      "Datacratic::MLDB::CellValue",
-      "Datacratic::MLDB::AtomValueInfo",
+      "MLDB::CellValue",
+      "MLDB::AtomValueInfo",
       "1",
       1,
       "dense",
       "scalar",
-      "Datacratic::MLDB::CellValue",
-      "Datacratic::MLDB::AtomValueInfo",
+      "MLDB::CellValue",
+      "MLDB::AtomValueInfo",
       "2",
       2,
       "dense",
       "scalar",
-      "Datacratic::MLDB::CellValue",
-      "Datacratic::MLDB::AtomValueInfo"
+      "MLDB::CellValue",
+      "MLDB::AtomValueInfo"
    ]
 ];        
 

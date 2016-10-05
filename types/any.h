@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* any.h                                                           -*- C++ -*-
 
    Jeremy Barnes, July 4 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -11,7 +11,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/compiler/compiler.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ANY                                                                       */
@@ -152,4 +152,4 @@ PREDECLARE_VALUE_DESCRIPTION(Any);
 std::shared_ptr<ValueDescriptionT<Any> >
 getBareAnyDescription();
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
@@ -160,7 +160,7 @@ struct SparseMatrixDataset::Itl
 
         virtual const RowName & rowName(RowName & storage) const {
             uint64_t i = internalStream->current();
-            return source->getRowNameTrans(RowHash(i), *trans);
+            return storage = source->getRowNameTrans(RowHash(i), *trans);
         }
 
         std::shared_ptr<MatrixReadTransaction::Stream> internalStream;
@@ -539,8 +539,8 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual std::vector<RowHash>
-    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
+    std::vector<RowHash>
+    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
         std::vector<RowHash> result;
         auto trans = getReadTransaction();
@@ -880,7 +880,7 @@ struct SparseMatrixDataset::Itl
                   const RestRequest & request,
                   RestRequestParsingContext & context) const
     {
-        return Datacratic::MR_NO;
+        return MR_NO;
     }
 
     virtual size_t getRowCount() const override
@@ -1848,4 +1848,4 @@ regSparseMatrix(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -13,12 +13,9 @@ namespace ML {
 	struct Parse_Context;
 }
 
-
-namespace Datacratic {
 namespace MLDB {
 
 void expect_interval(ML::Parse_Context & context, uint32_t& months, uint32_t& days, double& seconds);
 
 }
 
-}

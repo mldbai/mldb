@@ -18,7 +18,7 @@
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/event_loop.h"
@@ -28,7 +28,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_connection_overflow )

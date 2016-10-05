@@ -9,7 +9,7 @@
 
 #include "mldb/server/external_plugin.h"
 #include "mldb/server/script_output.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/arch/backtrace.h"
@@ -20,9 +20,8 @@
 
 
 using namespace std;
+using namespace MLDB::PluginCommand;
 
-
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -475,9 +474,9 @@ struct AtInit {
 
 } // file scope
 
-} // namespace MLDB
-
 template class PolyCollection<MLDB::ExternalPluginSetup>;
 template class PolyCollection<MLDB::ExternalPluginStartup>;
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

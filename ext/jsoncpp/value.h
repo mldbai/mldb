@@ -29,7 +29,7 @@
  */
 namespace Json {
 
-using Datacratic::Utf8String;
+using MLDB::Utf8String;
 
    /** \brief Type of the value held by a Value object.
     */
@@ -234,7 +234,7 @@ using Datacratic::Utf8String;
        */
       Value( const StaticString &value );
       Value( const std::string &value );
-      Value( const Datacratic::Utf8String &value );
+      Value( const MLDB::Utf8String &value );
 # ifdef JSON_USE_CPPTL
       Value( const CppTL::ConstString &value );
 # endif

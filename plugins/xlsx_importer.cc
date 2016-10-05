@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -727,7 +727,7 @@ struct XlsxImporter: public Procedure {
                     else {
                         std::ostringstream stream;
                         stream << open({}).buf;
-                        savedRelationships = std::move(stream.str());
+                        savedRelationships = stream.str();
                     }
                 }
                 else if (internalFilename == "xl/styles.xml") {
@@ -820,4 +820,4 @@ regXlsx(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

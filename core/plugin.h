@@ -17,7 +17,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 struct RestRequest;
 struct RestConnection;
@@ -209,4 +209,4 @@ struct RegisterPluginType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

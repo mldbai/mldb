@@ -12,36 +12,36 @@
 #include "date.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct DateDescription
     : public ValueDescriptionI<Date, ValueKind::ATOM, DateDescription> {
 
     virtual void parseJsonTyped(Date * val,
-                                JsonParsingContext & context) const JML_OVERRIDE;
+                                JsonParsingContext & context) const override;
     virtual void printJsonTyped(const Date * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE;
-    virtual bool isDefaultTyped(const Date * val) const JML_OVERRIDE;
+                                JsonPrintingContext & context) const override;
+    virtual bool isDefaultTyped(const Date * val) const override;
 };
 
-extern template struct ValueDescriptionT<Datacratic::Date>;
-extern template struct ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
+extern template struct ValueDescriptionT<MLDB::Date>;
+extern template struct ValueDescriptionI<MLDB::Date, ValueKind::ATOM, DateDescription>;
 
 struct JavaTimestampValueDescription: public DateDescription {
 
     virtual void parseJsonTyped(Date * val,
-                                JsonParsingContext & context) const JML_OVERRIDE;
+                                JsonParsingContext & context) const override;
     virtual void printJsonTyped(const Date * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE;
+                                JsonPrintingContext & context) const override;
 };
 
 struct Iso8601TimestampValueDescription: public DateDescription {
 
     virtual void parseJsonTyped(Date * val,
-                                JsonParsingContext & context) const JML_OVERRIDE;
+                                JsonParsingContext & context) const override;
     virtual void printJsonTyped(const Date * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE;
+                                JsonPrintingContext & context) const override;
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

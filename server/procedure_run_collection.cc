@@ -17,7 +17,6 @@
 using namespace std;
 
 
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -183,10 +182,11 @@ construct(ProcedureRunConfig config, const OnProgress & onProgress) const
     return std::make_shared<ProcedureRun>(procedure, config, onProgress);
 }
 
+DEFINE_REST_COLLECTION_INSTANTIATIONS(Utf8String, ProcedureRun,
+                                      ProcedureRunConfig,
+                                      ProcedureRunStatus);
+
 } // namespace MLDB
 
-DEFINE_REST_COLLECTION_INSTANTIATIONS(Utf8String, MLDB::ProcedureRun,
-                                      MLDB::ProcedureRunConfig,
-                                      MLDB::ProcedureRunStatus);
 
-} // namespace Datacratic
+

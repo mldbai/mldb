@@ -8,7 +8,7 @@
 
 #include "sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct SelectSubtableExpression; 
@@ -564,7 +564,8 @@ struct SelectColumnExpression: public SqlRowExpression {
                            std::shared_ptr<SqlExpression> where,
                            OrderByExpression orderBy,
                            int64_t offset,
-                           int64_t limit);
+                           int64_t limit,
+                           bool isStructured);
 
     std::shared_ptr<SqlExpression> select;
     std::shared_ptr<SqlExpression> as;
@@ -572,6 +573,7 @@ struct SelectColumnExpression: public SqlRowExpression {
     OrderByExpression orderBy;
     int64_t offset;
     int64_t limit;
+    bool isStructured;
 
     virtual BoundSqlExpression
     bind(SqlBindingScope & context) const;
@@ -599,4 +601,3 @@ struct SelectColumnExpression: public SqlRowExpression {
 };
 
 } // namespace MLDB
-} // namespace Datacratic

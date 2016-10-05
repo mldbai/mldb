@@ -9,7 +9,7 @@
 #include <functional>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct HttpRequest;
@@ -129,4 +129,4 @@ private:
     std::string body_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
