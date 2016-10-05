@@ -1,6 +1,6 @@
 # Help & Feedback
 
-The MLDB Team at Datacratic would love to hear your feedback or help you with anything related to MLDB! 
+The MLDB Team would love to hear your feedback or help you with anything related to MLDB! 
 
 Please feel free to reach out to us at <a href="mailto:info@mldb.ai" target="_blank">info@mldb.ai</a> if you need help with the MLDB Enterprise Edition.
 
