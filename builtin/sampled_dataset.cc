@@ -292,6 +292,10 @@ SampledDataset(MldbServer * owner,
 {
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
 
+    if (sampleConfig.dataset == nullptr) {
+        throw HttpReturnException(400, "You need to define the dataset key");
+    }
+
     SqlExpressionMldbScope context(owner);
     bondTableExpression = sampleConfig.dataset->bind(context);
 
