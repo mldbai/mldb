@@ -23,3 +23,31 @@ Rows are stored in collections with the following format:
 ## Configuration
 
 ![](%%config dataset mongodb.record)
+
+## Example
+
+Here we create the dataset named "mldb_to_mongodb" which will write to mongodb
+database "zips" collection "mldb_coll".
+
+```python
+mldb.put("/v1/datasets/mldb_to_mongodb", {
+    "type": "mongodb.record",
+    "params": {
+        "connectionScheme": 'mongodb://khan.mldb.ai:11712/zips',
+        "collection": 'mldb_coll'
+    }
+})
+
+```
+
+Then we record a row with 2 columns.
+
+```python
+print mldb.post('/v1/datasets/mldb_to_mongodb/rows', {
+    'rowName' : 'row1',
+    'columns' : [
+        ['colA', 'valA', 0],
+        ['colB', 'valB', 0]
+    ]
+})
+```
