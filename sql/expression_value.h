@@ -805,6 +805,7 @@ struct ExpressionValue {
     CellValue coerceToTimestamp() const;
     CellValue coerceToAtom() const;
     CellValue coerceToBlob() const;
+    ExpressionValue coerceToEmbedding() const;
 
     /** Convert the current ExpressionValue to a path (used as a column or
         row name).

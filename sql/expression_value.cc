@@ -2608,6 +2608,68 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
     else return *val;
 }
 
+ExpressionValue
+ExpressionValue::
+coerceToEmbedding() const
+{
+    if (type_ == Type::EMBEDDING)
+        return *this;
+    else if (type_ != Type::STRUCTURED)
+        throw HttpReturnException(500, "Cannot coerce value to embedding");
+
+    //Start with finding the shape of the embedding
+    size_t numElements = 0;
+    DimsVector shape;
+    auto atomCount = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        Path fullColumnName = prefix + columnName;
+                        if (shape.size() < fullColumnName.size())
+                            shape.resize(fullColumnName.size());
+
+                        for (size_t i = 0; i < fullColumnName.size(); ++i) {
+                            shape[i] = std::max(shape[i], (size_t)(fullColumnName[i].toIndex()+1));
+                        }
+
+                        numElements++;
+                        return true;
+                    };
+
+    forEachAtom(atomCount);
+
+    DimsVector compoundShape = shape;
+    size_t p = 1;
+    for (int i = shape.size() -1; i >= 0; --i){
+        compoundShape[i] = p;
+        p *= shape[i];
+    }
+
+    std::vector<CellValue> values;
+    values.resize(numElements);
+
+    //Copy existing values in the structure to their proper place in the embedding array
+    auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        Path fullColumnName = prefix + columnName;
+                        size_t index = 0;
+                        for (size_t i = 0; i < fullColumnName.size(); ++i) {
+                            index += fullColumnName[i].toIndex() * compoundShape[i];
+                        }
+                        values[index] = val;
+                        return true;
+                    };
+
+    forEachAtom(onAtom);
+
+    //create the embedding
+    return ExpressionValue(values, Date::negativeInfinity(), shape);
+}
+
 DimsVector
 ExpressionValue::
 getEmbeddingShape() const

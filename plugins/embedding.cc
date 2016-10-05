@@ -1392,6 +1392,8 @@ ImageWrapperFunction(MldbServer * owner,
     SqlRowScope scope;
 
     embedding = boundExpr(scope, GET_ALL);
+
+    shape = embedding.getEmbeddingShape();
 }
 
 ImageWrapperFunction::

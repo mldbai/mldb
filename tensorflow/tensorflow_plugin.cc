@@ -917,9 +917,13 @@ struct TensorflowGraphBase: public Function {
                 break;
             }
         }
+        else if (val.isArray()) {
+            return castToTypedTensor(val.coerceToEmbedding(), type);
+        }
 
         //cerr << "val = " << jsonEncode(val) << endl;
         //cerr << "type = " << type << endl;
+        //cerr << "value type " << val.getTypeAsString() << endl;
         throw HttpReturnException(500, "Unable to cast value to typed tensor");
     }
     
@@ -1025,7 +1029,7 @@ struct TensorflowGraphBase: public Function {
                     // It has a datatype, but no value (and hence size).
                     // Attempt to match the data type only.
 
-                    //cerr << "casting type-no-sizE: " << layer << endl;
+                    //cerr << "casting type-no-size: " << layer << endl;
                     //cerr << "value: " << jsonEncode(val) << endl;
 
                     return castToTypedTensor(val, it->second.type());
@@ -1938,8 +1942,12 @@ struct TensorflowPlugin: public Plugin {
                              + op + "' which takes more than one input"); 
                     }
                 }
-                else {
+                else if (args[0].info->isRow()) {
                     inputInfo = ExpressionValueInfo::toRow(args[0].info);
+                }
+                else {
+                    //we dont know the type of input
+                    inputInfo.reset(new UnknownRowValueInfo());
                 }
 
                 for (size_t i = 0;  i < opDef->input_arg_size();  ++i) {
@@ -1998,7 +2006,6 @@ struct TensorflowPlugin: public Plugin {
                     };
 
                 result.resultInfo = applier->info.output;
-
                 return result;
             };
     }
