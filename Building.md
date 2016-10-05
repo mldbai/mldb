@@ -23,6 +23,7 @@ To build and run the Docker image, you will need to install Docker: https://docs
 ## Cloning, compiling and testing
 
 The OS we use to compile MLDB is Ubuntu 14.04 64bits. While it may work on other Linux flavored OSes, we can't guarantee it.
+As for the compilers, we use both gcc 4.8.5 and clang 3.8.0. Again, it may work on other versions but we can't guarantee it.
 
 You will first need to have a Github account with [SSH keys](https://help.github.com/categories/ssh/) set up because the repo uses SSH paths in its submodule configuration. You can test that keys are correctly set up by running the following command and seeing "successfully authenticated":
 
