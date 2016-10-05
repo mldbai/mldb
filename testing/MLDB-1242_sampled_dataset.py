@@ -162,7 +162,8 @@ class SampledDatasetTest(unittest.TestCase):
         mldb.put('/v1/datasets/test_sampled_over_merged_sampled', {
             'type' : 'sampled',
             'params' : {
-                'datasets' : {'id' : 'test_sampled_over_merged_merged'}
+                'dataset' : {'id' : 'test_sampled_over_merged_merged'},
+                'fraction' : 0.99
             }
         })
         mldb.query("""
