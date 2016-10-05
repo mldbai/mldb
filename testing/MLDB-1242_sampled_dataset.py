@@ -169,5 +169,16 @@ class SampledDatasetTest(unittest.TestCase):
             SELECT COLUMN EXPR (AS columnName() ORDER BY rowCount() DESC)
             FROM test_sampled_over_merged_sampled""")
 
+    def test_cant_create_wo_ds(self):
+        # MLDB-1977
+        msg = "You need to define the dataset key"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as re:
+            mldb.put('/v1/datasets/sampled', {
+                'type' : 'sampled',
+                'params' : {
+                    'fraction' : 0.99
+                }
+            })
+
 if __name__ == '__main__':
     mldb.run_tests()

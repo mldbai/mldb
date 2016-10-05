@@ -28,24 +28,25 @@ of the `parse_json()` function.
 
 Doing the query `select parse_json(friends, {arrays: 'encode'}) from data` will return:
 
-| rowName | friends.0 | friends.1 |
+| rowName | 0 | 1 |
 |-----------|--------|-------|-----------|
 | row1 | {"name": "mich", "age": 20} | {"name": "jean", "age": 18} |
 
 We can do the melt like this:
 
 ```python
-mldb.put("/v1/procedures/melt", {
+mldb.post("/v1/procedures", {
     "type": "melt",
     "params": {
         "inputData": """
                     SELECT {name, age} as to_fix,
                            {friends*} as to_melt
                     FROM (
-                        SELECT parse_json(friends, {arrays: 'encode'}) AS * from data
+                        SELECT name, age,
+                               parse_json(friends, {arrays: 'encode'}) AS friends
+                        FROM data
                     )""",
         "outputDataset": "melted_data"
-        "runOnCreation": True
     }
 })
 ```
@@ -54,8 +55,8 @@ The `melted_data` dataset will look like this:
 
 | rowName | name | age | key | value |
 |-----------|--------|-------|-----------|-----|
-| row1.friends.0 | bill | 25 | friends.0 | {"name": "mich", "age": 20} |
-| row1.friends.1 | bill | 25 | friends.1 | {"name": "jean", "age": 18} |
+| result.friends.0 | bill | 25 | friends.0 | {"name": "mich", "age": 20} |
+| result.friends.1 | bill | 25 | friends.1 | {"name": "jean", "age": 18} |
 
 
 ### Example with bags of words
@@ -71,7 +72,7 @@ By running a `melt` procedure and using the `tokenize` function on the text,
 we can obtain a new dataset with one row per *(rowName, word)* pair:
 
 ```python
-mldb.put("/v1/procedures/melt", {
+mldb.post("/v1/procedures", {
     "type": "melt",
     "params": {
         "inputData": """
@@ -80,7 +81,6 @@ mldb.put("/v1/procedures/melt", {
             FROM data
         """,
         "outputDataset": "melted_data"
-        "runOnCreation": True
     }
 })
 ```
@@ -88,12 +88,12 @@ This gives us the following dataset:
 
 | rowName | row | key | count |
 |---------|-----|-----|-------|
-| row1_my | row1  |  my | 1|
-| row2_hello | row2 | hello | 1 |
-| row2_me | row2 | me | 1 |
-| row2_it's | row2 | it's | 1 |
-| row1_friend | row1 | friend | 1 |
-| row1_hello | row1 | hello | 1 |
+| row1.my | row1  |  my | 1|
+| row2.hello | row2 | hello | 1 |
+| row2.me | row2 | me | 1 |
+| row2.it's | row2 | it's | 1 |
+| row1.friend | row1 | friend | 1 |
+| row1.hello | row1 | hello | 1 |
 
 
 
