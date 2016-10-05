@@ -21,7 +21,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 #define ENABLE_LONG_TESTS 1

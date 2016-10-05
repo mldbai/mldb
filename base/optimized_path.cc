@@ -14,7 +14,7 @@
 #include "mldb/base/optimized_path.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -187,4 +187,4 @@ maybeTake(bool canTake) const
     return maybeTake();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

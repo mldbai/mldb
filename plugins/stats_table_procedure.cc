@@ -32,7 +32,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 ML::DB::Store_Writer &
@@ -1010,4 +1010,4 @@ regPosNegFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

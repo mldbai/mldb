@@ -12,7 +12,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Create a bound table expression that implements the binding of
@@ -703,8 +703,6 @@ bind(SqlBindingScope & context) const
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                Date ts = Date::negativeInfinity();//row.getEffectiveTimestamp();
-
                 auto onAtom = [&] (const Path & columnName,
                                    const Path & prefix,
                                    const CellValue & val,
@@ -791,4 +789,4 @@ getUnbound() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

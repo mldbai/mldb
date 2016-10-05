@@ -12,7 +12,7 @@
 #include "mldb/core/function.h"
 #include "mldb/rest/poly_collection.h"
 
-namespace Datacratic {
+
 
 struct RestConnection;
 
@@ -47,8 +47,10 @@ struct FunctionCollection: public PolyCollection<Function> {
     FunctionInfo getFunctionInfo(const Function * function) const;
 };
 
+extern template class PolyCollection<Function>;
+
 } // namespace MLDB
 
-extern template class PolyCollection<MLDB::Function>;
 
-} // namespace Datacratic
+
+

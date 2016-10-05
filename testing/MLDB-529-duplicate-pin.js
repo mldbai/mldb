@@ -90,7 +90,6 @@ var trainClassifierProcedureConfig = {
                 type: "glz",
                 verbosity: 3,
                 normalize: false,
-                link: 'linear',
                 "regularization": 'l2'
             }
         },

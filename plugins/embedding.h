@@ -14,7 +14,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "metric_space.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -252,5 +252,5 @@ struct GetNeighborsFunction
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

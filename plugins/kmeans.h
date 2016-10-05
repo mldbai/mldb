@@ -18,7 +18,7 @@
 #include "mldb/types/optional.h"
 #include "metric_space.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -114,4 +114,4 @@ struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansExpressio
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

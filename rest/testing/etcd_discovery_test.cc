@@ -17,7 +17,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 using std::to_string;
 

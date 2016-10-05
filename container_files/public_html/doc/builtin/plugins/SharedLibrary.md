@@ -24,8 +24,8 @@ This function must be in the root namespace, and have the following
 signature:
 
 ```
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server);
+MLDB::Plugin *
+mldbPluginEnterV100(MLDB::MldbServer * server);
 ```
 
 That function will be called by the plugin loader each time a plugin is
@@ -36,7 +36,7 @@ The return value of that function is:
 
 - `nullptr`, if the plugin doesn't need to override the plugin
   functionality;
-- a pointer to a `Datacratic::MLDB::Plugin` instance constructed
+- a pointer to a `MLDB::Plugin` instance constructed
   by the plugin using the `new` operator.  All of the plugin methods
   (routes, status, version, etc) will forward to that object, which will
   be freed when the plugin is unloaded.

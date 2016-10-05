@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -584,4 +584,4 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

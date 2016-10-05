@@ -35,7 +35,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 const Utf8String NO_FUNCTION_NAME;
@@ -3295,4 +3295,4 @@ static RegisterBuiltin registerIsConstFunction(isconst, "__isconst");
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -18,7 +18,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 inline ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, const Utf8String & str)
 {
@@ -218,4 +218,4 @@ reconstitute(ML::DB::Store_Reader & store)
 #endif
 
 
-} // namespace Datacratic
+} // namespace MLDB

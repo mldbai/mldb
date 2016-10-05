@@ -138,7 +138,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
             ],
             [
                 "row",
-                "Datacratic::MLDB::VariantExpressionValueInfo"
+                "MLDB::VariantExpressionValueInfo"
             ]
         ]
 
@@ -148,7 +148,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
         res = mldb.query("select static_type(CASE x WHEN 'patate' THEN 0 WHEN 'banane' THEN 1 END) as * FROM test");
         
         expected = [["_rowName", "kind", "scalar", "type"],
-                    ["row", "scalar", "long", "Datacratic::MLDB::IntegerValueInfo"]]
+                    ["row", "scalar", "long", "MLDB::IntegerValueInfo"]]
 
         self.assertTableResultEquals(res, expected)
 
@@ -170,7 +170,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "dense",
                 "scalar",
                 "long",
-                "Datacratic::MLDB::VariantExpressionValueInfo"
+                "MLDB::VariantExpressionValueInfo"
             ]
         ]
 
@@ -194,7 +194,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "sparse",
                 "scalar",
                 "long",
-                "Datacratic::MLDB::IntegerValueInfo"
+                "MLDB::IntegerValueInfo"
             ]
         ]
 
@@ -223,12 +223,12 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "dense",
                 "scalar",
                 "long",
-                "Datacratic::MLDB::VariantExpressionValueInfo",
+                "MLDB::VariantExpressionValueInfo",
                 "b",
                 "sparse",
                 "scalar",
                 "long",
-                "Datacratic::MLDB::IntegerValueInfo"
+                "MLDB::IntegerValueInfo"
             ]
         ]
 

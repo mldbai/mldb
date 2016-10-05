@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -820,4 +820,4 @@ regXlsx(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

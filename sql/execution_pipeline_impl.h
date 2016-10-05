@@ -12,7 +12,7 @@
 #include "mldb/utils/log_fwd.h"
 #include <list>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -821,4 +821,4 @@ struct ParamsElement: public PipelineElement {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

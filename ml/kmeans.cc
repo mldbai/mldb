@@ -116,7 +116,7 @@ train(const std::vector<distribution<float>> & points,
             ++clusterNumMembers[best_cluster];
         };
 
-        Datacratic::parallelMap(0, points.size(), findNewCluster);
+        MLDB::parallelMap(0, points.size(), findNewCluster);
 
         for (unsigned i = 0;  i < nbClusters;  ++i)
             clusters[i].nbMembers = clusterNumMembers[i];
@@ -162,7 +162,7 @@ train(const std::vector<distribution<float>> & points,
             }
         };
 
-        Datacratic::parallelMap(0, points.size(), addToMeanForPoint);
+        MLDB::parallelMap(0, points.size(), addToMeanForPoint);
 
         // for (int i=0; i < clusters.size(); ++i) {
             // cerr << "cluster " << i << " had " << clusters[i].nbMembers
@@ -282,7 +282,7 @@ void
 KMeans::
 save(const std::string & filename) const
 {
-    Datacratic::filter_ostream stream(filename);
+    MLDB::filter_ostream stream(filename);
     DB::Store_Writer store(stream);
     serialize(store);
 }
@@ -291,7 +291,7 @@ void
 KMeans::
 load(const std::string & filename)
 {
-    Datacratic::filter_istream stream(filename);
+    MLDB::filter_istream stream(filename);
     DB::Store_Reader store(stream);
     reconstitute(store);
 }

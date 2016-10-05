@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -2309,5 +2309,5 @@ outputScope() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

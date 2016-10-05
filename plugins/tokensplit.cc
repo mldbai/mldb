@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TokenSplitConfig);
@@ -290,4 +290,4 @@ regSvdEmbedRow(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

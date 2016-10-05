@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -202,4 +202,4 @@ template class WatchT<Utf8String>;
 template class WatchesT<Utf8String>;
 
 
-} // namespace Datacratic
+} // namespace MLDB

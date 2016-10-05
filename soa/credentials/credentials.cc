@@ -11,7 +11,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(Credential);
 
@@ -70,4 +70,4 @@ StoredCredentialsDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

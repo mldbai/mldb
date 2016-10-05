@@ -27,7 +27,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 BucketizeProcedureConfig::
@@ -254,4 +254,4 @@ regBucketizeProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

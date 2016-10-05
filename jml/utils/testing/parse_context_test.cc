@@ -574,7 +574,7 @@ void test_csv_data_size(int chunk_size, vector<vector<string> > & reference)
 
     cerr << "input_file = " << input_file << endl;
 
-    Datacratic::filter_istream stream(input_file);
+    MLDB::filter_istream stream(input_file);
     Parse_Context context(input_file, stream);
 
     context.set_chunk_size(chunk_size);

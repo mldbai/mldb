@@ -8,7 +8,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 typedef std::function<BoundTableExpression (const std::vector<BoundTableExpression> &) > BoundDatasetFunction;
@@ -165,4 +165,4 @@ static RegisterBuiltin registerSample(sample, "sample");
 
 }
 }
-}
+

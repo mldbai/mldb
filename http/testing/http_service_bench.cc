@@ -26,7 +26,7 @@
 
 using namespace std;
 using namespace boost;
-using namespace Datacratic;
+using namespace MLDB;
 
 struct MyHandler : public HttpLegacySocketHandler {
     MyHandler(TcpSocket && socket);

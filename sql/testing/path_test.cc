@@ -24,8 +24,8 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE(test_element_compare)
 {

@@ -12,7 +12,7 @@
 #include "hash_wrapper.h"
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<int Domain>
 struct HashWrapperDescription: public ValueDescriptionT<HashWrapper<Domain> > {
@@ -120,4 +120,4 @@ getDefaultDescription(const IntWrapper<Int, Domain> * = 0)
     return new IntWrapperDescription<Int, Domain>();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

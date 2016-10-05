@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(ColumnOperator);
@@ -451,4 +451,4 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

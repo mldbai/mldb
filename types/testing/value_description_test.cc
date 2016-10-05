@@ -31,7 +31,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* ensures that signed integers < (1 << 32 - 1) are serialized as integers */
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 typedef map<string, string> StringDict;
 
@@ -362,7 +362,7 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
     SomeTestStructure data(Id(42), "hello world");
 
     // write the thing
-    using namespace Datacratic;
+    using namespace MLDB;
     ValueDescription * desc = getDefaultDescription(&data);
     std::stringstream stream;
     StreamJsonPrintingContext context(stream);

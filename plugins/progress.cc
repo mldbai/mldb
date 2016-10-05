@@ -8,7 +8,7 @@
 
 #include "mldb/types/basic_value_descriptions.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 using namespace std;
@@ -72,4 +72,4 @@ IterationProgressDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

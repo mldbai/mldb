@@ -25,7 +25,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(ImportTextConfig);
@@ -1213,4 +1213,4 @@ regImportText(builtinPackage(),
 } // file scope
 
 } //MLDB
-} //Datacratic
+

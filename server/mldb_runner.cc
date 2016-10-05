@@ -27,8 +27,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 namespace fs = boost::filesystem;
 
 

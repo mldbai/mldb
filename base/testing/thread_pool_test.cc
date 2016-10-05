@@ -23,7 +23,7 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 // MLDB-1579
 BOOST_AUTO_TEST_CASE (test_threads_disappearing_jobs_run)

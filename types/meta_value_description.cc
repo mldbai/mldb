@@ -14,7 +14,7 @@
 #include "mldb/types/pointer_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(ValueKind);
 
@@ -338,4 +338,4 @@ isDefaultTyped(ValueDescription const * const * val) const
     return !*val;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

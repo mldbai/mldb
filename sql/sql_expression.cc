@@ -36,7 +36,6 @@
 
 using namespace std;
 
-namespace Datacratic {
 namespace MLDB {
 
 /*****************************************************************************/
@@ -4123,5 +4122,3 @@ InputQueryDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
-

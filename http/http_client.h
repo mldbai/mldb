@@ -29,7 +29,7 @@
 #include "mldb/http/http_request.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 
@@ -172,4 +172,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

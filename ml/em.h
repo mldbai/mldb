@@ -25,7 +25,7 @@ struct EstimationMaximisation
     };
 
     std::vector<Cluster> clusters;
-    std::vector<Datacratic::Utf8String> columnNames;
+    std::vector<MLDB::Utf8String> columnNames;
 
     void
     train(const std::vector<ML::distribution<double>> & points,

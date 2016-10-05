@@ -17,7 +17,7 @@
 #include "mldb/types/url.h"
 #include <boost/filesystem.hpp>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -184,4 +184,4 @@ struct LoadedPluginResource {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

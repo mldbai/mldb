@@ -13,7 +13,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/periodic_utils.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Credential {
     std::string provider; ///< Path through which credential was obtained
@@ -48,4 +48,4 @@ DECLARE_STRUCTURE_DESCRIPTION(StoredCredentials);
 Credential getCredential(const std::string & resourceType,
                          const std::string & resource);
 
-} // namespace Datacratic
+} // namespace MLDB

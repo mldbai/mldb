@@ -26,7 +26,7 @@
 #include <initializer_list>
 #include <stdint.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Data,
          size_t Internal_ = 0,
@@ -661,4 +661,4 @@ void make_vector_set(compact_vector<D, I, S, Sf, P, A> & vec)
     vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

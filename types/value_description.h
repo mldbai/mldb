@@ -22,7 +22,7 @@
 #include "json_printing.h"
 #include "mldb/ext/jsoncpp/value.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -637,7 +637,7 @@ template<typename T>
 struct ValueDescriptionInit {
     static ValueDescription * create()
     {
-        using Datacratic::getDefaultDescriptionUninitialized;
+        using MLDB::getDefaultDescriptionUninitialized;
         return getDefaultDescriptionUninitialized((T *)0);
     }
 };
@@ -697,4 +697,4 @@ struct GetDefaultDescriptionType {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -18,7 +18,7 @@
 
 namespace ML {
 
-using Datacratic::compact_vector;
+using MLDB::compact_vector;
 
 typedef compact_vector<float, 3, uint32_t, false> QCoord;
 

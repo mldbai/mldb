@@ -21,7 +21,7 @@
 # define GC_LOCK_INLINE 
 #endif
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -264,4 +264,4 @@ isLockedExclusive(GcInfo::PerThreadInfo * info) const
     return entry.writeLocked;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

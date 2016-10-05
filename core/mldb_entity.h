@@ -12,7 +12,7 @@
 #include "mldb/rest/poly_entity.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+
 
 struct RestDirectory;
 struct ServicePeer;
@@ -85,4 +85,4 @@ makeInternalDocRedirect(const Package & package,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

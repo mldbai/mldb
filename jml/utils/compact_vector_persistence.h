@@ -12,7 +12,7 @@
 #include "mldb/utils/compact_vector.h"
 #include "mldb/jml/db/persistent_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename D, size_t I, typename Sz, bool Sf, typename P, class A>
 inline ML::DB::Store_Writer &
@@ -37,5 +37,5 @@ operator >> (ML::DB::Store_Reader & store,
     return store;
 }
 
-} // namespace ML
+} // namespace MLDB
 

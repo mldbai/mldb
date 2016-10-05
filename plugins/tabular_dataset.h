@@ -14,7 +14,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -86,4 +86,4 @@ protected:
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

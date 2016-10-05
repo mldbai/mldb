@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(LinkState);
 
@@ -391,4 +391,4 @@ release(int id)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

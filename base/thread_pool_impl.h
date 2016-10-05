@@ -15,7 +15,7 @@
 #include <atomic>
 #include <vector>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Item>
 struct ThreadQueue {
@@ -138,5 +138,5 @@ struct ThreadQueue {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

@@ -17,7 +17,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -583,4 +583,4 @@ load(const std::string & filename)
     reconstitute(store);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

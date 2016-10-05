@@ -10,7 +10,7 @@
 
 #include "mldb/vfs/fs_utils.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Iterate through the given archive (represented by a streambuf),
     calling the given callback for each object found.
@@ -18,5 +18,5 @@ namespace Datacratic {
 bool iterateArchive(std::streambuf * archive,
                     const OnUriObject & onObject);
 
-} // namespace Datacratic
+} // namespace MLDB
 

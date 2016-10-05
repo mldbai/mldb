@@ -14,7 +14,7 @@
 #include "mldb/types/hash_wrapper_description.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(MatrixRow);
@@ -70,4 +70,4 @@ MatrixColumnDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

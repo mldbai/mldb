@@ -20,7 +20,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -171,7 +171,7 @@ struct SharedLibraryPlugin::Itl {
 
         dlerror();  // clear existing error
 
-        auto * fn = (MldbPluginEnterV100 )dlsym(handle, "_Z19mldbPluginEnterV100PN10Datacratic4MLDB10MldbServerE");
+        auto * fn = (MldbPluginEnterV100 )dlsym(handle, "_Z19mldbPluginEnterV100PN4MLDB10MldbServerE");
 
         if (fn) {
             Plugin * plugin = fn(owner->server);
@@ -273,5 +273,5 @@ regSharedLibrary(builtinPackage(),
                  "plugins/SharedLibrary.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

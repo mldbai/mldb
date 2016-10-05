@@ -17,7 +17,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 /* S3 backend credentials not provided, ~/.cloud_credentials expected, ask marc@datacratic.com */
 

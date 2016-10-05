@@ -47,7 +47,7 @@ bool supportsSystemRequirements() {
 }
 } // anonymous
 
-namespace Datacratic {
+
 namespace MLDB {
 
 // Creation functions exposed elsewhere
@@ -630,4 +630,4 @@ const Package & builtinPackage()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

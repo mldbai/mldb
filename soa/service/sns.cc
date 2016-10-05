@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -61,4 +61,4 @@ publish(const std::string & topicArn,
                        timeout);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

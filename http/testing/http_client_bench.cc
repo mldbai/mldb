@@ -29,7 +29,7 @@
 #include "mldb/http/testing/test_http_services.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 enum HttpMethod {
     GET,

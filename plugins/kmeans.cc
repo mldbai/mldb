@@ -33,7 +33,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(KmeansConfig);
@@ -203,7 +203,7 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toDecodedString());
+            makeUriDirectory(runProcConf.modelFileUrl.toDecodedString());
             Json::Value md;
             md["algorithm"] = "MLDB k-Means model";
             md["version"] = 1;
@@ -400,4 +400,4 @@ regKmeansFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

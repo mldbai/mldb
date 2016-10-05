@@ -16,7 +16,7 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -90,4 +90,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

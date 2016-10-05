@@ -29,7 +29,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(JsonArrayHandling);
@@ -4375,8 +4375,6 @@ getSpecializedValueInfo() const
     throw HttpReturnException(400, "unknown ExpressionValue type");
 }
 
-using Datacratic::getDefaultDescriptionShared;
-
 namespace {
 auto cellDesc = getDefaultDescriptionShared((CellValue *)0);
 auto structuredDesc = getDefaultDescriptionShared((ExpressionValue::Structured *)0);
@@ -4933,4 +4931,4 @@ NamedRowValue::flatten() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

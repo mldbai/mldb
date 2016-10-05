@@ -379,7 +379,7 @@ Value::Value( const std::string &value )
 
 }
 
-Value::Value( const Datacratic::Utf8String &value )
+Value::Value( const MLDB::Utf8String &value )
    : type_( stringValue )
    , allocated_( true )
    , comments_( 0 )

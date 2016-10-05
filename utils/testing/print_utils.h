@@ -16,7 +16,7 @@
 #include "mldb/arch/format.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /******************************************************************************/
 /* PRINT UTILITIES                                                            */
@@ -85,4 +85,4 @@ randomString(size_t size)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

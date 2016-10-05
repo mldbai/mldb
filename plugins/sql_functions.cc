@@ -27,7 +27,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
@@ -689,4 +689,4 @@ regTransformDataset(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

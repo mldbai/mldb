@@ -40,7 +40,7 @@
 #include <exception>
 #include <utility>
 
-namespace Datacratic {
+namespace MLDB {
 
 namespace Scope {
 
@@ -182,4 +182,4 @@ using Scope::fail;
 #define Scope_Failure(func) Scope_Any(func, Failure)
 */
 
-} // namespace Datacratic
+} // namespace MLDB

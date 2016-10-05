@@ -26,7 +26,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -58,6 +58,7 @@ struct JSONImporterConfig : ProcedureConfig {
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
     std::shared_ptr<SqlExpression> named;
+    JsonArrayHandling arrays = PARSE_ARRAYS;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JSONImporterConfig);
@@ -89,6 +90,13 @@ JSONImporterConfigDescription()
              "Row name expression for output dataset. Note that each row "
              "must have a unique name and that names cannot be objects.",
              SqlExpression::parse("lineNumber()"));
+    addAuto("arrays", &JSONImporterConfig::arrays,
+            "Describes how arrays are encoded in the JSON output.  For "
+            "''parse' (default), the arrays become structured values. "
+            "For 'encode', "
+            "arrays containing atoms are sparsified with the values "
+            "representing one-hot "
+            "keys and boolean true values");
 
     addParent<ProcedureConfig>();
 
@@ -323,12 +331,10 @@ struct JSONImporter: public Procedure {
                 return handleError("empty line", actualLineNum, "");
             }
 
-            // TODO: in the configuration
-            JsonArrayHandling arrays = ENCODE_ARRAYS;
-
             ExpressionValue expr;
             try {
-                expr = ExpressionValue::parseJson(parser, timestamp, arrays);
+                expr = ExpressionValue::parseJson(parser, timestamp,
+                                                  config.arrays);
             } catch (const std::exception & exc) {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
@@ -403,4 +409,4 @@ regJSON(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

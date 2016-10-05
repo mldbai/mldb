@@ -13,7 +13,7 @@
 #include <atomic>
 #include <limits>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -125,6 +125,6 @@ private:
     OptimizedPath & operator = (OptimizedPath &&) = delete;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 

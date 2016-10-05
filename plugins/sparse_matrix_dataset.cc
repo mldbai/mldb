@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
@@ -881,7 +881,7 @@ struct SparseMatrixDataset::Itl
                   const RestRequest & request,
                   RestRequestParsingContext & context) const
     {
-        return Datacratic::MR_NO;
+        return MR_NO;
     }
 
     virtual size_t getRowCount() const override
@@ -1849,4 +1849,4 @@ regSparseMatrix(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

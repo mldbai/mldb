@@ -18,7 +18,7 @@
 #include "mldb/io/async_event_source.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Message>
 struct TypedMessageChannel {
@@ -212,4 +212,4 @@ private:
     OnNotify onNotify_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

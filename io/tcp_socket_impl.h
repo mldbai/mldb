@@ -10,7 +10,7 @@
 #include <boost/asio/ip/tcp.hpp>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TcpSocketImpl {
     TcpSocketImpl(boost::asio::io_service & ioService)
@@ -21,4 +21,4 @@ struct TcpSocketImpl {
     boost::asio::ip::tcp::socket socket;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -161,7 +161,7 @@ function trainClassifier(algorithm)
                     type: "boosted_stumps",
                     min_iter: 1,
                     max_iter: 1,
-                    verbisity: 5
+                    verbosity: 5
                 }
             },
             algorithm: algorithm,

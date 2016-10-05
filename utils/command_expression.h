@@ -19,7 +19,9 @@
 #include "command.h"
 
 
-namespace Datacratic {
+namespace MLDB {
+
+namespace PluginCommand {
 
 /*****************************************************************************/
 /* COMMAND TEMPLATE                                                          */
@@ -707,5 +709,6 @@ struct CommandTemplate {
 
 DECLARE_STRUCTURE_DESCRIPTION(CommandTemplate);
 
+} // namespace PluginCommand
+} // namespace MLDB
 
-} // namespace Datacratic

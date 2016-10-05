@@ -13,7 +13,7 @@
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/arch/exception.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct EtcdNode {
     EtcdNode()
@@ -137,4 +137,4 @@ struct EtcdClient {
     std::string basePath;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -10,7 +10,7 @@
 #include <unordered_map>
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -277,4 +277,4 @@ getFunctionInfo() const
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

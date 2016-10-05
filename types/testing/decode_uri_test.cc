@@ -15,7 +15,7 @@
 #include "ext/googleurl/src/url_util.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 #define TEST_ALL 1
 

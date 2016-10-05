@@ -19,7 +19,7 @@
 #include "plugins/permuter_procedure.h"
 
 using namespace std;
-using namespace Datacratic;
+
 using namespace MLDB;
 
 Json::Value parse(const string & js)

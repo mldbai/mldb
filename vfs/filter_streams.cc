@@ -38,8 +38,7 @@
 
 using namespace std;
 
-
-namespace Datacratic {
+namespace MLDB {
 
 const UriHandlerFactory &
 getUriHandler(const std::string & scheme);
@@ -61,13 +60,13 @@ getScheme(const std::string & uri)
 UriHandler::
 UriHandler(std::streambuf * buf,
            std::shared_ptr<void> bufOwnership,
-           const Datacratic::FsObjectInfo & info,
+           const FsObjectInfo & info,
            UriHandlerOptions options)
     : buf(buf),
       bufOwnership(std::move(bufOwnership)),
       options(std::move(options))
 {
-    this->info.reset(new Datacratic::FsObjectInfo(info));
+    this->info.reset(new FsObjectInfo(info));
 }
 
 
@@ -802,7 +801,7 @@ mapped() const
     return { handlerOptions.mapped, handlerOptions.mappedSize };
 }
 
-Datacratic::FsObjectInfo
+FsObjectInfo
 filter_istream::
 info() const
 {
@@ -871,14 +870,14 @@ struct RegisterFileHandler {
 
         if (mode == ios::in) {
             if (resource == "-") {
-                Datacratic::FsObjectInfo info;
+                FsObjectInfo info;
                 info.exists = true;
-                info.lastModified = Datacratic::Date::now();
+                info.lastModified = Date::now();
                 return UriHandler(cin.rdbuf(), nullptr, info);
             }
 
-            Datacratic::FsObjectInfo info
-                = Datacratic::getUriObjectInfo(scheme +  "://" + resource);
+            FsObjectInfo info
+                = getUriObjectInfo(scheme +  "://" + resource);
 
             // MLDB-1303 mmap fails on empty files - force filebuf interface
             // on empty files despite the mapped option
@@ -1088,7 +1087,7 @@ struct RegisterMemHandler {
         else {
             throw ML::Exception("unable to create mem handler");
         }
-        Datacratic::FsObjectInfo info;
+        FsObjectInfo info;
         info.exists = true;
         return UriHandler(streamBuf.get(), streamBuf, info);
     }
@@ -1100,4 +1099,4 @@ struct RegisterMemHandler {
 
 } registerMemHandler;
 
-} // namespace Datacratic
+} // namespace MLDB

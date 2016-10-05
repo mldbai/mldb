@@ -9,9 +9,9 @@
 
 #include "distribution_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template class DistributionValueDescription<float, std::vector<float> >;
 template class DistributionValueDescription<double, std::vector<double> >;
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -12,7 +12,7 @@
 #include "value_description.h"
 #include <map>
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DEFAULT DESCRIPTION FOR MAP                                               */
@@ -196,4 +196,4 @@ struct MapDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_4(MapDescription, std::map, typename, Key, typename, Value, typename, Compare, typename, Alloc);
 
-} // namespace Datacratic
+} // namespace MLDB

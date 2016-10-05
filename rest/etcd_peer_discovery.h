@@ -11,7 +11,7 @@
 #include "etcd_client.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -56,4 +56,4 @@ private:
     int shutdown_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

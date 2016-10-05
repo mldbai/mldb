@@ -24,7 +24,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(ColumnSparsity);
@@ -2878,7 +2878,7 @@ getSpecializedValueInfo() const
     throw HttpReturnException(400, "unknown ExpressionValue type");
 }
 
-using Datacratic::getDefaultDescriptionShared;
+using getDefaultDescriptionShared;
 
 namespace {
 auto cellDesc = getDefaultDescriptionShared((CellValue *)0);
@@ -3447,4 +3447,4 @@ NamedRowValue::flattenDestructive()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -21,7 +21,6 @@
 #include "mldb/server/column_scope.h"
 #include "mldb/server/bucket.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 /** Holds the set of data for a partition of a decision tree. */
@@ -103,7 +102,7 @@ struct PartitionData {
                 ExcAssertEqual(n, numNonZero);
             };
 
-        Datacratic::parallelMap(0, data.features.size() + 1, doFeature);
+        MLDB::parallelMap(0, data.features.size() + 1, doFeature);
 
         return data;
     }
@@ -654,5 +653,4 @@ struct PartitionData {
     }
 };
 
-}
-}
+} // namespace MLDB

@@ -15,7 +15,7 @@ and return a single row (the details of row construction is given below).
 
 The `output` field has the following possible values:
 
-![](%%type Datacratic::MLDB::SqlQueryOutput)
+![](%%type MLDB::SqlQueryOutput)
 
 
 ## Accessing function input values

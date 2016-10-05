@@ -9,7 +9,8 @@
 
 using namespace std;
 using namespace boost::python;
-using namespace Datacratic;
+using namespace MLDB;
+
 using namespace Mongo;
 
 struct MongoTemporaryServerPtr {

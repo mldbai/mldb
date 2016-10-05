@@ -31,7 +31,7 @@ which returns
             "name" : "dataset",
             "offset" : 0,
             "type" : {
-               "c++TypeName" : "Datacratic::PolyConfigT<Datacratic::MLDB::Dataset const>",
+               "c++TypeName" : "MLDB::PolyConfigT<MLDB::Dataset const>",
                "documentationUri" : "/doc/builtin/datasets/DatasetConfig.md",
                "kind" : "STRUCTURE",
                "typeName" : "Dataset (read-only)"
@@ -43,7 +43,7 @@ which returns
             "name" : "output",
             "offset" : 64,
             "type" : {
-               "c++TypeName" : "Datacratic::PolyConfigT<Datacratic::MLDB::Dataset>",
+               "c++TypeName" : "MLDB::PolyConfigT<MLDB::Dataset>",
                "documentationUri" : "/doc/builtin/datasets/DatasetConfig.md",
                "kind" : "STRUCTURE",
                "typeName" : "Dataset"
@@ -55,7 +55,7 @@ which returns
             "name" : "rowOutput",
             "offset" : 128,
             "type" : {
-               "c++TypeName" : "Datacratic::PolyConfigT<Datacratic::MLDB::Dataset>",
+               "c++TypeName" : "MLDB::PolyConfigT<MLDB::Dataset>",
                "documentationUri" : "/doc/builtin/datasets/DatasetConfig.md",
                "kind" : "STRUCTURE",
                "typeName" : "Dataset"
@@ -107,7 +107,7 @@ which returns
             "name" : "select",
             "offset" : 216,
             "type" : {
-               "c++TypeName" : "Datacratic::MLDB::SelectExpression",
+               "c++TypeName" : "MLDB::SelectExpression",
                "documentationUri" : "/doc/builtin/sql/SelectExpression.md",
                "kind" : "ATOM",
                "typeName" : "SqlSelectExpression"
@@ -119,7 +119,7 @@ which returns
             "name" : "where",
             "offset" : 272,
             "type" : {
-               "c++TypeName" : "std::shared_ptr<Datacratic::MLDB::RowExpression>",
+               "c++TypeName" : "std::shared_ptr<MLDB::RowExpression>",
                "documentationUri" : "/doc/builtin/sql/RowExpression.md",
                "kind" : "ATOM",
                "typeName" : "SqlRowExpression"
@@ -127,26 +127,26 @@ which returns
          }
       ],
       "kind" : "STRUCTURE",
-      "typeName" : "Datacratic::MLDB::SvdConfig"
+      "typeName" : "MLDB::SvdConfig"
    }
 }
 ```
 
 The information is returned in the following format:
 
-![](%%type Datacratic::ValueDescriptionRepr)
+![](%%type MLDB::ValueDescriptionRepr)
 
 The `kind` field looks like this:
 
-![](%%type Datacratic::ValueKind)
+![](%%type MLDB::ValueKind)
 
 Structure fields look like this:
 
-![](%%type Datacratic::StructureFieldRepr)
+![](%%type MLDB::StructureFieldRepr)
 
 and enumeration fields look like this:
 
-![](%%type Datacratic::EnumValueRepr)
+![](%%type MLDB::EnumValueRepr)
 
 
 ## Information about other types

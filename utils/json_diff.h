@@ -16,7 +16,7 @@
 #include "mldb/jml/utils/unnamed_bool.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct JsonArrayElementDiff;
 
@@ -142,4 +142,4 @@ jsonPatch(const Json::Value & val,
     return std::make_pair(std::move(*res.first), std::move(res.second));
 }
 
-} // namespace Datacratic
+} // namespace MLDB

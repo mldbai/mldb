@@ -10,7 +10,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/expression_value.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Bind the given SQL expression with the given argument info into a
@@ -99,4 +99,4 @@ ExpressionValue evalSql(SqlBindingScope & scope,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

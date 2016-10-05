@@ -11,7 +11,7 @@
 
 #include "mldb/server/external_plugin.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -44,6 +44,6 @@ struct DockerPluginStartup: public ExternalPluginStartup {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 
 

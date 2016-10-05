@@ -10,7 +10,7 @@
 #include "mldb/core/procedure.h"
 #include "sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -59,4 +59,4 @@ struct MeltProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

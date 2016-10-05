@@ -21,7 +21,7 @@ namespace ML {
 struct Parse_Context;
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Common options for the tokenize function. */
 struct TokenizeOptions {
@@ -55,5 +55,5 @@ Utf8String token_extract(ML::Parse_Context& context,
                          int nth,
                          const TokenizeOptions & options);
 
-} // namespace Datacratic
+} // namespace MLDB
 

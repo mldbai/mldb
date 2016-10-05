@@ -18,7 +18,7 @@
 #include <atomic>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 template<typename Object, int Index>
@@ -670,4 +670,4 @@ extern template class WatchesT<Key, std::shared_ptr<Status> >
 #define DEFINE_REST_COLLECTION_INSTANTIATIONS(Key, Value, Config, Status) \
     REST_COLLECTION_INSTANTIATIONS_IMPL( ,Key, Value, Config, Status)
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -15,10 +15,10 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string
 strLaunchError(LaunchError error)

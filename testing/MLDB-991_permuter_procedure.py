@@ -49,7 +49,6 @@ procedure_conf = {
                 "type": "glz",
                 "verbosity": 3,
                 "normalize": False,
-                "link": "linear",
                 "regularization": 'l2'
             },
             "bglz": {

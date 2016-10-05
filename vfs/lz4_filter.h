@@ -24,8 +24,8 @@
 #include <cstring>
 #include "mldb/jml/utils/guard.h"
 
-namespace Datacratic {
 
+namespace MLDB {
 
 /******************************************************************************/
 /* LZ4 ERROR                                                                  */
@@ -369,4 +369,4 @@ private:
     void* streamChecksumState;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

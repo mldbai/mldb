@@ -21,9 +21,9 @@
 #include <cxxabi.h>
 using namespace std;
 using namespace ML;
-using namespace Datacratic::JS;
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace JS {
 
 
@@ -402,7 +402,7 @@ Json::Value from_js(const JSValue & val, Json::Value *)
     {
         if(v8::Date::Cast(*val)->IsDate())
         {
-            return from_js(val, (Datacratic::Date*)(0)).secondsSinceEpoch();
+            return from_js(val, (Date*)(0)).secondsSinceEpoch();
         }
         if(val->IsArray())
         {
@@ -465,7 +465,7 @@ Json::Value from_js(const JSValue & val, Json::Value *)
 Date from_js(const JSValue & val, Date *)
 {
     if(!v8::Date::Cast(*val)->IsDate())
-        throw ML::Exception("Couldn't convert from " + cstr(val) + " to Datacratic::Date");
+        throw ML::Exception("Couldn't convert from " + cstr(val) + " to MLDB::Date");
     return Date::fromSecondsSinceEpoch(v8::Date::Cast(*val)->NumberValue()
                                        / 1000.0);
 }
@@ -483,4 +483,5 @@ Json::Value from_js_ref(const JSValue & val, Json::Value *)
 
 
 } // namespace JS
-} // namespace Datacratic
+
+} // namespace MLDB

@@ -10,7 +10,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -221,4 +221,4 @@ private:
     std::unique_ptr<Value> value;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -13,8 +13,7 @@
 
 using namespace std;
 
-
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TokenizeOptions);
 
@@ -387,4 +386,4 @@ Utf8String token_extract(ML::Parse_Context& context,
 }
 
 
-} //Datacratic
+} // namespace MLDB

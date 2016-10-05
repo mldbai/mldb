@@ -45,12 +45,14 @@ Bagging_Generator::~Bagging_Generator()
 
 void
 Bagging_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    config.find(num_bags,         "num_bags");
-    config.find(validation_split, "validation_split");
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(num_bags, "num_bags", unparsedKeys);
+    config.findAndRemove(validation_split, "validation_split", unparsedKeys);
 
     weak_learner = get_trainer("weak_learner", config);
+
 }
 
 void
@@ -251,7 +253,7 @@ generate(Thread_Context & context,
             Bag_Job(info, contexts[i], i, verbosity)();
         };
 
-    Datacratic::parallelMap(0, num_bags, onBag);
+    MLDB::parallelMap(0, num_bags, onBag);
     
     Committee result(feature_space, predicted);
     

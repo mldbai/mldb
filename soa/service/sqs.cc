@@ -19,7 +19,7 @@ using namespace ML;
 
 namespace {
 
-using namespace Datacratic;
+using namespace MLDB;
 
 
 SqsApi::Message
@@ -78,7 +78,7 @@ extractMessage(const tinyxml2::XMLNode * messageNode)
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -589,4 +589,4 @@ SqsSnsMessageBodyDescription()
              "URI to unsubscrive from topic");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

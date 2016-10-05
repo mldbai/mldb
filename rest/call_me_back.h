@@ -16,7 +16,7 @@
 #include "mldb/jml/utils/ring_buffer.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -75,4 +75,4 @@ private:
 extern CallMeBackLater callMeBackLater;
 
 
-} // namespace Datacratic
+} // namespace MLDB

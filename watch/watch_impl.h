@@ -19,7 +19,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/date.h" // TODO: shouldn't need this
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -1015,4 +1015,4 @@ tryWaitMaybeGeneric(double timeToWait)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

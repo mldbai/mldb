@@ -14,7 +14,7 @@
 #include "mldb/rest/rest_collection.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+
 
 namespace MLDB {
 struct MldbServer;
@@ -78,8 +78,9 @@ struct CredentialRuleCollection
     getConfig(std::string key, const CredentialRule & value) const;
 };
 
-} // MLDB namespace
-
 extern template class RestCollection<std::string, MLDB::CredentialRule>;
 
-} // namespace Datacratic
+} // MLDB namespace
+
+
+

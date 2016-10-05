@@ -30,7 +30,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 void runAcceptThread(int & port, ML::Semaphore & started, bool & finished)

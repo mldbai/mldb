@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::shared_ptr<FunctionCollection>
@@ -297,8 +297,9 @@ construct(PolyConfig config, const OnProgress & onProgress) const
     return PolyCollection<Function>::construct(config, onProgress);
 }
 
-} // namespace MLDB
-
 template class PolyCollection<MLDB::Function>;
 
-} // namespace Datacratic
+} // namespace MLDB
+
+
+

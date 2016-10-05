@@ -21,7 +21,7 @@ using namespace std;
 #include <boost/filesystem.hpp>
 #include "confidence_intervals.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /*   PREDICTION_ACCUMULATOR                                                  */
@@ -548,4 +548,4 @@ Prediction_Accumulator::getCTRBuckets(size_t num_buckets,
     return result_buckets;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

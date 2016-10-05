@@ -22,10 +22,10 @@
 
 #include <sys/wait.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /*****************************************************************************/
@@ -358,4 +358,4 @@ struct ForkedTestPeer: public Runner {
 };
 #endif
 
-} // namespace Datacratic
+} // namespace MLDB

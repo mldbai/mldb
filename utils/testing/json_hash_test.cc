@@ -15,7 +15,7 @@
 #include "mldb/utils/json_utils.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_hash_1 )
 {

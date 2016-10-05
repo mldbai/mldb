@@ -13,7 +13,7 @@
 #include "path.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -84,4 +84,4 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixColumn);
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

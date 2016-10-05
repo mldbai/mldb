@@ -12,7 +12,7 @@
 
 #include "mldb/jml/utils/lightweight_hash.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 enum {
     RESERVEDBUCKETBITS = 6
@@ -252,5 +252,5 @@ struct IdHashes {
     }
 };
 
+} // namespace MLDB
 
-} // namespace Datacratic

@@ -9,7 +9,7 @@
 
 #include "mldb/core/dataset.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /******************************************************************************/
@@ -66,4 +66,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

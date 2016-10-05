@@ -19,7 +19,7 @@
 #include <map>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REGISTRY                                                                  */
@@ -49,5 +49,4 @@ void setMemStreamString(const std::string & name,
 void deleteMemStreamString(const std::string & name);
 void deleteAllMemStreamStrings();
 
-} // namespace Datacratic
-
+} // namesapce MLDB

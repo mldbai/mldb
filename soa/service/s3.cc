@@ -27,7 +27,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {
@@ -414,7 +414,7 @@ scheduleRestart()
 } // file scope
 
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(S3Config);
 
@@ -1966,4 +1966,4 @@ std::shared_ptr<S3Api> getS3ApiForUri(const string & uri)
                                    creds.protocol, creds.location);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

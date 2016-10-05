@@ -11,7 +11,7 @@
 #include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -144,4 +144,4 @@ isPathType(StorageType type)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

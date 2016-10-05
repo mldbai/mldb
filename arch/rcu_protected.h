@@ -14,7 +14,7 @@
 #include <memory>
 #include <atomic>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T>
 struct RcuLocked {
@@ -279,5 +279,5 @@ struct RcuProtectedCopyable : public RcuProtected<T> {
 
 };
 
-} // namespace Datacratic
+} // namespace MLDB
    

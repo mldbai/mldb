@@ -23,7 +23,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 #if 0 // zeromq aborts when it can't get an fd
 BOOST_AUTO_TEST_CASE( test_passive_endpoint_create_no_fds )

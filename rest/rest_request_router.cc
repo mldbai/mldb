@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -803,11 +803,11 @@ updateFromValueDescription(Json::Value & v, const ValueDescription * vd) const {
     else if (kind == ValueKind::ATOM) {
         v["description"] =
             v["description"].asString() + " (cppType: " + vd->typeName + ")";
-        if (vd->typeName == "Datacratic::TimePeriod") {
+        if (vd->typeName == "MLDB::TimePeriod") {
             v["type"] = "string";
             v["pattern"] = "^[\\d]+(s|m|h|d)$";
         }
-        else if (vd->typeName == "Datacratic::Any") {
+        else if (vd->typeName == "MLDB::Any") {
             v["type"] = "object";
         }
         else {
@@ -1033,4 +1033,4 @@ Json::Value extractException(const std::exception & exc, int defaultCode)
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -20,7 +20,7 @@
 #include "mldb/types/value_description.h"
 #include <mutex>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TemporaryEtcdServer {
 
@@ -148,4 +148,4 @@ inline std::string getEtcdPath()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

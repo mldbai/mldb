@@ -47,7 +47,7 @@ parallelMapInOrderReduce(It first, It2 last, MapFn map, ReduceFn reduce)
             drainWriteQueue();
         };
 
-    Datacratic::parallelMap(first, last, doMap);
+    MLDB::parallelMap(first, last, doMap);
 
     drainWriteQueue();
 }

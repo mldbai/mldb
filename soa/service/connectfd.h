@@ -10,7 +10,7 @@
 
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Utility function to return a socket connected to the given port on
     localhost.
@@ -31,4 +31,4 @@ int connectHostDgram(const std::string & hostname, int port);
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

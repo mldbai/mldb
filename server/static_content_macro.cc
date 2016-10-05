@@ -22,7 +22,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -37,8 +37,6 @@ using namespace Json;
 
 static std::string printTypeName(std::string t)
 {
-    if (t.find("Datacratic::") == 0)
-        t = string(t, 12);
     if (t.find("MLDB::") == 0)
         t = string(t, 6);
     return t;
@@ -565,4 +563,4 @@ auto regConfig = RegisterMacro("config", configMacro);
 auto regAvailableTypes = RegisterMacro("availabletypes", availabletypesMacro);
 
 } // namespace MLDB
-} // namespace Datacratic
+

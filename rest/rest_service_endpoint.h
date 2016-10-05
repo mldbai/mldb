@@ -17,7 +17,7 @@
 #include "mldb/rest/rest_request.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -237,4 +237,4 @@ struct RestServiceEndpoint {
     std::shared_ptr<spdlog::logger> logger;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -12,7 +12,7 @@
 
 using namespace ML;
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 int hexToDec(int c)
 {

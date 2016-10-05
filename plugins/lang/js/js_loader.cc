@@ -32,8 +32,9 @@
 
 using namespace std;
 
+namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -227,9 +228,15 @@ struct JsPluginJS {
             auto route = JS::getArg<std::string>(args, 0, "route");
             auto dir = JS::getArg<std::string>(args, 1, "dir");
 
+            fs::path fullDir(fs::path(itl->pluginResource->getPluginDir().string()) / fs::path(dir));
+            if(!fs::exists(fullDir)) {
+                throw ML::Exception("Cannot serve static folder for path that does "
+                        "not exist: " + fullDir.string());
+            }
+
             itl->router.addRoute(Rx(route + "/(.*)", "<resource>"),
                                  "GET", "Static content",
-                                 getStaticRouteHandler(dir, itl->server),
+                                 getStaticRouteHandler(fullDir.string(), itl->server),
                                  Json::Value());
 
             args.GetReturnValue().Set(args.This());
@@ -641,4 +648,4 @@ regJavascript(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

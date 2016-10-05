@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* COLLECTION CONFIG STORE                                                   */
@@ -134,4 +134,4 @@ erase(Utf8String key)
     tryEraseUriObject((baseUri + "/" + key).rawString());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

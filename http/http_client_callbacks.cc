@@ -9,7 +9,7 @@
 #include "mldb/http/http_client_callbacks.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/
@@ -17,7 +17,7 @@ using namespace Datacratic;
 /****************************************************************************/
 
 std::ostream &
-Datacratic::
+MLDB::
 operator << (std::ostream & stream, HttpClientError error)
 {
     return stream << HttpClientCallbacks::errorMessage(error);

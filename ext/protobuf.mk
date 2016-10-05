@@ -19,22 +19,26 @@ define build_protobuf_for_arch
 # sne is string not equal, defined in gmsl
 PROTOC_EXTRA_ARGS_$(1):=$(if $(call sne,$(1),$(HOSTARCH)),--with-protoc=$(PWD)/$(HOSTBIN)/protoc --host=$(1)-linux-gnu --target=$(1)-linux-gnu)$(if $(call seq,$(1),$(ARCH)), CC="$(CC)" CXX="$(CXX)")
 
+# Find the absolute path of $(TMP), by adding $(PWD) if it's a relative
+# path, in other words if it doesn't start with a /
+TMP_ABSOLUTE_PATH:=$(if $(findstring xxxx/,xxxx$(TMP)),,$(PWD)/)$(TMP)
+
 $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	@mkdir -p $(TMP)
 	@echo "   $(COLOR_BLUE)[COPY EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@mkdir -p $(BUILD)/$(1)/tmp/protobuf-build
 	@cp -rf mldb/ext/protobuf/* $(BUILD)/$(1)/tmp/protobuf-build
-	@ln -sf $(PWD)/mldb/ext/gmock $(BUILD)/$(1)/tmp/protobuf-build/
+	@cp -rf $(PWD)/mldb/ext/gmock $(BUILD)/$(1)/tmp/protobuf-build/
 	@echo " $(COLOR_BLUE)[CONFIG EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@(cd $(BUILD)/$(1)/tmp/protobuf-build \
 	&& ./autogen.sh > configure-log.txt 2>&1 \
-	&& TMP=$(PWD)/$(TMP) ./configure \
+	&& TMP=$(TMP_ABSOLUTE_PATH) ./configure \
 		--prefix $(PWD)/$(BUILD)/$(1) \
 		--program-suffix="" \
 		$$(PROTOC_EXTRA_ARGS_$(1)) >> configure-log.txt 2>&1) \
 	|| (echo $(COLOR_RED)Protobuf configure failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/configure-log.txt && false)
 	@echo "   $(COLOR_BLUE)[MAKE EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
-	@+$(MAKE) -j -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf compile failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/compile-log.txt && false)
+	@+$(MAKE) -j -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf compile failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/make-log.txt && false)
 	@echo "$(COLOR_BLUE)[INSTALL EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@$(MAKE) -j install -C $(BUILD)/$(1)/tmp/protobuf-build > $(BUILD)/$(1)/tmp/protobuf-build/install-log.txt 2>&1 || (echo $(COLOR_RED)Protobuf install failed for $(1)$(COLOR_RESET) && cat $(BUILD)/$(1)/tmp/protobuf-build/install-log.txt && false)
 	@echo "   $(COLOR_BLUE)[DONE EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
@@ -47,7 +51,7 @@ $(2)/libprotobuf3.so:	$(4)/protoc
 protobuf: $(4)/protoc
 
 # Allow a dependency on the headers
-$(INC)/google/protobuf: $(4)/protoc
+$(INC)/google/protobuf: | $(4)/protoc
 	@# Only copy when needing includes elsewhere
 	[ ! "$(PWD)/$(BUILD)/$(1)/include/google/protobuf" -ef "$(3)/google/protobuf" ] \
 	  && ( mkdir -p $(3)/google \

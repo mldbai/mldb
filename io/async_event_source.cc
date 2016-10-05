@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ASYNC EVENT SOURCE                                                        */
@@ -151,4 +151,4 @@ processOne()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

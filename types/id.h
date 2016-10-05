@@ -21,7 +21,7 @@ namespace Json {
 class Value;
 } // namespace Json
 
-namespace Datacratic {
+namespace MLDB {
 
 /* 
    JTzfCLBhlbWSsdZjcJ4wO4
@@ -365,16 +365,16 @@ inline Id stringToKey(const std::string & str, Id *)
 
 PREDECLARE_VALUE_DESCRIPTION(Id);
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::Id> : public std::unary_function<Datacratic::Id, size_t>
+struct hash<MLDB::Id> : public std::unary_function<MLDB::Id, size_t>
 {
-    size_t operator()(const Datacratic::Id & id) const { return id.hash(); }
+    size_t operator()(const MLDB::Id & id) const { return id.hash(); }
 };
 
 } // namespace std

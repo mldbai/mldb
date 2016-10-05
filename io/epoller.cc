@@ -20,7 +20,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 // Maximum number of events that we can handle
 static constexpr int MaxEvents = 1024;
@@ -228,4 +228,4 @@ processOne()
     return poll();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

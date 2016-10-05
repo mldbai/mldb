@@ -11,7 +11,7 @@
 
 #include "function.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 template<typename Input, typename Output>
@@ -195,4 +195,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

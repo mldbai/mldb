@@ -55,17 +55,17 @@ using namespace std;
 namespace tensorflow {
 #define DEFINE_ENUM_DESCRIPTION_PROTO(Name, Type) \
     struct Name                                                     \
-        : public Datacratic::EnumDescription<Type> {     \
+        : public MLDB::EnumDescription<Type> {                      \
         Name();                                                     \
     };                                                              \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescription(Type *)                        \
     {                                                               \
         return new Name();                                          \
     }                                                               \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescriptionUninitialized(Type *)           \
     {                                                               \
         return new Name();                                          \
@@ -95,18 +95,18 @@ DEFINE_STRUCTURE_DESCRIPTION_NAMED(TensorflowAttrValueDescription,
 
 TensorflowAttrValueDescription::
 TensorflowAttrValueDescription()
-{
-    using namespace Datacratic;
+{    
+    using namespace MLDB;
 
     const ::google::protobuf::Descriptor * desc
         = tensorflow::AttrValue::descriptor();
 
     onUnknownField = [=] (tensorflow::AttrValue * val,
-                          Datacratic::JsonParsingContext & context)
+                          JsonParsingContext & context)
         {
             if (context.fieldName() == "type") {
                 Json::Value j = context.expectJson();
-                val->set_type(Datacratic::jsonDecode<tensorflow::DataType>(j));
+                val->set_type(jsonDecode<tensorflow::DataType>(j));
                 return;
             }
             throw HttpReturnException(400, "Unknown field '" + context.fieldName()
@@ -115,11 +115,11 @@ TensorflowAttrValueDescription()
 }
 #endif
 
-struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
+struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
     virtual void parseJsonTyped(AttrValue * val,
-                                Datacratic::JsonParsingContext & context) const
+                                MLDB::JsonParsingContext & context) const
     {
-        using namespace Datacratic;
+        using namespace MLDB;
 
         if (context.isNull()) {
             context.expectNull();
@@ -137,7 +137,7 @@ struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
             Json::Value v = context.expectJson();
             ExcAssertEqual(v.size(), 1);
             if (v.isMember("type")) {
-                val->set_type(Datacratic::jsonDecode<tensorflow::DataType>(v["type"]));
+                val->set_type(jsonDecode<tensorflow::DataType>(v["type"]));
             }
             else if (v.isMember("shape")) {
                 throw HttpReturnException(500, "shape attributes not done");
@@ -214,9 +214,9 @@ struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
     }
     
     virtual void printJsonTyped(const AttrValue * val,
-                                Datacratic::JsonPrintingContext & context) const
+                                MLDB::JsonPrintingContext & context) const
     {
-        using namespace Datacratic;
+        using namespace MLDB;
 
         switch (val->value_case()) {
         case tensorflow::AttrValue::kS:
@@ -257,7 +257,7 @@ DEFINE_VALUE_DESCRIPTION_NS(AttrValue, AttrValueDescription);
 
 } // namespace tensorflow
 
-namespace Datacratic {
+
 namespace MLDB {
 
 static Json::Value protoToJson(const ::google::protobuf::Message & obj)
@@ -440,7 +440,7 @@ struct TensorflowGraphBase: public Function {
             if (isCpuDevice) {
                 // Use the thread pool for CPU threads
                 options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(2);
+                //options.config.set_inter_op_parallelism_threads(2);
             }
             else {
                 // The GPU gets some CPU threads of its own so that
@@ -448,8 +448,8 @@ struct TensorflowGraphBase: public Function {
                 // is necessary to achieve maximum occupancy of the
                 // GPU.
                 options.config.set_allow_soft_placement(true);
-                options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(4);
+                //options.config.set_use_per_session_threads(true);
+                //options.config.set_inter_op_parallelism_threads(4);
             }
 
             // NOTE: eventually, this will work... but until it does, we
@@ -469,7 +469,7 @@ struct TensorflowGraphBase: public Function {
                 }
                 
                 sessions.emplace_back(d->name(), std::move(session),
-                                      16 /* queue length */);
+                                      4 /* queue length */);
             }
         }
 
@@ -1302,6 +1302,8 @@ struct TensorflowGraphBase: public Function {
 
         auto session = getSession();
 
+        Date gotSession = Date::now();
+
         tensorflow::StepStats stats;
         //Status run_status = session.first
         //    ->RunWithStats(inputTensors, outputLayers,
@@ -1318,7 +1320,9 @@ struct TensorflowGraphBase: public Function {
         
         Date after = Date::now();
         cerr << "latency on " << session.second << " was "
-             << after.secondsSince(before) * 1000 << "ms" << endl;
+             << after.secondsSince(gotSession) * 1000 << "ms"
+             << " plus " << gotSession.secondsSince(before) * 1000
+             << " ms to get session" << endl;
 
 #if 0
         uint64_t earliest = -1;
@@ -1468,8 +1472,8 @@ struct TensorflowOp: public TensorflowGraphBase {
     {
         functionConfig = config.params.convert<TensorflowOpConfig>();   
         tensorflow::Status status;
-        op = tensorflow::OpRegistry::Global()->LookUp(functionConfig.op.rawString(),
-                                                      &status);
+        status = tensorflow::OpRegistry::Global()->LookUpOpDef(functionConfig.op.rawString(),
+                                                      &op);
 
         if (!op) {
             throw HttpReturnException(400, "Unable to obtain TensorFlow operator '"
@@ -1628,8 +1632,8 @@ struct TensorflowPlugin: public Plugin {
     TensorflowPlugin(MldbServer * server)
         : Plugin(server)
     {
-        using namespace Datacratic;
-        using namespace Datacratic::MLDB;
+        
+        using namespace MLDB;
 
         int argc = 0;
         char ** argv = new char * [2];
@@ -1650,8 +1654,7 @@ struct TensorflowPlugin: public Plugin {
             const tensorflow::OpDef & op = ops.op(i);
             RegisteredOp entry;
 
-            Status status;
-            entry.op = OpRegistry::Global()->LookUp(op.name(), &status);
+            Status status = OpRegistry::Global()->LookUpOpDef(op.name(), &entry.op);
             ExcAssert(status.ok());
 
             entry.builtinFunctionHandle
@@ -1892,8 +1895,10 @@ struct TensorflowPlugin: public Plugin {
                     SqlBindingScope & context)
             -> BoundFunction
             {
-                tensorflow::Status status;
-                auto * opDef = tensorflow::OpRegistry::Global()->LookUp(op, &status);
+                
+                const tensorflow::OpDef * opDef;
+                tensorflow::Status status
+                    = tensorflow::OpRegistry::Global()->LookUpOpDef(op, &opDef);
 
                 if (args.size() < 1 || args.size() > 2)
                     throw HttpReturnException
@@ -2087,11 +2092,11 @@ struct TensorflowPlugin: public Plugin {
 
 
 } // namespace MLDB
-} // namespace Datacratic
 
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
+
+MLDB::Plugin *
+mldbPluginEnterV100(MLDB::MldbServer * server)
 {
-    return new Datacratic::MLDB::TensorflowPlugin(server);
+    return new MLDB::TensorflowPlugin(server);
 }
 

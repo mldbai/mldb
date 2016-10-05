@@ -9,7 +9,7 @@
 #include "mldb/ext/uap-cpp/UaParser.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -72,5 +72,4 @@ struct ParseUserAgentFunction: public ValueFunctionT<UserAgentParserArgs, Parsed
     ParseUserAgentFunctionConfig functionConfig;
 };
 
-} // namespace
-} // namespace
+} // namespace MLDB

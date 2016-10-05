@@ -19,7 +19,7 @@
 #include "plugins/accuracy.h"
 #include "types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -154,4 +154,4 @@ struct ExperimentProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

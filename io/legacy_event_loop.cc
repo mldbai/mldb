@@ -9,7 +9,7 @@
 #include "mldb/io/message_loop.h"
 #include "mldb/io/legacy_event_loop.h"
 
-using namespace Datacratic;
+using namespace MLDB;
 
 
 LegacyEventLoop::

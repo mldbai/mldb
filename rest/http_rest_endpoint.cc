@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP REST ENDPOINT                                                       */
@@ -263,5 +263,5 @@ logRequest(int code) const
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

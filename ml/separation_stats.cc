@@ -17,7 +17,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* BINARY STATS                                                              */
@@ -379,4 +379,4 @@ toJson() const
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

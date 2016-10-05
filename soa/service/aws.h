@@ -16,7 +16,7 @@ namespace tinyxml2 {
 struct XMLDocument;
 } // namespace tinyxml2
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -180,4 +180,4 @@ struct AwsBasicApi : public AwsApi {
     HttpRestProxy proxy;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

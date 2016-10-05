@@ -21,7 +21,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string base64Encode(const std::string & str)
 {
@@ -153,4 +153,4 @@ std::string hmacSha256Base64(const std::string & stringToSign,
         return base64digest;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

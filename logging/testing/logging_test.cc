@@ -15,7 +15,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 extern Logging::Category a;
 static Logging::Category c("c", "a");

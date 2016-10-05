@@ -20,7 +20,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -124,4 +124,4 @@ struct Recorder {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

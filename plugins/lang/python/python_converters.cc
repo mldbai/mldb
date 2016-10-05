@@ -14,7 +14,8 @@ using namespace std;
 
 namespace bp = boost::python;
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 
@@ -346,4 +347,5 @@ static struct AtInit {
 } atInit;
 
 } // namespace Python
-} // Datacratic
+
+} // namespace MLDB

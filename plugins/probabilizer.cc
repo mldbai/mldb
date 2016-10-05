@@ -37,7 +37,7 @@ using namespace ML;
 #define override
 //#endif
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerConfig);
@@ -405,4 +405,4 @@ regProbabilizeFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -417,7 +417,7 @@ AsioPeerConnection::
 getTimer(Date expiry, double period,
          std::function<void (Date)> toBind)
 {
-    return Datacratic::getTimer(expiry, period, StrandHolder(itl->strand), toBind);
+    return MLDB::getTimer(expiry, period, StrandHolder(itl->strand), toBind);
 }
 
 void
@@ -435,5 +435,5 @@ postWorkAsync(std::function<void ()> work)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

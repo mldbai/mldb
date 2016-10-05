@@ -17,7 +17,7 @@ using namespace ML;
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -62,4 +62,4 @@ test(const DataPartition & partition) const
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -12,7 +12,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -121,4 +121,4 @@ private:
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
