@@ -26,8 +26,8 @@ Rows are stored in collections with the following format:
 
 ## Example
 
-Here we create the dataset named "mldb_to_mongodb" which will write to mongodb
-database "zips" collection "mldb_coll".
+Here we create the dataset named `mldb_to_mongodb` which will write to mongodb
+database `zips` collection `mldb_coll`.
 
 ```python
 mldb.put("/v1/datasets/mldb_to_mongodb", {
