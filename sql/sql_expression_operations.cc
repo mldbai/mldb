@@ -2410,9 +2410,6 @@ bind(SqlBindingScope & outerScope) const
                 const ExpressionValue & fromOutput
                     = fromBound(row, storage2, filter);
 
-               // cerr << "from output: " << jsonEncode(fromOutput) << endl;
-               // cerr << "extract: " <<extract->print() << endl;
-
                 auto extractRowScope = extractScope.getRowScope(fromOutput);
 
                 return extractBound(extractRowScope, storage, filter);

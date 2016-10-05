@@ -147,7 +147,7 @@ struct NearestNeighborsFunction
 };
 
 /*****************************************************************************/
-/* Image Wrapper FUNCTION                                                    */
+/* IMAGE WRAPPER FUNCTION                                                    */
 /*****************************************************************************/
 
 struct ImageWrapperFunctionConfig {
@@ -197,7 +197,7 @@ struct ImageWrapperFunction
 };
 
 /*****************************************************************************/
-/* Get Neighbors FUNCTION                                                    */
+/* GET NEIGHBORS FUNCTION                                                    */
 /*****************************************************************************/
 
 struct GetNeighborsFunctionConfig {

@@ -24,9 +24,7 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
-
 #include "mldb/server/dataset_context.h"
-
 #include <boost/algorithm/clamp.hpp>
 
 using namespace std;
@@ -1339,7 +1337,7 @@ regNearestNeighborsFunction(builtinPackage(),
                             "functions/NearestNeighborsFunction.md.html");
 
 /*****************************************************************************/
-/* Image Wrapper function                                                */
+/* Image Wrapper function                                                    */
 /*****************************************************************************/
 
 DEFINE_STRUCTURE_DESCRIPTION(ImageWrapperFunctionConfig);
@@ -1384,15 +1382,10 @@ ImageWrapperFunction(MldbServer * owner,
     : BaseT(owner)
 {
     functionConfig = config.params.convert<ImageWrapperFunctionConfig>();
-
     SqlExpressionMldbScope context(owner);
-
     auto boundExpr = functionConfig.expression->bind(context);
-
     SqlRowScope scope;
-
     embedding = boundExpr(scope, GET_ALL);
-
     shape = embedding.getEmbeddingShape();
 }
 
@@ -1414,39 +1407,26 @@ struct ImageWrapperFunctionApplier
 ImageWrapperOutput
 ImageWrapperFunction::
 applyT(const ApplierT & applier_, ImageWrapperInput input) const
-{
-   
-    ImageWrapperOutput output;
+{   
+    ImageWrapperOutput output;    
 
-    ColumnName columnName;
-
+    //We clamp, we do not currently provide interpolation
     int x = input.x.coerceToInteger().toInt();
     int y = input.y.coerceToInteger().toInt();
     x = boost::algorithm::clamp(x, 0, shape[0]-1);
     y = boost::algorithm::clamp(y, 0, shape[1]-1);
 
-   /* if (x < 0 || y < 0 || x >= shape[0] || y >= shape[1])
-    {
-        cerr << x << "," << y << endl;
-        cerr << "requesting bad coords" << endl;
-        
-        //ExcAssert(false);
-    }*/
-
+    ColumnName columnName;
     columnName = columnName + PathElement(y);
     columnName = columnName + PathElement(x);
 
     ExpressionValue storage;
     auto pValue = embedding.tryGetNestedColumn(columnName, storage);
 
-    if (pValue) {
+    if (pValue)
         return {*pValue};
-    }
-    else {
-        //cerr << columnName << endl;
-        ExcAssert(false);
+    else
         return {ExpressionValue(0, Date::negativeInfinity())};
-    }
 }
     
 std::unique_ptr<FunctionApplierT<ImageWrapperInput, ImageWrapperOutput> >
@@ -1462,7 +1442,7 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
 static RegisterFunctionType<ImageWrapperFunction, ImageWrapperFunctionConfig>
 regImageWrapperFunction(builtinPackage(),
                             "image.wrapper",
-                            "",
+                            "Wraps access to a 2d embedding",
                             "functions/ImageWrapperFunction.md.html");
 
 /*****************************************************************************/
@@ -1516,15 +1496,10 @@ GetNeighborsFunction(MldbServer * owner,
     : BaseT(owner)
 {
     functionConfig = config.params.convert<GetNeighborsFunctionConfig>();
-
     N = functionConfig.range;
-
     SqlExpressionMldbScope context(owner);
-
     auto boundExpr = functionConfig.expression->bind(context);
-
     SqlRowScope scope;
-
     embedding = boundExpr(scope, GET_ALL);
 }
 
@@ -1553,13 +1528,14 @@ applyT(const ApplierT & applier_, GetNeighborsInput input) const
     int x = input.x.coerceToInteger().toInt();
     int y = input.y.coerceToInteger().toInt();
     int z = input.z.coerceToInteger().toInt();
-
-    //const int N = 2;// TODO: param
-    const size_t num_values = (N*2+1)*(N*2+1)*(N*2+1)*3;
+    
     auto shape = embedding.getEmbeddingShape();
 
+    size_t numChannels = shape.back();
+    const size_t num_values = (N*2+1)*(N*2+1)*(N*2+1)*numChannels;
+
     std::shared_ptr<float> buffer(new float[num_values],
-                                      [] (float * p) { delete[] p; });
+                                  [] (float * p) { delete[] p; });
 
     float* p = buffer.get();
     for (int i = -N; i <= N; ++i) {
@@ -1592,11 +1568,8 @@ applyT(const ApplierT & applier_, GetNeighborsInput input) const
                         ExcAssert(pValue);
                     }
 
-                    //if (pValue)
-                       val = pValue->coerceToNumber().toDouble();
+                    val = pValue->coerceToNumber().toDouble();
 
-                    if (!std::isfinite(val))
-                        throw HttpReturnException(400, "GetNeighborsFunction : found Nan");
                     *p = val;
                     p++;
                 }
@@ -1623,7 +1596,7 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
 static RegisterFunctionType<GetNeighborsFunction, GetNeighborsFunctionConfig>
 regGetNeighborsFunction(builtinPackage(),
                             "image.getneighbors",
-                            "",
+                            "Find values in a cubic volume inside a 3d embedding",
                             "functions/GetNeighborsFunction.md.html");
 
 

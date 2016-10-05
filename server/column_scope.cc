@@ -151,10 +151,9 @@ bool
 ColumnScope::
 runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                 std::function<bool (size_t rowNum,
-                                    Val * vals)> onVal,
-                std::shared_ptr<SqlExpression> where) const
+                                    Val * vals)> onVal) const
 {
-    //size_t numRows = dataset->getMatrixView()->getRowCount();
+    size_t numRows = dataset->getMatrixView()->getRowCount();
 
     // For each expression, if it simply extracts the column then we put
     // the index of the column.  Otherwise, we put -1 as it's a more
@@ -184,7 +183,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     //ML::Timer timer;
     //cerr << "doing rows" << endl;
     auto rowGen = dataset->generateRowsWhere(*this, "" /* alias */,
-                                             *where/**SqlExpression::TRUE*/,
+                                             *SqlExpression::TRUE,
                                              0 /* offset */,
                                              -1 /* limit */);
 
@@ -196,11 +195,6 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     size_t nc = requiredColumns.size();
 
     if (optimizeRunIncremental(canTakeOptimizedPath)) {
-
-        //cerr << "optimized path" << endl;
-
-        size_t numRows = rowGen.rowStreamTotalRows;
-
         // No need to ever allocate a huge amount of memory
         std::vector<size_t> chunkOffsets;
         auto chunks = rowGen.rowStream->parallelize(numRows,
@@ -275,87 +269,78 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
 
     auto rows = rowGen(-1, nullptr);
 
-    size_t numRows = rows.first.size();
-
     //cerr << "got " << rows.first.size() << " rows in " << timer.elapsed()
     //     << " seconds" << endl;
 
-    if (numRows > 0){
-        auto doColumn = [&] (size_t index)
+    auto doColumn = [&] (size_t index)
         {
             inputs[index] = dataset->getColumnIndex()
                 ->getColumnDense(requiredColumns[index]);
         };
 
-        parallelMap(0, requiredColumns.size(), doColumn);
+    parallelMap(0, requiredColumns.size(), doColumn);
 
-        using namespace std;
-        cerr << "done columns" << endl;
+    using namespace std;
+    cerr << "done columns" << endl;
 
-        std::atomic<bool> stop(false);
+    std::atomic<bool> stop(false);
 
-        // Apply the expression to everything
-        auto doRow = [&] (size_t first, size_t last)
-            {
-                PossiblyDynamicBuffer<Val> resultsHolder(exprs.size());
-                Val * results = resultsHolder.data();
-                for (size_t i = first;  i < last
-                         && !stop.load(std::memory_order_relaxed);  ++i) {
-                    RowScope scope(i, inputs);
-                    for (unsigned j = 0;  j < exprs.size();  ++j) {
-                        if (columnNumbers[j] != -1) {
-                            results[j] = extractVal(std::move(inputs[j][i]), (Val *)0);
+    // Apply the expression to everything
+    auto doRow = [&] (size_t first, size_t last)
+        {
+            PossiblyDynamicBuffer<Val> resultsHolder(exprs.size());
+            Val * results = resultsHolder.data();
+            for (size_t i = first;  i < last
+                     && !stop.load(std::memory_order_relaxed);  ++i) {
+                RowScope scope(i, inputs);
+                for (unsigned j = 0;  j < exprs.size();  ++j) {
+                    if (columnNumbers[j] != -1) {
+                        results[j] = extractVal(std::move(inputs[j][i]), (Val *)0);
+                    }
+                    else {
+                        ExpressionValue storage;
+                        const ExpressionValue & result
+                            = exprs[j](scope, storage, GET_LATEST);
+                        if (&result == &storage) {
+                            results[j] = extractVal(storage.stealAtom(), (Val *)0);
                         }
                         else {
-                            ExpressionValue storage;
-                            const ExpressionValue & result
-                                = exprs[j](scope, storage, GET_LATEST);
-                            if (&result == &storage) {
-                                results[j] = extractVal(storage.stealAtom(), (Val *)0);
-                            }
-                            else {
-                                results[j] = extractVal(storage.getAtom(), (Val *)0);
-                            }
+                            results[j] = extractVal(storage.getAtom(), (Val *)0);
                         }
-                    }
-
-                    if (!onVal(i, results)) {
-                        stop = true;
-                        return false;
                     }
                 }
 
-                return true;
-            };
-            
-        parallelMapChunked(0, numRows, 1024 /* rows at once */,
-                           doRow);
-            
-        return !stop.load();
-    }
+                if (!onVal(i, results)) {
+                    stop = true;
+                    return false;
+                }
+            }
 
-    return true;
-    
+            return true;
+        };
+        
+    parallelMapChunked(0, numRows, 1024 /* rows at once */,
+                       doRow);
+        
+    return !stop.load();
 }
 
 bool
 ColumnScope::
 runIncremental(const std::vector<BoundSqlExpression> & exprs,
                std::function<bool (size_t rowNum,
-                                   CellValue * vals)> onVal,
-               std::shared_ptr<SqlExpression> where) const
+                                   CellValue * vals)> onVal) const
 {
-    return runIncrementalT<CellValue>(exprs, onVal, where);
+    return runIncrementalT<CellValue>(exprs, onVal);
 }
 
 bool
 ColumnScope::
 runIncrementalDouble(const std::vector<BoundSqlExpression> & exprs,
                      std::function<bool (size_t rowNum,
-                                         double * vals)> onVal,
-                     std::shared_ptr<SqlExpression> where) const
+                                         double * vals)> onVal) const
 {
-    return runIncrementalT<double>(exprs, onVal, where);
+    return runIncrementalT<double>(exprs, onVal);
 }
 
 } // namespace MLDB
