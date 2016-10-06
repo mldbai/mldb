@@ -1281,7 +1281,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
         
         lhs->surface = ML::trim(token.captured());
-    }
+    }    
 
     if (!lhs && matchKeyword(context, "CAST")) {
         skip_whitespace(context);
@@ -1423,24 +1423,11 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     (tableName, functionName, args);
 
                 lhs->surface = ML::trim(token.captured());
-
-                skip_whitespace(context);
-
-                // Look for an extract expression, which allows us to rewrite
-                // the output of the function.
-                std::shared_ptr<SqlExpression> extractExpression;
-                if (context.match_literal('[')) {
-                    //extract brackets for user functions
-                    auto extractExpression
-                        = SqlExpression::parse(context,
-                                               10 /*precedence*/, allowUtf8);
-                    skip_whitespace(context);
-                    context.expect_literal(']');
-
-                    lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
-                    lhs->surface = ML::trim(token.captured());
-                }
+               
             } // if '(''
+
+            skip_whitespace(context);           
+
         } // if ! identifier empty
     } //if (!lhs)
 
@@ -1461,6 +1448,22 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if (context.eof()) {
             lhs->surface = ML::trim(token.captured());
             return lhs;
+        }
+
+        if (context.match_literal('['))
+        {
+            //extract expression
+
+            auto extractExpression
+                = SqlExpression::parse(context,
+                                       10 /*precedence*/, allowUtf8);
+            skip_whitespace(context);
+            context.expect_literal(']');
+
+            lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
+            lhs->surface = ML::trim(token.captured());
+            continue;
+
         }
 
         // Look for IS NULL or IS NOT NULL
@@ -1560,7 +1563,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     continue;
                 }
             }
-        }
+        }        
 
         // 'LIKE' expression
         if (currentPrecedence > 5) {

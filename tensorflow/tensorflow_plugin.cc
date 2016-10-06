@@ -917,9 +917,13 @@ struct TensorflowGraphBase: public Function {
                 break;
             }
         }
+        else if (val.isArray()) {
+            return castToTypedTensor(val.coerceToEmbedding(), type);
+        }
 
         //cerr << "val = " << jsonEncode(val) << endl;
         //cerr << "type = " << type << endl;
+        //cerr << "value type " << val.getTypeAsString() << endl;
         throw HttpReturnException(500, "Unable to cast value to typed tensor");
     }
     
@@ -992,8 +996,8 @@ struct TensorflowGraphBase: public Function {
             return castToTypedTensor(val, storageToDatatype(storageType));
         }
 
-        cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
-        throw HttpReturnException(500, "Unable to cast value to tensor");
+        //cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
+        throw HttpReturnException(500, "Unable to cast value of type " + val.getTypeAsString() + " to tensor");
     }
     
     tensorflow::Tensor
@@ -1024,6 +1028,10 @@ struct TensorflowGraphBase: public Function {
 
                     // It has a datatype, but no value (and hence size).
                     // Attempt to match the data type only.
+
+                    //cerr << "casting type-no-size: " << layer << endl;
+                    //cerr << "value: " << jsonEncode(val) << endl;
+
                     return castToTypedTensor(val, it->second.type());
                 }
 
@@ -1388,6 +1396,8 @@ struct TensorflowGraphBase: public Function {
     apply(const FunctionApplier & applier,
           const ExpressionValue & context) const
     {
+        //cerr << "applying tensor flow function, context: " << jsonEncode(context) << endl;
+
         return static_cast<const Applier &>(applier)
             .apply(context);
     }
@@ -1411,7 +1421,7 @@ struct TensorflowGraphBase: public Function {
         functionScope.inferInput();
         
         FunctionInfo result;
-        result.input = std::move(functionScope.inputInfo);
+        result.input = ExpressionValueInfo::toRow(functionScope.inputInfo);
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;
@@ -1937,8 +1947,12 @@ struct TensorflowPlugin: public Plugin {
                              + op + "' which takes more than one input"); 
                     }
                 }
-                else {
+                else if (args[0].info->isRow()) {
                     inputInfo = ExpressionValueInfo::toRow(args[0].info);
+                }
+                else {
+                    //we dont know the type of input
+                    inputInfo.reset(new UnknownRowValueInfo());
                 }
 
                 for (size_t i = 0;  i < opDef->input_arg_size();  ++i) {
@@ -1997,7 +2011,6 @@ struct TensorflowPlugin: public Plugin {
                     };
 
                 result.resultInfo = applier->info.output;
-
                 return result;
             };
     }

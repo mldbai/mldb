@@ -482,7 +482,8 @@ struct SparseMatrixDataset::Itl
             return { hash, 24 };
         }
         default:
-            ExcAssert(false);
+            throw HttpReturnException(500,
+                                      "Unmanaged type in Sparse Matrix Dataset encodeVal", val.cellType());
         }
     }
 
