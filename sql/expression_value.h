@@ -45,6 +45,39 @@ typedef std::vector<std::tuple<Path, CellValue, Date> > RowValue;
 /** A struct in an expression value is a set of (key, value) pairs. */
 typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
 
+/** Return the ValueInfo that corresponds to the given
+    ValueDescription.
+*/
+std::shared_ptr<ExpressionValueInfo>
+valueInfoFromDescription(const std::shared_ptr<const ValueDescription> & value);
+
+/** Return the RowValueInfo that corresponds to the given
+    ValueDescription, which must be a StructureValueDescription.
+*/
+std::shared_ptr<RowValueInfo>
+rowInfoFromDescription(const std::shared_ptr<const ValueDescription> & value);
+
+template<typename T>
+std::shared_ptr<ExpressionValueInfo>
+valueInfoForType()
+{
+    return valueInfoFromDescription(getDefaultDescriptionSharedT<T>());
+}
+
+template<typename T>
+std::shared_ptr<RowValueInfo>
+rowInfoForType()
+{
+    return rowInfoFromDescription(getDefaultDescriptionSharedT<T>());
+}
+
+/** Return the RowValueInfo that corresponds to the given
+    ValueDescription, which must be a StructureValueDescription.
+*/
+std::shared_ptr<RowValueInfo>
+valueInfoForStructure(const ValueDescription & desc);
+
+
 enum SchemaCompleteness {
     SCHEMA_OPEN,   ///< Schema is open; columns may exist that aren't known
     SCHEMA_CLOSED  ///< Schema is closed; all columns accounted for

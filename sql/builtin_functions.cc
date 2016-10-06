@@ -2805,11 +2805,9 @@ static RegisterBuiltin registerShape(shape, "shape");
 
 BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
 {
-    // Return the result indexed on a single dimension
-
     checkArgsSize(args.size(), 1);
 
-    auto outputInfo = std::make_shared<UnknownRowValueInfo>();
+    auto outputInfo = valueInfoForType<std::shared_ptr<ExpressionValueInfo> >();
     Date ts = Date::negativeInfinity();  // it has always had this type
 
     auto argInfo = args[0].info;
@@ -2828,6 +2826,31 @@ BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerStaticType(static_type, "static_type");
+
+BoundFunction static_expression_info(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    auto outputInfo = valueInfoForType<BoundSqlExpression>();
+    Date ts = Date::negativeInfinity();  // it has always had this type
+
+    auto argInfo = args[0].info;
+    ExcAssert(argInfo);
+
+    ExpressionValue result(jsonEncode(args[0]), ts);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                return result;
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerStaticExpressionInfo
+    (static_expression_info, "static_expression_info");
 
 BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
 {
