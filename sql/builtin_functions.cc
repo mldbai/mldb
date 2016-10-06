@@ -2773,6 +2773,100 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerReshape(reshape, "reshape");
 
+    // Calculate the output shape of the concatenated values
+template<typename Sizes>
+Sizes calcShape(const std::vector<Sizes> & shapes)
+{
+    if (shapes.empty())
+        return Sizes();
+    Sizes result = shapes[0];
+    for (size_t i = 1;  i < shapes.size();  ++i) {
+        const Sizes & shape = shapes[i];
+        if (shape.size() != result.size()) {
+            throw HttpReturnException
+                (400, "Attempt to concat vectors with different shapes");
+        }
+        if (result[0] == -1 || shape[0] == -1)
+            result[0] = -1;
+        else result[0] += shape[0];
+    }
+    
+    return result;
+};
+    
+
+
+BoundFunction concat(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.empty()) {
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope) -> ExpressionValue
+            {
+                return ExpressionValue::null(Date::negativeInfinity());
+            };
+        return {
+            exec,
+            std::make_shared<EmptyValueInfo>()
+        };
+    }
+    
+    DimsVector shape;
+
+    std::vector<std::vector<ssize_t> > knownShapes;
+    StorageType st = args[0].info->getEmbeddingType();
+
+    for (auto & a: args) {
+        if (!a.info->couldBeEmbedding())
+            throw HttpReturnException(400, "concat requires embeddings");
+        auto sh = a.info->getEmbeddingShape();
+        knownShapes.emplace_back(sh);
+        st = coveringStorageType(st, a.info->getEmbeddingType());
+    }
+
+    auto outShape = calcShape(knownShapes);
+
+    auto outputInfo = std::make_shared<EmbeddingValueInfo>(outShape, st);
+    
+    auto exec = [=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+        -> ExpressionValue
+        {
+            ExcAssert(!args.empty());
+
+            Date ts = args[0].getEffectiveTimestamp();
+            std::vector<DimsVector> shapes;
+            shapes.reserve(args.size());
+            auto st = args[0].getEmbeddingType();
+            for (auto & a: args) {
+                shapes.emplace_back(a.getEmbeddingShape());
+                st = coveringStorageType(st, a.getEmbeddingType());
+                ts.setMax(a.getEffectiveTimestamp());
+            }
+            
+            DimsVector shape = calcShape(shapes);
+
+            auto outBuffer = allocateStorageBuffer(shape, st);
+
+            // Go argument by argument, copying elements in
+            char * data = (char *)outBuffer.get();
+            for (auto & a: args) {
+                size_t n = a.rowLength();
+                a.convertEmbedding(data, n, st);
+                size_t bytes = storageBufferBytes(n, st);
+                data += bytes;
+            }
+
+            return ExpressionValue::embedding(ts, outBuffer, st, shape);
+        };
+
+    return {
+        exec,
+        outputInfo
+     };
+}
+
+static RegisterBuiltin registerConcat(concat, "concat");
+
 BoundFunction shape(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);

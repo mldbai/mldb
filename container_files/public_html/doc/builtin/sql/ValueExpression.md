@@ -560,6 +560,10 @@ The following functions return numerical constants:
   number of elements increases, new elements will be filled in with the
   `newel` parameter.
 - `shape(val)` will take a n-dimensional embedding and return the size of each dimension as as array.
+- `concat(x, ...)` will take several embeddings with identical sizes in all
+  but their last dimension and join them together on the last dimension.
+  For single dimension embeddings, this is normal concatenation.  For two
+  dimension embeddings, this will join them vertically.  And so forth.
 - `slice(val, index)` will take an n-dimensional embedding and select only
   the `index`th element of the last index.  For example, with a `m x n` embedding
   `x` a single row can be selected with `x[index]` (returning a `n` element
