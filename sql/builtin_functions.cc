@@ -3359,7 +3359,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                            const SqlRowScope & scope)
             -> ExpressionValue
             {
-                auto rowScope = evalScope.getRowScope(args);
+                auto rowScope = evalScope.getRowScope(scope, args);
     
                 try {
                     return bound(rowScope, GET_ALL);
