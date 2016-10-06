@@ -1337,51 +1337,51 @@ regNearestNeighborsFunction(builtinPackage(),
                             "functions/NearestNeighborsFunction.md.html");
 
 /*****************************************************************************/
-/* Image Wrapper function                                                    */
+/* Read Pixels function                                                      */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(ImageWrapperFunctionConfig);
+DEFINE_STRUCTURE_DESCRIPTION(ReadPixelsFunctionConfig);
 
-ImageWrapperFunctionConfigDescription::
-ImageWrapperFunctionConfigDescription()
+ReadPixelsFunctionConfigDescription::
+ReadPixelsFunctionConfigDescription()
 {
     addField("expression",
-             &ImageWrapperFunctionConfig::expression,
-             "");           
+             &ReadPixelsFunctionConfig::expression,
+             "SQL Expression that will evaluate to the embedding we want to provide access to");           
 }
 
-ImageWrapperInput::
-ImageWrapperInput()
+ReadPixelsInput::
+ReadPixelsInput()
 {
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(ImageWrapperInput);
+DEFINE_STRUCTURE_DESCRIPTION(ReadPixelsInput);
 
-ImageWrapperInputDescription::
-ImageWrapperInputDescription()
+ReadPixelsInputDescription::
+ReadPixelsInputDescription()
 {
-    addField("x", &ImageWrapperInput::x,
-             "");
-    addField("y", &ImageWrapperInput::y,
-             "");
+    addField("x", &ReadPixelsInput::x,
+             "X coordinate to fetch in the embedding");
+    addField("y", &ReadPixelsInput::y,
+             "Y coordinate to fetch in the embedding");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(ImageWrapperOutput);
+DEFINE_STRUCTURE_DESCRIPTION(ReadPixelsOutput);
 
-ImageWrapperOutputDescription::
-ImageWrapperOutputDescription()
+ReadPixelsOutputDescription::
+ReadPixelsOutputDescription()
 {
-    addField("value", &ImageWrapperOutput::value,
-             "");
+    addField("value", &ReadPixelsOutput::value,
+             "Value in the embedding at the specified 2d position");
 }
 
-ImageWrapperFunction::
-ImageWrapperFunction(MldbServer * owner,
+ReadPixelsFunction::
+ReadPixelsFunction(MldbServer * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner)
 {
-    functionConfig = config.params.convert<ImageWrapperFunctionConfig>();
+    functionConfig = config.params.convert<ReadPixelsFunctionConfig>();
     SqlExpressionMldbScope context(owner);
     auto boundExpr = functionConfig.expression->bind(context);
     SqlRowScope scope;
@@ -1389,26 +1389,26 @@ ImageWrapperFunction(MldbServer * owner,
     shape = embedding.getEmbeddingShape();
 }
 
-ImageWrapperFunction::
-~ImageWrapperFunction()
+ReadPixelsFunction::
+~ReadPixelsFunction()
 {
 }
 
-struct ImageWrapperFunctionApplier
-    : public FunctionApplierT<ImageWrapperInput, ImageWrapperOutput> {
+struct ReadPixelsFunctionApplier
+    : public FunctionApplierT<ReadPixelsInput, ReadPixelsOutput> {
 
-    ImageWrapperFunctionApplier(const Function * owner)
-        : FunctionApplierT<ImageWrapperInput, ImageWrapperOutput>(owner)
+    ReadPixelsFunctionApplier(const Function * owner)
+        : FunctionApplierT<ReadPixelsInput, ReadPixelsOutput>(owner)
     {
         info = owner->getFunctionInfo();
     }
 };
 
-ImageWrapperOutput
-ImageWrapperFunction::
-applyT(const ApplierT & applier_, ImageWrapperInput input) const
+ReadPixelsOutput
+ReadPixelsFunction::
+applyT(const ApplierT & applier_, ReadPixelsInput input) const
 {   
-    ImageWrapperOutput output;    
+    ReadPixelsOutput output;    
 
     //We clamp, we do not currently provide interpolation
     int x = input.x.coerceToInteger().toInt();
@@ -1429,73 +1429,73 @@ applyT(const ApplierT & applier_, ImageWrapperInput input) const
         return {ExpressionValue(0, Date::negativeInfinity())};
 }
     
-std::unique_ptr<FunctionApplierT<ImageWrapperInput, ImageWrapperOutput> >
-ImageWrapperFunction::
+std::unique_ptr<FunctionApplierT<ReadPixelsInput, ReadPixelsOutput> >
+ReadPixelsFunction::
 bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
 {
-    std::unique_ptr<ImageWrapperFunctionApplier> result
-        (new ImageWrapperFunctionApplier(this));
+    std::unique_ptr<ReadPixelsFunctionApplier> result
+        (new ReadPixelsFunctionApplier(this));
  
     return std::move(result);
 }
 
-static RegisterFunctionType<ImageWrapperFunction, ImageWrapperFunctionConfig>
-regImageWrapperFunction(builtinPackage(),
-                            "image.wrapper",
+static RegisterFunctionType<ReadPixelsFunction, ReadPixelsFunctionConfig>
+regReadPixelsFunction(builtinPackage(),
+                            "image.readpixels",
                             "Wraps access to a 2d embedding",
-                            "functions/ImageWrapperFunction.md.html");
+                            "functions/ReadPixelsFunction.md.html");
 
 /*****************************************************************************/
-/* Get N Neighbor function                                                   */
+/* Proximate Voxels Function                                                 */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(GetNeighborsFunctionConfig);
+DEFINE_STRUCTURE_DESCRIPTION(ProximateVoxelsFunctionConfig);
 
-GetNeighborsFunctionConfigDescription::
-GetNeighborsFunctionConfigDescription()
+ProximateVoxelsFunctionConfigDescription::
+ProximateVoxelsFunctionConfigDescription()
 {
     addField("expression",
-             &GetNeighborsFunctionConfig::expression,
-             "");
+             &ProximateVoxelsFunctionConfig::expression,
+             "SQL Expression that will evaluate to the embedding we want to provide access to");
     addField("range",
-             &GetNeighborsFunctionConfig::range,
-             "");
+             &ProximateVoxelsFunctionConfig::range,
+             "Semi axis range we want to consider in 3 dimensions");
 }
 
-GetNeighborsInput::
-GetNeighborsInput()
+ProximateVoxelsInput::
+ProximateVoxelsInput()
 {
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(GetNeighborsInput);
+DEFINE_STRUCTURE_DESCRIPTION(ProximateVoxelsInput);
 
-GetNeighborsInputDescription::
-GetNeighborsInputDescription()
+ProximateVoxelsInputDescription::
+ProximateVoxelsInputDescription()
 {
-    addField("x", &GetNeighborsInput::x,
-             "");
-    addField("y", &GetNeighborsInput::y,
-             "");
-    addField("z", &GetNeighborsInput::z,
+    addField("x", &ProximateVoxelsInput::x,
+             "X coordinate to fetch in the embedding");
+    addField("y", &ProximateVoxelsInput::y,
+             "Y coordinate to fetch in the embedding");
+    addField("z", &ProximateVoxelsInput::z,
+             "Z coordinate to fetch in the embedding");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ProximateVoxelsOutput);
+
+ProximateVoxelsOutputDescription::
+ProximateVoxelsOutputDescription()
+{
+    addField("value", &ProximateVoxelsOutput::value,
              "");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(GetNeighborsOutput);
-
-GetNeighborsOutputDescription::
-GetNeighborsOutputDescription()
-{
-    addField("value", &GetNeighborsOutput::value,
-             "");
-}
-
-GetNeighborsFunction::
-GetNeighborsFunction(MldbServer * owner,
+ProximateVoxelsFunction::
+ProximateVoxelsFunction(MldbServer * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner)
 {
-    functionConfig = config.params.convert<GetNeighborsFunctionConfig>();
+    functionConfig = config.params.convert<ProximateVoxelsFunctionConfig>();
     N = functionConfig.range;
     SqlExpressionMldbScope context(owner);
     auto boundExpr = functionConfig.expression->bind(context);
@@ -1503,27 +1503,27 @@ GetNeighborsFunction(MldbServer * owner,
     embedding = boundExpr(scope, GET_ALL);
 }
 
-GetNeighborsFunction::
-~GetNeighborsFunction()
+ProximateVoxelsFunction::
+~ProximateVoxelsFunction()
 {
 }
 
-struct GetNeighborsFunctionApplier
-    : public FunctionApplierT<GetNeighborsInput, GetNeighborsOutput> {
+struct ProximateVoxelsFunctionApplier
+    : public FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput> {
 
-    GetNeighborsFunctionApplier(const Function * owner)
-        : FunctionApplierT<GetNeighborsInput, GetNeighborsOutput>(owner)
+    ProximateVoxelsFunctionApplier(const Function * owner)
+        : FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput>(owner)
     {
         info = owner->getFunctionInfo();
     }
 };
 
-GetNeighborsOutput
-GetNeighborsFunction::
-applyT(const ApplierT & applier_, GetNeighborsInput input) const
+ProximateVoxelsOutput
+ProximateVoxelsFunction::
+applyT(const ApplierT & applier_, ProximateVoxelsInput input) const
 {
     
-    GetNeighborsOutput output;
+    ProximateVoxelsOutput output;
 
     int x = input.x.coerceToInteger().toInt();
     int y = input.y.coerceToInteger().toInt();
@@ -1583,21 +1583,21 @@ applyT(const ApplierT & applier_, GetNeighborsInput input) const
     return {tensor};
 }
     
-std::unique_ptr<FunctionApplierT<GetNeighborsInput, GetNeighborsOutput> >
-GetNeighborsFunction::
+std::unique_ptr<FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput> >
+ProximateVoxelsFunction::
 bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
 {
-    std::unique_ptr<GetNeighborsFunctionApplier> result
-        (new GetNeighborsFunctionApplier(this));
+    std::unique_ptr<ProximateVoxelsFunctionApplier> result
+        (new ProximateVoxelsFunctionApplier(this));
  
     return std::move(result);
 }
 
-static RegisterFunctionType<GetNeighborsFunction, GetNeighborsFunctionConfig>
-regGetNeighborsFunction(builtinPackage(),
-                            "image.getneighbors",
+static RegisterFunctionType<ProximateVoxelsFunction, ProximateVoxelsFunctionConfig>
+regProximateVoxelsFunction(builtinPackage(),
+                            "image.proximatevoxels",
                             "Find values in a cubic volume inside a 3d embedding",
-                            "functions/GetNeighborsFunction.md.html");
+                            "functions/ProximateVoxelsFunction.md.html");
 
 
 } // namespace MLDB

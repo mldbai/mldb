@@ -2625,7 +2625,12 @@ coerceToEmbedding() const
                                    const CellValue & val,
                                    Date ts)
                     {
-                        Path fullColumnName = prefix + columnName;
+                        Path fullColumnName;
+                        if (!prefix.empty())
+                            fullColumnName = prefix + columnName;
+                        else 
+                            fullColumnName = columnName;
+                        
                         if (shape.size() < fullColumnName.size())
                             shape.resize(fullColumnName.size());
 

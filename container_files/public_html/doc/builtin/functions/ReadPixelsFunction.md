@@ -1,10 +1,10 @@
 # Image Wrapper Function
 
-The Image Wrapper Function is used to provide indexed access to an embedding over 2 dimensions.
+The Read Pixels Function is used to provide indexed access to an embedding over 2 dimensions.
 
 ## Configuration
 
-![](%%config function image.wrapper)
+![](%%config function image.readpixels)
 
 ## Example
 

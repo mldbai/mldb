@@ -1,10 +1,10 @@
-# Image Wrapper Function
+# Proximate Voxels Function
 
-The Get Neighbors Function is used to return all values in a cubic sub-volume of a particular embedding.
+The Proximate Voxels Function is used to return all values in a cubic sub-volume of a particular embedding.
 
 ## Configuration
 
-![](%%config function image.wrapper)
+![](%%config function image.proximatevoxels)
 
 ## Example
 
@@ -14,7 +14,7 @@ the specified 4x4x4 3-dimension embedding.
 ```python
 {
     "id": "expr",
-    "type": "image.getneighbors",
+    "type": "image.proximatevoxels",
     "params": {
         "expression": "[[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16]],
                         [[17,18,19,20],[21,22,23,24],[25,26,27,28],[29,30,31,32]],

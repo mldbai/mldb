@@ -52,7 +52,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
 
                 if (!info.info)
                     throw HttpReturnException
-                            (500, "No info for field " + info.fieldName.toUtf8String());
+                            (500, "No info for field " + info.fieldName.toUtf8String() + "," + info.desc.comment);
 
                 knownColumns.emplace_back(PathElement(field.fieldName),
                                           info.info,

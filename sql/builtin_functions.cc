@@ -3275,7 +3275,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
 }
 static RegisterBuiltin registerFetcherFunction(fetcher, "fetcher");
 
-BoundFunction isconst(const std::vector<BoundSqlExpression> & args)
+BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
 
@@ -3291,7 +3291,7 @@ BoundFunction isconst(const std::vector<BoundSqlExpression> & args)
             outputInfo
         };
 }
-static RegisterBuiltin registerIsConstFunction(isconst, "__isconst");
+static RegisterBuiltin registerIsConstFunction(static_is_constant, "__isconst");
 
 } // namespace Builtins
 } // namespace MLDB

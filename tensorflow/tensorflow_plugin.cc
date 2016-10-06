@@ -997,7 +997,7 @@ struct TensorflowGraphBase: public Function {
         }
 
         //cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
-        throw HttpReturnException(500, "Unable to cast value to tensor");
+        throw HttpReturnException(500, "Unable to cast value of type " + val.getTypeAsString() + " to tensor");
     }
     
     tensorflow::Tensor
@@ -1421,7 +1421,7 @@ struct TensorflowGraphBase: public Function {
         functionScope.inferInput();
         
         FunctionInfo result;
-        result.input = std::move(std::dynamic_pointer_cast<RowValueInfo>(functionScope.inputInfo));
+        result.input = ExpressionValueInfo::toRow(functionScope.inputInfo);
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;

@@ -1,7 +1,9 @@
 /** column_scope.h                                                 -*- C++ -*-
     Mathieu Marquis Bolduc, 11 Mars 2016
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+
     This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+
     Scope to bind expression using dataset known columns.
 */
 
@@ -85,6 +87,7 @@ struct ColumnScope: public SqlExpressionMldbScope {
         usage may be extreme; it is usually better to use the
         runIncremental() methods below (which this method calls
         internally).
+
         See documentation on runIncremental() for more details.
     */
     std::vector<std::vector<CellValue> >
@@ -99,9 +102,12 @@ struct ColumnScope: public SqlExpressionMldbScope {
         If any of the onVal expressions returns false, it will be
         stopped.  Each expression in exprs must return an atom as
         a result; if not an exception will be thrown.
+
         The expression will be run in parallel, so onVal must accept
         parallel execution.
+
         Will return false if and only if an onVal call returned false.
+
         If one or more of the onVal calls throws an exception, then one
         of them will be rethrown by the call.
     */
@@ -120,9 +126,12 @@ struct ColumnScope: public SqlExpressionMldbScope {
         stopped.  Each expression in exprs must return a double as
         a result or a null (which will result in the corresponding
         value returning NaN); if not an exception will be thrown.
+
         The expression will be run in parallel, so onVal must accept
         parallel execution.
+
         Will return false if and only if an onVal call returned false.
+
         If one or more of the onVal calls throws an exception, then one
         of them will be rethrown by the call.
     */
@@ -140,3 +149,5 @@ private:
 };
 
 } // namespace MLDB
+
+

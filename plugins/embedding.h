@@ -147,61 +147,61 @@ struct NearestNeighborsFunction
 };
 
 /*****************************************************************************/
-/* IMAGE WRAPPER FUNCTION                                                    */
+/* READ PIXELS FUNCTION                                                      */
 /*****************************************************************************/
 
-struct ImageWrapperFunctionConfig {
-    ImageWrapperFunctionConfig()
+struct ReadPixelsFunctionConfig {
+    ReadPixelsFunctionConfig()
     {
     }
 
     std::shared_ptr<SqlExpression> expression;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(ImageWrapperFunctionConfig);
+DECLARE_STRUCTURE_DESCRIPTION(ReadPixelsFunctionConfig);
 
-struct ImageWrapperInput {
-    ImageWrapperInput();
+struct ReadPixelsInput {
+    ReadPixelsInput();
     ExpressionValue x;
     ExpressionValue y;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(ImageWrapperInput);
+DECLARE_STRUCTURE_DESCRIPTION(ReadPixelsInput);
 
-struct ImageWrapperOutput {
+struct ReadPixelsOutput {
     ExpressionValue value;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(ImageWrapperOutput);
+DECLARE_STRUCTURE_DESCRIPTION(ReadPixelsOutput);
 
-struct ImageWrapperFunction
-    : public ValueFunctionT<ImageWrapperInput, ImageWrapperOutput> {
+struct ReadPixelsFunction
+    : public ValueFunctionT<ReadPixelsInput, ReadPixelsOutput> {
 
-    ImageWrapperFunction(MldbServer * owner,
+    ReadPixelsFunction(MldbServer * owner,
                              PolyConfig config,
                              const std::function<bool (const Json::Value &)> & onProgress);
 
-    virtual ~ImageWrapperFunction();
+    virtual ~ReadPixelsFunction();
 
-    virtual ImageWrapperOutput
-    applyT(const ApplierT & applier, ImageWrapperInput input) const override;
+    virtual ReadPixelsOutput
+    applyT(const ApplierT & applier, ReadPixelsInput input) const override;
     
     virtual std::unique_ptr<ApplierT>
     bindT(SqlBindingScope & outerContext,
           const std::shared_ptr<RowValueInfo> & input) const override;
     
-    ImageWrapperFunctionConfig functionConfig;
+    ReadPixelsFunctionConfig functionConfig;
 
     ExpressionValue embedding;
     DimsVector shape;
 };
 
 /*****************************************************************************/
-/* GET NEIGHBORS FUNCTION                                                    */
+/* PROXIMATE VOXELS                                                          */
 /*****************************************************************************/
 
-struct GetNeighborsFunctionConfig {
-    GetNeighborsFunctionConfig()
+struct ProximateVoxelsFunctionConfig {
+    ProximateVoxelsFunctionConfig()
     {
     }
 
@@ -209,40 +209,40 @@ struct GetNeighborsFunctionConfig {
     int range;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(GetNeighborsFunctionConfig);
+DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsFunctionConfig);
 
-struct GetNeighborsInput {
-    GetNeighborsInput();
+struct ProximateVoxelsInput {
+    ProximateVoxelsInput();
     ExpressionValue x;
     ExpressionValue y;
     ExpressionValue z;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(GetNeighborsInput);
+DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsInput);
 
-struct GetNeighborsOutput {
+struct ProximateVoxelsOutput {
     ExpressionValue value;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(GetNeighborsOutput);
+DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsOutput);
 
-struct GetNeighborsFunction
-    : public ValueFunctionT<GetNeighborsInput, GetNeighborsOutput> {
+struct ProximateVoxelsFunction
+    : public ValueFunctionT<ProximateVoxelsInput, ProximateVoxelsOutput> {
 
-    GetNeighborsFunction(MldbServer * owner,
+    ProximateVoxelsFunction(MldbServer * owner,
                              PolyConfig config,
                              const std::function<bool (const Json::Value &)> & onProgress);
 
-    virtual ~GetNeighborsFunction();
+    virtual ~ProximateVoxelsFunction();
 
-    virtual GetNeighborsOutput
-    applyT(const ApplierT & applier, GetNeighborsInput input) const override;
+    virtual ProximateVoxelsOutput
+    applyT(const ApplierT & applier, ProximateVoxelsInput input) const override;
     
     virtual std::unique_ptr<ApplierT>
     bindT(SqlBindingScope & outerContext,
           const std::shared_ptr<RowValueInfo> & input) const override;
     
-    GetNeighborsFunctionConfig functionConfig;
+    ProximateVoxelsFunctionConfig functionConfig;
 
     ExpressionValue embedding;
 

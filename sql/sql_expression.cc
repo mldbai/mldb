@@ -1450,6 +1450,22 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             return lhs;
         }
 
+        if (context.match_literal('['))
+        {
+            //extract expression
+
+            auto extractExpression
+                = SqlExpression::parse(context,
+                                       10 /*precedence*/, allowUtf8);
+            skip_whitespace(context);
+            context.expect_literal(']');
+
+            lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
+            lhs->surface = ML::trim(token.captured());
+            continue;
+
+        }
+
         // Look for IS NULL or IS NOT NULL
         if (matchKeyword(context, "IS")) {
             expect_whitespace(context);
@@ -1547,23 +1563,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     continue;
                 }
             }
-        }
-
-        if (context.match_literal('['))
-        {
-            //extract expression
-
-            auto extractExpression
-                = SqlExpression::parse(context,
-                                       10 /*precedence*/, allowUtf8);
-            skip_whitespace(context);
-            context.expect_literal(']');
-
-            lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
-            lhs->surface = ML::trim(token.captured());
-            continue;
-
-        }
+        }        
 
         // 'LIKE' expression
         if (currentPrecedence > 5) {

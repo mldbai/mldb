@@ -482,8 +482,8 @@ struct SparseMatrixDataset::Itl
             return { hash, 24 };
         }
         default:
-            cerr << "WIERD TYPE: " << val.cellType() << endl;
-            ExcAssert(false);
+            throw HttpReturnException(500,
+                                      "Unmanaged type in Sparse Matrix Dataset encodeVal", val.cellType());
         }
     }
 
