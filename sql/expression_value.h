@@ -38,6 +38,7 @@ struct MatrixEvent;
 struct ExpressionValue;
 struct ExpressionValueInfo;
 struct RowValueInfo;
+struct EmbeddingValueInfo;
 
 /** A row in an expression value is a set of (key, atom, timestamp) pairs. */
 typedef std::vector<std::tuple<Path, CellValue, Date> > RowValue;
@@ -1541,8 +1542,77 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
     }
 };
 
+/// For a row.  This may have information about columns within that row.
+struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
+    
+    RowValueInfo(const std::vector<KnownColumn> & columns,
+                 SchemaCompleteness completeness = SCHEMA_CLOSED);
+
+    virtual bool isScalar() const override;
+
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
+
+    virtual void flatten(const ExpressionValue & value,
+                         const std::function<void (const ColumnPath & columnName,
+                                                   const CellValue & value,
+                                                   Date timestamp)> & write) const override;
+
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const PathElement & columnName) const override;
+
+    virtual std::shared_ptr<ExpressionValueInfo> 
+    findNestedColumn(const ColumnPath& columnName) const override;
+
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
+
+    virtual bool isCompatible(const ExpressionValue & value) const override
+    {
+        return value.isRow();
+    }
+
+    virtual bool isRow() const override
+    {
+        return true;
+    }
+
+    virtual bool couldBeRow() const override
+    {
+        return true;
+    }
+
+    virtual bool couldBeScalar() const override
+    {
+        return false;
+    }
+
+protected:
+    RowValueInfo()
+    {
+    }
+
+    std::vector<KnownColumn> columns;
+    SchemaCompleteness completeness;
+    SchemaCompleteness completenessRecursive;
+};
+
+/// For a row where we don't know the columns
+struct UnknownRowValueInfo: public RowValueInfo {
+    
+    UnknownRowValueInfo()
+        : RowValueInfo({}, SCHEMA_OPEN)
+    {
+    }
+
+    virtual bool isRow() const
+    {
+        return true;
+    }
+};
+
 /// For an embedding
-struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValue, std::vector<CellValue> > > {
+struct EmbeddingValueInfo: public RowValueInfo {
     EmbeddingValueInfo(StorageType storageType = ST_ATOM)
         : EmbeddingValueInfo(std::vector<ssize_t>({-1}), storageType)
     {
@@ -1610,73 +1680,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
     }
 };
 
-/// For a row.  This may have information about columns within that row.
-struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
-    
-    RowValueInfo(const std::vector<KnownColumn> & columns,
-                 SchemaCompleteness completeness = SCHEMA_CLOSED);
-
-    virtual bool isScalar() const override;
-
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
-
-    virtual void flatten(const ExpressionValue & value,
-                         const std::function<void (const ColumnPath & columnName,
-                                                   const CellValue & value,
-                                                   Date timestamp)> & write) const override;
-
-    virtual std::shared_ptr<ExpressionValueInfo>
-    getColumn(const PathElement & columnName) const override;
-
-    virtual std::shared_ptr<ExpressionValueInfo> 
-    findNestedColumn(const ColumnPath& columnName) const override;
-
-    virtual std::vector<KnownColumn> getKnownColumns() const override;
-    virtual SchemaCompleteness getSchemaCompleteness() const override;
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
-
-    virtual bool isCompatible(const ExpressionValue & value) const override
-    {
-        return value.isRow();
-    }
-
-    virtual bool isRow() const override
-    {
-        return true;
-    }
-
-    virtual bool couldBeRow() const override
-    {
-        return true;
-    }
-
-    virtual bool couldBeScalar() const override
-    {
-        return false;
-    }
-
-protected:
-    std::vector<KnownColumn> columns;
-    SchemaCompleteness completeness;
-    SchemaCompleteness completenessRecursive;
-};
-
-/// For a row.  This may have information about columns within that row.
-struct UnknownRowValueInfo: public RowValueInfo {
-    
-    UnknownRowValueInfo()
-        : RowValueInfo({}, SCHEMA_OPEN)
-    {
-    }
-
-    virtual bool isRow() const
-    {
-        return true;
-    }
-};
-
 /*****************************************************************************/
-/* OR Expression Value Info                                                  */
+/* Variant Expression Value Info                                             */
 /*****************************************************************************/
 
 /** Expression Value info when we dont know which of two value info we will get 
