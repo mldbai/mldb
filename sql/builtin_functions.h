@@ -146,6 +146,31 @@ struct RegisterBuiltin {
 
 
 /*****************************************************************************/
+/* BUILTIN CONSTANTS                                                         */
+/*****************************************************************************/
+
+/** This class is used to register a new builtin constant with the given
+    value.  The constant is expressed as a function.
+
+    Example:
+
+    static RegisterBuiltinConstant registerPi("pi", 3.1415....);
+
+    This will create a new function 'pi()' which returns the value of
+    pi.
+*/
+
+struct RegisterBuiltinConstant: public RegisterFunction {
+    RegisterBuiltinConstant(const Utf8String & name, const CellValue & value);
+
+    static BoundFunction bind(const Utf8String &,
+                              const std::vector<BoundSqlExpression> & args,
+                              SqlBindingScope & context,
+                              const CellValue & value);
+};
+
+
+/*****************************************************************************/
 /* SQL BUILTIN                                                               */
 /*****************************************************************************/
 

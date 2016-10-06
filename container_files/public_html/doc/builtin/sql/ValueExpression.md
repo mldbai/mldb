@@ -455,6 +455,15 @@ expression|result
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
+### Constant functions
+
+The following functions return numerical constants:
+
+- `pi()` returns the value of *pi*, the ratio of a circle's circumfrence to its
+  diameter, as a double precision floating point number.
+- `e()` returns the value of *e*, the base of natural logarithms, as a double
+  precision floating point number.
+
 ### String functions
 
 - `lower(string)` returns the lowercase version of the string, according to the
@@ -551,11 +560,16 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   number of elements increases, new elements will be filled in with the
   `newel` parameter.
 - `shape(val)` will take a n-dimensional embedding and return the size of each dimension as as array.
+- `slice(val, index)` will take an n-dimensional embedding and select only
+  the `index`th element of the last index.  For example, with a `m x n` embedding
+  `x` a single row can be selected with `x[index]` (returning a `n` element
+  embedding).  Whereas `slice(x, index)` will return the `index`th *column*
+  as an `m` element embedding. 
 
 ### <a name="geofunctions"></a>Geographical functions
 
 The following functions operate on latitudes and longtitudes and can be used to
-calculate
+calculate things to do with locations on Earth:
 
 - `geo_distance(lat1, lon1, lat2, lon2)` calculates the great circle distance from
   the point at `(lat1, lon1)` to the point at (lat2, lon2)` in meters assuming that

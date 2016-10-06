@@ -20,6 +20,8 @@ SQL_EXPRESSION_SOURCES := \
 	builtin_http_functions.cc \
 	builtin_dataset_functions.cc \
 	builtin_aggregators.cc \
+	builtin_constants.cc \
+	interval.cc \
 	join_utils.cc \
 	tokenize.cc \
 	execution_pipeline.cc \

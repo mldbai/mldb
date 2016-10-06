@@ -3252,6 +3252,45 @@ static RegisterBuiltin registerTryFunction(tryFct, "try");
 
 
 /*****************************************************************************/
+/* BUILTIN CONSTANTS                                                         */
+/*****************************************************************************/
+
+RegisterBuiltinConstant::
+RegisterBuiltinConstant(const Utf8String & name, const CellValue & value)
+    : RegisterFunction(name,
+                       std::bind(bind,
+                                 std::placeholders::_1,
+                                 std::placeholders::_2,
+                                 std::placeholders::_3,
+                                 value))
+{
+}
+
+BoundFunction
+RegisterBuiltinConstant::
+bind(const Utf8String &,
+     const std::vector<BoundSqlExpression> & args,
+     SqlBindingScope & context,
+     const CellValue & value)
+{
+    ExpressionValue resultVal(value, Date::negativeInfinity());
+
+    auto exec = [=] (const std::vector<ExpressionValue> &,
+                     const SqlRowScope & context)
+        -> ExpressionValue
+        {
+            return resultVal;
+        };
+
+    BoundFunction result(exec,
+                         resultVal.getSpecializedValueInfo());
+    result.resultMetadata.isConstant = true;
+
+    return result;
+}
+
+
+/*****************************************************************************/
 /* SQL BUILTINS                                                              */
 /*****************************************************************************/
 
