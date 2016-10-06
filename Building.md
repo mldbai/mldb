@@ -222,7 +222,7 @@ docker push quay.io/datacratic/baseimage:latest
 ## S3 Credentials
 
 Some tests require S3 credentials in order to run, as they access public files in the
-`dev.mldb.datacratic.com` S3 bucket.  These credentials are
+`public-mldb-ai` S3 bucket.  These credentials are
 nothing special: they simply require read-only access to public S3 buckets.
 But they need to be enabled for full test coverage.
 
