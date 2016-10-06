@@ -843,7 +843,14 @@ allocateStorageBuffer(size_t size, StorageType storage)
 }
 
 std::shared_ptr<void>
-allocateStorageBuffer(const DimsVector & size, StorageType storage);
+allocateStorageBuffer(const DimsVector & size, StorageType storage)
+{
+    size_t sz = 1;
+    for (auto & s: size)
+        sz *= s;
+    return allocateStorageBuffer(sz, storage);
+}
+
 
 /** Return the size of a storage buffer of the given type.  Includes only
     direct (no indirect) storage.

@@ -33,6 +33,14 @@ inline void checkArgsSize(size_t number, size_t expected,
     }
 }
 
+/** Return the value of an argument that may not be present (in which case
+    the default value is returned).
+*/
+CellValue getArg(const std::vector<ExpressionValue> & args,
+                 size_t n,
+                 const char * name,
+                 const CellValue & def);
+
 inline void checkArgsSize(size_t number, size_t minArgs, size_t maxArgs,
                           const Utf8String & fctName_=NO_FUNCTION_NAME)
 {

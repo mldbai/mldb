@@ -40,7 +40,18 @@ namespace MLDB {
 
 const Utf8String NO_FUNCTION_NAME;
 
+CellValue getArg(const std::vector<ExpressionValue> & args,
+                 size_t n,
+                 const char * name,
+                 const CellValue & def)
+{
+    if (args.size() > n)
+        return args[n].getAtom();
+    return def;
+}
+
 namespace Builtins {
+
 
 /*****************************************************************************/
 /* UNARY SCALARS                                                             */

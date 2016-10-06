@@ -581,6 +581,39 @@ calculate things to do with locations on Earth:
   accurate to within 0.3% anywhere on earth, apart from near the North or South
   Poles.
 
+### <a name="geofunctions"></a>Signal processing functions
+
+The following functions provide digital signal processing capabilities:
+
+- `fft(data [,direction='forward' [,type='real']])` performs a fast fourier
+   transform on the given data.  `direction` can be `'forward'` or `'backward'`
+   and controls the direction of the transform (the default is `'forward'`).
+   `type` controls whether the data in the time domain is `'real'` or `'complex'`
+   valued (default is real).  `data` must be an embedding of `n` reals (for the
+   real case) or an `n` by 2 embedding (for the complex case), and `n` must be
+   divisible by 32 (you can zero-pad the data otherwise).
+   <p>The output of the forward FFT function is always complex valued, with
+   the real and imaginary components in a `n` by 2 embedding on the output.
+   Note that for real-valued FFTs, the imaginary part of the first (DC) component
+   contains the half-frequency real component, unlike most FFT implementations.
+   This needs to be maintained for the `reverse` direction to work, but will
+   need to be handled in any analysis that is performed in the frequency
+   domain.
+- `phase(data)` returns takes a `n` by 2 embedding, with real and complex
+  parts, and returns an `n` element embedding with the phase angle.
+- `amplitude(data)` returns takes a `n` by 2 embedding, with real and complex
+  parts, and returns an `n` element embedding with the amplitude.
+- `real(data)` takes an `n` by 2 embedding, and returns the a `n` element
+  embedding with the real parts.
+- `imag(data)` takes an `n` by 2 embedding, and returns the a `n` element
+  embedding with the real parts.
+- `impulse(n)` returns an `n` element real embedding with the impulse function,
+  with the first element 1 and the rest zero.
+- `shifted_impulse(n, e)` returns an impulse function of length `n
+  time-shifted by `e` steps, ie zeros everywhere apart from the `e`th element
+  which is one.
+
+
 ### <a name="httpfunctions"></a>Web data functions
 
 The following functions are used to extract and process web data.
