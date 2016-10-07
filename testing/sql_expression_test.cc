@@ -29,9 +29,9 @@ BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
 
 
 struct TestContext: public SqlRowScope {
-    std::map<ColumnName, ExpressionValue> vars;
+    std::map<ColumnPath, ExpressionValue> vars;
 
-    virtual ExpressionValue getVariable(const ColumnName & columnName) const
+    virtual ExpressionValue getVariable(const ColumnPath & columnName) const
     {
         auto it = vars.find(columnName);
         if (it == vars.end())
@@ -55,7 +55,7 @@ struct TestBindingContext: public SqlBindingScope {
     }
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                               const ColumnName & columnName)
+                               const ColumnPath & columnName)
     {
         return {[=] (const SqlRowScope & context,
                      ExpressionValue & storage,
@@ -81,7 +81,7 @@ struct TestBindingContext: public SqlBindingScope {
                 std::vector<std::tuple<PathElement, ExpressionValue> > result;
 
                 for (auto & v: testContext.vars) {
-                    ColumnName name = keep(v.first);
+                    ColumnPath name = keep(v.first);
                     if (!name.empty())
                         result.emplace_back(name.toSimpleName(), v.second);
                 }
@@ -1146,7 +1146,7 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         BOOST_CHECK_EQUAL(ML::type_name(*statement.select.clauses[0].get()),
                           "MLDB::NamedColumnExpression");
         auto cast = dynamic_cast<NamedColumnExpression *>(statement.select.clauses[0].get());
-        BOOST_CHECK_EQUAL(cast->alias, ColumnName("1"));
+        BOOST_CHECK_EQUAL(cast->alias, ColumnPath("1"));
     }
 
     {

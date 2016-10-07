@@ -344,7 +344,7 @@ doGetAggregator(const Utf8String & aggregatorName,
 
 ColumnGetter
 SqlBindingScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
     throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
                               + " must override getColumn: wanted "
@@ -419,9 +419,9 @@ doGetTable(const Utf8String & tableName)
                               + " does not support getting tables");
 }
 
-ColumnName
+ColumnPath
 SqlBindingScope::
-doResolveTableName(const ColumnName & fullColumnName,
+doResolveTableName(const ColumnPath & fullColumnName,
                    Utf8String &tableName) const
 {
     //default behaviour is there is no dataset so return the full column name
@@ -760,9 +760,9 @@ static Utf8String matchIdentifier(ML::Parse_Context & context, bool allowUtf8)
     return result;
 }
 
-static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
+static ColumnPath matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 {
-    ColumnName result;
+    ColumnPath result;
 
     if (context.eof()) {
         return result;
@@ -1281,7 +1281,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
         
         lhs->surface = ML::trim(token.captured());
-    }
+    }    
 
     if (!lhs && matchKeyword(context, "CAST")) {
         skip_whitespace(context);
@@ -1352,7 +1352,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     // First, look for a variable or a function name
     if (!lhs) {
-        ColumnName identifier = matchColumnName(context, allowUtf8);
+        ColumnPath identifier = matchColumnName(context, allowUtf8);
         if (!identifier.empty()) {
             lhs = std::make_shared<ReadColumnExpression>(identifier);
             lhs->surface = ML::trim(token.captured());
@@ -1423,24 +1423,11 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     (tableName, functionName, args);
 
                 lhs->surface = ML::trim(token.captured());
-
-                skip_whitespace(context);
-
-                // Look for an extract expression, which allows us to rewrite
-                // the output of the function.
-                std::shared_ptr<SqlExpression> extractExpression;
-                if (context.match_literal('[')) {
-                    //extract brackets for user functions
-                    auto extractExpression
-                        = SqlExpression::parse(context,
-                                               10 /*precedence*/, allowUtf8);
-                    skip_whitespace(context);
-                    context.expect_literal(']');
-
-                    lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
-                    lhs->surface = ML::trim(token.captured());
-                }
+               
             } // if '(''
+
+            skip_whitespace(context);           
+
         } // if ! identifier empty
     } //if (!lhs)
 
@@ -1461,6 +1448,22 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if (context.eof()) {
             lhs->surface = ML::trim(token.captured());
             return lhs;
+        }
+
+        if (context.match_literal('['))
+        {
+            //extract expression
+
+            auto extractExpression
+                = SqlExpression::parse(context,
+                                       10 /*precedence*/, allowUtf8);
+            skip_whitespace(context);
+            context.expect_literal(']');
+
+            lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
+            lhs->surface = ML::trim(token.captured());
+            continue;
+
         }
 
         // Look for IS NULL or IS NOT NULL
@@ -1560,7 +1563,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     continue;
                 }
             }
-        }
+        }        
 
         // 'LIKE' expression
         if (currentPrecedence > 5) {
@@ -2158,7 +2161,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
        as a filtered subset or all columns from the output.
     */
-    auto matchPrefixedWildcard = [&] (ColumnName & prefix)
+    auto matchPrefixedWildcard = [&] (ColumnPath & prefix)
         {
             ML::Parse_Context::Revert_Token token(context);
             skip_whitespace(context);
@@ -2174,11 +2177,11 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
     bool isWildcard = false;
     bool matched = false;
-    ColumnName prefix;
-    ColumnName prefixAs;
-    std::vector<std::pair<ColumnName, bool> > exclusions;   // Prefixes to exclude
+    ColumnPath prefix;
+    ColumnPath prefixAs;
+    std::vector<std::pair<ColumnPath, bool> > exclusions;   // Prefixes to exclude
     std::shared_ptr<SqlExpression> expr;
-    ColumnName columnName;
+    ColumnPath columnName;
 
     {
         ML::Parse_Context::Revert_Token token(context);
@@ -2217,7 +2220,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         ML::Parse_Context::Revert_Token token(context);
 
         // Do we have an identifier?
-        ColumnName asName = matchColumnName(context, allowUtf8);
+        ColumnPath asName = matchColumnName(context, allowUtf8);
         
         if (!asName.empty()) {
 
@@ -2279,7 +2282,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
             auto expectExclusion = [&] ()
                 {
-                    ColumnName prefix = matchColumnName(context, allowUtf8);
+                    ColumnPath prefix = matchColumnName(context, allowUtf8);
                     if (context.match_literal('*')) {
                         if (prefix.empty())
                             context.exception("can't exclude *");
@@ -3926,7 +3929,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         context.exception("Expected SELECT");
     }
 
-    bool needDefaultRowName = false;
+    bool needDefaultRowPath = false;
     if (matchKeyword(context, "NAMED ")) {
         statement.rowName = SqlExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
@@ -3934,18 +3937,18 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     else {
         //default name is "rowPath()" if there is a dataset and "result" if there is none
         //we need to check if there is a FROM first.
-        needDefaultRowName = true;
+        needDefaultRowPath = true;
     }
 
     if (matchKeyword(context, "FROM ")) {
         statement.from = TableExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
-        if (needDefaultRowName)
+        if (needDefaultRowPath)
             statement.rowName = SqlExpression::parse("rowPath()");
     }
     else {
         statement.from = std::make_shared<NoTable>();
-        if (needDefaultRowName)
+        if (needDefaultRowPath)
             statement.rowName = SqlExpression::parse("'result'");
     }
     

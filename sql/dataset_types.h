@@ -22,7 +22,7 @@ namespace MLDB {
 
 struct MatrixRow {
     RowHash rowHash;
-    RowName rowName;
+    RowPath rowName;
     std::vector<std::tuple<ColumnHash, CellValue, Date> > columns;
 };
 
@@ -35,8 +35,8 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixRow);
 
 struct MatrixNamedRow {
     RowHash rowHash;
-    RowName rowName;
-    std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+    RowPath rowName;
+    std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedRow);
@@ -48,7 +48,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedRow);
 
 struct MatrixEvent {
     RowHash rowHash;
-    RowName rowName;
+    RowPath rowName;
     Date timestamp;
     std::vector<std::tuple<ColumnHash, CellValue> > columns;
 };
@@ -62,9 +62,9 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixEvent);
 
 struct MatrixNamedEvent {
     RowHash rowHash;
-    RowName rowName;
+    RowPath rowName;
     Date timestamp;
-    std::vector<std::tuple<ColumnName, CellValue> > columns;
+    std::vector<std::tuple<ColumnPath, CellValue> > columns;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedEvent);
@@ -76,8 +76,8 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedEvent);
 
 struct MatrixColumn {
     ColumnHash columnHash;
-    ColumnName columnName;
-    std::vector<std::tuple<RowName, CellValue, Date> > rows;
+    ColumnPath columnName;
+    std::vector<std::tuple<RowPath, CellValue, Date> > rows;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MatrixColumn);

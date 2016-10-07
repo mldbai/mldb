@@ -180,9 +180,9 @@ run(const ProcedureRunConfig & run,
     SelectExpression select({subSelect});
 
     auto getColumnsInExpression = [&] (const SqlExpression & expr)
-        -> std::set<ColumnName>
+        -> std::set<ColumnPath>
         {
-            std::set<ColumnName> knownInputColumns;
+            std::set<ColumnPath> knownInputColumns;
 
             // Find only those variables used
             SqlExpressionDatasetScope scope(boundDataset);
@@ -196,7 +196,7 @@ run(const ProcedureRunConfig & run,
             return knownInputColumns;
         };
 
-    std::set<ColumnName> knownInputColumns
+    std::set<ColumnPath> knownInputColumns
         = getColumnsInExpression(select);
 
     auto featureSpace = std::make_shared<DatasetFeatureSpace>

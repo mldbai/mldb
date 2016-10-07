@@ -142,7 +142,7 @@ void validateCollection(const std::string & collection)
 ColumnGetter
 MongoScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &

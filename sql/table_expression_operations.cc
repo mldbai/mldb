@@ -368,7 +368,7 @@ getUnbound() const
     result.merge(rightUnbound);
     result.mergeFiltered(onUnbound, tables);
 
-    std::vector<ColumnName> toRemove;
+    std::vector<ColumnPath> toRemove;
     for (auto & v: result.vars) {
         for (auto & t: tables) {
             if (v.first.startsWith(t)) {
@@ -649,10 +649,10 @@ bind(SqlBindingScope & context) const
     // one column available and thus its value type is simple
 
     std::vector<KnownColumn> knownColumns;
-    knownColumns.emplace_back(ColumnName("value"),
+    knownColumns.emplace_back(ColumnPath("value"),
                               std::make_shared<AnyValueInfo>(),
                               COLUMN_IS_DENSE);
-    knownColumns.emplace_back(ColumnName("column"),
+    knownColumns.emplace_back(ColumnPath("column"),
                               std::make_shared<AnyValueInfo>(),
                               COLUMN_IS_DENSE);
     auto info = std::make_shared<RowValueInfo>(knownColumns);
@@ -709,7 +709,7 @@ bind(SqlBindingScope & context) const
                                    Date ts)
                 {
                     NamedRowValue row;
-                    row.rowHash = row.rowName = ColumnName(to_string(n++));
+                    row.rowHash = row.rowName = ColumnPath(to_string(n++));
 
                     row.columns.emplace_back(columnNameName,
                                              ExpressionValue((prefix+columnName).toUtf8String(), ts));

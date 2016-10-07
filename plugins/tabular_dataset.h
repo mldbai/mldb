@@ -53,7 +53,7 @@ struct TabularDataset : public Dataset {
 
     virtual std::shared_ptr<RowStream> getRowStream() const;
 
-    virtual ExpressionValue getRowExpr(const RowName & row) const;
+    virtual ExpressionValue getRowExpr(const RowPath & row) const;
     
     virtual std::pair<Date, Date> getTimestampRange() const;
 
@@ -64,16 +64,16 @@ struct TabularDataset : public Dataset {
                       ssize_t offset,
                       ssize_t limit) const;
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
 
     /** Commit changes to the database. */
     virtual void commit();
 
     virtual MultiChunkRecorder getChunkRecorder();
 
-    void recordRowItl(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    void recordRowItl(const RowPath & rowName, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
 protected:
     // To initialize from a subclass

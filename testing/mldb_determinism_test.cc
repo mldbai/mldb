@@ -134,8 +134,8 @@ BOOST_AUTO_TEST_CASE( test_determinism_agggregator )
     auto addRow = [&] (const std::string & rowName, float x)
         {
             MatrixNamedRow row;
-            row.rowName = RowName(rowName);
-            row.columns.emplace_back(ColumnName("x"), x, Date());
+            row.rowName = RowPath(rowName);
+            row.columns.emplace_back(ColumnPath("x"), x, Date());
             cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
         };
 

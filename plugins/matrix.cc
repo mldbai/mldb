@@ -62,8 +62,8 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
 
     auto boundSelect = select.bind(context);
 
-    std::vector<ColumnName> selectedColumnsVec = boundSelect.info->allColumnNames();
-    std::set<ColumnName> selectedColumns(selectedColumnsVec.begin(),
+    std::vector<ColumnPath> selectedColumnsVec = boundSelect.info->allColumnNames();
+    std::set<ColumnPath> selectedColumns(selectedColumnsVec.begin(),
                                          selectedColumnsVec.end());
     if (boundSelect.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN)
         cerr << "WARNING: non-enumerated columns will not be used "
@@ -83,7 +83,7 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
 
     size_t rowCount = dataset.getMatrixView()->getRowCount();
 
-    auto onColumn = [&] (const ColumnName & columnName,
+    auto onColumn = [&] (const ColumnPath & columnName,
                          const ColumnStats & stats)
         {
             // If it wasn't in our selected columns, we don't keep it

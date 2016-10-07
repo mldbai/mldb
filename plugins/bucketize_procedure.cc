@@ -137,7 +137,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    vector<RowName> orderedRowNames;
+    vector<RowPath> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
@@ -182,14 +182,14 @@ run(const ProcedureRunConfig & run,
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> Cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<Cell>>>> accum;
+    typedef tuple<ColumnPath, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowPath, vector<Cell>>>> accum;
 
     auto bucketizeStep = iterationStep->nextStep(1);
     atomic<ssize_t> rowIndex(0);
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
-        rowValue.emplace_back(ColumnName("bucket"),
+        rowValue.emplace_back(ColumnPath("bucket"),
                               mappedRange.first,
                               globalMaxOrderByTimestamp);
 
@@ -228,7 +228,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<Cell>>> * rows)
+    accum.forEach([&] (vector<pair<RowPath, vector<Cell>>> * rows)
     {
         output->recordRows(*rows);
     });
