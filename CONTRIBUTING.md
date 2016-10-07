@@ -14,7 +14,7 @@ cores, how much RAM?
 * What are you trying to do, what happened, and what would you have expected to 
 have happened instead?
 
-MLDB is being actively developed by [Datacratic](http://datacratic.com/) and does 
+MLDB is being actively developed by [MLDB.ai](http://mldb.ai) and does 
 not have a public roadmap at the moment. If you would like to contribute code or 
 new features to MLDB, the best first step would be to send an email to 
-mldb@datacratic.com to discuss how this might fit into existing development plans.
+info@mldb.ai to discuss how this might fit into existing development plans.

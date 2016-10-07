@@ -260,12 +260,12 @@ struct SampledDataset::Itl
 
 
         // std::vector<std::tuple<RowName, CellValue, Date> > rows;
-        for(auto rowName : sampledRows) {
+        for(auto & rowName : sampledRows) {
             auto it = rowIndex.find(rowName);
             if(it == rowIndex.end())
                 throw ML::Exception("Unknown row in index");
 
-            col.rows.emplace_back(col.rows[it->second]);
+            col.rows.emplace_back(allRows[it->second]);
         }
 
         return col;

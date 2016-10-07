@@ -6,4 +6,4 @@ The ![](%%doclink beh.mutable dataset) is the most useful dataset type provided 
 
 The ![](%%doclink beh.binary dataset) and ![](%%doclink beh.binary.mutable dataset) have a similar relationship, but are even more efficient because they only store the cell value `1`.
 
-The MLDB Pro Plugin is part of the [MLDB Enterprise Edition](Running.md), which is freely available under the [MLDB End User License Agreement, Non-Commercial Software License version 1.0](/resources/MLDB_License.pdf). A license permitting commercial use can be purchased from mldb.ai by <a href="mailto:mldb@datacratic.com" target="_blank">contacting sales</a>.
+The MLDB Pro Plugin is part of the [MLDB Enterprise Edition](Running.md), which is freely available under the [MLDB End User License Agreement, Non-Commercial Software License version 1.0](/resources/MLDB_License.pdf). A license permitting commercial use can be purchased from mldb.ai by <a href="mailto:info@mldb.ai" target="_blank">contacting sales</a>.

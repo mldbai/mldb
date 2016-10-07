@@ -949,12 +949,15 @@ Path
 PathBuilder::
 extract()
 {
+    // Clang has problems otherwise...
+    bool isExternal = indexes.size() >= 9 || bytes.size() >= 256; 
+
     Path result;
     result.bytes_ = std::move(bytes);
     result.length_ = indexes.size() - 1;
     result.digits_ = digits_;
 
-    bool isExternal = result.externalOfs();
+    //bool isExternal = result.externalOfs();
 
     if (isExternal) {
         result.ofsPtr_ = new uint32_t[indexes.size()];

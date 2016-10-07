@@ -62,7 +62,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                     "id": "my_json_dataset",
                     "type": "sparse.mutable"
                 },
-                "runOnCreation": True
+                'arrays' : 'encode'
             }
         }
         mldb.put("/v1/procedures/json_importer", conf)
@@ -138,7 +138,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
             "params": {
                 "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
                 "outputDataset": "my_json_dataset_1",
-                "runOnCreation": True
+                'arrays' : 'encode'
             }
         })
 
@@ -346,6 +346,30 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                     'named' : 'lineNumber() - 1',
                 }
             })
+
+    def test_arrays_parse(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": "test_arrays_parse_ds",
+                'arrays' : 'parse'
+            }
+        })
+
+        res = mldb.query(
+            "SELECT * FROM test_arrays_parse_ds ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ["_rowName", "colA", "colB", "colC.a", "colC.b", "colD.0.a",
+             "colD.1.b", "colD.0", "colD.1", "colD.2", "colD.3", "colD.4",
+             "colD.5", "colC.a.b"],
+            ["1", 1, "pwet pwet", None, None, None, None, None, None, None, None, None, None, None],
+            ["2", 2, "pwet pwet 2", None, None, None, None, None, None, None, None, None, None, None],
+            ["3", 3, "pwet pwet 3", 1, 2, None, None, None, None, None, None, None, None, None],
+            ["4", None, None, None, None, 1, 2, None, None, None, None, None, None, None],
+            ["5", None, None, None, None, None, None, 1, 2, 3, 0, 5.25, "abc", None],
+            ["6", None, None, None, None, None, None, None, None, None, None, None, None, 2]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()
