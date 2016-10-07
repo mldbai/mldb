@@ -67,7 +67,7 @@ struct PoolingFunction: public ValueFunctionT<PoolingInput, PoolingOutput> {
     BoundTableExpression boundEmbeddingDataset;
 
     PoolingFunctionConfig functionConfig;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     SelectExpression select;
 };

@@ -59,7 +59,7 @@ struct ReadThroughBindingScope: public SqlBindingScope {
                   SqlBindingScope & argScope);
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -99,18 +99,18 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
     
     /// RowContex structure. Derived class's row scope must derive from this
     struct ColumnScope: public SqlRowScope {
-        ColumnScope(const ColumnName & columnName)
+        ColumnScope(const ColumnPath & columnName)
             : columnName(columnName), columnValue(nullptr)
         {
         }
 
-        ColumnScope(const ColumnName & columnName,
+        ColumnScope(const ColumnPath & columnName,
                     const ExpressionValue & columnValue)
             : columnName(columnName), columnValue(&columnValue)
         {
         }
 
-        const ColumnName & columnName;
+        const ColumnPath & columnName;
         const ExpressionValue * columnValue;
     };
 
@@ -120,12 +120,12 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    static ColumnScope getColumnScope(const ColumnName & columnName)
+    static ColumnScope getColumnScope(const ColumnPath & columnName)
     {
         return ColumnScope(columnName);
     }
     
-    static ColumnScope getColumnScope(const ColumnName & columnName,
+    static ColumnScope getColumnScope(const ColumnPath & columnName,
                                       const ExpressionValue & val)
     {
         return ColumnScope(columnName, val);
@@ -138,7 +138,7 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
 
     // Only so we can return a good error message
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
 
     // Only so we can return a good error message
     virtual GetAllColumnsOutput
@@ -146,8 +146,8 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
                     const ColumnFilter& keep);
 
     // Only so we can return a good error message
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullVariableName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullVariableName,
                        Utf8String & tableName) const;
 };
 
@@ -353,7 +353,7 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
     std::shared_ptr<ExpressionValueInfo> inputInfo;
 
     /// Set of column names that we're inferring
-    std::unordered_set<ColumnName> inferredInputs;
+    std::unordered_set<ColumnPath> inferredInputs;
 
     /// Do we have wildcards in our input?  If so, we can't have a closed
     /// schema for our inputs.
@@ -366,7 +366,7 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
     void inferInput();
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                             const ColumnName & columnName);
+                             const ColumnPath & columnName);
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -378,8 +378,8 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullVariableName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullVariableName,
                        Utf8String & tableName) const;
 
     struct RowScope: public SqlRowScope {

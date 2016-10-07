@@ -39,7 +39,7 @@ struct Recorder {
         datasets that require flattening.
     */
     virtual void
-    recordRowExpr(const RowName & rowName,
+    recordRowExpr(const RowPath & rowName,
                   const ExpressionValue & expr) = 0;
 
     /** See recordRowExpr().  This has the same effect, but takes an rvalue
@@ -47,45 +47,45 @@ struct Recorder {
         improvements.
     */
     virtual void
-    recordRowExprDestructive(RowName rowName,
+    recordRowExprDestructive(RowPath rowName,
                              ExpressionValue expr);
 
     /** Record a pre-flattened row. */
     virtual void
-    recordRow(const RowName & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) = 0;
+    recordRow(const RowPath & rowName,
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) = 0;
 
     /** See recordRow().  This has the same effect, but takes an rvalue
         which is destroyed by the call.  This may result in performance
         improvements.
     */
     virtual void
-    recordRowDestructive(RowName rowName,
-                         std::vector<std::tuple<ColumnName, CellValue, Date> > vals);
+    recordRowDestructive(RowPath rowName,
+                         std::vector<std::tuple<ColumnPath, CellValue, Date> > vals);
 
     /** Record multiple flattened rows in a single transaction.  Default
         implementation forwards to recordRow.
     */
     virtual void
-    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) = 0;
+    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) = 0;
 
     /** See recordRows().  This has the same effect, but takes an rvalue
         which is destroyed by the call.  This may result in performance
         improvements.
     */
     virtual void
-    recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows);
+    recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows);
 
     /** Record multiple rows from ExpressionValues.  */
     virtual void
-    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) = 0;
+    recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows) = 0;
 
     /** See recordRowsExpr().  This has the same effect, but takes an rvalue
         which is destroyed by the call.  This may result in performance
         improvements.
     */
     virtual
-    void recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows);
+    void recordRowsExprDestructive(std::vector<std::pair<RowPath, ExpressionValue > > rows);
 
     /** Return a function specialized to record the same set of atomic values
         over and over again into this chunk.
@@ -100,23 +100,23 @@ struct Recorder {
         columns.
     */
     virtual
-    std::function<void (RowName rowName,
+    std::function<void (RowPath rowName,
                         Date timestamp,
                         CellValue * vals,
                         size_t numVals,
-                        std::vector<std::pair<ColumnName, CellValue> > extra)>
-    specializeRecordTabular(const std::vector<ColumnName> & columns);
+                        std::vector<std::pair<ColumnPath, CellValue> > extra)>
+    specializeRecordTabular(const std::vector<ColumnPath> & columns);
 
 
     /** Default implementation of specializeRecordTabular.  It will construct
         a row and call recordRowDestructive.
     */
-    void recordTabularImpl(RowName rowName,
+    void recordTabularImpl(RowPath rowName,
                            Date timestamp,
                            CellValue * vals,
                            size_t numVals,
-                           std::vector<std::pair<ColumnName, CellValue> > extra,
-                           const std::vector<ColumnName> & columnNames);
+                           std::vector<std::pair<ColumnPath, CellValue> > extra,
+                           const std::vector<ColumnPath> & columnNames);
     
 
     virtual void finishedChunk();

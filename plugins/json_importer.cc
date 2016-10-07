@@ -124,7 +124,7 @@ struct JsonScope : SqlExpressionMldbScope {
     JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                                const ColumnName & columnName) override
+                                const ColumnPath & columnName) override
     {
         return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
@@ -344,7 +344,7 @@ struct JSONImporter: public Procedure {
                 return handleError("extra characters at end of line", actualLineNum, "");
             }
 
-            RowName rowName(actualLineNum);
+            RowPath rowName(actualLineNum);
             if (useWhere || useSelect || useNamed) {
                 JsonRowScope row(expr, actualLineNum);
                 ExpressionValue storage;
@@ -355,7 +355,7 @@ struct JSONImporter: public Procedure {
                 }
 
                 if (useNamed) {
-                    rowName = RowName(
+                    rowName = RowPath(
                         namedBound(row, storage, GET_ALL).toUtf8String());
                 }
 

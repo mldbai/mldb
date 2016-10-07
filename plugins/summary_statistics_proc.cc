@@ -104,7 +104,7 @@ SummaryStatisticsProcedure(MldbServer * owner,
     procedureConfig = config.params.convert<SummaryStatisticsProcedureConfig>();
 }
 
-typedef tuple<ColumnName, CellValue, Date> Cell;
+typedef tuple<ColumnPath, CellValue, Date> Cell;
 
 template <typename T, int size>
 struct MostFrequents {
@@ -172,7 +172,7 @@ struct NumericRowHandler {
 
         int64_t numNotNull = 0;
         bool isNumeric = false;
-        ColumnName value("value");
+        ColumnPath value("value");
         auto onRow = [&] (NamedRowValue & row) {
 
             // If the data is categorical, we don't even reach this point
@@ -335,7 +335,7 @@ struct CategoricalRowHandler {
     std::function<bool (const Json::Value &)> onProgress;
 
     void recordStatsForColumn(const Utf8String & name, const Path & rowName) {
-        ColumnName value("value");
+        ColumnPath value("value");
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {

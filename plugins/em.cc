@@ -175,7 +175,7 @@ run(const ProcedureRunConfig & run,
     //cerr << "EM training end" << endl;
 
     // Let the model know about its column names
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
     for (auto & v: vars) {
         columnNames.push_back(v.columnName);
         em.columnNames.push_back(v.columnName.toUtf8String());
@@ -209,8 +209,8 @@ run(const ProcedureRunConfig & run,
         Date applyDate = Date::now();
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-            cols.emplace_back(ColumnName("cluster"), inCluster[i], applyDate);
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
+            cols.emplace_back(ColumnPath("cluster"), inCluster[i], applyDate);
             output->recordRow(std::get<1>(rows[i]), cols);
         }
 
@@ -226,7 +226,7 @@ run(const ProcedureRunConfig & run,
         for (unsigned i = 0;  i < em.clusters.size();  ++i) {
             auto & cluster = em.clusters[i];
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
 
             for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
@@ -235,10 +235,10 @@ run(const ProcedureRunConfig & run,
             auto flatmatrix = tovector(cluster.covarianceMatrix);
 
             for (unsigned j = 0;  j < flatmatrix.size();  ++j) {
-                cols.emplace_back(ColumnName(ML::format("c%02d", j)), flatmatrix[j], applyDate);
+                cols.emplace_back(ColumnPath(ML::format("c%02d", j)), flatmatrix[j], applyDate);
             }
 
-            centroids->recordRow(RowName(ML::format("%i", i)), cols);
+            centroids->recordRow(RowPath(ML::format("%i", i)), cols);
         }
 
         centroids->commit();
@@ -308,7 +308,7 @@ EMOutputDescription::EMOutputDescription()
 
 struct EMFunction::Impl {
     ML::EstimationMaximisation em;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     Impl(const Url & modelFileUrl) {
         em.load(modelFileUrl.toDecodedString());

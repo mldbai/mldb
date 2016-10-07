@@ -134,8 +134,8 @@ run(const ProcedureRunConfig & run,
     }
 
 
-    ColumnName keyColumnName(runProcConf.keyColumnName);
-    ColumnName valueColumnName(runProcConf.valueColumnName);
+    ColumnPath keyColumnName(runProcConf.keyColumnName);
+    ColumnPath valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
     auto processor = [&] (NamedRowValue & row_,
@@ -162,7 +162,7 @@ run(const ProcedureRunConfig & run,
                         return true;
                     };
 
-                expr.forEachAtom(onAtom, ColumnName());
+                expr.forEachAtom(onAtom, ColumnPath());
             }
 
             // Melted
@@ -173,7 +173,7 @@ run(const ProcedureRunConfig & run,
                 currOutputRow.emplace_back(keyColumnName, get<0>(col).toUtf8String(), rowTs);
                 currOutputRow.emplace_back(valueColumnName, get<1>(col), rowTs);
 
-                RowName rowName = row.rowName + std::get<0>(col);
+                RowPath rowName = row.rowName + std::get<0>(col);
 
                 std::unique_lock<std::mutex> guard(recordMutex);
                 outputDataset->recordRow(rowName, currOutputRow);

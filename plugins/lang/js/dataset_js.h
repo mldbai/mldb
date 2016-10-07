@@ -61,7 +61,7 @@ struct DatasetJS: public JsObjectBase {
     config(const v8::FunctionCallbackInfo<v8::Value> & args);
     
     static void
-    getColumnNames(const v8::FunctionCallbackInfo<v8::Value> & args);
+    getColumnPaths(const v8::FunctionCallbackInfo<v8::Value> & args);
 
     static void
     getTimestampRange(const v8::FunctionCallbackInfo<v8::Value> & args);

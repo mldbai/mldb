@@ -503,7 +503,7 @@ struct GetAllColumnsOutput {
 */
 
 struct ColumnFilter {
-    typedef std::function<ColumnName (const ColumnName &)> Exec;
+    typedef std::function<ColumnPath (const ColumnPath &)> Exec;
     bool init;
    
     ColumnFilter() : init(false)
@@ -526,7 +526,7 @@ struct ColumnFilter {
 
     Exec exec;
 
-    ColumnName operator () (const ColumnName & columnName) const
+    ColumnPath operator () (const ColumnPath & columnName) const
     {
         ExcAssert(init); //check that we dont unintentionally use an uninitialized filter.
         if (exec)
@@ -544,7 +544,7 @@ struct ColumnFilter {
 /** Function which operates in a column context.  It takes a column name and
     a set of parameters, and returns the value of the function.
 */
-typedef std::function<ExpressionValue (const ColumnName & columnName,
+typedef std::function<ExpressionValue (const ColumnPath & columnName,
                                        const std::vector<ExpressionValue> & args)>
 ColumnFunction;
 
@@ -626,7 +626,7 @@ struct SqlBindingScope {
         be overridden too.
     */
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName);
+                                     const ColumnPath & columnName);
 
     /** Used to resolve a wildcard expression.  This function returns
         another function that can be used to return a row containing just a
@@ -706,8 +706,8 @@ struct SqlBindingScope {
         of those functions is overridden, this function should 
         be overridden too.
     */
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullVariableName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullVariableName,
                        Utf8String & tableName) const;
 
     /** Return the MLDB server behind this context.  Default returns a null
@@ -742,14 +742,14 @@ TransformArgs;
 
 struct ScopedName {
     ScopedName(Utf8String scope = Utf8String(),
-               ColumnName name = ColumnName()) noexcept
+               ColumnPath name = ColumnPath()) noexcept
         : scope(std::move(scope)),
           name (std::move(name))
     {
     }
 
     Utf8String scope;
-    ColumnName name;
+    ColumnPath name;
 
     bool operator == (const ScopedName & other) const;
     bool operator != (const ScopedName & other) const;
@@ -771,7 +771,7 @@ struct UnboundVariable {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundVariable);
 
 struct UnboundWildcard {
-    ColumnName prefix;
+    ColumnPath prefix;
     void merge(UnboundWildcard wildcard);
 };
 
@@ -805,11 +805,11 @@ struct UnboundEntities {
 
     /// List of variables that are unbound.  Only those with no table name are
     /// included here.
-    std::map<ColumnName, UnboundVariable> vars;
+    std::map<ColumnPath, UnboundVariable> vars;
 
     /// List of wildcards which are unbound.  Only those with no table name are
     /// included here.
-    std::map<ColumnName, UnboundWildcard> wildcards;
+    std::map<ColumnPath, UnboundWildcard> wildcards;
 
     /// List of functions that are unbound.  Only those with no table name are
     /// included here.
@@ -1475,7 +1475,7 @@ struct GenerateRowsWhereFunction {
 
     };
 
-    typedef std::function<std::pair<std::vector<RowName>, Any>
+    typedef std::function<std::pair<std::vector<RowPath>, Any>
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
 
@@ -1491,7 +1491,7 @@ struct GenerateRowsWhereFunction {
     {
     }
 
-    std::pair<std::vector<RowName>, Any>
+    std::pair<std::vector<RowPath>, Any>
     operator () (ssize_t numToGenerate, Any token,
                  const BoundParameters & params = BoundParameters()) const
     {

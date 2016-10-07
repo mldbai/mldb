@@ -245,10 +245,10 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        ColumnName columnName(PathElement("count"));
+        ColumnPath columnName(PathElement("count"));
 
         for (auto & df : dfs) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
             columns.emplace_back(columnName, df.second, applyDate);
             output->recordRow(PathElement(df.first), columns);
         }

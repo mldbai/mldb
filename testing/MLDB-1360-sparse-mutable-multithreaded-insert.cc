@@ -38,7 +38,7 @@ void testMtInsert(MutableSparseMatrixDatasetConfig config)
         {
             int base = random();
             for (unsigned i = 0;  i < niter;  ++i) {
-                std::vector<std::tuple<ColumnName, CellValue, Date> > vals;
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > vals;
                 dataset.recordRow(PathElement(base + i), vals);
 
                 if (done.fetch_add(1) % 1000 == 0)

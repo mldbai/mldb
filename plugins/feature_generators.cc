@@ -82,7 +82,7 @@ HashedColumnFeatureGenerator(MldbServer * owner,
     functionConfig = config.params.convert<HashedColumnFeatureGeneratorConfig>();
 
     for(int i=0; i<numBuckets(); i++) {
-        outputColumns.emplace_back(ColumnName(ML::format("hashColumn%d", i)),
+        outputColumns.emplace_back(ColumnPath(ML::format("hashColumn%d", i)),
                                    std::make_shared<Float32ValueInfo>(),
                                    COLUMN_IS_DENSE);
     }
@@ -144,7 +144,7 @@ call(FeatureGeneratorInput input) const
     ExpressionValue foResult;
     RowValue rowVal;
     for(int i=0; i<result.size(); i++) {
-        rowVal.push_back(make_tuple(ColumnName(ML::format("hashColumn%d", i)),
+        rowVal.push_back(make_tuple(ColumnPath(ML::format("hashColumn%d", i)),
                                     CellValue(result[i]), ts));
     }
 

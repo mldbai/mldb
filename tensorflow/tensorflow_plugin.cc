@@ -557,11 +557,11 @@ struct TensorflowGraphBase: public Function {
         };
 
         std::map<Utf8String, const tensorflow::NodeDef *> graphNodes;
-        std::map<ColumnName, int> nodesRead;  // index into outputLayers
+        std::map<ColumnPath, int> nodesRead;  // index into outputLayers
         std::vector<Utf8String> outputLayers;
 
         ColumnGetter doGetColumn(const Utf8String & tableName,
-                                 const ColumnName & columnName)
+                                 const ColumnPath & columnName)
         {
             if (!tableName.empty())
                 return ReadThroughBindingScope
@@ -618,7 +618,7 @@ struct TensorflowGraphBase: public Function {
             std::vector<std::pair<PathElement, int> > indexes;
 
             for (const auto & n: graphNodes) {
-                ColumnName kept = keep(PathElement(n.first));
+                ColumnPath kept = keep(PathElement(n.first));
                 if (kept.empty())
                     continue;
                 if (kept.size() != 1)

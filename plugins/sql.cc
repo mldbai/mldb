@@ -188,7 +188,7 @@ struct BehaviourModule {
 
         MldbServer * mldb;
         std::shared_ptr<Dataset> dataset;
-        std::vector<ColumnName> columnNames;
+        std::vector<ColumnPath> columnNames;
         std::vector<ColumnHash> columnHashes;
     };
 
@@ -216,11 +216,11 @@ struct BehaviourModule {
             auto index = dataset->getColumnIndex();
 
             string columnNameStr;
-            vector<ColumnName> columnNames;
+            vector<ColumnPath> columnNames;
             vector<ColumnHash> columnHashes;
 
             auto onColumnStats = [&] (ColumnHash ch,
-                                      const ColumnName & columnName,
+                                      const ColumnPath & columnName,
                                       const ColumnStats & stats)
                 {
                     columnNameStr += ", '" + sqlEscape(columnName.toString()) + "'";
@@ -410,7 +410,7 @@ struct BehaviourModule {
         for (unsigned i = 0;  i < plan.size();  ++i) {
             const Json::Value & planVal = plan[i];
             //int colIdx = planVal["cIdx"].asInt();
-            ColumnName colName(planVal["cName"].asString());
+            ColumnPath colName(planVal["cName"].asString());
             int argNum = planVal["arg"].asInt();
             string op = planVal["op"].asString();
             CellValue arg = toCell(argv[argNum]);
