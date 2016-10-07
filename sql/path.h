@@ -365,9 +365,8 @@ struct PathElementNewHasher
 template<size_t Bytes, typename Char = char>
 struct InternedString {
     InternedString()
-        : intIsExt_(0), intLength_(0)
+        : intLength_(0)
     {
-        //std::memset(this, 0, sizeof(*this));
     }
 
     InternedString(const InternedString & other)
@@ -390,11 +389,10 @@ struct InternedString {
         if (other.length() > Bytes) {
             // Can't fit internally.  If the other is external, steal it
             if (other.isExt()) {
-                extIsExt_ = 1;
+                intLength_ = IS_EXT;
                 extLength_ = other.extLength_;
                 extCapacity_ = other.extCapacity_;
                 extBytes_ = other.extBytes_;
-                other.extIsExt_ = 0;
                 other.intLength_ = 0;
                 return;
             }
@@ -437,8 +435,12 @@ struct InternedString {
 
     void swap(InternedString & other) noexcept
     {
-        for (size_t i = 0;  i < NUM_WORDS;  ++i) {
-            std::swap(words[i], other.words[i]);
+        std::swap(intLength_, other.intLength_);
+        std::swap(intBytes_[0], other.intBytes_[0]);
+        std::swap(intBytes_[1], other.intBytes_[1]);
+        std::swap(intBytes_[2], other.intBytes_[2]);
+        for (unsigned i = 0;  i < NUM_WORDS * 2 - 1;  ++i) {
+            std::swap(internalWords[i], other.internalWords[i]);
         }
     }
 
@@ -467,7 +469,7 @@ struct InternedString {
         char * newBytes = new Char[newCapacity];
         size_t l = size();
         std::memcpy(newBytes, data(), l);
-        extIsExt_ = 1;
+        intLength_ = IS_EXT;
         extLength_ = l;
         extCapacity_ = newCapacity;
 
@@ -504,30 +506,38 @@ private:
     template<size_t OtherBytes, typename OtherChar>
     friend class InternedString;
 
-    bool isExt() const noexcept { return intIsExt_; }
+public:
+    bool isExt() const noexcept { return intLength_ == IS_EXT; }
 
+private:
     void deleteExt()
     {
         delete[] extBytes_;
     }
 
+    static constexpr uint8_t IS_EXT = 255;
     static constexpr size_t INTERNAL_BYTES = Bytes;
     static constexpr size_t NUM_WORDS = (Bytes + 9) / 8;
 
+public:
     union {
         struct {
-            uint8_t intIsExt_;
-            uint8_t intLength_;
-            Char intBytes_[Bytes];
-        };
-        struct {
-            uint8_t extIsExt_;
-            uint8_t unused[3];
-            uint32_t extLength_;
-            uint32_t extCapacity_;
-            Char * extBytes_;
-        };
-        uint64_t words[NUM_WORDS];
+            // NOTE: these need to be OUTSIDE of the internal/external union
+            // as otherwise clang gets undefined behavior 
+            uint8_t intLength_;  // if -1, it's external.
+            char intBytes_[3];
+            union {
+                struct {
+                    Char restOfIntBytes_[Bytes - 3];
+                } JML_PACKED;
+                struct {
+                    uint32_t extLength_;
+                    uint32_t extCapacity_;
+                    Char * extBytes_;
+                } JML_PACKED;
+                uint32_t internalWords[NUM_WORDS * 2 - 1];
+            } JML_PACKED;
+        } JML_PACKED;
     };
 };
 
@@ -595,7 +605,7 @@ struct Path {
           digits_(other.digits_),
           ofsBits_(other.ofsBits_)
     {
-        if (JML_UNLIKELY(externalOfs())) {
+        if (JML_UNLIKELY(other.externalOfs())) {
             ofsPtr_ = new uint32_t[length_ + 1];
             ExcAssert(other.ofsPtr_);
             for (size_t i = 0;  i <= length_;  ++i) {
