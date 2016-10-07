@@ -31,7 +31,7 @@ Here we import the zips collection into an MLDB dataset called `mongodb_zips`.
 mldb.post('/v1/procedures', {
     'type' : 'mongodb.import',
     'params' : {
-        'connectionScheme': 'mongodb://khan.mldb.ai:11712/zips',
+        'connectionScheme': 'mongodb://somehost.mldb.ai:11712/zips',
         'collection': 'zips',
         'outputDataset' : {
             'id' : 'mongodb_zips',

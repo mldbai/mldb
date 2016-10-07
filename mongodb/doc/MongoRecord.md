@@ -33,7 +33,7 @@ database `zips` collection `mldb_coll`.
 mldb.put("/v1/datasets/mldb_to_mongodb", {
     "type": "mongodb.record",
     "params": {
-        "connectionScheme": 'mongodb://khan.mldb.ai:11712/zips',
+        "connectionScheme": 'mongodb://somehost.mldb.ai:11712/zips',
         "collection": 'mldb_coll'
     }
 })
