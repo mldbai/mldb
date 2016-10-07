@@ -142,7 +142,113 @@ struct NearestNeighborsFunction
           const std::shared_ptr<RowValueInfo> & input) const override;
     
     NearestNeighborsFunctionConfig functionConfig;
+
+    ExpressionValue embedding;
 };
+
+/*****************************************************************************/
+/* READ PIXELS FUNCTION                                                      */
+/*****************************************************************************/
+
+struct ReadPixelsFunctionConfig {
+    ReadPixelsFunctionConfig()
+    {
+    }
+
+    std::shared_ptr<SqlExpression> expression;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ReadPixelsFunctionConfig);
+
+struct ReadPixelsInput {
+    ReadPixelsInput();
+    ExpressionValue x;
+    ExpressionValue y;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ReadPixelsInput);
+
+struct ReadPixelsOutput {
+    ExpressionValue value;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ReadPixelsOutput);
+
+struct ReadPixelsFunction
+    : public ValueFunctionT<ReadPixelsInput, ReadPixelsOutput> {
+
+    ReadPixelsFunction(MldbServer * owner,
+                             PolyConfig config,
+                             const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual ~ReadPixelsFunction();
+
+    virtual ReadPixelsOutput
+    applyT(const ApplierT & applier, ReadPixelsInput input) const override;
+    
+    virtual std::unique_ptr<ApplierT>
+    bindT(SqlBindingScope & outerContext,
+          const std::shared_ptr<RowValueInfo> & input) const override;
+    
+    ReadPixelsFunctionConfig functionConfig;
+
+    ExpressionValue embedding;
+    DimsVector shape;
+};
+
+/*****************************************************************************/
+/* PROXIMATE VOXELS                                                          */
+/*****************************************************************************/
+
+struct ProximateVoxelsFunctionConfig {
+    ProximateVoxelsFunctionConfig()
+    {
+    }
+
+    std::shared_ptr<SqlExpression> expression;
+    int range;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsFunctionConfig);
+
+struct ProximateVoxelsInput {
+    ProximateVoxelsInput();
+    ExpressionValue x;
+    ExpressionValue y;
+    ExpressionValue z;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsInput);
+
+struct ProximateVoxelsOutput {
+    ExpressionValue value;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsOutput);
+
+struct ProximateVoxelsFunction
+    : public ValueFunctionT<ProximateVoxelsInput, ProximateVoxelsOutput> {
+
+    ProximateVoxelsFunction(MldbServer * owner,
+                             PolyConfig config,
+                             const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual ~ProximateVoxelsFunction();
+
+    virtual ProximateVoxelsOutput
+    applyT(const ApplierT & applier, ProximateVoxelsInput input) const override;
+    
+    virtual std::unique_ptr<ApplierT>
+    bindT(SqlBindingScope & outerContext,
+          const std::shared_ptr<RowValueInfo> & input) const override;
+    
+    ProximateVoxelsFunctionConfig functionConfig;
+
+    ExpressionValue embedding;
+
+    int N;
+};
+
 
 
 } // namespace MLDB

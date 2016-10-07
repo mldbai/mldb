@@ -350,7 +350,7 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
 
     /// Input variables, for when they are known.  Will be null
     /// when the input is unknown.
-    std::shared_ptr<RowValueInfo> inputInfo;
+    std::shared_ptr<ExpressionValueInfo> inputInfo;
 
     /// Set of column names that we're inferring
     std::unordered_set<ColumnPath> inferredInputs;

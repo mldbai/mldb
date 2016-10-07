@@ -39,15 +39,15 @@ public:
               std::vector<std::string> & unusedKeys) override;
     
     /** Return to the default configuration. */
-    virtual void defaults();
+    virtual void defaults() override;
 
     /** Return possible configuration options. */
-    virtual Config_Options options() const;
+    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
     virtual void init(std::shared_ptr<const Feature_Space> fs,
-                      Feature predicted);
+                      Feature predicted) override;
 
     using Early_Stopping_Generator::generate;
 
@@ -58,7 +58,7 @@ public:
              const Training_Data & validation_data,
              const distribution<float> & training_weights,
              const distribution<float> & validation_weights,
-             const std::vector<Feature> & features, int = 0) const;
+             const std::vector<Feature> & features, int = 0) const override;
 
     unsigned max_iter;
     unsigned min_iter;

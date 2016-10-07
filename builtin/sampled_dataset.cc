@@ -265,7 +265,7 @@ struct SampledDataset::Itl
             if(it == rowIndex.end())
                 throw ML::Exception("Unknown row in index");
 
-            col.rows.emplace_back(col.rows[it->second]);
+            col.rows.emplace_back(allRows[it->second]);
         }
 
         return col;
@@ -291,6 +291,10 @@ SampledDataset(MldbServer * owner,
     : Dataset(owner)
 {
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
+
+    if (sampleConfig.dataset == nullptr) {
+        throw HttpReturnException(400, "You need to define the dataset key");
+    }
 
     SqlExpressionMldbScope context(owner);
     bondTableExpression = sampleConfig.dataset->bind(context);

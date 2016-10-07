@@ -24,6 +24,8 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
+#include "mldb/server/dataset_context.h"
+#include <boost/algorithm/clamp.hpp>
 
 using namespace std;
 
@@ -1333,6 +1335,269 @@ regNearestNeighborsFunction(builtinPackage(),
                             "embedding.neighbors",
                             "Return the nearest neighbors of a known row in an embedding dataset",
                             "functions/NearestNeighborsFunction.md.html");
+
+/*****************************************************************************/
+/* Read Pixels function                                                      */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(ReadPixelsFunctionConfig);
+
+ReadPixelsFunctionConfigDescription::
+ReadPixelsFunctionConfigDescription()
+{
+    addField("expression",
+             &ReadPixelsFunctionConfig::expression,
+             "SQL Expression that will evaluate to the embedding we want to provide access to");           
+}
+
+ReadPixelsInput::
+ReadPixelsInput()
+{
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ReadPixelsInput);
+
+ReadPixelsInputDescription::
+ReadPixelsInputDescription()
+{
+    addField("x", &ReadPixelsInput::x,
+             "X coordinate to fetch in the embedding");
+    addField("y", &ReadPixelsInput::y,
+             "Y coordinate to fetch in the embedding");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ReadPixelsOutput);
+
+ReadPixelsOutputDescription::
+ReadPixelsOutputDescription()
+{
+    addField("value", &ReadPixelsOutput::value,
+             "Value in the embedding at the specified 2d position");
+}
+
+ReadPixelsFunction::
+ReadPixelsFunction(MldbServer * owner,
+                         PolyConfig config,
+                         const std::function<bool (const Json::Value &)> & onProgress)
+    : BaseT(owner)
+{
+    functionConfig = config.params.convert<ReadPixelsFunctionConfig>();
+    SqlExpressionMldbScope context(owner);
+    auto boundExpr = functionConfig.expression->bind(context);
+    SqlRowScope scope;
+    embedding = boundExpr(scope, GET_ALL);
+    shape = embedding.getEmbeddingShape();
+}
+
+ReadPixelsFunction::
+~ReadPixelsFunction()
+{
+}
+
+struct ReadPixelsFunctionApplier
+    : public FunctionApplierT<ReadPixelsInput, ReadPixelsOutput> {
+
+    ReadPixelsFunctionApplier(const Function * owner)
+        : FunctionApplierT<ReadPixelsInput, ReadPixelsOutput>(owner)
+    {
+        info = owner->getFunctionInfo();
+    }
+};
+
+ReadPixelsOutput
+ReadPixelsFunction::
+applyT(const ApplierT & applier_, ReadPixelsInput input) const
+{   
+    ReadPixelsOutput output;    
+
+    //We clamp, we do not currently provide interpolation
+    int x = input.x.coerceToInteger().toInt();
+    int y = input.y.coerceToInteger().toInt();
+    x = boost::algorithm::clamp(x, 0, shape[0]-1);
+    y = boost::algorithm::clamp(y, 0, shape[1]-1);
+
+    ColumnName columnName;
+    columnName = columnName + PathElement(y);
+    columnName = columnName + PathElement(x);
+
+    ExpressionValue storage;
+    auto pValue = embedding.tryGetNestedColumn(columnName, storage);
+
+    if (pValue)
+        return {*pValue};
+    else
+        return {ExpressionValue(0, Date::negativeInfinity())};
+}
+    
+std::unique_ptr<FunctionApplierT<ReadPixelsInput, ReadPixelsOutput> >
+ReadPixelsFunction::
+bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+{
+    std::unique_ptr<ReadPixelsFunctionApplier> result
+        (new ReadPixelsFunctionApplier(this));
+ 
+    return std::move(result);
+}
+
+static RegisterFunctionType<ReadPixelsFunction, ReadPixelsFunctionConfig>
+regReadPixelsFunction(builtinPackage(),
+                            "image.readpixels",
+                            "Wraps access to a 2d embedding",
+                            "functions/ReadPixelsFunction.md.html");
+
+/*****************************************************************************/
+/* Proximate Voxels Function                                                 */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(ProximateVoxelsFunctionConfig);
+
+ProximateVoxelsFunctionConfigDescription::
+ProximateVoxelsFunctionConfigDescription()
+{
+    addField("expression",
+             &ProximateVoxelsFunctionConfig::expression,
+             "SQL Expression that will evaluate to the embedding we want to provide access to");
+    addField("range",
+             &ProximateVoxelsFunctionConfig::range,
+             "Semi axis range we want to consider in 3 dimensions");
+}
+
+ProximateVoxelsInput::
+ProximateVoxelsInput()
+{
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ProximateVoxelsInput);
+
+ProximateVoxelsInputDescription::
+ProximateVoxelsInputDescription()
+{
+    addField("x", &ProximateVoxelsInput::x,
+             "X coordinate to fetch in the embedding");
+    addField("y", &ProximateVoxelsInput::y,
+             "Y coordinate to fetch in the embedding");
+    addField("z", &ProximateVoxelsInput::z,
+             "Z coordinate to fetch in the embedding");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ProximateVoxelsOutput);
+
+ProximateVoxelsOutputDescription::
+ProximateVoxelsOutputDescription()
+{
+    addField("value", &ProximateVoxelsOutput::value,
+             "");
+}
+
+ProximateVoxelsFunction::
+ProximateVoxelsFunction(MldbServer * owner,
+                         PolyConfig config,
+                         const std::function<bool (const Json::Value &)> & onProgress)
+    : BaseT(owner)
+{
+    functionConfig = config.params.convert<ProximateVoxelsFunctionConfig>();
+    N = functionConfig.range;
+    SqlExpressionMldbScope context(owner);
+    auto boundExpr = functionConfig.expression->bind(context);
+    SqlRowScope scope;
+    embedding = boundExpr(scope, GET_ALL);
+}
+
+ProximateVoxelsFunction::
+~ProximateVoxelsFunction()
+{
+}
+
+struct ProximateVoxelsFunctionApplier
+    : public FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput> {
+
+    ProximateVoxelsFunctionApplier(const Function * owner)
+        : FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput>(owner)
+    {
+        info = owner->getFunctionInfo();
+    }
+};
+
+ProximateVoxelsOutput
+ProximateVoxelsFunction::
+applyT(const ApplierT & applier_, ProximateVoxelsInput input) const
+{
+    
+    ProximateVoxelsOutput output;
+
+    int x = input.x.coerceToInteger().toInt();
+    int y = input.y.coerceToInteger().toInt();
+    int z = input.z.coerceToInteger().toInt();
+    
+    auto shape = embedding.getEmbeddingShape();
+
+    size_t numChannels = shape.back();
+    const size_t num_values = (N*2+1)*(N*2+1)*(N*2+1)*numChannels;
+
+    std::shared_ptr<float> buffer(new float[num_values],
+                                  [] (float * p) { delete[] p; });
+
+    float* p = buffer.get();
+    for (int i = -N; i <= N; ++i) {
+        for (int j = -N; j <= N; ++j) {
+            for (int k = -N; k <= N; ++k) {
+                for (int c = 0; c < 3; ++c) {
+
+                    int ii = x + i;
+                    int jj = y + j;
+                    int kk = z + k;
+
+                    ColumnName columnName;
+                  
+                    //voxelize is z, y, x...
+
+                    columnName = columnName + PathElement(kk);
+                    columnName = columnName + PathElement(jj);
+                    columnName = columnName + PathElement(ii);
+                    columnName = columnName + PathElement(c);
+
+                    //cerr << columnName << endl;
+
+                    ExpressionValue storage;
+                    auto pValue = embedding.tryGetNestedColumn(columnName, storage);
+
+                    float val = 0.0f;
+
+                    if (!pValue) {
+                        cerr << columnName << endl;
+                        ExcAssert(pValue);
+                    }
+
+                    val = pValue->coerceToNumber().toDouble();
+
+                    *p = val;
+                    p++;
+                }
+            }
+        }
+    }
+
+    auto tensor = ExpressionValue::embedding
+        (Date::notADate(), buffer, ST_FLOAT32, DimsVector{ num_values });
+
+    return {tensor};
+}
+    
+std::unique_ptr<FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput> >
+ProximateVoxelsFunction::
+bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+{
+    std::unique_ptr<ProximateVoxelsFunctionApplier> result
+        (new ProximateVoxelsFunctionApplier(this));
+ 
+    return std::move(result);
+}
+
+static RegisterFunctionType<ProximateVoxelsFunction, ProximateVoxelsFunctionConfig>
+regProximateVoxelsFunction(builtinPackage(),
+                            "image.proximatevoxels",
+                            "Find values in a cubic volume inside a 3d embedding",
+                            "functions/ProximateVoxelsFunction.md.html");
 
 
 } // namespace MLDB
