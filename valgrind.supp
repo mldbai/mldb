@@ -990,3 +990,26 @@
    fun:MLDB::JsonDiffDescription::JsonDiffDescription
    ...
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:_ZN4MLDB20ValueDescriptionInitISt3mapISsNS_8JsonDiffESt4lessISsESaISt4pairIKSsS2_EEEE6createEv
+   fun:operator()
+   fun:_ZN4MLDB24registerValueDescriptionERKSt9type_infoSt8functionIFPNS_16ValueDescriptionEvEES3_IFvRS4_EEb
+   fun:_ZN4MLDB27getDefaultDescriptionSharedISt3mapISsNS_8JsonDiffESt4lessISsESaISt4pairIKSsS2_EEEEESt10shared_ptrIKNS_17ValueDescriptionTIT_EEEPSC_
+   fun:getDefaultDescriptionSharedT<std::map<std::basic_string<char>, MLDB::JsonDiff> >
+   fun:addField<std::map<std::basic_string<char>, MLDB::JsonDiff>, MLDB::JsonDiff>
+   fun:_ZN4MLDB19JsonDiffDescriptionC1Ev
+   fun:_ZN4MLDB21getDefaultDescriptionEPNS_8JsonDiffE
+   fun:_ZN4MLDB31JsonArrayElementDiffDescriptionC1Ev
+   fun:operator()
+   fun:_ZNSt17_Function_handlerIFPN4MLDB16ValueDescriptionEvEZNS0_31JsonArrayElementDiffDescription5RegmeC4EvEUlvE_E9_M_invokeERKSt9_Any_data
+   fun:operator()
+   fun:_ZN4MLDB24registerValueDescriptionERKSt9type_infoSt8functionIFPNS_16ValueDescriptionEvEES3_IFvRS4_EEb
+   fun:_ZN4MLDB24registerValueDescriptionERKSt9type_infoSt8functionIFPNS_16ValueDescriptionEvEEb
+   fun:_ZN4MLDB31JsonArrayElementDiffDescription5RegmeC1Ev
+   fun:__static_initialization_and_destruction_0
+   fun:_GLOBAL__sub_I_json_diff.cc
+}
