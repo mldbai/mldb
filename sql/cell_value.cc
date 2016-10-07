@@ -730,6 +730,64 @@ isNumber() const
 
 bool
 CellValue::
+isPositiveNumber() const
+{
+    switch (type) {
+    case ST_EMPTY:
+        return false;
+    case ST_INTEGER:
+        return intVal > 0;
+    case ST_UNSIGNED:
+        return uintVal > 0;
+    case ST_FLOAT:
+        return !std::isnan(floatVal) && floatVal > 0;
+    case ST_ASCII_SHORT_STRING:
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return false;
+    }
+
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
+bool
+CellValue::
+isNegativeNumber() const
+{
+    switch (type) {
+    case ST_EMPTY:
+        return false;
+    case ST_INTEGER:
+        return intVal < 0;
+    case ST_UNSIGNED:
+        return false;
+    case ST_FLOAT:
+        return !std::isnan(floatVal) && floatVal < 0;
+    case ST_ASCII_SHORT_STRING:
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return false;
+    }
+
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
+bool
+CellValue::
 isFalse() const
 {
     switch (type) {

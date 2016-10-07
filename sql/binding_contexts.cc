@@ -51,6 +51,7 @@ doGetFunction(const Utf8String & tableName,
     // Call it with the outer scope
     result.exec = [=] (const std::vector<ExpressionValue> & args,
                        const SqlRowScope & scope)
+        -> ExpressionValue
         {
             if (!scope.hasRow()) {
                 // We don't normally need a scope for function calls, since their

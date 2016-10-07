@@ -63,7 +63,7 @@ BoundFunction geo_distance(const std::vector<BoundSqlExpression> & args)
             };
 }
 
-static RegisterBuiltin registerFlatten(geo_distance, "geo_distance");
+static RegisterBuiltin registerGeoDistance(geo_distance, "geo_distance");
 
 
 

@@ -676,51 +676,6 @@ getSchemaCompletenessRecursive() const
 }
 
 
-// TODO: generalize
-std::shared_ptr<ExpressionValueInfo>
-getValueInfoForStorage(StorageType type)
-{
-    switch (type) {
-    case ST_FLOAT32:
-        return std::make_shared<Float32ValueInfo>();
-    case ST_FLOAT64:
-        return std::make_shared<Float64ValueInfo>();
-    case ST_INT8:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT8:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT16:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT16:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT32:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT32:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT64:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT64:
-        return std::make_shared<Uint64ValueInfo>();
-    case ST_BLOB:
-        return std::make_shared<BlobValueInfo>();
-    case ST_STRING:
-        return std::make_shared<StringValueInfo>();
-    case ST_UTF8STRING:
-        return std::make_shared<Utf8StringValueInfo>();
-    case ST_ATOM:
-        return std::make_shared<AtomValueInfo>();
-    case ST_BOOL:
-        return std::make_shared<BooleanValueInfo>();
-    case ST_TIMESTAMP:
-        return std::make_shared<TimestampValueInfo>();
-    case ST_TIMEINTERVAL:
-        return std::make_shared<AtomValueInfo>();
-    }
-
-    throw HttpReturnException(500, "Unknown embedding storage type",
-                              "type", type);
-}
-
 std::vector<KnownColumn>
 EmbeddingValueInfo::
 getKnownColumns() const
@@ -968,7 +923,7 @@ getColumn(const PathElement & columnName) const
 
 
 /*****************************************************************************/
-/* OR Expression Value Info                                                  */
+/* Variant Expression Value Info                                             */
 /*****************************************************************************/
 
 /** Expression Value info when we dont know which of two value info we will get 
@@ -1377,6 +1332,58 @@ struct ExpressionValue::Embedding {
     {
         return std::make_shared<EmbeddingValueInfo>
             (vector<ssize_t>(dims_.begin(), dims_.end()), storageType_);
+    }
+
+    ExpressionValue reshape(DimsVector newShape, Date ts) const
+    {
+        size_t totalLength = 1;
+        for (auto & s: newShape)
+            totalLength *= s;
+
+        if (totalLength != length()) {
+            throw HttpReturnException
+                (400, "Attempt to change embedding size by reshaping");
+        }
+        return ExpressionValue::embedding(ts, data_,
+                                          storageType_,
+                                          std::move(newShape));
+    }
+    
+    ExpressionValue reshape(DimsVector newShape,
+                            const ExpressionValue & newValue,
+                            Date ts) const
+    {
+        size_t totalLength = 1;
+        for (auto & s: newShape)
+            totalLength *= s;
+        
+        if (totalLength <= length()) {
+            // Keep the old storage around, since it still has the
+            // right data.  TODO: if it's much smaller, we could
+            // copy it so that the old one doesn't "leak" into
+            // memory.
+            return ExpressionValue::embedding(ts, data_,
+                                              storageType_,
+                                              std::move(newShape));
+        }
+        else {
+            // We need to add elements, so we must re-allocate the underlying
+            // buffer
+
+            auto newStorageType = coveringStorageType(storageType_, newValue);
+
+            // First, does the current storage type cover the new value?
+            auto newBuffer = allocateStorageBuffer(totalLength, newStorageType);
+            copyStorageBuffer(data_.get(), 0, storageType_,
+                              newBuffer.get(), 0, newStorageType,
+                              length());
+            fillStorageBuffer(newBuffer.get(), length(), newStorageType,
+                              totalLength - length(),
+                              newValue.getAtom());
+            return ExpressionValue::embedding(ts, std::move(newBuffer),
+                                              newStorageType,
+                                              std::move(newShape));
+        }
     }
 };
 
@@ -2684,7 +2691,7 @@ getEmbeddingShape() const
     case Type::ATOM:
         return {};
     case Type::STRUCTURED:
-        return { structured_->size() };
+        return coerceToEmbedding().getEmbeddingShape();
     case Type::EMBEDDING:
         return embedding_->dims_;
     case Type::SUPERPOSITION:
@@ -2702,21 +2709,30 @@ reshape(DimsVector newShape) const
     case Type::NONE:
     case Type::ATOM:
     case Type::STRUCTURED:
-        throw HttpReturnException(500, "Cannot reshape non-embedding");
+        return coerceToEmbedding().reshape(newShape);
     case Type::SUPERPOSITION:
         return superposition_->latest().reshape(newShape);
-    case Type::EMBEDDING: {
-        size_t totalLength = 1;
-        for (auto & s: newShape)
-            totalLength *= s;
-
-        if (rowLength() > totalLength) {
-            throw HttpReturnException(400, "Attempt to enlarge embedding by resizing");
-        }
-        return ExpressionValue::embedding(ts_, embedding_->data_,
-                                          embedding_->storageType_,
-                                          std::move(newShape));
+    case Type::EMBEDDING:
+        return embedding_->reshape(newShape, ts_);
     }
+
+    throw HttpReturnException(500, "Unknown storage type for reshape()");
+}
+
+ExpressionValue
+ExpressionValue::
+reshape(DimsVector newShape,
+        const ExpressionValue & newValue) const
+{
+    switch (type_) {
+    case Type::NONE:
+    case Type::ATOM:
+    case Type::STRUCTURED:
+        return coerceToEmbedding().reshape(newShape, newValue);
+    case Type::SUPERPOSITION:
+        return superposition_->latest().reshape(newShape, newValue);
+    case Type::EMBEDDING:
+        return embedding_->reshape(newShape, newValue, ts_);
     }
 
     throw HttpReturnException(500, "Unknown storage type for reshape()");

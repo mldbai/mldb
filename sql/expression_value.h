@@ -38,12 +38,46 @@ struct MatrixEvent;
 struct ExpressionValue;
 struct ExpressionValueInfo;
 struct RowValueInfo;
+struct EmbeddingValueInfo;
 
 /** A row in an expression value is a set of (key, atom, timestamp) pairs. */
 typedef std::vector<std::tuple<Path, CellValue, Date> > RowValue;
 
 /** A struct in an expression value is a set of (key, value) pairs. */
 typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
+
+/** Return the ValueInfo that corresponds to the given
+    ValueDescription.
+*/
+std::shared_ptr<ExpressionValueInfo>
+valueInfoFromDescription(const std::shared_ptr<const ValueDescription> & value);
+
+/** Return the RowValueInfo that corresponds to the given
+    ValueDescription, which must be a StructureValueDescription.
+*/
+std::shared_ptr<RowValueInfo>
+rowInfoFromDescription(const std::shared_ptr<const ValueDescription> & value);
+
+template<typename T>
+std::shared_ptr<ExpressionValueInfo>
+valueInfoForType()
+{
+    return valueInfoFromDescription(getDefaultDescriptionSharedT<T>());
+}
+
+template<typename T>
+std::shared_ptr<RowValueInfo>
+rowInfoForType()
+{
+    return rowInfoFromDescription(getDefaultDescriptionSharedT<T>());
+}
+
+/** Return the RowValueInfo that corresponds to the given
+    ValueDescription, which must be a StructureValueDescription.
+*/
+std::shared_ptr<RowValueInfo>
+valueInfoForStructure(const ValueDescription & desc);
+
 
 enum SchemaCompleteness {
     SCHEMA_OPEN,   ///< Schema is open; columns may exist that aren't known
@@ -137,6 +171,71 @@ SPECIALIZE_STORAGE_TYPE(Path,                 ST_ATOM);
 /** Return the ExpressionValueInfo type for the given storage type. */
 std::shared_ptr<ExpressionValueInfo>
 getValueInfoForStorage(StorageType type);
+
+/** Return the minimum storage type for a given CellValue. */
+StorageType valueStorageType(const CellValue & val);
+StorageType valueStorageType(const ExpressionValue & val);
+
+/** Return a storage type that can store both. */
+StorageType coveringStorageType(StorageType type1, StorageType type2);
+StorageType coveringStorageType(StorageType type1, const CellValue & val2);
+StorageType coveringStorageType(StorageType type1, const ExpressionValue & val2);
+
+/** How many bytes is a single instance of the given storage type? */
+size_t sizeofStorageType(StorageType type);
+
+/** Allocate a buffer of storage of the given type.  The elements will be
+    initialized with their default constructor.
+*/
+std::shared_ptr<void>
+allocateStorageBuffer(size_t size, StorageType storage);
+
+std::shared_ptr<void>
+allocateStorageBuffer(const DimsVector & size, StorageType storage);
+
+/** Return the size of a storage buffer of the given type.  Includes only
+    direct (no indirect) storage.
+*/
+uint64_t storageBufferBytes(size_t size, StorageType storage);
+
+uint64_t storageBufferBytes(const DimsVector & size, StorageType storage);
+
+/** Copy part of a storage buffer into another.  The elements in to must be
+    initialized already.
+*/
+void copyStorageBuffer(const void * from, size_t fromOffset, StorageType fromType,
+                       void * to, size_t toOffset, StorageType toType,
+                       size_t numElements);
+
+/** Move part of a storage buffer into another.  If the elements that were
+    moved from from are accessed afterwards, it's undefined what the result
+    will be, but they still must be destroyed.
+
+
+*/
+void moveStorageBuffer(void * from, size_t fromOffset, StorageType fromType,
+                       void * to, size_t toOffset, StorageType toType,
+                       size_t numElements);
+
+/** Fill in the given range of elements of the storage buffer with the
+    contents of the given CellValue.  The elements should already be
+    initialized.
+*/
+void fillStorageBuffer(void * buffer, size_t offset, StorageType storageType,
+                       size_t numElements, const CellValue & val);
+
+/** Fill in the given range of elements of the storage buffer with the
+    contents of the given CellValue.  The elements should not already be
+    initialized.
+*/
+void initializeStorageBuffer(void * buffer, StorageType storageType,
+                             size_t numElements, const CellValue & val);
+
+/** Fill in the given range of elements of the storage buffer with the
+    default constructor.
+*/
+void initializeStorageBuffer(void * buffer, StorageType storageType,
+                             size_t numElements);
 
 
 /*****************************************************************************/
@@ -804,6 +903,12 @@ struct ExpressionValue {
     CellValue coerceToTimestamp() const;
     CellValue coerceToAtom() const;
     CellValue coerceToBlob() const;
+
+    /** Return the current value, but with non-embedding representations
+        converted to a uniform embedding representation.  This should
+        give exactly the same result from any expression as the original
+        version but may be significantly faster.
+    */
     ExpressionValue coerceToEmbedding() const;
 
     /** Convert the current ExpressionValue to a path (used as a column or
@@ -892,6 +997,13 @@ struct ExpressionValue {
         This will throw an exception if the shape doesn't match.
     */
     ExpressionValue reshape(DimsVector newShape) const;
+
+    /** Reshape the embedding into a new shape.  Any new elements
+        will be initialized with newVal.  Any extra elements
+        will be removed.
+    */
+    ExpressionValue reshape(DimsVector newShape,
+                            const ExpressionValue & newVal) const;
 
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
@@ -1430,8 +1542,77 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
     }
 };
 
+/// For a row.  This may have information about columns within that row.
+struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
+    
+    RowValueInfo(const std::vector<KnownColumn> & columns,
+                 SchemaCompleteness completeness = SCHEMA_CLOSED);
+
+    virtual bool isScalar() const override;
+
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
+
+    virtual void flatten(const ExpressionValue & value,
+                         const std::function<void (const ColumnPath & columnName,
+                                                   const CellValue & value,
+                                                   Date timestamp)> & write) const override;
+
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const PathElement & columnName) const override;
+
+    virtual std::shared_ptr<ExpressionValueInfo> 
+    findNestedColumn(const ColumnPath& columnName) const override;
+
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
+    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
+
+    virtual bool isCompatible(const ExpressionValue & value) const override
+    {
+        return value.isRow();
+    }
+
+    virtual bool isRow() const override
+    {
+        return true;
+    }
+
+    virtual bool couldBeRow() const override
+    {
+        return true;
+    }
+
+    virtual bool couldBeScalar() const override
+    {
+        return false;
+    }
+
+protected:
+    RowValueInfo()
+    {
+    }
+
+    std::vector<KnownColumn> columns;
+    SchemaCompleteness completeness;
+    SchemaCompleteness completenessRecursive;
+};
+
+/// For a row where we don't know the columns
+struct UnknownRowValueInfo: public RowValueInfo {
+    
+    UnknownRowValueInfo()
+        : RowValueInfo({}, SCHEMA_OPEN)
+    {
+    }
+
+    virtual bool isRow() const
+    {
+        return true;
+    }
+};
+
 /// For an embedding
-struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValue, std::vector<CellValue> > > {
+struct EmbeddingValueInfo: public RowValueInfo {
     EmbeddingValueInfo(StorageType storageType = ST_ATOM)
         : EmbeddingValueInfo(std::vector<ssize_t>({-1}), storageType)
     {
@@ -1450,7 +1631,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
         input. */
     EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
 
-    static std::shared_ptr<EmbeddingValueInfo> fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
+    static std::shared_ptr<EmbeddingValueInfo>
+    fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
 
     std::vector<ssize_t> shape;
     StorageType storageType;
@@ -1498,73 +1680,8 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
     }
 };
 
-/// For a row.  This may have information about columns within that row.
-struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
-    
-    RowValueInfo(const std::vector<KnownColumn> & columns,
-                 SchemaCompleteness completeness = SCHEMA_CLOSED);
-
-    virtual bool isScalar() const override;
-
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
-
-    virtual void flatten(const ExpressionValue & value,
-                         const std::function<void (const ColumnPath & columnName,
-                                                   const CellValue & value,
-                                                   Date timestamp)> & write) const override;
-
-    virtual std::shared_ptr<ExpressionValueInfo>
-    getColumn(const PathElement & columnName) const override;
-
-    virtual std::shared_ptr<ExpressionValueInfo> 
-    findNestedColumn(const ColumnPath& columnName) const override;
-
-    virtual std::vector<KnownColumn> getKnownColumns() const override;
-    virtual SchemaCompleteness getSchemaCompleteness() const override;
-    virtual SchemaCompleteness getSchemaCompletenessRecursive() const override;
-
-    virtual bool isCompatible(const ExpressionValue & value) const override
-    {
-        return value.isRow();
-    }
-
-    virtual bool isRow() const override
-    {
-        return true;
-    }
-
-    virtual bool couldBeRow() const override
-    {
-        return true;
-    }
-
-    virtual bool couldBeScalar() const override
-    {
-        return false;
-    }
-
-protected:
-    std::vector<KnownColumn> columns;
-    SchemaCompleteness completeness;
-    SchemaCompleteness completenessRecursive;
-};
-
-/// For a row.  This may have information about columns within that row.
-struct UnknownRowValueInfo: public RowValueInfo {
-    
-    UnknownRowValueInfo()
-        : RowValueInfo({}, SCHEMA_OPEN)
-    {
-    }
-
-    virtual bool isRow() const
-    {
-        return true;
-    }
-};
-
 /*****************************************************************************/
-/* OR Expression Value Info                                                  */
+/* Variant Expression Value Info                                             */
 /*****************************************************************************/
 
 /** Expression Value info when we dont know which of two value info we will get 

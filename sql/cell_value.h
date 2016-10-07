@@ -211,6 +211,12 @@ struct CellValue {
 
     bool isNumber() const;
 
+    /** Is this a number that's positive? */
+    bool isPositiveNumber() const;
+
+    /** Is this a number that's negative? */
+    bool isNegativeNumber() const;
+
     /** Is it a timestamp? */
     bool isTimestamp() const
     {
@@ -280,6 +286,11 @@ struct CellValue {
     bool isInteger() const
     {
         return cellType() == INTEGER;
+    }
+
+    bool isUnsignedInteger() const
+    {
+        return type == ST_UNSIGNED;
     }
 
     bool isInt64() const;

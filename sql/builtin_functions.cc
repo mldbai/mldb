@@ -40,7 +40,18 @@ namespace MLDB {
 
 const Utf8String NO_FUNCTION_NAME;
 
+CellValue getArg(const std::vector<ExpressionValue> & args,
+                 size_t n,
+                 const char * name,
+                 const CellValue & def)
+{
+    if (args.size() > n)
+        return args[n].getAtom();
+    return def;
+}
+
 namespace Builtins {
+
 
 /*****************************************************************************/
 /* UNARY SCALARS                                                             */
@@ -780,6 +791,14 @@ CellValue mod(const CellValue & v1, const CellValue & v2)
 static RegisterBuiltinBinaryScalar
 registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 
+CellValue atan2(const CellValue & v1, const CellValue & v2)
+{
+    return std::atan2(v1.toDouble(), v2.toDouble());
+}
+
+static RegisterBuiltinBinaryScalar
+registerAtan2(atan2, std::make_shared<Float64ValueInfo>(), "atan2");
+
 double ln(double v)
 {
     return std::log(v);
@@ -844,6 +863,12 @@ WRAP_UNARY_MATH_OP(tan, std::tan);
 WRAP_UNARY_MATH_OP(asin, std::asin);
 WRAP_UNARY_MATH_OP(acos, std::acos);
 WRAP_UNARY_MATH_OP(atan, std::atan);
+WRAP_UNARY_MATH_OP(sinh, std::sinh);
+WRAP_UNARY_MATH_OP(cosh, std::cosh);
+WRAP_UNARY_MATH_OP(tanh, std::tanh);
+WRAP_UNARY_MATH_OP(asinh, std::asinh);
+WRAP_UNARY_MATH_OP(acosh, std::acosh);
+WRAP_UNARY_MATH_OP(atanh, std::atanh);
 WRAP_UNARY_MATH_OP(ln, Builtins::ln);
 WRAP_UNARY_MATH_OP(sqrt, Builtins::sqrt);
 WRAP_UNARY_MATH_OP(isfinite, std::isfinite);
@@ -2631,49 +2656,227 @@ static RegisterBuiltin registerFlatten(flatten, "flatten");
 
 BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
 {
-    checkArgsSize(args.size(), 2);
+    checkArgsSize(args.size(), 2, 3, "reshape");
 
-    if (!args[0].info->couldBeEmbedding())
-        throw HttpReturnException(400, "requires an embedding as first argument");
+    // A null first argument is OK for the empty embedding
+    // this means basically n times the given value
+    if (!args[0].info->couldBeEmbedding()) {
+        if (args[0].info->couldBeScalar()) {
+            // Shape is not a constant, so we need to evaluate after binding
+            if (args.size() != 3)
+                throw HttpReturnException
+                    (400,"Null embedding needs third argument to reshape()");
+            auto shape = args[1].info->getEmbeddingShape();
+            auto st = args[2].metadata.isConstant
+                ? valueStorageType(args[2].constantValue().getAtom())
+                : ST_ATOM;
+            auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
+
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope) -> ExpressionValue
+                    {
+                        checkArgsSize(args.size(), 3, "reshape");
+                        if (!args[0].getAtom().empty()) {
+                            throw HttpReturnException
+                                (400, "Expected null first argument for scalar reshape()");
+                        }
+
+                        size_t n = 1;
+                        DimsVector shape;
+                        auto addDim = [&] (const Path & columnName,
+                                           const Path & prefix,
+                                           const CellValue & val,
+                                           Date ts)
+                            {
+                                shape.push_back(val.toInt());
+                                n += shape.back();
+                                return true;
+                            };
+
+                        args[1].forEachAtom(addDim);
+
+                        std::vector<CellValue> vals(n, args[2].getAtom());
+                        return ExpressionValue(vals,
+                                               calcTs(args[0], args[1], args[2]),
+                                               shape);
+                    },
+                    outputInfo
+                        };
+            
+        }
+        throw HttpReturnException(400, "requires an embedding as first argument, got " + jsonEncodeStr(args[0].info));
+    }
 
     if (!args[1].info->isEmbedding())
         throw HttpReturnException(400, "requires an embedding as second argument");
 
-    if (!args[1].metadata.isConstant)
-        throw HttpReturnException(400, "requires a constant value as a second argument");
+    if (args[1].metadata.isConstant) {
+        //Dont know the type without evaluating second arg;
+        auto embeddingFormat = args[1].constantValue();
 
-    //Dont know the type without evaluating second arg;
-    auto embeddingFormat = args[1].constantValue();
+        DimsVector shape;
 
-    DimsVector shape;
-
-    auto addDim = [&] (const Path & columnName,
-           const Path & prefix,
-           const CellValue & val,
-           Date ts)
-    {
-        shape.push_back(val.toInt());
-        return true;
-    };
-
-    embeddingFormat.forEachAtom(addDim);
-
-    auto st = args[0].info->getEmbeddingType();
-
-    auto outputInfo = EmbeddingValueInfo::fromShape(shape, st);
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
+        auto addDim = [&] (const Path & columnName,
+                           const Path & prefix,
+                           const CellValue & val,
+                           Date ts)
             {
-                checkArgsSize(args.size(), 2);
+                shape.push_back(val.toInt());
+                return true;
+            };
 
-                return args[0].reshape(shape);
-            },
-            outputInfo
-    };
+        embeddingFormat.forEachAtom(addDim);
+
+        auto st = args[0].info->getEmbeddingType();
+
+        auto outputInfo = EmbeddingValueInfo::fromShape(shape, st);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    checkArgsSize(args.size(), 2, 3, "reshape");
+
+                    if (args.size() == 2) {
+                        return args[0].reshape(shape);
+                    }
+                    else {
+                        return args[0].reshape(shape, args[2]);
+                    }
+                },
+                outputInfo
+           };
+    }
+    else {
+        // Shape is not a constant, so we need to evaluate after binding
+        auto shape = args[1].info->getEmbeddingShape();
+        auto st = args[0].info->getEmbeddingType();
+
+        auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    checkArgsSize(args.size(), 2, 3, "reshape");
+
+                    DimsVector shape;
+                    auto addDim = [&] (const Path & columnName,
+                                       const Path & prefix,
+                                       const CellValue & val,
+                                       Date ts)
+                        {
+                            shape.push_back(val.toInt());
+                            return true;
+                        };
+
+                    args[1].forEachAtom(addDim);
+
+                    if (args.size() == 2) {
+                        return args[0].reshape(shape);
+                    }
+                    else {
+                        return args[0].reshape(shape, args[2]);
+                    }
+                },
+                outputInfo
+           };
+    }
 }
 
 static RegisterBuiltin registerReshape(reshape, "reshape");
+
+    // Calculate the output shape of the concatenated values
+template<typename Sizes>
+Sizes calcShape(const std::vector<Sizes> & shapes)
+{
+    if (shapes.empty())
+        return Sizes();
+    Sizes result = shapes[0];
+    for (size_t i = 1;  i < shapes.size();  ++i) {
+        const Sizes & shape = shapes[i];
+        if (shape.size() != result.size()) {
+            throw HttpReturnException
+                (400, "Attempt to concat vectors with different shapes");
+        }
+        if (result[0] == -1 || shape[0] == -1)
+            result[0] = -1;
+        else result[0] += shape[0];
+    }
+    
+    return result;
+};
+    
+
+
+BoundFunction concat(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.empty()) {
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope) -> ExpressionValue
+            {
+                return ExpressionValue::null(Date::negativeInfinity());
+            };
+        return {
+            exec,
+            std::make_shared<EmptyValueInfo>()
+        };
+    }
+    
+    DimsVector shape;
+
+    std::vector<std::vector<ssize_t> > knownShapes;
+    StorageType st = args[0].info->getEmbeddingType();
+
+    for (auto & a: args) {
+        if (!a.info->couldBeEmbedding())
+            throw HttpReturnException(400, "concat requires embeddings");
+        auto sh = a.info->getEmbeddingShape();
+        knownShapes.emplace_back(sh);
+        st = coveringStorageType(st, a.info->getEmbeddingType());
+    }
+
+    auto outShape = calcShape(knownShapes);
+
+    auto outputInfo = std::make_shared<EmbeddingValueInfo>(outShape, st);
+    
+    auto exec = [=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+        -> ExpressionValue
+        {
+            ExcAssert(!args.empty());
+
+            Date ts = args[0].getEffectiveTimestamp();
+            std::vector<DimsVector> shapes;
+            shapes.reserve(args.size());
+            auto st = args[0].getEmbeddingType();
+            for (auto & a: args) {
+                shapes.emplace_back(a.getEmbeddingShape());
+                st = coveringStorageType(st, a.getEmbeddingType());
+                ts.setMax(a.getEffectiveTimestamp());
+            }
+            
+            DimsVector shape = calcShape(shapes);
+
+            auto outBuffer = allocateStorageBuffer(shape, st);
+
+            // Go argument by argument, copying elements in
+            char * data = (char *)outBuffer.get();
+            for (auto & a: args) {
+                size_t n = a.rowLength();
+                a.convertEmbedding(data, n, st);
+                size_t bytes = storageBufferBytes(n, st);
+                data += bytes;
+            }
+
+            return ExpressionValue::embedding(ts, outBuffer, st, shape);
+        };
+
+    return {
+        exec,
+        outputInfo
+     };
+}
+
+static RegisterBuiltin registerConcat(concat, "concat");
 
 BoundFunction shape(const std::vector<BoundSqlExpression> & args)
 {
@@ -2707,11 +2910,9 @@ static RegisterBuiltin registerShape(shape, "shape");
 
 BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
 {
-    // Return the result indexed on a single dimension
-
     checkArgsSize(args.size(), 1);
 
-    auto outputInfo = std::make_shared<UnknownRowValueInfo>();
+    auto outputInfo = valueInfoForType<std::shared_ptr<ExpressionValueInfo> >();
     Date ts = Date::negativeInfinity();  // it has always had this type
 
     auto argInfo = args[0].info;
@@ -2730,6 +2931,31 @@ BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerStaticType(static_type, "static_type");
+
+BoundFunction static_expression_info(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    auto outputInfo = valueInfoForType<BoundSqlExpression>();
+    Date ts = Date::negativeInfinity();  // it has always had this type
+
+    auto argInfo = args[0].info;
+    ExcAssert(argInfo);
+
+    ExpressionValue result(jsonEncode(args[0]), ts);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                return result;
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerStaticExpressionInfo
+    (static_expression_info, "static_expression_info");
 
 BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
 {
@@ -3154,6 +3380,45 @@ static RegisterBuiltin registerTryFunction(tryFct, "try");
 
 
 /*****************************************************************************/
+/* BUILTIN CONSTANTS                                                         */
+/*****************************************************************************/
+
+RegisterBuiltinConstant::
+RegisterBuiltinConstant(const Utf8String & name, const CellValue & value)
+    : RegisterFunction(name,
+                       std::bind(bind,
+                                 std::placeholders::_1,
+                                 std::placeholders::_2,
+                                 std::placeholders::_3,
+                                 value))
+{
+}
+
+BoundFunction
+RegisterBuiltinConstant::
+bind(const Utf8String &,
+     const std::vector<BoundSqlExpression> & args,
+     SqlBindingScope & context,
+     const CellValue & value)
+{
+    ExpressionValue resultVal(value, Date::negativeInfinity());
+
+    auto exec = [=] (const std::vector<ExpressionValue> &,
+                     const SqlRowScope & context)
+        -> ExpressionValue
+        {
+            return resultVal;
+        };
+
+    BoundFunction result(exec,
+                         resultVal.getSpecializedValueInfo());
+    result.resultMetadata.isConstant = true;
+
+    return result;
+}
+
+
+/*****************************************************************************/
 /* SQL BUILTINS                                                              */
 /*****************************************************************************/
 
@@ -3199,7 +3464,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                            const SqlRowScope & scope)
             -> ExpressionValue
             {
-                auto rowScope = evalScope.getRowScope(args);
+                auto rowScope = evalScope.getRowScope(scope, args);
     
                 try {
                     return bound(rowScope, GET_ALL);

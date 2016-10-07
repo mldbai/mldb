@@ -91,6 +91,20 @@ GenerateRowsWhereFunctionDescription()
 
 
 /*****************************************************************************/
+/* BOUND EXPRESSION METADATA                                                 */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(BoundExpressionMetadata);
+
+BoundExpressionMetadataDescription::
+BoundExpressionMetadataDescription()
+{
+    addField("isConstant", &BoundExpressionMetadata::isConstant,
+             "Is the result of this expression always a constant?");
+}
+
+
+/*****************************************************************************/
 /* BOUND ROW EXPRESSION                                                      */
 /*****************************************************************************/
 
@@ -146,10 +160,8 @@ BoundSqlExpressionDescription()
              "Information on the result returned from the expression");
     addField("expr", &BoundSqlExpression::expr,
              "Expression that was bound");
-    //addField("ast", &BoundSqlExpression::ast,
-    //         "Abstract syntax tree of expression");
-    //addField("surface", &BoundSqlExpression::surface,
-    //         "Surface form of expression");
+    addField("metadata", &BoundSqlExpression::metadata,
+             "Metadata for expression");
 }
 
 
@@ -2018,6 +2030,7 @@ DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<const SqlExpression>,
 
 SqlExpressionDescription::
 SqlExpressionDescription()
+    : ValueDescriptionT<std::shared_ptr<SqlExpression> >(ValueKind::STRING) 
 {
     setTypeName("SqlValueExpression");
     documentationUri = "/doc/builtin/sql/ValueExpression.md";
@@ -2043,6 +2056,7 @@ printJsonTyped(const std::shared_ptr<SqlExpression>  * val,
 
 ConstSqlExpressionDescription::
 ConstSqlExpressionDescription()
+    : ValueDescriptionT<std::shared_ptr<const SqlExpression> >(ValueKind::STRING) 
 {
     setTypeName("ConstSqlValueExpression");
 }
