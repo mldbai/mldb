@@ -2691,7 +2691,7 @@ getEmbeddingShape() const
     case Type::ATOM:
         return {};
     case Type::STRUCTURED:
-        return coercedToEmbedding().getEmbeddingShape();
+        return coerceToEmbedding().getEmbeddingShape();
     case Type::EMBEDDING:
         return embedding_->dims_;
     case Type::SUPERPOSITION:
@@ -2709,7 +2709,7 @@ reshape(DimsVector newShape) const
     case Type::NONE:
     case Type::ATOM:
     case Type::STRUCTURED:
-        return coercedToEmbedding().reshape(newShape);
+        return coerceToEmbedding().reshape(newShape);
     case Type::SUPERPOSITION:
         return superposition_->latest().reshape(newShape);
     case Type::EMBEDDING:
@@ -2728,7 +2728,7 @@ reshape(DimsVector newShape,
     case Type::NONE:
     case Type::ATOM:
     case Type::STRUCTURED:
-        return coercedToEmbedding().reshape(newShape, newValue);
+        return coerceToEmbedding().reshape(newShape, newValue);
     case Type::SUPERPOSITION:
         return superposition_->latest().reshape(newShape, newValue);
     case Type::EMBEDDING:

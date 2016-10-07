@@ -869,6 +869,12 @@ struct ExpressionValue {
     CellValue coerceToTimestamp() const;
     CellValue coerceToAtom() const;
     CellValue coerceToBlob() const;
+
+    /** Return the current value, but with non-embedding representations
+        converted to a uniform embedding representation.  This should
+        give exactly the same result from any expression as the original
+        version but may be significantly faster.
+    */
     ExpressionValue coerceToEmbedding() const;
 
     /** Convert the current ExpressionValue to a path (used as a column or
@@ -1224,9 +1230,6 @@ private:
 
     static std::string print(Type t);
     void assertType(Type requested, const std::string & details="") const;
-
-    /** Return the current value, coerced to an embedding. */
-    ExpressionValue coercedToEmbedding() const;
 
     /// This is how we store a structure with a single value for each
     /// element and an external set of column names
