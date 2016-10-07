@@ -338,8 +338,8 @@ run(const ProcedureRunConfig & run,
     }
     else if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
         distTablesMap.insert(
-                make_pair(ColumnName("words"),
-                          DistTable(ColumnName("words"), outcome_names)));
+                make_pair(ColumnPath("words"),
+                          DistTable(ColumnPath("words"), outcome_names)));
     }
     else {
         throw ML::Exception("unsupported dist table mode");
@@ -394,22 +394,22 @@ run(const ProcedureRunConfig & run,
             if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
                 // there is only a single table
                 DistTable & distTable = distTablesMap.begin()->second;
-                for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
+                for(const std::tuple<ColumnPath, CellValue, Date> & col : row.columns) {
                     distTable.increment(get<0>(col).toUtf8String(), targets);
                 }
             }
             else if(runProcConf.mode == DT_MODE_FIXED_COLUMNS) {
 
-                std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > output_cols;
 
-                map<ColumnName, size_t> column_idx;
+                map<ColumnPath, size_t> column_idx;
                 for (int i=0; i<row.columns.size(); i++) {
                     column_idx.insert(make_pair(get<0>(row.columns[i]), i));
                 }
 
                 // for each of our feature column (or distribution table)
                 for (auto it = distTablesMap.begin(); it != distTablesMap.end(); it++) {
-                    const ColumnName & featureColumnName = it->first;
+                    const ColumnPath & featureColumnName = it->first;
                     DistTable & distTable = it->second;
 
                     // It seems that all the columns from the select will always
@@ -421,7 +421,7 @@ run(const ProcedureRunConfig & run,
                         ExcAssert(false);
                     }
 
-                    const tuple<ColumnName, CellValue, Date> & col =
+                    const tuple<ColumnPath, CellValue, Date> & col =
                         row.columns[col_ptr->second];
 
                     const Utf8String & featureValue = get<1>(col).toUtf8String();
@@ -449,7 +449,7 @@ run(const ProcedureRunConfig & run,
                 }
 
                 if(output) {
-                    output->recordRow(ColumnName(row.rowName), std::move(output_cols));
+                    output->recordRow(ColumnPath(row.rowName), std::move(output_cols));
                 }
             }
             else {
@@ -714,8 +714,8 @@ apply(const FunctionApplier & applier,
     RowValue rtnRow;
     // TODO should we cache column names
     auto onAtomFixedColumns =
-        [&] (const ColumnName & columnName,
-             const ColumnName & prefix,
+        [&] (const ColumnPath & columnName,
+             const ColumnPath & prefix,
              const CellValue & val,
              Date ts)
     {
@@ -739,8 +739,8 @@ apply(const FunctionApplier & applier,
     };
 
     auto onAtomBow =
-        [&] (const ColumnName & columnName,
-             const ColumnName & prefix,
+        [&] (const ColumnPath & columnName,
+             const ColumnPath & prefix,
              const CellValue & val,
              Date ts)
     {

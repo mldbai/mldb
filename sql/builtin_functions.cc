@@ -123,8 +123,8 @@ struct RegisterBuiltinUnaryScalar {
              const SqlRowScope & scope)
     {
         RowValue output;
-        auto onVal = [&] (ColumnName columnName,
-                          const ColumnName & prefix,
+        auto onVal = [&] (ColumnPath columnName,
+                          const ColumnPath & prefix,
                           const CellValue & val,
                           Date ts)
             {
@@ -388,8 +388,8 @@ struct RegisterBuiltinBinaryScalar {
 
         RowValue output;
 
-        auto onVal = [&] (ColumnName columnName,
-                          const ColumnName & prefix,
+        auto onVal = [&] (ColumnPath columnName,
+                          const ColumnPath & prefix,
                           const CellValue & val,
                           Date ts)
             {
@@ -413,8 +413,8 @@ struct RegisterBuiltinBinaryScalar {
 
         RowValue output;
 
-        auto onVal = [&] (ColumnName columnName,
-                          const ColumnName & prefix,
+        auto onVal = [&] (ColumnPath columnName,
+                          const ColumnPath & prefix,
                           const CellValue & val,
                           Date ts)
             {
@@ -463,8 +463,8 @@ struct RegisterBuiltinBinaryScalar {
         output.reserve(std::max(v1.size(), v2.size()));
         if (v1.size() == v2.size()) {
             for (size_t i = 0;  i < v1.size();  ++i) {
-                const ColumnName & n1 = std::get<0>(v1[i]);
-                const ColumnName & n2 = std::get<1>(v2[i]);
+                const ColumnPath & n1 = std::get<0>(v1[i]);
+                const ColumnPath & n2 = std::get<1>(v2[i]);
 
                 if (n1 != n2)
                     break;
@@ -1738,7 +1738,7 @@ void normalize(ML::distribution<double>& val, double p)
                  throw HttpReturnException
                      (500, "Can't normalize a row with unknown columns");
 
-             auto columnNames = std::make_shared<std::vector<ColumnName> >();
+             auto columnNames = std::make_shared<std::vector<ColumnPath> >();
 
              std::vector<KnownColumn> columns = args[0].info->getKnownColumns();
              for (auto & c: columns)
@@ -1963,14 +1963,14 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
 
                 while (it != bagOfWords.end()) {
                     if (!options.value.empty()) {
-                        row.emplace_back(ColumnName(it->first),
+                        row.emplace_back(ColumnPath(it->first),
                                          options.value,
                                          ts);
                         ++it;
                     }
                     else
                     {
-                        row.emplace_back(ColumnName(it->first),
+                        row.emplace_back(ColumnPath(it->first),
                                          it->second,
                                          ts);
                         ++it;
@@ -2598,11 +2598,11 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
                         return args[0].reshape({len});
                     }
 
-                    std::vector<std::tuple<ColumnName, CellValue> > vals;
+                    std::vector<std::tuple<ColumnPath, CellValue> > vals;
                     vals.reserve(100);
                     Date tsOut = Date::negativeInfinity();
-                    auto onAtom = [&] (ColumnName col,
-                                       const ColumnName & prefix,
+                    auto onAtom = [&] (ColumnPath col,
+                                       const ColumnPath & prefix,
                                        CellValue val,
                                        Date ts)
                         {
@@ -3274,6 +3274,24 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
         };
 }
 static RegisterBuiltin registerFetcherFunction(fetcher, "fetcher");
+
+BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    bool isConst = args[0].metadata.isConstant;
+
+    auto outputInfo
+        = std::make_shared<BooleanValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                return ExpressionValue(isConst, args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+        };
+}
+static RegisterBuiltin registerIsConstFunction(static_is_constant, "__isconst");
 
 } // namespace Builtins
 } // namespace MLDB

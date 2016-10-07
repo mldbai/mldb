@@ -1,4 +1,4 @@
-/** coord_test.cc
+/** path_test.cc
     Jeremy Barnes, 10 April 2016
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
@@ -26,6 +26,12 @@
 using namespace std;
 
 using namespace MLDB;
+
+BOOST_AUTO_TEST_CASE( test_size )
+{
+    BOOST_CHECK_EQUAL(sizeof(Path), 64);
+}
+
 
 BOOST_AUTO_TEST_CASE(test_element_compare)
 {
@@ -431,6 +437,7 @@ BOOST_AUTO_TEST_CASE(test_null)
 
     // pe = path element
     // p = path
+    JML_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_THROW(null + e, ML::Exception); // pe - pe, null lhs
     BOOST_CHECK_THROW(e + null, ML::Exception); // pe - pe, null rhs
     BOOST_CHECK_THROW(null + std::move(e), ML::Exception); // pe - moved pe, null lhs

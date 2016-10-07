@@ -32,7 +32,7 @@ enum ColumnOperator {
 DECLARE_ENUM_DESCRIPTION(ColumnOperator);
 
 struct ColumnSpec {
-    ColumnSpec(ColumnName columnName = ColumnName(),
+    ColumnSpec(ColumnPath columnName = ColumnPath(),
                CellValue cellValue = CellValue(),
                ColumnOperator op = COL_VALUE,
                float offset = 0.0,
@@ -43,7 +43,7 @@ struct ColumnSpec {
     {
     }
 
-    ColumnName columnName;
+    ColumnPath columnName;
     CellValue cellValue;
     ColumnOperator op;
     float offset;
@@ -61,7 +61,7 @@ struct ColumnSpec {
 DECLARE_STRUCTURE_DESCRIPTION(ColumnSpec);
 
 struct ContinuousColumnInfo: public ColumnSpec {
-    ContinuousColumnInfo(ColumnName columnName, int rowCount)
+    ContinuousColumnInfo(ColumnPath columnName, int rowCount)
         : ColumnSpec(columnName, CellValue(), COL_VALUE),
           rowCount(rowCount)
     {
@@ -71,7 +71,7 @@ struct ContinuousColumnInfo: public ColumnSpec {
 };
 
 struct SparseColumnInfo: public ColumnSpec {
-    SparseColumnInfo(ColumnName columnName, CellValue value, int rowCount,
+    SparseColumnInfo(ColumnPath columnName, CellValue value, int rowCount,
                      bool isContinuous)
         : ColumnSpec(columnName, value, isContinuous ? COL_VALUE: COL_EQUAL),
           rowCount(rowCount)
@@ -188,7 +188,7 @@ struct ColumnIndexEntry: public ColumnSpec {
     {
     }
 
-    void initContinuousDense(int numExamplesWithColumn, int numExamples, ColumnName columnName)
+    void initContinuousDense(int numExamplesWithColumn, int numExamples, ColumnPath columnName)
     {
         this->columnType = CONTINUOUS_DENSE;
         this->numExamples = numExamples;
@@ -200,7 +200,7 @@ struct ColumnIndexEntry: public ColumnSpec {
         continuousValues.resize(numExamples);
     }
 
-    void initSparse(int numExamplesWithColumn, int numExamples, ColumnName columnName, CellValue cellValue, ColumnOperator op)
+    void initSparse(int numExamplesWithColumn, int numExamples, ColumnPath columnName, CellValue cellValue, ColumnOperator op)
     {
         this->op = op;
         this->columnType = op == COL_VALUE ? CONTINUOUS_SPARSE : DISCRETE_SPARSE;

@@ -167,7 +167,7 @@ run(const ProcedureRunConfig & run,
     // ...
 
     std::mutex fvsLock;
-    std::vector<std::tuple<RowName, float, float, float> > fvs;
+    std::vector<std::tuple<RowPath, float, float, float> > fvs;
 
     std::atomic<int> numRows(0);
 
@@ -370,13 +370,13 @@ ProbabilizeFunction::
 getFunctionInfo() const
 {
     std::vector<KnownColumn> knownInputColumns;
-    knownInputColumns.emplace_back(ColumnName("score"),
+    knownInputColumns.emplace_back(ColumnPath("score"),
                                    std::make_shared<NumericValueInfo>(),
                                    COLUMN_IS_DENSE,
                                    0 /* position */);
 
     std::vector<KnownColumn> knownOutputColumns;
-    knownOutputColumns.emplace_back(ColumnName("prob"),
+    knownOutputColumns.emplace_back(ColumnPath("prob"),
                                     std::make_shared<NumericValueInfo>(),
                                     COLUMN_IS_DENSE,
                                     0 /* position */);

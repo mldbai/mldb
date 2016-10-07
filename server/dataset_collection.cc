@@ -87,18 +87,18 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                                 "application/json");
     }
     else if (format == "sparse") {
-        std::vector<std::vector<std::pair<ColumnName, CellValue> > > output;
+        std::vector<std::vector<std::pair<ColumnPath, CellValue> > > output;
         output.reserve(sparseOutput.size());
 
         for (auto & row: sparseOutput) {
 
-            std::vector<std::pair<ColumnName, CellValue> > rowOut;
+            std::vector<std::pair<ColumnPath, CellValue> > rowOut;
             rowOut.reserve(row.columns.size() + rowNames + rowHashes);
 
             if (rowNames)
-                rowOut.emplace_back(ColumnName("_rowName"), row.rowName.toUtf8String());
+                rowOut.emplace_back(ColumnPath("_rowName"), row.rowName.toUtf8String());
             if (rowHashes)
-                rowOut.emplace_back(ColumnName("_rowHash"), row.rowHash.toString());
+                rowOut.emplace_back(ColumnPath("_rowHash"), row.rowHash.toString());
 
             for (auto & c: row.columns) {
                 rowOut.emplace_back(std::get<0>(c), std::get<1>(c));
@@ -114,17 +114,17 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
     }
     else if (format == "soa") {
         // Structure of arrays; one array per column
-        std::map<ColumnName, std::vector<CellValue> > output;
+        std::map<ColumnPath, std::vector<CellValue> > output;
         for (unsigned i = 0;  i < sparseOutput.size();  ++i) {
             if (rowNames)
-                output[ColumnName("_rowName")]
+                output[ColumnPath("_rowName")]
                     .push_back(sparseOutput[i].rowName.toUtf8String());
             if (rowHashes)
-                output[ColumnName("_rowHash")]
+                output[ColumnPath("_rowHash")]
                     .push_back(sparseOutput[i].rowHash.toString());
 
             for (auto & c: sparseOutput[i].columns) {
-                const ColumnName & col = std::get<0>(c);
+                const ColumnPath & col = std::get<0>(c);
                 const CellValue & val = std::get<1>(c);
 
                 std::vector<CellValue> & vals = output[col];
@@ -138,18 +138,18 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
     }
     else if (format == "aos") {
         // Array of structures; one structure per row
-        std::vector<std::map<ColumnName, CellValue> > output;
+        std::vector<std::map<ColumnPath, CellValue> > output;
         for (unsigned i = 0;  i < sparseOutput.size();  ++i) {
 
-            std::map<ColumnName, CellValue> row;
+            std::map<ColumnPath, CellValue> row;
 
             if (rowNames)
-                row[ColumnName("_rowName")] = sparseOutput[i].rowName.toUtf8String();
+                row[ColumnPath("_rowName")] = sparseOutput[i].rowName.toUtf8String();
             if (rowHashes)
-                row[ColumnName("_rowHash")] = sparseOutput[i].rowHash.toString();
+                row[ColumnPath("_rowHash")] = sparseOutput[i].rowHash.toString();
 
             for (auto & c: sparseOutput[i].columns) {
-                const ColumnName & col = std::get<0>(c);
+                const ColumnPath & col = std::get<0>(c);
                 const CellValue & val = std::get<1>(c);
                 row[col] = val;
             }
@@ -164,7 +164,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
         // be greatly optimized.
 
         // First, find all columns
-        std::vector<ColumnName> columns;
+        std::vector<ColumnPath> columns;
         ML::Lightweight_Hash<ColumnHash, int> columnIndex;
         for (auto & o: sparseOutput) {
             for (auto & c: o.columns) {
@@ -208,7 +208,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                 rowOut[rowNames] = row.rowHash.toString();
 
             for (auto & c: row.columns) {
-                const ColumnName & columnName = std::get<0>(c);
+                const ColumnPath & columnName = std::get<0>(c);
                 CellValue cellValue = std::get<1>(c);
 
                 //Special output options for table format
@@ -336,8 +336,8 @@ initRoutes(RouteManager & manager)
                 int start = getParam(req, "start", 0);
                 int limit = getParam(req, "limit", -1);
 
-                // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-                auto result = dataset->getMatrixView()->getRowNames(start, limit);
+                // getRowPaths can return row names in an arbitrary order as long as it is deterministic.
+                auto result = dataset->getMatrixView()->getRowPaths(start, limit);
 
                 connection.sendHttpResponse(200, jsonEncodeStr(result),
                                             "application/json", {});
@@ -360,15 +360,15 @@ initRoutes(RouteManager & manager)
                  "Record the given row into the dataset",
                  &Dataset::recordRow,
                  getDataset,
-                 JsonParam<RowName>("rowName", "Name of the row to record"),
-                 JsonParam<std::vector<std::tuple<ColumnName, CellValue, Date> > >
+                 JsonParam<RowPath>("rowName", "Name of the row to record"),
+                 JsonParam<std::vector<std::tuple<ColumnPath, CellValue, Date> > >
                  ("columns", "[ column name, value, date ] tuples to record"));
 
     addRouteSync(*manager.valueNode, "/multirows", { "POST" },
                  "Record many rows into the dataset",
                  &Dataset::recordRows,
                  getDataset,
-                 JsonParam<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >
+                 JsonParam<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >
                  ("", "[ [ row name, [ [ column name, value, timestamp ], ... ] ], ...] tuples to record"));
 
     auto & row JML_UNUSED
@@ -383,22 +383,22 @@ initRoutes(RouteManager & manager)
                  "Record the given column into the dataset",
                  &Dataset::recordColumn,
                  getDataset,
-                 JsonParam<ColumnName>("columnName", "Name of the column to record"),
-                 JsonParam<std::vector<std::tuple<RowName, CellValue, Date> > >
+                 JsonParam<ColumnPath>("columnName", "Name of the column to record"),
+                 JsonParam<std::vector<std::tuple<RowPath, CellValue, Date> > >
                  ("rows", "[ row name, value, date ] tuples to record"));
 
     addRouteSync(*manager.valueNode, "/multicolumns", { "POST" },
                  "Record many columns into the dataset",
                  &Dataset::recordColumns,
                  getDataset,
-                 JsonParam<std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > >
+                 JsonParam<std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > >
                  ("", "[ [ col name, [ [ row name, value, timestamp ], ... ] ], ...] tuples to record"));
 
 
     addRouteSyncJsonReturn(columns, "", { "GET" },
                            "Get a list of column names in the dataset",
                            "List of column names",
-                           &Dataset::getColumnNames,
+                           &Dataset::getColumnPaths,
                            getDataset,
 #if 0
                            RestParamDefault<std::string>("regex",
@@ -420,7 +420,7 @@ initRoutes(RouteManager & manager)
         = columns.addSubRouter(Rx("/([^/]*)", "/<columnName>"),
                                "operations on an individual column");
 
-    RequestParam<ColumnName> columnParam(6, "<columnName>",
+    RequestParam<ColumnPath> columnParam(6, "<columnName>",
                                          "Column to operate on");
 
     RestRequestRouter::OnProcessRequest getColumnValues
@@ -441,7 +441,7 @@ initRoutes(RouteManager & manager)
                 auto index = dataset->getColumnIndex();
 
                 ColumnStats columnStatsStorage;
-                auto stats = index->getColumnStats(ColumnName(cxt.resources.at(6)),
+                auto stats = index->getColumnStats(ColumnPath(cxt.resources.at(6)),
                                                    columnStatsStorage);
 
                 vector<CellValue> result;
@@ -509,7 +509,7 @@ initRoutes(RouteManager & manager)
 std::vector<std::pair<CellValue, int64_t> >
 DatasetCollection::
 getColumnValueCounts(const Dataset * dataset,
-                     const ColumnName & columnName,
+                     const ColumnPath & columnName,
                      ssize_t offset,
                      ssize_t limit) const
 {

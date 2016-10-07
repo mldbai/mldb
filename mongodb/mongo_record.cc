@@ -50,7 +50,7 @@ MongoRecordConfigDescription()
     };
 }
 
-typedef tuple<ColumnName, CellValue, Date> Cell;
+typedef tuple<ColumnPath, CellValue, Date> Cell;
 
 struct MongoRecord: Dataset {
 

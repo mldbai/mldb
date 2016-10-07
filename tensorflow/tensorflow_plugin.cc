@@ -22,6 +22,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/server/static_content_macro.h"
+#include "mldb/sql/builtin_functions.h"
 
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
@@ -336,7 +337,6 @@ struct TensorflowGraphBase: public Function {
 
         // These nodes have constants which we shouldn't need to spend
         // time running one after the other
-        std::map<std::string, Tensor> constants;
 
         size_t constantTotalBytes = 0;
 
@@ -480,7 +480,7 @@ struct TensorflowGraphBase: public Function {
     std::unique_ptr<tensorflow::GraphDef> graph;
 
     /// Timestamp at which the model was created
-    Date modelTs;
+    Date modelTs = Date::notADate();
 
     struct DeviceSession {
         DeviceSession(std::string device,
@@ -499,7 +499,7 @@ struct TensorflowGraphBase: public Function {
         int numQueued;
     };
 
-    std::vector<std::pair<std::string, tensorflow::Tensor> > constants;
+    std::map<std::string, tensorflow::Tensor> constants;  // const once constructed
 
     mutable std::vector<DeviceSession> sessions;  // mutable for numQueued
 
@@ -557,11 +557,11 @@ struct TensorflowGraphBase: public Function {
         };
 
         std::map<Utf8String, const tensorflow::NodeDef *> graphNodes;
-        std::map<ColumnName, int> nodesRead;  // index into outputLayers
+        std::map<ColumnPath, int> nodesRead;  // index into outputLayers
         std::vector<Utf8String> outputLayers;
 
         ColumnGetter doGetColumn(const Utf8String & tableName,
-                                 const ColumnName & columnName)
+                                 const ColumnPath & columnName)
         {
             if (!tableName.empty())
                 return ReadThroughBindingScope
@@ -618,7 +618,7 @@ struct TensorflowGraphBase: public Function {
             std::vector<std::pair<PathElement, int> > indexes;
 
             for (const auto & n: graphNodes) {
-                ColumnName kept = keep(PathElement(n.first));
+                ColumnPath kept = keep(PathElement(n.first));
                 if (kept.empty())
                     continue;
                 if (kept.size() != 1)
@@ -917,9 +917,13 @@ struct TensorflowGraphBase: public Function {
                 break;
             }
         }
+        else if (val.isArray()) {
+            return castToTypedTensor(val.coerceToEmbedding(), type);
+        }
 
         //cerr << "val = " << jsonEncode(val) << endl;
         //cerr << "type = " << type << endl;
+        //cerr << "value type " << val.getTypeAsString() << endl;
         throw HttpReturnException(500, "Unable to cast value to typed tensor");
     }
     
@@ -992,8 +996,8 @@ struct TensorflowGraphBase: public Function {
             return castToTypedTensor(val, storageToDatatype(storageType));
         }
 
-        cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
-        throw HttpReturnException(500, "Unable to cast value to tensor");
+        //cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
+        throw HttpReturnException(500, "Unable to cast value of type " + val.getTypeAsString() + " to tensor");
     }
     
     tensorflow::Tensor
@@ -1024,6 +1028,10 @@ struct TensorflowGraphBase: public Function {
 
                     // It has a datatype, but no value (and hence size).
                     // Attempt to match the data type only.
+
+                    //cerr << "casting type-no-size: " << layer << endl;
+                    //cerr << "value: " << jsonEncode(val) << endl;
+
                     return castToTypedTensor(val, it->second.type());
                 }
 
@@ -1388,6 +1396,8 @@ struct TensorflowGraphBase: public Function {
     apply(const FunctionApplier & applier,
           const ExpressionValue & context) const
     {
+        //cerr << "applying tensor flow function, context: " << jsonEncode(context) << endl;
+
         return static_cast<const Applier &>(applier)
             .apply(context);
     }
@@ -1411,7 +1421,7 @@ struct TensorflowGraphBase: public Function {
         functionScope.inferInput();
         
         FunctionInfo result;
-        result.input = std::move(functionScope.inputInfo);
+        result.input = ExpressionValueInfo::toRow(functionScope.inputInfo);
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;
@@ -1937,8 +1947,12 @@ struct TensorflowPlugin: public Plugin {
                              + op + "' which takes more than one input"); 
                     }
                 }
-                else {
+                else if (args[0].info->isRow()) {
                     inputInfo = ExpressionValueInfo::toRow(args[0].info);
+                }
+                else {
+                    //we dont know the type of input
+                    inputInfo.reset(new UnknownRowValueInfo());
                 }
 
                 for (size_t i = 0;  i < opDef->input_arg_size();  ++i) {
@@ -1997,7 +2011,6 @@ struct TensorflowPlugin: public Plugin {
                     };
 
                 result.resultInfo = applier->info.output;
-
                 return result;
             };
     }
@@ -2077,6 +2090,73 @@ struct TensorflowPlugin: public Plugin {
 };
 
 
+// tf_node function
+
+BoundFunction
+tf_extract_constant (const Utf8String &functionName,
+                     const std::vector<BoundSqlExpression> & args,
+                     SqlBindingScope & context)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 2);
+
+    MldbServer * server = context.getMldbServer();
+
+    auto exec = [=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+        -> ExpressionValue
+        {
+            checkArgsSize(args.size(), 2);
+            Utf8String graphName = args[0].toUtf8String();
+            PolyConfig pconfig;
+            pconfig.id = graphName;
+            auto graph = std::dynamic_pointer_cast<TensorflowGraphBase>
+                (obtainFunction(server, pconfig));
+
+            if (!graph) {
+                throw HttpReturnException
+                    (404, "No TensorFlow graph with name found");
+            }
+
+            Path path = args[1].coerceToPath();
+
+            std::string key;
+            for (PathElement p: path) {
+                if (!key.empty())
+                    key += '/';
+                key += p.toUtf8String().extractAscii();
+            }
+
+            auto it = graph->constants.find(key);
+
+            if (it == graph->constants.end()) {
+                std::vector<Utf8String> constantExamples;
+                size_t n = 0;
+                for (auto & c: graph->constants) {
+                    constantExamples.emplace_back(c.first);
+                    if (n++ > 100)
+                        break;
+                }
+
+                throw HttpReturnException
+                    (500, "Constant " + path.toUtf8String()
+                     + " not found (path is " + key + ")",
+                     "examples", constantExamples);
+            }
+
+            auto result = TensorflowGraphBase::tensorToValue
+                (it->second, graph->modelTs);
+
+            return result;
+        };
+
+    return {
+        exec,
+        std::make_shared<EmbeddingValueInfo>()
+    };
+}
+
+static RegisterFunction registerTfExtractConstant("tf_extract_constant", tf_extract_constant);
 
 } // namespace MLDB
 
