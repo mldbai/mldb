@@ -26,13 +26,13 @@ For this example, we will use a MongoDB database populated with data provided by
 the book MongoDB In Action. The zipped json file is available at
 [http://mng.bz/dOpd](http://mng.bz/dOpd).
 
-Here we create a dataset named "mongodb_zips_bridge".
+Here we create a dataset named `mongodb_zips_bridge`.
 
 ```python
 mldb.put('/v1/datasets/mongodb_zips_bridge', {
     'type' : 'mongodb.dataset',
     'params' : {
-        'connectionScheme': 'mongodb://khan.mldb.ai:11712/zips',
+        'connectionScheme': 'mongodb://somehost.mldb.ai:11712/zips',
         'collection': 'zips'
     }
 })

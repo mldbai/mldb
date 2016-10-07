@@ -25,13 +25,13 @@ For this example, we will use a MongoDB database populated with data provided by
 the book MongoDB In Action. The zipped json file is available at
 [http://mng.bz/dOpd](http://mng.bz/dOpd).
 
-Here we import the zips collection into an MLDB dataset called mongodb_zips.
+Here we import the zips collection into an MLDB dataset called `mongodb_zips`.
 
 ```python
 mldb.post('/v1/procedures', {
     'type' : 'mongodb.import',
     'params' : {
-        'connectionScheme': 'mongodb://khan.mldb.ai:11712/zips',
+        'connectionScheme': 'mongodb://somehost.mldb.ai:11712/zips',
         'collection': 'zips',
         'outputDataset' : {
             'id' : 'mongodb_zips',
@@ -56,7 +56,7 @@ mldb.query("SELECT * FROM mongodb_zips LIMIT 5")
 | 57d2f5eb21af5ee9c4e27f01 | 57d2f5eb21af5ee9c4e27f01 | COKEVILLE | 110.916419 | 42.057983 | 905 | WY | 83114 |
 
 Here we did not provide any named parameter so oid() was used. This is why
-_rowName and _id have the same values.
+`_rowName` and `_id` have the same values.
 
 Another element to note is how the loc object was imported. The sub object was
 disassembled and imported as loc.x and loc.y into MLDB.

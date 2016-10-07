@@ -33,7 +33,7 @@ Here we create the query function on the MongoDB zips database zips collection.
 mldb.put("/v1/functions/mongo_query", {
     "type": "mongodb.query",
     "params": {
-        "connectionScheme": 'mongodb://khan.mldb.ai:11712/zips',
+        "connectionScheme": 'mongodb://somehost.mldb.ai:11712/zips',
         "collection": 'zips'
     }
 })
