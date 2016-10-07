@@ -55,7 +55,7 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
 
     DimsVector dimsVector = args[0].getEmbeddingShape();
 
-    cerr << "fft " << directionStr << " " << typeStr << " " << dimsVector << endl;
+    //cerr << "fft " << directionStr << " " << typeStr << " " << dimsVector << endl;
 
     // Either an embedding of size n (real numbers), or an embedding of size
     // n x 2 (complex numbers).

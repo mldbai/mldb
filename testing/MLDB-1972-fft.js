@@ -63,4 +63,11 @@ var resp = mldb.query("select quantize(fft(fft(shifted_impulse(32, 31), 'forward
 
 mldb.log(resp);
 
+var resp = mldb.query("select quantize(fft(fft(shifted_impulse(32, 31), 'forward'), 'backward'), 0.001) = shifted_impulse(32, 31) as r");
+
+mldb.log(resp);
+
+// Make sure that the inverse of an FFT is equal to the original input
+assertEqual(resp[0].columns[0][1], 1);
+
 "success"
