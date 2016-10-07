@@ -55,3 +55,6 @@
 [submodule "ext/giflib"]
 	path = ext/giflib
 	url = https://github.com/mldbai/giflib.git
+[submodule "ext/pffft"]
+	path = ext/pffft
+	url = https://github.com/mldbai/pffft.git
