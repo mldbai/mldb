@@ -125,7 +125,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         virtual const RowPath & rowName(RowPath & storage) const override
         {
-            return chunkiter->getRowName(rowIndex, storage);
+            return chunkiter->getRowPath(rowIndex, storage);
         }
 
         virtual RowPath next() override
@@ -510,7 +510,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     template<typename T>
     std::vector<T>
-    getRowNamesT(ssize_t start, ssize_t limit) const
+    getRowPathsT(ssize_t start, ssize_t limit) const
     {
         std::vector<T> result;
         if (limit == -1)
@@ -533,7 +533,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 chunkEnd = std::min<size_t>(chunkEnd, chunkStart + limit);
 
             for (size_t i = chunkStart;  i < chunkEnd;  ++i) {
-                result.emplace_back(c.getRowName(i));
+                result.emplace_back(c.getRowPath(i));
             }
         }
 
@@ -541,15 +541,15 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     }
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const override
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
-        return getRowNamesT<RowPath>(start, limit);
+        return getRowPathsT<RowPath>(start, limit);
     }
 
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
-        return getRowNamesT<RowHash>(start, limit);
+        return getRowPathsT<RowHash>(start, limit);
     }
 
     std::pair<int, int> tryLookupRow(const RowPath & rowName) const
@@ -619,7 +619,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             .getRowExpr(it->second.second, fixedColumns);
     }
 
-    virtual RowPath getRowName(const RowHash & rowHash) const override
+    virtual RowPath getRowPath(const RowHash & rowHash) const override
     {
         int shard = getRowShard(rowHash);
         auto it = rowIndex[shard].find(rowHash);
@@ -627,7 +627,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             throw HttpReturnException(400, "Row not found in tabular dataset");
         }
 
-        return chunks.at(it->second.first).getRowName(it->second.second);
+        return chunks.at(it->second.first).getRowPath(it->second.second);
     }
 
     virtual ColumnPath getColumnName(ColumnHash column) const override
@@ -764,7 +764,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 for (unsigned j = 0;  j < chunks[chunkNum].rowCount();  ++j) {
                     RowPath rowNameStorage;
                     const RowPath & rowName
-                        = chunks[chunkNum].getRowName(j, rowNameStorage);
+                        = chunks[chunkNum].getRowPath(j, rowNameStorage);
                     RowHash rowHash = rowName;
                     
                     int shard = getRowShard(rowHash);
@@ -785,7 +785,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                             throw HttpReturnException
                                 (400, "Duplicate row name in tabular dataset",
                                  "rowName",
-                                 chunks[chunkNum].getRowName(indexInChunk));
+                                 chunks[chunkNum].getRowPath(indexInChunk));
                         }
                     }
                 }
@@ -800,11 +800,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         for (unsigned i = 0;  i < chunks.size();  ++i) {
             for (unsigned j = 0;  j < chunks[i].rowCount();  ++j) {
                 RowPath rowNameStorage;
-                if (!rowIndex.insert({ chunks[i].getRowName(j, rowNameStorage),
+                if (!rowIndex.insert({ chunks[i].getRowPath(j, rowNameStorage),
                                 { i, j } }).second)
                     throw HttpReturnException
                         (400, "Duplicate row name in tabular dataset",
-                         "rowName", chunks[i].getRowName(j));
+                         "rowName", chunks[i].getRowPath(j));
             }
         }
 #endif

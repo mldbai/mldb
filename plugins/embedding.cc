@@ -268,7 +268,7 @@ struct EmbeddingDataset::Itl
     RestRequestRouter router;
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -410,12 +410,12 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    virtual RowPath getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
         static const RowHash nullHash(RowPath("null"));
         static const RowHash nullHashMunged(RowPath("\x01null"));
         if (rowHash == nullHash)
-            return getRowName(nullHashMunged);
+            return getRowPath(nullHashMunged);
 
         auto repr = committed();
         if (!repr->initialized())
@@ -1416,12 +1416,12 @@ applyT(const ApplierT & applier_, ReadPixelsInput input) const
     x = boost::algorithm::clamp(x, 0, shape[0]-1);
     y = boost::algorithm::clamp(y, 0, shape[1]-1);
 
-    ColumnName columnName;
-    columnName = columnName + PathElement(y);
-    columnName = columnName + PathElement(x);
+    ColumnPath columnPath;
+    columnPath = columnPath + PathElement(y);
+    columnPath = columnPath + PathElement(x);
 
     ExpressionValue storage;
-    auto pValue = embedding.tryGetNestedColumn(columnName, storage);
+    auto pValue = embedding.tryGetNestedColumn(columnPath, storage);
 
     if (pValue)
         return {*pValue};
@@ -1547,24 +1547,24 @@ applyT(const ApplierT & applier_, ProximateVoxelsInput input) const
                     int jj = y + j;
                     int kk = z + k;
 
-                    ColumnName columnName;
+                    ColumnPath columnPath;
                   
                     //voxelize is z, y, x...
 
-                    columnName = columnName + PathElement(kk);
-                    columnName = columnName + PathElement(jj);
-                    columnName = columnName + PathElement(ii);
-                    columnName = columnName + PathElement(c);
+                    columnPath = columnPath + PathElement(kk);
+                    columnPath = columnPath + PathElement(jj);
+                    columnPath = columnPath + PathElement(ii);
+                    columnPath = columnPath + PathElement(c);
 
-                    //cerr << columnName << endl;
+                    //cerr << columnPath << endl;
 
                     ExpressionValue storage;
-                    auto pValue = embedding.tryGetNestedColumn(columnName, storage);
+                    auto pValue = embedding.tryGetNestedColumn(columnPath, storage);
 
                     float val = 0.0f;
 
                     if (!pValue) {
-                        cerr << columnName << endl;
+                        cerr << columnPath << endl;
                         ExcAssert(pValue);
                     }
 

@@ -208,13 +208,13 @@ struct MergedDataset::Itl
             uint64_t hash = (*it).first;
             ++it;
 
-            return source->getRowName(RowHash(hash));
+            return source->getRowPath(RowHash(hash));
         }
 
         virtual const RowPath & rowName(RowPath & storage) const
         {
             uint64_t hash = (*it).first;
-            return storage = source->getRowName(RowHash(hash));
+            return storage = source->getRowPath(RowHash(hash));
         }
 
         const MergedDataset::Itl* source;
@@ -223,14 +223,14 @@ struct MergedDataset::Itl
     };
        
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
         auto hashes = getRowHashes(start, limit);
         
         std::vector<RowPath> result;
 
         for (auto & h: getRowHashes(start, limit))
-            result.emplace_back(getRowName(h));
+            result.emplace_back(getRowPath(h));
 
         return result;
     }
@@ -274,14 +274,14 @@ struct MergedDataset::Itl
         return bitmap != 0;
     }
 
-    virtual RowPath getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
         uint32_t bitmap = getRowBitmap(rowHash);
         if (!bitmap)
             throw ML::Exception("Row not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
-        return datasets[bit]->getMatrixView()->getRowName(rowHash);
+        return datasets[bit]->getMatrixView()->getRowPath(rowHash);
     }
 
     virtual MatrixNamedRow getRow(const RowPath & rowName) const

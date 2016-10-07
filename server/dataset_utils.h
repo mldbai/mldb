@@ -26,7 +26,7 @@ struct MergedMatrixView : public MatrixView
     MergedMatrixView(std::vector< std::shared_ptr<MatrixView> > views);
 
     std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const;
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const;
 
     std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const;

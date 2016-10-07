@@ -30,7 +30,7 @@ typedef tuple<Path, CellValue, Date> Cell;
 
 struct MongoMatrixView : MatrixView {
 
-    vector<Path> getRowNames(ssize_t start = 0,
+    vector<Path> getRowPaths(ssize_t start = 0,
                              ssize_t limit = -1) const override
     {
         return vector<Path>{};
@@ -57,9 +57,9 @@ struct MongoMatrixView : MatrixView {
         throw HttpReturnException(500, "Unimplemented getRow");
     }
 
-    Path getRowName(const RowHash & row) const override
+    Path getRowPath(const RowHash & row) const override
     {
-        throw HttpReturnException(500, "Unimplemented getRowName");
+        throw HttpReturnException(500, "Unimplemented getRowPath");
     }
 
     bool knownColumn(const Path & columnName) const override
@@ -108,7 +108,7 @@ struct MongoColumnIndex : ColumnIndex {
         return vector<Path>{};
     }
 
-    vector<Path> getRowNames(ssize_t start = 0,
+    vector<Path> getRowPaths(ssize_t start = 0,
                              ssize_t limit = -1) const override
     {
         return vector<Path>{};

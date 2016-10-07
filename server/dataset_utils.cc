@@ -27,12 +27,12 @@ MergedMatrixView(std::vector< std::shared_ptr<MatrixView> > views) :
 
 std::vector<RowPath>
 MergedMatrixView::
-getRowNames(ssize_t start, ssize_t limit) const
+getRowPaths(ssize_t start, ssize_t limit) const
 {
     std::vector<RowPath> names;
 
     for (const auto& view : views) {
-        auto rows = view->getRowNames();
+        auto rows = view->getRowPaths();
         names.insert(names.end(), rows.begin(), rows.end());
     }
 
@@ -73,7 +73,7 @@ size_t
 MergedMatrixView::
 getRowCount() const
 {
-    return getRowNames().size();
+    return getRowPaths().size();
 }
 
 bool

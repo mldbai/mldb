@@ -147,15 +147,15 @@ struct SampledDataset::Itl
 
             sampledRowsHash.emplace_back(rows[sample_index]);
 
-            auto rowName = matrix->getRowName(rows[sample_index]);
+            auto rowName = matrix->getRowPath(rows[sample_index]);
             sampledRows.emplace_back(rowName);
             sampledRowsIndex.insert(rowName);
         }
     }
 
-    virtual RowPath getRowName(const RowHash & row) const
+    virtual RowPath getRowPath(const RowHash & row) const
     {
-        auto rowName = matrix->getRowName(row);
+        auto rowName = matrix->getRowPath(row);
         if(!knownRow(rowName))
             throw ML::Exception("Can't get name of unknown row");
 
@@ -163,7 +163,7 @@ struct SampledDataset::Itl
     }
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
         std::vector<RowPath> rtn;
         rtn.reserve(sampledRows.size() - start);

@@ -173,7 +173,7 @@ struct TransposedDataset::Itl
     }
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
         vector<ColumnPath> cols = dataset->getFlattenedColumnNames();
 
@@ -191,7 +191,7 @@ struct TransposedDataset::Itl
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
         vector<RowHash> result;
-        for (auto & n: getRowNames()) {
+        for (auto & n: getRowPaths()) {
             result.emplace_back(n);
         }
         return result;
@@ -207,14 +207,14 @@ struct TransposedDataset::Itl
         return matrix->knownRow(colToRow(columnName));
     }
 
-    virtual RowPath getRowName(const RowHash & row) const
+    virtual RowPath getRowPath(const RowHash & row) const
     {
         return matrix->getColumnName(rowToCol(row));
     }
 
     virtual ColumnPath getColumnName(ColumnHash column) const
     {
-        return matrix->getRowName(colToRow(column));
+        return matrix->getRowPath(colToRow(column));
     }
 
     virtual MatrixNamedRow getRow(const RowPath & rowName) const
@@ -238,7 +238,7 @@ struct TransposedDataset::Itl
         std::vector<ColumnPath> result;
         result.reserve(matrix->getColumnCount());
 
-        for (auto & c: matrix->getRowNames())
+        for (auto & c: matrix->getRowPaths())
             result.emplace_back(rowToCol(c));
         
         return result;

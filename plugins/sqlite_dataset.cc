@@ -316,7 +316,7 @@ struct SqliteSparseDataset::Itl
     }
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
         string query = "SELECT rowName FROM (SELECT DISTINCT rowName, rowHash FROM rows ORDER BY rowHash";
         if (start != 0)
@@ -392,7 +392,7 @@ struct SqliteSparseDataset::Itl
         }
     }
 
-    virtual RowPath getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
         return runScalarQuery<RowPath>
             ("SELECT rowName FROM rows WHERE rowHash = ? LIMIT 1", rowHash);

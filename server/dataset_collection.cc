@@ -336,8 +336,8 @@ initRoutes(RouteManager & manager)
                 int start = getParam(req, "start", 0);
                 int limit = getParam(req, "limit", -1);
 
-                // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-                auto result = dataset->getMatrixView()->getRowNames(start, limit);
+                // getRowPaths can return row names in an arbitrary order as long as it is deterministic.
+                auto result = dataset->getMatrixView()->getRowPaths(start, limit);
 
                 connection.sendHttpResponse(200, jsonEncodeStr(result),
                                             "application/json", {});

@@ -837,8 +837,8 @@ run(const ProcedureRunConfig & run,
 
         auto output = createDataset(server, rowOutput, onProgress2, true /*overwrite*/);
 
-        // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-        auto rows = dataset->getMatrixView()->getRowNames(0, -1);
+        // getRowPaths can return row names in an arbitrary order as long as it is deterministic.
+        auto rows = dataset->getMatrixView()->getRowPaths(0, -1);
 
         //cerr << "writing embeddings for " << rows.size() << " rows to dataset "
         //     << runProcConf.rowOutput.id << endl;

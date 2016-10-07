@@ -151,7 +151,7 @@ struct SparseMatrixDataset::Itl
 
         virtual RowPath next() {
             uint64_t i = internalStream->next();
-            return source->getRowNameTrans(RowHash(i), *trans);
+            return source->getRowPathTrans(RowHash(i), *trans);
         }
         
         virtual void advance() {
@@ -160,7 +160,7 @@ struct SparseMatrixDataset::Itl
 
         virtual const RowPath & rowName(RowPath & storage) const {
             uint64_t i = internalStream->current();
-            return storage = source->getRowNameTrans(RowHash(i), *trans);
+            return storage = source->getRowPathTrans(RowHash(i), *trans);
         }
 
         std::shared_ptr<MatrixReadTransaction::Stream> internalStream;
@@ -506,14 +506,14 @@ struct SparseMatrixDataset::Itl
     }
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const override
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
         std::vector<RowPath> result;
         auto trans = getReadTransaction();
         trans->matrix
             ->iterateRows([&] (uint64_t row)
                           {
-                              result.emplace_back(getRowNameTrans(RowHash(row),
+                              result.emplace_back(getRowPathTrans(RowHash(row),
                                                                   *trans));
                               return true;
                           });
@@ -624,7 +624,7 @@ struct SparseMatrixDataset::Itl
         return std::move(result);
     }
 
-    RowPath getRowNameTrans(const RowHash & rowHash,
+    RowPath getRowPathTrans(const RowHash & rowHash,
                             ReadTransaction & trans) const
     {
         RowPath result;
@@ -641,10 +641,10 @@ struct SparseMatrixDataset::Itl
         return result;
     }
         
-    virtual RowPath getRowName(const RowHash & rowHash) const override
+    virtual RowPath getRowPath(const RowHash & rowHash) const override
     {
         auto trans = getReadTransaction();
-        return getRowNameTrans(rowHash, *trans);
+        return getRowPathTrans(rowHash, *trans);
     }
 
     virtual bool knownColumn(const ColumnPath & column) const override
@@ -716,7 +716,7 @@ struct SparseMatrixDataset::Itl
                 Date ts = decodeTs(entry.timestamp);
                 RowHash row(entry.rowcol);
                 CellValue v = decodeVal(entry.val, entry.tag, trans);
-                result.rows.emplace_back(getRowNameTrans(row, trans), v, ts);
+                result.rows.emplace_back(getRowPathTrans(row, trans), v, ts);
                 return true;
             };
 

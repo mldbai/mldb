@@ -98,15 +98,15 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
         /** Return a moveable copy of the row name of the row being
             processed. */
-        RowPath getRowName() const;
+        RowPath getRowPath() const;
 
         /** Return either a reference to the row name, or a reference to
             the row name stored in storage.
         */
-        const RowPath & getRowName(RowPath & storage) const;
+        const RowPath & getRowPath(RowPath & storage) const;
 
         /** Return the hash of the row name of the row being processed.
-            INVARIANT: should be equal to RowHash(getRowName()).
+            INVARIANT: should be equal to RowHash(getRowPath()).
         */
         RowHash getRowHash() const;
 

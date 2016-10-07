@@ -174,8 +174,8 @@ void iterateDense(const SelectExpression & select,
     auto extractEmbedding = boundSelect.info->extractDoubleEmbedding(columns);
 
     // Get a list of rows that we run over
-    // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-    auto rows = matrix->getRowNames();
+    // getRowPaths can return row names in an arbitrary order as long as it is deterministic.
+    auto rows = matrix->getRowPaths();
 
     auto doRow = [&] (int rowNum) -> bool
         {

@@ -109,9 +109,9 @@ struct FilteredDataset::Itl
 
     /** MatrixView */
 
-    virtual RowPath getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
-        return matrixView->getRowName(rowHash);
+        return matrixView->getRowPath(rowHash);
     }
 
     virtual ColumnPath getColumnName(ColumnHash column) const
@@ -120,9 +120,9 @@ struct FilteredDataset::Itl
     }
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {    
-        return matrixView->getRowNames(start, limit);
+        return matrixView->getRowPaths(start, limit);
     }
 
     virtual std::vector<RowHash>

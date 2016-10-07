@@ -68,27 +68,27 @@ struct MatrixView {
     The sorting criteria is the same as with RowStream:
 
     Row names can be returned in an arbitrary order as long as it is deterministic.
-    I.e. Calling getRowNames several times on the same (unchanged) dataset should return rownames
+    I.e. Calling getRowPaths several times on the same (unchanged) dataset should return rownames
     in the same (arbitrary) order.
 
     The ordering needs to be preserved regardless of start and limit.
     */
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
     virtual size_t getRowCount() const = 0;
 
-    /// Can be implemented by getRowName() then knownRow().  Deprecated.
+    /// Can be implemented by getRowPathName() then knownRow().  Deprecated.
     //virtual bool knownRowHash(const RowHash & row) const = 0;
     
     virtual bool knownRow(const RowPath & row) const = 0;
     
     virtual MatrixNamedRow getRow(const RowPath & row) const = 0;
 
-    virtual RowPath getRowName(const RowHash & row) const = 0;
+    virtual RowPath getRowPath(const RowHash & row) const = 0;
 
     //virtual bool knownColumn(ColumnHash column) const = 0;
 
@@ -174,9 +174,9 @@ struct ColumnIndex {
     virtual MatrixColumn getColumn(const ColumnPath & column) const = 0;
 
     /** Return a dense column, with one value for every row in the same order as
-        getRowNames().
+        getRowPaths().
 
-        Default builts on top of getColumn() and getRowNames(), but is
+        Default builts on top of getColumn() and getRowPaths(), but is
         quite inefficient.
     */
     virtual std::vector<CellValue>
@@ -213,7 +213,7 @@ struct ColumnIndex {
     virtual uint64_t getColumnRowCount(const ColumnPath & column) const;
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const = 0;
 };
 
 

@@ -387,7 +387,7 @@ getColumnDense(const ColumnPath & column) const
 {
     auto columnValues = getColumn(column);
     // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-    std::vector<RowPath> rowNames = getRowNames();
+    std::vector<RowPath> rowNames = getRowPaths();
     std::vector<CellValue> result;
     result.reserve(rowNames.size());
 
@@ -1715,7 +1715,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             // getRowNames can return row names in an arbitrary order as long as it is deterministic.
                             for (const RowPath & n: this->getMatrixView()
-                                     ->getRowNames()) {
+                                     ->getRowPaths()) {
                                 uint64_t hash = RowHash(n).hash();
                                 
                                 if (op(hash % m, c))
@@ -1779,7 +1779,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                         //Row names can be returned in an arbitrary order as long as it is deterministic.
                         auto rows = this->getMatrixView()
-                            ->getRowNames(start, limit);
+                            ->getRowPaths(start, limit);
 
                         start += rows.size();
                         Any newToken;
@@ -1845,7 +1845,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 auto matrix = this->getMatrixView();
 
                 //Row names can be returned in an arbitrary order as long as it is deterministic.
-                auto rows = matrix->getRowNames(start, limit);
+                auto rows = matrix->getRowPaths(start, limit);
 
                 std::vector<RowPath> rowsToKeep;
 

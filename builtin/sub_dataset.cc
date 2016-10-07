@@ -165,7 +165,7 @@ struct SubDataset::Itl
 
 
     virtual std::vector<RowPath>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {    
         std::vector<RowPath> result;
         
@@ -207,7 +207,7 @@ struct SubDataset::Itl
         return subOutput[it->second].flatten();
     }
 
-    virtual RowPath getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
         auto it = rowIndex.find(rowHash);
         if (it == rowIndex.end()) {

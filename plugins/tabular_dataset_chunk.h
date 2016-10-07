@@ -105,7 +105,7 @@ struct TabularDatasetChunk {
     }
 
     /// Return an owned version of the rowname
-    RowPath getRowName(size_t index) const
+    RowPath getRowPath(size_t index) const
     {
         if (rowNames.empty()) {
             return PathElement(integerRowNames.at(index));
@@ -114,7 +114,7 @@ struct TabularDatasetChunk {
     }
 
     /// Return a reference to the rowName, stored in storage if it's a temp
-    const RowPath & getRowName(size_t index, RowPath & storage) const
+    const RowPath & getRowPath(size_t index, RowPath & storage) const
     {
         if (rowNames.empty()) {
             return storage = PathElement(integerRowNames.at(index));
@@ -208,7 +208,7 @@ public:
             if (it == sparseColumns.end()) {
                 if (dense) {
                     for (unsigned i = 0;  i < rowCount();  ++i) {
-                        rows.emplace_back(getRowName(i),
+                        rows.emplace_back(getRowPath(i),
                                           CellValue(),
                                           timestamps->get(i).mustCoerceToTimestamp());
                     }
@@ -221,7 +221,7 @@ public:
         for (unsigned i = 0;  i < rowCount();  ++i) {
             CellValue val = col->get(i);
             if (dense || !val.empty()) {
-                rows.emplace_back(getRowName(i),
+                rows.emplace_back(getRowPath(i),
                                   std::move(val),
                                   timestamps->get(i).mustCoerceToTimestamp());
             }

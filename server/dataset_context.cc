@@ -146,7 +146,7 @@ doGetAllColumns(const Utf8String & tableName,
 
 RowPath
 SqlExpressionDatasetScope::RowScope::
-getRowName() const
+getRowPath() const
 {
     if (rowName) return *rowName;
     else {
@@ -157,7 +157,7 @@ getRowName() const
 
 const RowPath &
 SqlExpressionDatasetScope::RowScope::
-getRowName(RowPath & storage) const
+getRowPath(RowPath & storage) const
 {
     if (rowName) return *rowName;
     else return row->rowName;
@@ -345,7 +345,7 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(row.getRowName().toUtf8String(),
+                    return ExpressionValue(row.getRowPath().toUtf8String(),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -357,7 +357,7 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(CellValue(row.getRowName()),
+                    return ExpressionValue(CellValue(row.getRowPath()),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()
