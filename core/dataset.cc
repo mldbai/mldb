@@ -299,7 +299,7 @@ bool
 ColumnIndex::
 forEachColumnGetStats(const OnColumnStats & onColumnStats) const
 {
-    for (auto & c: getColumnNames()) {
+    for (auto & c: getColumnPaths()) {
         ColumnStats toStore;
         if (!onColumnStats(c, getColumnStats(c, toStore)))
             return false;
@@ -745,7 +745,7 @@ getRowInfo() const
 {
     std::vector<KnownColumn> knownColumns;
 
-    for (auto & c: getColumnNames()) {
+    for (auto & c: getColumnPaths()) {
         knownColumns.emplace_back(getKnownColumnInfo(c));
     }
 
@@ -2190,9 +2190,9 @@ std::vector<T> frame(std::vector<T> & vec, ssize_t offset, ssize_t limit)
 
 std::vector<ColumnPath>
 Dataset::
-getColumnNames(ssize_t offset, ssize_t limit) const
+getColumnPaths(ssize_t offset, ssize_t limit) const
 {
-    auto names = getMatrixView()->getColumnNames();
+    auto names = getMatrixView()->getColumnPaths();
     return frame(names, offset, limit);
 }
 
@@ -2202,7 +2202,7 @@ getFlattenedColumnNames() const
 {
     //Most dataset are not structured
     //Notable exception is the sub query dataset
-    return getMatrixView()->getColumnNames();
+    return getMatrixView()->getColumnPaths();
 }
 
 size_t 

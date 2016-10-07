@@ -440,7 +440,7 @@ doGetAllColumnsInternal(const Utf8String & tableName,
 
     if (keep.exec) {
 
-        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnNames();
+        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnPaths();
 
         auto filterColumnName = [&] (const ColumnPath & inputColumnName)
             -> ColumnPath
@@ -499,7 +499,7 @@ doGetAllColumnsInternal(const Utf8String & tableName,
     }
     else if (dataset.hasColumnNames()) {
 
-        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnNames();
+        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnPaths();
 
         vector<ColumnPath> columnsNeedingInfo;
 

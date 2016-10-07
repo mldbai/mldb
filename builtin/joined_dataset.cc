@@ -308,7 +308,7 @@ struct JoinedDataset::Itl
             cerr << "total of " << columnIndex.size() << " columns and "
                  << rows.size() << " rows returned from join" << endl;
                 
-            cerr << jsonEncode(getColumnNames());
+            cerr << jsonEncode(getColumnPaths());
         }
     }
 
@@ -718,7 +718,7 @@ struct JoinedDataset::Itl
         return columnIndex.count(column);
     }
 
-    virtual ColumnPath getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnPath(ColumnHash columnHash) const
     {
         auto it = columnIndex.find(columnHash);
 
@@ -730,7 +730,7 @@ struct JoinedDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
         std::vector<ColumnPath> result;
 

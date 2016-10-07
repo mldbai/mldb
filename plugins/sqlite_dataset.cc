@@ -404,14 +404,14 @@ struct SqliteSparseDataset::Itl
                                     column);
     }
 
-    virtual ColumnPath getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
         return runScalarQuery<ColumnPath>("SELECT colName FROM cols WHERE colHash = ? LIMIT 1",
                                           column);
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
         return runQuery<ColumnPath>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
     }

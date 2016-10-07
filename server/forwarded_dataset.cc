@@ -158,10 +158,10 @@ selectExplainString(const Utf8String & select,
 
 std::vector<ColumnPath>
 ForwardedDataset::
-getColumnNames(ssize_t offset, ssize_t limit) const
+getColumnPaths(ssize_t offset, ssize_t limit) const
 {
     ExcAssert(underlying);
-    return underlying->getColumnNames(offset, limit);
+    return underlying->getColumnPaths(offset, limit);
 }
 
 BoundFunction

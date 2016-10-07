@@ -75,8 +75,8 @@ registerMe()
     prototmpl->Set(String::NewFromUtf8(isolate, "config"),
                    FunctionTemplate::New(isolate, config));
         
-    prototmpl->Set(String::NewFromUtf8(isolate, "getColumnNames"),
-                   FunctionTemplate::New(isolate, getColumnNames));
+    prototmpl->Set(String::NewFromUtf8(isolate, "getColumnPaths"),
+                   FunctionTemplate::New(isolate, getColumnPaths));
     prototmpl->Set(String::NewFromUtf8(isolate, "getTimestampRange"),
                    FunctionTemplate::New(isolate, getTimestampRange));
         
@@ -216,12 +216,12 @@ config(const v8::FunctionCallbackInfo<v8::Value> & args)
 
 void
 DatasetJS::
-getColumnNames(const v8::FunctionCallbackInfo<v8::Value> & args)
+getColumnPaths(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
         Dataset * dataset = getShared(args.This());
 
-        args.GetReturnValue().Set(JS::toJS(dataset->getColumnIndex()->getColumnNames()));
+        args.GetReturnValue().Set(JS::toJS(dataset->getColumnIndex()->getColumnPaths()));
     } HANDLE_JS_EXCEPTIONS(args);
 }
 

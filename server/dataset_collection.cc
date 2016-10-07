@@ -398,7 +398,7 @@ initRoutes(RouteManager & manager)
     addRouteSyncJsonReturn(columns, "", { "GET" },
                            "Get a list of column names in the dataset",
                            "List of column names",
-                           &Dataset::getColumnNames,
+                           &Dataset::getColumnPaths,
                            getDataset,
 #if 0
                            RestParamDefault<std::string>("regex",

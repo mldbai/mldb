@@ -94,10 +94,10 @@ struct MatrixView {
 
     virtual bool knownColumn(const ColumnPath & column) const = 0;
     
-    virtual ColumnPath getColumnName(ColumnHash column) const = 0;
+    virtual ColumnPath getColumnPath(ColumnHash column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const = 0;
+    virtual std::vector<ColumnPath> getColumnPaths() const = 0;
 
     /** Return the number of distinct columns known. */
     virtual size_t getColumnCount() const = 0;
@@ -159,7 +159,7 @@ struct ColumnIndex {
     typedef std::function<bool (const ColumnPath & columnName,
                                 const ColumnStats & stats)> OnColumnStats;
 
-    /** Return stats for each column.  Default uses getColumnNames() and
+    /** Return stats for each column.  Default uses getColumnPaths() and
         getColumnStats(). */
     virtual bool forEachColumnGetStats(const OnColumnStats & onColumnStats) const;
 
@@ -205,7 +205,7 @@ struct ColumnIndex {
     virtual bool knownColumn(const ColumnPath & column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const = 0;
+    virtual std::vector<ColumnPath> getColumnPaths() const = 0;
 
     /** Return the number of rows that have this column set.  Default
         implementation uses getColumnStats.
@@ -572,7 +572,7 @@ struct Dataset: public MldbEntity {
         and limit.
     */
     virtual std::vector<ColumnPath>
-    getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
+    getColumnPaths(ssize_t offset = 0, ssize_t limit = -1) const;
 
     /** Return a list of flattened column names in the dataset
     */

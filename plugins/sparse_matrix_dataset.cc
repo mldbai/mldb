@@ -593,7 +593,7 @@ struct SparseMatrixDataset::Itl
                 Date ts = decodeTs(entry.timestamp);
                 ColumnHash col(entry.rowcol);
                 CellValue v = decodeVal(entry.val, entry.tag, *trans);
-                result.columns.emplace_back(getColumnNameTrans(col, *trans), v, ts);
+                result.columns.emplace_back(getColumnPathTrans(col, *trans), v, ts);
                 return true;
             };
 
@@ -614,7 +614,7 @@ struct SparseMatrixDataset::Itl
                 Date ts = decodeTs(entry.timestamp);
                 ColumnHash col(entry.rowcol);
                 CellValue v = decodeVal(entry.val, entry.tag, *trans);
-                result.emplace_back(getColumnNameTrans(col, *trans),
+                result.emplace_back(getColumnPathTrans(col, *trans),
                                     std::move(v), ts);
                 return true;
             };
@@ -654,7 +654,7 @@ struct SparseMatrixDataset::Itl
     }
 
     virtual ColumnPath
-    getColumnNameTrans(ColumnHash column,
+    getColumnPathTrans(ColumnHash column,
                        ReadTransaction & trans) const
     {
         ColumnPath result;
@@ -673,21 +673,21 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual ColumnPath getColumnName(ColumnHash column) const override
+    virtual ColumnPath getColumnPath(ColumnHash column) const override
     {
         auto trans = getReadTransaction();
-        return getColumnNameTrans(column, *trans);
+        return getColumnPathTrans(column, *trans);
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const override
+    virtual std::vector<ColumnPath> getColumnPaths() const override
     {
         std::vector<ColumnPath> result;
         auto trans = getReadTransaction();
         trans->inverse
             ->iterateRows([&] (uint64_t row)
                           {
-                              result.emplace_back(getColumnNameTrans(ColumnHash(row),
+                              result.emplace_back(getColumnPathTrans(ColumnHash(row),
                                                                      *trans));
                               return true;
                           });

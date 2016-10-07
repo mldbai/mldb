@@ -67,7 +67,7 @@ struct MergedDataset::Itl
 
         //for (auto & d: datasets) {
         //    cerr << "dataset has " << d->getMatrixView()->getRowHashes().size()
-        //         << " rows and " << d->getMatrixView()->getColumnNames().size()
+        //         << " rows and " << d->getMatrixView()->getColumnPaths().size()
         //         << " columns" << endl;
         //}
 
@@ -132,7 +132,7 @@ struct MergedDataset::Itl
             {
                 auto dataset = toMerge[datasetIndex];
                 MergeHashEntries result;
-                vector<ColumnPath> cols = dataset->getMatrixView()->getColumnNames();
+                vector<ColumnPath> cols = dataset->getMatrixView()->getColumnPaths();
                 std::sort(cols.begin(), cols.end());
                 ExcAssert(std::unique(cols.begin(), cols.end()) == cols.end());
                 result.reserve(cols.size());
@@ -180,7 +180,7 @@ struct MergedDataset::Itl
         }
 
         cerr << "merged dataset has " << this->getRowHashes().size()
-             << " rows and " << this->getColumnNames().size()
+             << " rows and " << this->getColumnPaths().size()
              << " columns" << endl;
     }
 
@@ -314,7 +314,7 @@ struct MergedDataset::Itl
         return getColumnBitmap(column) != 0;
     }
 
-    virtual ColumnPath getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnPath(ColumnHash columnHash) const
     {
         uint32_t bitmap = getColumnBitmap(columnHash);
 
@@ -323,11 +323,11 @@ struct MergedDataset::Itl
 
         int bit = ML::lowest_bit(bitmap, -1);
 
-        return datasets[bit]->getMatrixView()->getColumnName(columnHash);
+        return datasets[bit]->getMatrixView()->getColumnPath(columnHash);
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
         std::vector<ColumnPath> result;
 
@@ -336,7 +336,7 @@ struct MergedDataset::Itl
                 ColumnHash columnHash(hash);
                 int bit = ML::lowest_bit(bitmap, -1);
                 ExcAssertNotEqual(bit, -1);
-                result.push_back(datasets[bit]->getMatrixView()->getColumnName(columnHash));
+                result.push_back(datasets[bit]->getMatrixView()->getColumnPath(columnHash));
                 
                 return true;
             };

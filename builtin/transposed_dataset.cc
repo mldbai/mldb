@@ -63,7 +63,7 @@ struct TransposedDataset::Itl
         TransposedRowStream(TransposedDataset::Itl* source) : source(source)
         {
             matrix = source->matrix;
-            columns = matrix->getColumnNames();
+            columns = matrix->getColumnPaths();
             column_iterator = columns.begin();
         }
 
@@ -209,10 +209,10 @@ struct TransposedDataset::Itl
 
     virtual RowPath getRowPath(const RowHash & row) const
     {
-        return matrix->getColumnName(rowToCol(row));
+        return matrix->getColumnPath(rowToCol(row));
     }
 
-    virtual ColumnPath getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
         return matrix->getRowPath(colToRow(column));
     }
@@ -233,7 +233,7 @@ struct TransposedDataset::Itl
         return std::move(col.rows);
     }
 
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
         std::vector<ColumnPath> result;
         result.reserve(matrix->getColumnCount());

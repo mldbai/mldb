@@ -67,12 +67,12 @@ struct MongoMatrixView : MatrixView {
         return false;
     }
     
-    Path getColumnName(ColumnHash column) const override
+    Path getColumnPath(ColumnHash column) const override
     {
-        throw HttpReturnException(500, "Unimplemented getColumnName");
+        throw HttpReturnException(500, "Unimplemented getColumnPath");
     }
 
-    vector<Path> getColumnNames() const override
+    vector<Path> getColumnPaths() const override
     {
         return vector<Path>{};
     }
@@ -103,7 +103,7 @@ struct MongoColumnIndex : ColumnIndex {
         return false;
     }
 
-    vector<Path> getColumnNames() const override
+    vector<Path> getColumnPaths() const override
     {
         return vector<Path>{};
     }

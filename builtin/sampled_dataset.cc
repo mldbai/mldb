@@ -113,7 +113,7 @@ struct SampledDataset::Itl
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
           index(dataset->getColumnIndex()),
-          columnCount(matrix->getColumnNames().size())
+          columnCount(matrix->getColumnPaths().size())
     {
         // get all existing rows
         auto rows = matrix->getRowHashes();
@@ -212,14 +212,14 @@ struct SampledDataset::Itl
         return matrix->knownColumn(column);
     }
 
-    virtual ColumnPath getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
-        return matrix->getColumnName(column);
+        return matrix->getColumnPath(column);
     }
 
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
-        return matrix->getColumnNames();
+        return matrix->getColumnPaths();
     }
 
     virtual uint64_t getRowColumnCount(const RowPath & row) const

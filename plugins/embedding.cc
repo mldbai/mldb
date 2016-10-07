@@ -437,7 +437,7 @@ struct EmbeddingDataset::Itl
         return repr->columnIndex.count(column);
     }
 
-    virtual ColumnPath getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
         // TODO: shouldn't need to
         auto repr = committed();
@@ -451,7 +451,7 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
         auto repr = committed();
         if (!repr->initialized())

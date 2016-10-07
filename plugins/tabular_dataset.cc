@@ -358,7 +358,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", getColumnNames());
+                                      "knownColumns", getColumnPaths());
         }
 
         MatrixColumn result;
@@ -379,7 +379,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given name",
                                       "columnName", column,
-                                      "knownColumns", getColumnNames());
+                                      "knownColumns", getColumnPaths());
         }
 
         const ColumnEntry & entry = columns[it->second];
@@ -409,7 +409,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given name",
                                       "columnName", column,
-                                      "knownColumns", getColumnNames());
+                                      "knownColumns", getColumnPaths());
         }
 
         std::unordered_map<CellValue, size_t> values;
@@ -463,7 +463,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return columnIndex.count(column.newHash());
     }
 
-    virtual std::vector<ColumnPath> getColumnNames() const override
+    virtual std::vector<ColumnPath> getColumnPaths() const override
     {
         std::vector<ColumnPath> result;
         result.reserve(columns.size());
@@ -479,7 +479,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnName", columnName,
-                                      "knownColumns", getColumnNames());
+                                      "knownColumns", getColumnPaths());
         }
 
         ColumnTypes types;
@@ -630,13 +630,13 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return chunks.at(it->second.first).getRowPath(it->second.second);
     }
 
-    virtual ColumnPath getColumnName(ColumnHash column) const override
+    virtual ColumnPath getColumnPath(ColumnHash column) const override
     {
         auto it = columnHashIndex.find(column);
         if (it == columnHashIndex.end())
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", getColumnNames());
+                                      "knownColumns", getColumnPaths());
         return columns[it->second].columnName;
     }
 
@@ -651,7 +651,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", getColumnNames());
+                                      "knownColumns", getColumnPaths());
         }
 
         stats = ColumnStats();

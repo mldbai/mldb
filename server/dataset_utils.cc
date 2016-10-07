@@ -111,12 +111,12 @@ getRow(const RowPath & row) const
 
 std::vector<ColumnPath>
 MergedMatrixView::
-getColumnNames() const
+getColumnPaths() const
 {
     std::vector<ColumnPath> result;
 
     for (const auto& view : views) {
-        auto names = view->getColumnNames();
+        auto names = view->getColumnPaths();
         result.insert(result.end(), names.begin(), names.end());
     }
 
@@ -130,7 +130,7 @@ size_t
 MergedMatrixView::
 getColumnCount() const
 {
-    return getColumnNames().size();
+    return getColumnPaths().size();
 }
 
 bool
@@ -190,12 +190,12 @@ knownColumn(const ColumnPath & column) const
 
 std::vector<ColumnPath>
 MergedColumnIndex::
-getColumnNames() const
+getColumnPaths() const
 {
     std::vector<ColumnPath> result;
 
     for (const auto& index : indexes) {
-        auto names = index->getColumnNames();
+        auto names = index->getColumnPaths();
         result.insert(result.end(), names.begin(), names.end());
     }
 

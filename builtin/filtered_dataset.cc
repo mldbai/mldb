@@ -114,9 +114,9 @@ struct FilteredDataset::Itl
         return matrixView->getRowPath(rowHash);
     }
 
-    virtual ColumnPath getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
-        return matrixView->getColumnName(column);
+        return matrixView->getColumnPath(column);
     }
 
     virtual std::vector<RowPath>
@@ -160,9 +160,9 @@ struct FilteredDataset::Itl
         return matrixView->knownColumn(column);
     }
 
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
-        return matrixView->getColumnNames();
+        return matrixView->getColumnPaths();
     }   
 
     virtual size_t getColumnCount() const
@@ -206,7 +206,7 @@ struct FilteredDataset::Itl
 
     // Duplicated methods in interfaces - Implemented as part of MatrixView
     //virtual bool knownColumn(ColumnHash column) const
-    //virtual std::vector<ColumnPath> getColumnNames() const
+    //virtual std::vector<ColumnPath> getColumnPaths() const
 };
 
 

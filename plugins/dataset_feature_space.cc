@@ -36,7 +36,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                     bool bucketize)
     : labelInfo(labelInfo)
 {
-    auto columns = dataset->getColumnNames();
+    auto columns = dataset->getColumnPaths();
     std::vector<ColumnPath> filteredColumns;
 
     for (auto & columnName: columns) {

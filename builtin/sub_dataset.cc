@@ -225,7 +225,7 @@ struct SubDataset::Itl
             return std::find(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end(), column) != fullFlattenedColumnNames.end();
     }
 
-    virtual ColumnPath getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnPath(ColumnHash columnHash) const
     {        
         for (const auto& c : columnNames)
         {
@@ -239,7 +239,7 @@ struct SubDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
         std::vector<ColumnPath> fullColumnNames;
         fullColumnNames.reserve(columnNames.size());

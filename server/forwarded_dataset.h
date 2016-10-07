@@ -77,7 +77,7 @@ struct ForwardedDataset: public Dataset {
                         const Utf8String & where) const;
 
     virtual std::vector<ColumnPath>
-    getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
+    getColumnPaths(ssize_t offset = 0, ssize_t limit = -1) const;
 
     virtual BoundFunction
     overrideFunction(const Utf8String & tableName, 
