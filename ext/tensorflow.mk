@@ -121,9 +121,9 @@ $(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(HOSTBIN)/protoc $(INC)/google/
 	@$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
 # Same for pb_text files
-$(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto | $(BIN)/proto_text
+$(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto | $(HOSTBIN)/proto_text
 	@echo "      $(COLOR_CYAN)[PROTOTXT]$(COLOR_RESET)			$(basename $<)"
-	@$(BIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
+	@$(HOSTBIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
 
 #	(cd mldb/ext/tensorflow && $(PWD)/$(BIN)/proto_text tensorflow/core tensorflow/core tensorflow/tools/proto_text/placeholder.txt $(removeprefix mldb/ext/tensorflow/,$<))
 
