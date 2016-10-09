@@ -112,7 +112,7 @@ struct QuadtreeNode {
                 cerr << "point = " << point << endl;
                 cerr << "mins " << mins << endl;
                 cerr << "maxs " << maxs << endl;
-                throw ML::Exception("point is not within cell");
+                throw MLDB::Exception("point is not within cell");
             }
         }
 

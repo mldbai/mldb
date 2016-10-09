@@ -422,7 +422,7 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
             // then get the same values for the second, and return enough to
             // reconstitute the same structure again.
             std::vector<ColumnPath> columnNames;
-            ML::distribution<double> d1;
+            distribution<double> d1;
 
             auto onAtom = [&] (const ColumnPath & name,
                                const ColumnPath & prefix,

@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 namespace Generic {
@@ -305,4 +305,4 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n)
 
 } // namespace Avx
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

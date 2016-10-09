@@ -171,7 +171,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
-                    throw ML::Exception("Invalid sequence within utf-8 string");
+                    throw MLDB::Exception("Invalid sequence within utf-8 string");
             }
             type = ST_UTF8_SHORT_STRING;
         }
@@ -187,7 +187,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
-                    throw ML::Exception("Invalid sequence within utf-8 string");
+                    throw MLDB::Exception("Invalid sequence within utf-8 string");
             }
 
             type = ST_UTF8_LONG_STRING;
@@ -1215,12 +1215,12 @@ CellValue::printInterval() const
 
     if (year != 0)
     {
-        result.append(ML::format("%dY", year));
+        result.append(MLDB::format("%dY", year));
     }  
 
     if (monthsCount != 0)
     {
-        result.append(ML::format("%d MONTH", monthsCount));
+        result.append(MLDB::format("%d MONTH", monthsCount));
     } 
 
     if (timeInterval.days != 0)
@@ -1228,7 +1228,7 @@ CellValue::printInterval() const
         if (year != 0 || monthsCount != 0)
             result.append(" ");
 
-        result.append(ML::format("%dD", timeInterval.days));
+        result.append(MLDB::format("%dD", timeInterval.days));
     }   
 
     if (hours != 0 || minutes != 0 || secondCount != 0)
@@ -1237,11 +1237,11 @@ CellValue::printInterval() const
             result.append(" ");
 
         if (hours != 0)
-            result.append(ML::format("%dH %dM %gS", hours, minutes, secondCount));
+            result.append(MLDB::format("%dH %dM %gS", hours, minutes, secondCount));
         else if (minutes != 0)
-            result.append(ML::format("%dM %gS", minutes, secondCount));
+            result.append(MLDB::format("%dM %gS", minutes, secondCount));
         else
-            result.append(ML::format("%gS", secondCount));
+            result.append(MLDB::format("%gS", secondCount));
     }
 
     if (result.empty())
@@ -1441,7 +1441,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
             }
             else if (v.isMember("interval")) {
                 std::string text = v["interval"].asString();
-                ML::Parse_Context context(text, text.c_str(), text.length());
+                ParseContext context(text, text.c_str(), text.length());
                 uint32_t months = 0;
                 uint32_t days = 0;
                 double seconds = 0.0f;

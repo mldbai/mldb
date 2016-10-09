@@ -30,7 +30,7 @@ extractNode(const tinyxml2::XMLNode * element, const string & path)
         p = p->FirstChildElement(splitPath[i].c_str());
         if (!p) {
             //element->GetDocument()->Print();
-            throw ML::Exception("required key " + splitPath[i]
+            throw MLDB::Exception("required key " + splitPath[i]
                                 + " not found on path " + path);
         }
     }

@@ -19,7 +19,9 @@
 #include <stdlib.h>
 #include <boost/algorithm/string.hpp>
 
+
 using namespace std;
+using namespace MLDB;
 
 
 namespace ML {
@@ -43,7 +45,7 @@ std::string format(const char * fmt, ...)
     va_list ap;
     va_start(ap, fmt);
     try {
-        string result = vformat(fmt, ap);
+        string result = MLDB::vformat(fmt, ap);
         va_end(ap);
         return result;
     }
@@ -158,7 +160,7 @@ antoi(const char * start, const char * end, int base)
             neg = true;
         }
         else {
-            throw ML::Exception("Cannot negate non base 10");
+            throw MLDB::Exception("Cannot negate non base 10");
         }
         start++;
     }
@@ -178,11 +180,11 @@ antoi(const char * start, const char * end, int base)
             digit = *ptr - 'a' + 10;
         }
         else {
-            throw ML::Exception("expected digit");
+            throw MLDB::Exception("expected digit");
         }
         if (digit > base) {
             intptr_t offset = ptr - start;
-            throw ML::Exception("digit '%c' (%d) exceeds base '%d'"
+            throw MLDB::Exception("digit '%c' (%d) exceeds base '%d'"
                                 " at offset '%d'",
                                 *ptr, digit, base, offset);
         }

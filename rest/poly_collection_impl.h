@@ -266,7 +266,7 @@ struct PolyCollection<Entity>::Registry {
         } JML_CATCH_ALL {
             rethrowHttpException(500, "Error getting information for type '" + type
                                  + "' in collection " + nounPlural + ": "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "type", type,
                                  "nounPlural", nounPlural);
         }

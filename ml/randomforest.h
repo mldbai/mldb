@@ -597,7 +597,7 @@ struct PartitionData {
         size_t rightRows = splits.second.rows.size();
 
         if (leftRows == 0 || rightRows == 0)
-            throw ML::Exception("Invalid split in random forest");
+            throw MLDB::Exception("Invalid split in random forest");
 
         ThreadPool tp;
         // Put the smallest one on the thread pool, so that we have the highest

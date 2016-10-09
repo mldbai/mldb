@@ -21,7 +21,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include "mldb/arch/cpu_info.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include <dirent.h>
 #include "mldb/arch/format.h"
 #include <string.h>
@@ -29,7 +29,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 int userid()
 {
@@ -121,7 +121,7 @@ size_t num_open_files()
         throw Exception("num_open_files(): opendir(): "
                         + string(strerror(errno)));
 
-    Call_Guard closedir_dfd(std::bind(closedir, dfd));
+    Scope_Exit(closedir(dfd));
 
     size_t result = 0;
     
@@ -165,4 +165,4 @@ std::string fd_to_filename(int fd)
     }
 }
 
-} // namespace ML
+} // namespace MLDB

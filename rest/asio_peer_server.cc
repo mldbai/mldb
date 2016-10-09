@@ -46,11 +46,11 @@ int bindAndReturnOpenTcpPort(boost::asio::ip::tcp::acceptor & acceptor,
     
     if (port == -1)
         // Throw is OK: this will happen in a synchronous context.
-        throw ML::Exception("no open TCP port '%s': %s",
+        throw MLDB::Exception("no open TCP port '%s': %s",
                             uri.c_str(),
                             strerror(errno));
     
-    uri = ML::format("tcp://%s:%d", host.c_str(), port);
+    uri = MLDB::format("tcp://%s:%d", host.c_str(), port);
 
     return port;
 }
@@ -132,7 +132,7 @@ struct AsioPeerServer::Impl {
 
         if (error) {
             // Throw is OK: synchronous context
-            throw ML::Exception("error resolving peer name " + info.uri + ": "
+            throw MLDB::Exception("error resolving peer name " + info.uri + ": "
                                 + error.message());
         }
     
@@ -147,14 +147,14 @@ struct AsioPeerServer::Impl {
 
         if (error) {
             // Throw is OK: synchronous context
-            throw ML::Exception("error connecting to " + info.uri + ": "
+            throw MLDB::Exception("error connecting to " + info.uri + ": "
                                 + error.message());
         }
     
         cerr << "connected to " << info.uri << endl;
 
         // Send our handshake over the new connection
-        string handshake = "APSv1000" + ML::format("%8zd", info.peerName.size())
+        string handshake = "APSv1000" + MLDB::format("%8zd", info.peerName.size())
             + info.peerName;
         boost::asio::write(*sock, boost::asio::buffer(handshake));
 

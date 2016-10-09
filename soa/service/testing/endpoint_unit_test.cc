@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE( test_passive_endpoint_create_no_fds )
 
     {
         JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(endpoint.init(), ML::Exception);
+        BOOST_CHECK_THROW(endpoint.init(), MLDB::Exception);
     }
 
     endpoint.shutdown();

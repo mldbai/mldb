@@ -51,7 +51,7 @@ void testMtInsert(MutableSparseMatrixDatasetConfig config)
 
     cerr << "testing " << jsonEncode(config) << endl;
 
-    ML::Timer timer;
+    Timer timer;
 
     std::vector<std::thread> threads;
     for (unsigned i = 0;  i < nthreads;  ++i)

@@ -181,7 +181,7 @@ extractFeaturesFromRows(const Dataset & dataset,
 
     auto select = SqlRowExpression::parseList("*");
 
-    ML::Timer timer;
+    Timer timer;
     cerr << "extracting values" << endl;
 
     // Get an index of ColumnHash to dense value
@@ -269,7 +269,7 @@ extractFeaturesFromRows(const Dataset & dataset,
     {
         static int n = 0;
         cerr << "saving buckets " << n << endl;
-        filter_ostream stream(ML::format("buckets-%d.json", n++));
+        filter_ostream stream(MLDB::format("buckets-%d.json", n++));
         stream << "numExamples = " << featureBuckets.numExamples << endl;
         for (unsigned i = 0;  i < featureBuckets.size();  ++i) {
             stream << "bucket " << i << endl;
@@ -291,7 +291,7 @@ ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
                const FeatureBuckets & featureBuckets)
 {
-    ML::Timer timer;
+    Timer timer;
 
     int numContinuousColumns = columns.continuousColumns.size();
     int numSparseColumns = columns.sparseColumns.size();
@@ -394,7 +394,7 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
     // - for two sparse: hamming distance
     //
 
-    ML::Timer timer;
+    Timer timer;
 
     int numColumns = std::min<int>(numBasisVectors, columnIndex.size());
 

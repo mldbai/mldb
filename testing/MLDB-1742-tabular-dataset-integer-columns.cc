@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE( test_frozen_ints_only )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::IntegerFrozenColumn");
 }
 
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE( test_frozen_ints_and_nulls_only )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::IntegerFrozenColumn");
 }
 
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_ints )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
 }
 
@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_ints_and_nulls_only )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
 }
 
@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_only_ints_and_nulls )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
 }
 
@@ -169,7 +169,7 @@ BOOST_AUTO_TEST_CASE( test_big_pos_neg_range )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
 }
 

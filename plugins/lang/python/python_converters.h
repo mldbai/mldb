@@ -340,7 +340,7 @@ struct StrConstructableIdFromPython
             }
             id = boost::python::extract<std::string>(obj_ptr)();
         } else {
-            throw ML::Exception("StrConstructableIdFromPython: "
+            throw MLDB::Exception("StrConstructableIdFromPython: "
                                 "Failed to convert value to id");
         }
 

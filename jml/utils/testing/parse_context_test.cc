@@ -29,6 +29,7 @@
 #include <locale.h>
 
 using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -40,7 +41,7 @@ BOOST_AUTO_TEST_CASE( test_float_parsing )
     for (unsigned i = 0;  i < 1000;  ++i) {
         float f = random() / 100000000.0;
         string s = format("%.6f", f);
-        Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+        ParseContext pc(s, s.c_str(), s.c_str() + s.length());
         float f2 = pc.expect_float();
         string s2 = format("%.6f", f2);
         
@@ -53,7 +54,7 @@ BOOST_AUTO_TEST_CASE( test_float_parsing2 )
     for (unsigned i = 0;  i < 1000;  ++i) {
         float f = random() + random() / 100000000.0;
         string s = format("%.6f", f);
-        Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+        ParseContext pc(s, s.c_str(), s.c_str() + s.length());
         float f2 = pc.expect_float();
         string s2 = format("%.6f", f2);
         
@@ -66,7 +67,7 @@ BOOST_AUTO_TEST_CASE( test_double_parsing )
     for (unsigned i = 0;  i < 1000;  ++i) {
         double f = random() / 100000000.0;
         string s = format("%.6f", f);
-        Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+        ParseContext pc(s, s.c_str(), s.c_str() + s.length());
         double f2 = pc.expect_double();
         string s2 = format("%.6f", f2);
         
@@ -82,7 +83,7 @@ BOOST_AUTO_TEST_CASE( test_double_parsing2 )
 
         for (unsigned i = 0;  i < 100;  ++i) {
 
-            string fmt = ML::format("%%.%df", digits);
+            string fmt = MLDB::format("%%.%df", digits);
 
             double f = random() + random() / 100000000.0;
             string s = format(fmt.c_str(), f);
@@ -92,7 +93,7 @@ BOOST_AUTO_TEST_CASE( test_double_parsing2 )
             if (digits < 18)
                 f = f3;
 
-            Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+            ParseContext pc(s, s.c_str(), s.c_str() + s.length());
             double f2 = pc.expect_double();
             string s2 = format(fmt.c_str(), f2);
             string s3 = format(fmt.c_str(), f3);
@@ -117,9 +118,9 @@ BOOST_AUTO_TEST_CASE( test_double_parsing2 )
             cerr << "f = " << f << " s = " << s << " f2 = "
                  << f2 << " f3 = " << f3 << endl;
 
-            cerr << "u1 = " << ML::format("%016llx\n", u1)
-                 << "u2 = " << ML::format("%016llx\n", u2)
-                 << "u3 = " << ML::format("%016llx\n", u3);
+            cerr << "u1 = " << MLDB::format("%016llx\n", u1)
+                 << "u2 = " << MLDB::format("%016llx\n", u2)
+                 << "u3 = " << MLDB::format("%016llx\n", u3);
 #endif
 
             // Make sure that strtod can parse it back to the same number
@@ -139,7 +140,7 @@ BOOST_AUTO_TEST_CASE( test_double_parsing3 )
 {
     double f = 1877212.719993526;
     string s = "1877212.719993526";
-    Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+    ParseContext pc(s, s.c_str(), s.c_str() + s.length());
     double f2 = pc.expect_double();
     char * end = (char *)(s.c_str() + s.length());
     double f3 = strtod(s.c_str(), &end);
@@ -157,7 +158,7 @@ BOOST_AUTO_TEST_CASE( test_large_double_parsing )
     double f = 9.5637941572227e+307;
     string s = "9.5637941572227e+307";
     const char* sp = s.c_str();
-    Parse_Context pcs(s, sp, sp + s.length());
+    ParseContext pcs(s, sp, sp + s.length());
     double f2 = pcs.expect_double();
     char * end = (char *)(s.c_str() + s.length());
     double f3 = strtod(s.c_str(), &end);
@@ -179,9 +180,9 @@ BOOST_AUTO_TEST_CASE( test_difficult_double_parsing )
    for (long long i: ints_representable_as_double) {
         string s = format("%lld", i);
         const char* sp = s.c_str();
-        Parse_Context pcs(s, sp, sp + s.length());
+        ParseContext pcs(s, sp, sp + s.length());
         {
-            Parse_Context::Revert_Token tok(pcs);
+            ParseContext::Revert_Token tok(pcs);
             double f2 = pcs.expect_double();
             std::cout << i << " " << (long long) f2 << std::endl;
             BOOST_CHECK_EQUAL(i, (long long) f2);
@@ -200,9 +201,9 @@ BOOST_AUTO_TEST_CASE( test_difficult_double_parsing )
    for (long long i: ints_not_representable_as_double) {
        string s = format("%lld", i);
        const char* sp = s.c_str();
-       Parse_Context pcs(s, sp, sp + s.length());
+       ParseContext pcs(s, sp, sp + s.length());
        {
-           Parse_Context::Revert_Token tok(pcs);
+           ParseContext::Revert_Token tok(pcs);
            double f2 = pcs.expect_double();
            std::cout << std::setprecision(18) << strtod(sp, nullptr) << " " << f2 << std::endl;
            BOOST_CHECK_EQUAL(strtod(sp, nullptr), f2);
@@ -216,7 +217,7 @@ BOOST_AUTO_TEST_CASE( test_difficult_double_parsing )
 void test_long_long(long long value)
 {
     string s = format("%lld", value);
-    Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+    ParseContext pc(s, s.c_str(), s.c_str() + s.length());
     long long value2 = pc.expect_long_long(value);
     BOOST_CHECK_EQUAL(value, value2);
 }
@@ -233,7 +234,7 @@ BOOST_AUTO_TEST_CASE( test_long_long_parsing )
 
 static const char * testUnicode_str = "0026\n026";
 
-void run_test_unicode(Parse_Context & context)
+void run_test_unicode(ParseContext & context)
 {
     int j = -1 ;
     BOOST_CHECK(context.match_hex4(j));
@@ -248,14 +249,14 @@ void run_test_unicode(Parse_Context & context)
 BOOST_AUTO_TEST_CASE( test_Unicode )
 {
     {
-        Parse_Context context("test unicode",
+        ParseContext context("test unicode",
                               testUnicode_str, testUnicode_str + strlen(testUnicode_str));
         run_test_unicode(context);
     }
 }
 static const char * test1_str = "Here \t is a\tparse context\nwith two\ni mean 3 lines";
 
-void run_test1(Parse_Context & context)
+void run_test1(ParseContext & context)
 {
     BOOST_CHECK(!context.eof());
     BOOST_CHECK_EQUAL(context.get_offset(), 0);
@@ -306,7 +307,7 @@ void run_test1(Parse_Context & context)
     BOOST_CHECK(context.eof());
     {
         JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(*context, ML::Exception);
+        BOOST_CHECK_THROW(*context, MLDB::Exception);
     }
     BOOST_CHECK_EQUAL(context.get_offset(), strlen(test1_str));
 }
@@ -316,7 +317,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     cerr << "starting test1" << endl;
 
     {
-        Parse_Context context("test",
+        ParseContext context("test",
                               test1_str, test1_str + strlen(test1_str));
         run_test1(context);
     }
@@ -326,7 +327,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     for (unsigned i = 0;  sizes[i];  ++i) {
         cerr << "starting test1 with size " << sizes[i] << endl;
         istringstream stream(test1_str);
-        Parse_Context context("test", stream, 1, 1, sizes[i]);
+        ParseContext context("test", stream, 1, 1, sizes[i]);
         run_test1(context);
         cerr << "done test" << endl;
    }
@@ -344,18 +345,18 @@ BOOST_AUTO_TEST_CASE( test2 )
         stream << test1_str;
     }
 
-    Parse_Context context(tmp_filename);
+    ParseContext context(tmp_filename);
 
     run_test1(context);
 }
 
-std::string expect_feature_name(Parse_Context & c)
+std::string expect_feature_name(ParseContext & c)
 {
     std::string result;
     /* We have a backslash escaped name. */
     bool after_backslash = false;
     
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
     
     int len = 0;
     while (c && *c != '\n') {
@@ -389,7 +390,7 @@ std::string expect_feature_name(Parse_Context & c)
 BOOST_AUTO_TEST_CASE( test3 )
 {
     string header = "LABEL X Y";
-    Parse_Context context("test file", header.c_str(),
+    ParseContext context("test file", header.c_str(),
                           header.c_str() + header.size());
 
     BOOST_CHECK(context);
@@ -406,7 +407,7 @@ BOOST_AUTO_TEST_CASE( test3 )
 BOOST_AUTO_TEST_CASE( test4 )
 {
     string file = "LABEL X Y\n1 0 0\n0 1 0\n0 0 1\n1 1 1\n";
-    Parse_Context context("test file", file.c_str(),
+    ParseContext context("test file", file.c_str(),
                           file.c_str() + file.size());
     
     BOOST_CHECK(context);
@@ -432,7 +433,7 @@ BOOST_AUTO_TEST_CASE( test4 )
 BOOST_AUTO_TEST_CASE( test5 )
 {
     string file = "1.234e-05";
-    Parse_Context context("test file", file.c_str(),
+    ParseContext context("test file", file.c_str(),
                           file.c_str() + file.size());
 
     float f = context.expect_float();
@@ -444,7 +445,7 @@ BOOST_AUTO_TEST_CASE( test5 )
 BOOST_AUTO_TEST_CASE( test6 )
 {
     string file = "33 nan nan 1 nan nan 2 -nan +nan";
-    Parse_Context context("test file", file.c_str(),
+    ParseContext context("test file", file.c_str(),
                           file.c_str() + file.size());
 
     float f = context.expect_float();
@@ -491,7 +492,7 @@ BOOST_AUTO_TEST_CASE( test_big_chunk_size )
     
     istringstream stream(s);
 
-    Parse_Context context("test file", stream);
+    ParseContext context("test file", stream);
     
     // 1G, can't possibly fit on stack
     context.set_chunk_size(1024 * 1024 * 1024);
@@ -523,7 +524,7 @@ BOOST_AUTO_TEST_CASE( test_chunking_stream1 )
     for (unsigned i = 0;  i < nchunk_sizes;  ++i) {
         istringstream stream(s);
 
-        Parse_Context context("test file", stream, 1, 1, 1);
+        ParseContext context("test file", stream, 1, 1, 1);
         
         context.set_chunk_size(chunk_sizes[i]);
 
@@ -575,7 +576,7 @@ void test_csv_data_size(int chunk_size, vector<vector<string> > & reference)
     cerr << "input_file = " << input_file << endl;
 
     MLDB::filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     context.set_chunk_size(chunk_size);
 
@@ -623,7 +624,7 @@ BOOST_AUTO_TEST_CASE( test_token )
 {
     string s = "aaabac";
     istringstream stream(s);
-    Parse_Context context("test", stream, 1, 1, 1 /* chunk size */);
+    ParseContext context("test", stream, 1, 1, 1 /* chunk size */);
     
     BOOST_CHECK_EQUAL(context.readahead_available(), 1);
     BOOST_CHECK_EQUAL(context.total_buffered(), 1);
@@ -631,7 +632,7 @@ BOOST_AUTO_TEST_CASE( test_token )
     BOOST_CHECK_EQUAL(context.get_offset(), 0);
 
     {
-        Parse_Context::Revert_Token token(context);
+        ParseContext::Revert_Token token(context);
 
         BOOST_CHECK_EQUAL(*context, 'a');
         BOOST_CHECK_EQUAL(context.total_buffered(), 1);
@@ -657,7 +658,7 @@ BOOST_AUTO_TEST_CASE( test_token )
         BOOST_CHECK_EQUAL(context.total_buffered(), 6);
         BOOST_CHECK_EQUAL(context.get_offset(), 5);
         ++context;
-        Parse_Context::Revert_Token token2(context);
+        ParseContext::Revert_Token token2(context);
     }
 
     BOOST_CHECK_EQUAL(context.get_offset(), 0);
@@ -669,7 +670,7 @@ BOOST_AUTO_TEST_CASE( test_token )
 BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing1)
 {
     string s = "3eabd3c2-825c-11e0-a4a8-0026b937c890";
-    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    ParseContext c1(s, s.c_str(), s.c_str() + s.length());
     double d = -1.0;
     BOOST_CHECK(c1.match_double(d));
     BOOST_CHECK_EQUAL(d, 3.0);
@@ -679,7 +680,7 @@ BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing1)
 BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing2)
 {
     string s = "Englewood";
-    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    ParseContext c1(s, s.c_str(), s.c_str() + s.length());
     double d = -1.0;
     BOOST_CHECK(!c1.match_double(d));
     BOOST_CHECK_EQUAL(d, -1.0);
@@ -689,7 +690,7 @@ BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing2)
 BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing3)
 {
     string s = "";
-    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    ParseContext c1(s, s.c_str(), s.c_str() + s.length());
     double d = -1.0;
     BOOST_CHECK(!c1.match_double(d));
     BOOST_CHECK_EQUAL(d, -1.0);
@@ -698,7 +699,7 @@ BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing3)
 BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing4)
 {
     string s = "-";
-    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    ParseContext c1(s, s.c_str(), s.c_str() + s.length());
     double d = -1.0;
     BOOST_CHECK(!c1.match_double(d));
     BOOST_CHECK_EQUAL(d, -1.0);
@@ -707,7 +708,7 @@ BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing4)
 BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing5)
 {
     string s = "+";
-    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    ParseContext c1(s, s.c_str(), s.c_str() + s.length());
     double d = -1.0;
     BOOST_CHECK(!c1.match_double(d));
     BOOST_CHECK_EQUAL(d, -1.0);
@@ -716,7 +717,7 @@ BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing5)
 BOOST_AUTO_TEST_CASE(test_match_literal_at_eof)
 {
     string s = "hello";
-    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    ParseContext c1(s, s.c_str(), s.c_str() + s.length());
     BOOST_CHECK(c1.match_literal("hello"));
     BOOST_CHECK(!c1.match_literal("one"));
 }
@@ -724,12 +725,12 @@ BOOST_AUTO_TEST_CASE(test_match_literal_at_eof)
 BOOST_AUTO_TEST_CASE(test_revert_token_at_eof)
 {
     string s = "a";
-    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    ParseContext c1(s, s.c_str(), s.c_str() + s.length());
     ++c1;
-    Parse_Context::Hold_Token token1(c1);
+    ParseContext::Hold_Token token1(c1);
     try {
-        Parse_Context::Revert_Token token(c1);
-        throw ML::Exception("hello");
+        ParseContext::Revert_Token token(c1);
+        throw MLDB::Exception("hello");
     } catch (const std::exception & exc) {
         cerr << "got exception " << exc.what() << endl;
     }

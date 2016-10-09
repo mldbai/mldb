@@ -124,7 +124,7 @@ start()
 
     std::string path
         = "tmp/plugin-"
-        + ML::format("%08x", jsonHash(jsonEncode(config)))
+        + MLDB::format("%08x", jsonHash(jsonEncode(config)))
         + ".so";
 
     {
@@ -141,7 +141,7 @@ start()
     if (!handle) {
         char * error = dlerror();
         ExcAssert(error);
-        throw ML::Exception("couldn't load plugin %s: %s",
+        throw MLDB::Exception("couldn't load plugin %s: %s",
                             path.c_str(), error);
     }
 
@@ -152,7 +152,7 @@ start()
     auto registerPlugin =  (RegisterFnType) dlsym(handle, "mldbPluginEnter");
     
     if (!registerPlugin)
-        throw ML::Exception("plugin library doesn't expose mldb_plugin_enter: %s",
+        throw MLDB::Exception("plugin library doesn't expose mldb_plugin_enter: %s",
                             dlerror());
     
     std::shared_ptr<Plugin> plugin(registerPlugin(server));

@@ -79,7 +79,7 @@ void
 AllOutputDescription::
 parseJsonTyped(AllOutput * val, JsonParsingContext & context) const
 {
-    throw ML::Exception("AllOutputDescription::parseJsonTyped(): not impl");
+    throw MLDB::Exception("AllOutputDescription::parseJsonTyped(): not impl");
 }
 
 void
@@ -87,7 +87,7 @@ AllOutputDescription::
 printJsonTyped(const AllOutput * val,
                JsonPrintingContext & context) const
 {
-    throw ML::Exception("AllOutputDescription::printJsonTyped(): not impl");
+    throw MLDB::Exception("AllOutputDescription::printJsonTyped(): not impl");
 }
 
 ValueDescriptionT<AllOutput> *
@@ -203,7 +203,7 @@ waitGeneric(double timeToWait)
     std::tie(found, res) = tryWaitGeneric(timeToWait);
 
     if (!found)
-        throw ML::Exception("No event found before timeout");
+        throw MLDB::Exception("No event found before timeout");
         
     return res;
 }
@@ -311,7 +311,7 @@ UnknownTypeWatchData::
 tryWaitMaybeGeneric(double timeToWait)
 {
     if (boundFn)
-        throw ML::Exception("cannot wait on a bound watch");
+        throw MLDB::Exception("cannot wait on a bound watch");
 
     Date limit = Date::now().plusSeconds(timeToWait);
         
@@ -619,7 +619,7 @@ throwException(WatchErrorKind kind, const char * msg, ...) const
     va_list ap;
     va_start(ap, msg);
     try {
-        std::string message = ML::vformat(msg, ap);
+        std::string message = vformat(msg, ap);
         va_end(ap);
         WatchError error(kind, message);
         throw WatchException(std::move(error));
@@ -705,16 +705,16 @@ bindType(std::shared_ptr<const ValueDescription> boundDesc,
     std::unique_lock<std::mutex> guard(mutex);
 
     if (this->boundType_ || this->boundValueDescription_)
-        throw ML::Exception("Watches already have a bound type");
+        throw MLDB::Exception("Watches already have a bound type");
 
     this->boundValueDescription_ = std::move(boundDesc);
     this->boundType_ = boundType;
     if (!boundType_ && boundValueDescription_)
         boundType_ = boundValueDescription_->type;
 
-    std::string typeName = ML::demangle(*boundType_);
+    std::string typeName = demangle(*boundType_);
     if (typeName.find("std::tuple<") != 0)
-        throw ML::Exception("Watches must always be bound to a tuple type: '%s'",
+        throw MLDB::Exception("Watches must always be bound to a tuple type: '%s'",
                             typeName.c_str());
 }
 
@@ -737,7 +737,7 @@ Watches::
 releaseWatchWithData(WatchData * data)
 {
     if (!data)
-        throw ML::Exception("can't release null data");
+        throw MLDB::Exception("can't release null data");
 
     if (data->holder)
         data->holder->data = nullptr;
@@ -758,7 +758,7 @@ releaseWatchWithData(WatchData * data)
         }
     }
         
-    throw ML::Exception("Watch %p not found in watch set when releasing",
+    throw MLDB::Exception("Watch %p not found in watch set when releasing",
                         data);
 }
 
@@ -789,7 +789,7 @@ throwException(WatchErrorKind kind, const char * msg, ...) const
     va_list ap;
     va_start(ap, msg);
     try {
-        std::string message = ML::vformat(msg, ap);
+        std::string message = vformat(msg, ap);
         va_end(ap);
         WatchError error(kind, message);
         throw WatchException(std::move(error));

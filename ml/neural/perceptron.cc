@@ -38,7 +38,7 @@ namespace ML {
 
 namespace {
 
-Env_Option<bool> profile("PROFILE_PERCEPTRON", false);
+EnvOption<bool> profile("PROFILE_PERCEPTRON", false);
 
 double t_predict = 0.0, t_accuracy = 0.0, t_decorrelate = 0.0;
 
@@ -167,7 +167,7 @@ std::vector<int>
 Perceptron::
 parse_architecture(const std::string & arch)
 {
-    Parse_Context context(arch, &arch[0], &arch[0] + arch.size());
+    ParseContext context(arch, &arch[0], &arch[0] + arch.size());
 
     vector<int> result;
     while (context) {

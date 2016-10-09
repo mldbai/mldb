@@ -17,7 +17,6 @@
 #include <cstring>
 
 using namespace std;
-using namespace ML;
 
 namespace MLDB {
 
@@ -56,7 +55,7 @@ fromJson(const Json::Value & val)
             return PortRange(first, last);
         }
     }
-    throw ML::Exception("unknown port range " + val.toString());
+    throw MLDB::Exception("unknown port range " + val.toString());
 }
 
 

@@ -50,7 +50,7 @@ struct SubDataset::Itl
     std::vector<NamedRowValue> subOutput;
     std::vector<PathElement> columnNames;
     std::vector<ColumnPath> fullFlattenedColumnNames;
-    ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
+    Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date earliest, latest;
     std::shared_ptr<ExpressionValueInfo> columnInfo;
 

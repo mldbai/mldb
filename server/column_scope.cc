@@ -180,7 +180,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
         }
     }
 
-    //ML::Timer timer;
+    //Timer timer;
     //cerr << "doing rows" << endl;
     auto rowGen = dataset->generateRowsWhere(*this, "" /* alias */,
                                              *SqlExpression::TRUE,

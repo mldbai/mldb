@@ -86,7 +86,7 @@ struct ExtractedRow {
     {
     }
 
-    ExtractedRow(ML::distribution<float> continuous,
+    ExtractedRow(distribution<float> continuous,
                  std::vector<std::pair<ColumnHash, CellValue> > sparse)
         : continuous(std::move(continuous)),
           sparse(std::move(sparse))
@@ -94,7 +94,7 @@ struct ExtractedRow {
     }
 
     RowHash rowHash;  /// To sort on
-    ML::distribution<float> continuous;
+    distribution<float> continuous;
     std::vector<std::pair<ColumnHash, CellValue> > sparse;
 };
 
@@ -311,7 +311,7 @@ struct ColumnIndexEntry: public ColumnSpec {
             }
         };
 
-        throw ML::Exception("Unknown ColumnType");
+        throw MLDB::Exception("Unknown ColumnType");
     }
 
     double correlationContinuousContinuous(const ColumnIndexEntry & other) const
@@ -319,7 +319,7 @@ struct ColumnIndexEntry: public ColumnSpec {
         double result = continuousValues.dotprod(other.continuousValues)
             / numExamples;
         if (!std::isfinite(result))
-            throw ML::Exception("non-finite correlation");
+            throw MLDB::Exception("non-finite correlation");
         //cerr << "column " << columnName << " and " << other.columnName
         //     << " have correlation " << result << endl;
         return result;
@@ -424,7 +424,7 @@ struct ColumnIndexEntry: public ColumnSpec {
     int numExamples;
     int numExamplesWithColumn;
 
-    ML::distribution<float> continuousValues;
+    distribution<float> continuousValues;
     std::vector<std::pair<int, float> > sparseValues;
     SvdColumnEntry discreteValues;
 };

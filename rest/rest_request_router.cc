@@ -343,7 +343,7 @@ static std::string getVerbsStr(const std::set<std::string> & verbs)
 
 namespace {
 
-ML::Env_Option<bool, true> TRACE_REST_REQUESTS("TRACE_REST_REQUESTS", false);
+EnvOption<bool, true> TRACE_REST_REQUESTS("TRACE_REST_REQUESTS", false);
 
 } // file scope
 

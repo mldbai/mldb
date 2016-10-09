@@ -263,7 +263,7 @@ struct SparseMatrixDataset::Itl
     void optimize()
     {
         //cerr << "optimize() on MutableSparseMatrixDataset" << endl;
-        //ML::Timer timer;
+        //Timer timer;
 
         std::unique_lock<RootLock> guard(rootLock);
         // We don't increment the epoch since logically it's exactly the same
@@ -1336,7 +1336,7 @@ struct MutableBaseData {
         // Only one balancing at a time
         std::unique_lock<std::mutex> guard(this->mutex);
 
-        ML::Timer timer;
+        Timer timer;
 
         // Get a reference to the data
         auto r = this->repr.load();

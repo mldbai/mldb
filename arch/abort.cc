@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -74,4 +74,4 @@ void set_abort_state(bool b)
 
 
 
-} // namepsace ML
+} // namepsace MLDB

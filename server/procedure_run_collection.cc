@@ -118,12 +118,12 @@ getKey(ProcedureRunConfig & config)
     // 1.  Newly seeded random number based on current time
     // 2.  Thread ID
     Utf8String disambig
-        = ML::format("%d-%d", random())
+        = MLDB::format("%d-%d", random())
         + Date::now().print(9)
         + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()));
     
     // Create an auto hash that is cleary identified as one
-    return config.id = ML::format("%s-%016llx",
+    return config.id = MLDB::format("%s-%016llx",
                                   Date::now().printIso8601(6).c_str(),
                                   (unsigned long long)jsonHash(jsonEncode(config)));
 }

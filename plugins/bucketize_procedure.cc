@@ -74,22 +74,22 @@ BucketizeProcedureConfigDescription()
         auto last = make_pair(-1.0, -1.0);
         for (const auto & range: ranges) {
             if (range.first < 0) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: lower bound must be "
                     "greater or equal to 0", range.first, range.second);
             }
             if (range.second > 100) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must be "
                     "lower or equal to 1", range.first, range.second);
             }
             if (range.first >= range.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must  "
                     "be greater than lower bound", range.first, range.second);
             }
             if (range.first < last.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket: [%f, %f] is overlapping with "
                     "[%f, %f]", last.first, last.second, range.first,
                     range.second);

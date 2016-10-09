@@ -18,7 +18,6 @@
 #include "mldb/types/date.h"
 
 using namespace std;
-using namespace ML;
 
 namespace MLDB {
 
@@ -52,7 +51,7 @@ init(int maxFds, int timeout)
 
     epoll_fd = epoll_create(maxFds);
     if (epoll_fd == -1)
-        throw ML::Exception(errno, "EndpointBase epoll_create()");
+        throw MLDB::Exception(errno, "EndpointBase epoll_create()");
 
     timeout_ = timeout;
 }
@@ -79,7 +78,7 @@ removeFd(int fd)
     
     if (res == -1) {
         if (errno != EBADF)
-            throw ML::Exception("epoll_ctl DEL fd %d: %s", fd,
+            throw MLDB::Exception("epoll_ctl DEL fd %d: %s", fd,
                                 strerror(errno));
     }
 
@@ -87,7 +86,7 @@ removeFd(int fd)
         numFds_--;
     }
     else {
-        throw ML::Exception("too many file descriptors removed");
+        throw MLDB::Exception("too many file descriptors removed");
     }
 }
 
@@ -110,7 +109,7 @@ handleEvents(int usToWait, int nEvents,
         = afterSleep_ ? afterSleep_ : this->afterSleep;
 
     if (nEvents <= 0)
-        throw ML::Exception("can't wait for no events");
+        throw MLDB::Exception("can't wait for no events");
 
     if (nEvents > MaxEvents)
         nEvents = MaxEvents;
@@ -181,7 +180,7 @@ poll() const
         if (res == -1 && errno == EINTR)
             continue;
         if (res == -1)
-            throw ML::Exception("ppoll in Epoller::poll");
+            throw MLDB::Exception("ppoll in Epoller::poll");
 
         return res > 0;
     }
@@ -213,7 +212,7 @@ performAddFd(int fd, void * data, bool oneshot, bool restart)
     int res = epoll_ctl(epoll_fd, action, fd, &event);
 
     if (res == -1)
-        throw ML::Exception("epoll_ctl: %s (fd=%d, epollfd=%d, oneshot=%d,"
+        throw MLDB::Exception("epoll_ctl: %s (fd=%d, epollfd=%d, oneshot=%d,"
                             " restart=%d)",
                             strerror(errno), fd, epoll_fd, oneshot, restart);
 }

@@ -131,7 +131,7 @@ FunctionInfo
 Function::
 getFunctionInfo() const
 {
-    throw HttpReturnException(400, "Function " + ML::type_name(*this)
+    throw HttpReturnException(400, "Function " + MLDB::type_name(*this)
                         + " needs to override getFunctionInfo()");
 }
 
@@ -142,7 +142,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Function of type '" + ML::type_name(*this)
+    error["error"] = "Function of type '" + MLDB::type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;

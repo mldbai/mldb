@@ -187,7 +187,7 @@ void svd_opa(SMat A, double *x, double *y) {
     long *pointr = A->pointr, *rowind = A->rowind;
     double *value = A->value;
 
-    //cerr << "svd_opa: x = " << ML::distribution<float>(x, x + A->cols) << endl;
+    //cerr << "svd_opa: x = " << distribution<float>(x, x + A->cols) << endl;
    
     SVDCount[SVD_MXV]++;
     memset(y, 0, A->rows * sizeof(double));
@@ -213,7 +213,7 @@ void svd_opb(SMat A, double *x, double *y) {
 
   double temp[A->rows];
 
-  //cerr << "svd_opb: x = " << ML::distribution<float>(x, x + A->cols) << endl;
+  //cerr << "svd_opb: x = " << distribution<float>(x, x + A->cols) << endl;
 
   SVDCount[SVD_MXV] += 2;
   memset(y, 0, n * sizeof(double));
@@ -233,7 +233,7 @@ void svd_opb(SMat A, double *x, double *y) {
   }
 
   //cerr << "svd_opb: returned "
-  //     << ML::distribution<float>(y, y + A->cols) << endl;
+  //     << distribution<float>(y, y + A->cols) << endl;
 
   return;
 }
@@ -358,7 +358,7 @@ default_store(long n, long isw, long j, double *s)
         svd_fatalError("svdLAS2: failed to allocate LanStore[%d]", j + MAXLL);
     }
     //cerr << "svd_store " << j << ": s = "
-    //     << ML::distribution<float>(s, s + n) << endl;
+    //     << distribution<float>(s, s + n) << endl;
     svd_dcopy(n, s, 1, LanStore[j + MAXLL], 1);
     break;
   case RETRQ:	

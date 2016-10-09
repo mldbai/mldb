@@ -60,7 +60,7 @@ std::string sqlEscape(const std::string & val)
         if (c == '\'')
             ++numQuotes;
         if (c < ' ' || c >= 127)
-            throw ML::Exception("Non ASCII character in DB");
+            throw MLDB::Exception("Non ASCII character in DB");
     }
     if (numQuotes == 0)
         return val;
@@ -84,10 +84,10 @@ struct Init {
     {
         int res = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
         if (res != SQLITE_OK)
-            throw ML::Exception("Configuring multi threaded: %d", res);
+            throw MLDB::Exception("Configuring multi threaded: %d", res);
         res = sqlite3_config(SQLITE_CONFIG_MEMSTATUS, 0);
         if (res != SQLITE_OK)
-            throw ML::Exception("Configuring no memory status: %d", res);
+            throw MLDB::Exception("Configuring no memory status: %d", res);
     }
 } init;
 
@@ -607,7 +607,7 @@ struct SqliteSparseDataset::Itl
             {
                 int res = db->execute(command.c_str());
                 if (res != SQLITE_OK) {
-                    throw ML::Exception("Error setting up database: executing %s: %s",
+                    throw MLDB::Exception("Error setting up database: executing %s: %s",
                                         command.c_str(), db->error_msg());
                 }
             };
@@ -642,8 +642,8 @@ struct SqliteSparseDataset::Itl
     }
 
     // Protected by the write lock
-    ML::Lightweight_Hash<RowHash, int> rowNumCache;
-    ML::Lightweight_Hash<ColumnHash, int> colNumCache;
+    Lightweight_Hash<RowHash, int> rowNumCache;
+    Lightweight_Hash<ColumnHash, int> colNumCache;
 
     // Unfortunately...
     mutable std::mutex writeLock;
@@ -668,7 +668,7 @@ struct SqliteSparseDataset::Itl
             {
                 int res = connection.execute(command.c_str());
                 if (res != SQLITE_OK) {
-                    throw ML::Exception("Error setting up connection: executing %s: %s",
+                    throw MLDB::Exception("Error setting up connection: executing %s: %s",
                                         command.c_str(), connection.error_msg());
                 }
             };

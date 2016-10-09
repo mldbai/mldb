@@ -72,7 +72,7 @@ struct MergedDataset::Itl
         //}
 
         if (datasets.empty())
-            throw ML::Exception("Attempt to merge no datasets together");
+            throw MLDB::Exception("Attempt to merge no datasets together");
 
 
         std::sort(datasets.begin(), datasets.end(),
@@ -278,7 +278,7 @@ struct MergedDataset::Itl
     {
         uint32_t bitmap = getRowBitmap(rowHash);
         if (!bitmap)
-            throw ML::Exception("Row not known");
+            throw MLDB::Exception("Row not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
         return datasets[bit]->getMatrixView()->getRowPath(rowHash);
@@ -288,7 +288,7 @@ struct MergedDataset::Itl
     {
         uint32_t bitmap = getRowBitmap(rowName);
         if (!bitmap)
-            throw ML::Exception("Row not known");
+            throw MLDB::Exception("Row not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
         MatrixNamedRow result = datasets[bit]->getMatrixView()->getRow(rowName);
@@ -319,7 +319,7 @@ struct MergedDataset::Itl
         uint32_t bitmap = getColumnBitmap(columnHash);
 
         if (bitmap == 0)
-            throw ML::Exception("Column not found in merged dataset");
+            throw MLDB::Exception("Column not found in merged dataset");
 
         int bit = ML::lowest_bit(bitmap, -1);
 
@@ -352,7 +352,7 @@ struct MergedDataset::Itl
     {
         uint32_t bitmap = getColumnBitmap(columnName);
         if (!bitmap)
-            throw ML::Exception("Column not known");
+            throw MLDB::Exception("Column not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
         bitmap = bitmap & ~(1 << bit);
@@ -367,7 +367,7 @@ struct MergedDataset::Itl
 
         // TODO: fill in the stats...
 
-        throw ML::Exception("MergedDataset::getColumnStats() not finished");
+        throw MLDB::Exception("MergedDataset::getColumnStats() not finished");
     }
 #endif
 
@@ -376,7 +376,7 @@ struct MergedDataset::Itl
     {
         uint32_t bitmap = getColumnBitmap(columnHash);
         if (!bitmap)
-            throw ML::Exception("Column not known");
+            throw MLDB::Exception("Column not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
         MatrixColumn result = datasets[bit]->getColumnIndex()->getColumn(columnHash);

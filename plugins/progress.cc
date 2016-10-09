@@ -20,7 +20,7 @@ nextStep(float endValue) {
     value = endValue;
     auto nextStep = _nextStep.lock();
     if (!nextStep) {
-        throw ML::Exception("No next step!");
+        throw MLDB::Exception("No next step!");
     }
     nextStep->started = Date::now();
     return nextStep;

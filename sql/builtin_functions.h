@@ -131,7 +131,7 @@ struct RegisterBuiltin {
                             return fn(args, scope);
                         } JML_CATCH_ALL {
                             rethrowHttpException(-1, "Executing builtin function "
-                                                 + str + ": " + ML::getExceptionString(),
+                                                 + str + ": " + getExceptionString(),
                                                  "functionName", str,
                                                  "functionArgs", args);
                         }
@@ -140,7 +140,7 @@ struct RegisterBuiltin {
                     return result;
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
-                                         + str + ": " + ML::getExceptionString(),
+                                         + str + ": " + getExceptionString(),
                                          "functionName", str,
                                          "functionArgs", args);
                 }

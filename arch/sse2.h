@@ -15,7 +15,7 @@
 
 #define USE_SIMD_SSE2 1
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 typedef float v4sf __attribute__((__vector_size__(16)));
@@ -125,4 +125,4 @@ inline v4si pack(int * where)
 }
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

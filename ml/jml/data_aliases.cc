@@ -19,7 +19,7 @@
 #include <mutex>
 
 using namespace std;
-
+using namespace MLDB;
 
 namespace ML {
 
@@ -60,7 +60,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
     //cerr << "aliases" << endl;
     vector<tuple<int, uint64_t, float> > sorted[32];
-    ML::Spinlock sortedLocks[32];
+    Spinlock sortedLocks[32];
     //sorted.resize(dataset.example_count());
 
     auto doHash = [&] (int exampleNum)
@@ -71,7 +71,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
             //cerr << "example " << exampleNum << " hash " << hash << endl;
 
-            std::unique_lock<ML::Spinlock> guard(sortedLocks[hash % 32]);
+            std::unique_lock<Spinlock> guard(sortedLocks[hash % 32]);
             sorted[hash % 32].emplace_back(exampleNum, hash, label);
         };
 
@@ -109,7 +109,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
             else if (res == 1)
                 return 1;
             else if (res != 0)
-                throw ML::Exception("unexpected compare result");
+                throw MLDB::Exception("unexpected compare result");
 
             return 0;  // equal
         };

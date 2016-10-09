@@ -96,7 +96,7 @@ void
 MirrorPeerConnection::
 stopReading()
 {
-    throw ML::Exception("MirrorPeerConnection::stopReading() not implemented");
+    throw MLDB::Exception("MirrorPeerConnection::stopReading() not implemented");
 }
 
 void

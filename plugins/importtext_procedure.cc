@@ -117,7 +117,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     onPostValidate = [] (ImportTextConfig * config,
                          JsonParsingContext & context) {
         if (!config->headers.empty() && config->autoGenerateHeaders) {
-            throw ML::Exception("autoGenerateHeaders cannot be true if "
+            throw MLDB::Exception("autoGenerateHeaders cannot be true if "
                                 "headers is defined.");
         }
     };
@@ -280,7 +280,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                     {
                         auto & row = scope.as<RowScope>();
                         if(!row.rowName) {
-                            throw ML::Exception("rowHash() not available in this scope");
+                            throw MLDB::Exception("rowHash() not available in this scope");
                         }
                         return ExpressionValue(row.rowName->hash(), fileTimestamp);
                     },
@@ -453,7 +453,7 @@ parseFixedWidthCsvRow(const char * & line,
             // Parse differently based upon encoding
             switch (encoding) {
             case ASCII:
-            throw ML::Exception("non-ASCII character in ASCII text file");
+            throw MLDB::Exception("non-ASCII character in ASCII text file");
             case LATIN1:
             return CellValue(Utf8String::fromLatin1(string(start, len)));
             case UTF8:
@@ -672,7 +672,7 @@ struct ImportTextProcedureWorkInstance
     }
 
     vector<ColumnPath> knownColumnNames;
-    ML::Lightweight_Hash<ColumnHash, int> columnIndex; //To check for duplicates column names
+    Lightweight_Hash<ColumnHash, int> columnIndex; //To check for duplicates column names
     int64_t lineOffset;
     // Column names in the CSV file.  This is distinct from the
     // output column names that will be created once parsing has
@@ -785,12 +785,12 @@ struct ImportTextProcedureWorkInstance
                     }
 
                     try {
-                        ML::Parse_Context pcontext(filename,
+                        ParseContext pcontext(filename,
                                                header.c_str(), header.length(), 1, 0);
-                        fields = ML::expect_csv_row(pcontext, -1, separator);
+                        fields = expect_csv_row(pcontext, -1, separator);
                         break;
                     }
-                    catch (ML::FileFinishInsideQuote & exp) {
+                    catch (FileFinishInsideQuote & exp) {
                         if(config.allowMultiLines) {
                             prevHeader.assign(std::move(header));
                             continue;
@@ -838,7 +838,7 @@ struct ImportTextProcedureWorkInstance
         }
 
         // Early check for duplicate column names in input
-        ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+        Lightweight_Hash<ColumnHash, int> inputColumnIndex;
         for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
             const ColumnPath & c = inputColumnNames[i];
             ColumnHash ch(c);
@@ -928,7 +928,7 @@ struct ImportTextProcedureWorkInstance
         std::atomic<uint64_t> numSkipped(0);
         std::atomic<uint64_t> totalLinesProcessed(0);
 
-        ML::Timer timer;
+        Timer timer;
 
         auto handleError = [&](const std::string & message,
                                int64_t lineNumber,

@@ -1,21 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* fast_float_parsing.h                                            -*- C++ -*-
    Jeremy Barnes, 25 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.   
+
    Fast inline float parsing routines.
 */
 
-#ifndef __utils__fast_float_parsing_h__
-#define __utils__fast_float_parsing_h__
-
+#pragma once
 
 #include "mldb/base/parse_context.h"
 #include <limits>
 #include <errno.h>
 
-namespace ML {
+namespace MLDB {
 
 double binary_exp10 [10] = {
     10,
@@ -86,11 +83,11 @@ exp10_int(int val)
 */
 
 template<typename Float>
-inline bool match_float(Float & result, Parse_Context & c, bool lenient = true)
+inline bool match_float(Float & result, ParseContext & c, bool lenient = true)
 {
     if (c.eof()) return false;
 
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
     // perfect decimal representation of double precision floats
     // should fit in 256 chars.
     char buf[256];
@@ -157,7 +154,7 @@ inline bool match_float(Float & result, Parse_Context & c, bool lenient = true)
         // exponential marker
         if (!c.eof() && (*c == 'e' || *c == 'E')) {
             // allow backtracking in case this is not part of the float
-            Parse_Context::Revert_Token token(c);
+            ParseContext::Revert_Token token(c);
             buf[c.get_offset() - from] = 'e';
             ++c;
         
@@ -197,7 +194,7 @@ inline bool match_float(Float & result, Parse_Context & c, bool lenient = true)
 }
 
 template<typename Float>
-inline Float expect_float(Parse_Context & c,
+inline Float expect_float(ParseContext & c,
                           const char * error = "expected real number")
 {
     Float result;
@@ -207,7 +204,4 @@ inline Float expect_float(Parse_Context & c,
 }
 
 
-} // namespace ML
-
-
-#endif /* __utils__fast_float_parsing_h__ */
+} // namespace MLDB

@@ -152,10 +152,10 @@ run(const ProcedureRunConfig & run,
     auto rows = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;
 
-    std::vector<ML::distribution<double> > vecs;
+    std::vector<distribution<double> > vecs;
 
     for (unsigned i = 0;  i < rows.size();  ++i) {
-        vecs.emplace_back(ML::distribution<double>(std::get<2>(rows[i]).begin(),
+        vecs.emplace_back(distribution<double>(std::get<2>(rows[i]).begin(),
                                                    std::get<2>(rows[i]).end()));
     }
 
@@ -235,10 +235,10 @@ run(const ProcedureRunConfig & run,
             auto flatmatrix = tovector(cluster.covarianceMatrix);
 
             for (unsigned j = 0;  j < flatmatrix.size();  ++j) {
-                cols.emplace_back(ColumnPath(ML::format("c%02d", j)), flatmatrix[j], applyDate);
+                cols.emplace_back(ColumnPath(MLDB::format("c%02d", j)), flatmatrix[j], applyDate);
             }
 
-            centroids->recordRow(RowPath(ML::format("%i", i)), cols);
+            centroids->recordRow(RowPath(MLDB::format("%i", i)), cols);
         }
 
         centroids->commit();
@@ -278,7 +278,7 @@ EMFunctionConfigDescription()
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
+            throw MLDB::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -365,7 +365,7 @@ applyT(const ApplierT & applier_, EMInput input_) const
     const auto * downcast
             = dynamic_cast<const EMFunctionApplier *>(&applier_);
 
-    ML::distribution<double> input = downcast->extract(input_.embedding);
+    distribution<double> input = downcast->extract(input_.embedding);
     Date ts = input_.embedding.getEffectiveTimestamp();
 
     int bestCluster = impl->em.assign(input);

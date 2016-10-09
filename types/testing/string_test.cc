@@ -14,7 +14,6 @@
 #include "mldb/arch/format.h"
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 

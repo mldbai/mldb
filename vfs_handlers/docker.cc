@@ -59,7 +59,7 @@ struct DockerUriComponents {
             repo = rt[0];
             tag = rt[1];
         }
-        else throw ML::Exception("didn't understand tag name");
+        else throw MLDB::Exception("didn't understand tag name");
 
         for (unsigned i = 3;  i < components.size();  ++i) {
             object += '/' + components[i];
@@ -101,7 +101,7 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
     {
         auto info = tryGetInfo(url);
         if (!info)
-            throw ML::Exception("Couldn't get URI info for docker " + url.toString());
+            throw MLDB::Exception("Couldn't get URI info for docker " + url.toString());
         return info;
     }
 
@@ -112,12 +112,12 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
 #if 0        
         Utf8String dockerSource(url.toString());
         if (!dockerSource.removePrefix("docker@"))
-            throw ML::Exception("docker doesn't start with docker@");
+            throw MLDB::Exception("docker doesn't start with docker@");
 
         // Look for a # to get the filename
         auto it = dockerSource.rfind('#');
         if (it == dockerSource.end())
-            throw ML::Exception("Extracting a file from an docker requires a # between docker URI and path within docker");
+            throw MLDB::Exception("Extracting a file from an docker requires a # between docker URI and path within docker");
 
         Utf8String dockerUri(dockerSource.begin(), it);
 
@@ -156,12 +156,12 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
 
     virtual void makeDirectory(const Url & url) const
     {
-        throw ML::Exception("Docker URIs don't support creating directories");
+        throw MLDB::Exception("Docker URIs don't support creating directories");
     }
 
     virtual bool erase(const Url & url, bool throwException) const
     {
-        throw ML::Exception("Docker URIs don't support DELETE");
+        throw MLDB::Exception("Docker URIs don't support DELETE");
     }
 
     /** For each object under the given prefix (object or subdirectory),
@@ -214,7 +214,7 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
             info->size = md["Size"].asUInt();
             info->lastModified = jsonDecode<Date>(md["created"]);
 
-            string uri = prefix.toString() + "/layer" + ML::format("%03d", layerNum);
+            string uri = prefix.toString() + "/layer" + MLDB::format("%03d", layerNum);
             string setCookie = resp4.getHeader("set-cookie");
             string directUri = "https://" + c.registry + "/v1/images/" + image + "/layer";
             info->objectMetadata["directUri"] = directUri;
@@ -257,7 +257,7 @@ struct DockerUrlFsHandler: UrlFsHandler {
     {
         auto info = tryGetInfo(url);
         if (!info)
-            throw ML::Exception("Couldn't get URI info for docker " + url.toString());
+            throw MLDB::Exception("Couldn't get URI info for docker " + url.toString());
         return info;
     }
 
@@ -265,12 +265,12 @@ struct DockerUrlFsHandler: UrlFsHandler {
     {
         Utf8String dockerSource(url.toDecodedString());
         if (!dockerSource.removePrefix("docker@"))
-            throw ML::Exception("docker doesn't start with docker@");
+            throw MLDB::Exception("docker doesn't start with docker@");
 
         // Look for a # to get the filename
         auto it = dockerSource.rfind('#');
         if (it == dockerSource.end())
-            throw ML::Exception("Extracting a file from an docker requires a # between docker URI and path within docker");
+            throw MLDB::Exception("Extracting a file from an docker requires a # between docker URI and path within docker");
 
         Utf8String dockerUri(dockerSource.begin(), it);
 
@@ -309,12 +309,12 @@ struct DockerUrlFsHandler: UrlFsHandler {
 
     virtual void makeDirectory(const Url & url) const
     {
-        throw ML::Exception("Docker URIs don't support creating directories");
+        throw MLDB::Exception("Docker URIs don't support creating directories");
     }
 
     virtual bool erase(const Url & url, bool throwException) const
     {
-        throw ML::Exception("Docker URIs don't support DELETE");
+        throw MLDB::Exception("Docker URIs don't support DELETE");
     }
 
     /** For each object under the given prefix (object or subdirectory),
@@ -422,7 +422,7 @@ struct RegisterDockerHandler {
                      const OnUriHandlerException & onException)
     {
         if (mode != ios::in) {
-            throw ML::Exception("Cannot write to docker containers, only read");
+            throw MLDB::Exception("Cannot write to docker containers, only read");
         }
 
         string uriToFind = scheme + "://" + resource;
@@ -451,7 +451,7 @@ struct RegisterDockerHandler {
         handler.forEach(Url(repoUri), onObject, nullptr, "", "");
 
         if (!result.buf)
-            throw ML::Exception("Couldn't find resource " + scheme + "://" + resource
+            throw MLDB::Exception("Couldn't find resource " + scheme + "://" + resource
                                 + " in docker repo");
         
         return result;

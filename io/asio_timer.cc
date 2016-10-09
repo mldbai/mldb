@@ -25,7 +25,7 @@ StrandHolder::
 init(void * strand, const std::type_info * type)
 {
     if (type != &typeid(boost::asio::strand))
-        throw ML::Exception("StrandHolder initialized from " + ML::demangle(type->name()) + " not boost::asio::strand");
+        throw MLDB::Exception("StrandHolder initialized from " + demangle(type->name()) + " not boost::asio::strand");
     this->strand = strand;
 }
 
@@ -197,7 +197,7 @@ struct AsioTimer::Impl {
                      << " strand " << state->strand
                      << endl;
                 if (!doneBacktrace) {
-                    ML::backtrace();
+                    backtrace();
                     doneBacktrace = true;
                 }
             }

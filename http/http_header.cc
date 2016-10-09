@@ -15,7 +15,6 @@
 #include "mldb/types/pair_description.h"
 
 using namespace std;
-using namespace ML;
 
 
 namespace {
@@ -82,7 +81,7 @@ uriEscaped() const
             for (char c: str.rawString()) {
                 if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
                     result += c;
-                else result += ML::format("%%%02x", c);
+                else result += MLDB::format("%%%02x", c);
             }
             return result;
         };
@@ -133,7 +132,7 @@ struct RestParamsDescription: public ValueDescriptionT<RestParams> {
     virtual void parseJsonTyped(RestParams * val,
                                 JsonParsingContext & context) const
     {
-        throw ML::Exception("Can't parse JSON for RestParams");
+        throw MLDB::Exception("Can't parse JSON for RestParams");
     }
 
     virtual void printJsonTyped(const RestParams * val,
@@ -172,7 +171,7 @@ swap(HttpHeader & other)
 namespace {
 
 std::string
-expectUrlEncodedString(ML::Parse_Context & context,
+expectUrlEncodedString(ParseContext & context,
                        string delimiters)
 {
     string result;
@@ -230,7 +229,7 @@ parse(const std::string & headerAndData, bool checkBodyLength)
         HttpHeader parsed;
 
         // Parse http
-        ML::Parse_Context context("request header",
+        ParseContext context("request header",
                                   headerAndData.c_str(),
                                   headerAndData.c_str()
                                       + headerAndData.length());
@@ -274,7 +273,7 @@ parse(const std::string & headerAndData, bool checkBodyLength)
                     c = tolower(c);
 
                 if (transferEncoding != "chunked")
-                    throw ML::Exception("unknown transfer-encoding");
+                    throw MLDB::Exception("unknown transfer-encoding");
                 parsed.isChunked = true;
             }
             else {
@@ -392,7 +391,7 @@ getHeader(const std::string & key) const
 {
     auto it = headers.find(key);
     if (it == headers.end())
-        throw ML::Exception("couldn't find header " + key);
+        throw MLDB::Exception("couldn't find header " + key);
     return it->second;
 }
 

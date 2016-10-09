@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 #if defined __i686__ || defined __amd64__
 
@@ -237,4 +237,4 @@ CPU_Info * static_cpu_info = 0;
 
 #endif // __i686__
 
-} // namespace ML
+} // namespace MLDB

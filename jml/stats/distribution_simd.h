@@ -15,7 +15,7 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 template<>
 JML_ALWAYS_INLINE float
@@ -202,4 +202,4 @@ exp(const distribution<double, Underlying> & dist)
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

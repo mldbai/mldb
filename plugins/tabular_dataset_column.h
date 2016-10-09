@@ -49,7 +49,7 @@ struct TabularDatasetColumn {
     void reserve(size_t sz);
 
     std::vector<CellValue> indexedVals;
-    ML::Lightweight_Hash<uint64_t, int> valueIndex;
+    Lightweight_Hash<uint64_t, int> valueIndex;
     CellValue lastValue;
     std::vector<std::pair<uint32_t, int> > sparseIndexes;
     int64_t minRowNumber;  ///< Including null values not in sparseIndexes

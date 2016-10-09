@@ -61,7 +61,7 @@ struct PackageElementSources {
             case ROUTES:    return routes;
             case STATUS:    return status;
         }
-        throw ML::Exception("Unknown PackageElem");
+        throw MLDB::Exception("Unknown PackageElem");
     }
 };
 

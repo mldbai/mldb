@@ -9,7 +9,7 @@
 
 #include <atomic>
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -72,4 +72,4 @@ struct Spinlock {
     int yieldAfter;
 };
 
-} // namespace ML
+} // namespace MLDB

@@ -146,15 +146,15 @@ BOOST_AUTO_TEST_CASE(test_coord_parsing)
 
     {
         JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(PathElement::parse("."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\n"), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\""), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse(".."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("x\"\""), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("x.y"), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\"x\",y"), ML::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\n"), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\""), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse(".."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("x\"\""), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("x.y"), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\"x\",y"), MLDB::Exception);
     }
 }
 
@@ -222,14 +222,14 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
 
     {
         JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(Path::parse("\n"), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\0", 1), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"\0\"", 3), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\""), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("x\"\""), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"x\",y"), ML::Exception);
+        BOOST_CHECK_THROW(Path::parse("\n"), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\0", 1), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"\0\"", 3), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\""), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("x\"\""), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"x\",y"), MLDB::Exception);
     }
 
     {
@@ -438,12 +438,12 @@ BOOST_AUTO_TEST_CASE(test_null)
     // pe = path element
     // p = path
     JML_TRACE_EXCEPTIONS(false);
-    BOOST_CHECK_THROW(null + e, ML::Exception); // pe - pe, null lhs
-    BOOST_CHECK_THROW(e + null, ML::Exception); // pe - pe, null rhs
-    BOOST_CHECK_THROW(null + std::move(e), ML::Exception); // pe - moved pe, null lhs
-    BOOST_CHECK_THROW(e + std::move(null), ML::Exception); // pe - moved pe, null rhs
-    BOOST_CHECK_THROW(null + p, ML::Exception); // pe - path, null lhs
-    BOOST_CHECK_THROW(null + std::move(p), ML::Exception); // pe - moved path, null lhs
-    BOOST_CHECK_THROW(p + null, ML::Exception); // path - pe, null rhs
-    BOOST_CHECK_THROW(p + std::move(null), ML::Exception); // path - moved pe, null rhs
+    BOOST_CHECK_THROW(null + e, MLDB::Exception); // pe - pe, null lhs
+    BOOST_CHECK_THROW(e + null, MLDB::Exception); // pe - pe, null rhs
+    BOOST_CHECK_THROW(null + std::move(e), MLDB::Exception); // pe - moved pe, null lhs
+    BOOST_CHECK_THROW(e + std::move(null), MLDB::Exception); // pe - moved pe, null rhs
+    BOOST_CHECK_THROW(null + p, MLDB::Exception); // pe - path, null lhs
+    BOOST_CHECK_THROW(null + std::move(p), MLDB::Exception); // pe - moved path, null lhs
+    BOOST_CHECK_THROW(p + null, MLDB::Exception); // path - pe, null rhs
+    BOOST_CHECK_THROW(p + std::move(null), MLDB::Exception); // path - moved pe, null rhs
 }

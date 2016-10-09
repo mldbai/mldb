@@ -241,7 +241,7 @@ construct_recur(PyObject * pyObj)
         }
     }
     //else if(PyDateTime_Check(pyObj)) {
-    //    throw ML::Exception("do datetime!!");
+    //    throw MLDB::Exception("do datetime!!");
     //}
     else if(PyTuple_Check(pyObj)) {
         val = construct_lst<bp::tuple>(pyObj);
@@ -254,7 +254,7 @@ construct_recur(PyObject * pyObj)
         bp::list keys = pyDict.keys();
         for(int i = 0; i < len(keys); i++) {
             //                 if(!PyString_Check(keys[i]))
-            //                     throw ML::Exception("PyDict to JsVal only supports string keys");
+            //                     throw MLDB::Exception("PyDict to JsVal only supports string keys");
             std::string key = bp::extract<std::string>(keys[i]);
 
             bp::object obj = bp::object(pyDict[keys[i]]);
@@ -274,7 +274,7 @@ construct_recur(PyObject * pyObj)
         // not returned so needs to be garbage collected
         Py_DECREF(str_obj);
 
-        throw ML::Exception("Unknown type in PyDict to JsVal converter. "
+        throw MLDB::Exception("Unknown type in PyDict to JsVal converter. "
                             "Str representation: "+str_rep);
     }
 
@@ -328,7 +328,7 @@ convert_recur(const Json::Value & js)
         return dict;
     }
     else {
-        throw ML::Exception("Unknown type is JsVal to PyDict converter");
+        throw MLDB::Exception("Unknown type is JsVal to PyDict converter");
     }
 }
 

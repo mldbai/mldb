@@ -38,7 +38,7 @@ double t_train_stump = 0.0;
 
 namespace {
 
-Env_Option<bool> profile("PROFILE_BOOSTED_STUMPS", false);
+EnvOption<bool> profile("PROFILE_BOOSTED_STUMPS", false);
 
 struct Stats {
     ~Stats()

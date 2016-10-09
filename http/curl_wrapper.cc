@@ -23,7 +23,7 @@ namespace CurlWrapper {
 
 
     RuntimeError::RuntimeError(const std::string & what, CURLcode code) :
-        ML::Exception(what), code(code)
+        MLDB::Exception(what), code(code)
     {}
     
     CURLcode RuntimeError::whatCode() const
@@ -68,7 +68,7 @@ namespace CurlWrapper {
     void Easy::add_header_option(const RestParams& headers)
     {
         if (header_list != nullptr)
-            throw ML::Exception("header option has already been set. Call reset to before reusing an Easy object");
+            throw MLDB::Exception("header option has already been set. Call reset to before reusing an Easy object");
         
         for (auto&& header : headers) {
             header_list = curl_slist_append(header_list,

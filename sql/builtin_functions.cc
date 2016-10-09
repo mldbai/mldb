@@ -95,7 +95,7 @@ struct RegisterBuiltinUnaryScalar {
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
                                          + functionName
-                                         + ": " + ML::getExceptionString(),
+                                         + ": " + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -250,7 +250,7 @@ struct RegisterBuiltinUnaryScalar {
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + functionName + ": "
-                                         + ML::getExceptionString(),
+                                         + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -335,7 +335,7 @@ struct RegisterBuiltinBinaryScalar {
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
                                          + functionName
-                                         + ": " + ML::getExceptionString(),
+                                         + ": " + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -691,7 +691,7 @@ struct RegisterBuiltinBinaryScalar {
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + functionName + ": "
-                                         + ML::getExceptionString(),
+                                         + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -990,7 +990,7 @@ struct RegexHelper {
         } JML_CATCH_ALL {
             rethrowHttpException
                 (400, "Error when extracting regex from argument '"
-                 + expr.expr->surface + "': " + ML::getExceptionString()
+                 + expr.expr->surface + "': " + getExceptionString()
                  + ".  Regular expressions need to be strings.",
                  "expr", expr,
                  "value", val);
@@ -1001,7 +1001,7 @@ struct RegexHelper {
             rethrowHttpException
                 (400, "Error when compiling regex '"
                  + regexStr + "' from expression " + expr.expr->surface + "': "
-                 + ML::getExceptionString()
+                 + getExceptionString()
                  + ".  Regular expressions must adhere to Perl-style "
                  + "regular expression syntax.",
                  "expr", expr,
@@ -1398,7 +1398,7 @@ BoundFunction jaccard_index(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 if(!args[0].isRow() || !args[1].isRow())
-                    throw ML::Exception("The arguments passed to the jaccard_index must be two "
+                    throw MLDB::Exception("The arguments passed to the jaccard_index must be two "
                         "row expressions");
 
                 set<Path> a, b;
@@ -1692,7 +1692,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerdate_trunc(date_trunc, "date_trunc");
 
-void normalize(ML::distribution<double>& val, double p)
+void normalize(distribution<double>& val, double p)
 {
     if (p == 0) {
         double n = (val != 0).count();
@@ -1740,7 +1740,7 @@ void normalize(ML::distribution<double>& val, double p)
                           const SqlRowScope & scope) -> ExpressionValue
                      {
                          // Get it as an embedding
-                         ML::distribution<double> val
+                         distribution<double> val
                              = args.at(0).getEmbeddingDouble();
                          Date ts = args.at(0).getEffectiveTimestamp();
                          double p = args.at(1).toDouble();
@@ -1777,7 +1777,7 @@ void normalize(ML::distribution<double>& val, double p)
                           const SqlRowScope & scope) -> ExpressionValue
                      {
                          // Get it as an embedding
-                         ML::distribution<double> val = args[0].getEmbeddingDouble();
+                         distribution<double> val = args[0].getEmbeddingDouble();
                          Date ts = args[0].getEffectiveTimestamp();
                          double p = args[1].toDouble();
 
@@ -1808,7 +1808,7 @@ BoundFunction norm(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 // Get it as an embedding
-                ML::distribution<double> val = args[0].getEmbeddingDouble();
+                distribution<double> val = args[0].getEmbeddingDouble();
                 Date ts = args[0].getEffectiveTimestamp();
 
                 double p = args[1].toDouble();
@@ -1975,7 +1975,7 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                     options = args[1].extractT<TokenizeOptions>();
                 }
 
-                ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
+                ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
 
                 std::unordered_map<Utf8String, int> bagOfWords;
 
@@ -2032,7 +2032,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
                     options = args[2].extractT<TokenizeOptions>();
                 }
                 
-                ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
+                ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
 
                 ExpressionValue result;
 
@@ -2305,32 +2305,32 @@ BoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerHorizontal_Latest(horizontal_latest, "horizontal_latest");
 
 struct DiffOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 - d2;
     }
 };
 
 struct SumOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 + d2;
     }
 };
 
 struct ProductOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 * d2;
     }
 };
 
 struct QuotientOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 / d2;
     }
@@ -2373,7 +2373,7 @@ struct RegisterVectorOp {
                      const SqlRowScope & scope) -> ExpressionValue
                 {
                     checkArgsSize(args.size(), 2);
-                    ML::distribution<double> embedding1, embedding2;
+                    distribution<double> embedding1, embedding2;
                     std::shared_ptr<const void> token;
                     Date ts;
                     std::tie(embedding1, embedding2, token, ts)
@@ -2507,7 +2507,7 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
              {
                 checkArgsSize(args.size(), 1);
                 //if(!args[0].isString())
-                    //throw ML::Exception("The parameter passed to the length "
+                    //throw MLDB::Exception("The parameter passed to the length "
                             //"function must be a string");
 
                 return ExpressionValue
@@ -2531,7 +2531,7 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 
                 checkArgsSize(args.size(), 2);
                 if(!args[0].isString() || !args[1].isString())
-                    throw ML::Exception("The parameters passed to the levenshtein_distance "
+                    throw MLDB::Exception("The parameters passed to the levenshtein_distance "
                             "function must be strings");
 
                 const auto query = args[0].getAtom().toUtf8String().rawString();
@@ -2560,7 +2560,7 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 edlibFreeAlignResult(alignRes);
 
                 if(bestScore == -1)
-                    throw ML::Exception("Error computing Levenshtein distance");
+                    throw MLDB::Exception("Error computing Levenshtein distance");
 
                 return ExpressionValue(bestScore,
                                        args[0].getEffectiveTimestamp());
@@ -3366,7 +3366,7 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
             }
             catch (const std::exception & exc) {
                 return storage
-                = ExpressionValue(ML::getExceptionString(),
+                = ExpressionValue(getExceptionString(),
                                   Date::negativeInfinity());
             }
         },
@@ -3470,7 +3470,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                     return bound(rowScope, GET_ALL);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
-                                         + functionName + ": " + ML::getExceptionString(),
+                                         + functionName + ": " + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -3481,7 +3481,7 @@ bind(const std::vector<BoundSqlExpression> & args,
         return result;
     } JML_CATCH_ALL {
         rethrowHttpException(-1, "Binding builtin function "
-                             + functionName + ": " + ML::getExceptionString(),
+                             + functionName + ": " + getExceptionString(),
                              "functionName", functionName,
                              "functionArgs", args);
     }
@@ -3528,7 +3528,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                               info.lastModified);
                 }
                 JML_CATCH_ALL {
-                    error = ExpressionValue(ML::getExceptionString(),
+                    error = ExpressionValue(getExceptionString(),
                                             Date::now());
                 }
                 result.emplace_back("content", content);

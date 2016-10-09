@@ -83,9 +83,9 @@ run(const ProcedureRunConfig & run,
     auto stderr_sink = make_shared<OStreamInputSink>(output_stderr.get());
 
     if(!pluginRes)
-        throw ML::Exception("ScriptRessource not loaded");
+        throw MLDB::Exception("ScriptRessource not loaded");
     if(!pluginRes->packageElementExists(MAIN))
-        throw ML::Exception("Main script element does not exist");
+        throw MLDB::Exception("Main script element does not exist");
 
     // TODO fix this. MLDB-874
     string python_executable;

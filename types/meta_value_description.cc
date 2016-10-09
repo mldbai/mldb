@@ -111,8 +111,8 @@ getRepr(const ValueDescription & desc, bool detailed)
     ValueDescriptionRepr result;
     result.kind = desc.kind;
     result.typeName = desc.typeName;
-    if (desc.type && ML::demangle(desc.type->name()) != desc.typeName)
-        result.cppType = ML::demangle(desc.type->name());
+    if (desc.type && demangle(desc.type->name()) != desc.typeName)
+        result.cppType = demangle(desc.type->name());
     result.documentationUri = desc.documentationUri;
     //result.parents = desc.parents;
     
@@ -230,7 +230,7 @@ ValueDescriptionPtrDescription::
 parseJsonTyped(std::shared_ptr<ValueDescription> * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
@@ -258,7 +258,7 @@ ValueDescriptionConstPtrDescription::
 parseJsonTyped(std::shared_ptr<const ValueDescription> * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
@@ -287,7 +287,7 @@ ValueDescriptionNakedPtrDescription::
 parseJsonTyped(ValueDescription * * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
@@ -315,7 +315,7 @@ ValueDescriptionNakedConstPtrDescription::
 parseJsonTyped(ValueDescription const * * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
