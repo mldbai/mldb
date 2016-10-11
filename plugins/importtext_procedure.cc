@@ -1155,6 +1155,7 @@ struct ImportTextProcedureWorkInstance
         recorder.commit();
 
         numLineErrors = numSkipped;
+        rowCount = lineCount;
     }
 };
 
@@ -1197,6 +1198,7 @@ run(const ProcedureRunConfig & run,
 
     Json::Value status;
     status["numLineErrors"] = instance.numLineErrors;
+    status["rowCount"] = instance.rowCount;
 
     dataset->commit();
 
