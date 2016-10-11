@@ -405,7 +405,15 @@ getColumnDense(const ColumnPath & column) const
     }
 
     for (auto& name : rowNames) {
-        result.push_back(values.find(name)->second.first);
+
+        auto iter = values.find(name);
+        if (iter == values.end())
+            throw MLDB::Exception(("Row " + name.toUtf8String() +
+                                   " does not have column " +
+                                     column.toUtf8String()).rawString() +
+                                   " in dense data index.");
+
+        result.push_back(iter->second.first);
     } 
 
     return result;
