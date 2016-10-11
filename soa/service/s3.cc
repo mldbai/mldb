@@ -657,7 +657,11 @@ ObjectInfo(tinyxml2::XMLNode * element)
     string lastModifiedStr = extract<string>(element, "LastModified");
     lastModified = Date::parseIso8601DateTime(lastModifiedStr);
     etag = extract<string>(element, "ETag");
-    ownerId = extract<string>(element, "Owner/ID");
+
+    if (pathExists(element, "Owner/ID")) {
+        ownerId = extract<string>(element, "Owner/ID");
+    }
+
     ownerName = extractDef<string>(element, "Owner/DisplayName", "");
     storageClass = extract<string>(element, "StorageClass");
     exists = true;

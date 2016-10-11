@@ -38,4 +38,22 @@ extractNode(const tinyxml2::XMLNode * element, const string & path)
     return p;
 }
 
+bool
+pathExists(const tinyxml2::XMLNode * element, const string & path)
+{
+    using namespace std;
+
+    vector<string> splitPath = ML::split(path, '/');
+    const tinyxml2::XMLNode * p = element;
+    for (unsigned i = 0;  i < splitPath.size();  ++i) {
+        p = p->FirstChildElement(splitPath[i].c_str());
+        if (!p) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 }
