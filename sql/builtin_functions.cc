@@ -3487,59 +3487,6 @@ bind(const std::vector<BoundSqlExpression> & args,
     }
 }
 
-BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
-{
-    checkArgsSize(args.size(), 1);
-
-    vector<KnownColumn> columnsInfo;
-    columnsInfo.emplace_back(Path("content"), make_shared<BlobValueInfo>(),
-                             ColumnSparsity::COLUMN_IS_DENSE);
-    columnsInfo.emplace_back(Path("error"), make_shared<StringValueInfo>(),
-                             ColumnSparsity::COLUMN_IS_DENSE);
-    auto outputInfo
-        = std::make_shared<RowValueInfo>(columnsInfo);
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-
-                StructValue result;
-                auto content = ExpressionValue::null(Date::notADate());
-                auto error = ExpressionValue::null(Date::notADate());
-                try {
-                    filter_istream stream(args[0].toString(),
-                                          { { "mapped", "true" } });
-
-                    FsObjectInfo info = stream.info();
-
-                    const char * mappedAddr;
-                    size_t mappedSize;
-                    std::tie(mappedAddr, mappedSize) = stream.mapped();
-
-                    CellValue blob;
-                    if (mappedAddr) {
-                        blob = CellValue::blob(mappedAddr, mappedSize);
-                    }
-                    else {
-                        std::ostringstream streamo;
-                        streamo << stream.rdbuf();
-                        blob = CellValue::blob(streamo.str());
-                    }
-                    content = ExpressionValue(std::move(blob),
-                                              info.lastModified);
-                }
-                JML_CATCH_ALL {
-                    error = ExpressionValue(ML::getExceptionString(),
-                                            Date::now());
-                }
-                result.emplace_back("content", content);
-                result.emplace_back("error", error);
-                return result;
-            },
-            outputInfo
-        };
-}
-static RegisterBuiltin registerFetcherFunction(fetcher, "fetcher");
-
 BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);

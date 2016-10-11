@@ -1,6 +1,6 @@
 # Fetcher Function
 
-The fetcher function is used to fetch resources from a given file or
+The fetch function is used to fetch resources from a given file or
 URL.
 
 ## Configuration
@@ -24,16 +24,16 @@ The following Javascript creates and calls a function that will return the
 country code from an IP address from an external web service.
 
 ```python
-mldb.put("/v1/functions/fetch", { "type": "fetcher" })
+mldb.put("/v1/functions/my_fetch", { "type": "fetcher" })
 ```
 
 ```sql
-SELECT CAST (fetch({url: 'http://www.google.com'})[content] AS STRING)
+SELECT CAST (my_fetch({url: 'http://www.google.com'})[content] AS STRING)
 ```
 
 ## Limitations
 
-- The fetcher function will only attempt one fetch of the given URL; for
+- The fetch function will only attempt one fetch of the given URL; for
   transient errors a manual retry will be required
 - There is currently no timeout parameter.  Hung requests will timeout
   eventually, but there is no guarantee as to when.
@@ -48,7 +48,7 @@ SELECT CAST (fetch({url: 'http://www.google.com'})[content] AS STRING)
 
 ## Design notes
 
-The `fetcher` function is a function, and not a builtin, to allow
+The `fetch` function is a function, and not a builtin, to allow
 configuration of authentication, caching and other parameters in
 a future release to address the limitations above.
 

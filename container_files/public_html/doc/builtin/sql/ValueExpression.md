@@ -618,26 +618,26 @@ The following functions provide digital signal processing capabilities:
 
 The following functions are used to extract and process web data.
 
-#### `fetcher(str)`
+#### `fetch(str)`
 
 Fetches resources from a given file or URL. It acts as the
-default version of [function fetcher](../functions/Fetcher.md.html). It returns
+default version of [function fetch](../functions/Fetch.md.html). It returns
 two output columns:
 * content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
 * error is a string containing the error message. If the fetch succeeded, it will be null.
 
 **Example**
 
-The following query will use fetcher to return the country code from an IP
+The following query will use fetch to return the country code from an IP
 address from an external web service.
 
 ```sql
-SELECT CAST (fetcher('http://www.geoplugin.net/json.gp?ip=158.245.13.123')[content] AS STRING)
+SELECT CAST (fetch('http://www.geoplugin.net/json.gp?ip=158.245.13.123')[content] AS STRING)
 ```
 
 **Limitations**
 
-  - The fetcher function will only attempt one fetch of the given URL; for
+  - The fetch function will only attempt one fetch of the given URL; for
   transient errors a manual retry will be required
   * There is currently no timeout parameter.  Hung requests will timeout
   eventually, but there is no guarantee as to when.
