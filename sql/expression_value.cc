@@ -183,7 +183,7 @@ toRow(std::shared_ptr<ExpressionValueInfo> row)
     ExcAssert(row);
     auto result = dynamic_pointer_cast<RowValueInfo>(row);
     if (!result)
-        throw HttpReturnException(500, "Value is not a row: " + ML::type_name(*row));
+        throw HttpReturnException(500, "Value is not a row: " + MLDB::type_name(*row));
     return result;
 }
 
@@ -198,8 +198,8 @@ SchemaCompleteness
 ExpressionValueInfo::
 getSchemaCompleteness() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a row: type " + ML::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
-                              "type", ML::type_name(*this));
+    throw HttpReturnException(500, "Value description doesn't describe a row: type " + MLDB::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
+                              "type", MLDB::type_name(*this));
 }
 
 SchemaCompleteness
@@ -214,7 +214,7 @@ ExpressionValueInfo::
 getKnownColumns() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a row",
-                              "type", ML::type_name(*this));
+                              "type", MLDB::type_name(*this));
 }
 
 std::vector<KnownColumn>
@@ -260,7 +260,7 @@ ExpressionValueInfo::
 getScalarDescription() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a scalar",
-                              "type", ML::type_name(*this));
+                              "type", MLDB::type_name(*this));
 }
 
 std::shared_ptr<ExpressionValueInfo>
@@ -320,7 +320,7 @@ struct ExpressionValueInfoPtrDescription
             return;
         }
         Json::Value out;
-        out["type"] = ML::type_name(**val);
+        out["type"] = MLDB::type_name(**val);
         if ((*val)->isScalar()) {
             out["kind"] = "scalar";
             out["scalar"] = (*val)->getScalarDescription();
@@ -367,7 +367,7 @@ struct RowValueInfoPtrDescription
             return;
         }
         Json::Value out;
-        out["type"] = ML::type_name(**val);
+        out["type"] = MLDB::type_name(**val);
         out["kind"] = "row";
         out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
         out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
@@ -2739,18 +2739,18 @@ reshape(DimsVector newShape,
 }
 
 #if 1
-ML::distribution<float, std::vector<float> >
+distribution<float, std::vector<float> >
 ExpressionValue::
 getEmbedding(ssize_t knownLength) const
 {
     return getEmbeddingDouble(knownLength).cast<float>();
 }
 
-ML::distribution<double, std::vector<double> >
+distribution<double, std::vector<double> >
 ExpressionValue::
 getEmbedding(const ColumnPath * knownNames, size_t len) const
 {
-    ML::distribution<double> features
+    distribution<double> features
         (len, std::numeric_limits<float>::quiet_NaN());
 
     // Index of value we're writing.  If they aren't in order, this will
@@ -2758,7 +2758,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
     int currentIndex = 0;
 
     /// If they're not in order, we create this index
-    ML::Lightweight_Hash<uint64_t, int> columnIndex;
+    Lightweight_Hash<uint64_t, int> columnIndex;
     
     /// Add a CellValue we extracted to the output.  This will also
     /// deal with non-ordered column names.
@@ -2915,7 +2915,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
     return features;
 }
 
-ML::distribution<double, std::vector<double> >
+distribution<double, std::vector<double> >
 ExpressionValue::
 getEmbeddingDouble(ssize_t knownLength) const
 {
@@ -2938,7 +2938,7 @@ getEmbeddingDouble(ssize_t knownLength) const
 
     forEachAtom(onAtom);
 
-    ML::distribution<double> result;
+    distribution<double> result;
     result.reserve(features.size());
     for (unsigned i = 0;  i < features.size();  ++i) {
         result.push_back(features[i].second);
@@ -3764,7 +3764,7 @@ joinColumns(const ExpressionValue & val1,
 
         // Assume they have the same keys and exactly one of each; if not we
         // have to restart
-        ML::Lightweight_Hash_Set<uint64_t> colsFound;
+        Lightweight_Hash_Set<uint64_t> colsFound;
 
         for (size_t i = 0;  i < row1.size(); ++i) {
             const ColumnPath & col1 = std::get<0>(row1[i]);
@@ -4560,7 +4560,7 @@ extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc)
     const ExpressionValueDescription * descCast
         = dynamic_cast<const ExpressionValueDescription *>(desc.get());
     if (!descCast) {
-        cerr << "field type was " << ML::type_name(*desc) << endl;
+        cerr << "field type was " << MLDB::type_name(*desc) << endl;
         return nullptr;
     }
     return descCast->info;
@@ -4749,7 +4749,7 @@ template class ScalarExpressionValueInfoT<Date>;
 
 template class ExpressionValueInfoT<RowValue>;
 template class ExpressionValueInfoT<ExpressionValue>;
-template class ExpressionValueInfoT<ML::distribution<double, std::vector<double> > >;
+template class ExpressionValueInfoT<distribution<double, std::vector<double> > >;
 
 
 /*****************************************************************************/

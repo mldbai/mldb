@@ -1,20 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* enum_info.h                                                     -*- C++ -*-
    Jeremy Barnes, 3 April 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Functions to allow us to know the contents of enumerations.
 */
 
-#ifndef __utils__enum_info_h__
-#define __utils__enum_info_h__
+#pragma once
 
 #include <string>
 #include <map>
 #include <atomic>
-
+#include "mldb/arch/exception.h"
 
 namespace ML {
 
@@ -89,9 +86,9 @@ enum_value(const std::string & name)
     }
     typename values_type::const_iterator found = values.load()->find(name);
     if (found == values.load()->end())
-        throw Exception("couldn't parse '" + name + "' as "
-                        + Enum_Info<Enum>::NAME + " (possibilities are "
-                        + enum_values<Enum>());
+        throw MLDB::Exception("couldn't parse '" + name + "' as "
+                        + ML::Enum_Info<Enum>::NAME + " (possibilities are "
+                        + ::ML::enum_values<Enum>());
     return found->second;
 }
 
@@ -108,5 +105,3 @@ struct Enum_Info<type> { \
 } // namespace ML
 
 } // namespace ML
-
-#endif /* __utils__enum_info_h__ */

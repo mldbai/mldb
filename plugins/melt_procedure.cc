@@ -36,7 +36,7 @@ struct MeltFixSelect
     {
         if (!containsNamedSubSelect(query, "to_melt") ||
             !containsNamedSubSelect(query, "to_fix") )
-            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fix'", name.c_str());
+            throw MLDB::Exception("%s procedure expect a rows named 'to_melt' and 'to_fix'", name.c_str());
     }
 };
 
@@ -130,7 +130,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if(!outputDataset) {
-        throw ML::Exception("Unable to obtain output dataset");
+        throw MLDB::Exception("Unable to obtain output dataset");
     }
 
 

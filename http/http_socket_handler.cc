@@ -107,7 +107,7 @@ onReceivedData(const char * data, size_t size)
         parser_.feed(data, size);
         requestReceive();
     }
-    catch (const ML::Exception & exc) {
+    catch (const MLDB::Exception & exc) {
         requestClose();
     }
 }
@@ -121,7 +121,7 @@ onReceiveError(const boost::system::error_code & ec, size_t bufferSize)
         requestClose();
     }
     else {
-        throw ML::Exception("unhandled error: " + ec.message());
+        throw MLDB::Exception("unhandled error: " + ec.message());
     }
 }
 

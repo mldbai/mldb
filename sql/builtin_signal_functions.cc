@@ -178,7 +178,7 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
         if (direction == PFFFT_BACKWARD) {
             // The ifft doesn't rescale, so we do so here in order to
             // ensure that ifft(fft(x)) = x
-            ML::SIMD::vec_scale(data.get(), 1.0 / n, data.get(), numToScale);
+            SIMD::vec_scale(data.get(), 1.0 / n, data.get(), numToScale);
         }
         
         return ExpressionValue::embedding(args[0].getEffectiveTimestamp(),

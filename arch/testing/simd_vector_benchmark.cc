@@ -23,13 +23,13 @@
 #include <cmath>
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
 
 #if JML_INTEL_ISA
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 namespace Generic {
 double vec_dotprod_sse2(const double * x, const double * y, size_t n);
@@ -39,7 +39,7 @@ namespace Avx {
 double vec_dotprod(const double * x, const double * y, size_t n);
 } // namespace Avx
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB
 #endif // JML_INTEL_ISA
 
 double vec_dotprod_generic(const double * x, const double * y, size_t n)

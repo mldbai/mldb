@@ -24,7 +24,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 size_t backtrace(char * buffer, size_t bufferSize, int num_to_skip)
 {
@@ -172,4 +172,4 @@ backtrace(const BacktraceInfo & info,
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

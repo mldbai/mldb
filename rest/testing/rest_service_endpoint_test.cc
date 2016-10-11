@@ -55,9 +55,9 @@ struct EchoService : public RestServiceEndpoint {
     {
         //cerr << "handling request " << request << endl;
         if (request.verb != "POST")
-            throw ML::Exception("echo service needs POST");
+            throw MLDB::Exception("echo service needs POST");
         if (request.resource != "/echo")
-            throw ML::Exception("echo service only responds to /echo");
+            throw MLDB::Exception("echo service only responds to /echo");
         connection.sendResponse(200, request.payload, "text/plain");
     }
 };

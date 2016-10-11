@@ -56,7 +56,7 @@ struct PairDescription
             return *inner1;
         else if (element == 1)
             return *inner1;
-        else throw ML::Exception("Invalid element number for pair type '"
+        else throw MLDB::Exception("Invalid element number for pair type '"
                                  + this->typeName + "'");
     }
 

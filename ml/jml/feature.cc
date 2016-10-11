@@ -9,6 +9,8 @@
 #include "feature.h"
 #include "mldb/arch/format.h"
 
+using namespace MLDB;
+
 namespace ML {
 
 

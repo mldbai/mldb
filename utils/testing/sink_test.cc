@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_hup )
 
     int res = pipe(fds);
     if (res == -1) {
-        throw ML::Exception(errno, "pipe");
+        throw MLDB::Exception(errno, "pipe");
     }
 
     bool hup(false), closed(false);
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_many_msgs )
 
     int res = pipe(fds);
     if (res == -1) {
-        throw ML::Exception(errno, "pipe");
+        throw MLDB::Exception(errno, "pipe");
     }
 
     bool hup(false), closed(false);
@@ -144,12 +144,12 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_many_msgs )
         char buffer[1024];
         int res = ::read(fds[0], buffer, fullmsgsize);
         if (res == -1) {
-            throw ML::Exception(errno, "read");
+            throw MLDB::Exception(errno, "read");
         }
 
         string recvmsg(buffer, fullmsgsize);
         if (recvmsg != message) {
-            throw ML::Exception("message " + to_string(i) + " does not match");
+            throw MLDB::Exception("message " + to_string(i) + " does not match");
         }
     }
     sink.requestClose();

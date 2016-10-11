@@ -34,7 +34,7 @@ namespace ML {
 
 namespace {
 
-Env_Option<bool> profile("PROFILE_BOOSTED_STUMPS", false);
+EnvOption<bool> profile("PROFILE_BOOSTED_STUMPS", false);
 
 double t_train = 0.0, t_update = 0.0, t_predict = 0.0, t_accuracy = 0.0;
 

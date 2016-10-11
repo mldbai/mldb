@@ -97,14 +97,14 @@ struct RcuLocked {
     T * operator -> () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return ptr;
     }
 
     T & operator * () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return *ptr;
     }
 };

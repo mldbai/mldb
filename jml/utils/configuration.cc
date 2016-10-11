@@ -14,7 +14,7 @@
 
 
 using namespace std;
-
+using namespace MLDB;
 
 namespace ML {
 
@@ -148,7 +148,7 @@ void
 Configuration::
 load(const std::string & filename)
 {
-    Parse_Context context(filename);
+    MLDB::ParseContext context(filename);
     parse(context);
 }
 
@@ -156,7 +156,7 @@ void
 Configuration::
 parse_string(const std::string & str, const std::string & filename)
 {
-    Parse_Context context(filename, str.c_str(), str.c_str() + str.size());
+    ParseContext context(filename, str.c_str(), str.c_str() + str.size());
     parse(context);
 }
 
@@ -170,7 +170,7 @@ struct Found_End_Name {
     }
 };
 
-std::string expect_name(Parse_Context & context)
+std::string expect_name(ParseContext & context)
 {
     std::string result;
     if (!context.match_text(result, Found_End_Name())
@@ -186,7 +186,7 @@ struct Found_End_Value {
     }
 };
 
-std::string expect_value(Parse_Context & context)
+std::string expect_value(ParseContext & context)
 {
     std::string result;
     if (!context.match_text(result, Found_End_Value())
@@ -199,7 +199,7 @@ std::string expect_value(Parse_Context & context)
 
 void
 Configuration::
-parse(Parse_Context & context)
+parse(ParseContext & context)
 {
     string scope;
 
@@ -349,7 +349,7 @@ throwOnUnknwonKeys(
         keys.end());
 
     if (!keys.empty()) {
-        throw ML::Exception("Unknown key(s) encountered in config: %s",
+        throw MLDB::Exception("Unknown key(s) encountered in config: %s",
                             boost::algorithm::join(keys, " ").c_str());
     }
 }

@@ -16,7 +16,7 @@ using namespace std;
 
 extern char ** environ;
 
-namespace ML {
+namespace MLDB {
 
 Environment::Environment()
 {
@@ -48,4 +48,4 @@ Environment::instance()
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

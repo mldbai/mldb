@@ -22,13 +22,11 @@
 // should be added, especially value_description.h.
 
 
-namespace ML {
-template<typename T, typename Underlying>
-struct distribution;
-} // namespace ML
-
 
 namespace MLDB {
+
+template<typename T, typename Underlying>
+struct distribution;
 
 struct Date;
 struct MatrixNamedRow;
@@ -424,7 +422,7 @@ struct ExpressionValueInfo {
     */
     virtual StorageType getEmbeddingType() const;
 
-    typedef ML::distribution<double, std::vector<double> > DoubleDist;
+    typedef distribution<double, std::vector<double> > DoubleDist;
 
     /** Return a function which, when called, will extract an embedding
         from the given value.
@@ -975,12 +973,12 @@ struct ExpressionValue {
 
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
-    ML::distribution<float, std::vector<float> >
+    distribution<float, std::vector<float> >
     getEmbedding(ssize_t knownLength = -1) const;
 
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
-    ML::distribution<double, std::vector<double> >
+    distribution<double, std::vector<double> >
     getEmbeddingDouble(ssize_t knownLength = -1) const;
 
     /** Return a flattened embedding as CellValues. */
@@ -1013,7 +1011,7 @@ struct ExpressionValue {
         The numDone parameter tells how many have already been done.  It
         is used as an offset in the knownNames array.
     */
-    ML::distribution<double, std::vector<double> >
+    distribution<double, std::vector<double> >
     getEmbedding(const ColumnPath * knownNames, size_t len) const;
 
     /** Convert an embedding to an array of the given storage type.  The
@@ -1375,7 +1373,7 @@ struct ScalarExpressionValueInfoT: public ExpressionValueInfoT<Storage> {
 
     virtual std::string getScalarDescription() const
     {
-        return ML::type_name<Storage>();
+        return MLDB::type_name<Storage>();
     }
 
     virtual std::vector<ssize_t> getEmbeddingShape() const
@@ -1415,7 +1413,7 @@ extern template class ScalarExpressionValueInfoT<Date>;
 
 extern template class ExpressionValueInfoT<RowValue>;
 extern template class ExpressionValueInfoT<ExpressionValue>;
-extern template class ExpressionValueInfoT<ML::distribution<double, std::vector<double> > >;
+extern template class ExpressionValueInfoT<distribution<double, std::vector<double> > >;
 
 
 /*****************************************************************************/

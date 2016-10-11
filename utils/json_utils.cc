@@ -193,7 +193,7 @@ uint64_t jsonHash(const Json::Value & val,
     case Json::nullValue:
         return 1;
     default:
-        throw ML::Exception("unknown value type for jsonHash");
+        throw MLDB::Exception("unknown value type for jsonHash");
     }
 }
 
@@ -219,7 +219,7 @@ Json::Value jsonMin(const Json::Value & v1,
         return v1.asDouble() < v2.asDouble() ? v1 : v2;
     else if (v1.isString() && v2.isString())
         return v1.asString() < v2.asString() ? v1 : v2;
-    else throw ML::Exception("cannot compare " + v1.toString() + " to "
+    else throw MLDB::Exception("cannot compare " + v1.toString() + " to "
                              + v2.toString());
 }
 
@@ -230,7 +230,7 @@ Json::Value jsonMax(const Json::Value & v1,
         return v1.asDouble() < v2.asDouble() ? v2 : v1;
     else if (v1.isString() && v2.isString())
         return v1.asString() < v2.asString() ? v2 : v1;
-    else throw ML::Exception("cannot compare " + v1.toString() + " to "
+    else throw MLDB::Exception("cannot compare " + v1.toString() + " to "
                              + v2.toString());
 }
 

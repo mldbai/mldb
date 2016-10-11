@@ -90,7 +90,7 @@ public:
         std::string print() const;
     };
 
-    typedef ML::ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
+    typedef ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
         GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
 

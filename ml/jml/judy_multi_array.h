@@ -55,7 +55,7 @@ struct judy_multi_array_base {
         unsigned long key_section = Extractor().template get<Level-1>(key);
         auto it = array.find(key_section);
         if (it == array.end())
-            throw ML::Exception("key not found in array");
+            throw MLDB::Exception("key not found in array");
         return (*it).at(key);
     }
 
@@ -226,7 +226,7 @@ struct judy_multi_array_base<Key, Data, Extractor, MaxLevel, MaxLevel> {
         unsigned long key_section = Extractor().template get<MaxLevel-1>(key);
         auto it = array.find(key_section);
         if (it == array.end())
-            throw ML::Exception("at(): key not found");
+            throw MLDB::Exception("at(): key not found");
         return *it;
     }
 

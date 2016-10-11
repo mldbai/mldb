@@ -20,7 +20,6 @@ namespace po = boost::program_options;
 
 using namespace std;
 using namespace MLDB;
-using namespace ML;
 
 int main(int argc, char* argv[])
 {

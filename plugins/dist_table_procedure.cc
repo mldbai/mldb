@@ -125,7 +125,7 @@ getStat(DISTTABLE_STATISTICS stat) const
         case DT_LAST:   return last;
         case DT_SUM:    return sum;
         default:
-            throw ML::Exception("Unknown DistTable_Stat");
+            throw MLDB::Exception("Unknown DistTable_Stat");
     }
 }
 
@@ -203,7 +203,7 @@ reconstitute(ML::DB::Store_Reader & store)
                                   "table model");
     }
     if(version!=REQUIRED_V) {
-        throw HttpReturnException(400, ML::format(
+        throw HttpReturnException(400, MLDB::format(
                     "invalid DistTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -342,7 +342,7 @@ run(const ProcedureRunConfig & run,
                           DistTable(ColumnPath("words"), outcome_names)));
     }
     else {
-        throw ML::Exception("unsupported dist table mode");
+        throw MLDB::Exception("unsupported dist table mode");
     }
 
     auto onProgress2 = [&] (const Json::Value & progress)
@@ -355,7 +355,7 @@ run(const ProcedureRunConfig & run,
     std::shared_ptr<Dataset> output;
     if(runProcConf.output) {
         if(runProcConf.mode == DT_MODE_BAG_OF_WORDS)
-            throw ML::Exception("Cannot use outputDataset when mode=bagOfWords");
+            throw MLDB::Exception("Cannot use outputDataset when mode=bagOfWords");
 
         PolyConfigT<Dataset> outputDataset = *runProcConf.output;
         if (outputDataset.type.empty())
@@ -376,7 +376,7 @@ run(const ProcedureRunConfig & run,
 
             if (num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;
                 progress["message"] = message; 
                 onProgress(progress);
@@ -453,7 +453,7 @@ run(const ProcedureRunConfig & run,
                 }
             }
             else {
-                throw ML::Exception("Unknown distTable mode");
+                throw MLDB::Exception("Unknown distTable mode");
             }
 
             return true;
@@ -579,13 +579,13 @@ DistTableFunction(MldbServer * owner,
     ML::DB::Store_Reader store(stream);
     store >> version;
     if(version != REQUIRED_VERSION)
-        throw ML::Exception("Wrong DistTable map version");
+        throw MLDB::Exception("Wrong DistTable map version");
 
     store >> i_mode;
     mode = (DistTableMode)i_mode;
 
     if(mode != DT_MODE_BAG_OF_WORDS && mode != DT_MODE_FIXED_COLUMNS)
-        throw ML::Exception("Unsupported DistTable mode");
+        throw MLDB::Exception("Unsupported DistTable mode");
 
     store >> distTablesMap;
 
@@ -654,7 +654,7 @@ increment(const vector<pair<Utf8String, Utf8String>> & keys,
         Path pKey(key.first);
         auto table_it = distTablesMap.find(pKey);
         if(table_it == distTablesMap.end())
-            throw ML::Exception("Unknown dist table '"+
+            throw MLDB::Exception("Unknown dist table '"+
                         key.first.utf8String()+"'");
 
         //for(double outcome : outcomes)

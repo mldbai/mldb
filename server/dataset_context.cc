@@ -199,7 +199,7 @@ ExpressionValue
 SqlExpressionDatasetScope::RowScope::
 getColumnCount() const
 {
-    ML::Lightweight_Hash_Set<ColumnHash> columns;
+    Lightweight_Hash_Set<ColumnHash> columns;
     Date ts = Date::negativeInfinity();
 
     if (row) {
@@ -579,7 +579,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
     auto res = dataset.generateRowsWhere(*this, alias, where, offset, limit);
     if (!res)
         throw HttpReturnException(500, "Dataset returned null generator",
-                                  "datasetType", ML::type_name(dataset));
+                                  "datasetType", MLDB::type_name(dataset));
     return res;
 }
 

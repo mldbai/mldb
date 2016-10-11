@@ -59,9 +59,9 @@ void system(const std::string & command)
 {
     int res = ::system(command.c_str());
     if (res == -1)
-        throw ML::Exception(errno, "system(): system");
+        throw MLDB::Exception(errno, "system(): system");
     if (res != 0)
-        throw ML::Exception("command %s returned code %d",
+        throw MLDB::Exception("command %s returned code %d",
                             command.c_str(), res);
 }
 
@@ -413,7 +413,7 @@ struct ExceptionSource {
     std::streamsize write(const char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnWrite) {
-            throw ML::Exception("throwing when writing");
+            throw MLDB::Exception("throwing when writing");
         }
         return n;
     }
@@ -421,7 +421,7 @@ struct ExceptionSource {
     std::streamsize read(char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnRead) {
-            throw ML::Exception("throwing when reading");
+            throw MLDB::Exception("throwing when reading");
         }
         char randomdata[n];
         ::memcpy(s, randomdata, n);
@@ -506,7 +506,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
         stream >> data;
     };
 
-    BOOST_CHECK_THROW(action(), ML::Exception);
+    BOOST_CHECK_THROW(action(), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
@@ -523,7 +523,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
         }
     };
 
-    BOOST_CHECK_THROW(action(), ML::Exception);
+    BOOST_CHECK_THROW(action(), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)

@@ -157,7 +157,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
                   });
 
     if (!gotStuff) {
-        throw ML::Exception(NO_DATA_ERR_MSG);
+        throw MLDB::Exception(NO_DATA_ERR_MSG);
     }
 
     //stats.sort();
@@ -335,7 +335,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             });
 
     if (!gotStuff) {
-        throw ML::Exception(NO_DATA_ERR_MSG);
+        throw MLDB::Exception(NO_DATA_ERR_MSG);
     }
     // Create per-class statistics
     Json::Value results;
@@ -420,7 +420,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     // in the labels
     if (weighted_stats["precision"].asDouble() == 0
         && nb_predicted_no_label > 0) {
-        throw ML::Exception(ML::format("Weighted precision is 0 and %i"
+        throw MLDB::Exception(MLDB::format("Weighted precision is 0 and %i"
                 "labels were predicted but not in true labels! "
                 "Are the columns of the predicted labels named properly?",
                 nb_predicted_no_label));
@@ -468,7 +468,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
 
         double mse_sum;
         double totalWeight;
-        ML::distribution<double> absolute_percentage;
+        distribution<double> absolute_percentage;
         vector<pair<double, double>> labelsWeights;
     };
 
@@ -528,7 +528,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
                   });
 
     if(totalWeight == 0) {
-        throw ML::Exception(NO_DATA_ERR_MSG);
+        throw MLDB::Exception(NO_DATA_ERR_MSG);
     }
 
     std::mutex mergeAccumsLock;
@@ -567,7 +567,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
     else                            r_squared = 1 - (mse_sum / totalSumSquares);
 
     // prepare absolute_percentage distribution
-    ML::distribution<double> absolute_percentage;
+    distribution<double> absolute_percentage;
 
     parallelMergeSortRecursive(accum.threads, 0, accum.threads.size(),
                                [] (const std::shared_ptr<ThreadStats> & t)
@@ -657,7 +657,7 @@ run(const ProcedureRunConfig & run,
     if(runAccuracyConf.mode == CM_REGRESSION)
         return runRegression(runAccuracyConf, boundQuery, output);
 
-    throw ML::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
+    throw MLDB::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
 }
 
 namespace {

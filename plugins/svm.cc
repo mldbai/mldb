@@ -330,7 +330,7 @@ run(const ProcedureRunConfig & run,
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_a.svm");
     try {
         if (svm_save_model(model_tmp_name.c_str(),model))
-            throw ML::Exception("");
+            throw MLDB::Exception("");
 
         makeUriDirectory(
             runProcConf.modelFileUrl.toDecodedString());

@@ -47,7 +47,7 @@ S3CollectionConfigStore::
 init(const std::string & baseUri)
 {
     if (baseUri.empty())
-        throw ML::Exception("can't do empty uri");
+        throw MLDB::Exception("can't do empty uri");
 
     // Strip off a trailing slash
     if (baseUri[baseUri.size() - 1] == '/')

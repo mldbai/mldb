@@ -57,7 +57,7 @@ pair<int, int> makePipePair()
 {
     int fds[2];
     if (pipe2(fds, O_NONBLOCK) == -1) {
-        throw ML::Exception(errno, "pipe2");
+        throw MLDB::Exception(errno, "pipe2");
     }
 
     return {fds[1], fds[0]};
@@ -81,25 +81,25 @@ pair<int, int> makeTcpSocketPair()
 
     int listener = socket(AF_INET, SOCK_STREAM, 0);
     if (listener == -1) {
-        throw ML::Exception(errno, "socket");
+        throw MLDB::Exception(errno, "socket");
     }
 
     if (bind(listener, (const struct sockaddr *) &addr, addrLen) == -1) {
-        throw ML::Exception(errno, "bind");
+        throw MLDB::Exception(errno, "bind");
     }
 
     if (listen(listener, 666) == -1) {
-        throw ML::Exception(errno, "listen");
+        throw MLDB::Exception(errno, "listen");
     }
 
     if (getsockname(listener, (sockaddr *) &addr, &addrLen) == -1) {
-        throw ML::Exception(errno, "getsockname");
+        throw MLDB::Exception(errno, "getsockname");
     }
 
     /* writer */
     int writer = socket(AF_INET, SOCK_STREAM, 0);
     if (writer == -1) {
-        throw ML::Exception(errno, "socket");
+        throw MLDB::Exception(errno, "socket");
     }
 
 #if 0
@@ -108,19 +108,19 @@ pair<int, int> makeTcpSocketPair()
         if (setsockopt(writer,
                        IPPROTO_TCP, TCP_NODELAY,
                        (char *) &flag, sizeof(int)) == -1) {
-            throw ML::Exception(errno, "setsockopt TCP_NODELAY");
+            throw MLDB::Exception(errno, "setsockopt TCP_NODELAY");
         }
     }
 #endif
 
     if (connect(writer, (const struct sockaddr *) &addr, addrLen) == -1) {
-        throw ML::Exception(errno, "connect");
+        throw MLDB::Exception(errno, "connect");
     }
     setFileFlag(writer, O_NONBLOCK);
 
     int reader = accept(listener, (struct sockaddr *) &addr, &addrLen);
     if (reader == -1) {
-        throw ML::Exception(errno, "accept");
+        throw MLDB::Exception(errno, "accept");
     }
     setFileFlag(reader, O_NONBLOCK);
 
@@ -145,7 +145,7 @@ void doBench(const string & label,
     int numMissed(0);
     auto onWriteResult = [&] (AsyncWriteResult result) {
         if (result.error != 0) {
-            throw ML::Exception("write error");
+            throw MLDB::Exception("write error");
         }
         numWriteResults++;
         if (numWriteResults == numMessages) {

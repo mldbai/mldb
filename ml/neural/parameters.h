@@ -21,6 +21,7 @@
 
 namespace ML {
 
+using namespace MLDB;
 
 class Layer;
 class Parameters;

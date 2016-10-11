@@ -48,7 +48,7 @@ struct Feature_Set_Filter {
     void parse(const std::string & value,
                const Dense_Feature_Space & fs)
     {
-        Parse_Context context(value, value.c_str(),
+        ParseContext context(value, value.c_str(),
                               value.c_str() + value.size());
 
         context.skip_whitespace();

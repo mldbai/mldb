@@ -238,11 +238,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     int64_t rowCount;
 
     /// This indexes column names to their index, using new (fast) hash
-    ML::Lightweight_Hash<uint64_t, int> columnIndex;
+    Lightweight_Hash<uint64_t, int> columnIndex;
 
     /// Same index, but using the old (slow) hash.  Useful only for when
     /// we are forced to lookup on ColumnHash.
-    ML::Lightweight_Hash<ColumnHash, int> columnHashIndex;
+    Lightweight_Hash<ColumnHash, int> columnHashIndex;
 
     struct ColumnEntry {
         ColumnEntry()
@@ -267,7 +267,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     std::vector<ColumnPath> fixedColumns;
 
     /// Index of just the fixed columns
-    ML::Lightweight_Hash<uint64_t, int> fixedColumnIndex;
+    Lightweight_Hash<uint64_t, int> fixedColumnIndex;
 
     /// List of all chunks in the dataset
     std::vector<TabularDatasetChunk> chunks;
@@ -342,7 +342,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
     static constexpr size_t ROW_INDEX_SHARDS=32;
-    ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex
+    Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex
         [ROW_INDEX_SHARDS];
     std::string filename;
     Date earliestTs, latestTs;
@@ -753,7 +753,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         std::mutex rowIndexLock[ROW_INDEX_SHARDS];
 
-        ML::Timer rowIndexTimer;
+        Timer rowIndexTimer;
 
         auto indexChunk = [&] (int chunkNum)
             {
@@ -1207,7 +1207,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             vector<ColumnPath> columnNames;
 
             //The first recorded row will determine the columns
-            ML::Lightweight_Hash<uint64_t, int> inputColumnIndex;
+            Lightweight_Hash<uint64_t, int> inputColumnIndex;
             for (unsigned i = 0;  i < vals.size();  ++i) {
                 const ColumnPath & c = std::get<0>(vals[i]);
                 uint64_t ch(c.newHash());

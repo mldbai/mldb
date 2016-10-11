@@ -164,7 +164,7 @@ struct MongoQueryFunction: Function {
                 return std::move(row);
             }
             else {
-                throw ML::Exception("Unknown outputType");
+                throw MLDB::Exception("Unknown outputType");
             }
         }
 

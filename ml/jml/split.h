@@ -19,6 +19,8 @@
 
 namespace ML {
 
+using namespace MLDB;
+
 class Feature_Space;
 class Feature_Set;
 class Feature_Info;

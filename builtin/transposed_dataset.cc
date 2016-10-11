@@ -251,7 +251,7 @@ struct TransposedDataset::Itl
 
         stats = ColumnStats();
 
-        ML::Lightweight_Hash_Set<ColumnHash> columns;
+        Lightweight_Hash_Set<ColumnHash> columns;
         bool oneOnly = true;
         bool isNumeric = true;
 

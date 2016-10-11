@@ -69,13 +69,13 @@ SummaryStatisticsProcedureConfigDescription()
             auto expr = dynamic_cast<NamedColumnExpression *>(clause.get());
             if (expr == nullptr) {
                 DEBUG_MSG(logger) << "Failed to cast " << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
             if (expr->alias.empty()) {
                 DEBUG_MSG(logger) << "Empty alias " << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
@@ -84,10 +84,10 @@ SummaryStatisticsProcedureConfigDescription()
                     "sum(" + expr->getChildren()[0]->surface + ") AS "
                     + expr->alias.toSimpleName());
             }
-            catch (const ML::Exception & exc) {
+            catch (const MLDB::Exception & exc) {
                 DEBUG_MSG(logger) << "Failed to parse within sum "
                                 << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
@@ -240,7 +240,7 @@ struct NumericRowHandler {
                          -1, // limit
                          onProgress);
         }
-        catch (const ML::Exception & exc) {
+        catch (const MLDB::Exception & exc) {
             if (!isNumeric) {
                 // Categorical, the query doesn't work
                 return false;

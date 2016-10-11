@@ -45,7 +45,7 @@ inline DISTTABLE_STATISTICS parseDistTableStatistic(const Utf8String & st)
     if(st == "last")  return DT_LAST;
     if(st == "count") return DT_COUNT;
     if(st == "sum")   return DT_SUM;
-    throw ML::Exception("Unknown distribution table statistic");
+    throw MLDB::Exception("Unknown distribution table statistic");
 }
 
 inline std::string print(DISTTABLE_STATISTICS stat)
@@ -59,7 +59,7 @@ inline std::string print(DISTTABLE_STATISTICS stat)
         case DT_LAST:   return "last";
         case DT_SUM:    return "sum";
         default:
-            throw ML::Exception("Unknown DistTable_Stat");
+            throw MLDB::Exception("Unknown DistTable_Stat");
     }
 }
 

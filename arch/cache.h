@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* cache.h                                                         -*- C++ -*-
    Jeremy Barnes, 21 January 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Cache control functions.
 */
@@ -17,6 +16,8 @@
 #include "mldb/compiler/compiler.h"
 
 namespace ML {
+
+using namespace MLDB;
 
 static const size_t l1_cache_size = 32 * 1024;
 

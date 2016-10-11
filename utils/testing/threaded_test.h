@@ -96,7 +96,7 @@ struct ThreadedTimedTest
         return configs.size() - 1;
     }
 
-    typedef ML::distribution<double> Dist;
+    typedef distribution<double> Dist;
 
     std::pair<Dist, Dist> distributions(unsigned gr)
     {

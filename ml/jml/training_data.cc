@@ -121,22 +121,22 @@ initFiltered(const Training_Data & other,
                 cerr << "different info " << endl;
                 cerr << entry1.print_info() << endl;
                 cerr << entry2.print_info() << endl;
-                throw ML::Exception("different info");
+                throw MLDB::Exception("different info");
             }
 
             if (entry1.examples != entry2.examples) {
                 cerr << "different examples" << endl;
-                throw ML::Exception("different examples");
+                throw MLDB::Exception("different examples");
             }
         
             if (entry1.values != entry2.values) {
                 cerr << "different values" << endl;
-                throw ML::Exception("different values");
+                throw MLDB::Exception("different values");
             }
 
             if (entry1.example_count != entry2.example_count) {
                 cerr << "different example count" << endl;
-                throw ML::Exception("different example count");
+                throw MLDB::Exception("different example count");
             }
         }
     }    

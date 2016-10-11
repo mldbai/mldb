@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* profile.h                                                       -*- C++ -*-
    Jeremy Barnes, 15 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Profiling code.
 */
 
-#ifndef __utils__profile_h__
-#define __utils__profile_h__
+#pragma once
 
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
@@ -47,7 +45,7 @@ struct StackProfilerSeed {
 
 struct StackProfiler {
     boost::timer t;
-    ML::Timer wall;
+    MLDB::Timer wall;
     StackProfilerSeed& seed;
     StackProfiler(StackProfilerSeed& seed) : seed(seed)   
     {
@@ -64,7 +62,7 @@ struct StackProfiler {
 
 struct StackProfilerAverage {
 
-    ML::Timer wall;
+    MLDB::Timer wall;
     std::atomic<int>& count;
     std::atomic<double>& sum;
     const char* label;
@@ -151,5 +149,3 @@ ML::StackProfilerSeed label##__stack_profile_seed(label##__stack_profile_string)
 ML::StackProfiler label##__stack_profile(label##__stack_profile_seed);
 
 } // namespace ML
-
-#endif /* __utils__profile_h__ */

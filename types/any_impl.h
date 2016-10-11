@@ -24,8 +24,8 @@ Any::
 as() const
 {
     if (!type_)
-        throw ML::Exception("bad Any cast: null value can't convert to '%s'",
-                            ML::type_name<T>().c_str());
+        throw MLDB::Exception("bad Any cast: null value can't convert to '%s'",
+                            MLDB::type_name<T>().c_str());
 
     // If the same type, conversion is trivial
     if (type_ == &typeid(T))
@@ -37,9 +37,9 @@ as() const
     //    return *reinterpret_cast<const T *>(res);
 
     // Otherwise, no conversion is possible
-    throw ML::Exception("bad Any cast: requested '%s', contained '%s'",
-                        ML::type_name<T>().c_str(),
-                        ML::demangle(*type_).c_str());
+    throw MLDB::Exception("bad Any cast: requested '%s', contained '%s'",
+                        MLDB::type_name<T>().c_str(),
+                        demangle(*type_).c_str());
 }
 
 template<typename T>
@@ -71,9 +71,9 @@ convert(const ValueDescription & desc) const
     }
 
     // Otherwise, no conversion is possible
-    throw ML::Exception("bad Any conversion: requested '%s', contained '%s'",
-                        ML::type_name<T>().c_str(),
-                        ML::demangle(*type_).c_str());
+    throw MLDB::Exception("bad Any conversion: requested '%s', contained '%s'",
+                        MLDB::type_name<T>().c_str(),
+                        demangle(*type_).c_str());
 }
 
 /** Assign a new value of the same type. */

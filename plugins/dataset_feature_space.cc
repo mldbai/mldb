@@ -143,7 +143,7 @@ encodeFeatureValue(ColumnHash column, const CellValue & value) const
         
     auto it = columnInfo.find(column);
     if (it == columnInfo.end()) {
-        throw ML::Exception("Encoding unknown column");
+        throw MLDB::Exception("Encoding unknown column");
     }
 
     return encodeValue(value, it->second.columnName, it->second.info);
@@ -159,7 +159,7 @@ encodeFeature(ColumnHash column, const CellValue & value,
         
     auto it = columnInfo.find(column);
     if (it == columnInfo.end()) {
-        throw ML::Exception("Encoding unknown column");
+        throw MLDB::Exception("Encoding unknown column");
     }
 
     fset.emplace_back(getFeature(column),
@@ -172,11 +172,11 @@ DatasetFeatureSpace::
 getFeatureBucket(ColumnHash column, const CellValue & value) const
 {
     if (value.empty())
-        throw ML::Exception("Encoding empty value");
+        throw MLDB::Exception("Encoding empty value");
         
     auto it = columnInfo.find(column);
     if (it == columnInfo.end()) {
-        throw ML::Exception("Encoding unknown column");
+        throw MLDB::Exception("Encoding unknown column");
     }
 
     if (it->second.info.type() == ML::CATEGORICAL
@@ -233,7 +233,7 @@ encodeValue(const CellValue & value,
         return val;
     }
     if (!value.isNumeric()) {
-        throw ML::Exception("Value for column '"
+        throw MLDB::Exception("Value for column '"
                             + columnName.toUtf8String().rawString() + 
                             "' was numeric in training, but is now " +
                             jsonEncodeStr(value));
@@ -257,7 +257,7 @@ info(const ML::Feature & feature) const
     // Look up the feature info we just extracted
     auto it = columnInfo.find(getHash(feature));
     if (it == columnInfo.end())
-        throw ML::Exception("feature " + feature.print() + " not found");
+        throw MLDB::Exception("feature " + feature.print() + " not found");
     return it->second.info;
 }
 
@@ -317,7 +317,7 @@ getValue(const ML::Feature & feature, float value) const
     auto it = columnInfo.find(column);
 
     if (it == columnInfo.end())
-        throw ML::Exception("Couldn't find column");
+        throw MLDB::Exception("Couldn't find column");
 
     return getValueFromInfo(it->second.info, value);
 }
@@ -353,7 +353,7 @@ print(const ML::Feature & feature) const
         
     auto it = columnInfo.find(getHash(feature));
     if (it == columnInfo.end()) {
-        throw ML::Exception("Couldn't find feature in dataset");
+        throw MLDB::Exception("Couldn't find feature in dataset");
     }
     return it->second.columnName.toUtf8String().rawString();
 }
@@ -399,7 +399,7 @@ serialize(ML::DB::Store_Writer & store, const ML::Feature & feature,
 {
     auto it = columnInfo.find(getHash(feature));
     if (it == columnInfo.end())
-        throw ML::Exception("Couldn't find feature in dataset");
+        throw MLDB::Exception("Couldn't find feature in dataset");
 
     if (it->second.info.categorical()) {
         store << it->second.info.categorical()->print(value);
@@ -415,7 +415,7 @@ reconstitute(ML::DB::Store_Reader & store,
 {
     auto it = columnInfo.find(getHash(feature));
     if (it == columnInfo.end())
-        throw ML::Exception("Couldn't find feature in dataset");
+        throw MLDB::Exception("Couldn't find feature in dataset");
 
     if (it->second.info.categorical()) {
         string val;
@@ -453,7 +453,7 @@ reconstitute(ML::DB::Store_Reader & store)
     char version;
     store >> version;
     if (version > 2)
-        throw ML::Exception("unexpected version of DatasetFeatureSpace");
+        throw MLDB::Exception("unexpected version of DatasetFeatureSpace");
     ML::DB::compact_size_t numFeatures(store);
 
     if (version > 1)

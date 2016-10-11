@@ -95,7 +95,7 @@ struct StreamJS::Methods {
 
             string nextLine;
             if(!getline(*stream, nextLine))
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
 
             while (!nextLine.empty() && nextLine[nextLine.size() - 1] == '\r')
                 nextLine.erase(nextLine.size() - 1);
@@ -130,7 +130,7 @@ struct StreamJS::Methods {
             stream->read(&byte, 1);
 
             if (stream->gcount() < 1)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             args.GetReturnValue().Set(JS::toJS(u));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -148,7 +148,7 @@ struct StreamJS::Methods {
             stream->read(&byte, 1);
 
             if (stream->gcount() < 1)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             args.GetReturnValue().Set(JS::toJS(i));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -166,7 +166,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 4);
 
             if (stream->gcount() < 4)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             args.GetReturnValue().Set(JS::toJS(u));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -184,7 +184,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 4);
 
             if (stream->gcount() < 4)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             uint32_t u
                 = ubytes[3]
@@ -209,7 +209,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 4);
 
             if (stream->gcount() < 4)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             args.GetReturnValue().Set(JS::toJS(u));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -227,7 +227,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 4);
 
             if (stream->gcount() < 4)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             int32_t u
                 = ubytes[3]
@@ -251,7 +251,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 2);
 
             if (stream->gcount() < 2)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             args.GetReturnValue().Set(JS::toJS(u));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -269,7 +269,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 2);
 
             if (stream->gcount() < 2)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             uint16_t u
                 = ubytes[1] << 0
@@ -292,7 +292,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 2);
 
             if (stream->gcount() < 2)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             args.GetReturnValue().Set(JS::toJS(u));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -310,7 +310,7 @@ struct StreamJS::Methods {
             stream->read(bytes, 2);
 
             if (stream->gcount() < 2)
-                throw ML::Exception("End of file");
+                throw MLDB::Exception("End of file");
             
             int16_t u
                 = ubytes[1] << 0
@@ -331,7 +331,7 @@ struct StreamJS::Methods {
             std::vector<unsigned char> bytes;
 
             if (numBytes == -1) {
-                throw ML::Exception("no unlimited bytes");
+                throw MLDB::Exception("no unlimited bytes");
             }
             else {
                 bytes.resize(numBytes);
@@ -1031,7 +1031,7 @@ struct MldbJS::Methods {
                             args.GetReturnValue().Set(scope.Escape(CellValueJS::create(val, context)));
                         }
                         else {
-                            throw ML::Exception("Unknown object field for interval: '%s'.  Accepted are months, days, seconds or interval by itself");
+                            throw MLDB::Exception("Unknown object field for interval: '%s'.  Accepted are months, days, seconds or interval by itself");
                         }
                     }
                 }
@@ -1121,7 +1121,7 @@ struct MldbJS::Methods {
             else if (valLc == "sometimes") {
                 level = OptimizedPath::SOMETIMES;
             }
-            else throw ML::Exception("Couldn't parse path optimization level '"
+            else throw MLDB::Exception("Couldn't parse path optimization level '"
                                      + val + "': accepted are 'always', 'never' "
                                      "and 'sometimes'");
 
@@ -1219,7 +1219,7 @@ MldbJS::
 New(const v8::FunctionCallbackInfo<v8::Value> & args)
 {
     try {
-        throw ML::Exception("can't create new JS plugins");
+        throw MLDB::Exception("can't create new JS plugins");
     } HANDLE_JS_EXCEPTIONS(args);
 }
 

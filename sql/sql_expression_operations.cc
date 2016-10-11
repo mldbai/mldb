@@ -1514,7 +1514,7 @@ bind(SqlBindingScope & scope) const
     auto getVariable = scope.doGetColumn("" /*tableName*/, columnName);
 
     if (!getVariable.info) {
-        throw HttpReturnException(400, "scope " + ML::type_name(scope)
+        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
                                   + " getColumn '" + columnName.toUtf8String()
                                   + "' didn't return info");
     }
@@ -2234,7 +2234,7 @@ bind(SqlBindingScope & scope) const
         throw HttpReturnException(400, message,
                                   "functionName", functionName,
                                   "tableName", tableName,
-                                  "scopeType", ML::type_name(scope),
+                                  "scopeType", MLDB::type_name(scope),
                                   "expr", print(),
                                   "surface", surface);
     }
@@ -3391,7 +3391,7 @@ bind(SqlBindingScope & scope) const
     auto getParam = scope.doGetBoundParameter(paramName);
 
     if (!getParam.info) {
-        throw HttpReturnException(400, "scope " + ML::type_name(scope)
+        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
                             + " getBoundParameter '" + paramName
                             + "' didn't return info");
     }

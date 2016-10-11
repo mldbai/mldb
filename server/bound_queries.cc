@@ -490,7 +490,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 return true;
             };
 
-        ML::Timer timer;
+        Timer timer;
 
         parallelMap(0, rows.size(), doWhere);
 
@@ -657,7 +657,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         QueryThreadTracker parentTracker;
 
-        ML::Timer rowsTimer;
+        Timer rowsTimer;
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
@@ -674,11 +674,11 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
              << " at " << rows.size() / rowsTimer.elapsed_wall() << "/second and "
              << rows.size() / rowsTimer.elapsed_cpu() << " /cpu-second" << endl;
         
-        ML::Timer scanTimer;
+        Timer scanTimer;
 
         // Special but exceedingly common case: we sort by row hash.
 
-        ML::Spinlock mutex;
+        Spinlock mutex;
         std::vector<std::tuple<RowHash, NamedRowValue, std::vector<ExpressionValue> > >
             sorted;
 
@@ -760,7 +760,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                         selectOutput.mergeToRowDestructive(outputRow.columns);
                     }
 
-                    std::unique_lock<ML::Spinlock> guard(mutex);
+                    std::unique_lock<Spinlock> guard(mutex);
                     sorted.emplace_back(outputRow.rowHash,
                                         std::move(outputRow),
                                         std::move(calcd));
@@ -773,7 +773,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     return true;
                 } catch (...) {
                     rethrowHttpException(KEEP_HTTP_CODE,
-                                         "Executing non-grouped query bound to row: " + ML::getExceptionString(),
+                                         "Executing non-grouped query bound to row: " + getExceptionString(),
                                          "row", row,
                                          "rowHash", rows[rowNum],
                                          "rowNum", rowNum);
@@ -915,7 +915,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         if (limit == 0)
           throw HttpReturnException(400, "limit must be non-zero");
 
-        ML::Timer rowsTimer;
+        Timer rowsTimer;
 
         typedef std::vector<RowPath> AccumRows;
         
@@ -1139,7 +1139,7 @@ BoundSelectQuery(const SelectExpression & select,
 
     } JML_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Binding error: "
-                             + ML::getExceptionString(),
+                             + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
                              "where", where.shallowCopy(),
@@ -1185,7 +1185,7 @@ execute(std::function<bool (NamedRowValue & output,
         return executor->execute(processor, processInParallel, offset, limit, onProgress);
     } JML_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
-                             + ML::getExceptionString(),
+                             + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
                              "where", where.shallowCopy(),
@@ -1235,7 +1235,7 @@ executeExpr(std::function<bool (Path & rowName,
                                      offset, limit, onProgress);
     } JML_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
-                             + ML::getExceptionString(),
+                             + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
                              "where", where.shallowCopy(),

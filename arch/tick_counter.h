@@ -1,21 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* tick_counter.h                                                  -*- C++ -*-
    Jeremy Barnes, 15 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
-   
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Code to access the hardware tick counter.
 */
 
-#ifndef __arch__tick_counter_h__
-#define __arch__tick_counter_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <stdint.h>
 #include "mldb/arch/arch.h"
-//#include <iostream>
 
-namespace ML {
+namespace MLDB {
 
 /** Return the number of CPU clock ticks since some epoch. */
 JML_ALWAYS_INLINE uint64_t ticks()
@@ -53,6 +50,4 @@ extern double seconds_per_tick;
 double calc_ticks_overhead();
 double calc_ticks_per_second(double seconds_to_measure = 0.01);
 
-} // namespace ML
-
-#endif /* __arch__tick_counter_h__ */
+} // namespace MLDB

@@ -10,7 +10,6 @@
 #include "mldb/types/id.h"
 #include "mldb/types/date.h"
 
-using namespace ML;
 using namespace std;
 using namespace MLDB;
 

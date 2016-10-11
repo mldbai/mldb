@@ -26,19 +26,19 @@ struct atomic_shared_ptr {
     
     std::shared_ptr<T> load() const
     {
-        std::unique_lock<ML::Spinlock> guard(lock);
+        std::unique_lock<Spinlock> guard(lock);
         return ptr;
     }
 
     void store(std::shared_ptr<T> newVal)
     {
-        std::unique_lock<ML::Spinlock> guard(lock);
+        std::unique_lock<Spinlock> guard(lock);
         ptr = std::move(newVal);
     }
 
     std::shared_ptr<T> exchange(std::shared_ptr<T> newVal)
     {
-        std::unique_lock<ML::Spinlock> guard(lock);
+        std::unique_lock<Spinlock> guard(lock);
         std::shared_ptr<T> result = std::move(ptr);
         ptr = std::move(newVal);
         return result;
@@ -47,7 +47,7 @@ struct atomic_shared_ptr {
     bool compare_exchange_strong(std::shared_ptr<T> & expected,
                                  std::shared_ptr<T> desired)
     {
-        std::unique_lock<ML::Spinlock> guard(lock);
+        std::unique_lock<Spinlock> guard(lock);
         if (ptr == expected) {
             expected = std::move(ptr);
             ptr = std::move(desired);
@@ -60,7 +60,7 @@ struct atomic_shared_ptr {
     }
 
 private:
-    mutable ML::Spinlock lock;
+    mutable Spinlock lock;
     std::shared_ptr<T> ptr;
 };
 

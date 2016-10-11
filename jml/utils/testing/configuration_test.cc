@@ -162,7 +162,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     BOOST_CHECK(config2.find(t, "type"));
 
     BOOST_CHECK_EQUAL(t, "bagging");
-    BOOST_CHECK_THROW(config2["hello"] = "hello", ML::Exception);
+    BOOST_CHECK_THROW(config2["hello"] = "hello", MLDB::Exception);
 
     Configuration config3(config2, "weak_learner",
                           Configuration::PREFIX_APPEND);
@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     t = "";
     BOOST_CHECK(config3.find(t, "type"));
     BOOST_CHECK_EQUAL(t, "boosting");
-    BOOST_CHECK_THROW(config3["hello"] = "hello", ML::Exception);
+    BOOST_CHECK_THROW(config3["hello"] = "hello", MLDB::Exception);
 
     Configuration config4(config3, "weak_learner",
                           Configuration::PREFIX_APPEND);
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     t = "";
     BOOST_CHECK(config4.find(t, "type"));
     BOOST_CHECK_EQUAL(t, "decision_tree");
-    BOOST_CHECK_THROW(config4["hello"] = "hello", ML::Exception);
+    BOOST_CHECK_THROW(config4["hello"] = "hello", MLDB::Exception);
 
     config["bagged_boosted_trees.weak_learner.weak_learner.type"]
         = "naive_bayes";

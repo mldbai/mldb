@@ -1342,8 +1342,8 @@ createOutputScope()
         ->tableScope(std::make_shared<JoinLexicalScope>(rootScope, leftScope, rightScope));
 
 #if 0
-    cerr << "root is " << ML::type_name(*root_) << " left is "
-         << ML::type_name(*left_) << " right is " << ML::type_name(*right_)
+    cerr << "root is " << MLDB::type_name(*root_) << " left is "
+         << MLDB::type_name(*left_) << " right is " << MLDB::type_name(*right_)
          << endl;
     cerr << "output scope for join: rootScope size is " << rootScope->numOutputFields()
          << " leftScope is " << leftScope->outputAdded().size()
@@ -1353,7 +1353,7 @@ createOutputScope()
 
     cerr << "known tables: " << endl;
     for (auto & t: tableScope->tables) {
-        cerr << t.first << " " << t.second.fieldOffset << " " << ML::type_name(*t.second.scope) << endl;
+        cerr << t.first << " " << t.second.fieldOffset << " " << MLDB::type_name(*t.second.scope) << endl;
     }
 #endif
 

@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* configuration.h                                                 -*- C++ -*-
    Jeremy Barnes, 3 April 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Functions to allow key-based configuration files.
 */
 
-#ifndef __utils__configuration_h__
-#define __utils__configuration_h__
+#pragma once
 
 #include <map>
 #include <memory>
@@ -20,10 +18,12 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "enum_info.h"
 
+namespace MLDB {
+struct ParseContext;
+} // namespace MLDB
 
 namespace ML {
-
-struct Parse_Context;
+using namespace MLDB;
 
 /*****************************************************************************/
 /* CONFIGURATION                                                             */
@@ -87,7 +87,7 @@ public:
     void load(const std::string & filename);
     void parse_string(const std::string & str, const std::string & filename);
     void parse_command_line(const std::vector<std::string> & options);
-    void parse(Parse_Context & context);
+    void parse(MLDB::ParseContext & context);
 
     void parse_value(std::string & val, const std::string & str,
                      const std::string & full_key) const
@@ -233,6 +233,3 @@ std::ostream & operator << (std::ostream & stream,
                             const Configuration::Accessor & acc);
 
 } // namespace ML
-
-
-#endif /* __utils__configuration_h__ */

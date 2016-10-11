@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 namespace Generic {
 
@@ -1843,4 +1843,4 @@ void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n)
 
 } // namespace Generic
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

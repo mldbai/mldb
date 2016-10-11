@@ -58,7 +58,7 @@ struct Allocator {
     std::atomic<int> highestAlloc;
     std::atomic<int> nallocs;
     std::atomic<int> ndeallocs;
-    ML::Spinlock lock;
+    MLDB::Spinlock lock;
 
     void init(int nblocks)
     {
@@ -94,9 +94,9 @@ struct Allocator {
 
         return new T(def);
 #else
-        std::lock_guard<ML::Spinlock> guard(lock);
+        std::lock_guard<MLDB::Spinlock> guard(lock);
         if (nfree == 0)
-            throw ML::Exception("none free");
+            throw MLDB::Exception("none free");
         int i = free[nfree - 1];
         highestAlloc = std::max(highestAlloc, i);
         T * result = blocks + i;
@@ -115,7 +115,7 @@ struct Allocator {
         ndeallocs += 1;
         return;
 #else
-        std::lock_guard<ML::Spinlock> guard(lock);
+        std::lock_guard<MLDB::Spinlock> guard(lock);
         int i = value - blocks;
         free[nfree++] = i;
         ++ndeallocs;
@@ -219,9 +219,10 @@ struct TestBase {
                 if (val) {
                     int atVal = *val;
                     if (atVal != i) {
-                        cerr << ML::format("%.6f thread %d: invalid value read "
+                        cerr << MLDB::format("%.6f thread %d: invalid value read "
                                 "from thread %d block %d: %d\n",
-                                           (ML::ticks() - start) / ML::ticks_per_second, threadNum,
+                                           (MLDB::ticks() - start)
+                                             / MLDB::ticks_per_second, threadNum,
                                 i, j, atVal);
                         nerrors += 1;
                         //abort();
@@ -237,7 +238,7 @@ struct TestBase {
     void doReadThread(int threadNum)
     {
         gc.getEntry();
-        unsigned long long start = ML::ticks();
+        unsigned long long start = MLDB::ticks();
         while (!finished) {
             checkVisible(threadNum, start);
         }
@@ -302,7 +303,7 @@ struct TestBase {
 
             //cerr << "nErrors = " << nErrors << endl;
         } catch (...) {
-            static ML::Spinlock lock;
+            static MLDB::Spinlock lock;
             lock.acquire();
             //cerr << "threadnum " << threadNum << " inEpoch "
             //     << gc.getEntry().inEpoch << endl;
@@ -357,7 +358,7 @@ struct TestBase {
 
             //cerr << "nErrors = " << nErrors << endl;
         } catch (...) {
-            static ML::Spinlock lock;
+            static MLDB::Spinlock lock;
             lock.acquire();
             //cerr << "threadnum " << threadNum << " inEpoch "
             //     << gc.getEntry().inEpoch << endl;

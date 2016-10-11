@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE( test_determinism_agggregator )
 
     for (int i = 0; i < 1001; ++i)
     {
-       addRow(ML::format("row_%d", i), i);
+       addRow(MLDB::format("row_%d", i), i);
     }
 
      // Commit it.  This will also create our distance index

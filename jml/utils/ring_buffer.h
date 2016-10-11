@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* ring_buffer.h                                                   -*- C++ -*-
    Jeremy Barnes, 25 May 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Ring buffer for when there are one or more producers and one consumer
    chasing each other.
 */
 
-#ifndef __jml_utils__ring_buffer_h__
-#define __jml_utils__ring_buffer_h__
+#pragma once
 
 #include <vector>
 #include "mldb/arch/futex.h"
@@ -18,6 +16,8 @@
 #include <thread>
 
 namespace ML {
+
+using namespace MLDB;
 
 template<typename Request>
 struct RingBufferBase {
@@ -261,7 +261,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         return *this;
     }
 
-    typedef ML::Spinlock Mutex;
+    typedef Spinlock Mutex;
     mutable Mutex mutex; // todo: get rid of...
     typedef std::unique_lock<Mutex> Guard;
     
@@ -402,5 +402,3 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
 };
 
 } // namespace ML
-
-#endif /* __jml_utils__ring_buffer_h__ */

@@ -25,7 +25,7 @@ T extract(const tinyxml2::XMLNode * element, const std::string & path)
     using namespace std;
 
     if (!element)
-        throw ML::Exception("can't extract from missing element");
+        throw MLDB::Exception("can't extract from missing element");
     //tinyxml2::XMLHandle handle(element);
 
     vector<string> splitPath = ML::split(path, '/');
