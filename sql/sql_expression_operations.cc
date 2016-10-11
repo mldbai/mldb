@@ -2265,7 +2265,8 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo};
+                fn.resultInfo,
+                fn.resultMetadata};
     }
     else {
         return {[=] (const SqlRowScope & row,
@@ -2280,7 +2281,8 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo};
+                fn.resultInfo,
+                fn.resultMetadata};
     }
 }
 

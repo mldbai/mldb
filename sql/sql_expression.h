@@ -129,6 +129,8 @@ struct BoundExpressionMetadata {
     bool isConstant;
 };
 
+DECLARE_STRUCTURE_DESCRIPTION(BoundExpressionMetadata);
+
 
 /*****************************************************************************/
 /* BOUND ROW EXPRESSION                                                      */
@@ -352,8 +354,11 @@ struct BoundFunction {
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
 
-    // If defined, overrides the default bindFunction call.
+    /// If defined, overrides the default bindFunction call.
     BindFunction bindFunction;
+
+    /// Extra metadata about the result
+    BoundExpressionMetadata resultMetadata;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
