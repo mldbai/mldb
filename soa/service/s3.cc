@@ -658,9 +658,7 @@ ObjectInfo(tinyxml2::XMLNode * element)
     lastModified = Date::parseIso8601DateTime(lastModifiedStr);
     etag = extract<string>(element, "ETag");
 
-    auto childElement = element->FirstChildElement("Owner/ID");
-    if (childElement != nullptr) {
-        // S3 bug? Encoutered a case where it was not part of the XML.
+    if (pathExists(element, "Owner/ID")) {
         ownerId = extract<string>(element, "Owner/ID");
     }
 
