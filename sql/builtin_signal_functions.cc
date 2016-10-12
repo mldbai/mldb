@@ -5,6 +5,7 @@
     Builtin geometric functions for SQL.
 */
 
+#include <numeric>
 #include "mldb/sql/builtin_functions.h"
 #include "mldb/ext/pffft/pffft.h"
 #include "mldb/types/basic_value_descriptions.h"
