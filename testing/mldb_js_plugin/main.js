@@ -26,8 +26,8 @@ function handleRequest(relpath, verb, resource, params, payload, contentType, co
 
 plugin.setStatusHandler(handleStatus);
 plugin.setRequestHandler(handleRequest);
+plugin.serveStaticFolder("/static", "static");
 
 plugin.log("params = " + JSON.stringify(plugin.args));
 
 plugin.log("Hello, world");
-

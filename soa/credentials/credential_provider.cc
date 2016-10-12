@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* CREDENTIAL PROVIDER                                                       */
@@ -83,9 +83,9 @@ getCredential(const std::string & resourceType,
         return bestMatch->credential;
     }
 
-    throw ML::Exception("No credentials found for " + resourceType + " "
+    throw MLDB::Exception("No credentials found for " + resourceType + " "
                         + resource);
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

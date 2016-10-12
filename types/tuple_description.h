@@ -13,7 +13,7 @@
 #include "mldb/types/value_description.h"
 #include <type_traits>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TupleElementDescription {
     int offset;
@@ -169,18 +169,18 @@ struct TupleDescription
 
     virtual void setArrayLength(void * val, size_t newLength) const override
     {
-        throw ML::Exception("tuple array lengths can't be set");
+        throw MLDB::Exception("tuple array lengths can't be set");
     }
     
     virtual const ValueDescription & contained() const override
     {
-        throw ML::Exception("tuple does not have a consistent contained type");
+        throw MLDB::Exception("tuple does not have a consistent contained type");
     }
 
     virtual void set(void* obj, void* value,
                      const ValueDescription* valueDesc) const override
     {
-        throw ML::Exception("tuple type set not done");
+        throw MLDB::Exception("tuple type set not done");
     }
 
     virtual void initialize() override
@@ -189,22 +189,22 @@ struct TupleDescription
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<typename... T>
-Datacratic::TupleDescription<T...> *
+MLDB::TupleDescription<T...> *
 getDefaultDescription(std::tuple<T...> * = 0)
 {
-    return new Datacratic::TupleDescription<T...>();
+    return new MLDB::TupleDescription<T...>();
 }
 
 template<typename... T>
-Datacratic::TupleDescription<T...> *
+MLDB::TupleDescription<T...> *
 getDefaultDescriptionUninitialized(std::tuple<T...> * = 0)
 {
-    return new Datacratic::TupleDescription<T...>(Datacratic::constructOnly);
+    return new MLDB::TupleDescription<T...>(MLDB::constructOnly);
 }
 
 }

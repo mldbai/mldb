@@ -1,21 +1,19 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* sse2_log.h                                                      -*- C++ -*-
    Jeremy Barnes, 23 January 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    SSE2 logarithm functions.
 */
 
-#ifndef __jml__arch__sse2_log_h__
-#define __jml__arch__sse2_log_h__
+#pragma once
 
 #include "sse2.h"
 #include "sse2_poly.h"
 #include "sse2_math.h"
 #include "sse2_misc.h"
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 /*****************************************************************************/
@@ -164,6 +162,3 @@ v2df sse2_log(v2df val)
 
 } // namespace SIMD
 } // namespace ML
-
-
-#endif /* __jml__arch__sse2_log_h__ */

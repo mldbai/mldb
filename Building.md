@@ -14,7 +14,7 @@ libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
 libpython-dev libgit2-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en libyaml-cpp-dev
+language-pack-en libyaml-cpp-dev libsasl2-dev
 ```
 ## Installing Docker
 
@@ -68,6 +68,12 @@ COMPILER_CACHE:=ccache
 ```
 
 *N.B.* To use `ccache` to maximum effect, you should set the cache size to something like 10GB if you have the disk space with `ccache -M 10G`.
+
+To avoid building MLDB for all supported architectures and save time, check [sample.local.mk](https://github.com/mldbai/mldb/blob/master/jml-build/sample.local.mk)
+
+To have a faster build, you can use clang instead of gcc. Simply add `toolchain=clang` at the end of your make command.
+
+To run a single test, simply specify its name as the target. For python and javascript, include the extension (.py and .js). For C++, omit it.
 
 ## Building a Docker image
 
@@ -216,7 +222,7 @@ docker push quay.io/datacratic/baseimage:latest
 ## S3 Credentials
 
 Some tests require S3 credentials in order to run, as they access public files in the
-`dev.mldb.datacratic.com` S3 bucket.  These credentials are
+`public-mldb-ai` S3 bucket.  These credentials are
 nothing special: they simply require read-only access to public S3 buckets.
 But they need to be enabled for full test coverage.
 

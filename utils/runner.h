@@ -27,7 +27,7 @@
 #include "mldb/utils/sink.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* RUN RESULT                                                                */
@@ -282,4 +282,4 @@ RunResult execute(MessageLoop & loop,
                   const std::string & stdInData = "",
                   bool closeStdin = false);
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -12,7 +12,7 @@
 #include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+
 
 struct JsonPrintingContext;
 
@@ -211,6 +211,12 @@ struct CellValue {
 
     bool isNumber() const;
 
+    /** Is this a number that's positive? */
+    bool isPositiveNumber() const;
+
+    /** Is this a number that's negative? */
+    bool isNegativeNumber() const;
+
     /** Is it a timestamp? */
     bool isTimestamp() const
     {
@@ -280,6 +286,11 @@ struct CellValue {
     bool isInteger() const
     {
         return cellType() == INTEGER;
+    }
+
+    bool isUnsignedInteger() const
+    {
+        return type == ST_UNSIGNED;
     }
 
     bool isInt64() const;
@@ -529,7 +540,7 @@ CellValue::CellType stringToKey(const std::string & str, CellValue::CellType *);
 std::ostream & operator << (std::ostream & stream, const CellValue::CellType & val);
 
 } // namespace MLDB
-} // namespace Datacratic
+
 
 // Allow std::unordered_xxx<CellValue> to work
 namespace std {
@@ -537,9 +548,9 @@ namespace std {
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::MLDB::CellValue> : public std::unary_function<Datacratic::MLDB::CellValue, size_t>
+struct hash<MLDB::CellValue> : public std::unary_function<MLDB::CellValue, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::CellValue & val) const { return val.hash(); }
+    size_t operator()(const MLDB::CellValue & val) const { return val.hash(); }
 };
 
 } // namespace std

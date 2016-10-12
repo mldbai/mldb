@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -158,7 +158,7 @@ doCheck() const
     string::const_iterator end_it = utf8::find_invalid(data_.begin(), data_.end());
     if (end_it != data_.end())
         {
-            throw ML::Exception("Invalid sequence within utf-8 string");
+            throw MLDB::Exception("Invalid sequence within utf-8 string");
         }
 }
 
@@ -669,4 +669,4 @@ struct AtInit {
 
 } // file scope
 
-} // namespace Datacratic
+} // namespace MLDB

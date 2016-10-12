@@ -24,7 +24,7 @@
 #include "mldb/http/http_header.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP CLIENT IMPL V1                                                      */
@@ -141,4 +141,4 @@ private:
     std::queue<std::shared_ptr<HttpRequest>> queue_; /* queued requests */
 };
 
-} // namespace Datacratic
+} // namespace MLDB

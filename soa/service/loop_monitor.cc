@@ -17,7 +17,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /******************************************************************************/
@@ -47,7 +47,7 @@ void
 LoopMonitor::
 doLoops(uint64_t numTimeouts)
 {
-    std::lock_guard<ML::Spinlock> guard(lock);
+    std::lock_guard<Spinlock> guard(lock);
 
     LoadSample maxLoad;
     maxLoad.sequence = curLoad.sequence + 1;
@@ -92,7 +92,7 @@ void
 LoopMonitor::
 addCallback(const string& name, const SampleLoadFn& cb)
 {
-    std::lock_guard<ML::Spinlock> guard(lock);
+    std::lock_guard<Spinlock> guard(lock);
 
     auto ret = loops.insert(make_pair(name, cb));
     ExcCheck(ret.second, "loop already being monitored: " + name);
@@ -102,7 +102,7 @@ void
 LoopMonitor::
 remove(const string& name)
 {
-    std::lock_guard<ML::Spinlock> guard(lock);
+    std::lock_guard<Spinlock> guard(lock);
 
     size_t ret = loops.erase(name);
     ExcCheckEqual(ret, 1, "loop is not monitored: " + name);

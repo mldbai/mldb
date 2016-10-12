@@ -20,7 +20,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 struct TestConfig {
     std::string id;
@@ -344,7 +344,7 @@ struct RecursiveCollection: public RestCollection<std::string, RecursiveCollecti
         if (spec.size() > 1) {
             if (spec[0].channel == "children")
                 return getWatchBoundType(ResourceSpec(spec.begin() + 1, spec.end()));
-            throw ML::Exception("only children channel known");
+            throw MLDB::Exception("only children channel known");
         }
         
         if (spec[0].channel == "children")
@@ -352,7 +352,7 @@ struct RecursiveCollection: public RestCollection<std::string, RecursiveCollecti
                              nullptr);
         else if (spec[0].channel == "elements")
             return make_pair(&typeid(std::tuple<ChildEvent>), nullptr);
-        else throw ML::Exception("unknown channel");
+        else throw MLDB::Exception("unknown channel");
     }
 
     std::string name;

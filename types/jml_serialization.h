@@ -18,7 +18,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 inline ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, const Utf8String & str)
 {
@@ -82,7 +82,7 @@ inline ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, const I
         store << id.compoundId1() << id.compoundId2();
         break;
     default:
-        throw ML::Exception("unknown Id type");
+        throw MLDB::Exception("unknown Id type");
     }
 
     return store;
@@ -96,7 +96,7 @@ inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Id & id
     char v, tp;
     store >> v;
     if (v < 0 || v > 1)
-        throw ML::Exception("unknown Id version reconstituting");
+        throw MLDB::Exception("unknown Id version reconstituting");
     store >> tp;
     r.type = tp;
 
@@ -163,7 +163,7 @@ inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Id & id
         break;
     }
     default:
-        throw ML::Exception("unknown Id type %d reconstituting",
+        throw MLDB::Exception("unknown Id type %d reconstituting",
                             tp);
     }
 
@@ -218,4 +218,4 @@ reconstitute(ML::DB::Store_Reader & store)
 #endif
 
 
-} // namespace Datacratic
+} // namespace MLDB

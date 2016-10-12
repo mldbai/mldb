@@ -19,7 +19,8 @@ class Value;
 
 } // namespace Json
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace JS {
 
 struct JSValue;
@@ -73,4 +74,5 @@ from_js(const JSValue & val, T *)
 }
 
 } // namespace JS
-} // namespace Datacratic
+
+} // namespace MLDB

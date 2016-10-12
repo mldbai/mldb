@@ -27,16 +27,16 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
-inline std::vector<std::tuple<ColumnName, CellValue, Date> >
+inline std::vector<std::tuple<ColumnPath, CellValue, Date> >
 filterEmptyColumns(MatrixNamedRow & row) {
     // Nulls with non-finite timestamp are not recorded; they
     // come from an expression that matched nothing and can't
     // be represented (they will be read automatically as nulls).
-    std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+    std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
     cols.reserve(row.columns.size());
     for (auto & c: row.columns) {
         if (std::get<1>(c).empty()
@@ -366,7 +366,7 @@ SqlExpressionFunction(MldbServer * owner,
 
         // 4.  Our required input is known by the binding context, as it records
         //     what was read.
-        info.input = innerScope->inputInfo;
+        info.input = ExpressionValueInfo::toRow(innerScope->inputInfo);
     }
 }
 
@@ -483,7 +483,7 @@ getFunctionInfo() const
 
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.
-    result.input = outerScope.inputInfo;
+    result.input = ExpressionValueInfo::toRow(outerScope.inputInfo);
 
     return result;
 }
@@ -563,7 +563,7 @@ run(const ProcedureRunConfig & run,
     bool skipEmptyRows = runProcConf.skipEmptyRows;
 
     auto recordRowInOutputDataset = [&output, &skipEmptyRows] (MatrixNamedRow & row) {
-        std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > cols
             = filterEmptyColumns(row);
 
         if (!skipEmptyRows || cols.size() > 0)
@@ -586,7 +586,7 @@ run(const ProcedureRunConfig & run,
 
         // We accumulate multiple rows per thread and insert with recordRows
         // to be more efficient.
-        PerThreadAccumulator<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
+        PerThreadAccumulator<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > > accum;
 
         auto recordRowInOutputDataset
             = [&] (NamedRowValue & row_,
@@ -594,7 +594,7 @@ run(const ProcedureRunConfig & run,
             {
                 MatrixNamedRow row = row_.flattenDestructive();
 
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > cols
                     = filterEmptyColumns(row);
 
                 if (!skipEmptyRows || cols.size() > 0) {
@@ -631,7 +631,7 @@ run(const ProcedureRunConfig & run,
                      onProgress);
 
         // Finish off the last bits of each thread
-        accum.forEach([&] (std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
+        accum.forEach([&] (std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > * rows)
                       {
                           output->recordRows(*rows);
                       });
@@ -641,7 +641,7 @@ run(const ProcedureRunConfig & run,
             = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > cols
                     = filterEmptyColumns(row);
                 if (!skipEmptyRows || cols.size() > 0)
                     output->recordRow(row.rowName, cols);
@@ -689,4 +689,4 @@ regTransformDataset(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

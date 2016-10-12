@@ -18,7 +18,7 @@
 #include "mldb/types/string.h"
 #include <boost/thread/shared_mutex.hpp>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -45,7 +45,7 @@ inline DISTTABLE_STATISTICS parseDistTableStatistic(const Utf8String & st)
     if(st == "last")  return DT_LAST;
     if(st == "count") return DT_COUNT;
     if(st == "sum")   return DT_SUM;
-    throw ML::Exception("Unknown distribution table statistic");
+    throw MLDB::Exception("Unknown distribution table statistic");
 }
 
 inline std::string print(DISTTABLE_STATISTICS stat)
@@ -59,7 +59,7 @@ inline std::string print(DISTTABLE_STATISTICS stat)
         case DT_LAST:   return "last";
         case DT_SUM:    return "sum";
         default:
-            throw ML::Exception("Unknown DistTable_Stat");
+            throw MLDB::Exception("Unknown DistTable_Stat");
     }
 }
 
@@ -95,7 +95,7 @@ struct DistTableStats {
 
 struct DistTable {
 
-    DistTable(const ColumnName & colName=ColumnName("ND"),
+    DistTable(const ColumnPath & colName=ColumnPath("ND"),
             const std::vector<Utf8String> & outcome_names = {}):
         colName(colName), outcome_names(outcome_names),
         unknownStats(std::vector<DistTableStats>(outcome_names.size()))
@@ -117,7 +117,7 @@ struct DistTable {
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 
-    ColumnName colName;
+    ColumnPath colName;
 
     std::vector<Utf8String> outcome_names;
 
@@ -170,7 +170,7 @@ DECLARE_STRUCTURE_DESCRIPTION(DistTableProcedureConfig);
 /* DIST TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
-typedef std::map<ColumnName, DistTable> DistTablesMap;
+typedef std::map<ColumnPath, DistTable> DistTablesMap;
 
 struct DistTableProcedure: public Procedure {
 
@@ -251,4 +251,4 @@ struct DistTableFunction: public Function {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

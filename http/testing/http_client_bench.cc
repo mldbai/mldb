@@ -29,7 +29,7 @@
 #include "mldb/http/testing/test_http_services.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 enum HttpMethod {
     GET,
@@ -193,14 +193,14 @@ int main(int argc, char *argv[])
     }
 
     if (concurrency == 0) {
-        throw ML::Exception("'concurrency' must be specified");
+        throw MLDB::Exception("'concurrency' must be specified");
     }
     if (serverConcurrency == 0) {
         serverConcurrency = concurrency;
     }
 
     if (payloadSize == 0) {
-        throw ML::Exception("'payload-size' must be specified");
+        throw MLDB::Exception("'payload-size' must be specified");
     }
 
     string payload;
@@ -228,11 +228,11 @@ int main(int argc, char *argv[])
     if (clientiface != "none") {
         cerr << "launching client\n";
         if (maxReqs == 0) {
-            throw ML::Exception("'max-reqs' must be specified");
+            throw MLDB::Exception("'max-reqs' must be specified");
         }
 
         if (!(method == "GET" || method == "POST" || method == "PUT")) {
-            throw ML::Exception("invalid method:" + method);
+            throw MLDB::Exception("invalid method:" + method);
         }
 
         string baseUrl;
@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
             httpMethod = PUT;
         }
         else {
-            throw ML::Exception("unknown method: "  + method);
+            throw MLDB::Exception("unknown method: "  + method);
         }
 
         double delta;
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
             delta = ThreadedModelBench(httpMethod, baseUrl, payload, maxReqs, concurrency);
         }
         else {
-            throw ML::Exception("invalid 'model'");
+            throw MLDB::Exception("invalid 'model'");
         }
         double qps = maxReqs / delta;
         double bps = double(maxReqs * payload.size()) / delta;

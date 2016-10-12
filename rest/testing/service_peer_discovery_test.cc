@@ -25,7 +25,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_two_members_discovery )
 {

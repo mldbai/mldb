@@ -130,7 +130,7 @@ struct Stump_Trainer_Parallel
                     ();
                 };
 
-            Datacratic::parallelMap(0, features.size(), testFeature);
+            MLDB::parallelMap(0, features.size(), testFeature);
 
             //cerr << "finished job " << this << endl;
             //cerr << "features = " << &features << endl;

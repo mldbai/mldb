@@ -55,14 +55,14 @@ expected = {
     "input": {
         "hasUnknownColumns": True, 
         "hasUnknownColumnsRecursive": True, 
-        "type": "Datacratic::MLDB::RowValueInfo", 
+        "type": "MLDB::RowValueInfo", 
         "kind": "row", 
         "knownColumns": []
     }, 
     "output": {
         "hasUnknownColumns": False, 
         "hasUnknownColumnsRecursive": True, 
-        "type": "Datacratic::MLDB::RowValueInfo", 
+        "type": "MLDB::RowValueInfo", 
         "kind": "row", 
         "knownColumns": [
             {
@@ -70,20 +70,20 @@ expected = {
                 "valueInfo": {
                     "hasUnknownColumns": True, 
                     "hasUnknownColumnsRecursive": True, 
-                    "type": "Datacratic::MLDB::RowValueInfo", 
+                    "type": "MLDB::RowValueInfo", 
                     "kind": "row", 
                     "knownColumns": [
                         {
                             "columnName": "x", 
                             "valueInfo": {
-                                "type": "Datacratic::MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo"
                             }, 
                             "sparsity": "sparse"
                         }, 
                         {
                             "columnName": "y", 
                             "valueInfo": {
-                                "type": "Datacratic::MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo"
                             }, 
                             "sparsity": "sparse"
                         }

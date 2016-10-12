@@ -17,7 +17,7 @@
 #include "mldb/types/vector_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 // Defined in rest_request_binding.h.  Used to validate that request
 // parameters match those exposed in the help.
@@ -71,7 +71,7 @@ struct RestCollection<Key, Value>::Impl {
     /// Watches on the children
     WatchesT<ChildEvent> childWatches;
 
-    typedef ML::Spinlock MutateMutex;
+    typedef Spinlock MutateMutex;
 
     /** Mutex on mutation operations.  This is required so that the watch
         operations are serializable.  Could be turned off when there are no
@@ -861,7 +861,7 @@ getEntry(Key key) const
 
     Utf8String error_message;
     if (restEncode(key).empty()) {
-        error_message = ML::format("Collection URLs do not contain a trailing slash: try /v1/%1$s instead of /v1/%1$s/",
+        error_message = MLDB::format("Collection URLs do not contain a trailing slash: try /v1/%1$s instead of /v1/%1$s/",
                                    this->nounPlural.rawData());
         throw HttpReturnException(404, error_message);
     }
@@ -1028,7 +1028,7 @@ watchElements(const Utf8String & spec, bool catchUp, Any info)
 {
     using namespace std;
     //cerr << "restCollection watchElements spec = " << spec
-    //     << " entity " << ML::type_name(*this) << " " << catchUp
+    //     << " entity " << MLDB::type_name(*this) << " " << catchUp
     //     << " info " << jsonEncodeStr(info) << endl;
 
     // Filter that controls which events are seen by this watch
@@ -1114,8 +1114,8 @@ watchChannel(const Utf8String & channel,
     else if (channel == "names")
         return watchNames(filter, catchUp, std::move(info));
     else throw HttpReturnException(400,
-                                   ML::format("type %s doesn't have channel named '%s'",
-                                              ML::type_name(*this).c_str(),
+                                   MLDB::format("type %s doesn't have channel named '%s'",
+                                              MLDB::type_name(*this).c_str(),
                                               channel.rawData()));
 }
 
@@ -1142,10 +1142,10 @@ struct ChildHasGenericWatchType : public std::false_type {
     get(const ResourceSpec & spec)
     {
         throw HttpReturnException(400,
-                                  ML::format("need to override getWatchBoundType() or implement "
+                                  MLDB::format("need to override getWatchBoundType() or implement "
                                              "getWatchBoundTypeGeneric() "
                                              "for type %s to know about value watch types",
-                                             ML::type_name<T>().c_str()));
+                                             MLDB::type_name<T>().c_str()));
     }
 };
 
@@ -1174,8 +1174,8 @@ getWatchBoundType(const ResourceSpec & spec)
             return ChildHasGenericWatchType<Value>::get(childSpec);
         }
         else throw HttpReturnException(400,
-                                       ML::format("type %s doesn't have channel named '%s'",
-                                                  ML::type_name(*this).c_str(),
+                                       MLDB::format("type %s doesn't have channel named '%s'",
+                                                  MLDB::type_name(*this).c_str(),
                                                   spec[0].channel.rawData()));
     }
     else if (spec[0].channel == "children")
@@ -1185,8 +1185,8 @@ getWatchBoundType(const ResourceSpec & spec)
     else if (spec[0].channel == "names")
         return make_pair(&typeid(std::tuple<Utf8String>), nullptr);
     else throw HttpReturnException(400,
-                                   ML::format("type %s doesn't have channel named '%s'",
-                                              ML::type_name(*this).c_str(),
+                                   MLDB::format("type %s doesn't have channel named '%s'",
+                                              MLDB::type_name(*this).c_str(),
                                               spec[0].channel.rawData()));
 }
 
@@ -1469,7 +1469,7 @@ addPutRoute()
     Json::Value & v = help["jsonParams"];
     Json::Value & v2 = v[0];
     v2["description"] = "Configuration of new " + this->nounSingular;
-    v2["cppType"] = ML::type_name<Config>();
+    v2["cppType"] = MLDB::type_name<Config>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -1575,7 +1575,7 @@ addPostRoute()
     Json::Value & v = help["jsonParams"];
     Json::Value & v2 = v[0];
     v2["description"] = "Configuration of new " + this->nounSingular;
-    v2["cppType"] = ML::type_name<Config>();
+    v2["cppType"] = MLDB::type_name<Config>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -2053,8 +2053,8 @@ RestConfigurableCollection<Key, Value, Config, Status>::
 getConfig(Key key, const Value & value) const
 {
     throw HttpReturnException(400,
-                              ML::format("type '%s' needs to override getConfig",
-                                         ML::type_name(*this).c_str()));
+                              MLDB::format("type '%s' needs to override getConfig",
+                                         MLDB::type_name(*this).c_str()));
 }
 
-} // namespace Datacratic
+} // namespace MLDB

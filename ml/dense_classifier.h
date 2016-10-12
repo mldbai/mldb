@@ -17,7 +17,7 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include "pipeline_execution_context.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Return a JSON rendering of an explanation of a given feature set. */
 Json::Value
@@ -61,19 +61,19 @@ struct DenseClassifier {
     void serialize(ML::DB::Store_Writer & store) const;
 
     /** Calculate the score for a given feature set. */
-    float score(const ML::distribution<float> & features) const;
+    float score(const distribution<float> & features) const;
 
     /** Calculate the score for a given feature set. */
-    float scoreUnbiased(const ML::distribution<float> & features,
+    float scoreUnbiased(const distribution<float> & features,
                         PipelineExecutionContext & context) const;
 
     /** Calculate the label scores for a given feature set. */
     ML::Label_Dist
-    labelScores(const ML::distribution<float> & features) const;
+    labelScores(const distribution<float> & features) const;
 
     /** Calculate the label scores for a given feature set. */
     ML::Label_Dist
-    labelScoresUnbiased(const ML::distribution<float> & features,
+    labelScoresUnbiased(const distribution<float> & features,
                         PipelineExecutionContext & context) const;
 
     std::shared_ptr<ML::Classifier_Impl> classifier() const
@@ -103,7 +103,7 @@ struct DenseClassifier {
         to make the explanation.
     */
     std::pair<ML::Explanation, std::shared_ptr<ML::Mutable_Feature_Set> >
-    explain(const ML::distribution<float> & features,
+    explain(const distribution<float> & features,
             int label) const;
 
     /** Explain which features contributed to what extent to the
@@ -113,7 +113,7 @@ struct DenseClassifier {
         to make the explanation.
     */
     std::pair<ML::Explanation, std::shared_ptr<ML::Mutable_Feature_Set> >
-    explainUnbiased(const ML::distribution<float> & features,
+    explainUnbiased(const distribution<float> & features,
                     int label,
                     PipelineExecutionContext & context) const;
 
@@ -132,6 +132,6 @@ private:
     ML::Optimization_Info opt_info_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #endif /* __ml__dense_classifier_h__ */

@@ -18,7 +18,8 @@
 #include "command_expression.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
+using namespace MLDB::PluginCommand;
 
 int main(int argc, char ** argv)
 {
@@ -107,7 +108,7 @@ int main(int argc, char ** argv)
         //cerr << "doing file " << f << endl;
         filter_istream stream(f);
         //cerr << "stream = " << (bool)stream << endl;
-        ML::Parse_Context pcontext(f, stream);
+        ParseContext pcontext(f, stream);
         //cerr << "stream = " << (bool)stream << endl;
 
         while (pcontext) {

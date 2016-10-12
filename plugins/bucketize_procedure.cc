@@ -27,7 +27,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 BucketizeProcedureConfig::
@@ -74,22 +74,22 @@ BucketizeProcedureConfigDescription()
         auto last = make_pair(-1.0, -1.0);
         for (const auto & range: ranges) {
             if (range.first < 0) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: lower bound must be "
                     "greater or equal to 0", range.first, range.second);
             }
             if (range.second > 100) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must be "
                     "lower or equal to 1", range.first, range.second);
             }
             if (range.first >= range.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must  "
                     "be greater than lower bound", range.first, range.second);
             }
             if (range.first < last.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket: [%f, %f] is overlapping with "
                     "[%f, %f]", last.first, last.second, range.first,
                     range.second);
@@ -137,7 +137,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    vector<RowName> orderedRowNames;
+    vector<RowPath> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
@@ -182,14 +182,14 @@ run(const ProcedureRunConfig & run,
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> Cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<Cell>>>> accum;
+    typedef tuple<ColumnPath, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowPath, vector<Cell>>>> accum;
 
     auto bucketizeStep = iterationStep->nextStep(1);
     atomic<ssize_t> rowIndex(0);
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
-        rowValue.emplace_back(ColumnName("bucket"),
+        rowValue.emplace_back(ColumnPath("bucket"),
                               mappedRange.first,
                               globalMaxOrderByTimestamp);
 
@@ -228,7 +228,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<Cell>>> * rows)
+    accum.forEach([&] (vector<pair<RowPath, vector<Cell>>> * rows)
     {
         output->recordRows(*rows);
     });
@@ -254,4 +254,4 @@ regBucketizeProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

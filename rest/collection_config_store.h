@@ -11,7 +11,7 @@
 #include <string>
 #include "mldb/ext/jsoncpp/json.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* COLLECTION CONFIG STORE                                                   */
@@ -60,4 +60,4 @@ struct S3CollectionConfigStore : public CollectionConfigStore {
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

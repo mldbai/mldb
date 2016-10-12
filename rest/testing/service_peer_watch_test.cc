@@ -25,7 +25,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 #if 0
 BOOST_AUTO_TEST_CASE(test_peer_generic_watches)

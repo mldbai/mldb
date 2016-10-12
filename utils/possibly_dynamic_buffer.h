@@ -6,7 +6,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 // Made to init and hold a non POD array of dynamic size in a memory safe
 // way.

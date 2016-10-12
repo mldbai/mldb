@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -71,7 +71,7 @@ run(const ProcedureRunConfig & run,
         case PYTHON:        runner = "python";      break;
         case JAVASCRIPT:    runner = "javascript";  break;
         default:
-            throw ML::Exception("unknown script language");
+            throw MLDB::Exception("unknown script language");
     }
 
     string resource = "/v1/types/plugins/" + runner + "/routes/run";
@@ -134,4 +134,4 @@ regScript(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

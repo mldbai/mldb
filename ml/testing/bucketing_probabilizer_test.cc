@@ -23,7 +23,7 @@ using boost::test_toolbox::close_at_tolerance;
 #define PI 3.14159265
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( getProb_test )

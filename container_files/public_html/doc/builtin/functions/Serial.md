@@ -11,7 +11,7 @@ output values of the preceding sub-functions.
 
 ![](%%config function serial)
 
-![](%%type Datacratic::MLDB::SerialFunctionStepConfig)
+![](%%type MLDB::SerialFunctionStepConfig)
 
 The `type` field can take any of the following function types:
 

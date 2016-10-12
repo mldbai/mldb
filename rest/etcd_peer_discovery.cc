@@ -20,7 +20,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 Logging::Category logEtcd("etcd", false /* enabled by default */);
 //Logger::Category etcdErrors(etcd, "errors");
@@ -79,7 +79,7 @@ publish(PeerInfo info)
     LOG(logEtcd) << "set key res = " << jsonEncode(res) << endl;
 
     if (res.errorCode != 0) {
-        throw ML::Exception("peer name appears to be already used");
+        throw MLDB::Exception("peer name appears to be already used");
     }
 
     LOG(logEtcd) << jsonEncode(etcd.get("peers/" + ourInfo.serviceType + "/"
@@ -90,13 +90,13 @@ publish(PeerInfo info)
                           5.0 /* seconds */);
     
     if (res.errorCode != 0) {
-        throw ML::Exception("error refreshing peer directory");
+        throw MLDB::Exception("error refreshing peer directory");
     }
     
     res = etcd.set("peers/" + ourInfo.serviceType + "/" + ourInfo.peerName + "/p2p",
                    jsonEncodeStr(ourInfo));
     if (res.errorCode != 0)
-        throw ML::Exception("couldn't set our address");
+        throw MLDB::Exception("couldn't set our address");
 
     discoveryThread.reset
         (new std::thread([=] () { this->runDiscoveryThread(); }));
@@ -183,7 +183,7 @@ runDiscoveryThread()
                     v["host"] = hostname();
                     v["user"] = username();
                     v["uid"] = userid();
-                    v["addr"] = ML::format("%016p", this);
+                    v["addr"] = MLDB::format("%016p", this);
 
                     string myId = v.toString();
 
@@ -344,4 +344,4 @@ runDiscoveryThread()
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

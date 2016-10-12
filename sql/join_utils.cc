@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Turn a list of ANDed clauses into an actual where clause. */
@@ -43,7 +43,7 @@ generateWhereExpression(const std::vector<AnnotatedClause> & clause,
 
 //Check if the idenfifier refers to this dataset and if so, remove the prefix.
 bool
-extractTableName(ColumnName & columnName, const Utf8String& tableName)
+extractTableName(ColumnPath & columnName, const Utf8String& tableName)
 {    
     if (!tableName.empty() && !columnName.empty()) {
         if (columnName.startsWith(tableName)) {
@@ -56,7 +56,7 @@ extractTableName(ColumnName & columnName, const Utf8String& tableName)
 }
 
 bool
-extractTableName(ColumnName & columnName, const std::set<Utf8String> & tables)
+extractTableName(ColumnPath & columnName, const std::set<Utf8String> & tables)
 {
     for (const Utf8String& tableName : tables)
     {
@@ -132,7 +132,7 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     
     // Which table does it refer to?
     for (auto & var: vars) {
-        ColumnName v = var.first.name;
+        ColumnPath v = var.first.name;
 
         if (extractTableName(v, leftTables)) {
             ExcAssert(!v.empty());
@@ -166,7 +166,7 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
 
     // Which table does it refer to?
     for (auto & w: wildcards) {
-        ColumnName v = w.first.name;
+        ColumnPath v = w.first.name;
 
         if (extractTableName(v, leftTables)) {
             ExcAssert(!v.empty());
@@ -526,4 +526,4 @@ AnnotatedJoinConditionStyleDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

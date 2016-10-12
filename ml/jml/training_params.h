@@ -76,7 +76,7 @@ struct Training_Params : public std::map<std::string, boost::any> {
     {
         std::map<std::string, boost::any>::const_iterator loc = find(key);
         if (loc == end())
-            throw ML::Exception("key \"" + key + "\" not found in "
+            throw MLDB::Exception("key \"" + key + "\" not found in "
                                     "context object");
         try {
             return boost::any_cast<Obj>(loc->second);

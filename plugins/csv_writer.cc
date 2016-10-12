@@ -9,7 +9,7 @@
 #include "csv_writer.h"
 #include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 using namespace std;
 
@@ -96,4 +96,4 @@ endl()
     lineStart = true;
 }
 
-} // Datacratic
+} // namespace MLDB

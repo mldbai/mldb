@@ -30,8 +30,7 @@
 
 
 using namespace std;
-using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* ensures that signed integers < (1 << 32 - 1) are serialized as integers */
@@ -182,7 +181,7 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 typedef map<string, string> StringDict;
 
@@ -362,20 +361,20 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
     SomeTestStructure data(Id(42), "hello world");
 
     // write the thing
-    using namespace Datacratic;
+    using namespace MLDB;
     ValueDescription * desc = getDefaultDescription(&data);
     std::stringstream stream;
     StreamJsonPrintingContext context(stream);
     desc->printJson(&data, context);
 
     // inline in some other thing
-    std::string value = ML::format("{\"%s\":%s}", desc->typeName, stream.str());
+    std::string value = MLDB::format("{\"%s\":%s}", desc->typeName, stream.str());
 
     // parse it back
     SomeTestStructure result;
-    ML::Parse_Context source("test", value.c_str(), value.size());
+    ParseContext source("test", value.c_str(), value.size());
         expectJsonObject(source, [&](std::string key,
-                                     ML::Parse_Context & context) {
+                                     ParseContext & context) {
             auto desc = ValueDescription::get(key);
             if(desc) {
                 StreamingJsonParsingContext json(context);

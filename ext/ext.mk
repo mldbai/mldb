@@ -10,12 +10,12 @@ $(eval $(call include_sub_make,jpeg,jpeg,../jpeg.mk))
 $(eval $(call include_sub_make,protobuf,protobuf,../protobuf.mk))
 $(eval $(call include_sub_make,farmhash,farmhash,../farmhash.mk))
 $(eval $(call include_sub_make,highwayhash,highwayhash,../highwayhash.mk))
+$(eval $(call include_sub_make,giflib,giflib,../giflib.mk))
 $(eval $(call include_sub_make,tensorflow,tensorflow,../tensorflow.mk))
+$(eval $(call include_sub_make,edlib,edlib,../edlib.mk))
 
-EDLIB_CC_FILES:= edlib/edlib/src/edlib.cpp
-EDLIB_WARNING_OPTIONS:=-Wno-char-subscripts
-$(eval $(call set_compile_option,$(EDLIB_CC_FILES),$(EDLIB_WARNING_OPTIONS)))
-$(eval $(call library,edlib,$(EDLIB_CC_FILES)))
+$(eval $(call include_sub_make,pffft,pffft,../pffft.mk))
+$(eval $(call test,pffft_vectorization_test,pffft,boost))
 
 $(eval $(call library,uap,uap-cpp/UaParser.cpp,yaml-cpp))
 $(eval $(call include_sub_make,s2,s2-geometry-library/geometry,../../s2.mk))

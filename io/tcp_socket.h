@@ -11,7 +11,7 @@
 #include <memory>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct TcpSocketImpl;
@@ -34,4 +34,4 @@ private:
     std::shared_ptr<TcpSocketImpl> impl_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -10,7 +10,7 @@
 #include "mldb/arch/exception_hook.h"
 
 
-namespace ML {
+namespace MLDB {
 
 __thread BacktraceInfo * current_backtrace = nullptr;
 
@@ -93,4 +93,4 @@ struct Install_Handler {
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

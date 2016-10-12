@@ -15,7 +15,7 @@
 #include "mldb/io/message_loop.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* This test ensures that adding sources works correctly when needsPoll is

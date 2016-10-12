@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ASYNC EVENT SOURCE                                                        */
@@ -74,7 +74,7 @@ init(double timePeriodSeconds,
      bool singleThreaded)
 {
     if (timerFd != -1)
-        throw ML::Exception("double initialization of periodic event source");
+        throw MLDB::Exception("double initialization of periodic event source");
 
     this->timePeriodSeconds = timePeriodSeconds;
     this->onTimeout = onTimeout;
@@ -82,13 +82,13 @@ init(double timePeriodSeconds,
 
     timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFd == -1)
-        throw ML::Exception(errno, "timerfd_create");
+        throw MLDB::Exception(errno, "timerfd_create");
 
     itimerspec spec;
     
     int res = clock_gettime(CLOCK_MONOTONIC, &spec.it_value);
     if (res == -1)
-        throw ML::Exception(errno, "clock_gettime");
+        throw MLDB::Exception(errno, "clock_gettime");
     uint64_t seconds, nanoseconds;
     seconds = timePeriodSeconds;
     nanoseconds = (timePeriodSeconds - seconds) * 1000000000;
@@ -111,7 +111,7 @@ init(double timePeriodSeconds,
 
     res = timerfd_settime(timerFd, 0, &spec, 0);
     if (res == -1)
-        throw ML::Exception(errno, "timerfd_settime");
+        throw MLDB::Exception(errno, "timerfd_settime");
 }
 
 PeriodicEventSource::
@@ -140,9 +140,9 @@ processOne()
         if (res == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
             break;
         if (res == -1)
-            throw ML::Exception(errno, "timerfd read");
+            throw MLDB::Exception(errno, "timerfd read");
         else if (res != 8)
-            throw ML::Exception("timerfd read: wrong number of bytes: %d",
+            throw MLDB::Exception("timerfd read: wrong number of bytes: %d",
                                 res);
         onTimeout(numWakeups);
         break;
@@ -151,4 +151,4 @@ processOne()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

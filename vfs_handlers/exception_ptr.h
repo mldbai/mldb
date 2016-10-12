@@ -11,7 +11,7 @@
 #include <mutex>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* EXCEPTION PTR HANDLER                                                    */
@@ -30,4 +30,4 @@ private:
     std::exception_ptr excPtr_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -12,7 +12,7 @@
 #include <string>
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 #if defined __i686__ || defined __amd64__ || defined __i586__ || defined __i386__
 
@@ -183,4 +183,4 @@ Regs cpuid(uint32_t request, uint32_t ecx = 0);
 
 #endif // __i686__
 
-} // namespace ML
+} // namespace MLDB

@@ -43,7 +43,7 @@
 #include "sse2_poly.h"
 #include <cmath>
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 
@@ -313,4 +313,4 @@ inline v2df sse2_exp(v2df x)
 }
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

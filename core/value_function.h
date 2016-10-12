@@ -11,7 +11,7 @@
 
 #include "function.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 template<typename Input, typename Output>
@@ -133,7 +133,7 @@ struct ValueFunctionT: public ValueFunction {
     virtual Output call(Input input) const
     {
         throw HttpReturnException(500, "ValueFunctionT type "
-                                  + ML::type_name(*this)
+                                  + MLDB::type_name(*this)
                                   + " needs to override call()");
     }
 
@@ -195,4 +195,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

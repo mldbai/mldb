@@ -23,7 +23,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct ArchiveData {
@@ -119,7 +119,7 @@ bool iterateArchive(std::streambuf * archive,
           
                         while (r != ARCHIVE_EOF) {
                             if (r < ARCHIVE_OK)
-                                throw ML::Exception("Error extracting file");
+                                throw MLDB::Exception("Error extracting file");
                             stream.write(buff, size);
                             r = archive_read_data_block
                                 (a, (const void **)&buff,
@@ -156,7 +156,7 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
     {
         auto info = tryGetInfo(url);
         if (!info)
-            throw ML::Exception("Couldn't get URI info for archive " + url.toString());
+            throw MLDB::Exception("Couldn't get URI info for archive " + url.toString());
         return info;
     }
 
@@ -164,12 +164,12 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
     {
         Utf8String archiveSource(url.toDecodedString());
         if (!archiveSource.removePrefix("archive+"))
-            throw ML::Exception("archive URI '" + url.toString() + "' doesn't start with 'archive+' when getting object info");
+            throw MLDB::Exception("archive URI '" + url.toString() + "' doesn't start with 'archive+' when getting object info");
 
         // Look for a # to get the filename
         auto it = archiveSource.rfind('#');
         if (it == archiveSource.end())
-            throw ML::Exception("Extracting a file from an archive requires a # between archive URI and path within archive");
+            throw MLDB::Exception("Extracting a file from an archive requires a # between archive URI and path within archive");
 
         Utf8String archiveUri(archiveSource.begin(), it);
 
@@ -208,12 +208,12 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
 
     virtual void makeDirectory(const Url & url) const
     {
-        throw ML::Exception("Archive URIs don't support creating directories");
+        throw MLDB::Exception("Archive URIs don't support creating directories");
     }
 
     virtual bool erase(const Url & url, bool throwException) const
     {
-        throw ML::Exception("Archive URIs don't support DELETE");
+        throw MLDB::Exception("Archive URIs don't support DELETE");
     }
 
     /** For each object under the given prefix (object or subdirectory),
@@ -227,7 +227,7 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
     {
         Utf8String archiveSource(prefix.toString());
         if (!archiveSource.removePrefix("archive+"))
-            throw ML::Exception("archive URI '" + archiveSource.rawString() + "' doesn't start with 'archive+' when listing archive contents");
+            throw MLDB::Exception("archive URI '" + archiveSource.rawString() + "' doesn't start with 'archive+' when listing archive contents");
 
         filter_istream archiveStream(archiveSource.rawString());
 
@@ -257,7 +257,7 @@ struct RegisterArchiveHandler {
                       const OnUriHandlerException & onException)
     {
         if (mode != ios::in) {
-            throw ML::Exception("Only input is accepted for archives");
+            throw MLDB::Exception("Only input is accepted for archives");
         }
 
         Utf8String uri = scheme + "://" + resource;
@@ -266,7 +266,7 @@ struct RegisterArchiveHandler {
 
         Utf8String archiveSource = uri;
         if (!archiveSource.removePrefix("archive+"))
-            throw ML::Exception("archive URI '" + uri.rawString() + "' doesn't start with 'archive+' when opening archive member");
+            throw MLDB::Exception("archive URI '" + uri.rawString() + "' doesn't start with 'archive+' when opening archive member");
 
         //cerr << "archiveSource = " << archiveSource << endl;
 
@@ -278,7 +278,7 @@ struct RegisterArchiveHandler {
                 foundIt = it;
         
         if (foundIt == archiveSource.end())
-            throw ML::Exception("Extracting a file from an archive requires a # between archive URI and path within archive");
+            throw MLDB::Exception("Extracting a file from an archive requires a # between archive URI and path within archive");
 
         Utf8String archiveUri(archiveSource.begin(), foundIt);
 
@@ -310,7 +310,7 @@ struct RegisterArchiveHandler {
         forEachUriObject("archive+" + archiveUri.rawString(), onObject, {},
                          "/" /* delimiter */, "" /* startAt */);
         if (!result.buf)
-            throw ML::Exception("Couldn't find resource " + toExtractPath.rawString()
+            throw MLDB::Exception("Couldn't find resource " + toExtractPath.rawString()
                                 + " in archive " + archiveUri.rawString());
         
         return result;
@@ -325,5 +325,5 @@ struct RegisterArchiveHandler {
 } registerArchiveHandler;
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

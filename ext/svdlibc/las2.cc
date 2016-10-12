@@ -565,7 +565,7 @@ long ritvec(long n, SVDRec R, double kappa, double *ritz, double *bnd,
           R->S[x] = tmp0;
       };
 
-  Datacratic::parallelMap(0, R->d, doOutput);
+  MLDB::parallelMap(0, R->d, doOutput);
 
   return nsig;
 }
@@ -1293,7 +1293,7 @@ void imtqlb(long n, double d[], double e[], double bnd[],
 	    g = (d[l+1] - p) / (2.0 * e[l]);
 
             if (!isfinite(g))
-                throw ML::Exception("NaN or infinite g value; probably you "
+                throw MLDB::Exception("NaN or infinite g value; probably you "
                                     "have asked for more singular values than "
                                     "the effective rank of the matrix");
 
@@ -1460,7 +1460,7 @@ void imtql2(long nm, long n, double d[], double e[], double z[],
 	    g = d[m] - p + e[l] / (g + svd_fsign(r, g));
 
             if (!isfinite(g))
-                throw ML::Exception("NaN or infinite g value; probably you "
+                throw MLDB::Exception("NaN or infinite g value; probably you "
                                     "have asked for more singular values than "
                                     "the effective rank of the matrix");
 

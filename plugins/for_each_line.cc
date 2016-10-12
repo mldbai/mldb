@@ -57,7 +57,7 @@ struct Processing {
 
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -107,7 +107,7 @@ readStream(std::istream & stream,
 
                 double elapsed = now.secondsSince(start);
                 double instElapsed = now.secondsSince(lastCheck);
-                cerr << ML::format("doing %.3fMlines/second total, %.3f instantaneous",
+                cerr << MLDB::format("doing %.3fMlines/second total, %.3f instantaneous",
                                    done / elapsed / 1000000.0,
                                    1000000 / instElapsed / 1000000.0)
                      << endl;
@@ -548,4 +548,4 @@ void forEachChunk(std::istream & stream,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

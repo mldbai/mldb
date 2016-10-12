@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -59,7 +59,7 @@ Json::Value toJson(sqlite3_value * arg)
     case SQLITE_BLOB:
         return "<<BLOB>>";
     default:
-        throw ML::Exception("Unknown type for column");
+        throw MLDB::Exception("Unknown type for column");
     }
 }
 
@@ -78,13 +78,13 @@ CellValue toCell(sqlite3_value * arg)
         return string(bytes, bytes + len);
     }
     default:
-        throw ML::Exception("Unknown type for column");
+        throw MLDB::Exception("Unknown type for column");
     }
 }
 
 void dumpQueryArray(sqlite3pp::database & db, const std::string & queryStr)
 {
-    ML::Timer timer;
+    Timer timer;
     cerr << "dumping query " << queryStr << endl;
 
     sqlite3pp::query query(db, queryStr.c_str());
@@ -114,7 +114,7 @@ void dumpQueryArray(sqlite3pp::database & db, const std::string & queryStr)
                 record[j] = "<<BLOB>>";
                 break;
             default:
-                throw ML::Exception("Unknown type for column");
+                throw MLDB::Exception("Unknown type for column");
             }
         }
         
@@ -137,7 +137,7 @@ std::string sqlEscape(const std::string & val)
         if (c == '\'')
             ++numQuotes;
         if (c < ' ' || c >= 127)
-            throw ML::Exception("Non ASCII character in DB");
+            throw MLDB::Exception("Non ASCII character in DB");
     }
     if (numQuotes == 0)
         return val;
@@ -188,7 +188,7 @@ struct BehaviourModule {
 
         MldbServer * mldb;
         std::shared_ptr<Dataset> dataset;
-        std::vector<ColumnName> columnNames;
+        std::vector<ColumnPath> columnNames;
         std::vector<ColumnHash> columnHashes;
     };
 
@@ -214,7 +214,8 @@ struct BehaviourModule {
             vtab->dataset = dataset;
 
             string columnNameStr;
-            vector<ColumnName> columnNames = dataset->getColumnNames();
+
+            vector<ColumnPath> columnNames = dataset->getColumnNames();
             vector<ColumnHash> columnHashes;
 
             for (auto & columnName : columnNames) {
@@ -299,7 +300,7 @@ struct BehaviourModule {
             case SQLITE_INDEX_CONSTRAINT_MATCH:
                 constraintStr = "MATCHES";  break;
             default:
-                throw ML::Exception("unknown constraint type");
+                throw MLDB::Exception("unknown constraint type");
             }
 
             cerr << "constraintStr = " << constraintStr << endl;
@@ -401,14 +402,14 @@ struct BehaviourModule {
         for (unsigned i = 0;  i < plan.size();  ++i) {
             const Json::Value & planVal = plan[i];
             //int colIdx = planVal["cIdx"].asInt();
-            ColumnName colName(planVal["cName"].asString());
+            ColumnPath colName(planVal["cName"].asString());
             int argNum = planVal["arg"].asInt();
             string op = planVal["op"].asString();
             CellValue arg = toCell(argv[argNum]);
             knownValues[colName] = arg;
 
             if (op != "==")
-                throw ML::Exception("non-equality not implemented");
+                throw MLDB::Exception("non-equality not implemented");
 
             cerr << "Filtering on " << colName << " " << op << " " << arg
                  << endl;
@@ -508,7 +509,7 @@ struct BehaviourModule {
             case CellValue::UTF8_STRING:
                 return sqlite3_result_result_utf8(context, value.toUtf8String());
             default:
-                throw ML::Exception("unknown cell type");
+                throw MLDB::Exception("unknown cell type");
             }
         }
         }
@@ -649,4 +650,4 @@ PluginCollection::RegisterType<SqlitePlugin> regSqlite("sql");
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

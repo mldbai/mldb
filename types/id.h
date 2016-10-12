@@ -21,7 +21,7 @@ namespace Json {
 class Value;
 } // namespace Json
 
-namespace Datacratic {
+namespace MLDB {
 
 /* 
    JTzfCLBhlbWSsdZjcJ4wO4
@@ -210,9 +210,9 @@ struct Id {
     uint64_t toInt() const
     {
         if (type != BIGDEC)
-            throw ML::Exception("can't convert non-BIGDEC to int");
+            throw MLDB::Exception("can't convert non-BIGDEC to int");
         if (val2) {
-            throw ML::Exception("cannot convert 128-bit value to uint64_t");
+            throw MLDB::Exception("cannot convert 128-bit value to uint64_t");
         }
         return val1;
     }
@@ -365,16 +365,16 @@ inline Id stringToKey(const std::string & str, Id *)
 
 PREDECLARE_VALUE_DESCRIPTION(Id);
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::Id> : public std::unary_function<Datacratic::Id, size_t>
+struct hash<MLDB::Id> : public std::unary_function<MLDB::Id, size_t>
 {
-    size_t operator()(const Datacratic::Id & id) const { return id.hash(); }
+    size_t operator()(const MLDB::Id & id) const { return id.hash(); }
 };
 
 } // namespace std

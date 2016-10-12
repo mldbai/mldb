@@ -46,12 +46,12 @@ from a URL.  The contents of the URL must be a JSON object, array or value.
 
 Credentials are JSON objects that have the following format:
 
-![](%%type Datacratic::StoredCredentials)
+![](%%type MLDB::StoredCredentials)
 
 with the `credential` field (which define the actual credentials and the resource to
 access) as follows:
 
-![](%%type Datacratic::Credential)
+![](%%type MLDB::Credential)
 
 There are examples of credentials under the [Url] (Url.md) page.
 

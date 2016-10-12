@@ -22,7 +22,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Mongo {
 
@@ -147,7 +147,6 @@ struct MongoQueryFunction: Function {
                     cursor = db[queryConfig.collection].find(doc.view());
                 }
                 StructValue row;
-                Date d = Date::negativeInfinity();
                 for (auto && el: *cursor) {
                     if ((el)["_id"].type() != bsoncxx::type::k_oid) {
                         throw HttpReturnException(
@@ -165,7 +164,7 @@ struct MongoQueryFunction: Function {
                 return std::move(row);
             }
             else {
-                throw ML::Exception("Unknown outputType");
+                throw MLDB::Exception("Unknown outputType");
             }
         }
 
@@ -203,4 +202,4 @@ regMongodbDataset(mongodbPackage(),
 
 } // namespace Mongo
 } // namespace MLDB
-} // namespace Datacratic
+

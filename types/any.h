@@ -11,7 +11,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/compiler/compiler.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ANY                                                                       */
@@ -152,4 +152,4 @@ PREDECLARE_VALUE_DESCRIPTION(Any);
 std::shared_ptr<ValueDescriptionT<Any> >
 getBareAnyDescription();
 
-} // namespace Datacratic
+} // namespace MLDB

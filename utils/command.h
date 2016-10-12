@@ -22,7 +22,7 @@
 #include "mldb/types/any.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -158,4 +158,4 @@ struct CommandStatus {
 
 DECLARE_STRUCTURE_DESCRIPTION(CommandStatus);
 
-} // namespace Datacratic
+} // namespace MLDB

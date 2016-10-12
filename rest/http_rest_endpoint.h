@@ -15,7 +15,7 @@
 #include <string>
 #include <time.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct EventLoop;
@@ -120,4 +120,4 @@ struct HttpRestEndpoint {
     std::unique_ptr<TcpAcceptor> acceptor_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

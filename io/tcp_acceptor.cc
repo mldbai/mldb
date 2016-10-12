@@ -17,7 +17,7 @@
 #include "tcp_acceptor.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/
@@ -98,7 +98,7 @@ findHandlerPtr(TcpSocketHandler * handler)
         }
     }
 
-    throw ML::Exception("socket handler not found");
+    throw MLDB::Exception("socket handler not found");
 }
 
 /* FIXME: inefficient implementation */

@@ -9,7 +9,7 @@
 
 #include <functional>
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Run a set of jobs in multiple threads.
 
@@ -55,4 +55,4 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
                         const std::function<void (size_t, size_t)> & doWork,
                         int occupancyLimit = -1);
 
-} // namespace Datacratic
+} // namespace MLDB

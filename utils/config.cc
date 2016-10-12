@@ -27,7 +27,7 @@ namespace boost {
     }
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 struct BaseConfig : public Config {
     virtual bool getBool(const std::string & key, bool defaultValue) {

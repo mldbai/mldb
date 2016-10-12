@@ -17,7 +17,7 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -29,7 +29,7 @@ namespace MLDB {
 
 struct StatsTable {
 
-    StatsTable(const ColumnName & colName=ColumnName("ND"),
+    StatsTable(const ColumnPath & colName=ColumnPath("ND"),
             const std::vector<std::string> & outcome_names = {})
         : colName(colName), outcome_names(outcome_names),
           zeroCounts(std::make_pair(0, std::vector<int64_t>(outcome_names.size())))
@@ -49,7 +49,7 @@ struct StatsTable {
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 
-    ColumnName colName;
+    ColumnPath colName;
 
     std::vector<std::string> outcome_names;
     std::unordered_map<Utf8String, BucketCounts> counts;
@@ -90,7 +90,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
 /* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
-typedef std::map<ColumnName, StatsTable> StatsTablesMap;
+typedef std::map<ColumnPath, StatsTable> StatsTablesMap;
 
 struct StatsTableProcedure: public Procedure {
 
@@ -277,4 +277,4 @@ struct StatsTablePosNegFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

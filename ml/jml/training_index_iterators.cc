@@ -13,6 +13,7 @@
 #include "mldb/jml/utils/string_functions.h"
 
 using namespace std;
+using namespace MLDB;
 
 namespace ML {
 

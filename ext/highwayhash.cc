@@ -22,7 +22,7 @@ extern "C" {
 
 #include "mldb/arch/simd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 namespace {
 
@@ -61,4 +61,4 @@ uint64_t highwayHash(const uint64_t* key, const char* bytes, const uint64_t size
     return highwayHashImpl((const uint64 *)key, bytes, size);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

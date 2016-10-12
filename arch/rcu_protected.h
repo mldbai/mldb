@@ -14,7 +14,7 @@
 #include <memory>
 #include <atomic>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T>
 struct RcuLocked {
@@ -97,14 +97,14 @@ struct RcuLocked {
     T * operator -> () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return ptr;
     }
 
     T & operator * () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return *ptr;
     }
 };
@@ -279,5 +279,5 @@ struct RcuProtectedCopyable : public RcuProtected<T> {
 
 };
 
-} // namespace Datacratic
+} // namespace MLDB
    

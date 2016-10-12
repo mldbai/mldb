@@ -14,7 +14,7 @@
 #include "epoll_loop.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 EpollLoop::
@@ -26,7 +26,7 @@ EpollLoop(const OnException & onException)
 {
     epollFd_ = ::epoll_create(666);
     if (epollFd_ == -1)
-        throw ML::Exception(errno, "epoll_create");
+        throw MLDB::Exception(errno, "epoll_create");
 }
 
 EpollLoop:: 
@@ -64,7 +64,7 @@ loop(int maxEvents, int timeout)
                     if (errno == EINTR) {
                         continue;
                     }
-                    throw ML::Exception(errno, "epoll_wait");
+                    throw MLDB::Exception(errno, "epoll_wait");
                 }
                 break;
             }
@@ -135,7 +135,7 @@ performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
                           + " fd=" + to_string(fd)
                           + " readerFd=" + to_string(readerFd)
                           + " writerFd=" + to_string(writerFd));
-        throw ML::Exception(errno, message);
+        throw MLDB::Exception(errno, message);
     }
 
     if (!modify) {
@@ -153,10 +153,10 @@ removeFd(int fd, bool unregisterCallback)
 
     int res = epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, 0);
     if (res == -1) {
-        throw ML::Exception(errno, "epoll_ctl DEL " + to_string(fd));
+        throw MLDB::Exception(errno, "epoll_ctl DEL " + to_string(fd));
     }
     if (numFds_ == 0) {
-        throw ML::Exception("inconsistent number of fds registered");
+        throw MLDB::Exception("inconsistent number of fds registered");
     }
     numFds_--;
 
@@ -172,7 +172,7 @@ registerFdCallback(int fd, const EpollCallback & cb)
     std::unique_lock<mutex> guard(callbackLock_);
     if (delayedUnregistrations_.count(fd) == 0) {
         if (fdCallbacks_.find(fd) != fdCallbacks_.end()) {
-            throw ML::Exception("callback already registered for fd");
+            throw MLDB::Exception("callback already registered for fd");
         }
     }
     else {
@@ -188,7 +188,7 @@ unregisterFdCallback(int fd, bool delayed,
 {
     std::unique_lock<mutex> guard(callbackLock_);
     if (fdCallbacks_.find(fd) == fdCallbacks_.end()) {
-        throw ML::Exception("callback not registered for fd");
+        throw MLDB::Exception("callback not registered for fd");
     }
     if (delayed) {
         ExcAssert(delayedUnregistrations_.count(fd) == 0);

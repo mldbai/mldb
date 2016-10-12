@@ -10,7 +10,7 @@
 #include "mldb/io/tcp_socket.h"
 
 
-using namespace Datacratic;
+using namespace MLDB;
 
 TcpSocket::
 TcpSocket(std::shared_ptr<TcpSocketImpl> impl)

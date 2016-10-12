@@ -21,9 +21,9 @@
 #include <cxxabi.h>
 using namespace std;
 using namespace ML;
-using namespace Datacratic::JS;
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace JS {
 
 
@@ -210,7 +210,7 @@ void to_js(JSValue & jsval, const Json::Value & value)
         jsval = v8::Null(isolate);
         break;
     default:
-        throw ML::Exception("Can't convert from JsonCpp to JSValue");
+        throw MLDB::Exception("Can't convert from JsonCpp to JSValue");
         break;
     }
 }
@@ -237,7 +237,7 @@ int64_t check_to_int2(const JSValue & val)
 
     if (dval > std::numeric_limits<uint64_t>::max()
         || dval < std::numeric_limits<uint64_t>::min())
-        throw ML::Exception("Cannot fit " + cstr(val) + " into an integer");
+        throw MLDB::Exception("Cannot fit " + cstr(val) + " into an integer");
         
     v8::Local<v8::Number> num;
 
@@ -311,7 +311,7 @@ T check_to_int(const JSValue & val)
     T result2 = result1;
     if (result1 != result2)
         throw Exception("value " + cstr(val) + " does not fit in type "
-                        + ML::type_name<T>());
+                        + MLDB::type_name<T>());
     return result2;
 }
 
@@ -369,7 +369,7 @@ double from_js(const JSValue & val, double *)
             string s = ML::lowercase(cstr(val));
             if (s == "nan" || s == "-nan")
                 return result;
-            throw ML::Exception("string value \"%s\" is not converible to "
+            throw MLDB::Exception("string value \"%s\" is not converible to "
                                 "floating point",
                                 s.c_str());
         }
@@ -394,7 +394,7 @@ std::string from_js(const JSValue & val, std::string *)
 Json::Value from_js(const JSValue & val, Json::Value *)
 {
     if (val.IsEmpty())
-        throw ML::Exception("empty val");
+        throw MLDB::Exception("empty val");
 
     //cerr << cstr(val) << endl;
 
@@ -402,7 +402,7 @@ Json::Value from_js(const JSValue & val, Json::Value *)
     {
         if(v8::Date::Cast(*val)->IsDate())
         {
-            return from_js(val, (Datacratic::Date*)(0)).secondsSinceEpoch();
+            return from_js(val, (Date*)(0)).secondsSinceEpoch();
         }
         if(val->IsArray())
         {
@@ -458,14 +458,14 @@ Json::Value from_js(const JSValue & val, Json::Value *)
     }
     if (val->IsNull() || val->IsUndefined())
         return Json::Value();
-    throw ML::Exception("can't convert from JSValue %s to Json::Value",
+    throw MLDB::Exception("can't convert from JSValue %s to Json::Value",
                         cstr(val).c_str());
 }
 
 Date from_js(const JSValue & val, Date *)
 {
     if(!v8::Date::Cast(*val)->IsDate())
-        throw ML::Exception("Couldn't convert from " + cstr(val) + " to Datacratic::Date");
+        throw MLDB::Exception("Couldn't convert from " + cstr(val) + " to MLDB::Date");
     return Date::fromSecondsSinceEpoch(v8::Date::Cast(*val)->NumberValue()
                                        / 1000.0);
 }
@@ -483,4 +483,5 @@ Json::Value from_js_ref(const JSValue & val, Json::Value *)
 
 
 } // namespace JS
-} // namespace Datacratic
+
+} // namespace MLDB

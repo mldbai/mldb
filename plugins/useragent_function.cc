@@ -12,7 +12,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
     
@@ -110,4 +110,4 @@ regParseUserAgentFunction(builtinPackage(),
                           "functions/ParseUserAgent.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+

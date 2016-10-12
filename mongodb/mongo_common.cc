@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Mongo {
 
@@ -80,17 +80,17 @@ StructValue extract(const Date & ts, const bsoncxx::document::view & doc)
     for (auto & el: doc) {
         if (el.type() == bsoncxx::type::k_document) {
             row.emplace_back(
-                std::move(el.key().to_string()),
+                el.key().to_string(),
                 extract(ts, el.get_document().view()));
         }
         else if (el.type() == bsoncxx::type::k_array) {
             row.emplace_back(
-                std::move(el.key().to_string()),
+                el.key().to_string(),
                 extract(ts, el.get_array()));
         }
         else {
             row.emplace_back(
-                std::move(el.key().to_string()),
+                el.key().to_string(),
                 ExpressionValue(bsonToCell(el.get_value()), ts));
         }
     }
@@ -142,7 +142,7 @@ void validateCollection(const std::string & collection)
 ColumnGetter
 MongoScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
@@ -215,4 +215,4 @@ doGetFunction(const Utf8String & tableName,
 
 } // namespace Mongo
 } // namespace MLDB
-} // namespace Datacratic
+

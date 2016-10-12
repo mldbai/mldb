@@ -11,7 +11,7 @@
 
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string base64Encode(const std::string & str);
 std::string base64Encode(const char * buf, size_t nBytes);

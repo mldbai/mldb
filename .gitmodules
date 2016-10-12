@@ -15,7 +15,7 @@
 	url = https://github.com/mldbai/eigen.git
 [submodule "ext/edlib"]
 	path = ext/edlib
-	url = https://github.com/mldbai/edlib.git
+	url = git@github.com:mldbai/edlib.git
 [submodule "ext/s2-geometry-library"]
 	path = ext/s2-geometry-library
 	url = https://github.com/mldbai/s2-geometry-library.git
@@ -52,3 +52,9 @@
 [submodule "ext/gmock"]
 	path = ext/gmock
 	url = git@github.com:mldbai/gmock-1.7.0.git
+[submodule "ext/giflib"]
+	path = ext/giflib
+	url = https://github.com/mldbai/giflib.git
+[submodule "ext/pffft"]
+	path = ext/pffft
+	url = https://github.com/mldbai/pffft.git

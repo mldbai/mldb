@@ -9,7 +9,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -68,4 +68,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

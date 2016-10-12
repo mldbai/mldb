@@ -11,7 +11,7 @@
 #include "peer_connection.h"
 #include "mldb/io/port_range_service.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -67,5 +67,5 @@ private:
     std::unique_ptr<Impl> impl;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

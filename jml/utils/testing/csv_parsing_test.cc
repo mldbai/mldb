@@ -20,12 +20,13 @@
 
 using namespace std;
 using namespace ML;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
 vector<string> parseCsvLine(const std::string & line)
 {
-    ML::Parse_Context context(line, line.c_str(), line.c_str() + line.size());
+    ParseContext context(line, line.c_str(), line.c_str() + line.size());
     return expect_csv_row(context);
 }
 

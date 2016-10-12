@@ -20,7 +20,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(SvdSpace);
 
@@ -458,7 +458,7 @@ intersectionCount(const uint16_t * it1, const uint16_t * end1,
         : intersectionCountBasic(it1, end1, it2, end2);
 }
 
-ML::Env_Option<int> SVD_OPTIMIZED_INTERSECTION("SVD_OPTIMIZED_INTERSECTION", 3);
+EnvOption<int> SVD_OPTIMIZED_INTERSECTION("SVD_OPTIMIZED_INTERSECTION", 3);
 
 int useOptimizedIntersection = SVD_OPTIMIZED_INTERSECTION;
 
@@ -504,7 +504,7 @@ calcOverlap(const Bucket & other, SvdSpace space) const
                     result += ei.counts.at(it1 - begin1) * ej.counts.at(it2 - begin2);
                     break;
                 default:
-                    throw ML::Exception("unknown space");
+                    throw MLDB::Exception("unknown space");
                 }
 
                 ++it1;
@@ -761,5 +761,5 @@ calcOverlap(const Bucket & other, SvdSpace space) const
 
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

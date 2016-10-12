@@ -9,7 +9,7 @@
 
 #include <memory>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T>
 struct Optional: public std::shared_ptr<T> {
@@ -63,4 +63,4 @@ struct Optional: public std::shared_ptr<T> {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

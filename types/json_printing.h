@@ -18,7 +18,7 @@ namespace Json {
 struct Value;
 } // namespace Json
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string jsonEscape(const std::string & str);
 
@@ -295,5 +295,5 @@ struct StructuredJsonPrintingContext
     virtual void writeBool(bool b);
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

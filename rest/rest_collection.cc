@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* VALUE DESCRIPTIONS                                                        */
@@ -227,7 +227,7 @@ watch(const ResourceSpec & spec,
     
 
     //cerr << "watching " << spec << " in entity "
-    //     << ML::type_name(*this) << " with catchUp " << catchUp
+    //     << MLDB::type_name(*this) << " with catchUp " << catchUp
     //     << endl;
 
     if (spec.empty())
@@ -309,7 +309,7 @@ watchWithPath(const ResourceSpec & spec,
               const std::vector<Utf8String> & currentPath)
 {
     //cerr << "watching " << spec << " in entity "
-    //     << ML::type_name(*this) << " with catchUp " << catchUp
+    //     << MLDB::type_name(*this) << " with catchUp " << catchUp
     //     << endl;
 
     if (spec.empty())
@@ -381,7 +381,7 @@ WatchT<RestEntityChildEvent>
 RestEntity::
 watchChildren(const Utf8String & spec, bool catchUp, Any info)
 {
-    throw HttpReturnException(400, "entity '" + ML::type_name(*this) + "' does not support watching children: spec " + spec);
+    throw HttpReturnException(400, "entity '" + MLDB::type_name(*this) + "' does not support watching children: spec " + spec);
 }
 
 Watch
@@ -451,7 +451,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
            const std::string & linkType,
            Any linkParams)
 {
-    throw HttpReturnException(400, "acceptLink needs to be overridden for class " + ML::type_name(*this));
+    throw HttpReturnException(400, "acceptLink needs to be overridden for class " + MLDB::type_name(*this));
 }
 
 
@@ -523,7 +523,7 @@ getWatchBoundType(const ResourceSpec & spec)
     if (spec.empty())
         throw HttpReturnException(400, "no type for empty spec");
     if (spec[0].channel != "children")
-        throw HttpReturnException(400, "RestDirectory '" + ML::type_name(*this)
+        throw HttpReturnException(400, "RestDirectory '" + MLDB::type_name(*this)
                                   + "' has only a children channel: "
                                   + jsonEncodeUtf8(spec));
 
@@ -785,4 +785,4 @@ void validatePayloadForPost(const RestRequest & req,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

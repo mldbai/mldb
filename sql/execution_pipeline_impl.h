@@ -12,7 +12,7 @@
 #include "mldb/utils/log_fwd.h"
 #include <list>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -38,7 +38,7 @@ struct TableLexicalScope: public LexicalScope {
     static constexpr int ROW_CONTENTS = 1;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -149,7 +149,7 @@ struct SubSelectLexicalScope: public TableLexicalScope {
     std::shared_ptr<ExpressionValueInfo> selectInfo;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -265,7 +265,7 @@ struct JoinLexicalScope: public LexicalScope {
 
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     /** For a join, we can select over the columns for either one or the
         other.
@@ -691,7 +691,7 @@ struct AggregateLexicalScope: public LexicalScope {
     int numValues_;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -821,4 +821,4 @@ struct ParamsElement: public PipelineElement {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

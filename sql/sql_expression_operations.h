@@ -8,7 +8,7 @@
 
 #include "sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct SelectSubtableExpression; 
@@ -117,7 +117,7 @@ struct BooleanOperatorExpression: public SqlExpression {
     `x AS y` containing a ReadColumnExpression with surface `x`.
 */
 struct ReadColumnExpression: public SqlExpression {
-    ReadColumnExpression(ColumnName columnName);
+    ReadColumnExpression(ColumnPath columnName);
 
     virtual ~ReadColumnExpression();
 
@@ -136,7 +136,7 @@ struct ReadColumnExpression: public SqlExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
     virtual bool isConstant() const { return false; }
 
-    ColumnName columnName;
+    ColumnPath columnName;
 };
 
 struct ConstantExpression: public SqlExpression {
@@ -406,13 +406,13 @@ struct BoundParameterExpression: public SqlExpression {
     SELECT abc* AS def* and SELECT * EXCLUDING (bad*)
 */
 struct WildcardExpression: public SqlRowExpression {
-    WildcardExpression(ColumnName prefix,
-                       ColumnName asPrefix,
-                       std::vector<std::pair<ColumnName, bool> > excluding);
+    WildcardExpression(ColumnPath prefix,
+                       ColumnPath asPrefix,
+                       std::vector<std::pair<ColumnPath, bool> > excluding);
 
-    ColumnName prefix;
-    ColumnName asPrefix;
-    std::vector<std::pair<ColumnName, bool> > excluding;
+    ColumnPath prefix;
+    ColumnPath asPrefix;
+    std::vector<std::pair<ColumnPath, bool> > excluding;
 
     virtual BoundSqlExpression
     bind(SqlBindingScope & context) const;
@@ -446,7 +446,7 @@ struct WildcardExpression: public SqlRowExpression {
 
 /** Represents x AS y, y : x, x AS * or x that appears in a SELECT expression" */
 struct NamedColumnExpression: public SqlRowExpression {
-    NamedColumnExpression(ColumnName alias,
+    NamedColumnExpression(ColumnPath alias,
                    std::shared_ptr<SqlExpression>);
 
     /** This value must be understood as follows:
@@ -454,7 +454,7 @@ struct NamedColumnExpression: public SqlRowExpression {
         - it is empty in the case of x AS *
         - it contains the surface of x otherwise
     */
-    ColumnName alias;  ///< Name of variable alias
+    ColumnPath alias;  ///< Name of variable alias
     std::shared_ptr<SqlExpression> expression;
 
     virtual BoundSqlExpression
@@ -564,7 +564,8 @@ struct SelectColumnExpression: public SqlRowExpression {
                            std::shared_ptr<SqlExpression> where,
                            OrderByExpression orderBy,
                            int64_t offset,
-                           int64_t limit);
+                           int64_t limit,
+                           bool isStructured);
 
     std::shared_ptr<SqlExpression> select;
     std::shared_ptr<SqlExpression> as;
@@ -572,6 +573,7 @@ struct SelectColumnExpression: public SqlRowExpression {
     OrderByExpression orderBy;
     int64_t offset;
     int64_t limit;
+    bool isStructured;
 
     virtual BoundSqlExpression
     bind(SqlBindingScope & context) const;
@@ -599,4 +601,3 @@ struct SelectColumnExpression: public SqlRowExpression {
 };
 
 } // namespace MLDB
-} // namespace Datacratic

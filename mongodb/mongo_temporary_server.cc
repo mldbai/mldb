@@ -13,7 +13,8 @@
 using namespace std;
 using namespace Mongo;
 namespace fs = boost::filesystem;
-using namespace Datacratic;
+using namespace MLDB;
+
 
 MongoTemporaryServer::
 MongoTemporaryServer(const string & uniquePath, const int portNum)
@@ -33,7 +34,7 @@ MongoTemporaryServer(const string & uniquePath, const int portNum)
             string cwd(secure_getenv("PWD"));
             tmpDir = "." + tmpDir.substr(cwd.size());
         }
-        uniquePath_ = ML::format("%s/mongo-temporary-server-%d-%d",
+        uniquePath_ = MLDB::format("%s/mongo-temporary-server-%d-%d",
                                  tmpDir, getpid(), index);
         cerr << ("starting mongo temporary server under unique path "
                  + uniquePath_ + "\n");
@@ -56,7 +57,7 @@ MongoTemporaryServer(const string & uniquePath, const int portNum)
             freePort = 0;
         }
         if (freePort == 0) {
-            throw ML::Exception("Failed to find free port");
+            throw MLDB::Exception("Failed to find free port");
         }
         this->portNum = freePort;
     }
@@ -80,7 +81,7 @@ testConnection()
     // 3.  Connect to the server to make sure it works
     int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock == -1) {
-        throw ML::Exception(errno, "socket");
+        throw MLDB::Exception(errno, "socket");
     }
 
     sockaddr_un addr;
@@ -102,7 +103,7 @@ testConnection()
             }
             else if (res == -1) {
                 if (errno != ECONNREFUSED && errno != ENOENT) {
-                    throw ML::Exception(errno, "connect");
+                    throw MLDB::Exception(errno, "connect");
                 }
             }
         }
@@ -110,7 +111,7 @@ testConnection()
     }
 
     if (!connected) {
-        throw ML::Exception("mongod didn't start up in 10 seconds");
+        throw MLDB::Exception("mongod didn't start up in 10 seconds");
     }
     ::close(sock);
 }
@@ -121,7 +122,7 @@ start()
 {
     // Check the unique path
     if (uniquePath_.empty() || uniquePath_ == "." || uniquePath_ == "..") {
-        throw ML::Exception("unacceptable unique path");
+        throw MLDB::Exception("unacceptable unique path");
     }
 
     // 1.  Create the directory
@@ -131,15 +132,15 @@ start()
     int res = ::stat(uniquePath_.c_str(), &stats);
     if (res == -1) {
         if (errno != EEXIST && errno != ENOENT) {
-            throw ML::Exception(errno, "unhandled exception");
+            throw MLDB::Exception(errno, "unhandled exception");
         }
     } else if (res == 0) {
-        throw ML::Exception("unique path " + uniquePath_ + " already exists");
+        throw MLDB::Exception("unique path " + uniquePath_ + " already exists");
     }
 
     cerr << "creating directory " << uniquePath_ << endl;
     if (!fs::create_directories(fs::path(uniquePath_))) {
-        throw ML::Exception("could not create unique path " + uniquePath_);
+        throw MLDB::Exception("could not create unique path " + uniquePath_);
     }
 
     socketPrefix_ = uniquePath_ + "/mongo-socket";
@@ -147,20 +148,20 @@ start()
     int UNIX_PATH_MAX=108;
 
     if (socketPrefix_.size() >= UNIX_PATH_MAX) {
-        throw ML::Exception("unix socket path is too long");
+        throw MLDB::Exception("unix socket path is too long");
     }
 
     // Create unix socket directory
     fs::path unixdir(socketPrefix_);
     if (!fs::create_directory(unixdir)) {
-        throw ML::Exception(errno,
+        throw MLDB::Exception(errno,
                             "couldn't create unix socket directory for Mongo");
     }
     auto onStdOut = [&] (string && message) {
          cerr << "received message on stdout: /" + message + "/" << endl;
         //  receivedStdOut += message;
     };
-    auto stdOutSink = make_shared<Datacratic::CallbackInputSink>(onStdOut);
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
     loop_.addSource("runner", runner_);
     loop_.start();

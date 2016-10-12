@@ -15,11 +15,10 @@
 #include <boost/interprocess/sync/scoped_lock.hpp>
 
 using namespace std;
-using namespace ML;
 namespace ipc = boost::interprocess;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* SHARED GC LOCK                                                            */
@@ -97,4 +96,4 @@ unlink()
     (void) ipc::named_mutex::remove(name.c_str());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -13,7 +13,7 @@
 #include <functional>
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /** Run the given lambda over every line read from the stream, with the
@@ -134,4 +134,4 @@ void forEachChunk(std::istream & stream,
                   int64_t maxChunks,
                   int maxParallelism);
     
-} // namespace Datacratic
+} // namespace MLDB

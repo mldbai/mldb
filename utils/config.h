@@ -20,7 +20,7 @@ typedef basic_parsed_options<char> parsed_options;
 }
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Config {
     typedef std::shared_ptr<Config> ConfigPtr;

@@ -12,7 +12,7 @@
 #include "js_common.h"
 #include "mldb/sql/cell_value.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct MldbServer;
@@ -118,4 +118,4 @@ struct MldbJS: public JsObjectBase {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

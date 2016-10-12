@@ -17,10 +17,9 @@
 
 
 using namespace std;
-using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -56,7 +55,7 @@ ValueDescription(ValueKind kind,
                  const std::string & typeName)
     : kind(kind),
       type(type),
-      typeName(typeName.empty() ? ML::demangle(type->name()) : typeName),
+      typeName(typeName.empty() ? demangle(type->name()) : typeName),
       jsConverters(nullptr),
       jsConvertersInitialized(false)
 {
@@ -78,49 +77,49 @@ void *
 ValueDescription::
 optionalMakeValue(void * val) const
 {
-    throw ML::Exception("type is not optional");
+    throw MLDB::Exception("type is not optional");
 }
 
 const void *
 ValueDescription::
 optionalGetValue(const void * val) const
 {
-    throw ML::Exception("type is not optional");
+    throw MLDB::Exception("type is not optional");
 }
 
 size_t
 ValueDescription::
 getArrayLength(void * val) const
 {
-    throw ML::Exception("type is not an array");
+    throw MLDB::Exception("type is not an array");
 }
 
 void *
 ValueDescription::
 getArrayElement(void * val, uint32_t element) const
 {
-    throw ML::Exception("type is not an array");
+    throw MLDB::Exception("type is not an array");
 }
 
 std::vector<std::shared_ptr<const ValueDescription> >
 ValueDescription::
 getTupleElementDescriptions() const
 {
-    throw ML::Exception("type '" + typeName + "' is not a tuple " + ML::type_name(*this));
+    throw MLDB::Exception("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
 }
 
 size_t
 ValueDescription::
 getTupleLength() const
 {
-    throw ML::Exception("type '" + typeName + "' is not a tuple " + ML::type_name(*this));
+    throw MLDB::Exception("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
 }
 
 const void *
 ValueDescription::
 getArrayElement(const void * val, uint32_t element) const
 {
-    throw ML::Exception("type is not an array");
+    throw MLDB::Exception("type is not an array");
 }
 
 /** Return the value description for the nth array element.  This is
@@ -138,56 +137,56 @@ void
 ValueDescription::
 setArrayLength(void * val, size_t newLength) const
 {
-    throw ML::Exception("type is not an array");
+    throw MLDB::Exception("type is not an array");
 }
 
 const ValueDescription &
 ValueDescription::
 getKeyValueDescription() const
 {
-    throw ML::Exception("type '" + typeName + "' has no key");
+    throw MLDB::Exception("type '" + typeName + "' has no key");
 }
 
 const ValueDescription &
 ValueDescription::
 contained() const
 {
-    throw ML::Exception("type '" + typeName + "' does not contain another");
+    throw MLDB::Exception("type '" + typeName + "' does not contain another");
 }
 
 OwnershipModel
 ValueDescription::
 getOwnershipModel() const
 {
-    throw ML::Exception("type '" + typeName + "' does not define an ownership type");
+    throw MLDB::Exception("type '" + typeName + "' does not define an ownership type");
 }
 
 void*
 ValueDescription::
 getLink(void* obj) const
 {
-    throw ML::Exception("type '" + typeName + "' is not a link");
+    throw MLDB::Exception("type '" + typeName + "' is not a link");
 }
 
 void
 ValueDescription::
 set(void* obj, void* value, const ValueDescription* valueDesc) const
 {
-    throw ML::Exception("type '" + typeName + "' can't be written to");
+    throw MLDB::Exception("type '" + typeName + "' can't be written to");
 }
 
 size_t
 ValueDescription::
 getFieldCount(const void * val) const
 {
-    throw ML::Exception("type '" + typeName + "' doesn't support fields");
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription *
 ValueDescription::
 hasField(const void * val, const std::string & name) const
 {
-    throw ML::Exception("type '" + typeName + "' doesn't support fields");
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
 }
 
 void
@@ -195,28 +194,28 @@ ValueDescription::
 forEachField(const void * val,
              const std::function<void (const FieldDescription &)> & onField) const
 {
-    throw ML::Exception("type '" + typeName + "' doesn't support fields");
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription & 
 ValueDescription::
 getField(const std::string & field) const
 {
-    throw ML::Exception("type '" + typeName + "' doesn't support fields");
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
 }
 
 const std::vector<std::string>
 ValueDescription::
 getEnumKeys() const
 {
-    throw ML::Exception("type '" + typeName + "' is not an enum");
+    throw MLDB::Exception("type '" + typeName + "' is not an enum");
 }
 
 std::vector<std::tuple<int, std::string, std::string> >
 ValueDescription::
 getEnumValues() const
 {
-    throw ML::Exception("type '" + typeName + "' is not an enum");
+    throw MLDB::Exception("type '" + typeName + "' is not an enum");
 }
 
 bool
@@ -311,16 +310,16 @@ registerValueDescription(const std::type_info & type,
     ExcAssert(desc);
     registry()[desc->typeName] = desc;
     registry()[type.name()] = desc;
-    registry()[ML::demangle(type.name())] = desc;
+    registry()[demangle(type.name())] = desc;
     initFn(*desc);
 #if 0
-    cerr << "type " << ML::demangle(type.name())
+    cerr << "type " << demangle(type.name())
          << " has description "
-         << ML::type_name(*desc) << " default " << isDefault << endl;
+         << MLDB::type_name(*desc) << " default " << isDefault << endl;
 
     if (registry().count(type.name()))
-        throw ML::Exception("attempt to double register "
-                            + ML::demangle(type.name()));
+        throw MLDB::Exception("attempt to double register "
+                            + demangle(type.name()));
 #endif
 }
 
@@ -349,7 +348,7 @@ StructureDescriptionBase(const std::type_info * type,
                          const std::string & structName,
                          bool nullAccepted)
     : type(type),
-      structName(structName.empty() ? ML::demangle(type->name()) : structName),
+      structName(structName.empty() ? demangle(type->name()) : structName),
       nullAccepted(nullAccepted),
       owner(owner)
 {
@@ -394,7 +393,7 @@ operator = (StructureDescriptionBase && other)
 StructureDescriptionBase::Exception::
 Exception(JsonParsingContext & context,
           const std::string & message)
-    : ML::Exception("at " + context.printPath() + ": " + message)
+    : MLDB::Exception("at " + context.printPath() + ": " + message)
 {
 }
 
@@ -833,4 +832,4 @@ unsigned long long int stringToKey(const std::string & str, unsigned long long i
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

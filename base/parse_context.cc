@@ -21,25 +21,25 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
 /* PARSE_CONTEXT                                                             */
 /*****************************************************************************/
 
-const std::string Parse_Context::CONSOLE("-");
+const std::string ParseContext::CONSOLE("-");
 
-Parse_Context::
-Parse_Context()
+ParseContext::
+ParseContext()
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       cur_(0), ebuf_(0),
       line_(0), col_(0), ofs_(0)
 {
 }
 
-Parse_Context::
-Parse_Context(const std::string & filename, const char * start,
+ParseContext::
+ParseContext(const std::string & filename, const char * start,
               const char * end, unsigned line, unsigned col)
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       filename_(filename), cur_(start), ebuf_(end),
@@ -49,8 +49,8 @@ Parse_Context(const std::string & filename, const char * start,
                                Buffer(0, start, end - start, false));
 }
 
-Parse_Context::
-Parse_Context(const std::string & filename, const char * start,
+ParseContext::
+ParseContext(const std::string & filename, const char * start,
               size_t length, unsigned line, unsigned col)
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       filename_(filename), cur_(start), ebuf_(start + length),
@@ -62,8 +62,8 @@ Parse_Context(const std::string & filename, const char * start,
     //cerr << "current buffer has " << current_->size << " chars" << endl;
 }
 
-Parse_Context::
-Parse_Context(const std::string & filename)
+ParseContext::
+ParseContext(const std::string & filename)
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       cur_(0), ebuf_(0),
       line_(0), col_(0), ofs_(0)
@@ -71,8 +71,8 @@ Parse_Context(const std::string & filename)
     init(filename);
 }
 
-Parse_Context::
-Parse_Context(const std::string & filename, std::istream & stream,
+ParseContext::
+ParseContext(const std::string & filename, std::istream & stream,
               unsigned line, unsigned col, size_t chunk_size)
     : stream_(&stream), chunk_size_(chunk_size), first_token_(0), last_token_(0),
       filename_(filename), cur_(0), ebuf_(0),
@@ -86,13 +86,13 @@ Parse_Context(const std::string & filename, std::istream & stream,
     }
 }
 
-Parse_Context::
-~Parse_Context()
+ParseContext::
+~ParseContext()
 {
 }
 
 void
-Parse_Context::
+ParseContext::
 init(const std::string & filename)
 {
     stream_ = 0;
@@ -162,20 +162,20 @@ struct MatchAnyCharLots {
 } // file scope
 
 bool
-Parse_Context::
+ParseContext::
 match_text(std::string & text, const char * delimiters)
 {
     int nd = strlen(delimiters);
 
     if (nd == 0)
-        throw ML::Exception("Parse_Context::match_text(): no characters");
+        throw MLDB::Exception("ParseContext::match_text(): no characters");
 
     if (nd <= 4) return match_text(text, MatchAnyChar(delimiters, nd));
     else return match_text(text, MatchAnyCharLots(delimiters, nd));
 }
 
 bool 
-Parse_Context::
+ParseContext::
 match_test_icase(const char* word)
 {
     Revert_Token token(*this);
@@ -200,7 +200,7 @@ match_test_icase(const char* word)
 }
 
 std::string
-Parse_Context::
+ParseContext::
 expect_text(char delimiter, bool allow_empty, const char * error)
 {
     string result;
@@ -210,7 +210,7 @@ expect_text(char delimiter, bool allow_empty, const char * error)
 }
     
 std::string
-Parse_Context::
+ParseContext::
 expect_text(const char * delimiters, bool allow_empty, const char * error)
 {
     string result;
@@ -220,12 +220,12 @@ expect_text(const char * delimiters, bool allow_empty, const char * error)
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_int(int & val_, int min, int max)
 {
     Revert_Token tok(*this);
     long val = 0;
-    if (!ML::match_int(val, *this)) return false;
+    if (!MLDB::match_int(val, *this)) return false;
     if (val < min || val > max) return false;
     val_ = val;
     tok.ignore();
@@ -233,7 +233,7 @@ match_int(int & val_, int min, int max)
 }
     
 int
-Parse_Context::
+ParseContext::
 expect_int(int min, int max, const char * error)
 {
     int result;
@@ -242,12 +242,12 @@ expect_int(int min, int max, const char * error)
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_hex4(int & val_, int min, int max)
 {
     Revert_Token tok(*this);
     long val = 0;
-    if (!ML::match_hex4(val, *this)) return false;
+    if (!MLDB::match_hex4(val, *this)) return false;
     if (val < min || val > max) return false;
     val_ = val;
     tok.ignore();
@@ -255,7 +255,7 @@ match_hex4(int & val_, int min, int max)
 }
 
 int
-Parse_Context::
+ParseContext::
 expect_hex4(int min, int max, const char * error)
 {
     int result;
@@ -264,12 +264,12 @@ expect_hex4(int min, int max, const char * error)
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_unsigned(unsigned & val_, unsigned min, unsigned max)
 {
     Revert_Token tok(*this);
     unsigned long val;
-    if (!ML::match_unsigned(val, *this)) return false;
+    if (!MLDB::match_unsigned(val, *this)) return false;
     if (val < min || val > max) return false;
     val_ = val;
     tok.ignore();
@@ -277,7 +277,7 @@ match_unsigned(unsigned & val_, unsigned min, unsigned max)
 }
 
 unsigned
-Parse_Context::
+ParseContext::
 expect_unsigned(unsigned min, unsigned max, const char * error)
 {
     unsigned result = 1;
@@ -286,12 +286,12 @@ expect_unsigned(unsigned min, unsigned max, const char * error)
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_long(long & val_, long min, long max)
 {
     Revert_Token tok(*this);
     long val = 0;
-    if (!ML::match_long(val, *this)) return false;
+    if (!MLDB::match_long(val, *this)) return false;
     if (val < min || val > max) return false;
     val_ = val;
     tok.ignore();
@@ -299,7 +299,7 @@ match_long(long & val_, long min, long max)
 }
     
 long
-Parse_Context::
+ParseContext::
 expect_long(long min, long max, const char * error)
 {
     long result;
@@ -308,13 +308,13 @@ expect_long(long min, long max, const char * error)
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_unsigned_long(unsigned long & val_, unsigned long min,
                          unsigned long max)
 {
     Revert_Token tok(*this);
     unsigned long val = 0;
-    if (!ML::match_unsigned_long(val, *this)) return false;
+    if (!MLDB::match_unsigned_long(val, *this)) return false;
     if (val < min || val > max) return false;
     val_ = val;
     tok.ignore();
@@ -322,7 +322,7 @@ match_unsigned_long(unsigned long & val_, unsigned long min,
 }
 
 unsigned long
-Parse_Context::
+ParseContext::
 expect_unsigned_long(unsigned long min, unsigned long max,
                           const char * error)
 {
@@ -332,12 +332,12 @@ expect_unsigned_long(unsigned long min, unsigned long max,
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_long_long(long long & val_, long long min, long long max)
 {
     Revert_Token tok(*this);
     long long val = 0;
-    if (!ML::match_long_long(val, *this)) return false;
+    if (!MLDB::match_long_long(val, *this)) return false;
     if (val < min || val > max) return false;
     val_ = val;
     tok.ignore();
@@ -345,7 +345,7 @@ match_long_long(long long & val_, long long min, long long max)
 }
     
 long long
-Parse_Context::
+ParseContext::
 expect_long_long(long long min, long long max, const char * error)
 {
     long long result;
@@ -354,13 +354,13 @@ expect_long_long(long long min, long long max, const char * error)
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_unsigned_long_long(unsigned long long & val_, unsigned long long min,
                          unsigned long long max)
 {
     Revert_Token tok(*this);
     unsigned long long val = 0;
-    if (!ML::match_unsigned_long_long(val, *this)) return false;
+    if (!MLDB::match_unsigned_long_long(val, *this)) return false;
     if (val < min || val > max) return false;
     val_ = val;
     tok.ignore();
@@ -368,7 +368,7 @@ match_unsigned_long_long(unsigned long long & val_, unsigned long long min,
 }
 
 unsigned long long
-Parse_Context::
+ParseContext::
 expect_unsigned_long_long(unsigned long long min, unsigned long long max,
                           const char * error)
 {
@@ -378,18 +378,18 @@ expect_unsigned_long_long(unsigned long long min, unsigned long long max,
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_float(float & val, float min, float max, bool lenient)
 {
     Revert_Token t(*this);
-    if (!ML::match_float(val, *this, lenient)) return false;
+    if (!MLDB::match_float(val, *this, lenient)) return false;
     if (val < min || val > max) return false;
     t.ignore();
     return true;
 }
 
 float
-Parse_Context::
+ParseContext::
 expect_float(float min, float max, const char * error, bool lenient)
 {
     float val;
@@ -399,18 +399,18 @@ expect_float(float min, float max, const char * error, bool lenient)
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_double(double & val, double min, double max, bool lenient)
 {
     Revert_Token t(*this);
-    if (!ML::match_float(val, *this, lenient)) return false;
+    if (!MLDB::match_float(val, *this, lenient)) return false;
     if (val < min || val > max) return false;
     t.ignore();
     return true;
 }
 
 double
-Parse_Context::
+ParseContext::
 expect_double(double min, double max, const char * error, bool lenient)
 {
     double val;
@@ -420,7 +420,7 @@ expect_double(double min, double max, const char * error, bool lenient)
 }
 
 std::string
-Parse_Context::
+ParseContext::
 where() const
 {
     if (!eof()) {
@@ -443,21 +443,21 @@ where() const
 }
 
 void
-Parse_Context::
+ParseContext::
 exception(const std::string & message) const
 {
     throw Exception(where() + ": " + message, filename_, line_, col_);
 }
 
 void
-Parse_Context::
+ParseContext::
 exception(const char * message) const
 {
     throw Exception(where() + ": " + string(message), filename_, line_, col_);
 }
 
 void
-Parse_Context::
+ParseContext::
 exception_fmt(const char * fmt, ...) const
 {
     va_list ap;
@@ -468,7 +468,7 @@ exception_fmt(const char * fmt, ...) const
 }
 
 bool
-Parse_Context::
+ParseContext::
 match_literal_str(const char * start, size_t len)
 {
     Revert_Token token(*this);
@@ -487,7 +487,7 @@ match_literal_str(const char * start, size_t len)
 }
 
 void
-Parse_Context::
+ParseContext::
 next_buffer()
 {
     //cerr << "next_buffer: ofs_ = " << ofs_ << " line_ = " << line_
@@ -497,7 +497,7 @@ next_buffer()
 
     if (current_ == buffers_.end()) {
         return; // eof
-        throw ML::Exception("Parse_Context: asked for new buffer when already "
+        throw MLDB::Exception("ParseContext: asked for new buffer when already "
                             " at end");
     }
     else {
@@ -530,7 +530,7 @@ next_buffer()
 }
 
 void
-Parse_Context::
+ParseContext::
 goto_ofs(uint64_t ofs, size_t line, size_t col,
          bool in_destructor)
 {
@@ -573,11 +573,11 @@ goto_ofs(uint64_t ofs, size_t line, size_t col,
         return;
     }
 
-    exception_fmt("Parse_Context::goto_ofs(): couldn't find position %zd (l%zdc%zd)", ofs, line, col);
+    exception_fmt("ParseContext::goto_ofs(): couldn't find position %zd (l%zdc%zd)", ofs, line, col);
 }
 
 std::string
-Parse_Context::
+ParseContext::
 text_between(uint64_t ofs1, uint64_t ofs2) const
 {
     std::string result;
@@ -601,7 +601,7 @@ text_between(uint64_t ofs1, uint64_t ofs2) const
 }
 
 void
-Parse_Context::
+ParseContext::
 free_buffers()
 {
     /* Free buffers so long as a) it's not the current buffer, and b)
@@ -619,8 +619,8 @@ free_buffers()
     }
 }
 
-std::list<Parse_Context::Buffer>::iterator
-Parse_Context::
+std::list<ParseContext::Buffer>::iterator
+ParseContext::
 read_new_buffer()
 {
     if (!stream_) return buffers_.end();
@@ -671,16 +671,16 @@ read_new_buffer()
 }
 
 void
-Parse_Context::
+ParseContext::
 set_chunk_size(size_t size)
 {
     if (size == 0)
-        throw ML::Exception("Parse_Context::chunk_size(): invalid chunk size");
+        throw MLDB::Exception("ParseContext::chunk_size(): invalid chunk size");
     chunk_size_ = size;
 }
 
 size_t
-Parse_Context::
+ParseContext::
 readahead_available() const
 {
     if (eof()) return 0;
@@ -697,7 +697,7 @@ readahead_available() const
 }
 
 size_t
-Parse_Context::
+ParseContext::
 total_buffered() const
 {
     if (eof()) return 0;
@@ -712,4 +712,4 @@ total_buffered() const
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

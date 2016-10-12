@@ -19,11 +19,10 @@
 
 using namespace std;
 
-namespace Datacratic {
 namespace MLDB {
 
 namespace {
-   std::unordered_map<ColumnName, ColumnStats>
+   std::unordered_map<ColumnPath, ColumnStats>
    getColumnStats(const SelectExpression & select,
                   const Dataset & from,
                   const WhenExpression & when,
@@ -32,19 +31,19 @@ namespace {
                   ssize_t offset,
                   ssize_t limit) {
 
-       std::unordered_map<ColumnName, ColumnStats> stats;
+       std::unordered_map<ColumnPath, ColumnStats> stats;
        
        auto onRow = [&stats] (NamedRowValue & output_) {
            MatrixNamedRow output = output_.flattenDestructive();
            for (auto & col : output.columns) {
-               auto columnName = get<0>(col);
+               auto columnPath = get<0>(col);
                auto cellValue = get<1>(col);
-               auto it = stats.find(columnName);
+               auto it = stats.find(columnPath);
                if (it == stats.end()) {
-                   auto & colStats = stats[columnName];
+                   auto & colStats = stats[columnPath];
                    colStats.isNumeric_ = cellValue.isNumber();
                }
-               auto & colStats = stats[columnName];
+               auto & colStats = stats[columnPath];
                colStats.isNumeric_ = colStats.isNumeric_ && cellValue.isNumber();
                colStats.rowCount_ +=1;
                // since there could be several values for a column in the same row 
@@ -106,8 +105,8 @@ classifyColumns(const SelectExpression & select_,
 
     auto boundSelect = select.bind(context);
 
-    std::vector<ColumnName> selectedColumnsVec = boundSelect.info->allColumnNames();
-    std::set<ColumnName> selectedColumns(selectedColumnsVec.begin(),
+    std::vector<ColumnPath> selectedColumnsVec = boundSelect.info->allColumnNames();
+    std::set<ColumnPath> selectedColumns(selectedColumnsVec.begin(),
                                          selectedColumnsVec.end());
     if (boundSelect.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN)
         cerr << "WARNING: non-enumerated columns will not be used "
@@ -120,14 +119,19 @@ classifyColumns(const SelectExpression & select_,
     std::vector<ContinuousColumnInfo> continuousColumns;
     std::vector<SparseColumnInfo> sparseColumns;
 
-    std::unordered_map<ColumnName, ColumnStats> stats = 
+    std::unordered_map<ColumnPath, ColumnStats> stats = 
         getColumnStats(select, dataset, when, where, orderBy, offset, limit);
  
     cerr << "stats size " << stats.size() << endl;
 
     size_t rowCount = dataset.getMatrixView()->getRowCount();
 
+
     for (auto & colStats : stats) {
+
+        // If it wasn't in our selected columns, we don't keep it       
+        if (!selectedColumns.count(colStats.first))  
+            continue;
 
         cerr << "column " << colStats.first << " has " << colStats.second.rowCount()
              << " values set" << " numeric = " << colStats.second.isNumeric()
@@ -213,7 +217,8 @@ extractFeaturesFromRows(const SelectExpression & select,
     std::mutex bucketMutexes[numBuckets];
     std::atomic<size_t> numExamples(0);
 
-    ML::Timer timer;
+    Timer timer;
+
     cerr << "extracting values" << endl;
 
     // Get an index of ColumnHash to dense value
@@ -257,7 +262,8 @@ extractFeaturesFromRows(const SelectExpression & select,
 
             return true;
         };
-    iterateDataset(select, dataset, "", when, *where, {onRow, true /*processInParallel*/}, orderBy, offset, limit, nullptr);
+    iterateDataset(select, dataset, "", when, *where, 
+                   {onRow, true /*processInParallel*/}, orderBy, offset, limit, nullptr);
 
     cerr << "done extracting values in " << timer.elapsed() << endl;
 
@@ -301,7 +307,7 @@ extractFeaturesFromRows(const SelectExpression & select,
     {
         static int n = 0;
         cerr << "saving buckets " << n << endl;
-        filter_ostream stream(ML::format("buckets-%d.json", n++));
+        filter_ostream stream(MLDB::format("buckets-%d.json", n++));
         stream << "numExamples = " << featureBuckets.numExamples << endl;
         for (unsigned i = 0;  i < featureBuckets.size();  ++i) {
             stream << "bucket " << i << endl;
@@ -323,7 +329,7 @@ ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
                const FeatureBuckets & featureBuckets)
 {
-    ML::Timer timer;
+    Timer timer;
 
     int numContinuousColumns = columns.continuousColumns.size();
     int numSparseColumns = columns.sparseColumns.size();
@@ -426,7 +432,7 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
     // - for two sparse: hamming distance
     //
 
-    ML::Timer timer;
+    Timer timer;
 
     int numColumns = std::min<int>(numBasisVectors, columnIndex.size());
 
@@ -483,4 +489,4 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

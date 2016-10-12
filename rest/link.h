@@ -12,7 +12,7 @@
 
 #include "mldb/watch/watch.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct LinkToken;
@@ -229,4 +229,4 @@ private:
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

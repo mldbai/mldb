@@ -10,7 +10,7 @@
 
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T, typename U>
 struct PairDescription
@@ -56,7 +56,7 @@ struct PairDescription
             return *inner1;
         else if (element == 1)
             return *inner1;
-        else throw ML::Exception("Invalid element number for pair type '"
+        else throw MLDB::Exception("Invalid element number for pair type '"
                                  + this->typeName + "'");
     }
 
@@ -107,4 +107,4 @@ struct PairDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(PairDescription, std::pair, typename, T1, typename, T2);
 
-} // namespace Datacratic
+} // namespace MLDB

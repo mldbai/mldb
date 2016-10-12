@@ -15,7 +15,7 @@
 #include "ext/googleurl/src/url_util.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 #define TEST_ALL 1
 
@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE(test_invalid_input)
 #if TOLERATE_URL_BAD_ENCODING
     BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 
 
@@ -79,14 +79,14 @@ BOOST_AUTO_TEST_CASE(test_invalid_input)
 #if TOLERATE_URL_BAD_ENCODING
     BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 
     in = "%a";
 #if TOLERATE_URL_BAD_ENCODING
     BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 }
 #endif
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(test_invalid_utf8)
     Utf8String expected = "Ã";
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 }
 #endif

@@ -373,7 +373,7 @@ explain(const Feature_Set & feature_set,
     }
 
     if(label_idx > weights.size() - 1) {
-        throw ML::Exception("label bigger than weight vector");
+        throw MLDB::Exception("label bigger than weight vector");
     }
 
     for (unsigned j = 0;  j < features.size();  ++j) {
@@ -479,7 +479,7 @@ reconstitute(DB::Store_Reader & store)
         }
     }
     else {
-        throw ML::Exception("Unknown GLZ classifier version %d", (int)version);
+        throw MLDB::Exception("Unknown GLZ classifier version %d", (int)version);
     }
     
     compact_size_t guard(store);

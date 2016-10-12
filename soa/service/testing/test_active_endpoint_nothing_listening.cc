@@ -23,7 +23,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_active_endpoint_nothing_listening )

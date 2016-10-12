@@ -124,19 +124,19 @@ Deleting a credential entity will also delete its persisted copy.
 
 Credentials are represented as JSON objects with the following fields.
 
-![](%%type Datacratic::StoredCredentials)
+![](%%type MLDB::StoredCredentials)
 
 with the `credential` field (which define the actual credentials and the resource to
 access) as follows:
 
-![](%%type Datacratic::Credential)
+![](%%type MLDB::Credential)
 
 ### Storing credentials
 
 You can `PUT` (without an ID) or `POST` (with an ID) the following object to
 `/v1/credentials` in order to store new credentials:
 
-![](%%type Datacratic::MLDB::CredentialRuleConfig)
+![](%%type MLDB::CredentialRuleConfig)
 
 
 ### Example: storing Amazon Web Services S3 credentials

@@ -123,14 +123,15 @@ Decision_Tree_Generator::~Decision_Tree_Generator()
 
 void
 Decision_Tree_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
+    Classifier_Generator::configure(config, unparsedKeys);
 
-    config.find(trace, "trace");
-    config.find(max_depth, "max_depth");
-    config.find(update_alg, "update_alg");
-    config.find(random_feature_propn, "random_feature_propn");
+    config.findAndRemove(trace, "trace", unparsedKeys);
+    config.findAndRemove(max_depth, "max_depth", unparsedKeys);
+    config.findAndRemove(update_alg, "update_alg", unparsedKeys);
+    config.findAndRemove(random_feature_propn, "random_feature_propn", unparsedKeys);
+    config.findAndRemove(verbosity, "verbosity", unparsedKeys);
 }
 
 void
@@ -800,7 +801,7 @@ struct TreeTrainer {
                    double total_in_class,
                    int new_depth, int max_depth,
                    Tree & tree,
-                   Datacratic::ThreadPool & tp) const
+                   MLDB::ThreadPool & tp) const
     {
 #if 0
         if (total_in_class > 1024) {
@@ -1057,7 +1058,7 @@ struct TreeTrainer {
         node->examples = total_weight;
         node->pred = leaf.pred;
 
-        Datacratic::ThreadPool tp;
+        MLDB::ThreadPool tp;
         
         do_branch(node->child_true,
                   context, data, weights, binary_weights, advance, features,

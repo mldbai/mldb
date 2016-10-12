@@ -14,8 +14,7 @@
 #include "mldb/arch/format.h"
 
 using namespace std;
-using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_print_format )

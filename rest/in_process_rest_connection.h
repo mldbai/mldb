@@ -11,7 +11,7 @@
 
 #include "http_rest_service.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* IN PROCESS HTTP REST CONNECTION                                           */

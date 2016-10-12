@@ -22,8 +22,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_two_members )
 {
@@ -48,23 +48,23 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     // Now we have a dataset, put some rows into it
     
     MatrixNamedRow row;
-    row.rowName = RowName("row1");
-    row.columns.emplace_back(ColumnName("techno"), "yes", Date());
-    row.columns.emplace_back(ColumnName("dance"), "yes", Date());
+    row.rowName = RowPath("row1");
+    row.columns.emplace_back(ColumnPath("techno"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("dance"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     row.columns.clear();
 
-    row.rowName = RowName("row2");
-    row.columns.emplace_back(ColumnName("dance"), "yes", Date());
-    row.columns.emplace_back(ColumnName("country"), "yes", Date());
+    row.rowName = RowPath("row2");
+    row.columns.emplace_back(ColumnPath("dance"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("country"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     row.columns.clear();
 
-    row.rowName = RowName("row3");
-    row.columns.emplace_back(ColumnName("tag with spaces"), "yes", Date());
-    row.columns.emplace_back(ColumnName("tag:with spaces"), "yes", Date());
+    row.rowName = RowPath("row3");
+    row.columns.emplace_back(ColumnPath("tag with spaces"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("tag:with spaces"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
             auto selectJson = jsonDecodeStr<std::vector<MatrixNamedRow> >(selectResult.body());
 
             BOOST_REQUIRE_EQUAL(selectJson.size(), 1);
-            BOOST_CHECK_EQUAL(selectJson[0].rowName, RowName(answer));
+            BOOST_CHECK_EQUAL(selectJson[0].rowName, RowPath(answer));
         };
 
     checkRow("*", "techno='yes'", "row1");

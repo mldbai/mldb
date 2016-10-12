@@ -28,7 +28,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_connection_overflow )
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE( test_connection_overflow )
         if (res == 0)
             break;
         if (res == -1)
-            throw ML::Exception(errno, "Failed to read()");
+            throw MLDB::Exception(errno, "Failed to read()");
         bytesRead += res;
     }
 

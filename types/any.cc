@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -172,7 +172,7 @@ void
 Any::
 throwNoValueDescription() const
 {
-    throw ML::Exception("Any had no type attached");
+    throw MLDB::Exception("Any had no type attached");
 }
 
 bool operator==(const Any & lhs, const Any & rhs)
@@ -323,4 +323,4 @@ getBareAnyDescription()
     return std::make_shared<BareAnyDescription>();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

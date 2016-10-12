@@ -101,9 +101,10 @@ statistics (e.g. [precision, recall](http://en.wikipedia.org/wiki/Precision_and_
 for the classifier, where the label with the maximum score will be chosen as the
 prediction for each example. 
 
-The value of `support` is the number of true positives
+The value of `support` is the number of occurrences 
 for that label. The `weighted_statistics` represents the average of the 
-per-label statistics, weighted by each label's support value.
+per-label statistics, weighted by each label's support value. This excludes
+the support value itself, for which we do the sum.
 
 Here is a sample output:
 
@@ -168,7 +169,7 @@ The `status` field will contain the following performance statistics:
 - [R squared score](https://en.wikipedia.org/wiki/Coefficient_of_determination)
 - Quantiles of errors: More robust to outliers than MSE. Given \\( y_i \\) the true 
 value and \\( \hat{y}_i \\) the predicted value, we return the 25th, 50th, 75th, and 90th
-percentile of \\( (y_i - \hat{y}_i) / y_i \forall i \\). The 50th percentile is
+percentile of \\( | y_i - \hat{y}_i | / y_i \forall i \\). The 50th percentile is
 the median and represents the *median absolute percentage* (MAPE).
 
 Here is a sample output:

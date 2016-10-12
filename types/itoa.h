@@ -14,7 +14,7 @@
 #include <string>
 #include <iostream>
 
-namespace Datacratic {
+namespace MLDB {
 
 constexpr int ITOA_BUF_LENGTH = 64;  // long enough for any integral type
 
@@ -81,4 +81,4 @@ std::string itoa(T i)
     return std::string(begin, end);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

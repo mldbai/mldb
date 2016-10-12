@@ -21,7 +21,7 @@
 #include <chrono>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* THREADED TEST                                                             */
@@ -96,7 +96,7 @@ struct ThreadedTimedTest
         return configs.size() - 1;
     }
 
-    typedef ML::distribution<double> Dist;
+    typedef distribution<double> Dist;
 
     std::pair<Dist, Dist> distributions(unsigned gr)
     {
@@ -114,4 +114,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

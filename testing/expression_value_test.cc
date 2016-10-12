@@ -19,8 +19,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_size )
 {
@@ -37,19 +37,19 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_row )
         
     ExpressionValue val2(row);
 
-    ColumnName cols[2] = { PathElement("a"), PathElement("b") };
+    ColumnPath cols[2] = { PathElement("a"), PathElement("b") };
 
     auto dist = val2.getEmbedding(cols, 2);
 
-    ML::distribution<double> expected{1, 2};
+    distribution<double> expected{1, 2};
 
     BOOST_CHECK_EQUAL(dist, expected);
 
-    ColumnName cols2[2] = { PathElement("b"), PathElement("a") };
+    ColumnPath cols2[2] = { PathElement("b"), PathElement("a") };
 
     dist = val2.getEmbedding(cols2, 2);
 
-    ML::distribution<double> expected2{2, 1};
+    distribution<double> expected2{2, 1};
 
     BOOST_CHECK_EQUAL(dist, expected2);
 }

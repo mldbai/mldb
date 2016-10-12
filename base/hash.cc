@@ -21,7 +21,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string base64Encode(const std::string & str)
 {
@@ -72,7 +72,7 @@ std::string md5HashToHex(const char * buf, size_t nBytes)
 
     string md5;
     for (unsigned i = 0;  i < digestLen;  ++i) {
-        md5 += ML::format("%02x", digest[i]);
+        md5 += MLDB::format("%02x", digest[i]);
     }
 
     return md5;
@@ -153,4 +153,4 @@ std::string hmacSha256Base64(const std::string & stringToSign,
         return base64digest;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

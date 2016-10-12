@@ -27,7 +27,9 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
+
+namespace PluginCommand {
 
 namespace {
 
@@ -67,14 +69,14 @@ std::vector<Date> iterDates(Date startDate, Date endDate,
                             TimePeriod step)
 {
     if (endDate < startDate)
-        throw ML::Exception("end date less than start date");
+        throw MLDB::Exception("end date less than start date");
     if (step.number <= 0)
-        throw ML::Exception("time interval goes the wrong way");
+        throw MLDB::Exception("time interval goes the wrong way");
 
     vector<Date> result;
     for (Date d = startDate;  d < endDate;  d += step) {
         if (result.size() > 100000)
-            throw ML::Exception("list of dates is too long");
+            throw MLDB::Exception("list of dates is too long");
         result.push_back(d);
     }
 
@@ -157,10 +159,10 @@ Json::Value csv(const std::vector<Json::Value> & params)
             for (unsigned j = 0;  j < params[i].size();  ++j) {
                 if (j != 0)
                     result += ',';
-                result += ML::csv_escape(stringRender(params[i][j]));
+                result += csv_escape(stringRender(params[i][j]));
             }
         }
-        else result += ML::csv_escape(stringRender(params[i]));
+        else result += csv_escape(stringRender(params[i]));
     }
     return result;
 }
@@ -186,7 +188,7 @@ Json::Value tsv(const std::vector<Json::Value> & params)
 Json::Value hash(const std::vector<Json::Value> & params)
 {
     if (params.size() != 1)
-        throw ML::Exception("hash() function takes exactly one argument");
+        throw MLDB::Exception("hash() function takes exactly one argument");
     return jsonHash(params[0]);
 }
 
@@ -244,13 +246,13 @@ applyFunction(const std::string & functionName,
             using namespace std;
             cerr << "function " << functionName << " is not registered"
                  << endl;
-            throw ML::Exception("function " + functionName + " is not registered");
+            throw MLDB::Exception("function " + functionName + " is not registered");
         }
     }
     try {
         return it->second(functionArgs);
     } catch (const std::exception & exc) {
-        throw ML::Exception("error trying to apply %s to args %s: %s",
+        throw MLDB::Exception("error trying to apply %s to args %s: %s",
                             functionName.c_str(),
                             boost::lexical_cast<std::string>(functionArgs).c_str(),
                             exc.what());
@@ -267,7 +269,7 @@ std::shared_ptr<CommandExpression>
 CommandExpression::
 parse(const std::string & val)
 {
-    ML::Parse_Context context(val, val.c_str(), val.c_str() + val.length());
+    ParseContext context(val, val.c_str(), val.c_str() + val.length());
     
     std::shared_ptr<CommandExpression> res;
     if (context.match_literal("%!"))
@@ -283,7 +285,7 @@ std::shared_ptr<CommandExpression>
 CommandExpression::
 parseArgumentExpression(const std::string & val)
 {
-    ML::Parse_Context context(val, val.c_str(), val.c_str() + val.length());
+    ParseContext context(val, val.c_str(), val.c_str() + val.length());
     
     auto res = parseArgumentExpression(context);
     
@@ -306,7 +308,7 @@ parse(const std::vector<std::string> & vals)
 
 std::shared_ptr<CommandExpression>
 CommandExpression::
-parseExpression(ML::Parse_Context & context, bool stopOnWhitespace)
+parseExpression(ParseContext & context, bool stopOnWhitespace)
 {
     // Default is concat... we stop when we have a percent
 
@@ -314,7 +316,7 @@ parseExpression(ML::Parse_Context & context, bool stopOnWhitespace)
 
     std::shared_ptr<ConcatExpression> expr(new ConcatExpression());
 
-    Parse_Context::Hold_Token token(context);
+    ParseContext::Hold_Token token(context);
 
     auto addContext = [&] (std::shared_ptr<CommandExpression> expr)
         {
@@ -377,9 +379,9 @@ parseExpression(ML::Parse_Context & context, bool stopOnWhitespace)
 
 std::shared_ptr<CommandExpression>
 CommandExpression::
-parseArgumentExpression(ML::Parse_Context & context)
+parseArgumentExpression(ParseContext & context)
 {
-    Parse_Context::Hold_Token token(context);
+    ParseContext::Hold_Token token(context);
 
     auto addContext = [&] (std::shared_ptr<CommandExpression> expr)
         {
@@ -580,7 +582,7 @@ argumentRender(const Json::Value & val)
         return str;
     }
     default:
-        throw ML::Exception("can't render value " + val.toString() + " as string");
+        throw MLDB::Exception("can't render value " + val.toString() + " as string");
     }
 }
 
@@ -606,7 +608,7 @@ commandRender(const Json::Value & val)
         return str;
     }
     default:
-        throw ML::Exception("can't render value " + val.toString() + " as command");
+        throw MLDB::Exception("can't render value " + val.toString() + " as command");
     }
 }
 
@@ -632,7 +634,7 @@ stringRender(const Json::Value & val)
         return str;
     }
     default:
-        throw ML::Exception("can't render value " + val.toString() + " as string");
+        throw MLDB::Exception("can't render value " + val.toString() + " as string");
     }
 }
 
@@ -645,7 +647,7 @@ void
 StringTemplate::
 parse(const std::string & command)
 {
-    ML::Parse_Context context(command,
+    ParseContext context(command,
                               command.c_str(), command.c_str() + command.size());
 
     expr = CommandExpression::parseExpression(context, false /* stop on whitespace */);
@@ -678,7 +680,7 @@ void
 CommandTemplate::
 parse(const std::string & command)
 {
-    ML::Parse_Context context(command,
+    ParseContext context(command,
                               command.c_str(), command.c_str() + command.size());
 
     while (context) {
@@ -744,8 +746,9 @@ CommandTemplateDescription()
     addField("commandLine", &CommandTemplate::commandLine, "expression to generate the command line");
 }
 
-DEFINE_VALUE_DESCRIPTION(std::shared_ptr<CommandExpression>, CommandExpressionDescription);
-DEFINE_VALUE_DESCRIPTION(StringTemplate, StringTemplateDescription);
+DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<CommandExpression>, CommandExpressionDescription);
+DEFINE_VALUE_DESCRIPTION_NS(StringTemplate, StringTemplateDescription);
 
+} // namespace PluginCommand
+} // namespace MLDB
 
-} // namespace Datacratic

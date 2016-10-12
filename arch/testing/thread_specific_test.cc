@@ -20,7 +20,7 @@
 #include <array>
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 struct Data
 {
@@ -53,13 +53,13 @@ struct Data
 size_t Data::constructed = 0;
 size_t Data::destructed = 0;
 
-typedef ML::ThreadSpecificInstanceInfo<Data, Data> Tls;
+typedef ThreadSpecificInstanceInfo<Data, Data> Tls;
 
 
 BOOST_AUTO_TEST_CASE(sanityTest)
 {
     {
-        ML::ThreadSpecificInstanceInfo<Data, Data> data;
+        ThreadSpecificInstanceInfo<Data, Data> data;
         data.get();
     }
 

@@ -16,7 +16,7 @@
 #include "mldb/server/bucket.h"
 #include "mldb/ml/jml/label.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -41,7 +41,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                         ML::Feature_Info labelInfo,
-                        const std::set<ColumnName> & includeColumns,
+                        const std::set<ColumnPath> & includeColumns,
                         bool bucketize = false);
 
     struct ColumnInfo {
@@ -50,7 +50,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         {
         }
 
-        ColumnName columnName;
+        ColumnPath columnName;
         ML::Feature_Info info;
         int index;
 
@@ -68,7 +68,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     };
 
     static ColumnInfo getColumnInfo(std::shared_ptr<Dataset> dataset,
-                                    const ColumnName & columnName,
+                                    const ColumnPath & columnName,
                                     bool bucketize);
 
     std::unordered_map<ColumnHash, ColumnInfo> columnInfo;
@@ -96,11 +96,11 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     ML::Label encodeLabel(const CellValue & value, bool isRegression) const;
 
     float encodeValue(const CellValue & value,
-                      const ColumnName & columnName,
+                      const ColumnPath & columnName,
                       const ML::Feature_Info & info) const;
 
 /*    float encodeValue(const CellValue & value,
-                      const ColumnName & columnName,
+                      const ColumnPath & columnName,
                       const ColumnInfo & columnInfo) const;*/
 
     virtual ML::Feature_Info info(const ML::Feature & feature) const override;
@@ -180,5 +180,5 @@ std::ostream & operator << (std::ostream & stream,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

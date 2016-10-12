@@ -25,7 +25,7 @@
 
 using namespace std;
 using namespace boost;
-using namespace Datacratic;
+using namespace MLDB;
 
 static asio::ip::tcp::resolver::iterator endIterator;
 
@@ -81,7 +81,7 @@ listen(const PortRange & portRange, const string & hostname, int backlog)
     }
 
     if (!v4Endpoint_.isOpen() && !v6Endpoint_.isOpen()) {
-        throw ML::Exception("impossible to bind to specified port(s)");
+        throw MLDB::Exception("impossible to bind to specified port(s)");
     }
 }
 
@@ -160,7 +160,7 @@ open(const asio::ip::tcp::endpoint & asioEndpoint,
                 break;
             }
             if (ec != asio::error::address_in_use) {
-                throw ML::Exception("error binding socket: " + ec.message());
+                throw MLDB::Exception("error binding socket: " + ec.message());
             }
         }
         if (bound) {

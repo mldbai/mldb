@@ -271,7 +271,7 @@ joint(const Feature & target, const Feature & independent,
 
     //if (!getItl()->index.count(target)) {
     //    cerr << "target = " << target << endl;
-    //    throw ML::Exception("Dataset index of %zd features doesn't include target",
+    //    throw MLDB::Exception("Dataset index of %zd features doesn't include target",
     //                        getItl()->index.size());
     //}
 
@@ -290,7 +290,7 @@ joint(const Feature & target, const Feature & independent,
         return Joint_Index(values, buckets, labels, examples, counts, divisors,
                            0, bucket_splits);
         
-        throw ML::Exception("Dataset index of %zd features doesn't include independent",
+        throw MLDB::Exception("Dataset index of %zd features doesn't include independent",
                             getItl()->index.size());
     }
 

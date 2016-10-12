@@ -31,10 +31,9 @@
 
 
 using namespace std;
-using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -70,7 +69,7 @@ connect(const std::string & hostname,
 
     int res = getaddrinfo(hostname.c_str(), port.c_str(), &hints, &result);
     if (res != 0)
-        throw ML::Exception("getaddrinfo: %s", gai_strerror(res));
+        throw MLDB::Exception("getaddrinfo: %s", gai_strerror(res));
 
     cerr << "res = " << res << endl;
     cerr << "result = " << result << endl;
@@ -104,7 +103,7 @@ connect(const std::string & hostname,
     }
         
     if (!rp)
-        throw ML::Exception("couldn't connect anywhere");
+        throw MLDB::Exception("couldn't connect anywhere");
         
     freeaddrinfo(result);           /* No longer needed */
 }
@@ -145,7 +144,7 @@ connect(const std::string & hostname,
     session = libssh2_session_init();
 
     if(!session)
-        throw ML::Exception("couldn't get libssh2 session");
+        throw MLDB::Exception("couldn't get libssh2 session");
  
     /* ... start it up. This will trade welcome banners, exchange keys,
      * and setup crypto, compression, and MAC layers
@@ -153,7 +152,7 @@ connect(const std::string & hostname,
     int rc = libssh2_session_handshake(session, sock);
 
     if(rc) {
-        throw ML::Exception("error establishing session");
+        throw MLDB::Exception("error establishing session");
     }
  
     /* At this point we havn't yet authenticated.  The first thing to do
@@ -181,7 +180,7 @@ passwordAuth(const std::string & username,
                                   username.c_str(),
                                   password.c_str())) {
 
-        throw ML::Exception("password authentication failed: " + lastError());
+        throw MLDB::Exception("password authentication failed: " + lastError());
     }
 }
 
@@ -196,7 +195,7 @@ publicKeyAuth(const std::string & username,
                                             publicKeyFile.c_str(),
                                             privateKeyFile.c_str(),
                                             "")) {
-        throw ML::Exception("public key authentication failed: " + lastError());
+        throw MLDB::Exception("public key authentication failed: " + lastError());
     }
 }
  
@@ -360,7 +359,7 @@ getAttr() const
     Attributes result;
     int res = libssh2_sftp_fstat_ex(handle, &result, 0);
     if (res == -1)
-        throw ML::Exception("getAttr(): " + owner->lastError());
+        throw MLDB::Exception("getAttr(): " + owner->lastError());
     return result;
 }
 
@@ -390,7 +389,7 @@ downloadTo(const std::string & filename) const
         ssize_t numRead = libssh2_sftp_read(handle, buf, bufSize);
         //cerr << "read " << numRead << " bytes" << endl;
         if (numRead < 0) {
-            throw ML::Exception("read(): " + owner->lastError());
+            throw MLDB::Exception("read(): " + owner->lastError());
         }
         if (numRead == 0) break;
 
@@ -443,7 +442,7 @@ connectPasswordAuth(const std::string & hostname,
     sftp_session = libssh2_sftp_init(session);
  
     if (!sftp_session) {
-        throw ML::Exception("can't initialize SFTP session: "
+        throw MLDB::Exception("can't initialize SFTP session: "
                             + lastError());
     }
 
@@ -463,7 +462,7 @@ connectPublicKeyAuth(const std::string & hostname,
     sftp_session = libssh2_sftp_init(session);
  
     if (!sftp_session) {
-        throw ML::Exception("can't initialize SFTP session: "
+        throw MLDB::Exception("can't initialize SFTP session: "
                             + lastError());
     }
 
@@ -477,7 +476,7 @@ getDirectory(const std::string & path) const
         = libssh2_sftp_opendir(sftp_session, path.c_str());
         
     if (!handle) {
-        throw ML::Exception("couldn't open path: " + lastError());
+        throw MLDB::Exception("couldn't open path: " + lastError());
     }
 
     return Directory(path, handle, this);
@@ -493,7 +492,7 @@ openFile(const std::string & path)
                                LIBSSH2_SFTP_OPENFILE);
         
     if (!handle) {
-        throw ML::Exception("couldn't open path: " + lastError());
+        throw MLDB::Exception("couldn't open path: " + lastError());
     }
 
     return File(path, handle, this);
@@ -536,7 +535,7 @@ uploadFile(const char * start,
                           LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
     
     if (!handle) {
-        throw ML::Exception("couldn't open path: " + lastError());
+        throw MLDB::Exception("couldn't open path: " + lastError());
     }
 
     Date started = Date::now();
@@ -555,7 +554,7 @@ uploadFile(const char * start,
                                         toSend);
         
         if (rc == -1)
-            throw ML::Exception("couldn't upload file: " + lastError());
+            throw MLDB::Exception("couldn't upload file: " + lastError());
 
         offset += rc;
         
@@ -571,7 +570,7 @@ uploadFile(const char * start,
             double elapsedSince = now.secondsSince(lastTime);
             double mbSecInst = (offset - lastPrint) / mb / elapsedSince;
 
-            cerr << ML::format("done %.2fMB of %.2fMB (%.2f%%) at %.2fMB/sec inst and %.2fMB/sec overall",
+            cerr << MLDB::format("done %.2fMB of %.2fMB (%.2f%%) at %.2fMB/sec inst and %.2fMB/sec overall",
                                doneMb, totalMb,
                                100.0 * doneMb / totalMb,
                                mbSecInst,
@@ -647,7 +646,7 @@ struct SftpStreamingDownloadSource {
                                        LIBSSH2_SFTP_OPENFILE);
             
             if (!handle) {
-                throw ML::Exception("couldn't open path: "
+                throw MLDB::Exception("couldn't open path: "
                                     + owner->lastError());
             }
         }
@@ -663,7 +662,7 @@ struct SftpStreamingDownloadSource {
 
             ssize_t numRead = libssh2_sftp_read(handle, s, n);
             if (numRead < 0) {
-                throw ML::Exception("read(): " + owner->lastError());
+                throw MLDB::Exception("read(): " + owner->lastError());
             }
             
             return numRead;
@@ -750,7 +749,7 @@ struct SftpStreamingUploadSource {
             
             if (!handle) {
                 onException();
-                throw ML::Exception("couldn't open path: " + owner->lastError());
+                throw MLDB::Exception("couldn't open path: " + owner->lastError());
             }
 
             startDate = Date::now();
@@ -771,7 +770,7 @@ struct SftpStreamingUploadSource {
             
                 if (rc == -1) {
                     onException();
-                    throw ML::Exception("couldn't upload file: " + owner->lastError());
+                    throw MLDB::Exception("couldn't upload file: " + owner->lastError());
                 }
             
                 offset += rc;
@@ -788,7 +787,7 @@ struct SftpStreamingUploadSource {
                     double elapsedSince = now.secondsSince(lastTime);
                     double mbSecInst = (offset - lastPrint) / mb / elapsedSince;
                 
-                    cerr << ML::format("done %.2fMB at %.2fMB/sec inst and %.2fMB/sec overall",
+                    cerr << MLDB::format("done %.2fMB at %.2fMB/sec inst and %.2fMB/sec overall",
                                        doneMb, 
                                        mbSecInst,
                                        mbSecOverall)
@@ -965,7 +964,7 @@ struct RegisterSftpHandler {
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
-            throw ML::Exception("unable to find sftp host name in resource "
+            throw MLDB::Exception("unable to find sftp host name in resource "
                                 + resource);
         string connStr(resource, 0, pos);
 
@@ -977,7 +976,7 @@ struct RegisterSftpHandler {
 
             SftpConnection::Attributes attr;
             if (!connection.getAttributes(path, attr)) {
-                throw ML::Exception("Couldn't read attributes for sftp "
+                throw MLDB::Exception("Couldn't read attributes for sftp "
                                     "resource");
             }
 
@@ -995,7 +994,7 @@ struct RegisterSftpHandler {
                  .release());
             return UriHandler(buf.get(), buf);
         }
-        throw ML::Exception("no way to create sftp handler for non in/out");
+        throw MLDB::Exception("no way to create sftp handler for non in/out");
     }
 
     RegisterSftpHandler()
@@ -1041,7 +1040,7 @@ string connStrFromUri(const string & uri) {
     ExcAssert(uri.find("sftp://") == 0);
     const auto pos = uri.find("/", 7);
     if (pos == string::npos) {
-        throw ML::Exception("Couldn't find sftp hostname in %s", uri.c_str());
+        throw MLDB::Exception("Couldn't find sftp hostname in %s", uri.c_str());
     }
     return uri.substr(7, pos - 7);
 };
@@ -1070,7 +1069,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
             const auto handler = getUriHandler(url);
             return std::move(*(handler.info.get()));
         }
-        catch (const ML::Exception & exc) {
+        catch (const MLDB::Exception & exc) {
         }
         return FsObjectInfo();
     }
@@ -1122,7 +1121,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
                     OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
                     {
                         if (!options.empty()) {
-                            throw ML::Exception("Options not accepted by S3");
+                            throw MLDB::Exception("Options not accepted by S3");
                         }
 
                         std::shared_ptr<std::istream> result(
@@ -1161,4 +1160,4 @@ struct AtInit {
 } atInit;
 
 } // namespace nameless
-} // namespace Datacratic
+} // namespace MLDB

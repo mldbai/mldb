@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 Exception::Exception(const std::string & msg)
     : message(msg)
@@ -97,20 +97,20 @@ std::string getExceptionString()
 /* ASSERTION FAILURE                                                         */
 /*****************************************************************************/
 
-Assertion_Failure::
-Assertion_Failure(const std::string & msg)
+AssertionFailure::
+AssertionFailure(const std::string & msg)
     : Exception(msg)
 {
 }
 
-Assertion_Failure::
-Assertion_Failure(const char * msg, ...)
+AssertionFailure::
+AssertionFailure(const char * msg, ...)
     : Exception(msg)
 {
 }
 
-Assertion_Failure::
-Assertion_Failure(const char * assertion,
+AssertionFailure::
+AssertionFailure(const char * assertion,
                   const char * function,
                   const char * file,
                   int line)
@@ -121,4 +121,4 @@ Assertion_Failure(const char * assertion,
 
 
 
-} // namespace ML
+} // namespace MLDB

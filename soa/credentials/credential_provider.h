@@ -11,7 +11,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -45,4 +45,4 @@ struct CredentialProvider {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -22,7 +22,7 @@
 #include "runner_common.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 void
@@ -182,17 +182,17 @@ int main(int argc, char * argv[])
     });
     int res = ::pipe2(childLaunchStatusFd, O_CLOEXEC);
     if (res == -1)
-        throw ML::Exception(errno, "pipe() for status");
+        throw MLDB::Exception(errno, "pipe() for status");
 
     int childPid = fork();
     if (childPid == 0) {
         runChild(execArgs, childLaunchStatusFd, fds);
         /* there is no possible way this code could be executed, because
          * "runChild" calls "execv" */
-        throw ML::Exception("The Alpha became the Omega.");
+        throw MLDB::Exception("The Alpha became the Omega.");
     }
     else if (childPid == -1) {
-        throw ML::Exception(errno, "fork() in runWrapper");
+        throw MLDB::Exception(errno, "fork() in runWrapper");
     }
 
     int exitCode = monitorChild(childPid, childLaunchStatusFd, fds);

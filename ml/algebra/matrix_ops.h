@@ -28,7 +28,7 @@ operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
     for (unsigned i = 0;  i < m.shape()[0];  ++i) {
         stream << "    [";
         for (unsigned j = 0;  j < m.shape()[1];  ++j)
-            stream << ML::format(" %8.3g", m[i][j]);
+            stream << MLDB::format(" %8.3g", m[i][j]);
         stream << " ]" << std::endl;
     }
     return stream;
@@ -55,6 +55,7 @@ inline void warmup_cache_all_levels(const double * mem, size_t n)
 }
 
 namespace ML {
+using namespace MLDB;
 // Copy a chunk of a matrix transposed to another place
 template<typename Float>
 void copy_transposed(boost::multi_array<Float, 2> & A,
@@ -200,16 +201,16 @@ std::string print_size(const boost::multi_array<Float, 2> & array)
 /*****************************************************************************/
 
 template<typename FloatR, typename Float1, typename Float2>
-ML::distribution<FloatR>
+distribution<FloatR>
 multiply_r(const boost::multi_array<Float1, 2> & A,
-           const ML::distribution<Float2> & b)
+           const distribution<Float2> & b)
 {
     if (b.size() != A.shape()[1])
         throw Exception(format("multiply(matrix, vector): "
                                "shape (%dx%d) x (%dx1) wrong",
                                (int)A.shape()[0], (int)A.shape()[1],
                                (int)b.size()));
-    ML::distribution<FloatR> result(A.shape()[0], 0.0);
+    distribution<FloatR> result(A.shape()[0], 0.0);
     for (unsigned i = 0;  i < A.shape()[0];  ++i)
         result[i] = SIMD::vec_dotprod_dp(&A[i][0], &b[0], A.shape()[1]);
     //for (unsigned j = 0;  j < A.shape()[1];  ++j)
@@ -221,7 +222,7 @@ template<typename Float1, typename Float2>
 //JML_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 multiply(const boost::multi_array<Float1, 2> & A,
-         const ML::distribution<Float2> & b)
+         const distribution<Float2> & b)
 {
     return multiply_r<typename float_traits<Float1, Float2>::return_type>(A, b);
 }
@@ -230,7 +231,7 @@ template<typename Float1, typename Float2>
 //JML_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 operator * (const boost::multi_array<Float1, 2> & A,
-            const ML::distribution<Float2> & b)
+            const distribution<Float2> & b)
 {
     typedef typename float_traits<Float1, Float2>::return_type FloatR;
     return multiply_r<FloatR, Float1, Float2>(A, b);
@@ -242,8 +243,8 @@ operator * (const boost::multi_array<Float1, 2> & A,
 /*****************************************************************************/
 
 template<typename FloatR, typename Float1, typename Float2>
-ML::distribution<FloatR>
-multiply_r(const ML::distribution<Float2> & b,
+distribution<FloatR>
+multiply_r(const distribution<Float2> & b,
            const boost::multi_array<Float1, 2> & A)
 {
     if (b.size() != A.shape()[0])
@@ -252,7 +253,7 @@ multiply_r(const ML::distribution<Float2> & b,
                                (int)b.size(),
                                (int)A.shape()[0], (int)A.shape()[1]));
 
-    ML::distribution<FloatR> result(A.shape()[1], 0.0);
+    distribution<FloatR> result(A.shape()[1], 0.0);
 #if 1 // more accurate
     std::vector<double> accum(A.shape()[1], 0.0);
     using namespace std;
@@ -276,7 +277,7 @@ multiply_r(const ML::distribution<Float2> & b,
 template<typename Float1, typename Float2>
 //JML_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
-multiply(const ML::distribution<Float2> & b,
+multiply(const distribution<Float2> & b,
          const boost::multi_array<Float1, 2> & A)
 {
     return multiply_r<typename float_traits<Float1, Float2>::return_type>(b, A);
@@ -285,7 +286,7 @@ multiply(const ML::distribution<Float2> & b,
 template<typename Float1, typename Float2>
 //JML_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
-operator * (const ML::distribution<Float2> & b,
+operator * (const distribution<Float2> & b,
             const boost::multi_array<Float1, 2> & A)
 {
     typedef typename float_traits<Float1, Float2>::return_type FloatR;
@@ -303,7 +304,7 @@ multiply_r(const boost::multi_array<Float1, 2> & A,
            const boost::multi_array<Float2, 2> & B)
 {
     if (A.shape()[1] != B.shape()[0])
-        throw ML::Exception("Incompatible matrix sizes");
+        throw MLDB::Exception("Incompatible matrix sizes");
 
     boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][B.shape()[1]]);
     Float2 bentries[A.shape()[1]];
@@ -372,7 +373,7 @@ multiply_transposed(const boost::multi_array<Float1, 2> & A,
     int As1 = A.shape()[1];
 
     if (A.shape()[1] != BT.shape()[1])
-        throw ML::Exception("Incompatible matrix sizes");
+        throw MLDB::Exception("Incompatible matrix sizes");
 
     boost::multi_array<FloatR, 2> X(boost::extents[As0][Bs0]);
     for (unsigned j = 0;  j < Bs0;  ++j) {
@@ -408,7 +409,7 @@ add_r(const boost::multi_array<Float1, 2> & A,
 {
     if (A.shape()[0] != B.shape()[0]
         || A.shape()[1] != B.shape()[1])
-        throw ML::Exception("Incompatible matrix sizes");
+        throw MLDB::Exception("Incompatible matrix sizes");
     
     boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][A.shape()[1]]);
 
@@ -450,7 +451,7 @@ subtract_r(const boost::multi_array<Float1, 2> & A,
 {
     if (A.shape()[0] != B.shape()[0]
         || A.shape()[1] != B.shape()[1])
-        throw ML::Exception("Incompatible matrix sizes");
+        throw MLDB::Exception("Incompatible matrix sizes");
     
     boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][A.shape()[1]]);
 

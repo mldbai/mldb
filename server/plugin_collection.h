@@ -12,7 +12,7 @@
 #include "mldb/core/plugin.h"
 #include "mldb/rest/poly_collection.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -27,8 +27,9 @@ struct PluginCollection: public PolyCollection<Plugin> {
     virtual Any getEntityStatus(const Plugin & plugin) const;
 };
 
+extern template class PolyCollection<Plugin>;
+
 } // namespace MLDB
 
-extern template class PolyCollection<MLDB::Plugin>;
 
-} // namespace Datacratic
+

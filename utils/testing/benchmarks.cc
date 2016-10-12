@@ -3,7 +3,7 @@
 #include "mldb/utils/testing/benchmarks.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* BENCHMARKS */

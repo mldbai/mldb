@@ -15,10 +15,10 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string
 strLaunchError(LaunchError error)
@@ -32,7 +32,7 @@ strLaunchError(LaunchError error)
     case LaunchError::SUBTASK_WAITPID: return "waitpid waiting for subtask";
     case LaunchError::WRONG_CHILD: return "waitpid() returned the wrong child";
     }
-    throw ML::Exception("unknown error launch error code %d",
+    throw MLDB::Exception("unknown error launch error code %d",
                         error);
 }
 
@@ -46,7 +46,7 @@ statusStateAsString(ProcessState statusState)
     case ProcessState::STOPPED: return "STOPPED";
     case ProcessState::DONE: return "DONE";
     }
-    throw ML::Exception("unknown status %d", statusState);
+    throw MLDB::Exception("unknown status %d", statusState);
 }
 
 }
@@ -116,7 +116,7 @@ dupToStdStreams()
         if (oldFd != newFd) {
             int rc = ::dup2(oldFd, newFd);
             if (rc == -1) {
-                throw ML::Exception(errno,
+                throw MLDB::Exception(errno,
                                     "ProcessFds::dupToStdStream dup2");
             }
         }
@@ -152,13 +152,13 @@ encodeToBuffer(char * buffer, size_t bufferSize)
     int written = ::sprintf(buffer, "%.8x/%.8x/%.8x/%.8x",
                             stdIn, stdOut, stdErr, statusFd);
     if (written < 0) {
-        throw ML::Exception("encoding failed");
+        throw MLDB::Exception("encoding failed");
     }
 
     /* bufferSize must be equal to the number of bytes used above, plus 1 for
        '\0' */
     if (written >= bufferSize) {
-        throw ML::Exception("buffer overflow");
+        throw MLDB::Exception("buffer overflow");
     }
 }
 
@@ -169,7 +169,7 @@ decodeFromBuffer(const char * buffer)
     int decoded = ::sscanf(buffer, "%x/%x/%x/%x",
                            &stdIn, &stdOut, &stdErr, &statusFd);
     if (decoded < 0) {
-        throw ML::Exception(errno, "decoding failed");
+        throw MLDB::Exception(errno, "decoding failed");
     }
 }
 
@@ -180,7 +180,7 @@ writeStatus(const ProcessStatus & status)
 {
     int res = ::write(statusFd, &status, sizeof(status));
     if (res == -1)
-        throw ML::Exception(errno, "write");
+        throw MLDB::Exception(errno, "write");
     else if (res != sizeof(status))
-        throw ML::Exception("writing of status is incomplete");
+        throw MLDB::Exception("writing of status is incomplete");
 }

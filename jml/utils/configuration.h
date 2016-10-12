@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* configuration.h                                                 -*- C++ -*-
    Jeremy Barnes, 3 April 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Functions to allow key-based configuration files.
 */
 
-#ifndef __utils__configuration_h__
-#define __utils__configuration_h__
+#pragma once
 
 #include <map>
 #include <memory>
@@ -20,10 +18,12 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "enum_info.h"
 
+namespace MLDB {
+struct ParseContext;
+} // namespace MLDB
 
 namespace ML {
-
-struct Parse_Context;
+using namespace MLDB;
 
 /*****************************************************************************/
 /* CONFIGURATION                                                             */
@@ -87,7 +87,7 @@ public:
     void load(const std::string & filename);
     void parse_string(const std::string & str, const std::string & filename);
     void parse_command_line(const std::vector<std::string> & options);
-    void parse(Parse_Context & context);
+    void parse(MLDB::ParseContext & context);
 
     void parse_value(std::string & val, const std::string & str,
                      const std::string & full_key) const
@@ -175,12 +175,23 @@ public:
     template<class X>
     bool find(X & val, const std::string & key) const
     {
-        //std::cerr << "find: key = " << key << std::endl;
         std::string full_key = find_key(key, true);
         if (!raw_count(full_key)) return false;
         std::string value = raw_get(full_key);
         parse_value(val, value, full_key);
         return true;
+    }
+
+    template<class X>
+    bool findAndRemove(X & val,
+                       const std::string & key,
+                       std::vector<std::string> & list) const
+    {
+        if (find(val, key)) {
+            list.erase(remove(list.begin(), list.end(), find_key(key, true)),
+                       list.end());
+        }
+        return false;
     }
 
     template<class X>
@@ -196,6 +207,13 @@ public:
         if (!find(val, key))
             throw Exception("required key " + key + " not found");
     }
+
+    /** Empties the key vector from keys not starting with "prefix().".
+     *  If ignoreKeyFct is provided, also removes the key when the function returns true.
+     *  After that cleaning, throws if any key is left in the vector. */
+    void throwOnUnknwonKeys(
+        std::vector<std::string> & keys,
+        const std::function<bool(const std::string &)> & ignoreKeyFct = nullptr) const;
 
 private:
     struct Data;
@@ -215,6 +233,3 @@ std::ostream & operator << (std::ostream & stream,
                             const Configuration::Accessor & acc);
 
 } // namespace ML
-
-
-#endif /* __utils__configuration_h__ */

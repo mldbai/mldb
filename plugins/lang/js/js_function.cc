@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct JsFunctionData;
@@ -48,7 +48,7 @@ struct JsFunctionThreadData {
 
 struct JsFunctionData {
     MldbServer * server;
-    ML::ThreadSpecificInstanceInfo<JsFunctionThreadData, void> threadInfo;
+    ThreadSpecificInstanceInfo<JsFunctionThreadData, void> threadInfo;
     Utf8String scriptSource;
     std::string filenameForErrorMessages;
     std::vector<std::string> params;
@@ -257,5 +257,5 @@ BoundFunction bindJsEval(const Utf8String & name,
 
 RegisterFunction registerJs(Utf8String("jseval"), bindJsEval);
 
-} // namespace Datacratic
+
 } // namespace MLDB

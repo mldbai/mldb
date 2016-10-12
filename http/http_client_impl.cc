@@ -6,7 +6,7 @@
 #include "mldb/http/http_client_impl.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 HttpClientImpl::

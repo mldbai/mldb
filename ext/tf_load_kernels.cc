@@ -16,9 +16,7 @@
 #include <cassert>
 
 using namespace std;
-using namespace ML;
 
-namespace Datacratic {
 namespace MLDB {
 
 // This is defined in the MLDB server
@@ -45,11 +43,11 @@ struct AtInit {
             error = load("avx");
         }
         // Next SSE 4.2
-        if (!handle && has_sse42) {
+        if (!handle && has_sse42()) {
             error = load("sse42");
         }
         // Finally SSE2
-        if (!handle && has_sse2) {
+        if (!handle && has_sse2()) {
             error = load("sse2");
         }
 #else
@@ -90,5 +88,4 @@ struct AtInit {
 
 } // file scope
 } // namespace MLDB
-} // namespace Datacratic
 

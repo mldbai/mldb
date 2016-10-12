@@ -15,7 +15,7 @@
 #include "matrix.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct TsneItl;
@@ -114,4 +114,4 @@ struct TsneEmbed: public ValueFunctionT<TsneInput, TsneOutput> {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

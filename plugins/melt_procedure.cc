@@ -23,7 +23,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /**
@@ -36,7 +36,7 @@ struct MeltFixSelect
     {
         if (!containsNamedSubSelect(query, "to_melt") ||
             !containsNamedSubSelect(query, "to_fix") )
-            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fix'", name.c_str());
+            throw MLDB::Exception("%s procedure expect a rows named 'to_melt' and 'to_fix'", name.c_str());
     }
 };
 
@@ -130,12 +130,12 @@ run(const ProcedureRunConfig & run,
     }
 
     if(!outputDataset) {
-        throw ML::Exception("Unable to obtain output dataset");
+        throw MLDB::Exception("Unable to obtain output dataset");
     }
 
 
-    ColumnName keyColumnName(runProcConf.keyColumnName);
-    ColumnName valueColumnName(runProcConf.valueColumnName);
+    ColumnPath keyColumnName(runProcConf.keyColumnName);
+    ColumnPath valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
     auto processor = [&] (NamedRowValue & row_,
@@ -162,7 +162,7 @@ run(const ProcedureRunConfig & run,
                         return true;
                     };
 
-                expr.forEachAtom(onAtom, ColumnName());
+                expr.forEachAtom(onAtom, ColumnPath());
             }
 
             // Melted
@@ -173,7 +173,7 @@ run(const ProcedureRunConfig & run,
                 currOutputRow.emplace_back(keyColumnName, get<0>(col).toUtf8String(), rowTs);
                 currOutputRow.emplace_back(valueColumnName, get<1>(col), rowTs);
 
-                RowName rowName = row.rowName + std::get<0>(col);
+                RowPath rowName = row.rowName + std::get<0>(col);
 
                 std::unique_lock<std::mutex> guard(recordMutex);
                 outputDataset->recordRow(rowName, currOutputRow);
@@ -209,4 +209,4 @@ regMelt(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

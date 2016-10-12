@@ -11,7 +11,7 @@
 
 #include "list_description_base.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* SET DESCRIPTION                                                           */
@@ -84,7 +84,7 @@ struct SetDescription
 
     virtual void * getArrayElement(void * val, uint32_t element) const override
     {
-        throw ML::Exception("can't mutate set elements");
+        throw MLDB::Exception("can't mutate set elements");
     }
 
     virtual const void * getArrayElement(const void * val,
@@ -92,7 +92,7 @@ struct SetDescription
     {
         const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
         if (element >= val2->size())
-            throw ML::Exception("Invalid set element number");
+            throw MLDB::Exception("Invalid set element number");
         auto it = val2->begin();
         for (unsigned i = 0;  i < element;  ++i, ++i) ;
         return &*it;
@@ -100,7 +100,7 @@ struct SetDescription
 
     virtual void setArrayLength(void * val, size_t newLength) const override
     {
-        throw ML::Exception("cannot adjust length of a set");
+        throw MLDB::Exception("cannot adjust length of a set");
     }
     
     virtual const ValueDescription & contained() const override
@@ -117,5 +117,5 @@ struct SetDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(SetDescription, std::set, typename, T);
 
-} // namespace Datacratic
+} // namespace MLDB
 

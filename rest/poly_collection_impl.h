@@ -13,7 +13,7 @@
 #include "mldb/types/meta_value_description_impl.h"
 #include "mldb/types/pointer_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* POLYMORPHIC COLLECTION                                                    */
@@ -266,7 +266,7 @@ struct PolyCollection<Entity>::Registry {
         } JML_CATCH_ALL {
             rethrowHttpException(500, "Error getting information for type '" + type
                                  + "' in collection " + nounPlural + ": "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "type", type,
                                  "nounPlural", nounPlural);
         }
@@ -459,5 +459,5 @@ createCollection(int numResourcesProducedByPathSpec,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

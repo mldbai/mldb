@@ -13,7 +13,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Builtins {
 
@@ -82,4 +82,4 @@ static RegisterBuiltin registerExtractDomain(extract_domain, "extract_domain");
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

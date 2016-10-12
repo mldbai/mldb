@@ -32,7 +32,7 @@
 
 using namespace ML;
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
@@ -45,7 +45,7 @@ X sqr(X x)
 void calcRep(const QuadtreeNode & node,
              int depth,
              bool inside,
-             const ML::distribution<float> & y,
+             const distribution<float> & y,
              double * FrepZ,
              double & exampleZ,
              int & nodesTouched,
@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE( test_small )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 100;
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_CASE( test_vantage_point_tree )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 2500;
@@ -427,7 +427,7 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 100;
@@ -512,7 +512,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 2500;

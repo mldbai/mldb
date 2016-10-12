@@ -17,7 +17,7 @@
 #include "async_writer_source.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {
@@ -70,10 +70,10 @@ AsyncWriterSource::
 setFd(int newFd)
 {
     if (fd_ != -1) {
-        throw ML::Exception("fd already set: %d", fd_);
+        throw MLDB::Exception("fd already set: %d", fd_);
     }
     if (!isFileFlagSet(newFd, O_NONBLOCK)) {
-        throw ML::Exception("file decriptor is blocking");
+        throw MLDB::Exception("file decriptor is blocking");
     }
 
     addFd(queue_.selectFd(), true, false);
@@ -112,7 +112,7 @@ write(string data, const OnWriteResult & onWriteResult)
         result = queue_.push_back(AsyncWrite(move(data), onWriteResult));
     }
     else {
-        throw ML::Exception("cannot write while queue is disabled");
+        throw MLDB::Exception("cannot write while queue is disabled");
     }
 
     return result;
@@ -155,7 +155,7 @@ handleReadReady()
                 break;
             }
             if (s == -1) {
-                throw ML::Exception(errno, "read");
+                throw MLDB::Exception(errno, "read");
             }
             else {
                 break;
@@ -214,7 +214,7 @@ requestClose()
         queue_.push_back(AsyncWrite("", nullptr));
     }
     else {
-        throw ML::Exception("already closed/ing\n");
+        throw MLDB::Exception("already closed/ing\n");
     }
 }
 
@@ -301,7 +301,7 @@ flush()
                 /* This exception indicates a lack of code in the handling of
                    errno. In a perfect world, it should never ever be
                    thrown. */
-                throw ML::Exception(errno, "unhandled write error");
+                throw MLDB::Exception(errno, "unhandled write error");
             }
         }
     }

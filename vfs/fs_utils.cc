@@ -30,7 +30,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
+
 namespace fs = boost::filesystem;
 
 namespace {
@@ -51,7 +52,7 @@ Registry& getRegistry()
 
 } // file scope
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(FsObjectInfo);
 
@@ -90,14 +91,14 @@ void setGlobalAcceptUrisWithoutScheme(bool accept)
 Url makeUrl(const string & urlStr)
 {
     if (urlStr.empty())
-        throw ML::Exception("can't makeUrl on empty url");
+        throw MLDB::Exception("can't makeUrl on empty url");
 
     /* scheme is specified */
     if (urlStr.find("://") != string::npos) {
         return Url(urlStr);
     }
     else if (!acceptUrisWithoutScheme) {
-        throw ML::Exception("Cannot accept URI without scheme (if you want a file, add file://): " + urlStr);
+        throw MLDB::Exception("Cannot accept URI without scheme (if you want a file, add file://): " + urlStr);
     }
     /* absolute local filenames */
     else if (urlStr[0] == '/') {
@@ -171,7 +172,7 @@ std::string print(FileType type)
     case FT_DIR_INACCESSIBLE: return "DIR_INACCESSIBLE";
     case FT_FILE_INACCESSIBLE: return "FILE_INACCESSIBLE";
     default:
-        return ML::format("FileType(%d)", type);
+        return MLDB::format("FileType(%d)", type);
     }
 }
 
@@ -247,7 +248,7 @@ static void scanFiles(const std::string & path,
     if (res == -1) {
         if (errno == ENOENT)
             return;
-        throw ML::Exception(errno, "ftw");
+        throw MLDB::Exception(errno, "ftw");
     }
 }
 
@@ -266,7 +267,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
             if (errno == ENOENT) {
                 return FsObjectInfo();
             }
-            throw ML::Exception(errno, "stat");
+            throw MLDB::Exception(errno, "stat");
         }
 
         // TODO: owner ID (uid) and name (uname)
@@ -298,7 +299,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         // code.
         fs::create_directories(path, ec);
         if (ec.value() != boost::system::errc::success) {
-            throw ML::Exception(ec.message());
+            throw MLDB::Exception(ec.message());
         }
     }
 
@@ -308,7 +309,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         int res = ::unlink(path.c_str());
         if (res == -1) {
             if (throwException) {
-                throw ML::Exception(errno, "unlink");
+                throw MLDB::Exception(errno, "unlink");
             }
             else return false;
         }
@@ -321,12 +322,10 @@ struct LocalUrlFsHandler : public UrlFsHandler {
                          const std::string & delimiter,
                          const std::string & startAt) const
     {
-        using namespace ML;
-
         if (startAt != "")
-            throw ML::Exception("not implemented: startAt for local files");
+            throw MLDB::Exception("not implemented: startAt for local files");
         if (delimiter != "/")
-            throw ML::Exception("not implemented: delimiters other than '/' "
+            throw MLDB::Exception("not implemented: delimiters other than '/' "
                                 "for local files");
         
 
@@ -344,7 +343,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
                     -> UriHandler
                     {
                         if (!options.empty())
-                            throw ML::Exception("Options not accepted by S3");
+                            throw MLDB::Exception("Options not accepted by S3");
 
                         std::shared_ptr<std::istream> result(new filter_istream(filename, options));
                         return UriHandler(result->rdbuf(), std::move(result),
@@ -398,7 +397,7 @@ const UrlFsHandler * findFsHandler(const string & scheme)
     if (handler != registry.handlers.end())
         return handler->second.get();
     
-    throw ML::Exception("no handler found for scheme: " + scheme);
+    throw MLDB::Exception("no handler found for scheme: " + scheme);
 }
 
 
@@ -437,7 +436,7 @@ void registerUrlFsHandler(const std::string & scheme,
     auto& registry = getRegistry();
 
     if (registry.handlers.find(scheme) != registry.handlers.end()) {
-        throw ML::Exception("fs handler already registered");
+        throw MLDB::Exception("fs handler already registered");
     }
 
     /* this enables googleuri to parse our urls properly */
@@ -480,7 +479,7 @@ makeUriDirectory(const std::string & url)
     string dirUrl(url);
     size_t slashIdx = dirUrl.rfind('/');
     if (slashIdx == string::npos) {
-        throw ML::Exception("makeUriDirectory cannot work on filenames: instead of " + url + " you should probably write file://" + url);
+        throw MLDB::Exception("makeUriDirectory cannot work on filenames: instead of " + url + " you should probably write file://" + url);
     }
     dirUrl.resize(slashIdx);
 
@@ -546,9 +545,9 @@ checkWritability(const std::string & url, const std::string & parameterName)
     // try to create output folder and write open a writer to make sure 
     // we have permissions before
     try {
-        Datacratic::makeUriDirectory(url);
+        makeUriDirectory(url);
     } catch ( std::exception const& ex) {
-        throw ML::Exception(ML::format("Error when trying to create folder specified "
+        throw MLDB::Exception(MLDB::format("Error when trying to create folder specified "
                 "in parameter '%s'. Value: '%s'. Exception: %s",
                 parameterName, url, ex.what()));
     }
@@ -556,7 +555,7 @@ checkWritability(const std::string & url, const std::string & parameterName)
     try {
         filter_ostream writer(url);
     } catch (std::exception const& ex) {
-        throw ML::Exception(ML::format("Error when trying to write to file specified "
+        throw MLDB::Exception(MLDB::format("Error when trying to write to file specified "
                 "in parameter '%s'. Value: '%s'. Exception: %s",
                 parameterName, url, ex.what()));
     }
@@ -578,4 +577,4 @@ FileCommiter::
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

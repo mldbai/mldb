@@ -17,7 +17,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* BINARY STATS                                                              */
@@ -155,7 +155,7 @@ atPercentile(float percentile) const
             cerr << "i = " << i << endl;
             cerr << "prev = " << stats[i - 1].toJson() << endl;
             cerr << "ours = " << stats[i].toJson() << endl;
-            throw ML::Exception("really not sorted on input");
+            throw MLDB::Exception("really not sorted on input");
         }
     }
 
@@ -287,9 +287,9 @@ ScoredStats::
 add(const ScoredStats & other)
 {
     if (!isSorted)
-        throw ML::Exception("attempt to add to non-sorted separation stats");
+        throw MLDB::Exception("attempt to add to non-sorted separation stats");
     if (!other.isSorted)
-        throw ML::Exception("attempt to add non-sorted separation stats");
+        throw MLDB::Exception("attempt to add non-sorted separation stats");
 
     size_t split = entries.size();
     entries.insert(entries.end(), other.entries.begin(), other.entries.end());
@@ -306,24 +306,24 @@ ScoredStats::
 dumpRocCurveJs(std::ostream & stream) const
 {
     if (stats.empty())
-        throw ML::Exception("can't dump ROC curve without calling calculate()");
+        throw MLDB::Exception("can't dump ROC curve without calling calculate()");
 
     stream << "this.data = {" << endl;
-    stream << ML::format("  \"aroc\": %8.05f , ", auc) << endl;
+    stream << MLDB::format("  \"aroc\": %8.05f , ", auc) << endl;
     stream << "  \"model\":{";
     for(unsigned i = 0;  i < stats.size();  ++i) {
         const BinaryStats & x = stats[i];
-        stream << ML::format("\n  \"%8.05f\": { ", x.threshold);
-        stream << ML::format("\n  tpr : %8.05f,", x.recall());
-        stream << ML::format("\n  accuracy : %8.05f,", x.accuracy());
-        stream << ML::format("\n  precision : %8.05f,", x.precision());
-        stream << ML::format("\n  fscore : %8.05f,", x.f());
-        stream << ML::format("\n  fpr : %8.05f,", x.falsePositiveRate());
-        stream << ML::format("\n  tp : %8.05f,", x.truePositives());
-        stream << ML::format("\n  fp : %8.05f,", x.falsePositives());
-        stream << ML::format("\n  fn : %8.05f,", x.falseNegatives());
-        stream << ML::format("\n  tn : %8.05f,", x.trueNegatives());
-        stream << ML::format("}");
+        stream << MLDB::format("\n  \"%8.05f\": { ", x.threshold);
+        stream << MLDB::format("\n  tpr : %8.05f,", x.recall());
+        stream << MLDB::format("\n  accuracy : %8.05f,", x.accuracy());
+        stream << MLDB::format("\n  precision : %8.05f,", x.precision());
+        stream << MLDB::format("\n  fscore : %8.05f,", x.f());
+        stream << MLDB::format("\n  fpr : %8.05f,", x.falsePositiveRate());
+        stream << MLDB::format("\n  tp : %8.05f,", x.truePositives());
+        stream << MLDB::format("\n  fp : %8.05f,", x.falsePositives());
+        stream << MLDB::format("\n  fn : %8.05f,", x.falseNegatives());
+        stream << MLDB::format("\n  tn : %8.05f,", x.trueNegatives());
+        stream << MLDB::format("}");
         stream << ",";
     }
     stream << "\n}";
@@ -343,12 +343,12 @@ ScoredStats::
 getRocCurveJson() const
 {
     if (stats.empty())
-        throw ML::Exception("can't dump ROC curve without calling calculate()");
+        throw MLDB::Exception("can't dump ROC curve without calling calculate()");
 
     Json::Value modelJs;
     for(unsigned i = 0;  i < stats.size();  ++i) {
         const BinaryStats & x = stats[i];
-        modelJs[ML::format("%8.05f", x.threshold)] = x.toJson();
+        modelJs[MLDB::format("%8.05f", x.threshold)] = x.toJson();
     }
 
     Json::Value js;
@@ -379,4 +379,4 @@ toJson() const
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

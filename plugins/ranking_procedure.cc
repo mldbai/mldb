@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(RankingType);
@@ -99,7 +99,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    vector<RowName> orderedRowNames;
+    vector<RowPath> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
@@ -132,9 +132,9 @@ run(const ProcedureRunConfig & run,
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> Cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
-    const ColumnName columnName(runProcConf.rankingColumnName);
+    typedef tuple<ColumnPath, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowPath, vector<Cell> > > > accum;
+    const ColumnPath columnName(runProcConf.rankingColumnName);
     function<void(int64_t)> applyFct;
     float countD100 = (rowCount) / 100.0;
     if (false) {
@@ -180,7 +180,7 @@ run(const ProcedureRunConfig & run,
     parallelMap(0, rowCount, applyFct);
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<Cell> > > * rows)
+    accum.forEach([&] (vector<pair<RowPath, vector<Cell> > > * rows)
     {
         output->recordRows(*rows);
     });
@@ -205,4 +205,4 @@ regRankingProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

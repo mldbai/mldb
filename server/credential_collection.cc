@@ -19,8 +19,6 @@
 using namespace std;
 
 
-namespace Datacratic {
-
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(CredentialRuleConfig);
@@ -138,7 +136,7 @@ CredentialRuleCollection::
 getKey(CredentialRuleConfig & config)
 {
     if (config.id == "")
-        return ML::format("%016llx", (unsigned long long)Id(jsonEncodeStr(config)).hash());
+        return MLDB::format("%016llx", (unsigned long long)Id(jsonEncodeStr(config)).hash());
     return config.id;
 }
 
@@ -147,7 +145,7 @@ CredentialRuleCollection::
 setKey(CredentialRuleConfig & config, std::string key)
 {
     if (config.id != "" && config.id != key)
-        throw ML::Exception("attempt to put with a different key than created with");
+        throw MLDB::Exception("attempt to put with a different key than created with");
     config.id = key;
 }
 
@@ -219,8 +217,8 @@ createCredentialCollection(MLDB::MldbServer * server, RestRouteManager & routeMa
     return result;
 }
 
+template class RestCollection<std::string, CredentialRule>;
+
 } // namespace MLDB
 
-template class RestCollection<std::string, MLDB::CredentialRule>;
 
-} // namespace datacratic

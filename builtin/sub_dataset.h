@@ -12,7 +12,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -40,17 +40,23 @@ struct SubDataset : public Dataset {
     SubDataset(MldbServer * owner, SubDatasetConfig config);
 
     SubDataset(MldbServer * owner,
-               std::vector<MatrixNamedRow> rows);
+               std::vector<NamedRowValue> rows);
 
     virtual ~SubDataset();
 
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
 
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-    virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
 
-    virtual std::pair<Date, Date> getTimestampRange() const;
+    virtual std::pair<Date, Date> getTimestampRange() const override;
+
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const override;
+
+    virtual std::vector<ColumnPath> getFlattenedColumnNames() const override;
+
+    virtual size_t getFlattenedColumnCount() const override;
 
 private:
     SubDatasetConfig datasetConfig;
@@ -59,4 +65,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

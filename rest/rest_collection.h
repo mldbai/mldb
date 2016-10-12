@@ -18,7 +18,7 @@
 #include <atomic>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 template<typename Object, int Index>
@@ -562,7 +562,7 @@ struct RestConfigurableCollection: public RestCollection<Key, Value> {
     {
         auto key2 = getKey(config);
         if (key != key2)
-            throw ML::Exception("attempt to put under the wrong name (passed '%s', "
+            throw MLDB::Exception("attempt to put under the wrong name (passed '%s', "
                                 "should be '%s'",
                                 restEncode(key).rawData(),
                                 restEncode(key2).rawData());
@@ -670,4 +670,4 @@ extern template class WatchesT<Key, std::shared_ptr<Status> >
 #define DEFINE_REST_COLLECTION_INSTANTIATIONS(Key, Value, Config, Status) \
     REST_COLLECTION_INSTANTIATIONS_IMPL( ,Key, Value, Config, Status)
 
-} // namespace Datacratic
+} // namespace MLDB

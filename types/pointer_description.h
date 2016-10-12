@@ -13,7 +13,7 @@
 #include "value_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 template<typename T>
@@ -76,7 +76,7 @@ struct PointerDescription
             void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         if (valueDesc->kind != ValueKind::LINK)
-            throw ML::Exception("assignment of non-link type to link type");
+            throw MLDB::Exception("assignment of non-link type to link type");
 
         valueDesc->contained().checkChildOf(&contained());
         cast(obj) = static_cast<T*>(valueDesc->getLink(value));
@@ -102,7 +102,7 @@ ValueDescriptionT<T *> * getDefaultDescriptionUninitialized(T ** ptr)
 
 template<typename T>
 struct ValueDescriptionInit<T *> {
-    static Datacratic::ValueDescription * create()
+    static MLDB::ValueDescription * create()
     {
         return getDefaultDescriptionUninitialized((T**)0);
     }
@@ -174,10 +174,10 @@ struct UniquePtrDescription
             void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         if (valueDesc->kind != ValueKind::LINK)
-            throw ML::Exception("assignment of non-link type to link type");
+            throw MLDB::Exception("assignment of non-link type to link type");
 
         if (valueDesc->getOwnershipModel() != OwnershipModel::NONE)
-            throw ML::Exception("unsafe link assignement");
+            throw MLDB::Exception("unsafe link assignement");
 
         valueDesc->contained().checkChildOf(&contained());
         cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
@@ -263,10 +263,10 @@ struct SharedPtrDescription
             void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         if (valueDesc->kind != ValueKind::LINK)
-            throw ML::Exception("assignment of non-link type to link type");
+            throw MLDB::Exception("assignment of non-link type to link type");
 
         if (valueDesc->getOwnershipModel() == OwnershipModel::UNIQUE)
-            throw ML::Exception("unsafe link assignement");
+            throw MLDB::Exception("unsafe link assignement");
 
         valueDesc->contained().checkChildOf(&contained());
 
@@ -302,7 +302,7 @@ struct PointerValueDescription
 
     virtual void parseJsonTyped(T * * val, JsonParsingContext & context) const
     {
-        throw ML::Exception("Can't round-trip a raw pointer through JSON");
+        throw MLDB::Exception("Can't round-trip a raw pointer through JSON");
     }
 
     virtual void printJson(const void * val, JsonPrintingContext & context) const
@@ -334,14 +334,14 @@ struct PointerValueDescription
 };
 
 template<typename T>
-Datacratic::ValueDescriptionT<T *> *
+MLDB::ValueDescriptionT<T *> *
 getDefaultDescription(T * * = 0)
 {
-    return new Datacratic::PointerValueDescription<T>();
+    return new MLDB::PointerValueDescription<T>();
 }
 
 #endif
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

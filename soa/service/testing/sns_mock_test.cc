@@ -8,7 +8,7 @@
 #include "mldb/arch/exception.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 struct MockSnsApiWrapper : SnsApiWrapper {
 
@@ -20,7 +20,7 @@ struct MockSnsApiWrapper : SnsApiWrapper {
 
         MockSnsApiWrapper(int cacheSize = 0) : cacheSize(cacheSize){
             if (cacheSize < 0) {
-                throw ML::Exception("Cache size cannot be below 0");
+                throw MLDB::Exception("Cache size cannot be below 0");
             }
         }
 

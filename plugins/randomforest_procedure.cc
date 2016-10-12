@@ -32,7 +32,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(RandomForestProcedureConfig);
@@ -129,11 +129,11 @@ run(const ProcedureRunConfig & run,
     RandomForestProcedureConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
 
-    ML::Timer timer;
+    Timer timer;
 
     // this includes being empty
     if(!runProcConf.modelFileUrl.valid()) {
-         throw ML::Exception("modelFileUrl is not valid");
+         throw MLDB::Exception("modelFileUrl is not valid");
     }
 
     checkWritability(runProcConf.modelFileUrl.toDecodedString(),
@@ -170,7 +170,7 @@ run(const ProcedureRunConfig & run,
     cerr << "label uses columns " << jsonEncode(colScope.requiredColumns)
          << endl;
 
-    ML::Timer labelsTimer;
+    Timer labelsTimer;
 
     std::vector<CellValue> labels(std::move(colScope.run({boundLabel})[0]));
 
@@ -180,9 +180,9 @@ run(const ProcedureRunConfig & run,
     SelectExpression select({subSelect});
 
     auto getColumnsInExpression = [&] (const SqlExpression & expr)
-        -> std::set<ColumnName>
+        -> std::set<ColumnPath>
         {
-            std::set<ColumnName> knownInputColumns;
+            std::set<ColumnPath> knownInputColumns;
 
             // Find only those variables used
             SqlExpressionDatasetScope scope(boundDataset);
@@ -196,7 +196,7 @@ run(const ProcedureRunConfig & run,
             return knownInputColumns;
         };
 
-    std::set<ColumnName> knownInputColumns
+    std::set<ColumnPath> knownInputColumns
         = getColumnsInExpression(select);
 
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
@@ -241,7 +241,7 @@ run(const ProcedureRunConfig & run,
 
     auto doFeatureVectorSampling = [&] (int bag)
         {
-            ML::Timer bagTimer;
+            Timer bagTimer;
 
             boost::mt19937 rng(bag + 245);
             distribution<float> in_training(numRows);
@@ -280,7 +280,7 @@ run(const ProcedureRunConfig & run,
                         mydata.features[i].active = false;
                 }
 
-                ML::Timer timer;
+                Timer timer;
                 ML::Tree tree;
                 tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree);
                 cerr << "bag " << bag << " partition " << partitionNum << " took "
@@ -316,7 +316,7 @@ run(const ProcedureRunConfig & run,
 
     bool saved = true;
     try {
-        Datacratic::makeUriDirectory(
+        makeUriDirectory(
             runProcConf.modelFileUrl.toDecodedString());
         classifier.save(runProcConf.modelFileUrl.toString());
     }
@@ -345,5 +345,4 @@ namespace{
 
 }
 
-}
-}
+} // namespace MLDB

@@ -21,7 +21,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Mongo {
 
@@ -50,7 +50,7 @@ MongoRecordConfigDescription()
     };
 }
 
-typedef tuple<ColumnName, CellValue, Date> Cell;
+typedef tuple<ColumnPath, CellValue, Date> Cell;
 
 struct MongoRecord: Dataset {
 
@@ -162,4 +162,4 @@ regMongodbDataset(mongodbPackage(),
 
 } // namespace Mongo
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace Datacratic {
+namespace MLDB {
 
 /// SIP hash of the value
 uint64_t sipHash(const uint64_t* key, const char* bytes, const uint64_t size);
@@ -15,4 +15,4 @@ uint64_t sipHash(const uint64_t* key, const char* bytes, const uint64_t size);
 uint64_t highwayHash(const uint64_t* key, const char* bytes,
                      const uint64_t size);
 
-} // namespace Datacratic
+} // namespace MLDB

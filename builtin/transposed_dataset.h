@@ -9,7 +9,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -47,7 +47,7 @@ struct TransposedDataset: public Dataset {
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
     virtual std::shared_ptr<RowStream> getRowStream() const;
-    virtual ExpressionValue getRowExpr(const RowName & row) const;
+    virtual ExpressionValue getRowExpr(const RowPath & row) const;
 
 private:
     TransposedDatasetConfig datasetConfig;
@@ -56,4 +56,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

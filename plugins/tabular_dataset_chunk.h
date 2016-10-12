@@ -11,7 +11,7 @@
 #include "frozen_column.h"
 #include <mutex>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -105,7 +105,7 @@ struct TabularDatasetChunk {
     }
 
     /// Return an owned version of the rowname
-    RowName getRowName(size_t index) const
+    RowPath getRowPath(size_t index) const
     {
         if (rowNames.empty()) {
             return PathElement(integerRowNames.at(index));
@@ -114,7 +114,7 @@ struct TabularDatasetChunk {
     }
 
     /// Return a reference to the rowName, stored in storage if it's a temp
-    const RowName & getRowName(size_t index, RowName & storage) const
+    const RowPath & getRowPath(size_t index, RowPath & storage) const
     {
         if (rowNames.empty()) {
             return storage = PathElement(integerRowNames.at(index));
@@ -137,19 +137,19 @@ struct TabularDatasetChunk {
     }
 
     std::vector<std::shared_ptr<FrozenColumn> > columns;
-    std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
+    std::unordered_map<ColumnPath, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
 private:
-    std::vector<RowName> rowNames;
+    std::vector<RowPath> rowNames;
     std::vector<uint64_t> integerRowNames;
 public:
     std::shared_ptr<FrozenColumn> timestamps;
 
     /// Get the row with the given index
-    std::vector<std::tuple<ColumnName, CellValue, Date> >
-    getRow(size_t index, const std::vector<ColumnName> & fixedColumnNames) const
+    std::vector<std::tuple<ColumnPath, CellValue, Date> >
+    getRow(size_t index, const std::vector<ColumnPath> & fixedColumnNames) const
     {
         ExcAssertLess(index, rowCount());
-        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
         result.reserve(columns.size());
         Date ts = timestamps->get(index).mustCoerceToTimestamp();
         for (size_t i = 0;  i < columns.size();  ++i) {
@@ -171,10 +171,10 @@ public:
 
     /// Get the row with the given index
     ExpressionValue
-    getRowExpr(size_t index, const std::vector<ColumnName> & fixedColumnNames) const
+    getRowExpr(size_t index, const std::vector<ColumnPath> & fixedColumnNames) const
     {
         ExcAssertLess(index, rowCount());
-        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
         result.reserve(columns.size());
         Date ts = timestamps->get(index).mustCoerceToTimestamp();
         for (size_t i = 0;  i < columns.size();  ++i) {
@@ -196,8 +196,8 @@ public:
 
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
-                     const ColumnName & colName,
-                     std::vector<std::tuple<RowName, CellValue, Date> > & rows,
+                     const ColumnPath & colName,
+                     std::vector<std::tuple<RowPath, CellValue, Date> > & rows,
                      bool dense) const
     {
         const FrozenColumn * col = nullptr;
@@ -208,7 +208,7 @@ public:
             if (it == sparseColumns.end()) {
                 if (dense) {
                     for (unsigned i = 0;  i < rowCount();  ++i) {
-                        rows.emplace_back(getRowName(i),
+                        rows.emplace_back(getRowPath(i),
                                           CellValue(),
                                           timestamps->get(i).mustCoerceToTimestamp());
                     }
@@ -221,7 +221,7 @@ public:
         for (unsigned i = 0;  i < rowCount();  ++i) {
             CellValue val = col->get(i);
             if (dense || !val.empty()) {
-                rows.emplace_back(getRowName(i),
+                rows.emplace_back(getRowPath(i),
                                   std::move(val),
                                   timestamps->get(i).mustCoerceToTimestamp());
             }
@@ -292,10 +292,10 @@ struct MutableTabularDatasetChunk {
     bool isFrozen;
 
     /// Set of sparse columns
-    std::unordered_map<ColumnName, TabularDatasetColumn> sparseColumns;
+    std::unordered_map<ColumnPath, TabularDatasetColumn> sparseColumns;
 
     /// One per row, or empty if all are simple integers
-    std::vector<RowName> rowNames;
+    std::vector<RowPath> rowNames;
 
     /// One per row, or empty if there is any non-integer row names
     std::vector<uint64_t> integerRowNames;
@@ -331,11 +331,11 @@ struct MutableTabularDatasetChunk {
           - ADD_AWAIT_ROTATION    if it wasn't added, and another thread has
                                   already received ADD_PERFORM_ROTATION
     */
-    int add(RowName & rowName,
+    int add(RowPath & rowName,
             Date ts,
             CellValue * vals,
             size_t numVals,
-            std::vector<std::pair<ColumnName, CellValue> > & extra)
+            std::vector<std::pair<ColumnPath, CellValue> > & extra)
         __attribute__((warn_unused_result))
     {
         std::unique_lock<std::mutex> guard(mutex);
@@ -388,4 +388,4 @@ struct MutableTabularDatasetChunk {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

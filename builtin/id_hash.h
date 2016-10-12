@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** id_hash.h                                                      -*- C++ -*-
     Jeremy Barnes, 1 March 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Data structure for storage of efficiencly mergeable hash values with a bitmap
     associated with each one.
@@ -12,7 +11,7 @@
 
 #include "mldb/jml/utils/lightweight_hash.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 enum {
     RESERVEDBUCKETBITS = 6
@@ -47,7 +46,7 @@ struct IdHashFn {
     }
 };
 
-struct IdHashOps : public ML::PairOps<uint64_t, uint32_t, IdHashFn, IdHashBucket> {
+struct IdHashOps : public PairOps<uint64_t, uint32_t, IdHashFn, IdHashBucket> {
 
     template<typename Storage>
     static size_t hashKey(IdHashBucket bucket, int capacity,
@@ -112,7 +111,7 @@ struct IdHashOps : public ML::PairOps<uint64_t, uint32_t, IdHashFn, IdHashBucket
         return res;
 
         using namespace std;
-        cerr << ML::format("key = %016llx res = %016llx",
+        cerr << MLDB::format("key = %016llx res = %016llx",
                            (unsigned long long)key,
                            (unsigned long long)res)
              << endl;
@@ -130,15 +129,15 @@ struct IdHashOps : public ML::PairOps<uint64_t, uint32_t, IdHashFn, IdHashBucket
 };
 
 #if 1
-typedef ML::Lightweight_Hash<uint64_t,
+typedef Lightweight_Hash<uint64_t,
                              uint32_t,
                              IdHashBucket,
                              IdHashBucket,
                              IdHashOps,
-                             ML::LogMemStorage<IdHashBucket> > 
+                             LogMemStorage<IdHashBucket> > 
 IdHash;
 #else
-typedef ML::Lightweight_Hash<uint64_t,
+typedef Lightweight_Hash<uint64_t,
                              uint32_t,
                              IdHashBucket,
                              IdHashBucket,
@@ -252,5 +251,5 @@ struct IdHashes {
     }
 };
 
+} // namespace MLDB
 
-} // namespace Datacratic

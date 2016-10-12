@@ -19,7 +19,7 @@
 #pragma once
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -174,7 +174,7 @@ struct ScriptOutput {
     unsigned getReturnCode() const
     {
         if(_return_code == 0)
-            throw ML::Exception("Script return_code is set to 0. This should "
+            throw MLDB::Exception("Script return_code is set to 0. This should "
                     "never happen.");
 
         return _return_code;
@@ -185,5 +185,5 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptOutput);
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

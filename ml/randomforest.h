@@ -21,7 +21,6 @@
 #include "mldb/server/column_scope.h"
 #include "mldb/server/bucket.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 /** Holds the set of data for a partition of a decision tree. */
@@ -103,7 +102,7 @@ struct PartitionData {
                 ExcAssertEqual(n, numNonZero);
             };
 
-        Datacratic::parallelMap(0, data.features.size() + 1, doFeature);
+        MLDB::parallelMap(0, data.features.size() + 1, doFeature);
 
         return data;
     }
@@ -598,7 +597,7 @@ struct PartitionData {
         size_t rightRows = splits.second.rows.size();
 
         if (leftRows == 0 || rightRows == 0)
-            throw ML::Exception("Invalid split in random forest");
+            throw MLDB::Exception("Invalid split in random forest");
 
         ThreadPool tp;
         // Put the smallest one on the thread pool, so that we have the highest
@@ -654,5 +653,4 @@ struct PartitionData {
     }
 };
 
-}
-}
+} // namespace MLDB

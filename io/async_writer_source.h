@@ -17,7 +17,7 @@
 #include "mldb/io/typed_message_channel.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* ASYNC WRITE RESULT                                                       */

@@ -22,7 +22,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /****************************************************************************/
@@ -507,7 +507,7 @@ void PythonPluginContext::
 setStatusHandler(PyObject * callback)
 {
     if(!callback)
-        throw ML::Exception("Must specify handler function");
+        throw MLDB::Exception("Must specify handler function");
 
     auto localsPlugin = boost::python::object(boost::python::ptr(mldbContext));
     getStatus = [=] ()
@@ -520,13 +520,13 @@ void PythonPluginContext::
 serveStaticFolder(const std::string & route, const std::string & dir)
 {
     if(route.empty() || dir.empty()) {
-        throw ML::Exception("Route and static directory cannot be empty "
+        throw MLDB::Exception("Route and static directory cannot be empty "
                 "for serving static folder");
     }
 
     fs::path fullDir(fs::path(getPluginDirectory()) / fs::path(dir));
     if(!fs::exists(fullDir)) {
-        throw ML::Exception("Cannot serve static folder for path that does "
+        throw MLDB::Exception("Cannot serve static folder for path that does "
                 "not exist: " + fullDir.string());
     }
 
@@ -541,12 +541,12 @@ void PythonPluginContext::
 serveDocumentationFolder(const std::string & dir)
 {
     if(dir.empty()) {
-        throw ML::Exception("Documentation directory cannot be empty");
+        throw MLDB::Exception("Documentation directory cannot be empty");
     }
 
     fs::path fullDir(fs::path(getPluginDirectory()) / fs::path(dir));
     if(!fs::exists(fullDir)) {
-        throw ML::Exception("Cannot serve documentation folder for path that does "
+        throw MLDB::Exception("Cannot serve documentation folder for path that does "
                 "not exist: " + fullDir.string());
     }
 
@@ -604,11 +604,11 @@ PythonContext* MldbPythonContext::
 getPyContext()
 {
     if(script && plugin)
-        throw ML::Exception("Both script and plugin are defined!!");
+        throw MLDB::Exception("Both script and plugin are defined!!");
 
     if(script) return script.get();
     if(plugin) return plugin.get();
-    throw ML::Exception("Neither script or plugin is defined!");
+    throw MLDB::Exception("Neither script or plugin is defined!");
 }
     
 void MldbPythonContext::
@@ -629,7 +629,7 @@ getPlugin()
     if(plugin) {
         return plugin;
     }
-    throw ML::Exception("Cannot call the plugin object in this context");
+    throw MLDB::Exception("Cannot call the plugin object in this context");
 
 }
 
@@ -639,7 +639,7 @@ getScript()
     if(script)
         return script;
 
-    throw ML::Exception("Cannot call the script object in this context");
+    throw MLDB::Exception("Cannot call the script object in this context");
 }
 
 void MldbPythonContext::
@@ -658,7 +658,7 @@ setPathOptimizationLevel(const std::string & val)
     else if (valLc == "sometimes") {
         level = OptimizedPath::SOMETIMES;
     }
-    else throw ML::Exception("Couldn't parse path optimization level '"
+    else throw MLDB::Exception("Couldn't parse path optimization level '"
                              + val + "': accepted are 'always', 'never' "
                              "and 'sometimes'");
 
@@ -666,5 +666,5 @@ setPathOptimizationLevel(const std::string & val)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

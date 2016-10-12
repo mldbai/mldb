@@ -16,7 +16,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/basic_value_descriptions.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T, typename Enable = void>
 struct JsonCodec {
@@ -44,4 +44,4 @@ void getParam(const Json::Value & parameters,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

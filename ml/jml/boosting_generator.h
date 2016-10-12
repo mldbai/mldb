@@ -35,18 +35,19 @@ public:
 
     /** Configure the generator with its parameters. */
     virtual void
-    configure(const Configuration & config);
+    configure(const Configuration & config,
+              std::vector<std::string> & unparsedKeys) override;
     
     /** Return to the default configuration. */
-    virtual void defaults();
+    virtual void defaults() override;
 
     /** Return possible configuration options. */
-    virtual Config_Options options() const;
+    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
     virtual void init(std::shared_ptr<const Feature_Space> fs,
-                      Feature predicted);
+                      Feature predicted) override;
 
     using Weight_Updating_Generator::generate;
 
@@ -57,14 +58,14 @@ public:
              const Training_Data & validation_data,
              const distribution<float> & training_weights,
              const distribution<float> & validation_weights,
-             const std::vector<Feature> & features, int) const;
+             const std::vector<Feature> & features, int) const override;
 
     /** Generate a classifier, with a given weights array as input. */
     virtual std::shared_ptr<Classifier_Impl>
     generate_and_update(Thread_Context & context,
                         const Training_Data & training_data,
                         boost::multi_array<float, 2> & weights,
-                        const std::vector<Feature> & features) const;
+                        const std::vector<Feature> & features) const override;
 
     std::shared_ptr<Classifier_Generator> weak_learner;
 

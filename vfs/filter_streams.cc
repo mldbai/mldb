@@ -38,8 +38,7 @@
 
 using namespace std;
 
-
-namespace Datacratic {
+namespace MLDB {
 
 const UriHandlerFactory &
 getUriHandler(const std::string & scheme);
@@ -61,13 +60,13 @@ getScheme(const std::string & uri)
 UriHandler::
 UriHandler(std::streambuf * buf,
            std::shared_ptr<void> bufOwnership,
-           const Datacratic::FsObjectInfo & info,
+           const FsObjectInfo & info,
            UriHandlerOptions options)
     : buf(buf),
       bufOwnership(std::move(bufOwnership)),
       options(std::move(options))
 {
-    this->info.reset(new Datacratic::FsObjectInfo(info));
+    this->info.reset(new FsObjectInfo(info));
 }
 
 
@@ -211,7 +210,7 @@ void addCompression(streambuf & buf,
         stream.push(lz4_compressor(compressionLevel));
     }
     else if (compression != "" && compression != "none")
-        throw ML::Exception("unknown filter compression " + compression);
+        throw MLDB::Exception("unknown filter compression " + compression);
     
 }
 
@@ -307,7 +306,7 @@ std::ios_base::openmode getMode(const std::map<std::string, std::string> & optio
             result |= ios_base::out;
         else if (el == "trunc")
             result |= ios_base::trunc;
-        else throw ML::Exception("unknown filter_stream open mode " + el);
+        else throw MLDB::Exception("unknown filter_stream open mode " + el);
 
         if (pos == string::npos)
             break;
@@ -447,7 +446,7 @@ open(int fd, const std::map<std::string, std::string> & options)
     if (!header.empty()) {
         ssize_t rc = ::write(fd, header.c_str(), header.size());
         if (rc < 0) {
-            throw ML::Exception(errno, "open", "open");
+            throw MLDB::Exception(errno, "open", "open");
         }
     }
 
@@ -656,7 +655,7 @@ openFromHandler(const UriHandler & handler,
     this->handlerOptions = handler.options;
     this->info_ = handler.info;
     if (!this->info_)
-        throw ML::Exception("Handler for resource '" + resource
+        throw MLDB::Exception("Handler for resource '" + resource
                             + "' didn't set info");
     ExcAssert(this->info_);
     openFromStreambuf(handler.buf, handler.bufOwnership, resource, compression);
@@ -802,12 +801,12 @@ mapped() const
     return { handlerOptions.mapped, handlerOptions.mappedSize };
 }
 
-Datacratic::FsObjectInfo
+FsObjectInfo
 filter_istream::
 info() const
 {
     if (!info_)
-        throw ML::Exception("Resource '" + resource + "' doesn't have info");
+        throw MLDB::Exception("Resource '" + resource + "' doesn't have info");
     return *info_;
 }
 
@@ -827,12 +826,12 @@ void registerUriHandler(const std::string & scheme,
                         const UriHandlerFactory & handler)
 {
     if (!handler)
-        throw ML::Exception("registerUriHandler: null handler passed");
+        throw MLDB::Exception("registerUriHandler: null handler passed");
 
     std::unique_lock<std::mutex> guard(uriHandlersLock);
     auto it = uriHandlers.find(scheme);
     if (it != uriHandlers.end())
-        throw ML::Exception("already have a Uri handler registered for scheme "
+        throw MLDB::Exception("already have a Uri handler registered for scheme "
                             + scheme);
     uriHandlers[scheme] = handler;
 }
@@ -853,7 +852,7 @@ getUriHandler(const std::string & scheme)
             return it->second;
     }
 
-    throw ML::Exception("Uri handler not found for scheme " + scheme);
+    throw MLDB::Exception("Uri handler not found for scheme " + scheme);
 }
 
 struct RegisterFileHandler {
@@ -871,14 +870,14 @@ struct RegisterFileHandler {
 
         if (mode == ios::in) {
             if (resource == "-") {
-                Datacratic::FsObjectInfo info;
+                FsObjectInfo info;
                 info.exists = true;
-                info.lastModified = Datacratic::Date::now();
+                info.lastModified = Date::now();
                 return UriHandler(cin.rdbuf(), nullptr, info);
             }
 
-            Datacratic::FsObjectInfo info
-                = Datacratic::getUriObjectInfo(scheme +  "://" + resource);
+            FsObjectInfo info
+                = getUriObjectInfo(scheme +  "://" + resource);
 
             // MLDB-1303 mmap fails on empty files - force filebuf interface
             // on empty files despite the mapped option
@@ -887,7 +886,7 @@ struct RegisterFileHandler {
                 buf->open(resource, ios_base::openmode(mode));
 
                 if (!buf->is_open())
-                    throw ML::Exception("couldn't open file %s: %s",
+                    throw MLDB::Exception("couldn't open file %s: %s",
                                         resource.c_str(), strerror(errno));
 
                 return UriHandler(buf.get(), buf, info);
@@ -902,7 +901,7 @@ struct RegisterFileHandler {
                     options.mappedSize = source.size();
                     return UriHandler(buf.get(), buf, info, options);
                 } catch (const std::exception & exc) {
-                    throw ML::Exception("Opening file " + resource + ": "
+                    throw MLDB::Exception("Opening file " + resource + ": "
                                         + exc.what());
                 }
             }
@@ -915,12 +914,12 @@ struct RegisterFileHandler {
             buf->open(resource, ios_base::openmode(mode));
 
             if (!buf->is_open())
-                throw ML::Exception("couldn't open file %s: %s",
+                throw MLDB::Exception("couldn't open file %s: %s",
                                     resource.c_str(), strerror(errno));
 
             return UriHandler(buf.get(), buf);
         }
-        else throw ML::Exception("no way to create file handler for non in/out");
+        else throw MLDB::Exception("no way to create file handler for non in/out");
     }
 
     RegisterFileHandler()
@@ -1067,9 +1066,9 @@ struct RegisterMemHandler {
                   const OnUriHandlerException & onException)
     {
         if (scheme != "mem")
-            throw ML::Exception("bad scheme name");
+            throw MLDB::Exception("bad scheme name");
         if (resource == "")
-            throw ML::Exception("bad resource name");
+            throw MLDB::Exception("bad resource name");
 
         unique_lock<mutex> guard(memStringsLock);
 
@@ -1086,9 +1085,9 @@ struct RegisterMemHandler {
                                                                                  4096));
         }
         else {
-            throw ML::Exception("unable to create mem handler");
+            throw MLDB::Exception("unable to create mem handler");
         }
-        Datacratic::FsObjectInfo info;
+        FsObjectInfo info;
         info.exists = true;
         return UriHandler(streamBuf.get(), streamBuf, info);
     }
@@ -1100,4 +1099,4 @@ struct RegisterMemHandler {
 
 } registerMemHandler;
 
-} // namespace Datacratic
+} // namespace MLDB

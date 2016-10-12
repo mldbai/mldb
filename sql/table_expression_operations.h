@@ -11,7 +11,7 @@
 
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum JoinQualification {
@@ -232,4 +232,4 @@ struct RowTableExpression: public TableExpression {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

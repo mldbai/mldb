@@ -175,7 +175,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
 struct TsneSparseProbs {
     std::vector<int> indexes;
-    ML::distribution<float> probs;
+    distribution<float> probs;
 };
 
 /** Sparse and approximate Barnes-Hut-SNE version of tSNE.
@@ -216,7 +216,7 @@ struct PythagDistFromCoords {
     PythagDistFromCoords(const boost::multi_array<float, 2> & coords);
 
     const boost::multi_array<float, 2> & coords;
-    ML::distribution<float> sum_dist;
+    distribution<float> sum_dist;
     int nx;
     int nd;
 
@@ -322,21 +322,21 @@ sparseProbsFromCoords(const std::function<float (int)> & dist,
     The calculation is much simpler since we only have one point that can
     move at a time, rather than the whole lot of them.
 */
-ML::distribution<float>
-retsne(const ML::distribution<float> & probs,
+distribution<float>
+retsne(const distribution<float> & probs,
        const boost::multi_array<float, 2> & prevOutput,
        const TSNE_Params & params = TSNE_Params());
 
 
-ML::distribution<float>
+distribution<float>
 retsneApproxFromSparse(const TsneSparseProbs & neighbours,
                        const boost::multi_array<float, 2> & prevOutput,
                        const Quadtree & qtree,
                        const TSNE_Params & params);
 
 
-ML::distribution<float>
-retsneApproxFromCoords(const ML::distribution<float> & coords,
+distribution<float>
+retsneApproxFromCoords(const distribution<float> & coords,
                        const boost::multi_array<float, 2> & coreCoords,
                        const boost::multi_array<float, 2> & prevOutput,
                        const Quadtree & qtree,

@@ -17,7 +17,7 @@ using namespace std;
 using namespace boost;
 using boost::math::normal; // typedef provides default type is double.
 
-namespace Datacratic
+namespace MLDB
 {
 
 ConfidenceIntervals::
@@ -47,7 +47,7 @@ void ConfidenceIntervals::init(std::string m) {
         method = CLOPPER_PEARSON;
     }
     else {
-        throw ML::Exception(ML::format("Unknown confidence interval method '%s'", m.c_str()));
+        throw MLDB::Exception(MLDB::format("Unknown confidence interval method '%s'", m.c_str()));
     }
 }
 
@@ -76,7 +76,7 @@ binomialUpperBound(int trials, int successes) const
     case WILSON:          return wilsonBinomialUpperLowerBound(trials, successes, UPPER);
     case CLOPPER_PEARSON: return math::binomial_distribution<>::find_upper_bound_on_p(trials, successes, alpha_);
     }
-    throw ML::Exception(ML::format("Unknown method '%s'", method));
+    throw MLDB::Exception(MLDB::format("Unknown method '%s'", method));
 }
 
 double
@@ -87,7 +87,7 @@ binomialLowerBound(int trials, int successes) const
     case WILSON:          return wilsonBinomialUpperLowerBound(trials, successes, LOWER);
     case CLOPPER_PEARSON: return math::binomial_distribution<>::find_lower_bound_on_p(trials, successes, alpha_);
     }
-    throw ML::Exception(ML::format("Unknown method '%s'", method));
+    throw MLDB::Exception(MLDB::format("Unknown method '%s'", method));
 }
 
 pair<double,double>
@@ -111,7 +111,7 @@ createBootstrapSamples(const vector<double>& sample, int replications,
 
     if(sampleSize ==0)
     {
-        throw ML::Exception("Can't compute bootstrap mean from empty sample");
+        throw MLDB::Exception("Can't compute bootstrap mean from empty sample");
     }
 
     ML::Thread_Context rng;
@@ -165,7 +165,7 @@ bootstrapMeanTwoSidedBound(const vector<double>& sample, int replications,
 void ConfidenceIntervals::assertClopperPearson() const
 {
     if (method != CLOPPER_PEARSON)
-        throw ML::Exception("Can only use this method with Clopper-Peason method!");
+        throw MLDB::Exception("Can only use this method with Clopper-Peason method!");
 }
         
 std::string ConfidenceIntervals::
@@ -175,7 +175,7 @@ print(Method m) const
     case WILSON:          return "wilson";
     case CLOPPER_PEARSON: return "clopper_pearson";
     default:
-        throw ML::Exception("Unknown method");
+        throw MLDB::Exception("Unknown method");
     }
 }
 
@@ -193,7 +193,7 @@ reconstitute(ML::DB::Store_Reader & store)
     int REQUIRED_V = 1;
     store >> version;
     if(version!=REQUIRED_V) {
-        throw ML::Exception(ML::format(
+        throw MLDB::Exception(MLDB::format(
                     "invalid ConfidenceInterval version! exptected %d, got %d", 
                     REQUIRED_V, version));
     }

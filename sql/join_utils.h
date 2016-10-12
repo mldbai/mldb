@@ -10,7 +10,7 @@
 #include "sql_expression.h"
 #include "mldb/sql/table_expression_operations.h" //for join qualification
 
-namespace Datacratic {
+
 namespace MLDB {
 
  enum JoinSide {
@@ -51,7 +51,7 @@ struct AnnotatedClause {
     std::shared_ptr<SqlExpression> expr;
 
     /// Lists of variables on the left, the right, and satisfied by neither side
-    std::vector<ColumnName> leftVars, rightVars, externalVars;
+    std::vector<ColumnPath> leftVars, rightVars, externalVars;
 
     /// Lists of functions on the left, the right, and satisfied by neither side
     /// We still need to keep the scope, as table1.rowName() is not the same as
@@ -196,4 +196,4 @@ DECLARE_ENUM_DESCRIPTION_NAMED(AnnotatedJoinConditionStyleDescription,
                               AnnotatedJoinCondition::Style);
 
 } // namespace MLDB
-} // namespace Datacratic
+

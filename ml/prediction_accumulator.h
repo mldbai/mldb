@@ -16,7 +16,7 @@
 #include "mldb/ml/separation_stats.h"
 #include "mldb/types/id.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct ClassStats {
     int count;
@@ -98,10 +98,10 @@ protected:
         std::vector<std::pair<float, float>> neg;
         std::vector<std::pair<float, float>> pos;
 
-        static ML::distribution<float> getDistFor(
+        static distribution<float> getDistFor(
                 const std::vector<std::pair<float, float>> & preds)
         {
-            ML::distribution<float> tp(preds.size());
+            distribution<float> tp(preds.size());
             for(int i=0; i<preds.size(); i++)
                 tp[i] = preds[i].first;
             return tp;
@@ -134,5 +134,5 @@ protected:
             const bucket_config& bC);
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

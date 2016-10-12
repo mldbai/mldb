@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 
 // Defined in thread_pool.h, and different from hardware_concurrency() as
 // it can be overridden.
@@ -175,7 +175,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 //if (rowNum % 1000 == 0)
                 //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
-                //RowName rowName = rows[rowNum];
+                //RowPath rowName = rows[rowNum];
 
                 ExpressionValue row = dataset.getRowExpr(rows[rowNum]);
                 auto output = processRow(rows[rowNum], row, rowNum, numPerBucket,
@@ -300,7 +300,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 auto stream = whereGenerator.rowStream->clone();
                 stream->initAt(it);
                 for (;  it < stopIt; ++it) {
-                    RowName rowName = stream->next();
+                    RowPath rowName = stream->next();
                     auto row = dataset.getRowExpr(rowName);
 
                     auto output = processRow(rowName, row, it, numPerBucket, selectStar);
@@ -324,8 +324,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         return parallelMapHaltable(0, effectiveNumBucket, doBucket);
     }
 
-    std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
-    processRow(const RowName & rowName,
+    std::tuple<RowPath, ExpressionValue, std::vector<ExpressionValue> >
+    processRow(const RowPath & rowName,
                ExpressionValue & row,
                int rowNum,
                int numPerBucket,
@@ -335,7 +335,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         whenBound.filterInPlace(row, rowContext);
 
-        std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> > output;
+        std::tuple<RowPath, ExpressionValue, std::vector<ExpressionValue> > output;
 
         std::get<0>(output) = rowName;
 
@@ -490,7 +490,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 return true;
             };
 
-        ML::Timer timer;
+        Timer timer;
 
         parallelMap(0, rows.size(), doWhere);
 
@@ -591,7 +591,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 namespace {
 
 struct SortByRowHash {
-    bool operator () (const RowName & row1, const RowName & row2)
+    bool operator () (const RowPath & row1, const RowPath & row2)
     {
         RowHash h1(row1), h2(row2);
 
@@ -657,7 +657,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         QueryThreadTracker parentTracker;
 
-        ML::Timer rowsTimer;
+        Timer rowsTimer;
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
@@ -674,11 +674,11 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
              << " at " << rows.size() / rowsTimer.elapsed_wall() << "/second and "
              << rows.size() / rowsTimer.elapsed_cpu() << " /cpu-second" << endl;
         
-        ML::Timer scanTimer;
+        Timer scanTimer;
 
         // Special but exceedingly common case: we sort by row hash.
 
-        ML::Spinlock mutex;
+        Spinlock mutex;
         std::vector<std::tuple<RowHash, NamedRowValue, std::vector<ExpressionValue> > >
             sorted;
 
@@ -726,7 +726,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     //if (rowNum % 1000 == 0)
                     //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
-                    //RowName rowName = rows[rowNum];
+                    //RowPath rowName = rows[rowNum];
 
                     row = dataset.getRowExpr(rows[rowNum]);
 
@@ -760,7 +760,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                         selectOutput.mergeToRowDestructive(outputRow.columns);
                     }
 
-                    std::unique_lock<ML::Spinlock> guard(mutex);
+                    std::unique_lock<Spinlock> guard(mutex);
                     sorted.emplace_back(outputRow.rowHash,
                                         std::move(outputRow),
                                         std::move(calcd));
@@ -773,7 +773,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     return true;
                 } catch (...) {
                     rethrowHttpException(KEEP_HTTP_CODE,
-                                         "Executing non-grouped query bound to row: " + ML::getExceptionString(),
+                                         "Executing non-grouped query bound to row: " + getExceptionString(),
                                          "row", row,
                                          "rowHash", rows[rowNum],
                                          "rowNum", rowNum);
@@ -915,9 +915,9 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         if (limit == 0)
           throw HttpReturnException(400, "limit must be non-zero");
 
-        ML::Timer rowsTimer;
+        Timer rowsTimer;
 
-        typedef std::vector<RowName> AccumRows;
+        typedef std::vector<RowPath> AccumRows;
         
         PerThreadAccumulator<AccumRows> accum;
 
@@ -941,9 +941,9 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
           while (index < stopIndex)
           {
-              RowName rowName = stream->next();
+              RowPath rowName = stream->next();
 
-              if (rowName == RowName())
+              if (rowName == RowPath())
                   break;
 
               RowHash r1 = RowHash(rowName);
@@ -977,8 +977,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         parallelMap(0, numChunk, doChunk);        
        
         // Compare two rows according to the sort criteria
-        auto compareRows = [&] (const RowName & row1,
-                                const RowName & row2) -> bool
+        auto compareRows = [&] (const RowPath & row1,
+                                const RowPath & row2) -> bool
             {
                 return RowHash(row1) < RowHash(row2);
             };
@@ -1063,6 +1063,8 @@ BoundSelectQuery(const SelectExpression & select,
 
         auto boundSelect = select.bind(*context);
 
+        selectInfo = boundSelect.info;
+
         std::vector<BoundSqlExpression> boundCalc;
         for (auto & c: calc) {
             ExcAssert(c);
@@ -1137,7 +1139,7 @@ BoundSelectQuery(const SelectExpression & select,
 
     } JML_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Binding error: "
-                             + ML::getExceptionString(),
+                             + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
                              "where", where.shallowCopy(),
@@ -1183,7 +1185,7 @@ execute(std::function<bool (NamedRowValue & output,
         return executor->execute(processor, processInParallel, offset, limit, onProgress);
     } JML_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
-                             + ML::getExceptionString(),
+                             + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
                              "where", where.shallowCopy(),
@@ -1233,7 +1235,7 @@ executeExpr(std::function<bool (Path & rowName,
                                      offset, limit, onProgress);
     } JML_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
-                             + ML::getExceptionString(),
+                             + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
                              "where", where.shallowCopy(),
@@ -1292,7 +1294,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
                                         SqlBindingScope & argScope)
     {
 
-        auto getGroupRowName = [] (const SqlRowScope & context) -> RowName
+        auto getGroupRowName = [] (const SqlRowScope & context) -> RowPath
             {
             auto & row = context.as<RowScope>();
 
@@ -1390,7 +1392,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
     // 1.  The value of the variable in the row
     // 2.  The value of the variable within the group by expression
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName)
+                                     const ColumnPath & columnName)
     {
         // First, search for something that matches the surface (ugh)
         // of a group by clause.  We can use that directly.
@@ -1404,7 +1406,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
             // names.  For the moment, we're just hacking it so that it will
             // work with variable names.
 
-            ColumnName simplifiedSurface;
+            ColumnPath simplifiedSurface;
             if (columnName[0] == alias) {
                 simplifiedSurface = columnName.removePrefix();
             }
@@ -1582,7 +1584,7 @@ BoundGroupByQuery(const SelectExpression & select,
 
 }
 
-bool
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
 BoundGroupByQuery::
 execute(RowProcessor processor,
         ssize_t offset,
@@ -1612,6 +1614,7 @@ execute(RowProcessor processor,
 
     //bind the selectexpression, this will create the bound aggregators (which we wont use, ah!)
     auto boundSelect = select.bind(*groupContext);
+    auto selectInfo = boundSelect.info;
 
     //bind the having expression. Must be bound after the select because
     //we placed the having aggregators after the select aggregator in the list
@@ -1726,7 +1729,7 @@ execute(RowProcessor processor,
     }
 
     if (boundOrderBy.empty())
-        return true;
+        return {true, selectInfo};
 
     // Compare two rows according to the sort criteria
     auto compareRows = [&] (const SortedRow & row1,
@@ -1783,7 +1786,7 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return false;
+                return {false, selectInfo}; //early exis on processor error
 
             if (count - offset == limit)
                 break;
@@ -1800,12 +1803,12 @@ execute(RowProcessor processor,
 
             /* Finally, pass to the terminator to continue. */
             if (!processor(row))
-                return false;
+                return {false, selectInfo}; //early exis on processor error
         } 
     }  
 
-    return true;
+    return {true, selectInfo};
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

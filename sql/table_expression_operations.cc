@@ -12,7 +12,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Create a bound table expression that implements the binding of
@@ -368,7 +368,7 @@ getUnbound() const
     result.merge(rightUnbound);
     result.mergeFiltered(onUnbound, tables);
 
-    std::vector<ColumnName> toRemove;
+    std::vector<ColumnPath> toRemove;
     for (auto & v: result.vars) {
         for (auto & t: tables) {
             if (v.first.startsWith(t)) {
@@ -621,7 +621,7 @@ RowTableExpression::
 // and allow expression parsing to be in a separate library
 std::vector<NamedRowValue>
 (*querySubDatasetFn) (MldbServer * server,
-                      std::vector<MatrixNamedRow> rows,
+                      std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
                       const SqlExpression & where,
@@ -649,10 +649,10 @@ bind(SqlBindingScope & context) const
     // one column available and thus its value type is simple
 
     std::vector<KnownColumn> knownColumns;
-    knownColumns.emplace_back(ColumnName("value"),
+    knownColumns.emplace_back(ColumnPath("value"),
                               std::make_shared<AnyValueInfo>(),
                               COLUMN_IS_DENSE);
-    knownColumns.emplace_back(ColumnName("column"),
+    knownColumns.emplace_back(ColumnPath("column"),
                               std::make_shared<AnyValueInfo>(),
                               COLUMN_IS_DENSE);
     auto info = std::make_shared<RowValueInfo>(knownColumns);
@@ -674,8 +674,8 @@ bind(SqlBindingScope & context) const
             return BoundFunction();
         };
 
-    static const ColumnName valueName("value");
-    static const ColumnName columnNameName("column");
+    static const PathElement valueName("value");
+    static const PathElement columnNameName("column");
 
     // Allow the dataset to run queries
     result.table.runQuery = [=] (const SqlBindingScope & context,
@@ -699,30 +699,28 @@ bind(SqlBindingScope & context) const
                 ExpressionValue row = boundExpr(rowScope, GET_LATEST);
                 
                 // 2.  Put it in a sub dataset
-                std::vector<MatrixNamedRow> rows;
+                std::vector<NamedRowValue> rows;
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onColumn = [&] (const Path & columnName,
-                                     const Path & prefix,
-                                     const CellValue & cell,
-                                     Date ts)
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
                 {
-                    MatrixNamedRow row;
-                    row.rowHash = row.rowName = ColumnName(to_string(n++));
+                    NamedRowValue row;
+                    row.rowHash = row.rowName = ColumnPath(to_string(n++));
+
                     row.columns.emplace_back(columnNameName,
-                                             (prefix + columnName)
-                                                 .toUtf8String(),
-                                             ts);
-                    row.columns.emplace_back(valueName,
-                                             cell,
-                                             ts);
+                                             ExpressionValue((prefix+columnName).toUtf8String(), ts));
+                    row.columns.emplace_back(valueName, ExpressionValue(val, ts));
+
                     rows.emplace_back(std::move(row));
 
                     return true;
                 };
 
-                row.forEachAtom(onColumn);
+                row.forEachAtom(onAtom);
 
                 return querySubDatasetFn(server, std::move(rows),
                                          select, when, *where, orderBy,
@@ -791,4 +789,4 @@ getUnbound() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

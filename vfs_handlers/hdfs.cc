@@ -19,7 +19,7 @@
 #include "mldb/types/url.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 constexpr int DEFAULT_PORT(50070);
 
@@ -77,7 +77,7 @@ HDFSSourceImpl(const string & urlStr, int mode)
 
     /* "hdfsExists" returns the opposite of what it means */
     if ((mode & O_WRONLY) == 0 && hdfsExists(fsHandle_, filename.c_str())) {
-        throw ML::Exception("file does not exist");
+        throw MLDB::Exception("file does not exist");
     }
 
     fileHandle_ = hdfsOpenFile(fsHandle_, filename.c_str(), mode, 0,
@@ -105,7 +105,7 @@ read(char * s, streamsize n)
         readRes = hdfsRead(fsHandle_, fileHandle_, s, n);
     }
     if (readRes == -1) {
-        throw ML::Exception(errno, "hdfsRead");
+        throw MLDB::Exception(errno, "hdfsRead");
     }
 
     return readRes > 0 ? readRes : -1;
@@ -119,7 +119,7 @@ write(const char* s, streamsize n)
 
     tSize writeRes = hdfsWrite(fsHandle_, fileHandle_, s, n);
     if (writeRes == -1) {
-        throw ML::Exception(errno, "hdfsWrite");
+        throw MLDB::Exception(errno, "hdfsWrite");
     }
 
     return writeRes;
@@ -252,7 +252,7 @@ struct RegisterHDFSHandler {
 
         string::size_type pos = scheme.find("hdfs://");
         if (pos != string::npos)
-            throw ML::Exception("malformed hdfs url");
+            throw MLDB::Exception("malformed hdfs url");
         string url = "hdfs://" + resource;
 
         if (mode == ios::in) {
@@ -264,7 +264,7 @@ struct RegisterHDFSHandler {
                                                                    131072);
         }
         else {
-            throw ML::Exception("no way to create HDFS handler for non in/out");
+            throw MLDB::Exception("no way to create HDFS handler for non in/out");
         }
         return make_pair(result, true);
     }

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* backtrace.h                                                      -*- C++ -*-
    Jeremy Barnes, 26 February 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Interface to a bactrace function.
 */
@@ -10,10 +9,9 @@
 #include <iostream>
 #include <vector>
 
-#ifndef __jml__arch__backtrace_h__
-#define __jml__arch__backtrace_h__
+#pragma once
 
-namespace ML {
+namespace MLDB {
 
 /** Basic backtrace information */
 struct BacktraceInfo {
@@ -71,6 +69,4 @@ std::vector<BacktraceFrame> backtrace(int num_to_skip);
 std::vector<BacktraceFrame>
 backtrace(const BacktraceInfo & info, int num_to_skip);
 
-} // namespace ML
-
-#endif /* __jml__arch__backtrace_h__ */
+} // namespace MLDB

@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -67,21 +67,19 @@ struct MergedDataset::Itl
 
         //for (auto & d: datasets) {
         //    cerr << "dataset has " << d->getMatrixView()->getRowHashes().size()
-        //         << " rows and " << d->getMatrixView()->getColumnNames().size()
+        //         << " rows and " << d->getMatrixView()->getColumnPaths().size()
         //         << " columns" << endl;
         //}
 
         if (datasets.empty())
-            throw ML::Exception("Attempt to merge no datasets together");
+            throw MLDB::Exception("Attempt to merge no datasets together");
 
 
         std::sort(datasets.begin(), datasets.end(),
                   [] (std::shared_ptr<Dataset> p1,
                       std::shared_ptr<Dataset> p2)
                   {
-                      return false;
-                      //return p1->behaviourCount() + p1->subjectCount()
-                      //    > p2->behaviourCount() + p2->subjectCount();
+                    return p1->getRowCount() > p2->getRowCount();
                   });
 
         std::vector<std::shared_ptr<Dataset> > toMerge;
@@ -134,7 +132,7 @@ struct MergedDataset::Itl
             {
                 auto dataset = toMerge[datasetIndex];
                 MergeHashEntries result;
-                vector<ColumnName> cols = dataset->getMatrixView()->getColumnNames();
+                vector<ColumnPath> cols = dataset->getMatrixView()->getColumnPaths();
                 std::sort(cols.begin(), cols.end());
                 ExcAssert(std::unique(cols.begin(), cols.end()) == cols.end());
                 result.reserve(cols.size());
@@ -182,7 +180,7 @@ struct MergedDataset::Itl
         }
 
         cerr << "merged dataset has " << this->getRowHashes().size()
-             << " rows and " << this->getColumnNames().size()
+             << " rows and " << this->getColumnPaths().size()
              << " columns" << endl;
     }
 
@@ -205,18 +203,18 @@ struct MergedDataset::Itl
                 ++it;
         }
 
-        virtual RowName next()
+        virtual RowPath next()
         {
             uint64_t hash = (*it).first;
             ++it;
 
-            return source->getRowName(RowHash(hash));
+            return source->getRowPath(RowHash(hash));
         }
 
-        virtual const RowName & rowName(RowName & storage) const
+        virtual const RowPath & rowName(RowPath & storage) const
         {
             uint64_t hash = (*it).first;
-            return storage = source->getRowName(RowHash(hash));
+            return storage = source->getRowPath(RowHash(hash));
         }
 
         const MergedDataset::Itl* source;
@@ -224,15 +222,15 @@ struct MergedDataset::Itl
 
     };
        
-    virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    virtual std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
         auto hashes = getRowHashes(start, limit);
         
-        std::vector<RowName> result;
+        std::vector<RowPath> result;
 
         for (auto & h: getRowHashes(start, limit))
-            result.emplace_back(getRowName(h));
+            result.emplace_back(getRowPath(h));
 
         return result;
     }
@@ -264,7 +262,7 @@ struct MergedDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         uint32_t bitmap = getRowBitmap(rowName);
         return bitmap != 0;
@@ -276,21 +274,21 @@ struct MergedDataset::Itl
         return bitmap != 0;
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
         uint32_t bitmap = getRowBitmap(rowHash);
         if (!bitmap)
-            throw ML::Exception("Row not known");
+            throw MLDB::Exception("Row not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
-        return datasets[bit]->getMatrixView()->getRowName(rowHash);
+        return datasets[bit]->getMatrixView()->getRowPath(rowHash);
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         uint32_t bitmap = getRowBitmap(rowName);
         if (!bitmap)
-            throw ML::Exception("Row not known");
+            throw MLDB::Exception("Row not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
         MatrixNamedRow result = datasets[bit]->getMatrixView()->getRow(rowName);
@@ -311,34 +309,34 @@ struct MergedDataset::Itl
         return result;
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         return getColumnBitmap(column) != 0;
     }
 
-    virtual ColumnName getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnPath(ColumnHash columnHash) const
     {
         uint32_t bitmap = getColumnBitmap(columnHash);
 
         if (bitmap == 0)
-            throw ML::Exception("Column not found in merged dataset");
+            throw MLDB::Exception("Column not found in merged dataset");
 
         int bit = ML::lowest_bit(bitmap, -1);
 
-        return datasets[bit]->getMatrixView()->getColumnName(columnHash);
+        return datasets[bit]->getMatrixView()->getColumnPath(columnHash);
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
-        std::vector<ColumnName> result;
+        std::vector<ColumnPath> result;
 
         auto onColumn = [&] (uint64_t hash, uint32_t bitmap)
             {
                 ColumnHash columnHash(hash);
                 int bit = ML::lowest_bit(bitmap, -1);
                 ExcAssertNotEqual(bit, -1);
-                result.push_back(datasets[bit]->getMatrixView()->getColumnName(columnHash));
+                result.push_back(datasets[bit]->getMatrixView()->getColumnPath(columnHash));
                 
                 return true;
             };
@@ -350,11 +348,11 @@ struct MergedDataset::Itl
 
 #if 0  // default version in dataset.cc is correct but less efficient
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & columnName, ColumnStats & toStoreResult) const
+    getColumnStats(const ColumnPath & columnName, ColumnStats & toStoreResult) const
     {
         uint32_t bitmap = getColumnBitmap(columnName);
         if (!bitmap)
-            throw ML::Exception("Column not known");
+            throw MLDB::Exception("Column not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
         bitmap = bitmap & ~(1 << bit);
@@ -369,16 +367,16 @@ struct MergedDataset::Itl
 
         // TODO: fill in the stats...
 
-        throw ML::Exception("MergedDataset::getColumnStats() not finished");
+        throw MLDB::Exception("MergedDataset::getColumnStats() not finished");
     }
 #endif
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & columnHash) const
+    virtual MatrixColumn getColumn(const ColumnPath & columnHash) const
     {
         uint32_t bitmap = getColumnBitmap(columnHash);
         if (!bitmap)
-            throw ML::Exception("Column not known");
+            throw MLDB::Exception("Column not known");
 
         int bit = ML::lowest_bit(bitmap, -1);
         MatrixColumn result = datasets[bit]->getColumnIndex()->getColumn(columnHash);
@@ -400,11 +398,11 @@ struct MergedDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual std::vector<std::tuple<RowName, CellValue> >
-    getColumnValues(const ColumnName & columnName,
+    virtual std::vector<std::tuple<RowPath, CellValue> >
+    getColumnValues(const ColumnPath & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
-        std::vector<std::tuple<RowName, CellValue> > result;
+        std::vector<std::tuple<RowPath, CellValue> > result;
         uint32_t bitmap = getColumnBitmap(columnName);
         if (bitmap)
         {
@@ -581,4 +579,4 @@ struct AtInit {
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

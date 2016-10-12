@@ -16,7 +16,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* OUTPUTSINK */
@@ -48,7 +48,7 @@ waitState(int expectedState)
 }
 
 std::istream &
-Datacratic::operator >>
+MLDB::operator >>
 (std::istream & stream, OutputSink & sink)
 {
     string newData;

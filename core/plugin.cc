@@ -20,7 +20,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -60,7 +60,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Plugin of type '" + ML::type_name(*this)
+    error["error"] = "Plugin of type '" + MLDB::type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
@@ -165,13 +165,13 @@ struct SharedLibraryPlugin::Itl {
         if (!handle) {
             char * error = dlerror();
             ExcAssert(error);
-            throw ML::Exception("couldn't find plugin library '%s': %s",
+            throw MLDB::Exception("couldn't find plugin library '%s': %s",
                                 path.c_str(), error);
         }
 
         dlerror();  // clear existing error
 
-        auto * fn = (MldbPluginEnterV100 )dlsym(handle, "_Z19mldbPluginEnterV100PN10Datacratic4MLDB10MldbServerE");
+        auto * fn = (MldbPluginEnterV100 )dlsym(handle, "_Z19mldbPluginEnterV100PN4MLDB10MldbServerE");
 
         if (fn) {
             Plugin * plugin = fn(owner->server);
@@ -273,5 +273,5 @@ regSharedLibrary(builtinPackage(),
                  "plugins/SharedLibrary.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

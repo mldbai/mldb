@@ -12,7 +12,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 void rethrowHttpException(int httpCode, const Utf8String & message, Any details)
 {
@@ -55,4 +55,4 @@ void rethrowHttpException(int httpCode, const char * message, Any details)
     rethrowHttpException(httpCode, Utf8String(message), details);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

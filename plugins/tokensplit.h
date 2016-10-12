@@ -14,7 +14,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct TokenSplitConfig {
@@ -56,4 +56,4 @@ struct TokenSplit: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

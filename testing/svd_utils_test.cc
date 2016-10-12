@@ -22,21 +22,10 @@
 #include <cmath>
 
 using namespace std;
-using namespace Datacratic;
+
 using namespace ML;
 
-
-namespace Datacratic {
-
-int
-intersectionCount(const uint16_t * it1, const uint16_t * end1,
-                  const uint16_t * it2, const uint16_t * end2);
-
-int
-intersectionCount(const uint32_t * it1, const uint32_t * end1,
-                  const uint32_t * it2, const uint32_t * end2);
-
-} // namespace Datacratic
+using namespace MLDB;
 
 void testBucket(std::vector<uint32_t> subs1,
                 std::vector<uint32_t> subs2)

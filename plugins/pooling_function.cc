@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -79,12 +79,12 @@ PoolingFunction(MldbServer * owner,
     string select_expr;
     for(auto agg : functionConfig.aggregators) {
         if(validAggs.find(agg) == validAggs.end())
-            throw ML::Exception("Unknown aggregator: " + agg.rawString());
+            throw MLDB::Exception("Unknown aggregator: " + agg.rawString());
 
         if(select_expr.size() > 0)
             select_expr += ",";
 
-        select_expr += ML::format("%s({*}) as %s", agg.rawData(), agg.rawData());
+        select_expr += MLDB::format("%s({*}) as %s", agg.rawData(), agg.rawData());
     }
     fnConfig.query.stm->select = SelectExpression::parseList(select_expr);
     fnConfig.query.stm->from = functionConfig.embeddingDataset;
@@ -148,7 +148,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
                                           "aggregator", agg);
             }
 
-            ML::distribution<double> dist
+            distribution<double> dist
                 = val.getEmbedding(columnNames.data(), columnNames.size());
             outputEmbedding.insert(outputEmbedding.end(),
                                    dist.begin(), dist.end());
@@ -186,4 +186,4 @@ regPoolingFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

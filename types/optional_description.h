@@ -11,7 +11,7 @@
 
 #pragma once 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 template<typename T>
@@ -71,7 +71,7 @@ struct OptionalDescription
     optionalGetValueTyped(const Optional<T> * val) const override
     {
         if (!val->get())
-            throw ML::Exception("no value in optional field");
+            throw MLDB::Exception("no value in optional field");
         return val->get();
     }
 
@@ -88,4 +88,4 @@ struct OptionalDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(OptionalDescription, Optional, typename, T);
 
-} // namespace Datacratic
+} // namespace MLDB

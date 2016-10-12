@@ -11,8 +11,9 @@
 
 #include "mldb/core/procedure.h"
 #include "mldb/rest/rest_collection.h"
+#include "mldb/rest/service_peer.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -51,15 +52,16 @@ struct ProcedureRunCollection
     construct(ProcedureRunConfig config, const OnProgress & onProgress) const;
 };
 
-} // namespace MLDB
-
 //extern template class PolyCollection<MLDB::ProcedureRun>;
 DECLARE_REST_COLLECTION_INSTANTIATIONS(Utf8String,
-                                       MLDB::ProcedureRun,
-                                       MLDB::ProcedureRunConfig,
-                                       MLDB::ProcedureRunStatus);
+                                       ProcedureRun,
+                                       ProcedureRunConfig,
+                                       ProcedureRunStatus);
+
+} // namespace MLDB
 
 
-} // namespace Datacratic
+
+
 
 

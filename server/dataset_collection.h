@@ -12,7 +12,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/rest/poly_collection.h"
 
-namespace Datacratic {
+
 
 struct RestConnection;
 
@@ -49,7 +49,7 @@ struct DatasetCollection: public PolyCollection<Dataset> {
 
     std::vector<std::pair<CellValue, int64_t> >
     getColumnValueCounts(const Dataset * dataset,
-                         const ColumnName & columnName,
+                         const ColumnPath & columnName,
                          ssize_t offset,
                          ssize_t limit) const;
 
@@ -73,8 +73,9 @@ struct DatasetCollection: public PolyCollection<Dataset> {
                     bool sortColumns) const;
 };
 
+extern template class PolyCollection<Dataset>;
+
 } // namespace MLDB
 
-extern template class PolyCollection<MLDB::Dataset>;
 
-} // namespace Datacratic
+
