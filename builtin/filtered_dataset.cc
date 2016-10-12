@@ -170,12 +170,6 @@ struct FilteredDataset::Itl
         return matrixView->getColumnCount();
     }   
 
-    /** ColumnIndex */
-    virtual bool forEachColumnGetStats(const OnColumnStats & onColumnStats) const
-    {
-        return columnIndex->forEachColumnGetStats(onColumnStats);
-    }
-
     virtual const ColumnStats &
     getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const
     {

@@ -15,6 +15,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/svd_utils.h"
+#include "mldb/utils/log_fwd.h"
 #include <boost/multi_array.hpp>
 
 
@@ -478,13 +479,20 @@ struct ColumnCorrelations {
 };
 
 
-ClassifiedColumns classifyColumns(const Dataset & dataset,
-                                  SelectExpression select);
+ClassifiedColumns classifyColumns(const SelectExpression & select,
+                                  const Dataset & from,
+                                  const WhenExpression & when,
+                                  const SqlExpression & where,
+                                  const OrderByExpression & orderBy,
+                                  ssize_t offset,
+                                  ssize_t limit,
+                                  std::shared_ptr<spdlog::logger> logger);
 
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);
 
-FeatureBuckets extractFeaturesFromRows(const Dataset & dataset,
+FeatureBuckets extractFeaturesFromRows(const SelectExpression & select,
+                                       const Dataset & dataset,
                                        const WhenExpression & whenClause,
                                        std::shared_ptr<SqlExpression> whereClause,
                                        const OrderByExpression & orderBy, 
