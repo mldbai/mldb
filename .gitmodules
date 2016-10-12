@@ -3,7 +3,7 @@
 	url = git@github.com:datacratic/baseimage-docker.git
 [submodule "ext/tensorflow"]
 	path = ext/tensorflow
-	url = https://github.com/mldbai/tensorflow
+	url = git@github.com:mldbai/tensorflow
 [submodule "ext/re2"]
 	path = ext/re2
 	url = https://github.com/mldbai/re2.git
