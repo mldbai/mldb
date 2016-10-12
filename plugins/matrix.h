@@ -15,6 +15,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/svd_utils.h"
+#include "mldb/utils/log_fwd.h"
 #include <boost/multi_array.hpp>
 
 
@@ -484,7 +485,8 @@ ClassifiedColumns classifyColumns(const SelectExpression & select,
                                   const SqlExpression & where,
                                   const OrderByExpression & orderBy,
                                   ssize_t offset,
-                                  ssize_t limit);
+                                  ssize_t limit,
+                                  std::shared_ptr<spdlog::logger> logger);
 
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);

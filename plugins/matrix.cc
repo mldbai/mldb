@@ -15,6 +15,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/utils/less.h"
+#include "mldb/utils/log.h"
 #include <mutex>
 
 using namespace std;
@@ -54,7 +55,8 @@ namespace {
            return true;
        };
 
-       iterateDataset(select, from, "", when, where, {onRow, false /*processInParallel*/}, orderBy, offset, limit, nullptr);
+       iterateDataset(select, from, "", when, where, 
+                      {onRow, false /*processInParallel*/}, orderBy, offset, limit, nullptr);
        return stats;
    }
 }
@@ -91,7 +93,8 @@ classifyColumns(const SelectExpression & select_,
                 const SqlExpression & where,
                 const OrderByExpression & orderBy,
                 ssize_t offset,
-                ssize_t limit)
+                ssize_t limit,
+                std::shared_ptr<spdlog::logger> logger)
 {
     // Get a list of the columns we want to use, by parsing the select
     // expression.  Note that only direct expression values will work.
@@ -109,10 +112,10 @@ classifyColumns(const SelectExpression & select_,
     std::set<ColumnPath> selectedColumns(selectedColumnsVec.begin(),
                                          selectedColumnsVec.end());
     if (boundSelect.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN)
-        cerr << "WARNING: non-enumerated columns will not be used "
-            "in correlation training" << endl;
+        WARNING_MSG(logger) << "non-enumerated columns will not be used "
+            "in correlation training";
     
-    cerr << "selected " << selectedColumns.size() << " columns" << endl;
+    DEBUG_MSG(logger) << "selected " << selectedColumns.size() << " columns";
     
     // Classify the columns into two different types:
 
@@ -122,7 +125,7 @@ classifyColumns(const SelectExpression & select_,
     std::unordered_map<ColumnPath, ColumnStats> stats = 
         getColumnStats(select, dataset, when, where, orderBy, offset, limit);
  
-    cerr << "stats size " << stats.size() << endl;
+    DEBUG_MSG(logger) << "stats size " << stats.size();
 
     size_t rowCount = dataset.getMatrixView()->getRowCount();
 
@@ -133,10 +136,10 @@ classifyColumns(const SelectExpression & select_,
         if (!selectedColumns.count(colStats.first))  
             continue;
 
-        cerr << "column " << colStats.first << " has " << colStats.second.rowCount()
-             << " values set" << " numeric = " << colStats.second.isNumeric()
-             << " vals "
-             << colStats.second.values.size() << endl;
+        DEBUG_MSG(logger) << "column " << colStats.first << " has " << colStats.second.rowCount()
+                          << " values set" << " numeric = " << colStats.second.isNumeric()
+                          << " vals "
+                          << colStats.second.values.size();
             
         bool isDense = colStats.second.rowCount() == rowCount;
 

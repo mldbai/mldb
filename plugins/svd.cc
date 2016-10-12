@@ -704,7 +704,8 @@ run(const ProcedureRunConfig & run,
                                                 *runProcConf.trainingData.stm->where,
                                                 runProcConf.trainingData.stm->orderBy,
                                                 runProcConf.trainingData.stm->offset,
-                                                runProcConf.trainingData.stm->limit);
+                                                runProcConf.trainingData.stm->limit,
+                                                logger);
 
 #if 0
     cerr << "columns: " << columns.continuousColumns.size()
