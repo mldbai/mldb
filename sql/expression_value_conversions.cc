@@ -865,7 +865,7 @@ uint64_t storageBufferBytes(const DimsVector & size, StorageType storage)
     size_t sz = 1;
     for (auto & s: size)
         sz *= s;
-    return storageBufferBytes(size, storage);
+    return storageBufferBytes(sz, storage);
 }
 
 void * addOfs(void * p, ssize_t n)
