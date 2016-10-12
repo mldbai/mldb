@@ -44,11 +44,16 @@ constexpr char GENERIC_OUTPUT_DS_DESC[] =
 
 struct ProcedureRunConfig {
     Utf8String id;
-    Utf8String state;
     Any params;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunConfig);
+
+struct ProcedureRunState {
+    Utf8String state;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunState);
 
 struct ProcedureRunStatus: public PolyStatus {
     Date runStarted;   ///< Timestamp at which run of the procedure started

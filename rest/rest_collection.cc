@@ -646,7 +646,7 @@ initRoutes(RouteManager & manager)
 
 BackgroundTaskBase::
 BackgroundTaskBase()
-    : running(true), state(State::_initializing)
+    : running(true), state(State::INITIALIZING)
 {
 }
 
@@ -666,16 +666,16 @@ getProgress() const
     return progress;
 }
 
-void
+bool
 BackgroundTaskBase::
 cancel()
 {
-    auto old_state = state.exchange(State::_cancelled);
-    if (old_state != State::_cancelled && 
-        old_state != State::_finished) {
+    auto old_state = state.exchange(State::CANCELLED);
+    if (old_state != State::CANCELLED && 
+        old_state != State::FINISHED) {
         cancelledWatches.trigger(true);
     }
-    // cerr << "state is now _cancelled " << handle << endl;
+    // cerr << "state is now CANCELLED " << handle << endl;
 
 #if 0
     // Give it one second to stop
@@ -697,16 +697,18 @@ cancel()
     while (running) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
+
+    return old_state != State::CANCELLED;
 }
 
 void
 BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
-    auto old_state = state.exchange(State::_error);
-    // cerr << "state is now _error " << handle << endl;
-    ExcAssertNotEqual(old_state, State::_cancelled);
-    ExcAssertNotEqual(old_state, State::_finished);
+    auto old_state = state.exchange(State::ERROR);
+    // cerr << "state is now ERROR " << handle << endl;
+    ExcAssertNotEqual(old_state, State::CANCELLED);
+    ExcAssertNotEqual(old_state, State::FINISHED);
     this->exc = std::move(exc);
 }
 
@@ -716,10 +718,10 @@ setFinished()
 {
     running = false;
     State oldState = state.load();
-    if (oldState != State::_cancelled &&
-        oldState != State::_error) {
-        // cerr << "state is now _finished " << handle << " was " << oldState << endl;
-        state = State::_finished;
+    if (oldState != State::CANCELLED &&
+        oldState != State::ERROR) {
+        // cerr << "state is now FINISHED " << handle << " was " << oldState << endl;
+        state = State::FINISHED;
     }
 }
 
@@ -730,10 +732,10 @@ setProgress(const Json::Value & _progress)
     ExcAssert(running);
     
     State oldState = state.load();
-    if (oldState != State::_cancelled &&
-        oldState != State::_error) {
-        // cerr << "state is now _executing " << handle << endl;
-        state = State::_executing;
+    if (oldState != State::CANCELLED &&
+        oldState != State::ERROR) {
+        // cerr << "state is now EXECUTING " << handle << endl;
+        state = State::EXECUTING;
 
         auto type = _progress.type();
         if (type == Json::nullValue  ||  
@@ -757,17 +759,19 @@ BackgroundTaskBase::
 getState() const
 {
     switch (state.load()) {
-    case State::_cancelled:
+    case State::CANCELLED:
         return L"cancelled";
-    case State::_error:
+    case State::ERROR:
         return L"error";
-    case State::_finished:
+    case State::FINISHED:
         return L"finished";
-    case State::_initializing:
+    case State::INITIALIZING:
         return L"initializing";
-    case State::_executing:
+    case State::EXECUTING:
         return L"executing";
     default:
+        // if you get this asert it is because you have
+        // added a new state and did not update that method
         ExcAssert(!"update the BackgroundTaskBase::getState");
         return L"unknown state";
     }

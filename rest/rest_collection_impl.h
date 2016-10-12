@@ -15,6 +15,7 @@
 #include "collection_config_store.h"
 #include "mldb/types/utility_descriptions.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/core/cancellation_exception.h"
 
 
 namespace MLDB {
@@ -253,17 +254,24 @@ initNodes(RouteManager & result)
 
             std::tie(ptr, task) = collection->tryGetEntry(key);
 
-            /* If we have a PUT, or we are doing a GET on the entry
-               itself (for its status), or we are doing a DELETE, then
-               we can continue without a pointer.  Otherwise we need to bail.
-            */
-            //using namespace std;
-            //cerr << "remaining = " << context.remaining << endl;
             if (!ptr) {
                 if (context.remaining.empty()
                     && (request.verb == "PUT"
                         || request.verb == "GET"
                         || request.verb == "DELETE")) {
+                    /* If we have a PUT, or we are doing a GET on the entry
+                       itself (for its status), or we are doing a DELETE, then
+                       we can continue without a pointer.  Otherwise we need to bail.
+                    */
+                    return;
+                } 
+                else if (context.remaining == "/state"
+                         && (request.verb == "PUT"
+                             || request.verb == "GET")) {
+                    /* Trying to change the state of an object being created.
+                       We are most likely trying to cancel the operation.  We
+                       can continue without a pointer.
+                    */
                     return;
                 }
 
@@ -274,12 +282,12 @@ initNodes(RouteManager & result)
                 if (task) {
                     error["state"] = task->getState();
                     error["progress"] = task->getProgress();
-                    if (task->state == BackgroundTaskBase::State::_error) {
+                    if (task->state == BackgroundTaskBase::State::ERROR) {
                         error["error"]
                             = nounSingular + " entry '"
                             + resource + "' not available due to error in creation";
                     }
-                    else if (task->state == BackgroundTaskBase::State::_cancelled) {
+                    else if (task->state == BackgroundTaskBase::State::CANCELLED) {
                         error["error"]
                             = nounSingular + " entry '"
                             + resource + "' not available due to cancellation";
@@ -560,9 +568,9 @@ addBackgroundJobInThread(Key key,
             {
                 std::unique_lock<std::mutex> guard(task->mutex);
                 task->setProgress(progress);
-                if (task->state == BackgroundTaskBase::State::_cancelled)
-                    cerr << "calling progress when cancelled" << endl;
-                return !(task->state == BackgroundTaskBase::State::_cancelled);
+                // if (task->state == BackgroundTaskBase::State::CANCELLED)
+                //    cerr << "calling progress when cancelled" << endl;
+                return !(task->state == BackgroundTaskBase::State::CANCELLED);
             };
 
 
@@ -576,7 +584,14 @@ addBackgroundJobInThread(Key key,
                     WatchT<bool> cancelled = std::move(*cancelledPtr);
                     task->value = fn(onProgressFn, std::move(cancelled));
                     task->setFinished();
-                } catch (const std::exception & exc) {
+                } 
+                catch (const CancellationException & exc) {
+                    // throwing CancellationException when the task
+                    // state was not set to Cancelled
+                    ExcAssertEqual(task->state, BackgroundTaskBase::State::CANCELLED);
+                    task->setFinished();
+                }
+                catch (const std::exception & exc) {
                     // MDLB-1863 progress must be a json object
                     ExcAssert(task->progress.type() == Json::nullValue ||
                               task->progress.type() == Json::objectValue);
@@ -628,8 +643,8 @@ finishedBackgroundJob(Key key,
 
     std::unique_lock<std::mutex> guard(task->mutex);
 
-    if (task->state == BackgroundTaskBase::State::_cancelled ||
-        task->state == BackgroundTaskBase::State::_error) {
+    if (task->state == BackgroundTaskBase::State::CANCELLED ||
+        task->state == BackgroundTaskBase::State::ERROR) {
 
         // there are no object created
         for (auto & f: task->onDoneFunctions)
@@ -640,7 +655,7 @@ finishedBackgroundJob(Key key,
         // If this check triggers, we've somehow destroyed our object
         // without waiting for background tasks to finish.
         ExcAssert(impl);
-        //ExcAssertEqual(task->state, BackgroundTaskBase::State::_finished);
+        //ExcAssertEqual(task->state, BackgroundTaskBase::State::FINISHED);
         
         // Only promote it if it's not in the error state
         // If we're currently clearing, then we shouldn't add anything
@@ -673,7 +688,7 @@ addEntryItl(Key key,
     // In the case of an entry that's created and then removed before
     // it can be added, it may be cancelled before it can obtain the
     // mutate guard.  In that case, we don't add it.
-    if (state == BackgroundTaskBase::State::_cancelled)
+    if (state == BackgroundTaskBase::State::CANCELLED)
         return false;
 
     // NOTE: Should not be necessary... investigation needed
@@ -739,7 +754,7 @@ replaceEntryItl(Key key,
     // In the case of an entry that's created and then removed before
     // it can be added, it may be cancelled before it can obtain the
     // mutate guard.  In that case, we don't add it.
-    if (state == BackgroundTaskBase::State::_cancelled)
+    if (state == BackgroundTaskBase::State::CANCELLED)
         return false;
 
     // NOTE: Should not be necessary... investigation needed
@@ -1761,7 +1776,7 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
     }
     else {
         WatchT<bool> cancelled;
-        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::_finished);
+        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::FINISHED);
         this->addEntryItl(key, constructCancellable(std::move(config), nullptr,
                                                     std::move(cancelled)),
                           true /* must add */,

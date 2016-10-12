@@ -27,11 +27,27 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
         mldb.log(response)
         return response.headers['Location']
         
+    def run_and_cancel(self, name, config):
+        location = self.run_procedure_async(name, config)
+
+        resp = mldb.put(location + "/state", {'state': 'cancelled'})
+
+        self.assertEquals(resp.status_code, 200)
+
+        running = True
+        while running:
+            resp = mldb.get(location + "/state")
+            mldb.log(resp)
+            if resp.json()['state'] == 'cancelled':
+                running = False
+            sleep(0.1)
+
+
     @classmethod
     def setUpClass(cls):
         # create a dummy dataset
         ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
-        row_count = 1000000
+        row_count = 10000
         for i in xrange(row_count):
             # row name is x's value
             ds.record_row(str(i), [['x', i, 0]])
@@ -39,7 +55,7 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
 
     @timed
     def test_bucketize_cancellation(self):
-        location = self.run_procedure_async('bucketize',  {
+        self.run_and_cancel('bucketize',  {
             'type' : 'bucketize',
             'params' : {
                 'inputData' : 'SELECT * FROM sample ORDER BY x',
@@ -56,26 +72,10 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
                 'runOnCreation' : False
             }
         })
-
-        resp = mldb.get(location)
-        mldb.log(resp)
-
-        resp = mldb.put(location, {'state': 'cancelled'})
-
-        self.assertEquals(resp.status_code, 200)
-
-        running = True
-        while(running):
-            resp = mldb.get(location).json()
-            mldb.log(resp)
-            if resp['state'] == 'cancelled':
-                running = False
-            sleep(0.1)
-
         
     @timed
     def test_transform_cancellation(self):
-        location = self.run_procedure_async('transform',  {
+        self.run_and_cancel('transform',  {
             'type' : 'transform',
             'params' : {
                 'inputData' : 'SELECT x + 10 FROM sample',
@@ -86,21 +86,6 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
                 'runOnCreation' : False
             }
         })
-
-        resp = mldb.get(location)
-        mldb.log(resp)
-
-        resp = mldb.put(location, {'state': 'cancelled'})
-
-        self.assertEquals(resp.status_code, 200)
-
-        running = True
-        while(running):
-            resp = mldb.get(location).json()
-            mldb.log(resp)
-            if resp['state'] == 'cancelled':
-                running = False
-            sleep(0.1)
 
 
 if __name__ == '__main__':

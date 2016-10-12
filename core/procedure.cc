@@ -38,8 +38,15 @@ ProcedureRunConfigDescription()
     nullAccepted = true;
 
     addField("id", &ProcedureRunConfig::id, "ID of run");
-    addField("state", &ProcedureRunConfig::state, "State of the run");
     addField("params", &ProcedureRunConfig::params, "Parameters of run");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ProcedureRunState);
+
+ProcedureRunStateDescription::
+ProcedureRunStateDescription()
+{
+    addField("state", &ProcedureRunState::state, "State of the run");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(ProcedureRunStatus);

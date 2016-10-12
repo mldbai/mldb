@@ -631,6 +631,7 @@ run(const ProcedureRunConfig & run,
                      onProgress) )
             {
                 DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
+                
             }
 
         // Finish off the last bits of each thread

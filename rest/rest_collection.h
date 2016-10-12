@@ -108,9 +108,9 @@ getDefaultDescription(RestCollectionChildEvent<Key, Value> * = 0);
 /** Base class for background tasks. */
 
 struct BackgroundTaskBase {
-    /// _initializing and _executing are transient states while 
-    /// _cancelled, _finished and _error are final states 
-    enum State {_initializing, _executing, _cancelled, _finished, _error};
+    /// INITIALIZING and EXECUTING are transient states while 
+    /// CANCELLED, FINISHED and ERROR are final states 
+    enum State {INITIALIZING, EXECUTING, CANCELLED, FINISHED, ERROR};
 
     BackgroundTaskBase();
 
@@ -124,16 +124,18 @@ struct BackgroundTaskBase {
     /** Cancel the task.  This is synchronous, and will block until the
         cancellation is finished or the task has completed.  May be called
         from multiple threads.
-    */
-    void cancel();
 
-    /** Set state to _error */
+        Return false if the task was already cancelled and true otherwise.
+    */
+    bool cancel();
+
+    /** Set state to State::ERROR */
     void setError(std::exception_ptr exc = nullptr);
 
-    /** Set state to _executing */
+    /** Set state to State::EXECUTING */
     void setProgress(const Json::Value & progress);
 
-    /** Set state to _finished */
+    /** Set state to State::FINISHED */
     void setFinished();
 
     /** Set the handle of the thread that's doing this task, so we know what
@@ -142,7 +144,7 @@ struct BackgroundTaskBase {
     void setHandle(int64_t handle)
     {
         std::unique_lock<std::mutex> guard(mutex);
-        std::cerr << "new task with handle " << handle << std::endl;
+        // std::cerr << "new task with handle " << handle << std::endl;
         this->handle = handle;
     }
 
@@ -336,7 +338,7 @@ struct RestCollection : public RestCollectionBase {
                   std::shared_ptr<Value> value,
                   bool mustBeNewEntry = true)
     {
-        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::_finished);
+        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::FINISHED);
         return addEntryItl(key, std::move(value), mustBeNewEntry, state);
     }
 
@@ -344,7 +346,7 @@ struct RestCollection : public RestCollectionBase {
                       std::shared_ptr<Value> value,
                       bool mustAlreadyExist = true)
     {
-        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::_finished);
+        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::FINISHED);
         return replaceEntryItl(key, std::move(value), mustAlreadyExist, state);
     }
 
