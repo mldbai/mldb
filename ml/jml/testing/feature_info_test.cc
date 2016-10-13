@@ -32,7 +32,7 @@ using boost::unit_test::test_suite;
 BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
 {
     string toParse = "k=CATEGORICAL/c=2,Male,Female/o=OPTIONAL";
-    ML::Parse_Context context(toParse, toParse.c_str(), toParse.length());
+    ParseContext context(toParse, toParse.c_str(), toParse.length());
     Mutable_Feature_Info info;
     info.parse(context);
 

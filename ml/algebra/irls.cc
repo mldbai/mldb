@@ -35,7 +35,7 @@ double erf(double x)
 double erfinv(double y)
 {
     // TODO: if we use boost here, then Valgrind doesn't work
-    throw ML::Exception("no error function inverse available");
+    throw MLDB::Exception("no error function inverse available");
     //return std::erfinv(y);
 }
 

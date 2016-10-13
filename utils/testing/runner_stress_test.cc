@@ -247,7 +247,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
             }
         }
         else {
-            throw ML::Exception("pid was never set");
+            throw MLDB::Exception("pid was never set");
         }
     }
 }

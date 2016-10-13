@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* lightweight_hash.h                                              -*- C++ -*-
    Jeremy Barnes, 8 December 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    A lightweight invasive hash map.
 */
 
-#ifndef __jml__utils__lightweight_hash_h__
-#define __jml__utils__lightweight_hash_h__
+#pragma once
 
 #include "mldb/arch/exception.h"
 #include <boost/iterator/iterator_facade.hpp>
@@ -23,7 +21,7 @@
 #include <functional>
 #include <atomic>
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -176,7 +174,7 @@ struct MemStorage {
     void reserve(size_t newCapacity)
     {
         if (vals_)
-            throw ML::Exception("can't double initialize storage");
+            throw MLDB::Exception("can't double initialize storage");
             
         // We allocate one extra bucket and shift things so that index -1 has
         // a valid bucket
@@ -283,7 +281,7 @@ struct LogMemStorage {
     void reserve(size_t newCapacity)
     {
         if (vals_)
-            throw ML::Exception("can't double initialize storage");
+            throw MLDB::Exception("can't double initialize storage");
         
         if (newCapacity == 0) return;
 
@@ -602,7 +600,7 @@ protected:
         Key key = Ops::getKey(toInsert);
         ssize_t bucket = find_bucket(key);
         if (bucket != NO_BUCKET && Ops::bucketIsFull(storage_, bucket))
-            throw ML::Exception("must_insert of value already there");
+            throw MLDB::Exception("must_insert of value already there");
         return insert_new(bucket, toInsert);
     }
 
@@ -1282,7 +1280,4 @@ private:
 };
 
 
-} // file scope
-
-
-#endif /* __jml__utils__lightweight_hash_h__ */
+} // namespace MLDB

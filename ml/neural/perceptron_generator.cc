@@ -38,7 +38,7 @@ namespace ML {
 
 namespace {
 
-Env_Option<bool> profile("PROFILE_PERCEPTRON", false);
+EnvOption<bool> profile("PROFILE_PERCEPTRON", false);
 
 double t_train = 0.0, t_decorrelate = 0.0;
 double t_cholesky = 0.0, t_qr = 0.0, t_gs = 0.0, t_mean = 0.0, t_covar = 0.0;

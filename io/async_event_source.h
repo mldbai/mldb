@@ -108,7 +108,7 @@ struct AsyncEventSource {
     virtual void connected(MessageLoop * parent)
     {
         if (parent_)
-            throw ML::Exception("attempt to connect AsyncEventSource "
+            throw MLDB::Exception("attempt to connect AsyncEventSource "
                                 "to two parents");
         parent_ = parent;
     }

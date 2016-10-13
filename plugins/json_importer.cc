@@ -58,6 +58,7 @@ struct JSONImporterConfig : ProcedureConfig {
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
     std::shared_ptr<SqlExpression> named;
+    JsonArrayHandling arrays = PARSE_ARRAYS;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JSONImporterConfig);
@@ -89,6 +90,13 @@ JSONImporterConfigDescription()
              "Row name expression for output dataset. Note that each row "
              "must have a unique name and that names cannot be objects.",
              SqlExpression::parse("lineNumber()"));
+    addAuto("arrays", &JSONImporterConfig::arrays,
+            "Describes how arrays are encoded in the JSON output.  For "
+            "''parse' (default), the arrays become structured values. "
+            "For 'encode', "
+            "arrays containing atoms are sparsified with the values "
+            "representing one-hot "
+            "keys and boolean true values");
 
     addParent<ProcedureConfig>();
 
@@ -116,7 +124,7 @@ struct JsonScope : SqlExpressionMldbScope {
     JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                                const ColumnName & columnName) override
+                                const ColumnPath & columnName) override
     {
         return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
@@ -227,7 +235,7 @@ struct JSONImporter: public Procedure {
                                       onProgress, true);
 
         if(!outputDataset) {
-            throw ML::Exception("Unable to obtain output dataset");
+            throw MLDB::Exception("Unable to obtain output dataset");
         }
 
         Date zeroTs;
@@ -242,7 +250,7 @@ struct JSONImporter: public Procedure {
 
         Date timestamp = stream.info().lastModified;
 
-        ML::Timer timer;
+        Timer timer;
 
         // Skip those up to the offset
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
@@ -323,12 +331,10 @@ struct JSONImporter: public Procedure {
                 return handleError("empty line", actualLineNum, "");
             }
 
-            // TODO: in the configuration
-            JsonArrayHandling arrays = ENCODE_ARRAYS;
-
             ExpressionValue expr;
             try {
-                expr = ExpressionValue::parseJson(parser, timestamp, arrays);
+                expr = ExpressionValue::parseJson(parser, timestamp,
+                                                  config.arrays);
             } catch (const std::exception & exc) {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
@@ -338,7 +344,7 @@ struct JSONImporter: public Procedure {
                 return handleError("extra characters at end of line", actualLineNum, "");
             }
 
-            RowName rowName(actualLineNum);
+            RowPath rowName(actualLineNum);
             if (useWhere || useSelect || useNamed) {
                 JsonRowScope row(expr, actualLineNum);
                 ExpressionValue storage;
@@ -349,7 +355,7 @@ struct JSONImporter: public Procedure {
                 }
 
                 if (useNamed) {
-                    rowName = RowName(
+                    rowName = RowPath(
                         namedBound(row, storage, GET_ALL).toUtf8String());
                 }
 

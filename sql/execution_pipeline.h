@@ -52,7 +52,7 @@ struct LexicalScope {
         offset within the row scope for this table's fields.
     */
     virtual ColumnGetter
-    doGetColumn(const ColumnName & variableName, int fieldOffset) = 0;
+    doGetColumn(const ColumnPath & variableName, int fieldOffset) = 0;
 
     /** Return a wildcard accessor for the table.  fieldOffset gives the
         offset within the row scope for this table's fields.
@@ -124,7 +124,7 @@ struct PipelineExpressionScope:
         from the function input or output.
     */
     virtual ColumnGetter
-    doGetColumn(const Utf8String & tableName, const ColumnName & columnName);
+    doGetColumn(const Utf8String & tableName, const ColumnPath & columnName);
 
     virtual GetAllColumnsOutput 
     doGetAllColumns(const Utf8String & tableName,
@@ -141,8 +141,8 @@ struct PipelineExpressionScope:
 
     virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullColumnName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullColumnName,
                        Utf8String &tableName) const;
 
     std::vector<Utf8String> getTableNames() const;
@@ -180,7 +180,7 @@ private:
         int fieldOffset;                    ///< Offset for fields of table
 
         ColumnGetter
-        doGetColumn(const ColumnName & variableName) const;
+        doGetColumn(const ColumnPath & variableName) const;
 
         GetAllColumnsOutput
         doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const;

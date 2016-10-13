@@ -16,9 +16,6 @@
 #include <cassert>
 
 using namespace std;
-#if JML_INTEL_ISA
-using namespace ML;
-#endif
 
 namespace MLDB {
 

@@ -107,7 +107,7 @@ ScriptLanguage parseScriptLanguage(const std::string lang)
 {
     if(lang == "python")        return PYTHON;
     if(lang == "javascript")    return JAVASCRIPT;
-    throw ML::Exception("Unknown language");
+    throw MLDB::Exception("Unknown language");
 }
 
 /*****************************************************************************/
@@ -124,7 +124,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     scriptType = type;
 
     if(!url.empty() && !resource.source.empty())
-        throw ML::Exception("Cannot specify both address and source for plugin");
+        throw MLDB::Exception("Cannot specify both address and source for plugin");
 
     // if this is a plugin, we need to create a folder in the plugins folder
     // that we'll be keeping around
@@ -166,7 +166,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     {
         if(!fs::exists(plugin_working_dir)) {
             if(!fs::create_directories(plugin_working_dir))
-                throw ML::Exception("Unable to create plugin directory: " +
+                throw MLDB::Exception("Unable to create plugin directory: " +
                         plugin_working_dir.string());
         }
 
@@ -191,13 +191,13 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
         fs::path symlink;
 
         if (!fs::exists(source)) {
-            throw ML::Exception("Source does not exist");
+            throw MLDB::Exception("Source does not exist");
         }
 
         // if a file at the end, symlink main.xx to that file
         if(!fs::is_directory(source)) {
             if(!fs::create_directories(plugin_working_dir)) {
-                throw ML::Exception("Unable to create plugin directory: " +
+                throw MLDB::Exception("Unable to create plugin directory: " +
                                     plugin_working_dir.string());
             }
             symlink = fs::path(getElementLocation(MAIN));
@@ -247,7 +247,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
             urlToClone = urlToClone.substr(0, hashLocation);
         }
 
-        cerr << ML::format("Cloning GIST %s -> %s", urlToClone, plugin_working_dir.string()) << endl;
+        cerr << MLDB::format("Cloning GIST %s -> %s", urlToClone, plugin_working_dir.string()) << endl;
 
         git_libgit2_init();
 
@@ -270,9 +270,9 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
         if(rtn != 0) {
             const git_error *err = giterr_last();
             JML_TRACE_EXCEPTIONS(false);
-            if (err) throw ML::Exception(ML::format("Git ERROR %d for %s: %s\n",
+            if (err) throw MLDB::Exception(MLDB::format("Git ERROR %d for %s: %s\n",
                                             err->klass, urlToClone, err->message));
-            else throw ML::Exception("Git ERROR %d: no detailed info\n", rtn);
+            else throw MLDB::Exception("Git ERROR %d: no detailed info\n", rtn);
         }
 
         if(commitHash != "") {
@@ -280,7 +280,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
             int error = git_revparse_single(&treeish, repo, commitHash.c_str());
             if(error != 0 || !treeish) {
-                throw ML::Exception(ML::format("Error checking out commit '%s' for "
+                throw MLDB::Exception(MLDB::format("Error checking out commit '%s' for "
                             "repository '%s'", commitHash, urlToClone));
             }
 
@@ -329,7 +329,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
     }
     else {
-        throw ML::Exception("Unsupported URL: " + url.toString());
+        throw MLDB::Exception("Unsupported URL: " + url.toString());
     }
 }
 
@@ -362,14 +362,14 @@ getElementFilename(PackageElement elem) const
         case ROUTES:    return "routes";
         case STATUS:    return "status";
     }
-    throw ML::Exception("Unsupported elem!");
+    throw MLDB::Exception("Unsupported elem!");
 }
 
 string LoadedPluginResource::
 getElementLocation(PackageElement elem) const
 {
     if(pluginLocation == SOURCE)
-        throw ML::Exception("no entrypoint for plugin configured with source");
+        throw MLDB::Exception("no entrypoint for plugin configured with source");
 
     string extension;
 
@@ -381,7 +381,7 @@ getElementLocation(PackageElement elem) const
         extension = "js";
         break;
     default:
-        throw ML::Exception("unknown plugin language");
+        throw MLDB::Exception("unknown plugin language");
     }
     
     return (fs::path(plugin_working_dir) / 
@@ -430,7 +430,7 @@ getScriptUri(PackageElement elem) const
         extension = "js";
         break;
     default:
-        throw ML::Exception("unknown plugin language");
+        throw MLDB::Exception("unknown plugin language");
     }
 
     std::string urlStr = url.toString();

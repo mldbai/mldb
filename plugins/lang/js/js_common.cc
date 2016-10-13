@@ -484,7 +484,7 @@ ScriptException convertException(const v8::TryCatch & trycatch,
     using namespace v8;
 
     if (!trycatch.HasCaught())
-        throw ML::Exception("function didn't return but no result");
+        throw MLDB::Exception("function didn't return but no result");
     
     Handle<Value> exception = trycatch.Exception();
     String::Utf8Value exception_str(exception);
@@ -518,7 +518,7 @@ ScriptException convertException(const v8::TryCatch & trycatch,
         if (endColumn + 4 <= sourceLine.length())
             sourceLine.replace(endColumn + 4, 0, "]]]]");
 
-        where = ML::format("file '%s', line %d, column %d, source '%s': %s",
+        where = MLDB::format("file '%s', line %d, column %d, source '%s': %s",
                            scriptUri.rawData(),
                            line, column,
                            sourceLine.rawData(),
@@ -612,7 +612,7 @@ wrap(v8::Handle<v8::Object> handle, JsPluginContext * context)
     ExcAssert(js_object_.IsEmpty());
 
     if (handle->InternalFieldCount() == 0) {
-        throw ML::Exception("InternalFieldCount is zero; are you forgetting "
+        throw MLDB::Exception("InternalFieldCount is zero; are you forgetting "
                             "to use 'new'?");
     }
 
@@ -703,7 +703,7 @@ JsContextScope::
 current()
 {
     if (!jsContextStack || jsContextStack->empty())
-        throw ML::Exception("attempt to retrieve JS context stack with nothing on it");
+        throw MLDB::Exception("attempt to retrieve JS context stack with nothing on it");
     return jsContextStack->back();
 }
 
@@ -721,7 +721,7 @@ JsContextScope::
 exit(JsPluginContext * context)
 {
     if (current() != context)
-        throw ML::Exception("JS context stack consistency error");
+        throw MLDB::Exception("JS context stack consistency error");
     jsContextStack->pop_back();
 }
 
@@ -774,7 +774,7 @@ from_js(const JSValue & val, const RestParams *)
         for (int i=0; i<arrPtr->Length(); ++i) {
             auto arrPtr2 = v8::Array::Cast(*arrPtr->Get(i));
             if(arrPtr2->Length() != 2) {
-                throw ML::Exception("invalid length for pair extraction");
+                throw MLDB::Exception("invalid length for pair extraction");
             }
             
             Json::Value param = fromJsForRestParams(arrPtr2->Get(1));
@@ -814,7 +814,7 @@ from_js(const JSValue & val, const RestParams *)
 
         return result;
     }
-    else throw ML::Exception("couldn't convert JS value '%s' to REST parameters",
+    else throw MLDB::Exception("couldn't convert JS value '%s' to REST parameters",
                              cstr(val).c_str());
 }
 

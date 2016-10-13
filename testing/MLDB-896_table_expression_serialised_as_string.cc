@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE( tbl_expression_serialised_as_string )
     Json::Value conf;
     Json::Reader reader;
     if (!reader.parse(jsConf, conf))
-        throw ML::Exception("can't parse js conf");
+        throw MLDB::Exception("can't parse js conf");
     
     // convert it to an Any, the way it would be received in
     // the params field of a procedure config struct

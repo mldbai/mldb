@@ -83,7 +83,7 @@ forEachPermutation(
                 flatten(js[key], newPath);
             }
             else {
-               throw ML::Exception("unsupported type!");
+               throw MLDB::Exception("unsupported type!");
             }
         }
     };
@@ -131,7 +131,7 @@ forEachPermutation(
             }
         }
         else {
-            throw ML::Exception("Invalid data type for permutation");
+            throw MLDB::Exception("Invalid data type for permutation");
         }
     };
 
@@ -161,12 +161,12 @@ run(const ProcedureRunConfig & run,
         // to string to do a replace_all to catch all the $permutation to replace
         // and then parsing that back to json...
         string strConf = permutedConfTmp.toString();
-        ML::replace_all(strConf, "$permutation", ML::format("permutation_%d", permutation_num));
+        ML::replace_all(strConf, "$permutation", MLDB::format("permutation_%d", permutation_num));
 
         Json::Value permutedConf;
         Json::Reader reader;
         if(!reader.parse(strConf, permutedConf))
-            throw ML::Exception("unable to reparse!");
+            throw MLDB::Exception("unable to reparse!");
 
 
 

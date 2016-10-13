@@ -16,6 +16,7 @@
 #include "mldb/arch/exception.h"
 
 using namespace std;
+using namespace MLDB;
 
 
 namespace ML {

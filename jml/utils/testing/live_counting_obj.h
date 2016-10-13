@@ -12,7 +12,7 @@
 #include "mldb/arch/exception.h"
 #include <atomic>
 
-namespace ML {
+namespace MLDB {
 
 volatile size_t constructed = 0, destroyed = 0;
 
@@ -131,4 +131,4 @@ std::ostream & operator << (std::ostream & stream, const Obj & obj)
     return stream << obj.val;
 }
 
-} // namespace ML
+} // namespace MLDB

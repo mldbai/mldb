@@ -63,20 +63,20 @@ struct DenseFeatureGenerator {
     featureSpace() const = 0;
 
     /** Generate the features for the given user. */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     featuresGeneric(const boost::any & args) const = 0;
 
     /** Generate a weighted average of the contribution of input
         features to the generation of the given feature set.
     */
     virtual FeatureExplanation
-    explainGeneric(const ML::distribution<float> & featureWeights,
+    explainGeneric(const distribution<float> & featureWeights,
                    const boost::any & args) const = 0;
 
     /** Generate features for the given context.  Default will call
         featuresGeneric.
     */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     featuresContext(const PipelineExecutionContext & context) const
     {
         return featuresGeneric(context.seed);
@@ -86,7 +86,7 @@ struct DenseFeatureGenerator {
         features to the generation of the given feature set.
     */
     virtual FeatureExplanation
-    explainContext(const ML::distribution<float> & featureWeights,
+    explainContext(const distribution<float> & featureWeights,
                    const PipelineExecutionContext & context) const
     {
         return explainGeneric(featureWeights, context.seed);
@@ -156,7 +156,7 @@ struct DenseFeatureGeneratorT
     }
 
     /** Generate the features for the given user. */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     featuresGeneric(const boost::any & args) const
     {
         return callPmfWithTuple(&DenseFeatureGeneratorT::features,
@@ -165,7 +165,7 @@ struct DenseFeatureGeneratorT
     }
 
     virtual FeatureExplanation
-    explainGeneric(const ML::distribution<float> & featureWeights,
+    explainGeneric(const distribution<float> & featureWeights,
                    const boost::any & args) const
     {
         return callPmfWithTuple(&DenseFeatureGeneratorT::explain,
@@ -175,11 +175,11 @@ struct DenseFeatureGeneratorT
     }
 
     /** Generate the features for the given user. */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     features(Args... args) const = 0;
 
     virtual FeatureExplanation
-    explain(const ML::distribution<float> & featureWeights,
+    explain(const distribution<float> & featureWeights,
             Args... args) const
     {
         // By default... nothing
@@ -213,9 +213,9 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
 
     typedef std::function<std::shared_ptr<ML::Dense_Feature_Space> ()>
     FeatureSpaceFn;
-    typedef std::function<ML::distribution<float> (const boost::any &)>
+    typedef std::function<distribution<float> (const boost::any &)>
     FeaturesFn;
-    typedef std::function<FeatureExplanation (const ML::distribution<float> &,
+    typedef std::function<FeatureExplanation (const distribution<float> &,
                                               const boost::any &)> ExplainFn;
 
     FeatureSpaceFn onGetFeatureSpace;
@@ -247,14 +247,14 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
     }
 
     /** Generate the features for the given user. */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     featuresGeneric(const boost::any & args) const
     {
         return onGetFeatures(args);
     }
 
     virtual FeatureExplanation
-    explainGeneric(const ML::distribution<float> & featureWeights,
+    explainGeneric(const distribution<float> & featureWeights,
                    const boost::any & args) const
     {
         return onExplain(featureWeights, args);
@@ -264,19 +264,19 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
         store. */
     virtual void serialize(ML::DB::Store_Writer & store) const
     {
-        throw ML::Exception("CustomDenseFeatureGenerator can't be serialized");
+        throw MLDB::Exception("CustomDenseFeatureGenerator can't be serialized");
     }
 
     /** Reconstitute the feature generator. */
     virtual void reconstitute(ML::DB::Store_Reader & store)
     {
-        throw ML::Exception("CustomDenseFeatureGenerator can't be "
+        throw MLDB::Exception("CustomDenseFeatureGenerator can't be "
                             "reconstituted");
     }
 
     virtual std::pair<std::string, std::string> className() const
     {
-        throw ML::Exception("CustomDenseFeatureGenerator can't be "
+        throw MLDB::Exception("CustomDenseFeatureGenerator can't be "
                             "serialized or reconstituted");
     }
 };
@@ -295,9 +295,9 @@ struct CustomDenseFeatureGeneratorT : public DenseFeatureGeneratorT<Args...> {
 
     typedef std::function<std::shared_ptr<ML::Dense_Feature_Space> ()>
     FeatureSpaceFn;
-    typedef std::function<ML::distribution<float> (Args... args)>
+    typedef std::function<distribution<float> (Args... args)>
     FeaturesFn;
-    typedef std::function<FeatureExplanation (const ML::distribution<float> &,
+    typedef std::function<FeatureExplanation (const distribution<float> &,
                                               Args... args)>
     ExplainFn;
 
@@ -327,14 +327,14 @@ struct CustomDenseFeatureGeneratorT : public DenseFeatureGeneratorT<Args...> {
     }
 
     /** Generate the features for the given user. */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     features(Args... args) const
     {
         return onGetFeatures(args...);
     }
 
     virtual FeatureExplanation
-    explain(const ML::distribution<float> & featureWeights,
+    explain(const distribution<float> & featureWeights,
             Args... args) const
     {
         return onExplain(featureWeights, args...);
@@ -385,10 +385,10 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
     }
 
     /** Generate the features for the given user. */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     featuresGeneric(const boost::any & args) const
     {
-        ML::distribution<float> result;
+        distribution<float> result;
         for (unsigned i = 0;  i < generators.size();  ++i)
             result.extend(generators[i].generator->featuresGeneric(args));
         return result;
@@ -396,7 +396,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
 
     /** Generate the features for the given user. */
     virtual FeatureExplanation
-    explainGeneric(const ML::distribution<float> & featureWeights,
+    explainGeneric(const distribution<float> & featureWeights,
                    const boost::any & args) const
     {
         FeatureExplanation result;
@@ -411,11 +411,11 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
             ExcAssertLessEqual(numFeaturesDone + generators[i].numFeatures,
                                featureWeights.size());
 
-            ML::distribution<float> genWeights
+            distribution<float> genWeights
                 (featureWeights.begin() + numFeaturesDone,
                  featureWeights.begin() + numFeaturesDone + generators[i].numFeatures);
 
-            //cerr << "explaining " << ML::type_name(*generators[i].generator)
+            //cerr << "explaining " << MLDB::type_name(*generators[i].generator)
             //     << " with " << genWeights.size() << " weights" << endl;
 
             result.add(generators[i].generator->explainGeneric(genWeights, args));
@@ -459,7 +459,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
         unsigned char version;
         store >> version;
         if (version != 0)
-            throw ML::Exception("unknown CombinedFeatureGeneratorT version %d",
+            throw MLDB::Exception("unknown CombinedFeatureGeneratorT version %d",
                                 (int)version);
         ML::DB::compact_size_t ngen(store);
 
@@ -545,14 +545,14 @@ struct CombinedFeatureGeneratorT
     }
 
     /** Generate the features for the given user. */
-    virtual ML::distribution<float>
+    virtual distribution<float>
     features(Args... args) const
     {
         boost::any encoded = this->encode(args...);
         return featuresGeneric(encoded);
     }
 
-    virtual ML::distribution<float>
+    virtual distribution<float>
     featuresGeneric(const boost::any & args) const
     {
         return CombinedFeatureGenerator::featuresGeneric(args);
@@ -560,7 +560,7 @@ struct CombinedFeatureGeneratorT
 
     /** Generate the features for the given user. */
     virtual FeatureExplanation
-    explain(const ML::distribution<float> & featureWeights,
+    explain(const distribution<float> & featureWeights,
             Args... args) const
     {
         boost::any encoded = this->encode(args...);
@@ -568,7 +568,7 @@ struct CombinedFeatureGeneratorT
     }
 
     virtual FeatureExplanation
-    explainGeneric(const ML::distribution<float> & featureWeights,
+    explainGeneric(const distribution<float> & featureWeights,
                    const boost::any & args) const
     {
         return CombinedFeatureGenerator::explainGeneric(featureWeights, args);
@@ -576,7 +576,7 @@ struct CombinedFeatureGeneratorT
 
     virtual std::pair<std::string, std::string> className() const
     {
-        return make_pair("Combined<" + ML::type_name<tuple_type>() + ">", "");
+        return make_pair("Combined<" + MLDB::type_name<tuple_type>() + ">", "");
     }
 
     static std::shared_ptr<DenseFeatureGenerator>
@@ -592,7 +592,7 @@ struct CombinedFeatureGeneratorT
     static void doInitialize()
     {
         DenseFeatureGenerator::registerFactory
-            ("Combined<" + ML::type_name<tuple_type>() + ">", factory);
+            ("Combined<" + MLDB::type_name<tuple_type>() + ">", factory);
     }
 
     static DoInitialize<&CombinedFeatureGeneratorT::doInitialize> init;

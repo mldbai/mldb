@@ -146,7 +146,7 @@ private:
     
     void wakeupMainThread();
 
-    typedef ML::Spinlock Lock;
+    typedef Spinlock Lock;
     typedef std::lock_guard<Lock> Guard;
 
     struct SourceEntry

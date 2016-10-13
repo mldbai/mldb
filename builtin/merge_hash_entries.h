@@ -118,7 +118,7 @@ struct MergeHashEntryBucket {
 
         auto newData = (MergeHashEntry *)malloc(newCap * sizeof(MergeHashEntry));
         if (!newData) {
-            throw ML::Exception("not enough memory to allocate %d",
+            throw MLDB::Exception("not enough memory to allocate %d",
                                 (int) (newCap * sizeof(MergeHashEntry)));
         }
         std::copy(data, data + size_, newData);
@@ -256,7 +256,7 @@ extractAndMerge(size_t numElementsToMerge,
                 return;
             }
             else if (first >= last) {
-                throw ML::Exception("first should come before last");
+                throw MLDB::Exception("first should come before last");
             }
             else if (last == first + 1) {
                 // One of them

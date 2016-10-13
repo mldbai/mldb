@@ -133,12 +133,12 @@ getKey(PolyConfig & config)
     // 1.  Newly seeded random number based on current time
     // 2.  Thread ID
     Utf8String disambig
-        = ML::format("%d-%d", random())
+        = MLDB::format("%d-%d", random())
         + Date::now().print(9)
         + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()));
     
     // Create an auto hash that is cleary identified as one
-    return config.id = ML::format("auto-%016llx-%016llx",
+    return config.id = MLDB::format("auto-%016llx-%016llx",
                                   (unsigned long long)jsonHash(jsonEncode(config)),
                                   (unsigned long long)jsonHash(disambig));
 }

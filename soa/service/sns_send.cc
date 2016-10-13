@@ -20,7 +20,6 @@ namespace po = boost::program_options;
 
 using namespace std;
 using namespace MLDB;
-using namespace ML;
 
 int main(int argc, char* argv[])
 {
@@ -72,7 +71,7 @@ int main(int argc, char* argv[])
     }
 
     if (message.empty())
-        throw ML::Exception("must specify a message");
+        throw MLDB::Exception("must specify a message");
     if (message[0] == '@') {
         filter_istream stream(string(message, 1));
         string msg;

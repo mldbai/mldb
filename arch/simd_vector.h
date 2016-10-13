@@ -11,8 +11,7 @@
 #include "simd.h"
 #include "mldb/arch/arch.h"
 
-namespace ML {
-
+namespace MLDB {
 namespace SIMD {
 namespace Generic {
 
@@ -189,4 +188,4 @@ namespace SSE3 {
 using namespace Generic;
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

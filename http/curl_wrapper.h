@@ -24,7 +24,7 @@ namespace MLDB
 namespace CurlWrapper {
     class Easy;
 
-    class RuntimeError : public ML::Exception
+    class RuntimeError : public MLDB::Exception
     {
     public:
         RuntimeError(const std::string & reason, CURLcode code);

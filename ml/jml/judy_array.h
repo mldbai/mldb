@@ -443,7 +443,7 @@ struct judyl_base {
     {
         data_type * pvalue = jlg(key);
         if (pvalue) return *pvalue;
-        throw ML::Exception("value not present in array");
+        throw MLDB::Exception("value not present in array");
     }
 
     size_t memusage_() const

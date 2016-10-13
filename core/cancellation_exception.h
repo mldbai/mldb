@@ -15,9 +15,9 @@
 
 namespace MLDB {
 
-struct CancellationException: public ML::Exception {
+struct CancellationException: public Exception {
     CancellationException(const Utf8String & message)
-        : ML::Exception(message.rawData()), message(message)
+        : Exception(message.rawData()), message(message)
     {
     }
 

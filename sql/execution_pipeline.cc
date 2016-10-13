@@ -96,7 +96,7 @@ tableScope(std::shared_ptr<LexicalScope> table)
                                std::make_move_iterator(outputAdded.begin()),
                                std::make_move_iterator(outputAdded.end()));
 
-    //cerr << "table scope for " << ML::type_name(*table) << " goes from "
+    //cerr << "table scope for " << MLDB::type_name(*table) << " goes from "
     //     << entry.fieldOffset << " to " << result->numOutputFields()
     //     << endl;
 
@@ -140,7 +140,7 @@ selectScope(std::vector<std::shared_ptr<ExpressionValueInfo> > outputAdded) cons
 
 ColumnGetter
 PipelineExpressionScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
     //cerr << "doGetColumn with tableName " << tableName
     //     << " and variable name " << columnName << endl;
@@ -273,9 +273,9 @@ doGetBoundParameter(const Utf8String & paramName)
     return { exec, info };
 }
 
-ColumnName
+ColumnPath
 PipelineExpressionScope::
-doResolveTableName(const ColumnName & fullColumnName,
+doResolveTableName(const ColumnPath & fullColumnName,
                    Utf8String &tableName) const
 {
     for (auto & t: tables) {
@@ -350,7 +350,7 @@ TableEntry(std::shared_ptr<LexicalScope> scope,
 
 ColumnGetter
 PipelineExpressionScope::TableEntry::
-doGetColumn(const ColumnName & columnName) const
+doGetColumn(const ColumnPath & columnName) const
 {
     return scope->doGetColumn(columnName, fieldOffset);
 }

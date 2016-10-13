@@ -261,7 +261,7 @@ PythonPlugin(MldbServer * server,
                                        config.id, res), routeHandlingMutex));
     }
     catch(const std::exception & exc) {
-        throw HttpReturnException(400, ML::format("Exception opening plugin: %s", exc.what()));
+        throw HttpReturnException(400, MLDB::format("Exception opening plugin: %s", exc.what()));
     }
 
     addRouteSyncJsonReturn(itl->router, "/lastoutput", {"GET"},
@@ -353,7 +353,7 @@ addPluginPathToEnv(PythonSubinterpreter & pyControl) const
     PyList_Insert( sysPath, 0, pluginDirPy );
 
     // change working dir to script dir
-//     PyRun_SimpleString(ML::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
+//     PyRun_SimpleString(MLDB::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
 }
 
 ScriptOutput PythonPlugin::
@@ -506,7 +506,7 @@ handleTypeRoute(RestDirectory * server,
         }
         catch(const std::exception & exc) {
             conn.sendResponse(400,
-                          jsonEncodeStr(ML::format("Exception opening script: %s", exc.what())),
+                          jsonEncodeStr(MLDB::format("Exception opening script: %s", exc.what())),
                           "application/json");
         }
 
@@ -622,7 +622,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             return result;
         }
         else {
-            throw ML::Exception("Unknown element to run!!");
+            throw MLDB::Exception("Unknown element to run!!");
         }
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "Running PyRunner script");
@@ -964,33 +964,33 @@ struct AtInit {
         from_python_converter< Utf8String,  Utf8StringPyConverter>();
         bp::to_python_converter< Utf8String, Utf8StringPyConverter>();
 
-        from_python_converter< RowName, StrConstructableIdFromPython<RowName> >();
-        from_python_converter< ColumnName, StrConstructableIdFromPython<ColumnName> >();
+        from_python_converter< RowPath, StrConstructableIdFromPython<RowPath> >();
+        from_python_converter< ColumnPath, StrConstructableIdFromPython<ColumnPath> >();
         from_python_converter< CellValue, CellValueConverter >();
 
         from_python_converter< RowCellTuple,
-                               Tuple3ElemConverter<ColumnName, CellValue, Date> >();
+                               Tuple3ElemConverter<ColumnPath, CellValue, Date> >();
 
         from_python_converter< std::vector<RowCellTuple>,
                                VectorConverter<RowCellTuple>>();
 
-        from_python_converter< std::pair<RowName, std::vector<RowCellTuple> >,
-                               PairConverter<RowName, std::vector<RowCellTuple> > >();
+        from_python_converter< std::pair<RowPath, std::vector<RowCellTuple> >,
+                               PairConverter<RowPath, std::vector<RowCellTuple> > >();
 
-        from_python_converter< std::vector<std::pair<RowName, std::vector<RowCellTuple> > >,
-                               VectorConverter<std::pair<RowName, std::vector<RowCellTuple> > > >();
+        from_python_converter< std::vector<std::pair<RowPath, std::vector<RowCellTuple> > >,
+                               VectorConverter<std::pair<RowPath, std::vector<RowCellTuple> > > >();
 
         from_python_converter< ColumnCellTuple,
-                               Tuple3ElemConverter<RowName, CellValue, Date> >();
+                               Tuple3ElemConverter<RowPath, CellValue, Date> >();
 
         from_python_converter< std::vector<ColumnCellTuple>,
                                VectorConverter<ColumnCellTuple>>();
 
-        from_python_converter< std::pair<ColumnName, std::vector<ColumnCellTuple> >,
-                               PairConverter<ColumnName, std::vector<ColumnCellTuple> > >();
+        from_python_converter< std::pair<ColumnPath, std::vector<ColumnCellTuple> >,
+                               PairConverter<ColumnPath, std::vector<ColumnCellTuple> > >();
 
-        from_python_converter< std::vector<std::pair<ColumnName, std::vector<ColumnCellTuple> > >,
-                               VectorConverter<std::pair<ColumnName, std::vector<ColumnCellTuple> > > >();
+        from_python_converter< std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > >,
+                               VectorConverter<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > >();
 
         from_python_converter<std::pair<string, string>,
                         PairConverter<string, string> >();

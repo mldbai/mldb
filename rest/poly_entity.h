@@ -127,21 +127,21 @@ struct PolyEntity {
     const PolyConfig & getConfig() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return *config_;
     }
 
     const Utf8String & getId() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->id;
     }
 
     const Utf8String & getType() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->type;
     }
 

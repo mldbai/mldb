@@ -15,7 +15,6 @@
 #include <boost/interprocess/sync/scoped_lock.hpp>
 
 using namespace std;
-using namespace ML;
 namespace ipc = boost::interprocess;
 
 

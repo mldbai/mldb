@@ -34,7 +34,7 @@ test(const DataPartition & partition) const
 
     Date before = Date::now();
 
-    typedef ML::Spinlock Lock;
+    typedef Spinlock Lock;
     Lock lock;
 
     auto onExample = [&] (bool label, const boost::any & user, double weight,

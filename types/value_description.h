@@ -162,9 +162,9 @@ struct ValueDescription {
         auto res
             = std::dynamic_pointer_cast<const ValueDescriptionT<T> >(base);
         if (!res)
-            throw ML::Exception("logic error in registry: wrong type: "
-                                + ML::type_name(*base) + " not convertible to "
-                                + ML::type_name<const ValueDescriptionT<T>>());
+            throw MLDB::Exception("logic error in registry: wrong type: "
+                                + MLDB::type_name(*base) + " not convertible to "
+                                + MLDB::type_name<const ValueDescriptionT<T>>());
         return res;
     }
 
@@ -338,7 +338,7 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual void * optionalMakeValueTyped(T * val) const
     {
-        throw ML::Exception("type is not optional");
+        throw MLDB::Exception("type is not optional");
     }
 
     virtual const void * optionalGetValue(const void * val) const override
@@ -349,7 +349,7 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual const void * optionalGetValueTyped(const T * val) const
     {
-        throw ML::Exception("type is not optional");
+        throw MLDB::Exception("type is not optional");
     }
 
 private:
@@ -362,7 +362,7 @@ private:
 
     void copyValue(void* obj, const void* value, std::false_type) const
     {
-        throw ML::Exception("type is not copy assignable");
+        throw MLDB::Exception("type is not copy assignable");
     }
 
 
@@ -374,7 +374,7 @@ private:
 
     void moveValue(void* obj, void* value, std::false_type) const
     {
-        throw ML::Exception("type is not move assignable");
+        throw MLDB::Exception("type is not move assignable");
     }
 
     // Template parameter so not instantiated for types that are not
@@ -387,7 +387,7 @@ private:
 
     void * constructDefault(std::false_type) const
     {
-        throw ML::Exception("type is not default constructible");
+        throw MLDB::Exception("type is not default constructible");
     }
 };
 
@@ -660,11 +660,11 @@ getDefaultDescriptionShared(T *)
                 = dynamic_cast<ValueDescriptionT<T>typename GetDefaultDescriptionType<T>::type *>
                     (&desc);
                 if (!descTyped)
-                    throw ML::Exception("Attempt to initialized description for "
-                                        + ML::type_name<T>() + " of type "
-                                        + ML::type_name<typename GetDefaultDescriptionType<T>::type >()
+                    throw MLDB::Exception("Attempt to initialized description for "
+                                        + MLDB::type_name<T>() + " of type "
+                                        + MLDB::type_name<typename GetDefaultDescriptionType<T>::type >()
                                         + " from value of type "
-                                        + ML::type_name(desc));
+                                        + MLDB::type_name(desc));
                 
                 initializeDefaultDescription(*descTyped);
 #endif
@@ -681,9 +681,9 @@ getDefaultDescriptionShared(T *)
     auto cast = std::dynamic_pointer_cast<const ValueDescriptionT<T> >(res);
 
     if (!cast)
-        throw ML::Exception("logic error in registry: wrong type: "
-                            + ML::type_name(*res) + " not convertible to "
-                            + ML::type_name<ValueDescriptionT<T> >());
+        throw MLDB::Exception("logic error in registry: wrong type: "
+                            + MLDB::type_name(*res) + " not convertible to "
+                            + MLDB::type_name<ValueDescriptionT<T> >());
 
     return cast;
 }

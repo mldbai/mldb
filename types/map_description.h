@@ -131,7 +131,7 @@ struct MapValueDescription
     virtual const FieldDescription *
     hasField(const void * val, const std::string & name) const override
     {
-        throw ML::Exception("map hasField: needs work");
+        throw MLDB::Exception("map hasField: needs work");
         //auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
         //return val2->count(name);
     }
@@ -139,13 +139,13 @@ struct MapValueDescription
     virtual void forEachField(const void * val,
                               const std::function<void (const FieldDescription &)> & onField) const override
     {
-        throw ML::Exception("map forEachField: needs work");
+        throw MLDB::Exception("map forEachField: needs work");
     }
 
     virtual const FieldDescription & 
     getField(const std::string & field) const override
     {
-        throw ML::Exception("map getField: needs work");
+        throw MLDB::Exception("map getField: needs work");
     }
 
     virtual const ValueDescription & getKeyValueDescription() const override

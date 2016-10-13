@@ -18,7 +18,7 @@ struct EstimationMaximisation
 {
     struct Cluster {
         double totalWeight;
-        ML::distribution<double> centroid;
+        distribution<double> centroid;
         boost::multi_array<double, 2> covarianceMatrix;
         boost::multi_array<double, 2> invertCovarianceMatrix;
         double pseudoDeterminant;
@@ -28,18 +28,18 @@ struct EstimationMaximisation
     std::vector<MLDB::Utf8String> columnNames;
 
     void
-    train(const std::vector<ML::distribution<double>> & points,
+    train(const std::vector<distribution<double>> & points,
           std::vector<int> & in_cluster,
           int nbClusters,
           int maxIterations,
           int randomSeed); 
 
     int
-    assign(const ML::distribution<double> & point,
+    assign(const distribution<double> & point,
            boost::multi_array<double, 2>& distanceMatrix,
            int pIndex) const;
     int
-    assign(const ML::distribution<double> & point) const;
+    assign(const distribution<double> & point) const;
   
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);

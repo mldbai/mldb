@@ -422,8 +422,8 @@ operator = (Watch && other)
         && other.boundType() != &typeid(std::tuple<T...>))
         throwException(WATCH_ERR_TYPE,
                        "Attempt to bind watch of type '%s' from watch of type '%s'",
-                       ML::type_name<std::tuple<T...> >().c_str(),
-                       ML::demangle(*other.boundType()).c_str());
+                       MLDB::type_name<std::tuple<T...> >().c_str(),
+                       demangle(*other.boundType()).c_str());
 
 
     if (other.data)
@@ -525,8 +525,8 @@ waitTuple(double timeToWait)
     if (&a.type() != &typeid(std::tuple<T...>))
         throwException(WATCH_ERR_TYPE,
                        "waiting for %s but got %s",
-                       ML::type_name<std::tuple<T...> >().c_str(),
-                       ML::demangle(a.type().name()).c_str());
+                       MLDB::type_name<std::tuple<T...> >().c_str(),
+                       demangle(a.type().name()).c_str());
         
     return a.as<std::tuple<T...> >();
 }

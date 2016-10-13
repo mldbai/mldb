@@ -31,7 +31,7 @@ namespace ML {
 
 extern double non_missing_ticks;
 extern size_t non_missing_calls;
-
+using namespace MLDB;
 
 /*****************************************************************************/
 /* W_BINSYM                                                                  */

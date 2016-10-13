@@ -52,9 +52,9 @@ struct SubDataset : public Dataset {
 
     virtual std::pair<Date, Date> getTimestampRange() const override;
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const override;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const override;
 
-    virtual std::vector<ColumnName> getFlattenedColumnNames() const override;
+    virtual std::vector<ColumnPath> getFlattenedColumnNames() const override;
 
     virtual size_t getFlattenedColumnCount() const override;
 

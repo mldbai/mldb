@@ -30,7 +30,6 @@
 
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 
@@ -369,13 +368,13 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
     desc->printJson(&data, context);
 
     // inline in some other thing
-    std::string value = ML::format("{\"%s\":%s}", desc->typeName, stream.str());
+    std::string value = MLDB::format("{\"%s\":%s}", desc->typeName, stream.str());
 
     // parse it back
     SomeTestStructure result;
-    ML::Parse_Context source("test", value.c_str(), value.size());
+    ParseContext source("test", value.c_str(), value.size());
         expectJsonObject(source, [&](std::string key,
-                                     ML::Parse_Context & context) {
+                                     ParseContext & context) {
             auto desc = ValueDescription::get(key);
             if(desc) {
                 StreamingJsonParsingContext json(context);

@@ -140,9 +140,9 @@ recordEventFmt(EventType type,
     try {
         int res = vsnprintf(buf, 2048, fmt, ap);
         if (res < 0)
-            throw ML::Exception("unable to record hit with fmt");
+            throw MLDB::Exception("unable to record hit with fmt");
         if (res >= 2048)
-            throw ML::Exception("key is too long");
+            throw MLDB::Exception("key is too long");
             
         recordEvent(buf, type, value);
         va_end(ap);

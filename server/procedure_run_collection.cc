@@ -111,7 +111,7 @@ initRoutes(RouteManager & manager)
     Json::Value & v = help["jsonParams"];
     Json::Value & v2 = v[0];
     v2["description"] = "Configuration of new " + manager.nounSingular;
-    v2["cppType"] = ML::type_name<ProcedureRunConfig>();
+    v2["cppType"] = type_name<ProcedureRunConfig>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
     
@@ -198,12 +198,12 @@ getKey(ProcedureRunConfig & config)
     // 1.  Newly seeded random number based on current time
     // 2.  Thread ID
     Utf8String disambig
-        = ML::format("%d-%d", random())
+        = MLDB::format("%d-%d", random())
         + Date::now().print(9)
         + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()));
     
     // Create an auto hash that is cleary identified as one
-    return config.id = ML::format("%s-%016llx",
+    return config.id = MLDB::format("%s-%016llx",
                                   Date::now().printIso8601(6).c_str(),
                                   (unsigned long long)jsonHash(jsonEncode(config)));
 }

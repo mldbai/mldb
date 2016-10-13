@@ -175,10 +175,10 @@ struct SftpConnection : public SshConnection {
     and you can open it directly from s3 using the sftp:// syntax.
 */
 
-class HostAlreadyRegistered : public ML::Exception {
+class HostAlreadyRegistered : public MLDB::Exception {
 public:
     HostAlreadyRegistered(const std::string & bucketName) : 
-        ML::Exception("sftp host %s already registered",
+        MLDB::Exception("sftp host %s already registered",
                       bucketName.c_str())
     {
     }

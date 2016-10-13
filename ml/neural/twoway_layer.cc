@@ -817,7 +817,7 @@ rbprop(const F * inputs,
 
     for (unsigned i = 0;  i < ni;  ++i) {
 
-        if (!isnan(noisy_input[i])) {
+        if (!std::isnan(noisy_input[i])) {
             
             F W_updates_row[no];
             

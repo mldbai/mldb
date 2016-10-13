@@ -124,7 +124,7 @@ getMldbServer() const
 ColumnGetter
 SqlExpressionMldbScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     throw HttpReturnException(
         400,
@@ -144,9 +144,9 @@ doGetAllColumns(const Utf8String & tableName,
 /* ROW EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
 
-RowName
+RowPath
 SqlExpressionDatasetScope::RowScope::
-getRowName() const
+getRowPath() const
 {
     if (rowName) return *rowName;
     else {
@@ -155,9 +155,9 @@ getRowName() const
     }
 }
 
-const RowName &
+const RowPath &
 SqlExpressionDatasetScope::RowScope::
-getRowName(RowName & storage) const
+getRowPath(RowPath & storage) const
 {
     if (rowName) return *rowName;
     else return row->rowName;
@@ -173,7 +173,7 @@ getRowHash() const
 
 const ExpressionValue &
 SqlExpressionDatasetScope::RowScope::
-getColumn(const ColumnName & columnName,
+getColumn(const ColumnPath & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage,
           ssize_t knownOffset) const
@@ -199,7 +199,7 @@ ExpressionValue
 SqlExpressionDatasetScope::RowScope::
 getColumnCount() const
 {
-    ML::Lightweight_Hash_Set<ColumnHash> columns;
+    Lightweight_Hash_Set<ColumnHash> columns;
     Date ts = Date::negativeInfinity();
 
     if (row) {
@@ -236,7 +236,7 @@ getFilteredValue(const VariableFilter & filter,
 
 ExpressionValue
 SqlExpressionDatasetScope::RowScope::
-getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
+getReshaped(const std::unordered_map<ColumnHash, ColumnPath> & index,
             const VariableFilter & filter) const
 {
     RowValue result;
@@ -257,7 +257,7 @@ getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
                            const CellValue & val,
                            Date ts)
             {
-                ColumnName newColumnName = prefix + columnName;
+                ColumnPath newColumnName = prefix + columnName;
                 auto it = index.find(newColumnName);
                 if (it == index.end())
                     return true;
@@ -298,9 +298,9 @@ SqlExpressionDatasetScope(const BoundTableExpression& boundDataset)
 ColumnGetter
 SqlExpressionDatasetScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {   
-    ColumnName simplified;
+    ColumnPath simplified;
     if (tableName.empty() && columnName.size() > 1) {
         if (!alias.empty() && columnName.startsWith(alias)) {
             simplified = columnName.removePrefix();
@@ -345,7 +345,7 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(row.getRowName().toUtf8String(),
+                    return ExpressionValue(row.getRowPath().toUtf8String(),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -357,7 +357,7 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(CellValue(row.getRowName()),
+                    return ExpressionValue(CellValue(row.getRowPath()),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()
@@ -434,16 +434,16 @@ doGetAllColumnsInternal(const Utf8String & tableName,
 
     bool allWereKept = true;
     bool noneWereRenamed = true;
-    std::unordered_map<ColumnHash, ColumnName> index;
+    std::unordered_map<ColumnHash, ColumnPath> index;
     std::vector<KnownColumn> columnsWithInfo;
     SchemaCompleteness schema = SCHEMA_OPEN;
 
     if (keep.exec) {
 
-        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnNames();
+        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnPaths();
 
-        auto filterColumnName = [&] (const ColumnName & inputColumnName)
-            -> ColumnName
+        auto filterColumnName = [&] (const ColumnPath & inputColumnName)
+            -> ColumnPath
         {
             if (!tableName.empty() && !childaliases.empty()) {
                 // We're in a join.  The columns will all be prefixed with their
@@ -452,22 +452,22 @@ doGetAllColumnsInternal(const Utf8String & tableName,
                 // x.a and y.b, but when we select them we want them to be
                 // like a and b.
                 if (!inputColumnName.startsWith(tableName)) {
-                    return ColumnName();
+                    return ColumnPath();
                 }
                 // Otherwise, check if we need it
-                ColumnName result = keep(inputColumnName);
+                ColumnPath result = keep(inputColumnName);
                 return result;
             }
 
             return keep(inputColumnName);
         };        
         
-        vector<ColumnName> columnsNeedingInfo;
+        vector<ColumnPath> columnsNeedingInfo;
 
         for (auto & columnName: columns) {
-            ColumnName outputName(filterColumnName(columnName));
+            ColumnPath outputName(filterColumnName(columnName));
 
-            if (outputName == ColumnName()) {
+            if (outputName == ColumnPath()) {
                 allWereKept = false;
                 continue;
             }
@@ -490,7 +490,7 @@ doGetAllColumnsInternal(const Utf8String & tableName,
 
         // Now put in the value info
         for (unsigned i = 0;  i < allInfo.size();  ++i) {
-            ColumnName outputName = columnsWithInfo[i].columnName;
+            ColumnPath outputName = columnsWithInfo[i].columnName;
             columnsWithInfo[i] = allInfo[i];
             columnsWithInfo[i].columnName = std::move(outputName);
         }
@@ -499,9 +499,9 @@ doGetAllColumnsInternal(const Utf8String & tableName,
     }
     else if (dataset.hasColumnNames()) {
 
-        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnNames();
+        auto columns = atoms ? dataset.getFlattenedColumnNames() : dataset.getColumnPaths();
 
-        vector<ColumnName> columnsNeedingInfo;
+        vector<ColumnPath> columnsNeedingInfo;
 
         for (auto & columnName: columns) {
 
@@ -516,7 +516,7 @@ doGetAllColumnsInternal(const Utf8String & tableName,
 
         // Now put in the value info
         for (unsigned i = 0;  i < allInfo.size();  ++i) {
-            ColumnName outputName = columnsWithInfo[i].columnName;
+            ColumnPath outputName = columnsWithInfo[i].columnName;
             columnsWithInfo[i] = allInfo[i];
             columnsWithInfo[i].columnName = std::move(outputName);
         }
@@ -579,7 +579,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
     auto res = dataset.generateRowsWhere(*this, alias, where, offset, limit);
     if (!res)
         throw HttpReturnException(500, "Dataset returned null generator",
-                                  "datasetType", ML::type_name(dataset));
+                                  "datasetType", MLDB::type_name(dataset));
     return res;
 }
 
@@ -588,7 +588,7 @@ SqlExpressionDatasetScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
     if (functionName == "columnName") {
-        return {[=] (const ColumnName & columnName,
+        return {[=] (const ColumnPath & columnName,
                      const std::vector<ExpressionValue> & args)
                 {
                     return ExpressionValue(columnName.toUtf8String(),
@@ -597,7 +597,7 @@ doGetColumnFunction(const Utf8String & functionName)
     }
 
     if (functionName == "columnHash") {
-        return {[=] (const ColumnName & columnName,
+        return {[=] (const ColumnPath & columnName,
                      const std::vector<ExpressionValue> & args)
                 {
                     return ExpressionValue(columnName.hash(),
@@ -606,7 +606,7 @@ doGetColumnFunction(const Utf8String & functionName)
     }
 
     if (functionName == "rowCount") {
-        return {[=] (const ColumnName & columnName,
+        return {[=] (const ColumnPath & columnName,
                      const std::vector<ExpressionValue> & args)
                 {
                     return ExpressionValue
@@ -618,9 +618,9 @@ doGetColumnFunction(const Utf8String & functionName)
     return nullptr;
 }
 
-ColumnName
+ColumnPath
 SqlExpressionDatasetScope::
-doResolveTableName(const ColumnName & fullColumnName, Utf8String &tableName) const
+doResolveTableName(const ColumnPath & fullColumnName, Utf8String &tableName) const
 {
     if (!childaliases.empty()) {
         for (auto & a: childaliases) {
@@ -647,7 +647,7 @@ doResolveTableName(const ColumnName & fullColumnName, Utf8String &tableName) con
 
 ColumnGetter
 SqlExpressionOrderByScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
     /** An order by clause can read through both what was selected and what
         was in the underlying row.  So we first look in what was selected,
@@ -671,7 +671,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
                         return *fromOutput;
                     }
                     else {
-                        ColumnName tail = columnName.removePrefix();
+                        ColumnPath tail = columnName.removePrefix();
                         auto value = fromOutput->getNestedColumn(tail, filter);
                         if (!value.empty())
                             return storage = std::move(value);

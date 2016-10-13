@@ -69,13 +69,13 @@ SummaryStatisticsProcedureConfigDescription()
             auto expr = dynamic_cast<NamedColumnExpression *>(clause.get());
             if (expr == nullptr) {
                 DEBUG_MSG(logger) << "Failed to cast " << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
             if (expr->alias.empty()) {
                 DEBUG_MSG(logger) << "Empty alias " << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
@@ -84,10 +84,10 @@ SummaryStatisticsProcedureConfigDescription()
                     "sum(" + expr->getChildren()[0]->surface + ") AS "
                     + expr->alias.toSimpleName());
             }
-            catch (const ML::Exception & exc) {
+            catch (const MLDB::Exception & exc) {
                 DEBUG_MSG(logger) << "Failed to parse within sum "
                                 << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
@@ -104,7 +104,7 @@ SummaryStatisticsProcedure(MldbServer * owner,
     procedureConfig = config.params.convert<SummaryStatisticsProcedureConfig>();
 }
 
-typedef tuple<ColumnName, CellValue, Date> Cell;
+typedef tuple<ColumnPath, CellValue, Date> Cell;
 
 template <typename T, int size>
 struct MostFrequents {
@@ -172,7 +172,7 @@ struct NumericRowHandler {
 
         int64_t numNotNull = 0;
         bool isNumeric = false;
-        ColumnName value("value");
+        ColumnPath value("value");
         auto onRow = [&] (NamedRowValue & row) {
 
             // If the data is categorical, we don't even reach this point
@@ -240,7 +240,7 @@ struct NumericRowHandler {
                          -1, // limit
                          onProgress);
         }
-        catch (const ML::Exception & exc) {
+        catch (const MLDB::Exception & exc) {
             if (!isNumeric) {
                 // Categorical, the query doesn't work
                 return false;
@@ -335,7 +335,7 @@ struct CategoricalRowHandler {
     std::function<bool (const Json::Value &)> onProgress;
 
     void recordStatsForColumn(const Utf8String & name, const Path & rowName) {
-        ColumnName value("value");
+        ColumnPath value("value");
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
             if (JML_UNLIKELY(first)) {

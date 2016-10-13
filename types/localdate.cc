@@ -87,7 +87,7 @@ fillTM(struct tm & time) const
     time_t t = secondsSinceEpoch_ + tzOffset_;
 
     if (!gmtime_r(&t, &time))
-        throw ML::Exception("problem with gmtime_r");
+        throw MLDB::Exception("problem with gmtime_r");
 }
 
 int
@@ -144,7 +144,7 @@ static std::string get_link_target(const std::string & link)
         char buf[bufsize];
         int res = readlink(link.c_str(), buf, bufsize);
         if (res == -1)
-            throw ML::Exception(errno, "readlink", "get_link_name()");
+            throw MLDB::Exception(errno, "readlink", "get_link_name()");
         if (res == bufsize) {
             bufsize *= 2;
             continue;
@@ -186,7 +186,7 @@ findTimezoneSpec()
         return specFile;
     }
 
-    throw ML::Exception("timezone spec file not found");    
+    throw MLDB::Exception("timezone spec file not found");    
 }
 
 void
@@ -205,7 +205,7 @@ recomputeTZOffset()
 
         time_zone_ptr tz = tz_db.time_zone_from_region(tzName_);
         if (tz == 0) {
-            throw ML::Exception("time zone named '" + tzName_ + "' is not known");
+            throw MLDB::Exception("time zone named '" + tzName_ + "' is not known");
         }
         time_duration offset = tz->base_utc_offset();
         tzOffset_ = offset.total_seconds();

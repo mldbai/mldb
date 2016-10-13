@@ -60,7 +60,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Plugin of type '" + ML::type_name(*this)
+    error["error"] = "Plugin of type '" + MLDB::type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
@@ -165,7 +165,7 @@ struct SharedLibraryPlugin::Itl {
         if (!handle) {
             char * error = dlerror();
             ExcAssert(error);
-            throw ML::Exception("couldn't find plugin library '%s': %s",
+            throw MLDB::Exception("couldn't find plugin library '%s': %s",
                                 path.c_str(), error);
         }
 

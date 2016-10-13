@@ -68,7 +68,7 @@ struct ContinuousDataset::Itl {
             metadataDataset = obtainDataset(server, config.metadataDataset);
         } JML_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
-                                 "metadata initialization: " + ML::getExceptionString(),
+                                 "metadata initialization: " + getExceptionString(),
                                  "continuousDatasetConfig", config);
         }
         
@@ -77,7 +77,7 @@ struct ContinuousDataset::Itl {
         } JML_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "createStorageDataset initialization: "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "continuousDatasetConfig", config);
         }
         
@@ -86,7 +86,7 @@ struct ContinuousDataset::Itl {
         } JML_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "saveStorageDataset procedure initialization: "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "continuousDatasetConfig", config);
         }
         
@@ -143,15 +143,15 @@ struct ContinuousDataset::Itl {
     }
 
     virtual void
-    recordRowItl(const RowName & rowName,
-                 const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    recordRowItl(const RowPath & rowName,
+                 const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         auto myCurrent = current();
         myCurrent->dataset->recordRow(rowName, vals);
         myCurrent->hasData = true;
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
     {
         auto myCurrent = current();
         myCurrent->dataset->recordRows(rows);
@@ -257,9 +257,9 @@ struct ContinuousDataset::Itl {
         Json::Value resultsJson = jsonEncode(saveOutput.results);
         cerr << "metadata is " << jsonEncode(saveOutput) << endl;
 
-        RowName rowName(savedDataset->config_->id);
+        RowPath rowName(savedDataset->config_->id);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > metadata;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > metadata;
         Date date = Date::now();
         StructuredJsonParsingContext context(resultsJson);
         auto expr = ExpressionValue::parseJson(context, date);
@@ -270,8 +270,8 @@ struct ContinuousDataset::Itl {
         std::tie(earliest, latest) = savedDataset->getTimestampRange();
 
         // TODO: the procedure should return this...
-        metadata.emplace_back(ColumnName("earliest"), earliest, Date::now());
-        metadata.emplace_back(ColumnName("latest"), latest, Date::now());
+        metadata.emplace_back(ColumnPath("earliest"), earliest, Date::now());
+        metadata.emplace_back(ColumnPath("latest"), latest, Date::now());
 
         metadataDataset->recordRow(rowName, metadata);
 
@@ -363,15 +363,15 @@ getStatus() const
 
 void
 ContinuousDataset::
-recordRowItl(const RowName & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+recordRowItl(const RowPath & rowName,
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     return itl->recordRowItl(rowName, vals);
 }
 
 void
 ContinuousDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     return itl->recordRows(rows);
 }
@@ -546,7 +546,7 @@ ContinuousWindowDataset(MldbServer * owner,
         metadataDataset = obtainDataset(server, config.metadataDataset);
     } JML_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
-                             "metadata initialization: " + ML::getExceptionString(),
+                             "metadata initialization: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
 
@@ -558,7 +558,7 @@ ContinuousWindowDataset(MldbServer * owner,
         toLoadConfig = getDatasetConfig(config.datasetFilter, config.from, config.to);
     } JML_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
-                             "metadata query: " + ML::getExceptionString(),
+                             "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
 
@@ -569,7 +569,7 @@ ContinuousWindowDataset(MldbServer * owner,
         setUnderlying(underlying);
     } JML_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
-                             "metadata query: " + ML::getExceptionString(),
+                             "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
 }

@@ -39,7 +39,7 @@ int granularityIndex(TimeGranularity granularity)
         }
     }
 
-    throw ML::Exception("granularity not found");
+    throw MLDB::Exception("granularity not found");
 }
 
 }
@@ -52,12 +52,12 @@ TimeGranularity operator + (TimeGranularity granularity, int steps)
 
     if (steps > 0) {
         if (i + steps >= maxGranularity) {
-            throw ML::Exception("granularity index would be too high");
+            throw MLDB::Exception("granularity index would be too high");
         }
     }
     else if (steps < 0) {
         if (i + steps < 0) {
-            throw ML::Exception("granularity index would be negative");
+            throw MLDB::Exception("granularity index would be negative");
         }
     }
 
@@ -88,7 +88,7 @@ bool canTranslateGranularity(TimeGranularity sourceGranularity,
         return destGranularity == MONTHS;
     }
 
-    throw ML::Exception("we should never get here");
+    throw MLDB::Exception("we should never get here");
 }
 
 /** Number of units of one granularity that first in the other granularity. */
@@ -96,14 +96,14 @@ int granularityMultiplier(TimeGranularity sourceGranularity,
                           TimeGranularity destGranularity)
 {
     if (!canTranslateGranularity(sourceGranularity, destGranularity)) {
-        throw ML::Exception("specified granularities are incompatible with"
+        throw MLDB::Exception("specified granularities are incompatible with"
                             " each other");
     }
 
     int fromIndex = granularityIndex(destGranularity);
     int toIndex = granularityIndex(sourceGranularity);
     if (fromIndex > toIndex) {
-        throw ML::Exception("the source granularity must be bigger that the"
+        throw MLDB::Exception("the source granularity must be bigger that the"
                             " destination");
     }
 
@@ -133,7 +133,7 @@ parsePeriod(const std::string & pattern)
     TimeGranularity granularity;
     double number;
 
-    ML::Parse_Context context(pattern,
+    ParseContext context(pattern,
                               pattern.c_str(),
                               pattern.c_str() + pattern.length());
 
@@ -205,7 +205,7 @@ findPeriod(Date current, TimeGranularity granularity, double number_)
         break;
 
         if (number != 1)
-            throw ML::Exception("only 1d is supported for days");
+            throw MLDB::Exception("only 1d is supported for days");
         // Go to the start of the day
         result.addSeconds(-(3600 * t.tm_hour + 60 * t.tm_min + t.tm_sec));
         
@@ -256,7 +256,7 @@ findPeriod(Date current, TimeGranularity granularity, double number_)
 	break;
 
     default:
-        throw ML::Exception("that granularity is not supported");
+        throw MLDB::Exception("that granularity is not supported");
     }
 
     return make_pair(result, interval);
@@ -309,7 +309,7 @@ std::string
 TimePeriod::
 toString() const
 {
-    string result = boost::lexical_cast<string>(number);//ML::format("%f", number);
+    string result = boost::lexical_cast<string>(number);//MLDB::format("%f", number);
     switch (granularity) {
     case MILLISECONDS:  result += "ms";  return result;
     case SECONDS:       result += 's';   return result;
@@ -320,7 +320,7 @@ toString() const
     case MONTHS:        result += 'M';   return result;
     case YEARS:         result += 'y';   return result;
     default:
-        throw ML::Exception("unknown time period");
+        throw MLDB::Exception("unknown time period");
     }
 }
 

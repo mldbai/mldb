@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE( test_stale_and_trylock )
 
     pid_t childPid = ::fork();
     if (childPid == -1) {
-        throw ML::Exception(errno, "fork");
+        throw MLDB::Exception(errno, "fork");
     }
     else if (childPid == 0) {
         GuardedFsLock lock(lockedFile);
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE( test_stale_and_lock )
 
     pid_t childPid = ::fork();
     if (childPid == -1) {
-        throw ML::Exception(errno, "fork");
+        throw MLDB::Exception(errno, "fork");
     }
     else if (childPid == 0) {
         GuardedFsLock lock(lockedFile);

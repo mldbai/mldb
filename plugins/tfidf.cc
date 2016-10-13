@@ -54,12 +54,12 @@ reconstitute(ML::DB::Store_Reader & store,
     std::string name;
     store >> name;
     if (name != "tfidf")
-        throw ML::Exception("invalid name when loading a tf-idf object");
+        throw MLDB::Exception("invalid name when loading a tf-idf object");
 
     int version;
     store >> version;
     if (version != 0)
-        throw ML::Exception("invalid tf-idf version");
+        throw MLDB::Exception("invalid tf-idf version");
 
     uint64_t termCount = 0;
 
@@ -245,10 +245,10 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        ColumnName columnName(PathElement("count"));
+        ColumnPath columnName(PathElement("count"));
 
         for (auto & df : dfs) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
             columns.emplace_back(columnName, df.second, applyDate);
             output->recordRow(PathElement(df.first), columns);
         }
@@ -295,7 +295,7 @@ TfidfFunctionConfigDescription()
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
+            throw MLDB::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };

@@ -169,18 +169,18 @@ struct TupleDescription
 
     virtual void setArrayLength(void * val, size_t newLength) const override
     {
-        throw ML::Exception("tuple array lengths can't be set");
+        throw MLDB::Exception("tuple array lengths can't be set");
     }
     
     virtual const ValueDescription & contained() const override
     {
-        throw ML::Exception("tuple does not have a consistent contained type");
+        throw MLDB::Exception("tuple does not have a consistent contained type");
     }
 
     virtual void set(void* obj, void* value,
                      const ValueDescription* valueDesc) const override
     {
-        throw ML::Exception("tuple type set not done");
+        throw MLDB::Exception("tuple type set not done");
     }
 
     virtual void initialize() override

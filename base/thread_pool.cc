@@ -24,7 +24,7 @@ using namespace std;
 
 namespace MLDB {
 
-static ML::Env_Option<int, true /* trace */>
+static EnvOption<int, true /* trace */>
 NUM_CPUS("NUM_CPUS", std::thread::hardware_concurrency());
 
 int numCpus()
@@ -116,7 +116,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
     };
 
     /// This allows us to have one threadEntry per thread
-    ML::ThreadSpecificInstanceInfo<ThreadEntry, void> threadEntries;
+    ThreadSpecificInstanceInfo<ThreadEntry, void> threadEntries;
 
     /// Our internal worker threads
     std::vector<std::thread> workers;
@@ -425,7 +425,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         } catch (const std::exception & exc) {
             finished += 1;
             cerr << "ERROR: job submitted to ThreadPool of type "
-                 << ML::demangle(job.target_type())
+                 << demangle(job.target_type())
                  << " threw exception: " << exc.what() << endl;
             cerr << "A Job in a ThreadPool which throws an exception "
                  << "causes the program to crash, which is happening now"
@@ -435,8 +435,8 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         JML_CATCH_ALL {
             finished += 1;
             cerr << "ERROR: job submitted to ThreadPool of type "
-                 << ML::demangle(job.target_type())
-                 << " threw exception " << ML::getExceptionString() << endl;
+                 << demangle(job.target_type())
+                 << " threw exception " << getExceptionString() << endl;
             cerr << "A Job in a ThreadPool which throws an exception "
                  << "causes the program to crash, which is happening now"
                  << endl;

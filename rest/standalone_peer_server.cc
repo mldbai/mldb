@@ -86,7 +86,7 @@ StandalonePeerServer::
 connect(const PeerInfo & info)
 {
     return connectToSelf();
-    //throw ML::Exception("StandalonePeerServer can only connect to itself");
+    //throw MLDB::Exception("StandalonePeerServer can only connect to itself");
 }
 
 std::shared_ptr<PeerConnection>

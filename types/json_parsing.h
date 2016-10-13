@@ -16,12 +16,10 @@ namespace Json {
 struct Value;
 } // namespace Json
 
-namespace ML {
-struct Parse_Context;
-} // namespace ML
 
 namespace MLDB {
 
+struct ParseContext;
 struct JsonParsingContext;
 struct ValueDescription;
 
@@ -45,62 +43,62 @@ struct JsonNumber {
     };    
 };
 
-bool expectJsonBool(ML::Parse_Context & context);
+bool expectJsonBool(ParseContext & context);
 
 /** Expect a JSON number. */
-JsonNumber expectJsonNumber(ML::Parse_Context & context);
+JsonNumber expectJsonNumber(ParseContext & context);
 
 /** Match a JSON number. */
-bool matchJsonNumber(ML::Parse_Context & context, JsonNumber & num);
+bool matchJsonNumber(ParseContext & context, JsonNumber & num);
 
 
 /*
  * If non-ascii characters are found an exception is thrown
  */
-std::string expectJsonStringAscii(ML::Parse_Context & context);
+std::string expectJsonStringAscii(ParseContext & context);
 
 /*
  * If non-ascii characters are found an exception is thrown.
  * Output goes into the given buffer, of the given maximum length.
  * If it doesn't fit, then return zero.
  */
-ssize_t expectJsonStringAscii(ML::Parse_Context & context, char * buf,
+ssize_t expectJsonStringAscii(ParseContext & context, char * buf,
                              size_t maxLength);
 
 /*
  * if non-ascii characters are found we replace them by an ascii character that is supplied
  */
-std::string expectJsonStringAsciiPermissive(ML::Parse_Context & context, char c);
+std::string expectJsonStringAsciiPermissive(ParseContext & context, char c);
 
-bool matchJsonString(ML::Parse_Context & context, std::string & str);
+bool matchJsonString(ParseContext & context, std::string & str);
 
-bool matchJsonNull(ML::Parse_Context & context);
-
-void
-expectJsonArray(ML::Parse_Context & context,
-                const std::function<void (int, ML::Parse_Context &)> & onEntry);
+bool matchJsonNull(ParseContext & context);
 
 void
-expectJsonObject(ML::Parse_Context & context,
-                 const std::function<void (const std::string &, ML::Parse_Context &)> & onEntry);
+expectJsonArray(ParseContext & context,
+                const std::function<void (int, ParseContext &)> & onEntry);
+
+void
+expectJsonObject(ParseContext & context,
+                 const std::function<void (const std::string &, ParseContext &)> & onEntry);
 
 /** Expect a Json object and call the given callback.  The keys are assumed
     to be ASCII which means no embedded nulls, and so the key can be passed
     as a const char *.
 */
 void
-expectJsonObjectAscii(ML::Parse_Context & context,
-                      const std::function<void (const char *, ML::Parse_Context &)> & onEntry);
+expectJsonObjectAscii(ParseContext & context,
+                      const std::function<void (const char *, ParseContext &)> & onEntry);
 
 bool
-matchJsonObject(ML::Parse_Context & context,
-                const std::function<bool (const std::string &, ML::Parse_Context &)> & onEntry);
+matchJsonObject(ParseContext & context,
+                const std::function<bool (const std::string &, ParseContext &)> & onEntry);
 
-void skipJsonWhitespace(ML::Parse_Context & context);
+void skipJsonWhitespace(ParseContext & context);
 
-Json::Value expectJson(ML::Parse_Context & context);
+Json::Value expectJson(ParseContext & context);
 
-Json::Value expectJsonAscii(ML::Parse_Context & context);
+Json::Value expectJsonAscii(ParseContext & context);
 
 
 
@@ -373,8 +371,8 @@ struct StreamingJsonParsingContext
     StreamingJsonParsingContext();
     ~StreamingJsonParsingContext();
 
-    /// Initialize from a general JML Parse_Context object.
-    StreamingJsonParsingContext(ML::Parse_Context & context);
+    /// Initialize from a general JML ParseContext object.
+    StreamingJsonParsingContext(ParseContext & context);
     
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
@@ -392,8 +390,8 @@ struct StreamingJsonParsingContext
     StreamingJsonParsingContext(const std::string & filename, const char * start,
                                 size_t length, unsigned line = 1, unsigned col = 1);
     
-    /// Initialize from a general JML Parse_Context object.
-    void init(ML::Parse_Context & context);
+    /// Initialize from a general JML ParseContext object.
+    void init(ParseContext & context);
 
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
@@ -411,8 +409,8 @@ struct StreamingJsonParsingContext
                                 unsigned line = 1, unsigned col = 1,
                                 size_t chunk_size = DEFAULT_CHUNK_SIZE);
 
-    ML::Parse_Context * context;
-    std::unique_ptr<ML::Parse_Context> ownedContext;
+    ParseContext * context;
+    std::unique_ptr<ParseContext> ownedContext;
 
     template<typename Fn>
     void forEachMember(const Fn & fn)
@@ -455,7 +453,7 @@ struct StreamingJsonParsingContext
     {
         bool first = true;
 
-        auto onElement = [&] (int index, ML::Parse_Context &)
+        auto onElement = [&] (int index, ParseContext &)
             {
                 if (first)
                     pushPath(index);

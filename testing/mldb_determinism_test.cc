@@ -134,14 +134,14 @@ BOOST_AUTO_TEST_CASE( test_determinism_agggregator )
     auto addRow = [&] (const std::string & rowName, float x)
         {
             MatrixNamedRow row;
-            row.rowName = RowName(rowName);
-            row.columns.emplace_back(ColumnName("x"), x, Date());
+            row.rowName = RowPath(rowName);
+            row.columns.emplace_back(ColumnPath("x"), x, Date());
             cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
         };
 
     for (int i = 0; i < 1001; ++i)
     {
-       addRow(ML::format("row_%d", i), i);
+       addRow(MLDB::format("row_%d", i), i);
     }
 
      // Commit it.  This will also create our distance index

@@ -190,7 +190,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
             const string & path = context.resources.back().rawString();
 
             if (path.find("..") != string::npos) {
-                throw ML::Exception("not dealing with path with .. in it");
+                throw MLDB::Exception("not dealing with path with .. in it");
             }
 
             string filename = (fs::path(dir) / fs::path(path)).string();

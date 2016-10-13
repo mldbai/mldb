@@ -1,16 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* guard.h                                                         -*- C++ -*-
    Jeremy Barnes, 13 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 
    ---
 */
 
-#ifndef __utils__guard_h__
-#define __utils__guard_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <functional>
@@ -71,7 +68,5 @@ Call_Guard call_guard(Fn fn, bool condition = true)
 #endif
 
 
-} // namespace ML
+} // namespace MLDB
 
-
-#endif /* __utils__guard_h__ */

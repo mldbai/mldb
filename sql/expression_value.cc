@@ -98,7 +98,7 @@ getMerged(const std::shared_ptr<ExpressionValueInfo> & info1,
     auto cols1 = info1->getKnownColumns();
     auto cols2 = info2->getKnownColumns();
 
-    std::unordered_map<ColumnName, std::pair<KnownColumn, KnownColumn> >
+    std::unordered_map<ColumnPath, std::pair<KnownColumn, KnownColumn> >
         allInfo;
     for (auto & c: cols1)
         allInfo[c.columnName].first = c;
@@ -162,7 +162,7 @@ getFlattenedInfo() const
 void
 ExpressionValueInfo::
 flatten(const ExpressionValue & value,
-        const std::function<void (const ColumnName & columnName,
+        const std::function<void (const ColumnPath & columnName,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
@@ -183,7 +183,7 @@ toRow(std::shared_ptr<ExpressionValueInfo> row)
     ExcAssert(row);
     auto result = dynamic_pointer_cast<RowValueInfo>(row);
     if (!result)
-        throw HttpReturnException(500, "Value is not a row: " + ML::type_name(*row));
+        throw HttpReturnException(500, "Value is not a row: " + MLDB::type_name(*row));
     return result;
 }
 
@@ -198,8 +198,8 @@ SchemaCompleteness
 ExpressionValueInfo::
 getSchemaCompleteness() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a row: type " + ML::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
-                              "type", ML::type_name(*this));
+    throw HttpReturnException(500, "Value description doesn't describe a row: type " + MLDB::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
+                              "type", MLDB::type_name(*this));
 }
 
 SchemaCompleteness
@@ -214,12 +214,12 @@ ExpressionValueInfo::
 getKnownColumns() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a row",
-                              "type", ML::type_name(*this));
+                              "type", MLDB::type_name(*this));
 }
 
 std::vector<KnownColumn>
 ExpressionValueInfo::
-getKnownAtoms(const ColumnName prefix) const
+getKnownAtoms(const ColumnPath prefix) const
 {
     std::vector<KnownColumn> result;
     auto columns = getKnownColumns();
@@ -245,11 +245,11 @@ getKnownAtoms(const ColumnName prefix) const
     return result;
 }
 
-std::vector<ColumnName>
+std::vector<ColumnPath>
 ExpressionValueInfo::
 allColumnNames() const
 {
-    std::vector<ColumnName> result;
+    std::vector<ColumnPath> result;
     for (auto & val: getKnownColumns())
         result.emplace_back(std::move(val.columnName));
     return result;
@@ -260,12 +260,12 @@ ExpressionValueInfo::
 getScalarDescription() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a scalar",
-                              "type", ML::type_name(*this));
+                              "type", MLDB::type_name(*this));
 }
 
 std::shared_ptr<ExpressionValueInfo>
 ExpressionValueInfo::
-findNestedColumn(const ColumnName& columnName) const
+findNestedColumn(const ColumnPath& columnName) const
 {
     return nullptr;
 }
@@ -293,7 +293,7 @@ getEmbeddingType() const
 
 ExpressionValueInfo::ExtractDoubleEmbeddingFunction
 ExpressionValueInfo::
-extractDoubleEmbedding(const std::vector<ColumnName> & cols) const
+extractDoubleEmbedding(const std::vector<ColumnPath> & cols) const
 {
     // TODO: specialize this
     return [=] (const ExpressionValue & val)
@@ -320,7 +320,7 @@ struct ExpressionValueInfoPtrDescription
             return;
         }
         Json::Value out;
-        out["type"] = ML::type_name(**val);
+        out["type"] = MLDB::type_name(**val);
         if ((*val)->isScalar()) {
             out["kind"] = "scalar";
             out["scalar"] = (*val)->getScalarDescription();
@@ -367,7 +367,7 @@ struct RowValueInfoPtrDescription
             return;
         }
         Json::Value out;
-        out["type"] = ML::type_name(**val);
+        out["type"] = MLDB::type_name(**val);
         out["kind"] = "row";
         out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
         out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
@@ -676,51 +676,6 @@ getSchemaCompletenessRecursive() const
 }
 
 
-// TODO: generalize
-std::shared_ptr<ExpressionValueInfo>
-getValueInfoForStorage(StorageType type)
-{
-    switch (type) {
-    case ST_FLOAT32:
-        return std::make_shared<Float32ValueInfo>();
-    case ST_FLOAT64:
-        return std::make_shared<Float64ValueInfo>();
-    case ST_INT8:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT8:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT16:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT16:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT32:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT32:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT64:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT64:
-        return std::make_shared<Uint64ValueInfo>();
-    case ST_BLOB:
-        return std::make_shared<BlobValueInfo>();
-    case ST_STRING:
-        return std::make_shared<StringValueInfo>();
-    case ST_UTF8STRING:
-        return std::make_shared<Utf8StringValueInfo>();
-    case ST_ATOM:
-        return std::make_shared<AtomValueInfo>();
-    case ST_BOOL:
-        return std::make_shared<BooleanValueInfo>();
-    case ST_TIMESTAMP:
-        return std::make_shared<TimestampValueInfo>();
-    case ST_TIMEINTERVAL:
-        return std::make_shared<AtomValueInfo>();
-    }
-
-    throw HttpReturnException(500, "Unknown embedding storage type",
-                              "type", type);
-}
-
 std::vector<KnownColumn>
 EmbeddingValueInfo::
 getKnownColumns() const
@@ -735,8 +690,8 @@ getKnownColumns() const
 
     auto valueInfo = getValueInfoForStorage(ST_ATOM);
 
-    std::function<void (ColumnName prefix, int dim)> doDim
-        = [&] (ColumnName prefix, int dim)
+    std::function<void (ColumnPath prefix, int dim)> doDim
+        = [&] (ColumnPath prefix, int dim)
         {
             if (dim == shape.size()) {
                 result.emplace_back(std::move(prefix), valueInfo,
@@ -749,16 +704,16 @@ getKnownColumns() const
             }
         };
 
-    doDim(ColumnName(), 0);
+    doDim(ColumnPath(), 0);
 
     return result;
 }
 
-std::vector<ColumnName>
+std::vector<ColumnPath>
 EmbeddingValueInfo::
 allColumnNames() const
 {
-    std::vector<ColumnName> result;
+    std::vector<ColumnPath> result;
     
     // If we have a -1 index in the shape matrix, we don't know the size of
     // that dimension and thus how many values will be in it.
@@ -766,8 +721,8 @@ allColumnNames() const
         if (s < 0)
             return result;
 
-    std::function<void (ColumnName prefix, int dim)> doDim
-        = [&] (ColumnName prefix, int dim)
+    std::function<void (ColumnPath prefix, int dim)> doDim
+        = [&] (ColumnPath prefix, int dim)
         {
             if (dim == shape.size()) {
                 result.emplace_back(std::move(prefix));
@@ -779,7 +734,7 @@ allColumnNames() const
             }
         };
 
-    doDim(ColumnName(), 0);
+    doDim(ColumnPath(), 0);
 
     return result;
 }
@@ -794,7 +749,7 @@ getFlattenedInfo() const
 void
 EmbeddingValueInfo::
 flatten(const ExpressionValue & value,
-        const std::function<void (const ColumnName & columnName,
+        const std::function<void (const ColumnPath & columnName,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
@@ -827,7 +782,7 @@ getFlattenedInfo() const
 void
 AnyValueInfo::
 flatten(const ExpressionValue & value,
-        const std::function<void (const ColumnName & columnName,
+        const std::function<void (const ColumnPath & columnName,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
@@ -892,7 +847,7 @@ getFlattenedInfo() const
 void
 RowValueInfo::
 flatten(const ExpressionValue & value,
-        const std::function<void (const ColumnName & columnName,
+        const std::function<void (const ColumnPath & columnName,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
@@ -922,7 +877,7 @@ getSchemaCompletenessRecursive() const
 
 std::shared_ptr<ExpressionValueInfo>
 RowValueInfo::
-findNestedColumn(const ColumnName& columnName) const
+findNestedColumn(const ColumnPath& columnName) const
 {  
     for (auto& col : columns) {
         if (col.columnName == columnName) {
@@ -931,7 +886,7 @@ findNestedColumn(const ColumnName& columnName) const
         }
         else if (columnName.startsWith(col.columnName)) {
             // Nested; look inside the sub-info
-            ColumnName tail = columnName.removePrefix(col.columnName.size());
+            ColumnPath tail = columnName.removePrefix(col.columnName.size());
             auto res = col.valueInfo->findNestedColumn(tail);
             if (res)
                 return res;
@@ -957,7 +912,7 @@ getColumn(const PathElement & columnName) const
         }
         else if (col.columnName.startsWith(columnName)) {
             // Nested; look inside the sub-info
-            ColumnName tail = columnName.removePrefix(col.columnName.size());
+            ColumnPath tail = columnName.removePrefix(col.columnName.size());
             return col.valueInfo->findNestedColumn(tail);
         }
     }
@@ -968,7 +923,7 @@ getColumn(const PathElement & columnName) const
 
 
 /*****************************************************************************/
-/* OR Expression Value Info                                                  */
+/* Variant Expression Value Info                                             */
 /*****************************************************************************/
 
 /** Expression Value info when we dont know which of two value info we will get 
@@ -1007,7 +962,7 @@ getFlattenedInfo() const
 void 
 VariantExpressionValueInfo::
 flatten(const ExpressionValue & value,
-        const std::function<void (const ColumnName & columnName,
+        const std::function<void (const ColumnPath & columnName,
                                   const CellValue & value,
                                   Date timestamp)> & write) const 
 {
@@ -1027,7 +982,7 @@ getKnownColumns() const
 
     std::vector<KnownColumn> result;
 
-    auto findKnownColumn = [] (const ColumnName& column, const std::vector<KnownColumn>& columnList) -> std::vector<KnownColumn>::const_iterator  {
+    auto findKnownColumn = [] (const ColumnPath& column, const std::vector<KnownColumn>& columnList) -> std::vector<KnownColumn>::const_iterator  {
         for (auto iter = columnList.begin(); iter != columnList.end(); ++iter) {
             if (iter->columnName == column) {
                 return iter;
@@ -1135,7 +1090,7 @@ getScalarDescription() const
 /// element and an external set of column names.  There is only
 /// one timestamp for the whole thing.
 struct ExpressionValue::Flattened {
-    std::shared_ptr<const std::vector<ColumnName> > columnNames;
+    std::shared_ptr<const std::vector<ColumnPath> > columnNames;
     std::vector<CellValue> values;
 
     size_t length() const
@@ -1153,12 +1108,12 @@ struct ExpressionValue::Flattened {
         return std::move(values.at(i));
     }
 
-    ColumnName columnName(int i) const
+    ColumnPath columnName(int i) const
     {
         if (columnNames)
             return columnNames->at(i);
         // TODO: static list of the first 1,000 column names to avoid allocs
-        else return ColumnName(i);
+        else return ColumnPath(i);
     }
 };
 
@@ -1263,7 +1218,7 @@ struct ExpressionValue::Embedding {
         return runLevel(0);
     }
 
-    bool forEachAtom(std::function<bool (ColumnName & col,
+    bool forEachAtom(std::function<bool (ColumnPath & col,
                                          CellValue & val)> onColumn) const
     {
         auto onValue = [&] (const vector<int> & indexes, CellValue & val)
@@ -1378,6 +1333,58 @@ struct ExpressionValue::Embedding {
         return std::make_shared<EmbeddingValueInfo>
             (vector<ssize_t>(dims_.begin(), dims_.end()), storageType_);
     }
+
+    ExpressionValue reshape(DimsVector newShape, Date ts) const
+    {
+        size_t totalLength = 1;
+        for (auto & s: newShape)
+            totalLength *= s;
+
+        if (totalLength != length()) {
+            throw HttpReturnException
+                (400, "Attempt to change embedding size by reshaping");
+        }
+        return ExpressionValue::embedding(ts, data_,
+                                          storageType_,
+                                          std::move(newShape));
+    }
+    
+    ExpressionValue reshape(DimsVector newShape,
+                            const ExpressionValue & newValue,
+                            Date ts) const
+    {
+        size_t totalLength = 1;
+        for (auto & s: newShape)
+            totalLength *= s;
+        
+        if (totalLength <= length()) {
+            // Keep the old storage around, since it still has the
+            // right data.  TODO: if it's much smaller, we could
+            // copy it so that the old one doesn't "leak" into
+            // memory.
+            return ExpressionValue::embedding(ts, data_,
+                                              storageType_,
+                                              std::move(newShape));
+        }
+        else {
+            // We need to add elements, so we must re-allocate the underlying
+            // buffer
+
+            auto newStorageType = coveringStorageType(storageType_, newValue);
+
+            // First, does the current storage type cover the new value?
+            auto newBuffer = allocateStorageBuffer(totalLength, newStorageType);
+            copyStorageBuffer(data_.get(), 0, storageType_,
+                              newBuffer.get(), 0, newStorageType,
+                              length());
+            fillStorageBuffer(newBuffer.get(), length(), newStorageType,
+                              totalLength - length(),
+                              newValue.getAtom());
+            return ExpressionValue::embedding(ts, std::move(newBuffer),
+                                              newStorageType,
+                                              std::move(newShape));
+        }
+    }
 };
 
 struct ExpressionValue::Superposition {
@@ -1416,7 +1423,7 @@ struct ExpressionValue::Superposition {
         throw HttpReturnException(600, __PRETTY_FUNCTION__);
     }
 
-    bool forEachAtom(std::function<bool (ColumnName & col,
+    bool forEachAtom(std::function<bool (ColumnPath & col,
                                          CellValue & val)> onColumn) const
     {
         throw HttpReturnException(600, __PRETTY_FUNCTION__);
@@ -1849,7 +1856,7 @@ swap(ExpressionValue & other) noexcept
 
 ExpressionValue::
 ExpressionValue(std::vector<CellValue> values,
-                std::shared_ptr<const std::vector<ColumnName> > cols,
+                std::shared_ptr<const std::vector<ColumnPath> > cols,
                 Date ts)
     : type_(Type::NONE), ts_(ts)
 {
@@ -1867,7 +1874,7 @@ ExpressionValue(std::vector<CellValue> values,
 
 ExpressionValue::
 ExpressionValue(const std::vector<double> & values,
-                std::shared_ptr<const std::vector<ColumnName> > cols,
+                std::shared_ptr<const std::vector<ColumnPath> > cols,
                 Date ts)
     : type_(Type::NONE), ts_(ts)
 {
@@ -2515,7 +2522,7 @@ getColumn(const PathElement & columnName, const VariableFilter & filter) const
 
 const ExpressionValue *
 ExpressionValue::
-tryGetNestedColumn(const ColumnName & columnName,
+tryGetNestedColumn(const ColumnPath & columnName,
                    ExpressionValue & storage,
                    const VariableFilter & filter) const
 {
@@ -2547,7 +2554,7 @@ tryGetNestedColumn(const ColumnName & columnName,
         }
 
         FilterAccumulator accum(filter);
-        ColumnName tail = columnName.tail();
+        ColumnPath tail = columnName.tail();
 
         auto onValue = [&] (const ExpressionValue & val) -> bool
             {
@@ -2597,7 +2604,7 @@ hasNestedColumn(const Path & column) const
 
 ExpressionValue
 ExpressionValue::
-getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) const
+getNestedColumn(const ColumnPath & columnName, const VariableFilter & filter) const
 {
     ExpressionValue storage;
     const ExpressionValue * val = tryGetNestedColumn(columnName, storage, filter);
@@ -2606,6 +2613,73 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
     else if (val == &storage)
         return storage;
     else return *val;
+}
+
+ExpressionValue
+ExpressionValue::
+coerceToEmbedding() const
+{
+    if (type_ == Type::EMBEDDING)
+        return *this;
+    else if (type_ != Type::STRUCTURED)
+        throw HttpReturnException(500, "Cannot coerce value to embedding");
+
+    //Start with finding the shape of the embedding
+    size_t numElements = 0;
+    DimsVector shape;
+    auto atomCount = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        Path fullColumnName;
+                        if (!prefix.empty())
+                            fullColumnName = prefix + columnName;
+                        else 
+                            fullColumnName = columnName;
+                        
+                        if (shape.size() < fullColumnName.size())
+                            shape.resize(fullColumnName.size());
+
+                        for (size_t i = 0; i < fullColumnName.size(); ++i) {
+                            shape[i] = std::max(shape[i], (size_t)(fullColumnName[i].toIndex()+1));
+                        }
+
+                        numElements++;
+                        return true;
+                    };
+
+    forEachAtom(atomCount);
+
+    DimsVector compoundShape = shape;
+    size_t p = 1;
+    for (int i = shape.size() -1; i >= 0; --i){
+        compoundShape[i] = p;
+        p *= shape[i];
+    }
+
+    std::vector<CellValue> values;
+    values.resize(numElements);
+
+    //Copy existing values in the structure to their proper place in the embedding array
+    auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        Path fullColumnName = prefix + columnName;
+                        size_t index = 0;
+                        for (size_t i = 0; i < fullColumnName.size(); ++i) {
+                            index += fullColumnName[i].toIndex() * compoundShape[i];
+                        }
+                        values[index] = val;
+                        return true;
+                    };
+
+    forEachAtom(onAtom);
+
+    //create the embedding
+    return ExpressionValue(values, Date::negativeInfinity(), shape);
 }
 
 DimsVector
@@ -2617,7 +2691,7 @@ getEmbeddingShape() const
     case Type::ATOM:
         return {};
     case Type::STRUCTURED:
-        return { structured_->size() };
+        return coerceToEmbedding().getEmbeddingShape();
     case Type::EMBEDDING:
         return embedding_->dims_;
     case Type::SUPERPOSITION:
@@ -2635,39 +2709,48 @@ reshape(DimsVector newShape) const
     case Type::NONE:
     case Type::ATOM:
     case Type::STRUCTURED:
-        throw HttpReturnException(500, "Cannot reshape non-embedding");
+        return coerceToEmbedding().reshape(newShape);
     case Type::SUPERPOSITION:
         return superposition_->latest().reshape(newShape);
-    case Type::EMBEDDING: {
-        size_t totalLength = 1;
-        for (auto & s: newShape)
-            totalLength *= s;
-
-        if (rowLength() > totalLength) {
-            throw HttpReturnException(400, "Attempt to enlarge embedding by resizing");
-        }
-        return ExpressionValue::embedding(ts_, embedding_->data_,
-                                          embedding_->storageType_,
-                                          std::move(newShape));
+    case Type::EMBEDDING:
+        return embedding_->reshape(newShape, ts_);
     }
+
+    throw HttpReturnException(500, "Unknown storage type for reshape()");
+}
+
+ExpressionValue
+ExpressionValue::
+reshape(DimsVector newShape,
+        const ExpressionValue & newValue) const
+{
+    switch (type_) {
+    case Type::NONE:
+    case Type::ATOM:
+    case Type::STRUCTURED:
+        return coerceToEmbedding().reshape(newShape, newValue);
+    case Type::SUPERPOSITION:
+        return superposition_->latest().reshape(newShape, newValue);
+    case Type::EMBEDDING:
+        return embedding_->reshape(newShape, newValue, ts_);
     }
 
     throw HttpReturnException(500, "Unknown storage type for reshape()");
 }
 
 #if 1
-ML::distribution<float, std::vector<float> >
+distribution<float, std::vector<float> >
 ExpressionValue::
 getEmbedding(ssize_t knownLength) const
 {
     return getEmbeddingDouble(knownLength).cast<float>();
 }
 
-ML::distribution<double, std::vector<double> >
+distribution<double, std::vector<double> >
 ExpressionValue::
-getEmbedding(const ColumnName * knownNames, size_t len) const
+getEmbedding(const ColumnPath * knownNames, size_t len) const
 {
-    ML::distribution<double> features
+    distribution<double> features
         (len, std::numeric_limits<float>::quiet_NaN());
 
     // Index of value we're writing.  If they aren't in order, this will
@@ -2675,11 +2758,11 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
     int currentIndex = 0;
 
     /// If they're not in order, we create this index
-    ML::Lightweight_Hash<uint64_t, int> columnIndex;
+    Lightweight_Hash<uint64_t, int> columnIndex;
     
     /// Add a CellValue we extracted to the output.  This will also
     /// deal with non-ordered column names.
-    auto addCell = [&] (const ColumnName & columnName, const CellValue & val)
+    auto addCell = [&] (const ColumnPath & columnName, const CellValue & val)
         {
             double dbl = val.toDouble();
 
@@ -2733,7 +2816,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
                          + " was added twice to embedding",
                          "row", *this,
                          "knownNames",
-                         vector<ColumnName>(knownNames, knownNames + len));
+                         vector<ColumnPath>(knownNames, knownNames + len));
                 }
                 else {
                     throw HttpReturnException
@@ -2741,7 +2824,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
                          + "' was unknown for embedding",
                          "row", *this,
                          "knownNames",
-                         vector<ColumnName>(knownNames, knownNames + len));
+                         vector<ColumnPath>(knownNames, knownNames + len));
                 }
             }
 
@@ -2788,7 +2871,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
             // Not the simple case (either out of order, or more than
             // one dimension).  Do it the slower way; at least we will
             // get the right result!
-            auto onAtom = [&] (ColumnName & col, CellValue & val)
+            auto onAtom = [&] (ColumnPath & col, CellValue & val)
                 {
                     addCell(col, val);
                     return true;
@@ -2801,7 +2884,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
 
     case Type::STRUCTURED:
         for (auto & r: *structured_) {
-            const ColumnName & columnName = std::get<0>(r);
+            const ColumnPath & columnName = std::get<0>(r);
             const ExpressionValue & val = std::get<1>(r);
 
             if (val.isAtom()) {
@@ -2832,7 +2915,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
     return features;
 }
 
-ML::distribution<double, std::vector<double> >
+distribution<double, std::vector<double> >
 ExpressionValue::
 getEmbeddingDouble(ssize_t knownLength) const
 {
@@ -2840,12 +2923,12 @@ getEmbeddingDouble(ssize_t knownLength) const
     // info function return us one that does it much more
     // efficiently.
 
-    std::vector<std::pair<ColumnName, double> > features;
+    std::vector<std::pair<ColumnPath, double> > features;
     if (knownLength != -1)
         features.reserve(knownLength);
 
-    auto onAtom = [&] (const ColumnName & columnName,
-                       const ColumnName & prefix,
+    auto onAtom = [&] (const ColumnPath & columnName,
+                       const ColumnPath & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -2855,7 +2938,7 @@ getEmbeddingDouble(ssize_t knownLength) const
 
     forEachAtom(onAtom);
 
-    ML::distribution<double> result;
+    distribution<double> result;
     result.reserve(features.size());
     for (unsigned i = 0;  i < features.size();  ++i) {
         result.push_back(features[i].second);
@@ -2927,16 +3010,16 @@ convertEmbedding(void * buf, size_t len, StorageType bufType) const
 
 void
 ExpressionValue::
-appendToRow(const ColumnName & columnName, MatrixNamedRow & row) const
+appendToRow(const ColumnPath & columnName, MatrixNamedRow & row) const
 {
     appendToRow(columnName, row.columns);
 }
 
 void
 ExpressionValue::
-appendToRow(const ColumnName & columnName, RowValue & row) const
+appendToRow(const ColumnPath & columnName, RowValue & row) const
 {
-    auto onAtom = [&] (const ColumnName & columnName,
+    auto onAtom = [&] (const ColumnPath & columnName,
                        const Path & prefix,
                        const CellValue & val,
                        Date ts)
@@ -2944,7 +3027,7 @@ appendToRow(const ColumnName & columnName, RowValue & row) const
             if (prefix == Path()) {
                 row.emplace_back(columnName, val, ts);
             }
-            else if (columnName == ColumnName()) {
+            else if (columnName == ColumnPath()) {
                 row.emplace_back(prefix, val, ts);
             }
             else {
@@ -3040,7 +3123,7 @@ appendToRowDestructive(const Path & columnName, StructValue & row)
 
 void
 ExpressionValue::
-appendToRowDestructive(ColumnName & columnName, RowValue & row)
+appendToRowDestructive(ColumnPath & columnName, RowValue & row)
 {
     switch (type_) {
     case Type::NONE:
@@ -3058,7 +3141,7 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
             row.reserve(row.capacity() * 2);
 
         if (columnName.empty()) {
-            auto onSubexpr = [&] (ColumnName & innerColumnName,
+            auto onSubexpr = [&] (ColumnPath & innerColumnName,
                                   CellValue & val,
                                   Date ts)
                 {
@@ -3072,7 +3155,7 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
             return;
         }
         else {
-            auto onSubexpr = [&] (ColumnName & innerColumnName,
+            auto onSubexpr = [&] (ColumnPath & innerColumnName,
                                   CellValue & val,
                                   Date ts)
                 {
@@ -3130,7 +3213,7 @@ mergeToRowDestructive(RowValue & row)
 {
     row.reserve(row.size() + rowLength());
 
-    auto onSubexpr = [&] (ColumnName & columnName,
+    auto onSubexpr = [&] (ColumnPath & columnName,
                           CellValue & val,
                           Date ts)
         {
@@ -3171,7 +3254,7 @@ forEachAtom(const std::function<bool (const Path & columnName,
         return true;
     }
     case Type::EMBEDDING: {
-        auto onCol = [&] (ColumnName & columnName, CellValue & val)
+        auto onCol = [&] (ColumnPath & columnName, CellValue & val)
             {
                 return onAtom(columnName, prefix, val, ts_);
             };
@@ -3179,7 +3262,7 @@ forEachAtom(const std::function<bool (const Path & columnName,
         return embedding_->forEachAtom(onCol);
     }
     case Type::SUPERPOSITION: {
-        auto onCol = [&] (ColumnName & columnName, CellValue & val)
+        auto onCol = [&] (ColumnPath & columnName, CellValue & val)
             {
                 return onAtom(columnName, prefix, val, ts_);
             };
@@ -3330,7 +3413,7 @@ forEachAtomDestructiveT(Fn && onAtom)
                            std::get<1>(col).getEffectiveTimestamp());
                 }
                 else {
-                    auto onAtom2 = [&] (ColumnName & columnName,
+                    auto onAtom2 = [&] (ColumnPath & columnName,
                                         CellValue & val,
                                         Date ts)
                         {
@@ -3348,14 +3431,14 @@ forEachAtomDestructiveT(Fn && onAtom)
         else {
             for (auto & col: *structured_) {
                 if (std::get<1>(col).isAtom()) {
-                    ColumnName columnName(std::get<0>(col));
+                    ColumnPath columnName(std::get<0>(col));
                     CellValue val(std::get<1>(col).getAtom());
                     onAtom(columnName, val, 
                            std::get<1>(col).getEffectiveTimestamp());
                 }
                 else {
-                    auto onAtom2 = [&] (ColumnName columnName,
-                                        ColumnName prefix,
+                    auto onAtom2 = [&] (ColumnPath columnName,
+                                        ColumnPath prefix,
                                         CellValue val,
                                         Date ts)
                         {
@@ -3638,7 +3721,7 @@ getUniqueAtomCount() const
                                   "type", (int)type_);
     }
     else {
-        std::unordered_set<ColumnName> columns;
+        std::unordered_set<ColumnPath> columns;
         
         auto onAtom = [&] (const Path & columnName,
                            const Path & prefix,
@@ -3673,19 +3756,19 @@ joinColumns(const ExpressionValue & val1,
     bool outerRight = (outer == OUTER || outer == OUTER_RIGHT);
 
     RowValue row1, row2;
-    val1.appendToRow(ColumnName(), row1);
-    val2.appendToRow(ColumnName(), row2);
+    val1.appendToRow(ColumnPath(), row1);
+    val2.appendToRow(ColumnPath(), row2);
 
     if (row1.size() == row2.size()) {
         bool matchingNames = true;
 
         // Assume they have the same keys and exactly one of each; if not we
         // have to restart
-        ML::Lightweight_Hash_Set<uint64_t> colsFound;
+        Lightweight_Hash_Set<uint64_t> colsFound;
 
         for (size_t i = 0;  i < row1.size(); ++i) {
-            const ColumnName & col1 = std::get<0>(row1[i]);
-            const ColumnName & col2 = std::get<0>(row2[i]);
+            const ColumnPath & col1 = std::get<0>(row1[i]);
+            const ColumnPath & col2 = std::get<0>(row2[i]);
             if (col1 != col2) {
                 // non-matching column name
                 matchingNames = false;
@@ -3701,7 +3784,7 @@ joinColumns(const ExpressionValue & val1,
         if (matchingNames) {
             // Easy case: one single value of each one
             for (size_t i = 0;  i < row1.size(); ++i) {
-                const ColumnName & col = std::get<0>(row1[i]);
+                const ColumnPath & col = std::get<0>(row1[i]);
 
                 std::pair<CellValue, Date>
                     val1(std::get<1>(row1[i]), std::get<2>(row1[i]));
@@ -3725,10 +3808,10 @@ joinColumns(const ExpressionValue & val1,
     auto it2 = row2.begin(), end2 = row2.end();
 
     while (it1 != end1 && it2 != end2) {
-        const ColumnName & col1 = std::get<0>(*it1);
-        const ColumnName & col2 = std::get<0>(*it2);
+        const ColumnPath & col1 = std::get<0>(*it1);
+        const ColumnPath & col2 = std::get<0>(*it2);
         
-        const ColumnName & minCol = col1 < col2 ? col1 : col2;
+        const ColumnPath & minCol = col1 < col2 ? col1 : col2;
 
         // If we don't have a match on each side, check for the
         // outer condition and if it doesn't match, continue on later.
@@ -3761,7 +3844,7 @@ joinColumns(const ExpressionValue & val1,
     }
     
     while (outerLeft && it1 != end1) {
-        const ColumnName & col1 = std::get<0>(*it1);
+        const ColumnPath & col1 = std::get<0>(*it1);
 
         std::vector<std::pair<CellValue, Date> > lvals, rvals;
 
@@ -3777,7 +3860,7 @@ joinColumns(const ExpressionValue & val1,
     }
 
     while (outerRight && it2 != end2) {
-        const ColumnName & col2 = std::get<0>(*it2);
+        const ColumnPath & col2 = std::get<0>(*it2);
 
         std::vector<std::pair<CellValue, Date> > lvals, rvals;
 
@@ -4162,12 +4245,12 @@ setAtom(CellValue value, Date ts)
     initAtom(std::move(value), ts);
 }
 
-vector<std::pair<ColumnName, CellValue> >
+vector<std::pair<ColumnPath, CellValue> >
 asRow(const ExpressionValue & expr)
 {
-    vector<std::pair<ColumnName, CellValue> > row;
-    auto onAtom = [&] (const ColumnName & columnName,
-                       const ColumnName & prefix,
+    vector<std::pair<ColumnPath, CellValue> > row;
+    auto onAtom = [&] (const ColumnPath & columnName,
+                       const ColumnPath & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -4211,7 +4294,7 @@ compare(const ExpressionValue & other) const
     }
     case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
-        return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
+        return compare_t<vector<pair<ColumnPath, CellValue> >, ML::compare>(*this, other);
     }
     }
     
@@ -4234,7 +4317,7 @@ operator == (const ExpressionValue & other) const
     }
     case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
-        return compare_t<vector<pair<ColumnName, CellValue> >, equal_to>(*this, other);
+        return compare_t<vector<pair<ColumnPath, CellValue> >, equal_to>(*this, other);
     }
     }
     throw HttpReturnException(400, "unknown ExpressionValue type " + to_string((int)type_));
@@ -4259,7 +4342,7 @@ operator <  (const ExpressionValue & other) const
     }
     case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
-        return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
+        return compare_t<vector<pair<ColumnPath, CellValue> >, less>(*this, other);
     }
     }
     throw HttpReturnException(400, "unknown ExpressionValue type");
@@ -4477,7 +4560,7 @@ extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc)
     const ExpressionValueDescription * descCast
         = dynamic_cast<const ExpressionValueDescription *>(desc.get());
     if (!descCast) {
-        cerr << "field type was " << ML::type_name(*desc) << endl;
+        cerr << "field type was " << MLDB::type_name(*desc) << endl;
         return nullptr;
     }
     return descCast->info;
@@ -4666,7 +4749,7 @@ template class ScalarExpressionValueInfoT<Date>;
 
 template class ExpressionValueInfoT<RowValue>;
 template class ExpressionValueInfoT<ExpressionValue>;
-template class ExpressionValueInfoT<ML::distribution<double, std::vector<double> > >;
+template class ExpressionValueInfoT<distribution<double, std::vector<double> > >;
 
 
 /*****************************************************************************/
@@ -4675,7 +4758,7 @@ template class ExpressionValueInfoT<ML::distribution<double, std::vector<double>
 
 const ExpressionValue *
 doSearchRow(const RowValue & columns,
-            const ColumnName & columnName,
+            const ColumnPath & columnName,
             const VariableFilter & filter,
             ExpressionValue & storage)
 {
@@ -4768,7 +4851,7 @@ doSearchRow(const RowValue & columns,
 
 const ExpressionValue *
 searchRow(const RowValue & columns,
-          const ColumnName & columnName,
+          const ColumnPath & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage)
 {
@@ -4790,14 +4873,14 @@ searchRow(const StructValue & columns,
 
 const ExpressionValue *
 searchRow(const StructValue & columns,
-          const ColumnName & columnName,
+          const ColumnPath & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage)
 {
     ExcAssert(!columnName.empty());
 
     FilterAccumulator accum(filter);
-    ColumnName tail = columnName.tail();
+    ColumnPath tail = columnName.tail();
 
     auto onValue = [&] (const ExpressionValue & val) -> bool
         {

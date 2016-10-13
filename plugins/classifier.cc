@@ -255,7 +255,7 @@ run(const ProcedureRunConfig & run,
 
     SelectExpression select({subSelect});
 
-    std::set<ColumnName> knownInputColumns;
+    std::set<ColumnPath> knownInputColumns;
     {
         // Find only those variables used
         SqlExpressionDatasetScope context(boundDataset);
@@ -269,7 +269,7 @@ run(const ProcedureRunConfig & run,
 
     DEBUG_MSG(logger) << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
-    ML::Timer timer;
+    Timer timer;
 
     // TODO: it's not the feature space itself, but indeed the output of
     // the select expression that's important...
@@ -288,14 +288,14 @@ run(const ProcedureRunConfig & run,
         {
         }
 
-        Fv(RowName rowName,
+        Fv(RowPath rowName,
            ML::Mutable_Feature_Set featureSet)
             : rowName(std::move(rowName)),
               featureSet(std::move(featureSet))
         {
         }
 
-        RowName rowName;
+        RowPath rowName;
         ML::Mutable_Feature_Set featureSet;
 
         float label() const
@@ -433,7 +433,7 @@ run(const ProcedureRunConfig & run,
                         (KEEP_HTTP_CODE,
                          "Error processing row '" + row.rowName.toUtf8String()
                          + "' column '" + std::get<0>(c).toUtf8String()
-                         + "': " + ML::getExceptionString(),
+                         + "': " + getExceptionString(),
                          "rowName", row.rowName,
                          "columns", row.columns);
                 }
@@ -577,12 +577,12 @@ run(const ProcedureRunConfig & run,
         throw HttpReturnException(400, "Unknown classifier mode");
     }
 
-    std::vector<ML::distribution<float>> labelWeights(num_weight_labels);
+    std::vector<distribution<float>> labelWeights(num_weight_labels);
     for(int i=0; i<num_weight_labels; i++) {
         labelWeights[i].resize(nx);
     }
 
-    ML::distribution<float> exampleWeights(nx);
+    distribution<float> exampleWeights(nx);
 
     for (unsigned i = 0;  i < nx;  ++i) {
         float label  = fvs[i].label();
@@ -665,12 +665,12 @@ run(const ProcedureRunConfig & run,
     ML::Thread_Context threadContext;
     threadContext.seed(randomSeed);
 
-    ML::distribution<float> weights;
+    distribution<float> weights;
     if(runProcConf.mode == CM_REGRESSION) {
         weights = exampleWeights;
     }
     else {
-        ML::distribution<float> factor_accum(exampleWeights.size(), 0);
+        distribution<float> factor_accum(exampleWeights.size(), 0);
         for(int lbl=0; lbl<num_weight_labels; lbl++) {
             double factor = pow(labelWeights[lbl].total(), -equalizationFactor);
 
@@ -698,7 +698,7 @@ run(const ProcedureRunConfig & run,
         JML_CATCH_ALL {
             rethrowHttpException(400, "Error saving classifier to '"
                                  + runProcConf.modelFileUrl.toString() + "': "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "url", runProcConf.modelFileUrl);
         }
         INFO_MSG(logger) << "Saved classifier to " << runProcConf.modelFileUrl;
@@ -825,7 +825,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
                            const CellValue & value,
                            Date tsIn)
             {
-                ColumnName columnName(prefix + suffix);
+                ColumnPath columnName(prefix + suffix);
                 ColumnHash columnHash(columnName);
                 
                 auto it = itl->featureSpace->columnInfo.find(columnHash);
@@ -859,7 +859,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
                        const CellValue & value,
                        Date tsIn)
         {
-            ColumnName columnName(prefix + suffix);
+            ColumnPath columnName(prefix + suffix);
             ColumnHash columnHash(columnName);
 
             auto it = itl->featureSpace->columnInfo.find(columnHash);
@@ -961,7 +961,7 @@ apply(const FunctionApplier & applier_,
     }
     else {
         if(!fset) {
-            throw ML::Exception("Feature_Set is null! Are you giving "
+            throw MLDB::Exception("Feature_Set is null! Are you giving "
                                 "only null features to the classifier function?");
         }
         
@@ -1060,7 +1060,7 @@ getFunctionInfo() const
         std::vector<KnownColumn> scoreColumns;
 
         for (unsigned i = 0;  i < labelCount;  ++i) {
-            scoreColumns.emplace_back(ColumnName::parse(cat->print(i)),
+            scoreColumns.emplace_back(ColumnPath::parse(cat->print(i)),
                                       std::make_shared<Float32ValueInfo>(),
                                       COLUMN_IS_DENSE, i);
         }
@@ -1120,7 +1120,7 @@ apply(const FunctionApplier & applier,
     std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
 
     if (fset->features.empty()) {
-        throw ML::Exception("The specified features couldn't be found in the "
+        throw MLDB::Exception("The specified features couldn't be found in the "
                             "classifier. At least one non-null feature column "
                             "must be provided.");
     }
@@ -1140,7 +1140,7 @@ apply(const FunctionApplier & applier,
     Date effectiveDate = ts;
 
     for(auto iter=expl.feature_weights.begin(); iter!=expl.feature_weights.end(); iter++) {
-        features.emplace_back(ColumnName::parse(itl->featureSpace->print(iter->first)),
+        features.emplace_back(ColumnPath::parse(itl->featureSpace->print(iter->first)),
                               iter->second,
                               effectiveDate);
     }
@@ -1191,7 +1191,7 @@ void jmlclassifierMacro(MacroContext & context,
         context.writeHtml("<table><tr><th>Parameter</th><th>Range</th>"
                           "<th>Default</th><th>Description</th></tr>");
         for (auto & o: generator->options())
-            context.writeHtml(ML::format(
+            context.writeHtml(MLDB::format(
                                          "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
                                          o.name.c_str(), o.range.c_str(), o.value.c_str(), o.doc.c_str()
                                          ));

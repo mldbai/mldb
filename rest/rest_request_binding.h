@@ -325,7 +325,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "URI encoded";
     v2["location"] = "query string";
 
@@ -353,7 +353,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "URI encoded";
     v2["location"] = "query string";
     v2["defaultValue"] = p.defaultValueStr;
@@ -389,7 +389,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -415,7 +415,7 @@ createParameterExtractor(Json::Value & argHelp,
         v2["name"] = p.name;
     }
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -449,7 +449,7 @@ createParameterExtractor(Json::Value & argHelp,
     Json::Value desc;
     desc["name"] = p.name;
     desc["description"] = p.description;
-    desc["cppType"] = ML::type_name<T>();
+    desc["cppType"] = MLDB::type_name<T>();
     desc["encoding"] = "URI encoded or JSON";
     desc["location"] = "query string or Request Body";
 
@@ -489,7 +489,7 @@ createParameterExtractor(Json::Value & argHelp,
     Json::Value desc;
     desc["name"] = p.name;
     desc["description"] = p.description;
-    desc["cppType"] = ML::type_name<T>();
+    desc["cppType"] = MLDB::type_name<T>();
     desc["encoding"] = "URI encoded or JSON";
     desc["location"] = "query string or Request Body";
 
@@ -535,7 +535,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "URI encoded";
     v2["location"] = "URI";
 
@@ -555,7 +555,7 @@ createParameterExtractor(Json::Value & argHelp,
                     knownResources
                         += (knownResources.empty() ? "":",")
                         +  r;
-                throw ML::Exception("attempt to access missing resource %d of "
+                throw MLDB::Exception("attempt to access missing resource %d of "
                                     "%zd (known is %s)",
                                     index, context.resources.size(),
                                     knownResources.rawData());

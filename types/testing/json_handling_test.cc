@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(test_utf8_bad_string)
     const std::string payload = "\"http\\u00253A\\u00252F\\u";
     const char* start = payload.c_str();                                        
     StreamingJsonParsingContext context(payload, start, start + payload.size());
-    BOOST_CHECK_THROW(context.expectStringUtf8(), ML::Parse_Context::Exception);
+    BOOST_CHECK_THROW(context.expectStringUtf8(), ParseContext::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_json_encode_decode_long_strings)
@@ -97,5 +97,5 @@ BOOST_AUTO_TEST_CASE(test_json_encode_decode_long_strings)
     const std::string payload = "\"http\\u00253A\\u00252F\\u";
     const char* start = payload.c_str();                                        
     StreamingJsonParsingContext context(payload, start, start + payload.size());
-    BOOST_CHECK_THROW(context.expectStringUtf8(), ML::Parse_Context::Exception);
+    BOOST_CHECK_THROW(context.expectStringUtf8(), ParseContext::Exception);
 }
