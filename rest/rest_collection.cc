@@ -698,6 +698,10 @@ cancel()
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
+    // note that the old state of the entity and its associated task
+    // can be ERROR or event FINISHED meaning that the cancellation
+    // could not occurred before the task encounter an error or was
+    // completed
     return old_state != State::CANCELLED;
 }
 
@@ -707,7 +711,11 @@ setError(std::exception_ptr exc)
 {
     auto old_state = state.exchange(State::ERROR);
     // cerr << "state is now ERROR " << handle << endl;
-    ExcAssertNotEqual(old_state, State::CANCELLED);
+
+    // the entity and the task to create it cannot be
+    // in ERROR and FINISHED,  however, it can be in
+    // CANCELLED state meaning that the error occurred
+    // before the task could be cancelled
     ExcAssertNotEqual(old_state, State::FINISHED);
     this->exc = std::move(exc);
 }
