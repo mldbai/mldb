@@ -23,7 +23,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/server/analytics.h"
 #include "mldb/utils/log.h"
-#include "mldb/core/cancellation_exception.h"
+#include "mldb/rest/cancellation_exception.h"
 #include <memory>
 
 using namespace std;
@@ -632,7 +632,7 @@ run(const ProcedureRunConfig & run,
                      onProgress) )
             {
                 DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
-                throw CancellationException(Utf8String(TransformDatasetConfig::name) +
+                throw CancellationException(std::string(TransformDatasetConfig::name) +
                                                 " procedure was cancelled");
                 
             }
@@ -675,7 +675,7 @@ run(const ProcedureRunConfig & run,
                      runProcConf.inputData.stm->limit,
                      onProgress).first ) {
             DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
-            throw CancellationException(Utf8String(TransformDatasetConfig::name) +
+            throw CancellationException(std::string(TransformDatasetConfig::name) +
                                             " procedure was cancelled");
             }
     }

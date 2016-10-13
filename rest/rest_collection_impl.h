@@ -15,7 +15,7 @@
 #include "collection_config_store.h"
 #include "mldb/types/utility_descriptions.h"
 #include "mldb/types/vector_description.h"
-#include "mldb/core/cancellation_exception.h"
+#include "mldb/rest/cancellation_exception.h"
 
 
 namespace MLDB {

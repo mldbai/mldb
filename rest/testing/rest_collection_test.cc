@@ -11,7 +11,7 @@
 #include "mldb/rest/rest_collection.h"
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/types/value_description.h"
-#include "mldb/core/cancellation_exception.h"
+#include "mldb/rest/cancellation_exception.h"
 #include <thread>
 
 #define BOOST_TEST_MAIN

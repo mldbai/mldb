@@ -21,7 +21,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/utils/log.h"
-#include "mldb/core/cancellation_exception.h"
+#include "mldb/rest/cancellation_exception.h"
 #include "progress.h"
 #include <memory>
 
@@ -175,7 +175,7 @@ run(const ProcedureRunConfig & run,
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
                  onProgress2)) {
-        throw CancellationException(Utf8String(BucketizeProcedureConfig::name) +
+        throw CancellationException(std::string(BucketizeProcedureConfig::name) +
                                     " procedure was cancelled");
     }
 
@@ -230,7 +230,7 @@ run(const ProcedureRunConfig & run,
                           << lowerBound << " to " << higherBound;
 
         if (!parallelMapHaltable(lowerBound, higherBound, applyFct)) {
-            throw CancellationException(Utf8String(BucketizeProcedureConfig::name) +
+            throw CancellationException(std::string(BucketizeProcedureConfig::name) +
                                         " procedure was cancelled");
         }
     }

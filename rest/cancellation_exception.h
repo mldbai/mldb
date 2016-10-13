@@ -9,23 +9,21 @@
 
 #pragma once
 
+#include <string>
 #include "mldb/arch/exception.h"
-#include "mldb/types/any.h"
-#include "mldb/types/string.h"
 
 namespace MLDB {
 
-struct CancellationException: public Exception {
-    CancellationException(const Utf8String & message)
-        : Exception(message.rawData()), message(message)
-    {
-    }
+struct CancellationException: public SilentException {
 
-    ~CancellationException() throw ()
-    {
-    }
+CancellationException(const std::string & message);
 
-    Utf8String message;
+~CancellationException() throw();
+
+virtual const char * what() const throw();
+
+private:
+std::string message;
 };
 
 } // namespace MLDB
