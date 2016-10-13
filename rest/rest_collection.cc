@@ -778,8 +778,8 @@ getState() const
     case State::EXECUTING:
         return L"executing";
     default:
-        // if you get this asert it is because you have
-        // added a new state and did not update that method
+        // you get this assert most likely because you have
+        // added a new state and did not update this method
         ExcAssert(!"update the BackgroundTaskBase::getState method");
         return L"unknown state";
     }
