@@ -27,7 +27,7 @@ class ImportTextTest(MldbUnitTest):
         cls.irregular_lines_file.flush()
 
     def test_base(self):
-        mldb.post('/v1/procedures', {
+        res = mldb.post('/v1/procedures', {
             'type' : 'import.text',
             'params' : {
                 'runOnCreation' : True,
@@ -37,6 +37,10 @@ class ImportTextTest(MldbUnitTest):
                     'type' : 'tabular'
                 }
             }
+        }).json()
+        self.assertEqual(res['status']['firstRun']['status'], {
+            'numLineErrors' : 0,
+            'rowCount' : 1
         })
         res = mldb.query("SELECT a, b, c FROM base_ds")
         self.assertTableResultEquals(res, [
@@ -48,7 +52,7 @@ class ImportTextTest(MldbUnitTest):
         """
         MLDB-1741
         """
-        mldb.post('/v1/procedures', {
+        res = mldb.post('/v1/procedures', {
             'type' : 'import.text',
             'params' : {
                 'runOnCreation' : True,
@@ -59,6 +63,10 @@ class ImportTextTest(MldbUnitTest):
                     'type' : 'tabular'
                 }
             }
+        }).json()
+        self.assertEqual(res['status']['firstRun']['status'], {
+            'numLineErrors' : 0,
+            'rowCount' : 2
         })
         res = mldb.query("SELECT * FROM gen_headers_ds")
         self.assertTableResultEquals(res, [

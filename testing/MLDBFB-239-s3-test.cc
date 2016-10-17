@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE( test_s3_attributes )
 
     ML::Call_Guard guard([&] () { for (auto & f: filesToClean) tryEraseUriObject(f); });
 
-    string filename = ML::format("s3://%s/attributes"
+    string filename = MLDB::format("s3://%s/attributes"
                                  "/pid-%d-reduced-redundancy",
                                  bucket.c_str(), getpid());
     filesToClean.push_back(filename);
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE( test_s3_foreach_bucket )
     set<string> buckets;
     auto onBucket = [&] (const string & name) {
         if (buckets.count(name)) {
-            throw ML::Exception("bucket already reported");
+            throw MLDB::Exception("bucket already reported");
         }
         buckets.insert(name);
         return true;
@@ -428,10 +428,10 @@ BOOST_AUTO_TEST_CASE( test_s3_getObjectInfo )
 
         /* unexisting object */
         BOOST_CHECK_THROW(s3Api->getObjectInfo(bucket, filename + "-missing"),
-                          ML::Exception);
+                          MLDB::Exception);
         BOOST_CHECK_THROW(s3Api->getObjectInfo(bucket, filename + "-missing",
                                                S3ObjectInfoTypes::FULL_INFO),
-                          ML::Exception);
+                          MLDB::Exception);
 
         /* "try" versions on unexisting */
         info = s3Api->tryGetObjectInfo(bucket, filename + "-missing");
@@ -463,10 +463,10 @@ BOOST_AUTO_TEST_CASE( test_s3_getObjectInfo )
 
         /* unexisting object */
         BOOST_CHECK_THROW(s3Api->getObjectInfo(url + "-missing"),
-                          ML::Exception);
+                          MLDB::Exception);
         BOOST_CHECK_THROW(s3Api->getObjectInfo(url + "-missing",
                                                S3ObjectInfoTypes::FULL_INFO),
-                          ML::Exception);
+                          MLDB::Exception);
 
         /* "try" versions on unexisting */
         info = s3Api->tryGetObjectInfo(url + "-missing");

@@ -38,7 +38,7 @@ void addCredentialRule(const HttpRestProxy & conn,
 
     if (res.code() != 201) {
         std::cerr << res << std::endl;
-        throw ML::Exception("Couldn't add credentials: returned code %d",
+        throw MLDB::Exception("Couldn't add credentials: returned code %d",
                             res.code());
     }
 }
@@ -49,7 +49,7 @@ void deleteAllCredentials(const HttpRestProxy & conn)
     auto res = conn.perform("DELETE", "/v1/credentials");
     if (res.code() != 200 && res.code() != 204) {
         std::cerr << res << std::endl;
-        throw ML::Exception("Couldn't delete credentials: returned code %d",
+        throw MLDB::Exception("Couldn't delete credentials: returned code %d",
                             res.code());
     }
 }
@@ -63,7 +63,7 @@ void deleteCredentialRule(const HttpRestProxy & conn,
     auto res = conn.perform("DELETE", uri);
     if (res.code() != 200 && res.code() != 204) {
         std::cerr << res << std::endl;
-        throw ML::Exception("Couldn't delete credentials: returned code %d",
+        throw MLDB::Exception("Couldn't delete credentials: returned code %d",
                             res.code());
     }
 }

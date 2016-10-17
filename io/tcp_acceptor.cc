@@ -98,7 +98,7 @@ findHandlerPtr(TcpSocketHandler * handler)
         }
     }
 
-    throw ML::Exception("socket handler not found");
+    throw MLDB::Exception("socket handler not found");
 }
 
 /* FIXME: inefficient implementation */

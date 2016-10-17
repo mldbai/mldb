@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** per_thread_accumulator.h                                       -*- C++ -*-
     Jeremy Barnes, 30 July 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Object that allows map-reduce over multiple threads and accumulation
     at the end.
@@ -21,7 +20,7 @@ struct PerThreadAccumulator {
 
     std::mutex threadsLock;
     std::vector<std::shared_ptr<Payload> > threads;
-    ML::ThreadSpecificInstanceInfo<std::shared_ptr<Payload>, void> payloadPerThread;
+    ThreadSpecificInstanceInfo<std::shared_ptr<Payload>, void> payloadPerThread;
 
     std::function<Payload * ()> createPayload;
     std::function<void (Payload *)> destroyPayload;

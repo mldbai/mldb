@@ -129,14 +129,14 @@ struct EmbeddingDatasetRepr {
     }
 
     struct Row {
-        Row(RowPath rowName, ML::distribution<float> coords, Date timestamp)
+        Row(RowPath rowName, distribution<float> coords, Date timestamp)
             : rowName(std::move(rowName)), coords(std::move(coords)),
               timestamp(timestamp)
         {
         }
 
         RowPath rowName;
-        ML::distribution<float> coords;
+        distribution<float> coords;
         Date timestamp;
 
         void serialize(ML::DB::Store_Writer & store) const
@@ -161,7 +161,7 @@ struct EmbeddingDatasetRepr {
         return result;
     }
 
-    float dist(unsigned row1, const ML::distribution<float> & row2) const
+    float dist(unsigned row1, const distribution<float> & row2) const
     {
         ExcAssertLess(row1, rows.size());
         ExcAssertEqual(row2.size(), columns.size());
@@ -196,10 +196,10 @@ struct EmbeddingDatasetRepr {
     
     std::vector<ColumnPath> columnNames;
     std::vector<std::vector<float> > columns;
-    ML::Lightweight_Hash<ColumnHash, int> columnIndex;
+    Lightweight_Hash<ColumnHash, int> columnIndex;
 
     std::vector<Row> rows;
-    ML::Lightweight_Hash<uint64_t, int> rowIndex;
+    Lightweight_Hash<uint64_t, int> rowIndex;
     
     std::unique_ptr<ML::VantagePointTreeT<int> > vpTree;
     std::unique_ptr<DistanceMetric> distance;
@@ -259,7 +259,7 @@ struct EmbeddingDataset::Itl
     GcLock lock;
     RcuProtected<EmbeddingDatasetRepr> committed;
 
-    //typedef ML::Spinlock Mutex;
+    //typedef Spinlock Mutex;
     typedef std::mutex Mutex;
     Mutex mutex;
     std::atomic<EmbeddingDatasetRepr *> uncommitted;
@@ -476,24 +476,6 @@ struct EmbeddingDataset::Itl
         return repr->columnNames.size();
     }
 
-    virtual bool forEachColumnGetStats(const OnColumnStats & onColumnStats) const
-    {
-        auto repr = committed();
-
-        if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get stats of unknown column");
-
-        for (auto & col: repr->columnIndex) {
-            ColumnStats toStoreResult;
-            const ColumnPath & columnName = repr->columnNames.at(col.second);
-            if (!onColumnStats(columnName,
-                               getColumnStats(columnName, toStoreResult)))
-                return false;
-        }
-
-        return true;
-    }
-
     virtual const ColumnStats &
     getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const
     {
@@ -643,7 +625,7 @@ struct EmbeddingDataset::Itl
             uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
 
             const auto & vec = std::get<1>(r);
-            ML::distribution<float> embedding(vec.begin(), vec.end());
+            distribution<float> embedding(vec.begin(), vec.end());
             Date ts = std::get<2>(r);
 
             int index = (*uncommitted).rows.size();
@@ -699,7 +681,7 @@ struct EmbeddingDataset::Itl
         auto repr = committed();
 
         uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
-        ML::distribution<float> embedding;
+        distribution<float> embedding;
         Date latestDate = Date::negativeInfinity();
 
         // Do it here before we acquire the lock in the case that it's initalized
@@ -830,7 +812,7 @@ struct EmbeddingDataset::Itl
 
         // Create the vantage point tree
         cerr << "creating vantage point tree" << endl;
-        ML::Timer timer;
+        Timer timer;
         
         std::vector<int> items;
         for (unsigned i = 0;  i < (*uncommitted).rows.size();  ++i) {
@@ -840,11 +822,11 @@ struct EmbeddingDataset::Itl
         // Function used to build the VP tree, that scans all of the items in
         // parallel.
         auto dist = [&] (int item, const std::vector<int> & items, int depth)
-            -> ML::distribution<float>
+            -> distribution<float>
             {
                 ExcAssertLessEqual(depth, 100);  // 2^100 items is enough
 
-                ML::distribution<float> result(items.size());
+                distribution<float> result(items.size());
 
                 auto doItem = [&] (int n)
                 {
@@ -886,7 +868,7 @@ struct EmbeddingDataset::Itl
     }
 
     vector<tuple<RowPath, RowHash, float> >
-    getNeighbors(const ML::distribution<float> & coord,
+    getNeighbors(const distribution<float> & coord,
                  int numNeighbors,
                  double maxDistance)
     {
@@ -901,7 +883,7 @@ struct EmbeddingDataset::Itl
             return result;
         };
 
-        //ML::Timer timer;
+        //Timer timer;
 
         auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
 
@@ -1071,7 +1053,7 @@ overrideFunction(const Utf8String & tableName,
 
 vector<tuple<RowPath, RowHash, float> >
 EmbeddingDataset::
-getNeighbors(const ML::distribution<float> & coord, int numNeighbors, double maxDistance) const
+getNeighbors(const distribution<float> & coord, int numNeighbors, double maxDistance) const
 {
     return itl->getNeighbors(coord, numNeighbors, maxDistance);
 }
@@ -1232,7 +1214,7 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
             ->getNeighbors(embedding.cast<float>(), numNeighbors, maxDistance);
     }
     else {
-        throw ML::Exception("Input row must be either a row name or an embedding");
+        throw MLDB::Exception("Input row must be either a row name or an embedding");
     }
 
     std::vector<CellValue> neighborsOut;
@@ -1324,7 +1306,7 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
             (400, "A dataset of type embedding needs to be provided for "
              "the nearest.neighbors function; the provided dataset '"
              + functionConfig.dataset->surface + "' is of type '"
-             + ML::type_name(*boundDataset.dataset) + "'");
+             + MLDB::type_name(*boundDataset.dataset) + "'");
     }
  
     return std::move(result);

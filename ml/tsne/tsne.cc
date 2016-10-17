@@ -537,7 +537,7 @@ double calc_D_row(float * Di, int n)
 
 namespace {
 
-Env_Option<bool> PROFILE_TSNE("PROFILE_TSNE", false);
+EnvOption<bool> PROFILE_TSNE("PROFILE_TSNE", false);
 
 double t_v2d = 0.0, t_D = 0.0, t_dY = 0.0, t_update = 0.0;
 double t_recenter = 0.0, t_cost = 0.0, t_PmQxD = 0.0, t_clu = 0.0;
@@ -1221,7 +1221,7 @@ float pythag_dist(const float * d1, const float * d2, int nd)
 
     for (unsigned i = 0;  i < nd;  ++i)
         if (!isfinite(newExampleCoords[i]))
-            throw ML::Exception("non-finite coordinates to sparseProbsFromCoords");
+            throw MLDB::Exception("non-finite coordinates to sparseProbsFromCoords");
 
     // Distance between neighbours.  Must satisfy the triangle inequality,
     // so the sqrt is important.
@@ -1250,7 +1250,7 @@ sparseProbsFromCoords(const std::function<float (int, int)> & dist,
     // For each one, find the numNeighbours nearest neighbours
     std::vector<TsneSparseProbs> neighbours(nx);
 
-    ML::Timer timer;
+    Timer timer;
 
     auto calcExample = [&] (int x)
         {
@@ -1405,7 +1405,7 @@ sparseProbsFromCoords(const std::function<float (int)> & dist,
     if ((result.probs == 0.0).any()) {
         cerr << "probs " << result.probs << endl;
         cerr << "distances " << distances << endl;
-        throw ML::Exception("zero probability from perplexity calculation");
+        throw MLDB::Exception("zero probability from perplexity calculation");
     }
 
     // put it back in the node
@@ -1418,7 +1418,7 @@ std::vector<TsneSparseProbs>
 symmetrize(const std::vector<TsneSparseProbs> & input)
 {
     // 1.  Convert to a sparse matrix format, and accumulate
-    std::vector<ML::Lightweight_Hash<int, float> > probs(input.size());
+    std::vector<Lightweight_Hash<int, float> > probs(input.size());
     
     for (unsigned j = 0;  j < input.size();  ++j) {
         const TsneSparseProbs & p = input[j];
@@ -1515,7 +1515,7 @@ operator () (int x1, int x2) const
 // quadtree.  We primarily use a separate object to avoid the overhead in passing
 // all of these parameters around.
 struct CalcRepContext {
-    CalcRepContext(const ML::distribution<float> & y,
+    CalcRepContext(const distribution<float> & y,
                    double * FrepZ,
                    double & exampleZ,
                    int & nodesTouched,
@@ -1532,7 +1532,7 @@ struct CalcRepContext {
     }
 
 
-    const ML::distribution<float> & y;
+    const distribution<float> & y;
     double * FrepZ;
     double & exampleZ;
     int & nodesTouched;
@@ -1671,7 +1671,7 @@ struct CalcRepContext {
 void calcRep(const QuadtreeNode & node,
              int depth,
              bool inside,
-             const ML::distribution<float> & y,
+             const distribution<float> & y,
              double * FrepZ,
              double & exampleZ,
              int & nodesTouched,
@@ -1704,11 +1704,11 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
     // Verify that no point is its own neighbour and that no probability is zero
     for (unsigned j = 0;  j < nx;  ++j) {
         if (exampleNeighbours[j].indexes.empty())
-            throw ML::Exception("tsneApproxFromSparse(): point %d has no"
+            throw MLDB::Exception("tsneApproxFromSparse(): point %d has no"
                                 " neighbours", j);
         if (exampleNeighbours[j].indexes.size()
             != exampleNeighbours[j].probs.size())
-            throw ML::Exception("tsneApproxFromSparse(): point %d index and "
+            throw MLDB::Exception("tsneApproxFromSparse(): point %d index and "
                                 "probs sizes don't match: %zd != %zd",
                                 exampleNeighbours[j].indexes.size(),
                                 exampleNeighbours[j].probs.size());
@@ -1718,10 +1718,10 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
             //float prob = exampleNeighbours[j].probs[i];
 
             if (index ==j)
-                throw ML::Exception("tsneApproxFromSparse: error in input: "
+                throw MLDB::Exception("tsneApproxFromSparse: error in input: "
                                     "point %d is its own neighbour", j);
             //if (prob == 0.0)
-            //    throw ML::Exception("tsneApproxFromSparse: error in input: point %d has "
+            //    throw MLDB::Exception("tsneApproxFromSparse: error in input: point %d has "
             //                        "zero probability");
         }
     }
@@ -1776,10 +1776,10 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
     auto updateQtree = [&] () -> Quadtree &
         {
             // Find the bounding box for the quadtree
-            ML::distribution<float> mins(nd), maxs(nd);
+            distribution<float> mins(nd), maxs(nd);
 
             for (unsigned j = 0;  j < nx;  ++j) {
-                ML::distribution<float> y(nd);
+                distribution<float> y(nd);
                 for (unsigned i = 0;  i < nd;  ++i)
                     y[i] = Y[j][i];
             
@@ -1854,7 +1854,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         //calcC = true;
 
         // Approximation for Z, accumulated here
-        ML::Spinlock Zmutex;
+        Spinlock Zmutex;
         std::vector<double> ZApproxValues;
         ZApproxValues.reserve(nx);
 
@@ -1919,7 +1919,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 }
 
                 // Working storage for onNode
-                ML::distribution<double> com(nd);
+                distribution<double> com(nd);
 
                 int nodesTouched = 0;
 
@@ -1994,7 +1994,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 }
 
                 {
-                    std::unique_lock<ML::Spinlock> guard(Zmutex);
+                    std::unique_lock<Spinlock> guard(Zmutex);
                     ZApproxValues.push_back(exampleZ);
                 }
 
@@ -2385,8 +2385,8 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
     return Y;
 }
 
-ML::distribution<float>
-retsneApproxFromCoords(const ML::distribution<float> & newExampleCoords,
+distribution<float>
+retsneApproxFromCoords(const distribution<float> & newExampleCoords,
                        const boost::multi_array<float, 2> & coreCoords,
                        const boost::multi_array<float, 2> & prevOutput,
                        const Quadtree & qtree,
@@ -2414,7 +2414,7 @@ retsneApproxFromCoords(const ML::distribution<float> & newExampleCoords,
     return retsneApproxFromSparse(neighbours, prevOutput, qtree, params);
 }
 
-ML::distribution<float>
+distribution<float>
 retsneApproxFromSparse(const TsneSparseProbs & neighbours,
                        const boost::multi_array<float, 2> & prevOutput,
                        const Quadtree & qtree,
@@ -2433,7 +2433,7 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
         neighbourCoords[i] = QCoord(&prevOutput[neighbours.indexes[i]][0], &prevOutput[neighbours.indexes[i]][0] + nd);
     }
 
-    ML::distribution<float> y(nd);
+    distribution<float> y(nd);
 
     // Start off at the Y of the point with the highest probability, to get faster
     // convergance
@@ -2542,12 +2542,12 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
                             std::ofstream stream("debug.txt");
                             stream << nx << " " << nd << " " << i;
                             for (unsigned i = 0;  i < nd;  ++i) {
-                                stream << ML::format(" %+.16g", y[i]);
+                                stream << MLDB::format(" %+.16g", y[i]);
                             }
                             stream << endl;
                             for (unsigned x = 0;  x < nx;  ++x) {
                                 for (unsigned i = 0;  i < nd;  ++i) {
-                                    stream << ML::format("%+.16g ", prevOutput[x][i]);
+                                    stream << MLDB::format("%+.16g ", prevOutput[x][i]);
                                 }
                                 stream << endl;
                             }

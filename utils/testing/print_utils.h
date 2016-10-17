@@ -33,7 +33,7 @@ printElapsed(double elapsed)
         i++;
     }
 
-    return ML::format("%6.2f%c", elapsed, scaleIndicators[i]);
+    return MLDB::format("%6.2f%c", elapsed, scaleIndicators[i]);
 }
 
 inline std::string
@@ -47,13 +47,13 @@ printValue(double value)
         i++;
     }
 
-    return ML::format("%6.2f%c", value, scaleIndicators[i]);
+    return MLDB::format("%6.2f%c", value, scaleIndicators[i]);
 }
 
 inline std::string
 printPct(double value)
 {
-    return ML::format("%6.2f%%", value * 100.0);
+    return MLDB::format("%6.2f%%", value * 100.0);
 }
 
 

@@ -22,7 +22,7 @@ struct Wakeup_Fd {
     {
         fd_ = ::eventfd(0, flags);
         if (fd_ == -1)
-            throw ML::Exception(errno, "eventfd");
+            throw MLDB::Exception(errno, "eventfd");
     }
 
     Wakeup_Fd(const Wakeup_Fd & other) = delete;
@@ -47,7 +47,7 @@ struct Wakeup_Fd {
         eventfd_t val = 1;
         int res = eventfd_write(fd_, val);
         if (res == -1)
-            throw ML::Exception(errno, "eventfd write()");
+            throw MLDB::Exception(errno, "eventfd write()");
     }
 
     eventfd_t read()
@@ -55,7 +55,7 @@ struct Wakeup_Fd {
         eventfd_t val = 0;
         int res = eventfd_read(fd_, &val); 
         if (res == -1)
-            throw ML::Exception(errno, "eventfd read()");
+            throw MLDB::Exception(errno, "eventfd read()");
         return val;
     }
 
@@ -66,9 +66,9 @@ struct Wakeup_Fd {
         if (res == -1 && errno == EWOULDBLOCK)
             return false;
         if (res == -1)
-            throw ML::Exception(errno, "eventfd read()");
+            throw MLDB::Exception(errno, "eventfd read()");
         if (res != sizeof(eventfd_t))
-            throw ML::Exception("eventfd read() returned wrong num bytes");
+            throw MLDB::Exception("eventfd read() returned wrong num bytes");
         return true;
     }
 

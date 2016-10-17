@@ -20,15 +20,15 @@ namespace MLDB {
 /// the outer exception.
 constexpr int KEEP_HTTP_CODE = -1;
 
-struct HttpReturnException: public ML::Exception {
+struct HttpReturnException: public MLDB::Exception {
     HttpReturnException(int httpCode, const Utf8String & message, Any details = Any())
-        : ML::Exception(message.rawData()), message(message), httpCode(httpCode), details(details)
+        : MLDB::Exception(message.rawData()), message(message), httpCode(httpCode), details(details)
     {
     }
 
 #if 0
     HttpReturnException(int httpCode, const std::string & message, Any details = Any())
-        : ML::Exception(message), message(message), httpCode(httpCode),details(details)
+        : MLDB::Exception(message), message(message), httpCode(httpCode),details(details)
     {
     }
 #endif
@@ -68,7 +68,7 @@ struct HttpReturnException: public ML::Exception {
     HttpReturnException(int httpCode, const std::string & message,
                         const Str & key, Val&& val,
                         OtherKeyValuePairs&&... otherKeyValuePairs)
-        : ML::Exception(message), message(message), httpCode(httpCode)
+        : MLDB::Exception(message), message(message), httpCode(httpCode)
     {
         Json::Value ourDetails;
         addListToDetails(ourDetails, key, std::forward<Val>(val),
@@ -81,7 +81,7 @@ struct HttpReturnException: public ML::Exception {
     HttpReturnException(int httpCode, const Utf8String & message,
                         const Str & key, Val&& val,
                         OtherKeyValuePairs&&... otherKeyValuePairs)
-        : ML::Exception(message.rawData()), message(message), httpCode(httpCode)
+        : MLDB::Exception(message.rawData()), message(message), httpCode(httpCode)
     {
         Json::Value ourDetails;
         addListToDetails(ourDetails, key, std::forward<Val>(val),

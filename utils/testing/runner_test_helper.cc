@@ -42,7 +42,7 @@ DoSleep(FILE * in)
 
     size_t r = ::fread(&delay_buf, 1, 4, in);
     if (r != 4) {
-        throw ML::Exception("wrong delay: " + to_string(r));
+        throw MLDB::Exception("wrong delay: " + to_string(r));
     }
 
     long delay = ::strtol(delay_buf, NULL, 16);

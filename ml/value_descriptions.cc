@@ -96,7 +96,7 @@ struct DenseFeatureSpaceDescription
 
     virtual void parseJsonTyped(ML::Dense_Feature_Space * val, JsonParsingContext & context) const
     {
-        throw ML::Exception("Can't round-trip a dense feature space through JSON");
+        throw MLDB::Exception("Can't round-trip a dense feature space through JSON");
     }
 
     virtual void printJson(const void * val, JsonPrintingContext & context) const
@@ -173,7 +173,7 @@ struct FeatureInfoDescription
 
     virtual void parseJsonTyped(ML::Feature_Info * val, JsonParsingContext & context) const
     {
-        throw ML::Exception("Can't round-trip a feature info through JSON");
+        throw MLDB::Exception("Can't round-trip a feature info through JSON");
     }
 
     virtual void printJson(const void * val, JsonPrintingContext & context) const
@@ -236,7 +236,7 @@ struct JmlConfigurationDescription
         Json::Value json = context.expectJson();
 
         if (!json.isObject())
-            throw ML::Exception("Expected JSON object for configuration");
+            throw MLDB::Exception("Expected JSON object for configuration");
 
         insertInto(result, "", json);
 
@@ -246,7 +246,7 @@ struct JmlConfigurationDescription
     static Json::Value & getPath(const std::string & key, Json::Value & val)
     {
         if (key.empty())
-            throw ML::Exception("can't lookup empty key");
+            throw MLDB::Exception("can't lookup empty key");
 
         auto pos = key.find('.');
         if (pos == string::npos)
@@ -312,7 +312,7 @@ ClassifierImplDescription::
 parseJsonTyped(std::shared_ptr<ML::Classifier_Impl>  * val,
                MLDB::JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse classifiers");
+    throw MLDB::Exception("Can't parse classifiers");
 }
 
 template<typename T>
@@ -345,7 +345,7 @@ printJsonTyped(const std::shared_ptr<Classifier_Impl>  * val,
     if (tryType<ML::Boosted_Stumps>(val, "BoostedStumps", context)) return;
 
     Json::Value result;
-    result["type"] = ML::type_name(**val);
+    result["type"] = MLDB::type_name(**val);
     result["model"] = (*val)->print();
     context.writeJson(result);
 }
@@ -374,7 +374,7 @@ struct FeatureDescription
     virtual void parseJsonTyped(ML::Feature * val,
                                 MLDB::JsonParsingContext & context) const
     {
-        throw ML::Exception("Can't parse classifiers");
+        throw MLDB::Exception("Can't parse classifiers");
     }
 
     virtual void printJsonTyped(const ML::Feature * val,
@@ -397,7 +397,7 @@ struct SplitDescription
     virtual void parseJsonTyped(ML::Split * val,
                                 MLDB::JsonParsingContext & context) const
     {
-        throw ML::Exception("Can't parse classifiers");
+        throw MLDB::Exception("Can't parse classifiers");
     }
 
     virtual void printJsonTyped(const ML::Split * val,
@@ -427,7 +427,7 @@ struct TreePtrDescription
     virtual void parseJsonTyped(ML::Tree::Ptr * val,
                                 MLDB::JsonParsingContext & context) const
     {
-        throw ML::Exception("Can't parse classifiers");
+        throw MLDB::Exception("Can't parse classifiers");
     }
 
     virtual void printJsonTyped(const ML::Tree::Ptr * val,
@@ -603,7 +603,7 @@ std::string keyToString(const Split & split)
 
 Split stringToKey(const std::string & str, Split * = 0)
 {
-    throw ML::Exception("stringToKey(): to implement");
+    throw MLDB::Exception("stringToKey(): to implement");
 }
 
 BoostedStumpsDescription::

@@ -11,7 +11,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 # create an expensive resource async
 resp = mldb.put_async("/v1/datasets/dummy2", {
-    'type' : 'text.line',
+    'type' : 'import.text',
     'params' : {
         'dataFileUrl': 'http://public.mldb.ai/reddit.csv.gz'
     }

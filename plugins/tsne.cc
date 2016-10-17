@@ -173,10 +173,10 @@ struct TsneItl {
         string tag;
         store >> tag;
         if (tag != "TSNE")
-            throw ML::Exception("Expected TSNE tag");
+            throw MLDB::Exception("Expected TSNE tag");
         compact_size_t version(store);
         if (version != 2)
-            throw ML::Exception("Unknown version for t-SNE");
+            throw MLDB::Exception("Unknown version for t-SNE");
 
         compact_size_t rows(store), dimsIn(store), dimsOut(store);
 
@@ -190,7 +190,7 @@ struct TsneItl {
         qtree.reset(new ML::Quadtree(store));
     }
 
-    ML::distribution<float> reembed(const ML::distribution<float> & v) const
+    distribution<float> reembed(const distribution<float> & v) const
     {
         return retsneApproxFromCoords(v, inputPath, outputPath,
                                       *qtree, *vpTree, params);
@@ -326,7 +326,7 @@ run(const ProcedureRunConfig & run,
     else {
         names.clear();
         for (unsigned i = 0; i < runProcConf.numOutputDimensions;  ++i)
-            names.push_back(ColumnPath(ML::format("dim%04d", i)));
+            names.push_back(ColumnPath(MLDB::format("dim%04d", i)));
     }
 
 
@@ -433,7 +433,7 @@ call(TsneInput input) const
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
 
-    ML::distribution<float> input = inputVal.getEmbedding(itl->inputColumnNames.size());
+    distribution<float> input = inputVal.getEmbedding(itl->inputColumnNames.size());
 
     Date ts = Date::negativeInfinity();
     auto embedding = itl->reembed(input);

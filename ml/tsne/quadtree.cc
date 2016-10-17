@@ -47,7 +47,7 @@ serialize(DB::Store_Writer & store) const
         ExcAssertEqual(child.size(), maxs.size());
         return;
     }
-    throw ML::Exception("Unknown quadtree node size");
+    throw MLDB::Exception("Unknown quadtree node size");
 }
 
 QuadtreeNode::
@@ -55,11 +55,11 @@ QuadtreeNode(DB::Store_Reader & store, int version)
     : diag(0.0), type(EMPTY), numChildren(0), recipNumChildren{0, 0}
 {
     if (version != 0)
-        throw ML::Exception("Unknown quadtree node version");
+        throw MLDB::Exception("Unknown quadtree node version");
 
     DB::compact_size_t type(store);
     if (type == 0) {
-        throw ML::Exception("Reconstituting an empty quadtree node");
+        throw MLDB::Exception("Reconstituting an empty quadtree node");
     }
     else if (type == 1) {
         type = NODE;
@@ -88,7 +88,7 @@ QuadtreeNode(DB::Store_Reader & store, int version)
         mins = maxs = center = centerOfMass = child;
 
     }
-    else throw ML::Exception("Unknown quadtree node type");
+    else throw MLDB::Exception("Unknown quadtree node type");
 
     center.resize(mins.size());
     for (unsigned i = 0;  i < mins.size();  ++i) {
@@ -104,7 +104,7 @@ QuadtreeNode(DB::Store_Reader & store, int version)
             cerr << "child = " << child << endl;
             cerr << "center = " << center << endl;
 
-            backtrace();
+            MLDB::backtrace();
         }
         
         center[i] = 0.5 * (mins[i] + maxs[i]);
@@ -125,10 +125,10 @@ Quadtree(DB::Store_Reader & store)
     std::string canary;
     store >> canary;
     if (canary != "QTREE")
-        throw ML::Exception("Unknown quadtree canary");
+        throw MLDB::Exception("Unknown quadtree canary");
     DB::compact_size_t version(store);
     if (version != 0)
-        throw ML::Exception("Unknown quadtree version");
+        throw MLDB::Exception("Unknown quadtree version");
 
     DB::compact_size_t indicator(store);
     if (indicator == 0)
@@ -136,7 +136,7 @@ Quadtree(DB::Store_Reader & store)
     else if (indicator == 1) {
         root.reset(new QuadtreeNode(store, version));
     }
-    else throw ML::Exception("Unknown quadtree indicator");
+    else throw MLDB::Exception("Unknown quadtree indicator");
 }
 
 void

@@ -12,7 +12,7 @@
 #include "sse2.h"
 #include <cmath>
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 inline v2df pass_nan(v2df input, v2df result)
@@ -130,4 +130,4 @@ inline v4sf pass_nan_inf_zero(v4sf input, v4sf result)
 }
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

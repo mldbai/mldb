@@ -117,7 +117,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         }
         JML_CATCH_ALL {
             result.content = ExpressionValue::null(Date::notADate());
-            result.error = ExpressionValue(ML::getExceptionString(), Date::now());
+            result.error = ExpressionValue(getExceptionString(), Date::now());
         }
         return result;
     }

@@ -103,7 +103,7 @@ CellValue(const char * stringValue, size_t length,
         initStringFromAscii(stringValue, length, false /* check validity */);
         break;
     default:
-        throw ML::Exception("Unknown string characteristic");
+        throw MLDB::Exception("Unknown string characteristic");
     }
 }
 

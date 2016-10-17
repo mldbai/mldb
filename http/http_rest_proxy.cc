@@ -20,7 +20,6 @@
 #include "http_rest_proxy_impl.h"
 
 using namespace std;
-using namespace ML;
 
 
 namespace MLDB {
@@ -70,7 +69,7 @@ getHeader(const std::string & name) const
 {
     auto p = hasHeader(name);
     if (!p)
-        throw ML::Exception("required header " + name + " not found");
+        throw MLDB::Exception("required header " + name + " not found");
     return p->second;
 }
 
@@ -134,7 +133,7 @@ urlEncode(const std::string & str)
                 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             result += c;
-        else result += ML::format("%%%02X", c);
+        else result += MLDB::format("%%%02X", c);
     }
     return result;
 }
@@ -149,7 +148,7 @@ urlEncode(const Utf8String & str)
                 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             result += c;
-        else result += ML::format("%%%02X", c);
+        else result += MLDB::format("%%%02X", c);
     }
     return result;
 }
@@ -408,7 +407,7 @@ perform(const std::string & verb,
         if (content.data) {
             myRequest.add_option(CURLOPT_POSTFIELDSIZE, content.size);
             myRequest.add_data_option(CURLOPT_POSTFIELDS, content.data);
-            curlHeaders.emplace_back(make_pair("Content-Length", ML::format("%lld", content.size)));
+            curlHeaders.emplace_back(make_pair("Content-Length", MLDB::format("%lld", content.size)));
             curlHeaders.emplace_back(make_pair("Content-Type", content.contentType));
         }
         else {

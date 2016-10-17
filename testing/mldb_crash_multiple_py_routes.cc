@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
     plugRes.address = "git://github.com/datacratic/mldb-cls-plugin.git";
     pluginConfig2.params = plugRes;
 
-    auto putResult = proxy.put(ML::format("/v1/plugins/cls%d", 0),
+    auto putResult = proxy.put(MLDB::format("/v1/plugins/cls%d", 0),
                                jsonEncode(pluginConfig2));
     cerr << putResult << endl;
     auto jsPutResult = putResult.jsonBody();
@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
 
     vector<string> calls;
     int j = 0;
-    string url = ML::format("curl %s/v1/plugins/cls%d", httpBoundAddress, j);
+    string url = MLDB::format("curl %s/v1/plugins/cls%d", httpBoundAddress, j);
     for(int i=0; i<500; i++) {
         calls.push_back(url + "/routes/dataset-details");
         calls.push_back(url + "/routes/classifier-list");

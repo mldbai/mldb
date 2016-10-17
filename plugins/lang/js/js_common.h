@@ -102,9 +102,9 @@ ExpressionValue from_js_ref(const JS::JSValue & value, ExpressionValue * = 0);
 ScriptException convertException(const v8::TryCatch & trycatch,
                                  const Utf8String & context);
 
-struct JsException: public ML::Exception {
+struct JsException: public MLDB::Exception {
     JsException(const ScriptException & exc)
-        : ML::Exception(exc.where.rawString()), rep(exc)
+        : MLDB::Exception(exc.where.rawString()), rep(exc)
     {
     }
 

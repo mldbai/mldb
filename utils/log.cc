@@ -21,7 +21,7 @@ namespace {
         else if (level == "error")
             return spdlog::level::err;
         else
-            throw ML::Exception("Unknown level '" + level
+            throw MLDB::Exception("Unknown level '" + level
                                 + "' expected one of \"debug\", \"info\", \"warn\" or \"error\"");
     }
 }

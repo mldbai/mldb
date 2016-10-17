@@ -16,11 +16,10 @@
 #include <string.h>
 #include "exception.h"
 #include <sys/select.h>
-#include "mldb/jml/math/xdiv.h"
 #include <atomic>
 
 
-namespace ML {
+namespace MLDB {
 
 inline double cpu_time()
 {
@@ -101,7 +100,7 @@ struct Duty_Cycle_Timer {
 
         double duty_cycle() const
         {
-            return xdiv<double>(usAwake, usAsleep + usAwake);
+            return (double)usAwake / (double)(usAsleep + usAwake);
         }
     };
 
@@ -169,4 +168,4 @@ struct Duty_Cycle_Timer {
     double beforeSleep, afterSleep;
 };
 
-} // namespace ML
+} // namespace MLDB

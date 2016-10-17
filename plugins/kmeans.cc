@@ -110,7 +110,7 @@ ML::KMeansMetric * makeMetric(MetricSpace metric)
         return new ML::KMeansCosineMetric();
         break;
     default:
-        throw ML::Exception("Unknown kmeans metric type");
+        throw MLDB::Exception("Unknown kmeans metric type");
     }
 }
 
@@ -178,10 +178,10 @@ run(const ProcedureRunConfig & run,
         columnNames.push_back(v.columnName);
     }
 
-    std::vector<ML::distribution<float> > vecs;
+    std::vector<distribution<float> > vecs;
 
     for (unsigned i = 0;  i < rows.size();  ++i) {
-        vecs.emplace_back(ML::distribution<float>(std::get<2>(rows[i]).begin(),
+        vecs.emplace_back(distribution<float>(std::get<2>(rows[i]).begin(),
                                                   std::get<2>(rows[i]).end()));
     }
 
@@ -260,7 +260,7 @@ run(const ProcedureRunConfig & run,
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
             }
 
-            centroids->recordRow(RowPath(ML::format("%i", i)), cols);
+            centroids->recordRow(RowPath(MLDB::format("%i", i)), cols);
         }
 
         centroids->commit();
@@ -301,7 +301,7 @@ KmeansFunctionConfigDescription()
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
+            throw MLDB::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };

@@ -271,7 +271,7 @@ uint64_t
 MatrixView::
 getRowColumnCount(const RowPath & row) const
 {
-    ML::Lightweight_Hash_Set<ColumnHash> cols;
+    Lightweight_Hash_Set<ColumnHash> cols;
     for (auto & c: getRow(row).columns)
         cols.insert(std::get<0>(c));
     return cols.size();
@@ -295,19 +295,6 @@ getColumnRowCount(const ColumnPath & column) const
     return getColumnStats(column, toStoreResult).rowCount();
 }
 
-bool
-ColumnIndex::
-forEachColumnGetStats(const OnColumnStats & onColumnStats) const
-{
-    for (auto & c: getColumnPaths()) {
-        ColumnStats toStore;
-        if (!onColumnStats(c, getColumnStats(c, toStore)))
-            return false;
-    }
-
-    return true;
-}
-
 const ColumnStats &
 ColumnIndex::
 getColumnStats(const ColumnPath & column, ColumnStats & stats) const
@@ -316,7 +303,7 @@ getColumnStats(const ColumnPath & column, ColumnStats & stats) const
 
     stats = ColumnStats();
 
-    ML::Lightweight_Hash_Set<RowHash> rows;
+    Lightweight_Hash_Set<RowHash> rows;
     bool oneOnly = true;
     bool isNumeric = true;
 
@@ -330,12 +317,13 @@ getColumnStats(const ColumnPath & column, ColumnStats & stats) const
         if (!v.isNumber())
             isNumeric = false;
         
-        // TODO: not really true...
+        // TODO: not really true as there might be many column values per row
         stats.values[v].rowCount_ += 1;
     }
 
     stats.isNumeric_ = isNumeric && !col.empty();
     stats.rowCount_ = rows.size();
+    stats.atMostOne_ = oneOnly;
     return stats;
 }
 
@@ -405,7 +393,15 @@ getColumnDense(const ColumnPath & column) const
     }
 
     for (auto& name : rowNames) {
-        result.push_back(values.find(name)->second.first);
+
+        auto iter = values.find(name);
+        if (iter == values.end())
+            throw MLDB::Exception(("Row " + name.toUtf8String() +
+                                   " does not have column " +
+                                     column.toUtf8String()).rawString() +
+                                   " in dense data index.");
+
+        result.push_back(iter->second.first);
     } 
 
     return result;
@@ -507,8 +503,8 @@ Dataset(MldbServer * server)
 {
 }
 
-ML::Env_Option<int> RETURN_OS_MEMORY("RETURN_OS_MEMORY", 1);
-ML::Env_Option<int> PRINT_OS_MEMORY("PRINT_OS_MEMORY", 0);
+EnvOption<int> RETURN_OS_MEMORY("RETURN_OS_MEMORY", 1);
+EnvOption<int> PRINT_OS_MEMORY("PRINT_OS_MEMORY", 0);
 
 
 Dataset::
@@ -547,7 +543,7 @@ Dataset::
 recordRowItl(const RowPath & rowName,
              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
-    throw ML::Exception(("Dataset type '" + getType() + "' doesn't allow recording").rawString());
+    throw MLDB::Exception(("Dataset type '" + getType() + "' doesn't allow recording").rawString());
 }
 
 std::pair<Date, Date>
@@ -582,7 +578,7 @@ getTimestampRange() const
             result.first = std::get<1>(c).toTimestamp();
         else if (std::get<0>(c) == cmax)
             result.second = std::get<1>(c).toTimestamp();
-        else throw ML::Exception("unknown output of timestamp range query");
+        else throw MLDB::Exception("unknown output of timestamp range query");
     }
     
     return result;
@@ -592,7 +588,7 @@ Date
 Dataset::
 quantizeTimestamp(Date timestamp) const
 {
-    throw ML::Exception(("Dataset type '" + getType() + "' doesn't allow recording and thus doesn't quantize timestamps").rawString());
+    throw MLDB::Exception(("Dataset type '" + getType() + "' doesn't allow recording and thus doesn't quantize timestamps").rawString());
 }
 
 void 
@@ -2121,7 +2117,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Dataset of type '" + ML::type_name(*this)
+    error["error"] = "Dataset of type '" + MLDB::type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
@@ -2207,9 +2203,9 @@ template<typename T>
 std::vector<T> frame(std::vector<T> & vec, ssize_t offset, ssize_t limit)
 {
     if (offset < 0)
-        throw ML::Exception("Offset can't be negative");
+        throw MLDB::Exception("Offset can't be negative");
     if (limit < -1)
-        throw ML::Exception("Limit can be positive, 0 or -1");
+        throw MLDB::Exception("Limit can be positive, 0 or -1");
 
     if (offset > vec.size())
         offset = vec.size();

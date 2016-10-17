@@ -59,7 +59,7 @@ Json::Value toJson(sqlite3_value * arg)
     case SQLITE_BLOB:
         return "<<BLOB>>";
     default:
-        throw ML::Exception("Unknown type for column");
+        throw MLDB::Exception("Unknown type for column");
     }
 }
 
@@ -78,13 +78,13 @@ CellValue toCell(sqlite3_value * arg)
         return string(bytes, bytes + len);
     }
     default:
-        throw ML::Exception("Unknown type for column");
+        throw MLDB::Exception("Unknown type for column");
     }
 }
 
 void dumpQueryArray(sqlite3pp::database & db, const std::string & queryStr)
 {
-    ML::Timer timer;
+    Timer timer;
     cerr << "dumping query " << queryStr << endl;
 
     sqlite3pp::query query(db, queryStr.c_str());
@@ -114,7 +114,7 @@ void dumpQueryArray(sqlite3pp::database & db, const std::string & queryStr)
                 record[j] = "<<BLOB>>";
                 break;
             default:
-                throw ML::Exception("Unknown type for column");
+                throw MLDB::Exception("Unknown type for column");
             }
         }
         
@@ -137,7 +137,7 @@ std::string sqlEscape(const std::string & val)
         if (c == '\'')
             ++numQuotes;
         if (c < ' ' || c >= 127)
-            throw ML::Exception("Non ASCII character in DB");
+            throw MLDB::Exception("Non ASCII character in DB");
     }
     if (numQuotes == 0)
         return val;
@@ -213,24 +213,16 @@ struct BehaviourModule {
 
             vtab->dataset = dataset;
 
-            auto index = dataset->getColumnIndex();
-
             string columnNameStr;
-            vector<ColumnPath> columnNames;
+
+            vector<ColumnPath> columnNames = dataset->getColumnNames();
             vector<ColumnHash> columnHashes;
 
-            auto onColumnStats = [&] (ColumnHash ch,
-                                      const ColumnPath & columnName,
-                                      const ColumnStats & stats)
-                {
-                    columnNameStr += ", '" + sqlEscape(columnName.toString()) + "'";
-                    columnNames.emplace_back(columnName);
-                    columnHashes.emplace_back(columnName);
-                    return true;
-                };
+            for (auto & columnName : columnNames) {
+                columnNameStr += ", '" + sqlEscape(columnName.toString()) + "'";
+                columnHashes.emplace_back(columnName);
+            }
 
-            index->forEachColumnGetStats(onColumnStats);
-            
             vtab->columnNames = columnNames;
             vtab->columnHashes = columnHashes;
 
@@ -308,7 +300,7 @@ struct BehaviourModule {
             case SQLITE_INDEX_CONSTRAINT_MATCH:
                 constraintStr = "MATCHES";  break;
             default:
-                throw ML::Exception("unknown constraint type");
+                throw MLDB::Exception("unknown constraint type");
             }
 
             cerr << "constraintStr = " << constraintStr << endl;
@@ -417,7 +409,7 @@ struct BehaviourModule {
             knownValues[colName] = arg;
 
             if (op != "==")
-                throw ML::Exception("non-equality not implemented");
+                throw MLDB::Exception("non-equality not implemented");
 
             cerr << "Filtering on " << colName << " " << op << " " << arg
                  << endl;
@@ -517,7 +509,7 @@ struct BehaviourModule {
             case CellValue::UTF8_STRING:
                 return sqlite3_result_result_utf8(context, value.toUtf8String());
             default:
-                throw ML::Exception("unknown cell type");
+                throw MLDB::Exception("unknown cell type");
             }
         }
         }

@@ -15,13 +15,51 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/utils/less.h"
+#include "mldb/utils/log.h"
 #include <mutex>
 
 using namespace std;
 
-
-
 namespace MLDB {
+
+namespace {
+   std::unordered_map<ColumnPath, ColumnStats>
+   getColumnStats(const SelectExpression & select,
+                  const Dataset & from,
+                  const WhenExpression & when,
+                  const SqlExpression & where,
+                  const OrderByExpression & orderBy,
+                  ssize_t offset,
+                  ssize_t limit) {
+
+       std::unordered_map<ColumnPath, ColumnStats> stats;
+       
+       auto onRow = [&stats] (NamedRowValue & output_) {
+           MatrixNamedRow output = output_.flattenDestructive();
+           for (auto & col : output.columns) {
+               auto columnPath = get<0>(col);
+               auto cellValue = get<1>(col);
+               auto it = stats.find(columnPath);
+               if (it == stats.end()) {
+                   auto & colStats = stats[columnPath];
+                   colStats.isNumeric_ = cellValue.isNumber();
+               }
+               auto & colStats = stats[columnPath];
+               colStats.isNumeric_ = colStats.isNumeric_ && cellValue.isNumber();
+               colStats.rowCount_ +=1;
+               // since there could be several values for a column in the same row 
+               // this is more a value count than a row count!
+               colStats.values[cellValue].rowCount_ += 1;
+           }
+
+           return true;
+       };
+
+       iterateDataset(select, from, "", when, where, 
+                      {onRow, false /*processInParallel*/}, orderBy, offset, limit, nullptr);
+       return stats;
+   }
+}
 
 DEFINE_ENUM_DESCRIPTION(ColumnOperator);
 
@@ -49,12 +87,20 @@ ColumnSpecDescription()
 }
 
 ClassifiedColumns
-classifyColumns(const Dataset & dataset, SelectExpression select)
+classifyColumns(const SelectExpression & select_,
+                const Dataset & dataset,
+                const WhenExpression & when,
+                const SqlExpression & where,
+                const OrderByExpression & orderBy,
+                ssize_t offset,
+                ssize_t limit,
+                std::shared_ptr<spdlog::logger> logger)
 {
-    // Step 1.  Get a list of the columns we want to use, by parsing the select
+    // Get a list of the columns we want to use, by parsing the select
     // expression.  Note that only direct expression values will work.
 
     // Default is all columns
+    SelectExpression select = select_;
     if (select.clauses.empty())
         select = SelectExpression::parse("*");
 
@@ -66,65 +112,60 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
     std::set<ColumnPath> selectedColumns(selectedColumnsVec.begin(),
                                          selectedColumnsVec.end());
     if (boundSelect.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN)
-        cerr << "WARNING: non-enumerated columns will not be used "
-            "in correlation training" << endl;
+        WARNING_MSG(logger) << "non-enumerated columns will not be used "
+            "in correlation training";
     
-    cerr << "selected " << selectedColumns.size() << " columns" << endl;
+    DEBUG_MSG(logger) << "selected " << selectedColumns.size() << " columns";
     
-    // Step 2.  Get the per-column index so that we know what our
-    // columns are.
-    
-    std::shared_ptr<ColumnIndex> colIndex = dataset.getColumnIndex();
-
-    // Step 3.  Classify the columns into two different types:
+    // Classify the columns into two different types:
 
     std::vector<ContinuousColumnInfo> continuousColumns;
     std::vector<SparseColumnInfo> sparseColumns;
 
+    std::unordered_map<ColumnPath, ColumnStats> stats = 
+        getColumnStats(select, dataset, when, where, orderBy, offset, limit);
+ 
+    DEBUG_MSG(logger) << "stats size " << stats.size();
+
     size_t rowCount = dataset.getMatrixView()->getRowCount();
 
-    auto onColumn = [&] (const ColumnPath & columnName,
-                         const ColumnStats & stats)
-        {
-            // If it wasn't in our selected columns, we don't keep it
-            if (!selectedColumns.count(columnName))
-                return true;
 
-            //cerr << "column " << columnName << " has " << stats.rowCount()
-            //<< " values set" << " numeric = " << stats.isNumeric()
-            //<< " dense " << stats.isDense() << " vals "
-            //<< stats.values.size() << endl;
+    for (auto & colStats : stats) {
+
+        // If it wasn't in our selected columns, we don't keep it       
+        if (!selectedColumns.count(colStats.first))  
+            continue;
+
+        DEBUG_MSG(logger) << "column " << colStats.first << " has " << colStats.second.rowCount()
+                          << " values set" << " numeric = " << colStats.second.isNumeric()
+                          << " vals "
+                          << colStats.second.values.size();
             
-            bool isDense = stats.rowCount() == rowCount;
-            //if (!stats.atMostOne())
-            //    throw HttpReturnException(400, "Column '" + columnName.toUtf8String()
-            //                              + "' has more than one value in some rows");
+        bool isDense = colStats.second.rowCount() == rowCount;
 
-            if (stats.isNumeric() && isDense && stats.values.size() > 1) {
-                // Candidate for a dense continuous column
-                continuousColumns.emplace_back(columnName, stats.rowCount());
+        //TODO - what to do with the case where a row contains many values
+        
+        if (colStats.second.isNumeric() && isDense && colStats.second.values.size() > 1) {
+            // Candidate for a dense continuous column
+            continuousColumns.emplace_back(colStats.first, colStats.second.rowCount());
+        }
+        else if (colStats.second.isNumeric() && colStats.second.values.size() > 1) {
+            // Candidate for a discrete, real valued column
+            sparseColumns.emplace_back(colStats.first, CellValue(),
+                                       colStats.second.rowCount(),
+                                       true /* isContinuous */);
+        }
+        else {
+            //cerr << "sparse column" << endl;
+            // Either single or dual-valued, or always empty
+            // Look through the values of this feature
+            for (auto & v: colStats.second.values) {
+                sparseColumns.emplace_back(colStats.first, v.first,
+                                           v.second.rowCount(),
+                                           false /* isContinuous */);
             }
-            else if (stats.isNumeric() && stats.values.size() > 1) {
-                // Candidate for a discrete, real valued column
-                sparseColumns.emplace_back(columnName, CellValue(),
-                                           stats.rowCount(),
-                                           true /* isContinuous */);
-            }
-            else {
-                //cerr << "sparse column" << endl;
-                // Either single or dual-valued, or always empty
-                // Look through the values of this feature
-                for (auto & v: stats.values) {
-                    sparseColumns.emplace_back(columnName, v.first,
-                                               v.second.rowCount(),
-                                               false /* isContinuous */);
-                }
-            }
-
-            return true;
-        };
-    
-    colIndex->forEachColumnGetStats(onColumn);
+        }
+    }
 
     // Step 3: Select all of our basis columns for our SVD
     std::map<ColumnHash, ClassifiedColumns::ColumnIndexEntry> sparseIndex;
@@ -164,7 +205,8 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
 }
 
 FeatureBuckets 
-extractFeaturesFromRows(const Dataset & dataset,
+extractFeaturesFromRows(const SelectExpression & select,
+                        const Dataset & dataset,
                         const WhenExpression & when,
                         std::shared_ptr<SqlExpression> where,
                         const OrderByExpression & orderBy, 
@@ -178,10 +220,8 @@ extractFeaturesFromRows(const Dataset & dataset,
     std::mutex bucketMutexes[numBuckets];
     std::atomic<size_t> numExamples(0);
 
+    Timer timer;
 
-    auto select = SqlRowExpression::parseList("*");
-
-    ML::Timer timer;
     cerr << "extracting values" << endl;
 
     // Get an index of ColumnHash to dense value
@@ -225,7 +265,8 @@ extractFeaturesFromRows(const Dataset & dataset,
 
             return true;
         };
-    iterateDataset(select, dataset, "", when, *where, {onRow, true /*processInParallel*/}, orderBy, offset, limit, nullptr);
+    iterateDataset(select, dataset, "", when, *where, 
+                   {onRow, true /*processInParallel*/}, orderBy, offset, limit, nullptr);
 
     cerr << "done extracting values in " << timer.elapsed() << endl;
 
@@ -269,7 +310,7 @@ extractFeaturesFromRows(const Dataset & dataset,
     {
         static int n = 0;
         cerr << "saving buckets " << n << endl;
-        filter_ostream stream(ML::format("buckets-%d.json", n++));
+        filter_ostream stream(MLDB::format("buckets-%d.json", n++));
         stream << "numExamples = " << featureBuckets.numExamples << endl;
         for (unsigned i = 0;  i < featureBuckets.size();  ++i) {
             stream << "bucket " << i << endl;
@@ -291,7 +332,7 @@ ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
                const FeatureBuckets & featureBuckets)
 {
-    ML::Timer timer;
+    Timer timer;
 
     int numContinuousColumns = columns.continuousColumns.size();
     int numSparseColumns = columns.sparseColumns.size();
@@ -394,7 +435,7 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
     // - for two sparse: hamming distance
     //
 
-    ML::Timer timer;
+    Timer timer;
 
     int numColumns = std::min<int>(numBasisVectors, columnIndex.size());
 

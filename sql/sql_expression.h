@@ -21,13 +21,8 @@
 // should be added, especially value_description.h.  Only
 // value_expression_fwd.h is OK.
 
-
-namespace ML {
-struct Parse_Context;
-} // namespace ML
-
-
 namespace MLDB {
+struct ParseContext;
 
 /** SQL expressions
     
@@ -128,6 +123,8 @@ struct BoundExpressionMetadata {
     /// argument at all.
     bool isConstant;
 };
+
+DECLARE_STRUCTURE_DESCRIPTION(BoundExpressionMetadata);
 
 
 /*****************************************************************************/
@@ -352,8 +349,11 @@ struct BoundFunction {
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
 
-    // If defined, overrides the default bindFunction call.
+    /// If defined, overrides the default bindFunction call.
     BindFunction bindFunction;
+
+    /// Extra metadata about the result
+    BoundExpressionMetadata resultMetadata;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
@@ -952,7 +952,7 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         http://www.sqlite.org/syntax/expr.html
     */
     static std::shared_ptr<SqlExpression>
-    parse(ML::Parse_Context & context, int precendence, bool allowUtf8);
+    parse(ParseContext & context, int precendence, bool allowUtf8);
 
     static std::shared_ptr<SqlExpression>
     parse(const std::string & expression, const std::string & filename = "",
@@ -1175,7 +1175,7 @@ struct SqlRowExpression: public SqlExpression {
 
     /** Parses a single result variable expression. */
     static std::shared_ptr<SqlRowExpression>
-    parse(ML::Parse_Context & context, bool allowUtf8);
+    parse(ParseContext & context, bool allowUtf8);
 
     static std::shared_ptr<SqlRowExpression>
     parse(const std::string & expr,
@@ -1191,7 +1191,7 @@ struct SqlRowExpression: public SqlExpression {
 
     /** Parses a comma separated list of result variable expressions. */
     static std::vector<std::shared_ptr<SqlRowExpression> >
-    parseList(ML::Parse_Context & context, bool allowUtf8);
+    parseList(ParseContext & context, bool allowUtf8);
 
     static std::vector<std::shared_ptr<SqlRowExpression> >
     parseList(const std::string & expr,
@@ -1245,7 +1245,7 @@ struct SelectExpression: public SqlRowExpression {
     static const SelectExpression STAR;
     
     static SelectExpression
-    parse(ML::Parse_Context & context, bool allowUtf8);
+    parse(ParseContext & context, bool allowUtf8);
 
     static SelectExpression
     parse(const std::string & expr,
@@ -1361,7 +1361,7 @@ struct OrderByExpression {
 
     std::vector<std::pair<std::shared_ptr<SqlExpression>, OrderByDirection> > clauses;
 
-    static OrderByExpression parse(ML::Parse_Context & context, bool allowUtf8);
+    static OrderByExpression parse(ParseContext & context, bool allowUtf8);
     static OrderByExpression parse(const std::string & expression);
     static OrderByExpression parse(const char * expression);
     static OrderByExpression parse(const Utf8String & expression);
@@ -1429,7 +1429,7 @@ struct TupleExpression {  // TODO: should be a row expression
         return clauses.size();
     }
 
-    static TupleExpression parse(ML::Parse_Context & context, bool allowUtf8);
+    static TupleExpression parse(ParseContext & context, bool allowUtf8);
     static TupleExpression parse(const std::string & expression);
     static TupleExpression parse(const char * expression);
     static TupleExpression parse(const Utf8String & expression);
@@ -1579,7 +1579,7 @@ struct TableExpression: public std::enable_shared_from_this<TableExpression> {
     virtual Utf8String print() const = 0;
 
     static std::shared_ptr<TableExpression>
-    parse(ML::Parse_Context & context, int precendence, bool allowUtf8);
+    parse(ParseContext & context, int precendence, bool allowUtf8);
 
     static std::shared_ptr<TableExpression>
     parse(const Utf8String & expression, const std::string & filename = "",
@@ -1686,7 +1686,7 @@ struct WhenExpression {
     parse(const Utf8String & str);
 
     static WhenExpression
-    parse(ML::Parse_Context & context, bool allowUtf8);
+    parse(ParseContext & context, bool allowUtf8);
 
     BoundWhenExpression
     bind(SqlBindingScope & context) const;
@@ -1750,10 +1750,8 @@ struct SelectStatement
     static SelectStatement parse(const std::string& body);
     static SelectStatement parse(const char * body);
     static SelectStatement parse(const Utf8String& body);
-    static SelectStatement parse(ML::Parse_Context& context, bool allowUtf8);
-    static SelectStatement parseImpl(ML::Parse_Context& context,
-                                     bool allowUtf8);
-
+    static SelectStatement parse(ParseContext& context, bool allowUtf8);
+    static SelectStatement parseImpl(ParseContext& context, bool allowUtf8);
     UnboundEntities getUnbound() const;
 
     Utf8String print() const;

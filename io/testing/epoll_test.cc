@@ -52,7 +52,7 @@ void thread1Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     ::fprintf(stderr, "thread 1: arming fd\n");
     int rc = ::epoll_ctl(epollFd, EPOLL_CTL_ADD, pipeFds[0], &armEvent);
     if (rc == -1) {
-        throw ML::Exception(errno, "epoll_ctl");
+        throw MLDB::Exception(errno, "epoll_ctl");
     }
 
     stage = 1; ML::futex_wake(stage);
@@ -60,13 +60,13 @@ void thread1Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     ::fprintf(stderr, "thread 1: waiting 1\n");
     rc = ::epoll_wait(epollFd, &event, 1, -1);
     if (rc == -1) {
-        throw ML::Exception(errno, "epoll_wait");
+        throw MLDB::Exception(errno, "epoll_wait");
     }
 
     ::fprintf(stderr, "thread 1: reading 1\n");
     rc = ::read(pipeFds[0], &readData, sizeof(readData));
     if (rc == -1) {
-        throw ML::Exception(errno, "read");
+        throw MLDB::Exception(errno, "read");
     }
     ExcAssertEqual(rc, sizeof(readData));
     ExcAssertEqual(readData, 1);
@@ -76,7 +76,7 @@ void thread1Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     ::fprintf(stderr, "thread 1: reading 2\n");
     rc = ::read(pipeFds[0], &readData, sizeof(readData));
     if (rc == -1) {
-        throw ML::Exception(errno, "read");
+        throw MLDB::Exception(errno, "read");
     }
     ExcAssertEqual(rc, sizeof(readData));
     ExcAssertEqual(readData, 0x1fffffff);
@@ -102,13 +102,13 @@ void thread1Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     ::fprintf(stderr, "thread 1: rearming\n");
     rc = ::epoll_ctl(epollFd, EPOLL_CTL_MOD, pipeFds[0], &armEvent);
     if (rc == -1) {
-        throw ML::Exception(errno, "epoll_ctl");
+        throw MLDB::Exception(errno, "epoll_ctl");
     }
 
     ::fprintf(stderr, "thread 1: epoll_wait for final payload\n");
     rc = ::epoll_wait(epollFd, &event, 1, 2000);
     if (rc == -1) {
-        throw ML::Exception(errno, "epoll_wait");
+        throw MLDB::Exception(errno, "epoll_wait");
     }
     else if (rc == 0)
         ::fprintf(stderr, "thread 1: second epoll wait has no event\n");
@@ -130,7 +130,7 @@ void thread2Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     uint32_t writeData(1);
     int rc = ::write(pipeFds[1], &writeData, sizeof(writeData));
     if (rc == -1) {
-        throw ML::Exception(errno, "write");
+        throw MLDB::Exception(errno, "write");
     }
     ExcAssert(rc == sizeof(writeData));
     ::fprintf(stderr, "thread 2: payload 1 written\n");
@@ -138,7 +138,7 @@ void thread2Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     writeData = 0x1fffffff;
     rc = ::write(pipeFds[1], &writeData, sizeof(writeData));
     if (rc == -1) {
-        throw ML::Exception(errno, "write");
+        throw MLDB::Exception(errno, "write");
     }
     ExcAssert(rc == sizeof(writeData));
     ::fprintf(stderr, "thread 2: payload 2 written\n");
@@ -152,7 +152,7 @@ void thread2Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     writeData = 0x12345678;
     rc = ::write(pipeFds[1], &writeData, sizeof(writeData));
     if (rc == -1) {
-        throw ML::Exception(errno, "write");
+        throw MLDB::Exception(errno, "write");
     }
     ExcAssert(rc == sizeof(writeData));
     ::fprintf(stderr, "thread 2: payload 3 written\n");
@@ -167,12 +167,12 @@ BOOST_AUTO_TEST_CASE( test_epolloneshot )
 {
     int epollFd = ::epoll_create(666);
     if (epollFd == -1) {
-        throw ML::Exception(errno, "epoll_create");
+        throw MLDB::Exception(errno, "epoll_create");
     }
 
     int pipeFds[2];
     if (::pipe2(pipeFds, O_NONBLOCK) == -1) {
-        throw ML::Exception(errno, "pipe2");
+        throw MLDB::Exception(errno, "pipe2");
     }
 
     atomic<int> stage(0);

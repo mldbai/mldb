@@ -183,7 +183,7 @@ toRow(std::shared_ptr<ExpressionValueInfo> row)
     ExcAssert(row);
     auto result = dynamic_pointer_cast<RowValueInfo>(row);
     if (!result)
-        throw HttpReturnException(500, "Value is not a row: " + ML::type_name(*row));
+        throw HttpReturnException(500, "Value is not a row: " + MLDB::type_name(*row));
     return result;
 }
 
@@ -198,8 +198,8 @@ SchemaCompleteness
 ExpressionValueInfo::
 getSchemaCompleteness() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a row: type " + ML::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
-                              "type", ML::type_name(*this));
+    throw HttpReturnException(500, "Value description doesn't describe a row: type " + MLDB::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
+                              "type", MLDB::type_name(*this));
 }
 
 SchemaCompleteness
@@ -214,7 +214,7 @@ ExpressionValueInfo::
 getKnownColumns() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a row",
-                              "type", ML::type_name(*this));
+                              "type", MLDB::type_name(*this));
 }
 
 std::vector<KnownColumn>
@@ -260,7 +260,7 @@ ExpressionValueInfo::
 getScalarDescription() const
 {
     throw HttpReturnException(500, "Value description doesn't describe a scalar",
-                              "type", ML::type_name(*this));
+                              "type", MLDB::type_name(*this));
 }
 
 std::shared_ptr<ExpressionValueInfo>
@@ -320,7 +320,7 @@ struct ExpressionValueInfoPtrDescription
             return;
         }
         Json::Value out;
-        out["type"] = ML::type_name(**val);
+        out["type"] = MLDB::type_name(**val);
         if ((*val)->isScalar()) {
             out["kind"] = "scalar";
             out["scalar"] = (*val)->getScalarDescription();
@@ -367,7 +367,7 @@ struct RowValueInfoPtrDescription
             return;
         }
         Json::Value out;
-        out["type"] = ML::type_name(**val);
+        out["type"] = MLDB::type_name(**val);
         out["kind"] = "row";
         out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
         out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
@@ -676,51 +676,6 @@ getSchemaCompletenessRecursive() const
 }
 
 
-// TODO: generalize
-std::shared_ptr<ExpressionValueInfo>
-getValueInfoForStorage(StorageType type)
-{
-    switch (type) {
-    case ST_FLOAT32:
-        return std::make_shared<Float32ValueInfo>();
-    case ST_FLOAT64:
-        return std::make_shared<Float64ValueInfo>();
-    case ST_INT8:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT8:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT16:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT16:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT32:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT32:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_INT64:
-        return std::make_shared<IntegerValueInfo>();
-    case ST_UINT64:
-        return std::make_shared<Uint64ValueInfo>();
-    case ST_BLOB:
-        return std::make_shared<BlobValueInfo>();
-    case ST_STRING:
-        return std::make_shared<StringValueInfo>();
-    case ST_UTF8STRING:
-        return std::make_shared<Utf8StringValueInfo>();
-    case ST_ATOM:
-        return std::make_shared<AtomValueInfo>();
-    case ST_BOOL:
-        return std::make_shared<BooleanValueInfo>();
-    case ST_TIMESTAMP:
-        return std::make_shared<TimestampValueInfo>();
-    case ST_TIMEINTERVAL:
-        return std::make_shared<AtomValueInfo>();
-    }
-
-    throw HttpReturnException(500, "Unknown embedding storage type",
-                              "type", type);
-}
-
 std::vector<KnownColumn>
 EmbeddingValueInfo::
 getKnownColumns() const
@@ -968,7 +923,7 @@ getColumn(const PathElement & columnName) const
 
 
 /*****************************************************************************/
-/* OR Expression Value Info                                                  */
+/* Variant Expression Value Info                                             */
 /*****************************************************************************/
 
 /** Expression Value info when we dont know which of two value info we will get 
@@ -1377,6 +1332,58 @@ struct ExpressionValue::Embedding {
     {
         return std::make_shared<EmbeddingValueInfo>
             (vector<ssize_t>(dims_.begin(), dims_.end()), storageType_);
+    }
+
+    ExpressionValue reshape(DimsVector newShape, Date ts) const
+    {
+        size_t totalLength = 1;
+        for (auto & s: newShape)
+            totalLength *= s;
+
+        if (totalLength != length()) {
+            throw HttpReturnException
+                (400, "Attempt to change embedding size by reshaping");
+        }
+        return ExpressionValue::embedding(ts, data_,
+                                          storageType_,
+                                          std::move(newShape));
+    }
+    
+    ExpressionValue reshape(DimsVector newShape,
+                            const ExpressionValue & newValue,
+                            Date ts) const
+    {
+        size_t totalLength = 1;
+        for (auto & s: newShape)
+            totalLength *= s;
+        
+        if (totalLength <= length()) {
+            // Keep the old storage around, since it still has the
+            // right data.  TODO: if it's much smaller, we could
+            // copy it so that the old one doesn't "leak" into
+            // memory.
+            return ExpressionValue::embedding(ts, data_,
+                                              storageType_,
+                                              std::move(newShape));
+        }
+        else {
+            // We need to add elements, so we must re-allocate the underlying
+            // buffer
+
+            auto newStorageType = coveringStorageType(storageType_, newValue);
+
+            // First, does the current storage type cover the new value?
+            auto newBuffer = allocateStorageBuffer(totalLength, newStorageType);
+            copyStorageBuffer(data_.get(), 0, storageType_,
+                              newBuffer.get(), 0, newStorageType,
+                              length());
+            fillStorageBuffer(newBuffer.get(), length(), newStorageType,
+                              totalLength - length(),
+                              newValue.getAtom());
+            return ExpressionValue::embedding(ts, std::move(newBuffer),
+                                              newStorageType,
+                                              std::move(newShape));
+        }
     }
 };
 
@@ -2684,7 +2691,7 @@ getEmbeddingShape() const
     case Type::ATOM:
         return {};
     case Type::STRUCTURED:
-        return { structured_->size() };
+        return coerceToEmbedding().getEmbeddingShape();
     case Type::EMBEDDING:
         return embedding_->dims_;
     case Type::SUPERPOSITION:
@@ -2702,39 +2709,48 @@ reshape(DimsVector newShape) const
     case Type::NONE:
     case Type::ATOM:
     case Type::STRUCTURED:
-        throw HttpReturnException(500, "Cannot reshape non-embedding");
+        return coerceToEmbedding().reshape(newShape);
     case Type::SUPERPOSITION:
         return superposition_->latest().reshape(newShape);
-    case Type::EMBEDDING: {
-        size_t totalLength = 1;
-        for (auto & s: newShape)
-            totalLength *= s;
-
-        if (rowLength() > totalLength) {
-            throw HttpReturnException(400, "Attempt to enlarge embedding by resizing");
-        }
-        return ExpressionValue::embedding(ts_, embedding_->data_,
-                                          embedding_->storageType_,
-                                          std::move(newShape));
+    case Type::EMBEDDING:
+        return embedding_->reshape(newShape, ts_);
     }
+
+    throw HttpReturnException(500, "Unknown storage type for reshape()");
+}
+
+ExpressionValue
+ExpressionValue::
+reshape(DimsVector newShape,
+        const ExpressionValue & newValue) const
+{
+    switch (type_) {
+    case Type::NONE:
+    case Type::ATOM:
+    case Type::STRUCTURED:
+        return coerceToEmbedding().reshape(newShape, newValue);
+    case Type::SUPERPOSITION:
+        return superposition_->latest().reshape(newShape, newValue);
+    case Type::EMBEDDING:
+        return embedding_->reshape(newShape, newValue, ts_);
     }
 
     throw HttpReturnException(500, "Unknown storage type for reshape()");
 }
 
 #if 1
-ML::distribution<float, std::vector<float> >
+distribution<float, std::vector<float> >
 ExpressionValue::
 getEmbedding(ssize_t knownLength) const
 {
     return getEmbeddingDouble(knownLength).cast<float>();
 }
 
-ML::distribution<double, std::vector<double> >
+distribution<double, std::vector<double> >
 ExpressionValue::
 getEmbedding(const ColumnPath * knownNames, size_t len) const
 {
-    ML::distribution<double> features
+    distribution<double> features
         (len, std::numeric_limits<float>::quiet_NaN());
 
     // Index of value we're writing.  If they aren't in order, this will
@@ -2742,7 +2758,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
     int currentIndex = 0;
 
     /// If they're not in order, we create this index
-    ML::Lightweight_Hash<uint64_t, int> columnIndex;
+    Lightweight_Hash<uint64_t, int> columnIndex;
     
     /// Add a CellValue we extracted to the output.  This will also
     /// deal with non-ordered column names.
@@ -2899,7 +2915,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
     return features;
 }
 
-ML::distribution<double, std::vector<double> >
+distribution<double, std::vector<double> >
 ExpressionValue::
 getEmbeddingDouble(ssize_t knownLength) const
 {
@@ -2922,7 +2938,7 @@ getEmbeddingDouble(ssize_t knownLength) const
 
     forEachAtom(onAtom);
 
-    ML::distribution<double> result;
+    distribution<double> result;
     result.reserve(features.size());
     for (unsigned i = 0;  i < features.size();  ++i) {
         result.push_back(features[i].second);
@@ -3748,7 +3764,7 @@ joinColumns(const ExpressionValue & val1,
 
         // Assume they have the same keys and exactly one of each; if not we
         // have to restart
-        ML::Lightweight_Hash_Set<uint64_t> colsFound;
+        Lightweight_Hash_Set<uint64_t> colsFound;
 
         for (size_t i = 0;  i < row1.size(); ++i) {
             const ColumnPath & col1 = std::get<0>(row1[i]);
@@ -4544,7 +4560,7 @@ extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc)
     const ExpressionValueDescription * descCast
         = dynamic_cast<const ExpressionValueDescription *>(desc.get());
     if (!descCast) {
-        cerr << "field type was " << ML::type_name(*desc) << endl;
+        cerr << "field type was " << MLDB::type_name(*desc) << endl;
         return nullptr;
     }
     return descCast->info;
@@ -4733,7 +4749,7 @@ template class ScalarExpressionValueInfoT<Date>;
 
 template class ExpressionValueInfoT<RowValue>;
 template class ExpressionValueInfoT<ExpressionValue>;
-template class ExpressionValueInfoT<ML::distribution<double, std::vector<double> > >;
+template class ExpressionValueInfoT<distribution<double, std::vector<double> > >;
 
 
 /*****************************************************************************/

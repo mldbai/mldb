@@ -137,7 +137,7 @@ reconstitute(ML::DB::Store_Reader & store)
                                   "table model");
     }
     if(version!=REQUIRED_V) {
-        throw HttpReturnException(400, ML::format(
+        throw HttpReturnException(400, MLDB::format(
                     "invalid StatsTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -253,7 +253,7 @@ run(const ProcedureRunConfig & run,
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;
                 progress["message"] = message;
                 onProgress(progress);
@@ -661,7 +661,7 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     if(!runProcConf.functionName.empty() && runProcConf.functionOutcomeToUse.empty()) {
-        throw ML::Exception("The 'functionOutcomeToUse' parameter must be set when the "
+        throw MLDB::Exception("The 'functionOutcomeToUse' parameter must be set when the "
                 "'functionName' parameter is set.");
     }
 
@@ -690,7 +690,7 @@ run(const ProcedureRunConfig & run,
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 10000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;
                 progress["message"] = message;
                 onProgress2(progress);

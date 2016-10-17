@@ -96,7 +96,7 @@ tableScope(std::shared_ptr<LexicalScope> table)
                                std::make_move_iterator(outputAdded.begin()),
                                std::make_move_iterator(outputAdded.end()));
 
-    //cerr << "table scope for " << ML::type_name(*table) << " goes from "
+    //cerr << "table scope for " << MLDB::type_name(*table) << " goes from "
     //     << entry.fieldOffset << " to " << result->numOutputFields()
     //     << endl;
 

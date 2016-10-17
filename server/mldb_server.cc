@@ -37,18 +37,19 @@
 
 using namespace std;
 
+
+namespace MLDB {
+
 namespace {
 bool supportsSystemRequirements() {
 #if JML_INTEL_ISA
-    return ML::has_sse42();
+    return has_sse42();
 #else
     return true;
 #endif
 }
-} // anonymous
+} // file scope
 
-
-namespace MLDB {
 
 // Creation functions exposed elsewhere
 std::shared_ptr<PluginCollection>
@@ -378,6 +379,7 @@ shutdown()
     datasets.reset();
     procedures.reset();
     functions.reset();
+    credentials.reset();
 
     // Shutdown plugins last, since they may be needed to shut down the other
     // entities.

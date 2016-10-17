@@ -22,7 +22,7 @@ namespace ML {
 
 namespace {
 
-Env_Option<bool> debug("DEBUG_CAL_INIT", false);
+EnvOption<bool> debug("DEBUG_CAL_INIT", false);
 
 } // file scope
 

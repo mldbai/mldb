@@ -1,19 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* loss_function.h                                                 -*- C++ -*-
    Jeremy Barnes, 9 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Loss functions for discriminative training.
 */
 
-#ifndef __jml__neural__loss_function_h__
-#define __jml__neural__loss_function_h__
+#pragma once
 
 #include "mldb/jml/stats/distribution.h"
 
 namespace ML {
 
+using namespace MLDB;
 
 /*****************************************************************************/
 /* LOSS_FUNCTION_TYPE                                                        */
@@ -103,5 +102,3 @@ struct MSE_Loss {
 // ...
 
 } // namespace ML
-
-#endif /* __jml__neural__loss_function_h__ */

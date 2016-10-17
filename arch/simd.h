@@ -12,7 +12,7 @@
 #include "cpuid.h"
 #include "mldb/arch/arch.h"
 
-namespace ML {
+namespace MLDB {
 
 #ifdef JML_INTEL_ISA
 # ifndef JML_USE_SSE1
@@ -55,4 +55,4 @@ JML_ALWAYS_INLINE bool has_avx2()
 
 #endif // __i686__
 
-} // namespace ML
+} // namespace MLDB

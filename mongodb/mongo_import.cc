@@ -200,7 +200,7 @@ struct MongoImportProcedure: public Procedure {
                     try {
                         processor(*output.get(), doc);
                     }
-                    catch (const ML::Exception & exc) {
+                    catch (const MLDB::Exception & exc) {
                         ++ errors;
                         if (errors <= 100) {
                             logger->error() << exc.what();

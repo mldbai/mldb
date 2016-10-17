@@ -352,7 +352,7 @@ BOOST_AUTO_TEST_CASE( test_compound_id )
 BOOST_AUTO_TEST_CASE( test_short_string )
 {
     Id id1 ("short1");
-    cerr << "id1.val1 = " << ML::format("%016llx", (long long)id1.val1) << endl;
+    cerr << "id1.val1 = " << MLDB::format("%016llx", (long long)id1.val1) << endl;
     cerr << "id1.val2 = " << id1.val2 << endl;
     BOOST_CHECK_EQUAL(id1.type, Id::SHORTSTR);
     BOOST_CHECK_EQUAL(id1, id1);

@@ -100,14 +100,16 @@ var svdConfig = {
     params: {
         trainingData: "select COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000) from reddit_dataset",
         modelFileUrl: "file://tmp/MLDB-498.svd.json.gz",
-        numSingularValues: 10
+        columnOutputDataset: "svd_output",
+        numSingularValues: 10,
+        runOnCreation : false
     }
 };
 
 createAndTrainProcedure(svdConfig, 'reddit_svd');
 
 plugin.log(mldb.get("/v1/query",
-                      { q: 'select rowName() from svd_output limit 100'
+                      { q: 'select rowName() from svd_output limit 10'
                       }));
 
 var svdFunctionConfig = {

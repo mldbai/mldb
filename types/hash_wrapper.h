@@ -56,12 +56,12 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
 
     std::string toString() const
     {
-        return ML::format("%016llx", (unsigned long long)this->index());
+        return MLDB::format("%016llx", (unsigned long long)this->index());
     }
 
     std::string toTaggedString() const
     {
-        return ML::format("%016llx:%d", (unsigned long long)this->index(), Domain);
+        return MLDB::format("%016llx:%d", (unsigned long long)this->index(), Domain);
     }
 
     static HashWrapper fromString(const std::string & str)
@@ -69,7 +69,7 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
         unsigned long long val = 0;
         int res = sscanf(str.c_str(), "%llx", &val);
         if (res != 1)
-            throw ML::Exception("didn't finish parsing hash '%s': returned %d",
+            throw MLDB::Exception("didn't finish parsing hash '%s': returned %d",
                                 str.c_str(), res);
         return HashWrapper(val);
     }
@@ -80,10 +80,10 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
         int dom = 0;
         int res = sscanf(str.c_str(), "%llx:%d", &val, &dom);
         if (res != 2)
-            throw ML::Exception("didn't finish parsing hash '%s': returned %d",
+            throw MLDB::Exception("didn't finish parsing hash '%s': returned %d",
                                 str.c_str(), res);
         if (dom != Domain)
-            throw ML::Exception("wrong domain for HashWrapper");
+            throw MLDB::Exception("wrong domain for HashWrapper");
         return HashWrapper(val);
     }
 

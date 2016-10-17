@@ -15,6 +15,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/svd_utils.h"
+#include "mldb/utils/log_fwd.h"
 #include <boost/multi_array.hpp>
 
 
@@ -86,7 +87,7 @@ struct ExtractedRow {
     {
     }
 
-    ExtractedRow(ML::distribution<float> continuous,
+    ExtractedRow(distribution<float> continuous,
                  std::vector<std::pair<ColumnHash, CellValue> > sparse)
         : continuous(std::move(continuous)),
           sparse(std::move(sparse))
@@ -94,7 +95,7 @@ struct ExtractedRow {
     }
 
     RowHash rowHash;  /// To sort on
-    ML::distribution<float> continuous;
+    distribution<float> continuous;
     std::vector<std::pair<ColumnHash, CellValue> > sparse;
 };
 
@@ -311,7 +312,7 @@ struct ColumnIndexEntry: public ColumnSpec {
             }
         };
 
-        throw ML::Exception("Unknown ColumnType");
+        throw MLDB::Exception("Unknown ColumnType");
     }
 
     double correlationContinuousContinuous(const ColumnIndexEntry & other) const
@@ -319,7 +320,7 @@ struct ColumnIndexEntry: public ColumnSpec {
         double result = continuousValues.dotprod(other.continuousValues)
             / numExamples;
         if (!std::isfinite(result))
-            throw ML::Exception("non-finite correlation");
+            throw MLDB::Exception("non-finite correlation");
         //cerr << "column " << columnName << " and " << other.columnName
         //     << " have correlation " << result << endl;
         return result;
@@ -424,7 +425,7 @@ struct ColumnIndexEntry: public ColumnSpec {
     int numExamples;
     int numExamplesWithColumn;
 
-    ML::distribution<float> continuousValues;
+    distribution<float> continuousValues;
     std::vector<std::pair<int, float> > sparseValues;
     SvdColumnEntry discreteValues;
 };
@@ -478,13 +479,20 @@ struct ColumnCorrelations {
 };
 
 
-ClassifiedColumns classifyColumns(const Dataset & dataset,
-                                  SelectExpression select);
+ClassifiedColumns classifyColumns(const SelectExpression & select,
+                                  const Dataset & from,
+                                  const WhenExpression & when,
+                                  const SqlExpression & where,
+                                  const OrderByExpression & orderBy,
+                                  ssize_t offset,
+                                  ssize_t limit,
+                                  std::shared_ptr<spdlog::logger> logger);
 
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);
 
-FeatureBuckets extractFeaturesFromRows(const Dataset & dataset,
+FeatureBuckets extractFeaturesFromRows(const SelectExpression & select,
+                                       const Dataset & dataset,
                                        const WhenExpression & whenClause,
                                        std::shared_ptr<SqlExpression> whereClause,
                                        const OrderByExpression & orderBy, 

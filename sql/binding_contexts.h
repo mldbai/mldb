@@ -251,19 +251,18 @@ struct SqlExpressionEvalScope: public ReadThroughBindingScope {
     {
     }
 
-    // This row scope initializes the inner scope with itself; it should
-    // never be used unless we are in a correlated sub-select in which
-    // case we will need to thread the outer scope through.
     struct RowScope: public ReadThroughBindingScope::RowScope {
-        RowScope(const std::vector<ExpressionValue> & args)
-            : ReadThroughBindingScope::RowScope(*this),
+        RowScope(const SqlRowScope & outer,
+                 const std::vector<ExpressionValue> & args)
+            : ReadThroughBindingScope::RowScope(outer),
               args(args.data()), numArgs(args.size())
         {
         }
 
-        RowScope(const ExpressionValue * args,
+        RowScope(const SqlRowScope & outer,
+                 const ExpressionValue * args,
                  size_t numArgs)
-            : ReadThroughBindingScope::RowScope(*this),
+            : ReadThroughBindingScope::RowScope(outer),
               args(args), numArgs(numArgs)
         {
         }
@@ -274,14 +273,16 @@ struct SqlExpressionEvalScope: public ReadThroughBindingScope {
     
     virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
-    static RowScope getRowScope(const std::vector<ExpressionValue> & args)
+    static RowScope getRowScope(const SqlRowScope & outer,
+                                const std::vector<ExpressionValue> & args)
     {
-        return RowScope(args);
+        return RowScope(outer, args);
     }
 
-    static RowScope getRowScope(const ExpressionValue * args, size_t numArgs)
+    static RowScope getRowScope(const SqlRowScope & outer,
+                                const ExpressionValue * args, size_t numArgs)
     {
-        return RowScope(args, numArgs);
+        return RowScope(outer, args, numArgs);
     }
     
     std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo;
@@ -292,7 +293,7 @@ struct SqlExpressionEvalScope: public ReadThroughBindingScope {
 /* SQL EXPRESSION CONSTANT SCOPE                                             */
 /*****************************************************************************/
 
-/** Scope that will fail to bind anything apart from built-in function.
+/** Scope that will fail to bind anything apart from built-in functions.
     This is used to bind and evaluate constant expressions.
 */
 

@@ -1,14 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* gpgpu.cc                                                         -*- C++ -*-
    Jeremy Barnes, 10 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Delayed initialization of GPGPU runtimes.
 */
-
-#ifndef __arch__gpgpu_h__
-#define __arch__gpgpu_h__
 
 #include <dlfcn.h>
 #include <iostream>
@@ -16,10 +12,10 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
-Env_Option<bool> use_cuda("USE_CUDA", false);
-Env_Option<bool> use_cal("USE_CAL", false);
+EnvOption<bool> use_cuda("USE_CUDA", false);
+EnvOption<bool> use_cal("USE_CAL", false);
 
 struct Load_CUDA {
     void * handle;
@@ -71,6 +67,4 @@ struct Load_CAL {
 
 } load_cal;
 
-} // namespace ML
-
-#endif /* __arch__cuda_h__ */
+} // namespace MLDB

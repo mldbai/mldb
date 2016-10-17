@@ -42,15 +42,15 @@ SampledDatasetConfig() :
 void validateConfig(SampledDatasetConfig * config)
 {
     if (config->rows != 0 && config->fraction != 0) {
-        throw ML::Exception(SampledDataset::getErrorMsg("The 'rows' and 'fraction' parameters "
+        throw MLDB::Exception(SampledDataset::getErrorMsg("The 'rows' and 'fraction' parameters "
                     "cannot be set at the same time."));
     }
     if (config->rows != 0 && config->fraction != 0) {
-        throw ML::Exception(SampledDataset::getErrorMsg("The 'rows' or 'fraction' parameters "
+        throw MLDB::Exception(SampledDataset::getErrorMsg("The 'rows' or 'fraction' parameters "
                     "need to be set."));
     }
     if(config->rows == 0 && (config->fraction > 1 || config->fraction <= 0)) {
-        throw ML::Exception(SampledDataset::getErrorMsg(ML::format("The 'fraction' parameter needs to "
+        throw MLDB::Exception(SampledDataset::getErrorMsg(MLDB::format("The 'fraction' parameter needs to "
                     "be between 0 and 1. Value provided is '%0.4f'", config->fraction)));
     }
 }
@@ -122,7 +122,7 @@ struct SampledDataset::Itl
                                             : rows.size() * config.fraction;
 
         if(!config.withReplacement && numRows > rows.size()) {
-            throw ML::Exception("Requested more rows without replacement than "
+            throw MLDB::Exception("Requested more rows without replacement than "
                     "available number of rows in original dataset.");
         }
         sampledRowsHash.reserve(numRows);
@@ -157,7 +157,7 @@ struct SampledDataset::Itl
     {
         auto rowName = matrix->getRowPath(row);
         if(!knownRow(rowName))
-            throw ML::Exception("Can't get name of unknown row");
+            throw MLDB::Exception("Can't get name of unknown row");
 
         return rowName;
     }
@@ -244,7 +244,7 @@ struct SampledDataset::Itl
     getTimestampRange() const
     {
         // TODO MLDB-1262
-        throw ML::Exception("not implemented");
+        throw MLDB::Exception("not implemented");
         // return dataset->getTimestampRange();
     }
 
@@ -263,7 +263,7 @@ struct SampledDataset::Itl
         for(auto rowName : sampledRows) {
             auto it = rowIndex.find(rowName);
             if(it == rowIndex.end())
-                throw ML::Exception("Unknown row in index");
+                throw MLDB::Exception("Unknown row in index");
 
             col.rows.emplace_back(allRows[it->second]);
         }
@@ -274,7 +274,7 @@ struct SampledDataset::Itl
     virtual void recordRowItl(const RowPath & rowName,
           const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
-        throw ML::Exception("'sampled' dataset type doesn't allow recording");
+        throw MLDB::Exception("'sampled' dataset type doesn't allow recording");
     }
 
 };

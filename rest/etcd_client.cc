@@ -155,7 +155,7 @@ createDir(const std::string & key,
             if (resp.code() != 201 && resp.code() != 200) {
                 cerr << "createDir returned wrong code: "
                      << resp << endl;
-                throw ML::Exception("createDir");
+                throw MLDB::Exception("createDir");
             }
 #endif
             return extractResponse(resp);
@@ -222,7 +222,7 @@ listDir(const std::string & key, bool recursive)
                 return response;
 
             if (!response.node)
-                throw ML::Exception("listDir didn't return node: %d %s",
+                throw MLDB::Exception("listDir didn't return node: %d %s",
                                     resp.code(), resp.body().c_str());
 
             return response;
@@ -311,7 +311,7 @@ watch(const std::string & key,
             return EtcdResponse();
         if (resp.errorCode()) {
             if (i == retries - 1)
-                throw ML::Exception(resp.errorMessage());
+                throw MLDB::Exception(resp.errorMessage());
             cerr << "retrying etcd operation" << endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(
                 int(retryDelay * 1000)));

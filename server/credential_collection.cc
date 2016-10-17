@@ -136,7 +136,7 @@ CredentialRuleCollection::
 getKey(CredentialRuleConfig & config)
 {
     if (config.id == "")
-        return ML::format("%016llx", (unsigned long long)Id(jsonEncodeStr(config)).hash());
+        return MLDB::format("%016llx", (unsigned long long)Id(jsonEncodeStr(config)).hash());
     return config.id;
 }
 
@@ -145,7 +145,7 @@ CredentialRuleCollection::
 setKey(CredentialRuleConfig & config, std::string key)
 {
     if (config.id != "" && config.id != key)
-        throw ML::Exception("attempt to put with a different key than created with");
+        throw MLDB::Exception("attempt to put with a different key than created with");
     config.id = key;
 }
 

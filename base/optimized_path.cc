@@ -37,7 +37,7 @@ struct OptimizedPath::Itl {
 };
 
 /// Allow the default level to be controlled by the environment
-static ML::Env_Option<std::string>
+static EnvOption<std::string>
 DEFAULT_PATH_OPTIMIZATION_LEVEL("MLDB_DEFAULT_PATH_OPTIMIZATION_LEVEL", "ALWAYS");
 
 namespace {
@@ -54,7 +54,7 @@ int getDefaultLevel()
     else if (level == "never")
         return OptimizedPath::NEVER;
     else {
-        throw ML::Exception("Couldn't parse default path optimization level '"
+        throw MLDB::Exception("Couldn't parse default path optimization level '"
                             + std::string(DEFAULT_PATH_OPTIMIZATION_LEVEL)
                             + "'.  Options "
                             "are 'always', 'sometimes', 'never'.");
@@ -108,7 +108,7 @@ setOptimization(const std::string & pathName, int frequency)
     std::unique_lock<std::mutex> guard(pathRegistryMutex);
     auto it = pathRegistry.find(pathName);
     if (it == pathRegistry.end())
-        throw ML::Exception("Couldn't find path name '"
+        throw MLDB::Exception("Couldn't find path name '"
                             + pathName + "' setting optimization level");
     setOptimization(it->second, frequency);
 }
@@ -142,7 +142,7 @@ OptimizedPath(const std::string & name)
         defaultLevel = getDefaultLevel();
     setOptimization(this, defaultLevel);
     if (!pathRegistry.insert({name, this}).second) {
-        throw ML::Exception("Optimized path '" + name + "' was registered twice");
+        throw MLDB::Exception("Optimized path '" + name + "' was registered twice");
     }
 }
 

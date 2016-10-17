@@ -18,7 +18,7 @@
 #include "cell_value.h"
 
 namespace ML {
-struct Parse_Context;
+struct ParseContext;
 }
 
 namespace MLDB {
@@ -40,18 +40,18 @@ DECLARE_STRUCTURE_DESCRIPTION(TokenizeOptions);
 
 void
 tokenize_exec(std::function<bool (Utf8String&)> exec,
-              ML::Parse_Context& context,
+              ParseContext& context,
               const Utf8String& splitchars,
               const Utf8String& quotechar,
               int minTokenLength);
 
-char32_t expectUtf8Char(ML::Parse_Context & context);
+char32_t expectUtf8Char(ParseContext & context);
 
 bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
-              ML::Parse_Context& pcontext,
+              ParseContext& pcontext,
               const TokenizeOptions & options);
 
-Utf8String token_extract(ML::Parse_Context& context,
+Utf8String token_extract(ParseContext& context,
                          int nth,
                          const TokenizeOptions & options);
 

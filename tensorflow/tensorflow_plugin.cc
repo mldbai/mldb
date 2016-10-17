@@ -1377,8 +1377,8 @@ struct TensorflowGraphBase: public Function {
         for (const auto & st: sortedStats) {
             if (i++ % 50 == 0)
                 cerr << "device    \tkernel                                            \tsched\twait\tpre\trun\tpost" << endl;
-                    cerr << ML::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
-                 << "\t" << ML::format("%-50s", st.first.second.c_str()) << "\t"
+                    cerr << MLDB::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
+                 << "\t" << MLDB::format("%-50s", st.first.second.c_str()) << "\t"
                  << st.second.sched << "\t" << st.second.wait << "\t"
                  << st.second.pre << "\t" << st.second.run << "\t"
                  << st.second.post << endl;

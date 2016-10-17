@@ -172,7 +172,7 @@ void
 Any::
 throwNoValueDescription() const
 {
-    throw ML::Exception("Any had no type attached");
+    throw MLDB::Exception("Any had no type attached");
 }
 
 bool operator==(const Any & lhs, const Any & rhs)

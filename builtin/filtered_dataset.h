@@ -32,7 +32,7 @@ struct FilteredDataset : public Dataset {
     virtual void recordRowItl(const RowPath & rowName,
           const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
-        throw ML::Exception("Dataset type doesn't allow recording");
+        throw MLDB::Exception("Dataset type doesn't allow recording");
     }
 
     // these methods are usually not overriden by the dataset specialization - don't implement

@@ -40,10 +40,10 @@ struct UnionDataset: public Dataset {
     virtual ~UnionDataset() override;
 
     virtual Any getStatus() const override;
-    virtual void recordRowItl(const RowName & rowName,
-        const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+    virtual void recordRowItl(const RowPath & rowPath,
+        const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
     {
-        throw ML::Exception("Dataset type doesn't allow recording");
+        throw MLDB::Exception("Dataset type doesn't allow recording");
     }
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const override;
@@ -51,7 +51,7 @@ struct UnionDataset: public Dataset {
     virtual std::shared_ptr<RowStream> getRowStream() const override;
 
     virtual std::pair<Date, Date> getTimestampRange() const override;
-    virtual ExpressionValue getRowExpr(const RowName & rowName) const override;
+    virtual ExpressionValue getRowExpr(const RowPath & rowPath) const override;
 
 private:
     UnionDatasetConfig datasetConfig;

@@ -36,7 +36,7 @@ int connectHostDgram(const std::string & hostname, int port)
 
     s = getaddrinfo(hostname.c_str(), std::to_string(port).c_str(), &hints, &result);
     if (s != 0) {
-        throw ML::Exception("getaddrinfo: %s\n", gai_strerror(s));
+        throw MLDB::Exception("getaddrinfo: %s\n", gai_strerror(s));
     }
 
     /* getaddrinfo() returns a list of address structures.
@@ -87,7 +87,7 @@ int connectHost(const std::string & hostname, int port)
 
     s = getaddrinfo(hostname.c_str(), std::to_string(port).c_str(), &hints, &result);
     if (s != 0) {
-        throw ML::Exception("getaddrinfo: %s\n", gai_strerror(s));
+        throw MLDB::Exception("getaddrinfo: %s\n", gai_strerror(s));
     }
 
     /* getaddrinfo() returns a list of address structures.

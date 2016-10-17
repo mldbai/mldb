@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_row )
 
     auto dist = val2.getEmbedding(cols, 2);
 
-    ML::distribution<double> expected{1, 2};
+    distribution<double> expected{1, 2};
 
     BOOST_CHECK_EQUAL(dist, expected);
 
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_row )
 
     dist = val2.getEmbedding(cols2, 2);
 
-    ML::distribution<double> expected2{2, 1};
+    distribution<double> expected2{2, 1};
 
     BOOST_CHECK_EQUAL(dist, expected2);
 }

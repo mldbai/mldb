@@ -235,7 +235,7 @@ struct JSONImporter: public Procedure {
                                       onProgress, true);
 
         if(!outputDataset) {
-            throw ML::Exception("Unable to obtain output dataset");
+            throw MLDB::Exception("Unable to obtain output dataset");
         }
 
         Date zeroTs;
@@ -250,7 +250,7 @@ struct JSONImporter: public Procedure {
 
         Date timestamp = stream.info().lastModified;
 
-        ML::Timer timer;
+        Timer timer;
 
         // Skip those up to the offset
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {

@@ -9,7 +9,7 @@
 
 #include <cstddef>
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 namespace Avx {
 
@@ -31,4 +31,4 @@ double vec_euclid(const float * x, const float * y, size_t n);
 
 } // namespace Avx
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

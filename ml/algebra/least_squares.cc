@@ -276,7 +276,7 @@ struct RidgeRegressionIteration {
 
     void run(const distribution<Float> & singular_values,
              const boost::multi_array<Float, 2> & A,
-             const ML::distribution<Float> & b,
+             const distribution<Float> & b,
              const boost::multi_array<Float, 2> & VT,
              const boost::multi_array<Float, 2> & U,
              const boost::multi_array<Float, 2> & GK,
@@ -412,7 +412,7 @@ template<typename Float>
 struct RidgeRegressionIterations: public std::vector<RidgeRegressionIteration<Float> > {
     void run(const distribution<Float> & singular_values,
              const boost::multi_array<Float, 2> & A,
-             const ML::distribution<Float> & b,
+             const distribution<Float> & b,
              const boost::multi_array<Float, 2> & VT,
              const boost::multi_array<Float, 2> & U,
              const boost::multi_array<Float, 2> & GK,
@@ -690,7 +690,7 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
         if (iter >= maxIter) {
             // if we stopped after max iteration and not because we have
             // converge, let's issue a warning
-            cerr << ML::format("LASSO did not converge in %i iterations, last "
+            cerr << MLDB::format("LASSO did not converge in %i iterations, last "
                                " max_step > eps (%f > %f)",
                                iter, max_step, epsilon);
             break;

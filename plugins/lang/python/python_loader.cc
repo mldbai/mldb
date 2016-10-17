@@ -261,7 +261,7 @@ PythonPlugin(MldbServer * server,
                                        config.id, res), routeHandlingMutex));
     }
     catch(const std::exception & exc) {
-        throw HttpReturnException(400, ML::format("Exception opening plugin: %s", exc.what()));
+        throw HttpReturnException(400, MLDB::format("Exception opening plugin: %s", exc.what()));
     }
 
     addRouteSyncJsonReturn(itl->router, "/lastoutput", {"GET"},
@@ -353,7 +353,7 @@ addPluginPathToEnv(PythonSubinterpreter & pyControl) const
     PyList_Insert( sysPath, 0, pluginDirPy );
 
     // change working dir to script dir
-//     PyRun_SimpleString(ML::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
+//     PyRun_SimpleString(MLDB::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
 }
 
 ScriptOutput PythonPlugin::
@@ -506,7 +506,7 @@ handleTypeRoute(RestDirectory * server,
         }
         catch(const std::exception & exc) {
             conn.sendResponse(400,
-                          jsonEncodeStr(ML::format("Exception opening script: %s", exc.what())),
+                          jsonEncodeStr(MLDB::format("Exception opening script: %s", exc.what())),
                           "application/json");
         }
 
@@ -622,7 +622,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             return result;
         }
         else {
-            throw ML::Exception("Unknown element to run!!");
+            throw MLDB::Exception("Unknown element to run!!");
         }
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "Running PyRunner script");

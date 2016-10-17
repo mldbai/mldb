@@ -98,7 +98,7 @@ struct JoinedDataset::Itl
     std::vector<RowEntry> rows;
 
     /// Map from row hash to the row
-    ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
+    Lightweight_Hash<RowHash, int64_t> rowIndex;
 
     /// Index of a row hash for a left or right dataset to a list of
     /// rows it's part of in the output.

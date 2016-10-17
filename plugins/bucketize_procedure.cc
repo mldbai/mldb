@@ -21,6 +21,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/utils/log.h"
+#include "mldb/rest/cancellation_exception.h"
 #include "progress.h"
 #include <memory>
 
@@ -74,22 +75,22 @@ BucketizeProcedureConfigDescription()
         auto last = make_pair(-1.0, -1.0);
         for (const auto & range: ranges) {
             if (range.first < 0) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: lower bound must be "
                     "greater or equal to 0", range.first, range.second);
             }
             if (range.second > 100) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must be "
                     "lower or equal to 1", range.first, range.second);
             }
             if (range.first >= range.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must  "
                     "be greater than lower bound", range.first, range.second);
             }
             if (range.first < last.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket: [%f, %f] is overlapping with "
                     "[%f, %f]", last.first, last.second, range.first,
                     range.second);
@@ -163,18 +164,20 @@ run(const ProcedureRunConfig & run,
         return onProgress(jsonEncode(bucketizeProgress));
     };
 
-    BoundSelectQuery(select,
+    if (!BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
                      runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-
         .execute({getSize, false/*processInParallel*/},
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
-                 onProgress2);
+                 onProgress2)) {
+        throw CancellationException(std::string(BucketizeProcedureConfig::name) +
+                                    " procedure was cancelled");
+    }
 
     int64_t rowCount = orderedRowNames.size();
     DEBUG_MSG(logger) << "Row count: " << rowCount;
@@ -210,8 +213,10 @@ run(const ProcedureRunConfig & run,
                 if (newVal > bucketizeStep->value) {
                     bucketizeStep->value = newVal;
                 }
-                onProgress(jsonEncode(bucketizeProgress));
+                if (!onProgress(jsonEncode(bucketizeProgress)))
+                    return false;
             }
+            return true;
         };
         auto range = mappedRange.second;
 
@@ -224,7 +229,10 @@ run(const ProcedureRunConfig & run,
         DEBUG_MSG(logger) << "Bucket " << mappedRange.first << " from "
                           << lowerBound << " to " << higherBound;
 
-        parallelMap(lowerBound, higherBound, applyFct);
+        if (!parallelMapHaltable(lowerBound, higherBound, applyFct)) {
+            throw CancellationException(std::string(BucketizeProcedureConfig::name) +
+                                        " procedure was cancelled");
+        }
     }
 
     // record remainder

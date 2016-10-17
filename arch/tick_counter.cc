@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 /** The average number of ticks of overhead for the tick counter. */
 double ticks_overhead = -1.0;
@@ -59,7 +59,7 @@ double calc_ticks_overhead()
 
     uint64_t overhead = nt1 - nt2;
 
-    double result = xdiv<double>(overhead, ITERATIONS);
+    double result = (double)overhead / (double)ITERATIONS;
 
     //cerr << "nt1 = " << nt1 << " nt2 = " << nt2 << " overhead = "
     //     << overhead << " result = " << result << endl;
@@ -115,5 +115,5 @@ struct Init {
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB
 

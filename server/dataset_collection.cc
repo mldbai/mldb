@@ -165,7 +165,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 
         // First, find all columns
         std::vector<ColumnPath> columns;
-        ML::Lightweight_Hash<ColumnHash, int> columnIndex;
+        Lightweight_Hash<ColumnHash, int> columnIndex;
         for (auto & o: sparseOutput) {
             for (auto & c: o.columns) {
                 auto & columnName = std::get<0>(c);

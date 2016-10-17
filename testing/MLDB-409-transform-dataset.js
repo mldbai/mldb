@@ -64,7 +64,8 @@ var transform_config = {
             named: "rowName() + '_transformed'",
             limit: 3
         },
-        outputDataset: { id: 'transformed', type: 'sparse.mutable' }
+        outputDataset: { id: 'transformed', type: 'sparse.mutable' },
+        runOnCreation : false
     }
 };
 
@@ -94,8 +95,10 @@ var transform_config2 = {
             orderBy: "rowName()",
             named: "rowName() + '_transformed'"
         },
-        outputDataset: { id: 'transformed2', type: 'sparse.mutable' }
+        outputDataset: { id: 'transformed2', type: 'sparse.mutable' },
+        runOnCreation : false        
     }
+
 };
 
 createAndRunProcedure(transform_config2, "transform2");
@@ -140,7 +143,8 @@ var transform_config3 = {
             named: "rowName() + '_transformed'"
         },
         outputDataset: { id: 'transformed3', type: 'sparse.mutable' },
-        skipEmptyRows: true
+        skipEmptyRows: true,
+        runOnCreation : false
     }
 };
 
@@ -171,8 +175,10 @@ var transform_config4 = {
             groupBy: "y"
         },
         outputDataset: { id: 'transformed4', type: 'sparse.mutable' },
-        skipEmptyRows: true
+        skipEmptyRows: true,
+        runOnCreation : false        
     }
+
 };
 
 createAndRunProcedure(transform_config4, "transform4");
@@ -196,7 +202,8 @@ function runTransformWithNoFrom(query, expected) {
         params: {
             inputData: query,
             outputDataset: { id: 'transformed_no_from', type: 'sparse.mutable' },
-            skipEmptyRows: true
+            skipEmptyRows: true,
+            runOnCreation : false
         }
     };
 

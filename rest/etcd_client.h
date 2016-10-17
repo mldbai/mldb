@@ -83,7 +83,7 @@ struct EtcdClient {
                  std::string basePath = "")
     {
         if (uri.empty())
-            throw ML::Exception("URI is empty");
+            throw MLDB::Exception("URI is empty");
         if (uri[uri.size() - 1] == '/')
             uri = std::string(uri, 0, uri.size() - 1);
         proxy.init(uri);

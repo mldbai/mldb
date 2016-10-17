@@ -50,24 +50,24 @@ std::shared_ptr<Dataset> createUnionDataset(
 struct UnionDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    ML::Lightweight_Hash<RowHash, pair<int, RowHash> > rowIndex;
+    Lightweight_Hash<RowHash, pair<int, RowHash> > rowIndex;
 
     // Datasets that it was constructed with
     vector<std::shared_ptr<Dataset> > datasets;
 
     Itl(MldbServer * server, vector<std::shared_ptr<Dataset> > datasets) {
         if (datasets.empty()) {
-            throw ML::Exception("Attempt to unify no datasets together");
+            throw MLDB::Exception("Attempt to unify no datasets together");
         }
         this->datasets = datasets;
         int indexWidth = getIndexBinaryWidth();
         if (indexWidth > 31) {
-            throw ML::Exception("Too many datasets in the union");
+            throw MLDB::Exception("Too many datasets in the union");
         }
         for (int i = 0; i < datasets.size(); ++i) {
-            for (const auto & rowName: datasets[i]->getMatrixView()->getRowNames()) {
-                rowIndex[RowHash(PathElement(i) + rowName)] =
-                    make_pair(i, RowHash(rowName));
+            for (const auto & rowPath: datasets[i]->getMatrixView()->getRowPaths()) {
+                rowIndex[RowHash(PathElement(i) + rowPath)] =
+                    make_pair(i, RowHash(rowPath));
             }
         }
     }
@@ -76,12 +76,12 @@ struct UnionDataset::Itl
         return ceil(log(datasets.size()) / log(2));
     }
 
-    int getIdxFromRowName(const RowName & rowName) const {
+    int getIdxFromRowPath(const RowPath & rowPath) const {
         // Returns idx > -1 if the index is valid, -1 otherwise
-        if (rowName.size() < 2) {
-            return false;
+        if (rowPath.size() < 2) {
+            return -1;
         }
-        int idx = static_cast<int>(rowName.at(0).toIndex());
+        int idx = static_cast<int>(rowPath.at(0).toIndex());
         if (idx > datasets.size()) {
             return -1;
         }
@@ -94,7 +94,7 @@ struct UnionDataset::Itl
         UnionRowStream(const UnionDataset::Itl* source) : source(source)
         {
             cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            //throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+            //throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
         virtual std::shared_ptr<RowStream> clone() const
@@ -106,25 +106,25 @@ struct UnionDataset::Itl
         virtual void initAt(size_t start)
         {
             cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            //throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+            //throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
-        virtual RowName next()
+        virtual RowPath next()
         {
             cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+            throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
             uint64_t hash = (*it).first;
             ++it;
 
-            return source->getRowName(RowHash(hash));
+            return source->getRowPath(RowHash(hash));
         }
 
-        virtual const RowName & rowName(RowName & storage) const
+        virtual const RowPath & rowName(RowPath & storage) const override
         {
             cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+            throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
             uint64_t hash = (*it).first;
-            return storage = source->getRowName(RowHash(hash));
+            return storage = source->getRowPath(RowHash(hash));
         }
 
         const UnionDataset::Itl* source;
@@ -133,14 +133,14 @@ struct UnionDataset::Itl
     };
 
     virtual vector<Path>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
-        // Row names are idx.rowName where idx is the index of the dataset
-        // in the union and rowName is the original rowName.
-        vector<RowName> result;
+        // Row names are idx.rowPath where idx is the index of the dataset
+        // in the union and rowPath is the original rowPath.
+        vector<RowPath> result;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            for (const auto & name: d->getMatrixView()->getRowNames()) {
+            for (const auto & name: d->getMatrixView()->getRowPaths()) {
                 result.emplace_back(PathElement(i) + name);
             }
 
@@ -158,13 +158,13 @@ struct UnionDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const Path & rowName) const
+    virtual bool knownRow(const Path & rowPath) const
     {
-        int idx = getIdxFromRowName(rowName);
+        int idx = getIdxFromRowPath(rowPath);
         if (idx == -1) {
             return false;
         }
-        return datasets[idx]->getMatrixView()->knownRow(rowName.tail());
+        return datasets[idx]->getMatrixView()->knownRow(rowPath.tail());
     }
 
     virtual bool knownRowHash(const RowHash & rowHash) const
@@ -174,20 +174,20 @@ struct UnionDataset::Itl
         //return rowIndex.getDefault(rowHash, 0) != 0;
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
         const auto & it = rowIndex.find(rowHash);
         if (it == rowIndex.end()) {
-            throw ML::Exception("Row not known");
+            throw MLDB::Exception("Row not known");
         }
         const auto & idxAndHash = it->second;
-        return datasets[idxAndHash.first]->getMatrixView()->getRowName(idxAndHash.second);
+        return datasets[idxAndHash.first]->getMatrixView()->getRowPath(idxAndHash.second);
     }
 
     // DEPRECATED
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowPath) const
     {
-        throw ML::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+        throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
     }
 
     virtual bool knownColumn(const Path & column) const
@@ -200,38 +200,38 @@ struct UnionDataset::Itl
         return false;
     }
 
-    virtual ColumnName getColumnName(ColumnHash columnHash) const
+    virtual ColumnPath getColumnPath(ColumnHash columnHash) const
     {
         for (const auto & d: datasets) {
             try {
-                return d->getMatrixView()->getColumnName(columnHash);
+                return d->getMatrixView()->getColumnPath(columnHash);
             }
-            catch (const ML::Exception & exc) {
+            catch (const MLDB::Exception & exc) {
             }
         }
-        throw ML::Exception("Column not known");
+        throw MLDB::Exception("Column not known");
     }
 
     /** Return a list of all columns. */
-    virtual vector<ColumnName> getColumnNames() const
+    virtual vector<ColumnPath> getColumnPaths() const
     {
-        std::set<ColumnName> preResult;
+        std::set<ColumnPath> preResult;
         for (const auto & d: datasets) {
-            auto columnNames = d->getColumnNames();
-            preResult.insert(columnNames.begin(), columnNames.end());
+            auto columnPaths = d->getColumnPaths();
+            preResult.insert(columnPaths.begin(), columnPaths.end());
         }
-        return vector<ColumnName>(preResult.begin(), preResult.end());
+        return vector<ColumnPath>(preResult.begin(), preResult.end());
     }
 
-    virtual MatrixColumn getColumn(const ColumnName & columnName) const
+    virtual MatrixColumn getColumn(const ColumnPath & columnPath) const
     {
         MatrixColumn result;
-        result.columnName = columnName;
-        result.columnHash = columnName;
-        vector<std::tuple<RowName, CellValue> > res;
+        result.columnName = columnPath;
+        result.columnHash = columnPath;
+        vector<std::tuple<RowPath, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            const auto & subCol = d->getColumnIndex()->getColumn(columnName);
+            const auto & subCol = d->getColumnIndex()->getColumn(columnPath);
             for (const auto & curr: subCol.rows) {
                 result.rows.emplace_back(PathElement(i) + std::get<0>(curr),
                                          std::get<1>(curr),
@@ -242,14 +242,14 @@ struct UnionDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual vector<std::tuple<RowName, CellValue> >
-    getColumnValues(const ColumnName & columnName,
+    virtual vector<std::tuple<RowPath, CellValue> >
+    getColumnValues(const ColumnPath & columnPath,
                     const std::function<bool (const CellValue &)> & filter) const
     {
-        vector<std::tuple<RowName, CellValue> > res;
+        vector<std::tuple<RowPath, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            for (const auto curr: d->getColumnIndex()->getColumnValues(columnName)) {
+            for (const auto curr: d->getColumnIndex()->getColumnValues(columnPath)) {
                 res.emplace_back(
                     PathElement(i) + std::get<0>(curr).toUtf8String().rawString(),
                     std::get<1>(curr));
@@ -269,7 +269,7 @@ struct UnionDataset::Itl
 
     virtual size_t getColumnCount() const
     {
-        return getColumnNames().size();
+        return getColumnPaths().size();
     }
 
     std::pair<Date, Date> getTimestampRange() const
@@ -368,14 +368,14 @@ getRowStream() const
 
 ExpressionValue
 UnionDataset::
-getRowExpr(const RowName & rowName) const
+getRowExpr(const RowPath & rowPath) const
 {
-    int idx = itl->getIdxFromRowName(rowName);
+    int idx = itl->getIdxFromRowPath(rowPath);
     if (idx == -1) {
         return ExpressionValue{};
     }
     return itl->datasets[idx]->getRowExpr(
-        Path(rowName.begin() + 1, rowName.end()));
+        Path(rowPath.begin() + 1, rowPath.end()));
 }
 
 } // namespace MLDB

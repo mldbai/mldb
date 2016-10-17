@@ -27,8 +27,9 @@
 #include "mldb/jml/utils/floating_point.h"
 
 using namespace ML;
+using namespace MLDB;
 using namespace std;
-using namespace ML::SIMD;
+using namespace MLDB::SIMD;
 
 using boost::unit_test::test_suite;
 

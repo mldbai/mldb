@@ -321,7 +321,7 @@ parse_weight_spec(const Feature_Space & fs,
     vector<Weight_Spec> result;
 
     if (weight_spec != "") {
-        Parse_Context context("weight-spec option",
+        ParseContext context("weight-spec option",
                               &*weight_spec.begin(), &*weight_spec.end());
 
         while (context) {

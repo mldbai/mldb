@@ -937,7 +937,7 @@ BOOST_AUTO_TEST_CASE(test_result_variable_expressions)
     {
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(SqlRowExpression::parse("* EXCLUDING bonus AS myvar*"),
-                          ML::Exception);
+                          MLDB::Exception);
     }
 
     {
@@ -977,7 +977,7 @@ BOOST_AUTO_TEST_CASE(test_result_variable_expressions)
         // MLDB-200
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(SqlRowExpression::parse("2.2*"),
-                          ML::Exception);
+                          MLDB::Exception);
     }
 
     {
@@ -1125,25 +1125,25 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
     }
 
     {
-        ML::Set_Trace_Exceptions trace(false);
+        Set_Trace_Exceptions trace(false);
 
-        BOOST_CHECK_THROW(SelectStatement::parse("select * SELECT *"), ML::Exception);
+        BOOST_CHECK_THROW(SelectStatement::parse("select * SELECT *"), MLDB::Exception);
 
-        BOOST_CHECK_THROW(SelectStatement::parse("where a = 0 where b = 0"), ML::Exception);
-        BOOST_CHECK_THROW(SelectStatement::parse("having a = 0 having b = 0"), ML::Exception);
+        BOOST_CHECK_THROW(SelectStatement::parse("where a = 0 where b = 0"), MLDB::Exception);
+        BOOST_CHECK_THROW(SelectStatement::parse("having a = 0 having b = 0"), MLDB::Exception);
 
-        BOOST_CHECK_THROW(SelectStatement::parse("group by a group by b"), ML::Exception);
-        BOOST_CHECK_THROW(SelectStatement::parse("order by a order by b"), ML::Exception);
+        BOOST_CHECK_THROW(SelectStatement::parse("group by a group by b"), MLDB::Exception);
+        BOOST_CHECK_THROW(SelectStatement::parse("order by a order by b"), MLDB::Exception);
 
-        BOOST_CHECK_THROW(SelectStatement::parse("limit 10 limit 20"), ML::Exception);
-        BOOST_CHECK_THROW(SelectStatement::parse("offset 10 offset 20"), ML::Exception);
+        BOOST_CHECK_THROW(SelectStatement::parse("limit 10 limit 20"), MLDB::Exception);
+        BOOST_CHECK_THROW(SelectStatement::parse("offset 10 offset 20"), MLDB::Exception);
     }
 
     {
         // MLDB-637
         auto statement = SelectStatement::parse("select 1 from table");
         BOOST_CHECK_EQUAL(statement.select.clauses.size(), 1);
-        BOOST_CHECK_EQUAL(ML::type_name(*statement.select.clauses[0].get()),
+        BOOST_CHECK_EQUAL(MLDB::type_name(*statement.select.clauses[0].get()),
                           "MLDB::NamedColumnExpression");
         auto cast = dynamic_cast<NamedColumnExpression *>(statement.select.clauses[0].get());
         BOOST_CHECK_EQUAL(cast->alias, ColumnPath("1"));

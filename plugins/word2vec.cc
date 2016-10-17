@@ -99,7 +99,7 @@ struct Word2VecImporter: public Procedure {
 
         vector<ColumnPath> columnNames;
         for (unsigned i = 0;  i < numDims;  ++i) {
-            columnNames.emplace_back(ML::format("%06d", i));
+            columnNames.emplace_back(MLDB::format("%06d", i));
         }
 
         vector<tuple<RowPath, vector<float>, Date> > rows;

@@ -172,8 +172,8 @@ public:
     virtual std::string print(const Feature & feature) const;
     virtual std::string print(const Feature & feature, float value) const;
     virtual void parse(const std::string & name, Feature & feature) const;
-    virtual bool parse(Parse_Context & context, Feature & feature) const;
-    virtual void expect(Parse_Context & context, Feature & feature) const;
+    virtual bool parse(ParseContext & context, Feature & feature) const;
+    virtual void expect(ParseContext & context, Feature & feature) const;
     virtual void serialize(DB::Store_Writer & store,
                            const Feature & feature) const;
     virtual void reconstitute(DB::Store_Reader & store,

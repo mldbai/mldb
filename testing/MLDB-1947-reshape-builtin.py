@@ -42,12 +42,12 @@ class MLDB1947reshapebuiltin(MldbUnitTest):  # noqa
 
     def test_reshape_enlarge(self):
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                                     'Attempt to enlarge embedding by resizing'):
+                                     'Attempt to change embedding size by reshaping'):
             mldb.query("SELECT shape(reshape([1,2,3,4,5], [2,2])) as dim")
 
     def test_reshape_not_embedding(self):
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
-                                     'requires an embedding'):
+                                     'Null embedding'):
             mldb.query("SELECT shape(reshape('not an embedding', [1])) as dim")
 
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,

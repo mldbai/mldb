@@ -205,10 +205,10 @@ parse(const char * value, size_t len, Type type)
     auto finish = [&] ()
         {
             //if (r.toString() != value)
-            //    throw ML::Exception("Id::parse() modified an Id: input " + value
+            //    throw MLDB::Exception("Id::parse() modified an Id: input " + value
             //                        + " output " + r.toString());
             if (r.type != type && type != UNKNOWN)
-                throw ML::Exception("Id::parse() changed type from %d to %d parsing %s",
+                throw MLDB::Exception("Id::parse() changed type from %d to %d parsing %s",
                                     r.type, type, value);
 
             *this = std::move(r);
@@ -223,7 +223,7 @@ parse(const char * value, size_t len, Type type)
 
     if ((type == UNKNOWN || type == NULLID) && len == 4
         && strcmp(value, "null") == 0) {
-        //throw ML::Exception("null id");
+        //throw MLDB::Exception("null id");
         r.type = NULLID;
         r.val1 = r.val2 = 0;
         finish();
@@ -532,7 +532,7 @@ toStringLength() const
     case SHORTSTR:
         return strnlen(shortStr, 16);
     default:
-        throw ML::Exception("unknown ID type");
+        throw MLDB::Exception("unknown ID type");
     }
 }
 
@@ -546,12 +546,12 @@ toString() const
     case NULLID:
         return "null";
     case UUID:
-        return ML::format(
+        return MLDB::format(
             "%08x-%04x-%04x-%04x-%012llx",
             (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
             (unsigned long long)f5);
     case UUID_CAPS:
-        return ML::format(
+        return MLDB::format(
             "%08X-%04X-%04X-%04X-%012llX",
             (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
             (unsigned long long)f5);
@@ -566,7 +566,7 @@ toString() const
                 if (i < 62) return i - 36 + 'a';
                 if (i == 62) return '-';
                 if (i == 63) return '_';
-                throw ML::Exception("bad goog base64 char");
+                throw MLDB::Exception("bad goog base64 char");
             };
 
         auto v = make128(valLow, valHigh);
@@ -610,7 +610,7 @@ toString() const
                 if (i < 12) return '0' + i - 2;
                 if (i < 38) return 'A' + i - 12;
                 if (i < 64) return 'a' + i - 38;
-                throw ML::Exception("bad base64 char");
+                throw MLDB::Exception("bad base64 char");
             };
         
         auto v = make128(val1, val2);
@@ -620,7 +620,7 @@ toString() const
         return result;
     }
     case HEX128LC: {
-        return ML::format("%016llx%016llx",
+        return MLDB::format("%016llx%016llx",
                           (unsigned long long)val1,
                           (unsigned long long)val2);
     }
@@ -631,7 +631,7 @@ toString() const
     case SHORTSTR:
         return std::string(shortStr, shortStr + strnlen(shortStr, 16));
     default:
-        throw ML::Exception("unknown ID type");
+        throw MLDB::Exception("unknown ID type");
     }
 }
 
@@ -671,7 +671,7 @@ complexEqual(const Id & other) const
         return compoundId1() == other.compoundId1()
             && compoundId2() == other.compoundId2();
     }
-    else throw ML::Exception("unknown Id type");
+    else throw MLDB::Exception("unknown Id type");
 }
 
 bool
@@ -688,10 +688,10 @@ complexLess(const Id & other) const
         //cerr << "complex less for string" << endl;
         //cerr << "type = " << (int)type << " other.type = " << (int)other.type << endl;
 
-        //cerr << "a.val1 = " << ML::format("%016llx", (long long)val1) << endl;
-        //cerr << "a.val2 = " << ML::format("%016llx", (long long)val2) << endl;
-        //cerr << "b.val1 = " << ML::format("%016llx", (long long)other.val1) << endl;
-        //cerr << "b.val2 = " << ML::format("%016llx", (long long)other.val2) << endl;
+        //cerr << "a.val1 = " << MLDB::format("%016llx", (long long)val1) << endl;
+        //cerr << "a.val2 = " << MLDB::format("%016llx", (long long)val2) << endl;
+        //cerr << "b.val1 = " << MLDB::format("%016llx", (long long)other.val1) << endl;
+        //cerr << "b.val2 = " << MLDB::format("%016llx", (long long)other.val2) << endl;
 
         // If the other isn't a string, we don't continue
         if (other.type != STR && other.type != SHORTSTR) {
@@ -709,7 +709,7 @@ complexLess(const Id & other) const
         return ML::less_all(compoundId1(), other.compoundId1(),
                             compoundId2(), other.compoundId2());
     }
-    else throw ML::Exception("unknown Id type");
+    else throw MLDB::Exception("unknown Id type");
 }
 
 uint64_t
@@ -724,7 +724,7 @@ complexHash() const
     }
     //else if (type == CUSTOM)
     //    return controlFn(CF_HASH, data);
-    else throw ML::Exception("unknown Id type");
+    else throw MLDB::Exception("unknown Id type");
 }
 
 void
@@ -750,7 +750,7 @@ complexDestroy()
     }
     //else if (type == CUSTOM)
     //    controlFn(CF_DESTROY, data);
-    else throw ML::Exception("unknown Id type");
+    else throw MLDB::Exception("unknown Id type");
 }
 
 void
@@ -769,7 +769,7 @@ complexFinishCopy()
     }
     //else if (type == CUSTOM)
     //    data = (void *)controlFn(CF_COPY, data);
-    else throw ML::Exception("unknown Id type");
+    else throw MLDB::Exception("unknown Id type");
 }
 
 Json::Value
@@ -861,7 +861,7 @@ stringData() const
         return str->data;
     else if (type == SHORTSTR)
         return shortStr;
-    else throw ML::Exception("stringData() on non-string Id");
+    else throw MLDB::Exception("stringData() on non-string Id");
 }
 
 std::ostream & operator << (std::ostream & stream, const Id & id)
@@ -955,7 +955,7 @@ void parseJson(Id * output, Context & context)
 
     std::cerr << context.expectJson() << endl;
 
-    throw ML::Exception("unhandled id conversion type");
+    throw MLDB::Exception("unhandled id conversion type");
 }
 
 void

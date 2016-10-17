@@ -214,11 +214,11 @@ struct RestRequestParsingContext {
         if (index == -1)
             index = objects.size() + index;
         if (index < 0 || index >= objects.size())
-            throw ML::Exception("Attempt to extract invalid object number");
+            throw MLDB::Exception("Attempt to extract invalid object number");
 
         auto & res = objects[index];
         if (!res.obj || !res.type)
-            throw ML::Exception("invalid object");
+            throw MLDB::Exception("invalid object");
 
         return std::make_pair(res.obj, res.type);
     }
@@ -245,10 +245,10 @@ struct RestRequestParsingContext {
                                     //          *tp,
                                     //          obj.first);
         if (!converted)
-            throw ML::Exception("wanted to get object of type "
-                                + ML::type_name<As>()
+            throw MLDB::Exception("wanted to get object of type "
+                                + MLDB::type_name<As>()
                                 + " from incompatible object of type "
-                                + ML::demangle(obj.second->name()));
+                                + demangle(obj.second->name()));
 
         return *reinterpret_cast<As *>(converted);
     }

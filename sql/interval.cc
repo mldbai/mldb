@@ -15,7 +15,7 @@ using namespace std;
 namespace MLDB {
 
 
-void expect_interval(ML::Parse_Context & context, uint32_t& months, uint32_t& days, double& seconds)
+void expect_interval(ParseContext & context, uint32_t& months, uint32_t& days, double& seconds)
 { 
     months = 0;
     days = 0;
@@ -39,7 +39,7 @@ void expect_interval(ML::Parse_Context & context, uint32_t& months, uint32_t& da
         unsigned value = 0;
         // Parse an unsigned value
         {
-            ML::Parse_Context::Revert_Token token(context);
+            ParseContext::Revert_Token token(context);
             if (!context.match_unsigned(value))
         	break;
         }
