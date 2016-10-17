@@ -51,6 +51,7 @@ struct UnionDataset::Itl
     : public MatrixView, public ColumnIndex {
 
     Lightweight_Hash<RowHash, pair<int, RowHash> > rowIndex;
+    IdHashes columnIndex;
 
     // Datasets that it was constructed with
     vector<std::shared_ptr<Dataset> > datasets;
@@ -70,6 +71,37 @@ struct UnionDataset::Itl
                     make_pair(i, RowHash(rowPath));
             }
         }
+
+        auto getColumnHashes = [&] (int datasetIndex)
+            {
+                auto dataset = datasets[datasetIndex];
+                MergeHashEntries result;
+                vector<ColumnPath> cols = dataset->getMatrixView()->getColumnPaths();
+                std::sort(cols.begin(), cols.end());
+                ExcAssert(std::unique(cols.begin(), cols.end()) == cols.end());
+                result.reserve(cols.size());
+                for (auto c: cols)
+                    result.add(c.hash(), 1ULL << datasetIndex);
+                return result;
+            };
+
+        auto initColumnBucket = [&] (int i, MergeHashEntryBucket & b)
+            {
+                auto & b2 = columnIndex.buckets[i];
+
+                b2.reserve(b.size());
+
+                for (auto & e: b) {
+                    uint64_t h = e.hash;
+                    uint32_t bm = e.bitmap;
+                    b2.insert(make_pair(h, bm));
+                }
+            };
+
+        std::thread mergeColumns([&] () {
+            extractAndMerge(datasets.size(), getColumnHashes, initColumnBucket);
+        });
+        mergeColumns.join();
     }
 
     int getIndexBinaryWidth() const {
@@ -201,16 +233,21 @@ struct UnionDataset::Itl
         return false;
     }
 
+    uint32_t getColumnBitmap(ColumnHash columnHash) const
+    {
+        return columnIndex.getDefault(columnHash, 0);
+    }
+
     virtual ColumnPath getColumnPath(ColumnHash columnHash) const
     {
-        for (const auto & d: datasets) {
-            try {
-                return d->getMatrixView()->getColumnPath(columnHash);
-            }
-            catch (const MLDB::Exception & exc) {
-            }
-        }
-        throw MLDB::Exception("Column not known");
+        uint32_t bitmap = getColumnBitmap(columnHash);
+
+        if (bitmap == 0)
+            throw MLDB::Exception("Column not found in union dataset");
+
+        int bit = ML::lowest_bit(bitmap, -1);
+
+        return datasets[bit]->getMatrixView()->getColumnPath(columnHash);
     }
 
     /** Return a list of all columns. */
@@ -270,7 +307,7 @@ struct UnionDataset::Itl
 
     virtual size_t getColumnCount() const
     {
-        return getColumnPaths().size();
+        return columnIndex.size();
     }
 
     std::pair<Date, Date> getTimestampRange() const
