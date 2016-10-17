@@ -209,7 +209,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     if (onProgress) {
                         Json::Value progress;
                         progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
-                        onProgress(progress);
+                        if (!onProgress(progress))
+                            return false;
                     }
                     return true;
                 };
@@ -316,7 +317,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 if (onProgress) {
                     Json::Value progress;
                     progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
-                    onProgress(progress);
+                    if (!onProgress(progress))
+                        return false;
                 }
                 return true;
             };
@@ -444,7 +446,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 if (onProgress && rowsAdded % 1000 == 0) {
                     Json::Value progress;
                     progress["percent"] = (float) rowsAdded / rows.size();
-                    onProgress(progress);
+                    if (!onProgress(progress))
+                        return false;
                 }
 
                 // Check it matches the where expression.  If not, we don't process
@@ -492,7 +495,9 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         Timer timer;
 
-        parallelMap(0, rows.size(), doWhere);
+        if (!parallelMapHaltable(0, rows.size(), doWhere)) {
+            return false;  // the processing has been cancelled
+        }
 
         //cerr << "map took " << timer.elapsed() << endl;
         timer.restart();

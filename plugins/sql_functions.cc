@@ -22,6 +22,8 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/server/analytics.h"
+#include "mldb/utils/log.h"
+#include "mldb/rest/cancellation_exception.h"
 #include <memory>
 
 using namespace std;
@@ -617,8 +619,7 @@ run(const ProcedureRunConfig & run,
                 return true;
             };
 
-
-        BoundSelectQuery(runProcConf.inputData.stm->select,
+        if (!BoundSelectQuery(runProcConf.inputData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
                          runProcConf.inputData.stm->when,
@@ -628,7 +629,13 @@ run(const ProcedureRunConfig & run,
             .execute({recordRowInOutputDataset, true /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
-                     onProgress);
+                     onProgress) )
+            {
+                DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
+                throw CancellationException(std::string(TransformDatasetConfig::name) +
+                                                " procedure was cancelled");
+                
+            }
 
         // Finish off the last bits of each thread
         accum.forEach([&] (std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > * rows)
@@ -653,7 +660,7 @@ run(const ProcedureRunConfig & run,
         aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
         aggregators.insert(aggregators.end(), namedaggregators.begin(), namedaggregators.end());
 
-        BoundGroupByQuery(runProcConf.inputData.stm->select,
+        if(!BoundGroupByQuery(runProcConf.inputData.stm->select,
                           *boundDataset.dataset,
                           boundDataset.asName,
                           runProcConf.inputData.stm->when,
@@ -666,7 +673,11 @@ run(const ProcedureRunConfig & run,
             .execute({recordRowInOutputDataset, false /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
-                     onProgress);
+                     onProgress).first ) {
+            DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
+            throw CancellationException(std::string(TransformDatasetConfig::name) +
+                                            " procedure was cancelled");
+            }
     }
 
     // Save the dataset we created

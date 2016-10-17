@@ -379,6 +379,7 @@ shutdown()
     datasets.reset();
     procedures.reset();
     functions.reset();
+    credentials.reset();
 
     // Shutdown plugins last, since they may be needed to shut down the other
     // entities.
