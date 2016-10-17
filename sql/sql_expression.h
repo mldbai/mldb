@@ -1738,9 +1738,11 @@ struct SelectStatement
     TupleExpression groupBy;
     std::shared_ptr<SqlExpression> having;
     std::shared_ptr<SqlExpression> rowName;
+    std::shared_ptr<SelectStatement> unionStm;
 
     ssize_t offset;
     ssize_t limit;
+    int unionIndex;
 
     // Surface form of select statement (original string that was parsed)
     Utf8String surface;
@@ -1749,7 +1751,7 @@ struct SelectStatement
     static SelectStatement parse(const char * body);
     static SelectStatement parse(const Utf8String& body);
     static SelectStatement parse(ParseContext& context, bool allowUtf8);
-
+    static SelectStatement parseImpl(ParseContext& context, bool allowUtf8);
     UnboundEntities getUnbound() const;
 
     Utf8String print() const;

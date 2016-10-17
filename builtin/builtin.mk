@@ -7,6 +7,7 @@ LIBMLDB_BUILTIN_SOURCES:= \
 	sub_dataset.cc \
 	filtered_dataset.cc \
 	sampled_dataset.cc \
+	union_dataset.cc \
 
 LIBMLDB_BUILTIN_LINK:= mldb_core runner
 

@@ -122,8 +122,6 @@ BoundTableExpression merge(const SqlBindingScope & context,
 
 static RegisterBuiltin registerMerge(merge, "merge");
 
-
-
 /*****************************************************************************/
 /* SAMPLED DATASET                                                           */
 /*****************************************************************************/
