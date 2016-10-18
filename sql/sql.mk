@@ -6,6 +6,8 @@ SQL_TYPES_SOURCES := \
 	dataset_types.cc \
 	interval.cc \
 
+# make sure well optimized even for architectures with -Os normally
+$(eval $(call set_compile_option,path.cc cell_value.cc,-O3))
 $(eval $(call library,sql_types,$(SQL_TYPES_SOURCES),types utils value_description any json_diff highwayhash hash))
 
 

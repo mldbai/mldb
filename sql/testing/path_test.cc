@@ -27,11 +27,11 @@ using namespace std;
 
 using namespace MLDB;
 
+
 BOOST_AUTO_TEST_CASE( test_size )
 {
     BOOST_CHECK_EQUAL(sizeof(Path), 64);
 }
-
 
 BOOST_AUTO_TEST_CASE(test_element_compare)
 {
