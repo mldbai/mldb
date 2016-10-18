@@ -229,10 +229,7 @@ struct PathElement {
     int compareString(const char * str, size_t len) const;
     int compareStringNullTerminated(const char * str) const;
 
-    int compare(const PathElement & other) const
-    {
-        return compareString(other.data(), other.dataLength());
-    }
+    int compare(const PathElement & other) const;
     
     const Utf8String & getComplex() const;
     Utf8String & getComplex();
@@ -881,6 +878,9 @@ private:
     bool equalElement(size_t el, const Path & other, size_t otherEl) const;
     bool lessElement(size_t el, const Path & other, size_t otherEl) const;
     int compareElement(size_t el, const Path & other, size_t otherEl) const;
+
+    uint64_t oldHashElement(size_t el) const;
+    uint64_t newHashElement(size_t el) const;
 
     bool externalOfs() const
     {
