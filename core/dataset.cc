@@ -393,18 +393,25 @@ getColumnDense(const ColumnPath & column) const
     }
 
     for (auto& name : rowNames) {
-
-        auto iter = values.find(name);
-        if (iter == values.end())
-            throw MLDB::Exception(("Row " + name.toUtf8String() +
-                                   " does not have column " +
-                                     column.toUtf8String()).rawString() +
-                                   " in dense data index.");
-
-        result.push_back(iter->second.first);
+        auto it = values.find(name);
+        if (it == values.end())
+            result.emplace_back();  // add a null value
+        else
+            result.push_back(it->second.first);
     } 
 
     return result;
+}
+
+std::vector<CellValue>
+ColumnIndex::
+getColumnDistinctValues(const ColumnPath & column) const
+{
+    auto vals = getColumnDense(column);
+    std::sort(vals.begin(), vals.end());
+    vals.erase(std::unique(vals.begin(), vals.end()),
+               vals.end());
+    return vals;
 }
 
 std::tuple<BucketList, BucketDescriptions>
@@ -413,30 +420,49 @@ getColumnBuckets(const ColumnPath & column,
                  int maxNumBuckets) const
 {
     auto vals = getColumnDense(column);
-
-    std::unordered_map<CellValue, size_t> values;
-    std::vector<CellValue> valueList;
-
-    size_t totalRows = vals.size();
-
-    for (auto& v : vals) {
-        if (values.insert({v,0}).second)
-            valueList.push_back(v);
+    std::vector<std::pair<CellValue, uint32_t> > vals2;
+    vals2.reserve(vals.size());
+    for (size_t i = 0;  i < vals.size();  ++i) {
+        vals2.emplace_back(std::move(vals[i]), i);
     }
+    vals.clear();  vals.shrink_to_fit();
 
+    std::sort(vals2.begin(), vals2.end());
+
+    size_t totalRows = vals2.size();
+
+    std::vector<CellValue> distinctValues;
+    std::vector<uint32_t> startsAt;
+    for (size_t i = 0;  i < vals2.size();  ++i) {
+        auto & v = vals2[i];
+        if (distinctValues.empty()
+            || v.first != distinctValues.back()) {
+            distinctValues.emplace_back(std::move(v.first));
+            startsAt.push_back(i);
+        }
+    }
+    startsAt.push_back(vals2.size());
+    
     BucketDescriptions descriptions;
-    descriptions.initialize(valueList, maxNumBuckets);
+    descriptions.initialize(distinctValues, maxNumBuckets);
 
-    for (auto & v: values) {
-        v.second = descriptions.getBucket(v.first);            
+    std::vector<int32_t> bucketNumbers(vals2.size(), -1);
+    for (size_t i = 0;  i < distinctValues.size();  ++i) {
+        uint32_t bucket = descriptions.getBucket(distinctValues[i]);
+        size_t startAt = startsAt[i];
+        size_t endAt = startsAt[i + 1];
+        for (size_t j = startAt;  j < endAt;  ++j) {
+            bucketNumbers[vals2[j].second] = bucket;
+        }
     }
-        
-    // Finally, perform the bucketed lookup
-    WritableBucketList buckets(totalRows, descriptions.numBuckets());
 
-    for (auto& v : vals) {
-        uint32_t bucket = values[v];
-        buckets.write(bucket);
+    distinctValues.clear();  distinctValues.shrink_to_fit();
+    vals2.clear();  vals2.shrink_to_fit();
+
+    WritableBucketList buckets(totalRows, descriptions.numBuckets());
+    for (auto & b: bucketNumbers) {
+        ExcAssert(b != -1);
+        buckets.write(b);
     }
 
     return std::make_tuple(std::move(buckets), std::move(descriptions));
