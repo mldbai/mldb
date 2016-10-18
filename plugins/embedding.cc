@@ -25,6 +25,8 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/server/bucket.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 #include <boost/algorithm/clamp.hpp>
 
 using namespace std;
@@ -525,6 +527,58 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnPath & column) const override
+    {
+        auto repr = committed();
+        if (!repr->initialized())
+            throw HttpReturnException(400, "Can't get unknown column");
+
+        auto it = repr->columnIndex.find(column);
+        if (it == repr->columnIndex.end())
+            throw HttpReturnException(400, "Can't get name of unknown column");
+
+        const vector<float> & columnVals = repr->columns.at(it->second);
+
+        std::vector<CellValue> result(columnVals.begin(), columnVals.end());
+
+        return result;
+    }
+
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnPath & column,
+                     int maxNumBuckets) const override
+    {
+        auto repr = committed();
+        if (!repr->initialized())
+            throw HttpReturnException(400, "Can't get unknown column");
+
+        auto it = repr->columnIndex.find(column);
+        if (it == repr->columnIndex.end())
+            throw HttpReturnException(400, "Can't get name of unknown column");
+
+        const vector<float> & columnVals = repr->columns.at(it->second);
+        auto sortedVals = columnVals;
+        std::sort(sortedVals.begin(), sortedVals.end());
+        sortedVals.erase(std::unique(sortedVals.begin(), sortedVals.end()),
+                         sortedVals.end());
+        
+        std::vector<CellValue> valueList(sortedVals.begin(), sortedVals.end());
+
+        BucketDescriptions descriptions;
+        descriptions.initialize(valueList, maxNumBuckets);
+
+        // Finally, perform the bucketed lookup
+        WritableBucketList buckets(columnVals.size(), descriptions.numBuckets());
+
+        for (auto& v : columnVals) {
+            uint32_t bucket = descriptions.getBucket(v);
+            buckets.write(bucket);
+        }
+
+        return std::make_tuple(std::move(buckets), std::move(descriptions));
+    }
+
     /** Return a RowValueInfo that describes all rows that could be returned
         from the dataset.
     */
@@ -681,16 +735,27 @@ struct EmbeddingDataset::Itl
         auto repr = committed();
 
         uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
-        distribution<float> embedding;
+
+        // Hash the columns before the lock is taken
+        PossiblyDynamicBuffer<ColumnHash> columnHashesBuf(vals.size());
+        ColumnHash * columnHashes = columnHashesBuf.data();
+
+        for (size_t i = 0;  i < vals.size();  ++i) {
+            columnHashes[i] = ColumnHash(std::get<0>(vals[i]));
+        }
+
         Date latestDate = Date::negativeInfinity();
+
+        distribution<float> embedding;
 
         // Do it here before we acquire the lock in the case that it's initalized
         if (uncommitted) {
             embedding.resize((*uncommitted).columns.size(),
                              std::numeric_limits<float>::quiet_NaN());
 
-            for (auto & v: vals) {
-                auto it = (*uncommitted).columnIndex.find(std::get<0>(v));
+            for (size_t i = 0;  i < vals.size();  ++i) {
+                auto & v = vals[i];
+                auto it = (*uncommitted).columnIndex.find(columnHashes[i]);
                 if (it == (*uncommitted).columnIndex.end())
                     throw HttpReturnException(400, "Couldn't extract column with name");
                 
@@ -730,8 +795,10 @@ struct EmbeddingDataset::Itl
             //cerr << "repr->initialized = " << repr->initialized() << endl;
             embedding.resize((*uncommitted).columns.size(),
                              std::numeric_limits<float>::quiet_NaN());
-            for (auto & v: vals) {
-                auto it = (*uncommitted).columnIndex.find(std::get<0>(v));
+
+            for (size_t i = 0;  i < vals.size();  ++i) {
+                auto & v = vals[i];
+                auto it = (*uncommitted).columnIndex.find(columnHashes[i]);
                 if (it == (*uncommitted).columnIndex.end())
                     throw HttpReturnException(400, "Couldn't extract column with name 2 "
                                         + std::get<0>(v).toUtf8String());
@@ -753,7 +820,7 @@ struct EmbeddingDataset::Itl
                 //cerr << "rowName = " << rowName << endl;
                 //cerr << "rowHash = " << RowHash(rowName) << endl;
                 // Check if it's a double record or a hash collision
-                RowPath oldName
+                const RowPath & oldName
                     = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
                     .rowName;
                 if (oldName == rowName)
@@ -1079,6 +1146,12 @@ getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const
     return itl->getKnownColumnInfos(columnNames);
 }
 
+std::shared_ptr<RowValueInfo>
+EmbeddingDataset::
+getRowInfo() const
+{
+    return itl->getRowInfo();
+}
 
 static RegisterDatasetType<EmbeddingDataset, EmbeddingDatasetConfig>
 regEmbedding(builtinPackage(),

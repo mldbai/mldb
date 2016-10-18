@@ -74,6 +74,8 @@ struct EmbeddingDataset: public Dataset {
     virtual std::vector<KnownColumn>
     getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const;
     
+    virtual std::shared_ptr<RowValueInfo> getRowInfo() const;
+
     std::vector<std::tuple<RowPath, RowHash, float> >
     getNeighbors(const distribution<float> & coord, int numNeighbors,
                  double maxDistance) const;
