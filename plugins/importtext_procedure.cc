@@ -10,6 +10,7 @@
 #include "mldb/jml/utils/csv.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/per_thread_accumulator.h"
@@ -382,6 +383,12 @@ const char * findInvalidAscii(const char * start, size_t length, char*buf, char 
 namespace {
     const string unclosedQuoteError = "Unclosed quoted CSV value";
     const string notEnoughColsError = "not enough columns in row";
+}
+
+// Inline version of isascii
+JML_ALWAYS_INLINE bool isascii(int c)
+{
+    return (c & (~127)) == 0;
 }
 
 /** Parse a single row of CSV into an array of CellValues.
@@ -992,20 +999,22 @@ struct ImportTextProcedureWorkInstance
             };
 
         atomic<ssize_t> lineCount(0);
+        atomic<ssize_t> byteCount(0);
         auto onLine = [&] (const char * line,
                            size_t length,
                            int chunkNum,
                            int64_t lineNum)
         {
+            byteCount += length + 1;
             if (++lineCount % 1000 == 0) {
                 iterationStep->value = lineCount;
                 onProgress(jsonEncode(iterationStep));
             }
             int64_t actualLineNum = lineNum + lineOffset;
-#if 0
+#if 1
             uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
-            if (linesDone && linesDone % 1000000 == 0) {
+            if (linesDone && linesDone % 100000 == 0) {
                 double wall = timer.elapsed_wall();
                 cerr << "done " << linesDone << " in " << wall
                      << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
@@ -1112,7 +1121,7 @@ struct ImportTextProcedureWorkInstance
 
         if(!config.allowMultiLines) {
             forEachLineBlock(stream, onLine, config.limit,
-                             32 /* parallelism */,
+                             numCpus() /* parallelism */,
                              startChunk, doneChunk);
         }
         else {
@@ -1150,6 +1159,14 @@ struct ImportTextProcedureWorkInstance
             doneChunk(0, lineNum);
         }
 
+        double wall = timer.elapsed_wall();
+        cerr << "imported " << totalLinesProcessed << " in " << wall
+             << "s at " << totalLinesProcessed / wall * 0.000001
+             << "M lines/second on "
+             << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+        cerr << "done " << byteCount * 0.000001 << " megabytes at "
+             << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec"
+             << endl;
         //cerr << "processed " << totalLinesProcessed << " lines" << endl;
 
         recorder.commit();
