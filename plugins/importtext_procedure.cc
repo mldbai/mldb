@@ -432,6 +432,11 @@ parseFixedWidthCsvRow(const char * & line,
 {
     ExcAssert(!(hasQuoteChar && isTextLine));
 
+    // Skip trailing whitespace in the row.  If we want spaces, we should use
+    // quotes.
+    while (length > 0 && isspace(line[length - 1]))
+        --length;
+    
     const char * lineEnd = line + length;
 
     const char * errorMsg = nullptr;
