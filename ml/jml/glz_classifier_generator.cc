@@ -20,6 +20,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/string_functions.h"
+#include <cassert>
 
 using namespace std;
 

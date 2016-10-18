@@ -25,7 +25,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
 
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/uniform_01.hpp>
 
@@ -108,7 +108,7 @@ struct RandomForestRNG {
     {
     }
 
-    boost::mt19937 rng;
+    mt19937 rng;
 
     template<class T>
     T operator () (T val)
@@ -243,7 +243,7 @@ run(const ProcedureRunConfig & run,
         {
             Timer bagTimer;
 
-            boost::mt19937 rng(bag + 245);
+            mt19937 rng(bag + 245);
             distribution<float> in_training(numRows);
             vector<int> tr_ex_nums(numRows);
             std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
@@ -271,7 +271,7 @@ run(const ProcedureRunConfig & run,
 
             auto trainFeaturePartition = [&] (int partitionNum)
             {
-                boost::mt19937 rng(bag + 245 + partitionNum);
+                mt19937 rng(bag + 245 + partitionNum);
 
                 PartitionData mydata(data);
                 for (unsigned i = 0;  i < data.features.size();  ++i) {

@@ -21,7 +21,7 @@
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
 #include <boost/random/normal_distribution.hpp>
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include <boost/random/variate_generator.hpp>
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
@@ -955,12 +955,12 @@ void recenter_about_origin(boost::multi_array<Float, 2> & Y)
 boost::multi_array<float, 2>
 tsne_init(int nx, int nd, int randomSeed)
 {
-    boost::mt19937 rng;
+    mt19937 rng;
     if (randomSeed)
         rng.seed(randomSeed);
     boost::normal_distribution<float> norm;
 
-    boost::variate_generator<boost::mt19937,
+    boost::variate_generator<mt19937,
                              boost::normal_distribution<float> >
         randn(rng, norm);
 

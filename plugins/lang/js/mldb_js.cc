@@ -21,7 +21,7 @@
 #include "mldb/sql/sql_utils.h"
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/uniform_01.hpp>
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include <boost/random/variate_generator.hpp>
 
 #include "mldb/vfs/fs_utils.h"
@@ -478,12 +478,12 @@ struct RandomNumberGenerator {
     }
 
     // Random number support
-    boost::mt19937 rng;
+    mt19937 rng;
     boost::normal_distribution<double> norm;
 
-    boost::variate_generator<boost::mt19937,
+    boost::variate_generator<mt19937,
                              boost::normal_distribution<double> > normal_gen;
-    boost::uniform_01<boost::mt19937> uniform01;
+    boost::uniform_01<mt19937> uniform01;
 
     void seed(int randomSeed)
     {

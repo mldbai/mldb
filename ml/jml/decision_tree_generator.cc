@@ -22,7 +22,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
 
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/variate_generator.hpp>
 #include <mutex>
@@ -256,7 +256,7 @@ train_weighted(Thread_Context & context,
 
         int iter = 0;
         while (filtered_features.empty() && iter < 50) {
-            typedef boost::mt19937 engine_type;
+            typedef mt19937 engine_type;
             engine_type engine(context.random());
             boost::uniform_01<engine_type> rng(engine);
             

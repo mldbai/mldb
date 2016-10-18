@@ -11,7 +11,7 @@
 #pragma once
 
 //#include "mldb/jml/utils/worker_task.h"
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/uniform_01.hpp>
@@ -65,7 +65,7 @@ public:
         return uniform01_();
     }
 
-    typedef RNG_Adaptor<boost::mt19937> RNG_Type;
+    typedef RNG_Adaptor<std::mt19937> RNG_Type;
     RNG_Type rng() { return RNG_Type(rng_); }
 
     /** What level are we recursed to? */
@@ -79,8 +79,8 @@ public:
     }
 
 private:
-    boost::mt19937 rng_;
-    boost::uniform_01<boost::mt19937> uniform01_;
+    std::mt19937 rng_;
+    boost::uniform_01<std::mt19937> uniform01_;
     int recursion_;
 };
 

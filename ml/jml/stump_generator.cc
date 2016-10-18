@@ -26,6 +26,7 @@
 #include "mldb/jml/utils/info.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include <cassert>
 
 using namespace std;
 

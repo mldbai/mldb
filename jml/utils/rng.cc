@@ -8,7 +8,7 @@
 
 #include "rng.h"
 
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/uniform_01.hpp>
 
@@ -24,8 +24,8 @@ struct RNG::Itl {
     {
     }
         
-    boost::mt19937 rng_;
-    boost::uniform_01<boost::mt19937> uniform01_;
+    std::mt19937 rng_;
+    boost::uniform_01<std::mt19937> uniform01_;
 };
 
 RNG::
