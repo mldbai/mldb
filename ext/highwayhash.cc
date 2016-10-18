@@ -6,6 +6,10 @@
 
 #include "highwayhash.h"
 #include "mldb/compiler/compiler.h"
+#include "mldb/arch/arch.h"
+#include <iostream>
+
+using namespace std;
 
 // Ugly; these are needed before the c files are included because they
 // put them in the wrong namespace
@@ -36,11 +40,13 @@ Hasher highwayHashImpl = &ScalarHighwayTreeHashC;
 struct AtInit {
     AtInit()
     {
-#if JML_INTEL_ARCH
-        if (ML::has_avx2()) {
+        if (false)
+            ;
+#if JML_INTEL_ISA
+        else if (has_avx2()) {
             highwayHashImpl = &HighwayTreeHashC;
         }
-        else if (ML::has_sse41()) {
+        else if (has_sse41()) {
             highwayHashImpl = &SSE41HighwayTreeHashC;
         }
 #endif
