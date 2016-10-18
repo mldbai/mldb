@@ -214,7 +214,16 @@ _sys.stderr = catctOutErr
 
 )foo"; //this is python code to redirect stdouts/stderr
 
-    PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
+    int res = PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
+    if (res) {
+        cerr << "error injecting logging code: " << endl;
+        PyErr_Print(); //make python print any errors, unfortunately to console
+        cerr << "MLDB will now raise an exception" << endl;
+        throw HttpReturnException
+            (500, "Couldn't inject Python code (see error message on console). "
+             "Have you installed python_dependenies (json and datetime) and "
+             "properly set up your virtual environment?");
+    }
 }
 
 void getOutputFromPy(PythonSubinterpreter & pyControl,
@@ -225,8 +234,17 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
     PyObject *outCatcher = PyObject_GetAttrString(pyControl.main_module.ptr(),"catchOut"); //get our catchOutErr created above
 
+    // Until we figure out WTF is going on here...
+    if (!outCatcher) {
+        throw HttpReturnException
+            (500, "Couldn't extract output from injected Python code.  Look for "
+             "an earlier error message on the console.");
+        return;
+    }
+    
     PyErr_Print(); //make python print any errors
     PyObject *outOutput = PyObject_GetAttrString(outCatcher,"value"); //get the stdout and stderr from our catchOutErr object
+    
     if(outOutput) {
         boost::python::list lst = boost::python::extract<boost::python::list>(outOutput);
         for(int i = 0; i < len(lst); i++) {
