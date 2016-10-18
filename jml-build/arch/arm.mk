@@ -11,7 +11,7 @@ PORT_LIBRARY_DIRS := \
 	$(BUILD)/$(ARCH)/osdeps/usr/lib/lapack \
 	$(BUILD)/$(ARCH)/osdeps/usr/lib/libblas
 
-PORT_LINK_FLAGS:=$(foreach dir,$(PORT_LIBRARY_DIRS), -L$(dir) -Wl,--rpath,$(dir))
+PORT_LINK_FLAGS:=$(foreach dir,$(PORT_LIBRARY_DIRS), -L$(dir) -Wl,--rpath-link,$(dir))
 
 TCMALLOC_ENABLED:=0
 port:=ubuntu1404
