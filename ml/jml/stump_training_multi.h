@@ -12,7 +12,7 @@
 #include "stump_training.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/arch.h"
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 #include "mldb/arch/sse.h"
 #include "mldb/arch/sse2.h"
 #endif
@@ -154,7 +154,7 @@ transfer_core(float * from, float * to, const float * weights, float k,
     }
 }
 
-JML_ALWAYS_INLINE void
+MLDB_ALWAYS_INLINE void
 transfer_core(double * from, double * to, const float * weights, float k,
               int label, int nl)
 {
@@ -387,7 +387,7 @@ struct W_multi {
                             sample weights.
     */
     template<class Iterator>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void transfer(int correct_label, int from, int to, float weight,
                   Iterator it, int advance)
     {

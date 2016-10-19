@@ -28,7 +28,7 @@ struct IntWrapper {
     Int i;
 
     operator Int () const { return i; }
-} JML_PACKED;
+} MLDB_PACKED;
 
 template<typename Int, int D>
 std::ostream & operator << (std::ostream & stream, const IntWrapper<Int, D> & h)
@@ -97,7 +97,7 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
         return HashWrapper(val);
     }
 
-} JML_PACKED;
+} MLDB_PACKED;
 
 template<int Domain>
 inline

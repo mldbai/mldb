@@ -316,11 +316,11 @@ void callMacro(MacroContext & context,
     }
     
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         it->second.macro(context, macroName, args);
     } catch (const std::exception & exc) {
         context.writeText("Error executing macro %%" + macroName + " with arguments " + args + ": " + exc.what());
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         context.writeText("Error executing macro %%" + macroName + " with arguments " + args + ": unknown exception");
     }
 }

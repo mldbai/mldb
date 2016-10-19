@@ -130,7 +130,7 @@ struct Results_Single {
     Results_Single(float & result, int label)
         : result(result), label(label) {}
     
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void operator () (const distribution<float> & dist, float weight,
                       const Feature & feature) const
     {
@@ -758,7 +758,7 @@ struct Results_Explain {
     {
     }
     
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void operator () (const distribution<float> & dist, float weight,
                       const Feature & feature) const
     {

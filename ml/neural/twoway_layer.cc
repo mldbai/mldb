@@ -738,8 +738,8 @@ rbprop(const F * inputs,
 
     typedef Twoway_Layer::Float LFloat;
 
-    int ni JML_UNUSED = this->inputs();
-    int no JML_UNUSED = this->outputs();
+    int ni MLDB_UNUSED = this->inputs();
+    int no MLDB_UNUSED = this->outputs();
 
     distribution<F> noisy_input(inputs, inputs + ni);
 
@@ -758,10 +758,10 @@ rbprop(const F * inputs,
     
     const boost::multi_array<LFloat, 2> & W = forward.weights;
 
-    const distribution<LFloat> & b JML_UNUSED = forward.bias;
-    const distribution<LFloat> & c JML_UNUSED = ibias;
-    const distribution<LFloat> & d JML_UNUSED = iscales;
-    const distribution<LFloat> & e JML_UNUSED = oscales;
+    const distribution<LFloat> & b MLDB_UNUSED = forward.bias;
+    const distribution<LFloat> & c MLDB_UNUSED = ibias;
+    const distribution<LFloat> & d MLDB_UNUSED = iscales;
+    const distribution<LFloat> & e MLDB_UNUSED = oscales;
 
     distribution<F> c_updates
         = diff * forward.transfer_function->derivative(denoised_input);

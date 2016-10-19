@@ -78,7 +78,7 @@ initRoutes(RouteManager & manager)
             auto collection = manager.getCollection(cxt);
             Utf8String key = manager.getKey(cxt);
             
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             auto config = jsonDecodeStr<ProcedureRunState>(req.payload);
             
             if (config.state == "cancelled") {
@@ -164,7 +164,7 @@ initRoutes(RouteManager & manager)
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 connection.sendErrorResponse(400, "Unknown exception was thrown");
                 return RestRequestRouter::MR_ERROR;
             }

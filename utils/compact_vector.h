@@ -199,7 +199,7 @@ public:
             p[i].~Data();
 
         if (!is_internal()) {
-            bool debug JML_UNUSED = false;
+            bool debug MLDB_UNUSED = false;
             using namespace std;
 
 #if COMPACT_VECTOR_DEBUG
@@ -381,13 +381,13 @@ public:
         return begin() + firstindex;
     }
 
-    JML_ALWAYS_INLINE Data & operator [] (Size index)
+    MLDB_ALWAYS_INLINE Data & operator [] (Size index)
     {
         if (Safe) check_index(index);
         return data()[index];
     }
 
-    JML_ALWAYS_INLINE const Data & operator [] (Size index) const
+    MLDB_ALWAYS_INLINE const Data & operator [] (Size index) const
     {
         if (Safe) check_index(index);
         return data()[index];
@@ -448,17 +448,17 @@ private:
     union {
         struct {
             char internal_[sizeof(Data) * Internal];
-        } JML_PACKED itl;
+        } MLDB_PACKED itl;
         struct {
             Pointer pointer_;
             Size capacity_;
-        } JML_PACKED ext;
+        } MLDB_PACKED ext;
     };
     
     struct {
         Size size_: 8 * sizeof(Size) - 1;
         Size is_internal_ : 1;
-    } JML_PACKED;
+    } MLDB_PACKED;
 
     bool is_internal() const { return is_internal_; }
     Data * internal() { return (Data *)(itl.internal_); }
@@ -538,7 +538,7 @@ private:
             throw MLDB::Exception("compact_vector insert: invalid index");
 
         using namespace std;
-        bool debug JML_UNUSED = false;
+        bool debug MLDB_UNUSED = false;
 #if COMPACT_VECTOR_DEBUG
         if (debug)
             cerr << "start_insert: index = " << index << " n = " << n

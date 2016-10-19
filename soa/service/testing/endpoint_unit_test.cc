@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE( test_passive_endpoint_create_no_fds )
     PassiveEndpointT<SocketTransport> endpoint;
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(endpoint.init(), MLDB::Exception);
     }
 

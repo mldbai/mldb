@@ -85,7 +85,7 @@ bool matchJsonNumber(ParseContext & context, JsonNumber & num);
 void skipJsonWhitespace(ParseContext & context)
 {
     // Fast-path for the usual case for not EOF and no whitespace
-    if (JML_LIKELY(!context.eof())) {
+    if (MLDB_LIKELY(!context.eof())) {
         char c = *context;
         if (c > ' ') {
             return;
@@ -602,7 +602,7 @@ JsonNumber expectJsonNumber(ParseContext & context)
     }
 
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         if (number.empty())
             context.exception("expected number");
 

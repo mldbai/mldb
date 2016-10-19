@@ -137,14 +137,14 @@ struct Obj {
 BOOST_AUTO_TEST_CASE( check_sizes )
 {
     compact_vector<int, 1, uint16_t> vec1;
-#if (JML_BITS == 32)
+#if (MLDB_BITS == 32)
     BOOST_CHECK_EQUAL(sizeof(vec1), 8);
 #else
     BOOST_CHECK_EQUAL(sizeof(vec1), 12);
 #endif
 
     compact_vector<uint16_t, 3, uint16_t> vec2;
-#if (JML_BITS == 32)
+#if (MLDB_BITS == 32)
     BOOST_CHECK_EQUAL(sizeof(vec2), 8);
 #else
     BOOST_CHECK_EQUAL(sizeof(vec2), 12);

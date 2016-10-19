@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE( test_pagemap_reader )
         BOOST_CHECK_EQUAL(reader[9].present, false);
         
         {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             BOOST_CHECK_THROW(reader[10], MLDB::Exception);
             BOOST_CHECK_THROW(reader[memory - 1], MLDB::Exception);
             BOOST_CHECK_THROW(reader[memory + npages * page_size], MLDB::Exception);

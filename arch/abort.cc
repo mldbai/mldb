@@ -25,14 +25,14 @@ namespace {
 /* COMPILE SETTING                                                            */
 /******************************************************************************/
 
-#ifndef JML_ABORT
-#   define JML_ABORT 0
+#ifndef MLDB_ABORT
+#   define MLDB_ABORT 0
 #else
-#   undef JML_ABORT
-#   define JML_ABORT 1
+#   undef MLDB_ABORT
+#   define MLDB_ABORT 1
 #endif
 
-enum { COMPILE_STATE = JML_ABORT };
+enum { COMPILE_STATE = MLDB_ABORT };
 
 
 /******************************************************************************/
@@ -44,7 +44,7 @@ struct AbortState {
     AbortState() :
         state(COMPILE_STATE)
     {
-        state = state || getenv("JML_ABORT") != NULL;
+        state = state || getenv("MLDB_ABORT") != NULL;
     }
 
     bool state;

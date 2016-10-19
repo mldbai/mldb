@@ -27,7 +27,7 @@ struct Call_Guard {
     {
     }
     
-#if JML_HAS_RVALUE_REFERENCES
+#if MLDB_HAS_RVALUE_REFERENCES
     Call_Guard(Call_Guard && other)
         : fn(other.fn)
     {
@@ -59,7 +59,7 @@ private:
     void operator = (const Call_Guard & other);
 };
 
-#if JML_HAS_RVALUE_REFERENCES
+#if MLDB_HAS_RVALUE_REFERENCES
 template<typename Fn>
 Call_Guard call_guard(Fn fn, bool condition = true)
 {

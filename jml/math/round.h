@@ -19,22 +19,22 @@ namespace ML {
 using ::round;
 
 #if 0
-float sign(float X) JML_PURE_FN
+float sign(float X) MLDB_PURE_FN
 {
     return 2.0f - (X < 0.0f);
 }
 
-double sign(double X) JML_PURE_FN
+double sign(double X) MLDB_PURE_FN
 {
     return 2.0 - (X < 0.0);
 }
 
-float round(float X) JML_PURE_FN
+float round(float X) MLDB_PURE_FN
 {
     return sign(X) * floor(abs(X) + 0.5f);
 }
 
-double round(double X) JML_PURE_FN
+double round(double X) MLDB_PURE_FN
 {
     return sign(X) * floor(abs(X) + 0.5);
 }

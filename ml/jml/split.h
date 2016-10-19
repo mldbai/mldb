@@ -63,7 +63,7 @@ public:
     }
 
     // Will return true, false or MISSING
-    JML_ALWAYS_INLINE int apply(float feature_val) const
+    MLDB_ALWAYS_INLINE int apply(float feature_val) const
     {
         // TODO: optimize to avoid conditionals
         if (isnanf(feature_val)) return MISSING;
@@ -71,7 +71,7 @@ public:
         bool equal = feature_val == split_val_;
         bool less = feature_val < split_val_;
 
-        if (JML_UNLIKELY(op_ > NOT_MISSING))
+        if (MLDB_UNLIKELY(op_ > NOT_MISSING))
             throw_invalid_op_exception(op());
 
         int all = (less | (equal << 1) | 4); 
@@ -85,8 +85,8 @@ public:
             val_[0] = val_[1] = val_[2] = 0.0f;
         }
 
-        JML_ALWAYS_INLINE float & operator [] (int index) { return val_[index]; }
-        JML_ALWAYS_INLINE const float & operator [] (int index) const { return val_[index]; }
+        MLDB_ALWAYS_INLINE float & operator [] (int index) { return val_[index]; }
+        MLDB_ALWAYS_INLINE const float & operator [] (int index) const { return val_[index]; }
         
     private:
         float val_[3];
@@ -94,7 +94,7 @@ public:
 
     // Apply to a feature set, returning the amount of weight on true, false
     // and missing
-    JML_ALWAYS_INLINE Weights
+    MLDB_ALWAYS_INLINE Weights
     apply(const Feature_Set & fset, float weight = 1.0f) const
     {
         Weights result;
@@ -103,7 +103,7 @@ public:
     }
 
     // Same interface, but optimized
-    JML_ALWAYS_INLINE Weights
+    MLDB_ALWAYS_INLINE Weights
     apply(const float * fset, float weight = 1.0f) const
     {
         if (!opt_)
@@ -120,7 +120,7 @@ public:
     // PRECONDITION: all iterator vales from first to last (except for last
     // itself) should point to our feature.
     template<class FeatureExPtrIter>
-    JML_ALWAYS_INLINE void
+    MLDB_ALWAYS_INLINE void
     apply(FeatureExPtrIter first,
           const FeatureExPtrIter & last,
           Weights & weights,
@@ -128,11 +128,11 @@ public:
     {
 
         // Feature missing
-        if (JML_UNLIKELY(first == last))
+        if (MLDB_UNLIKELY(first == last))
             weights[MISSING] += weight;
 
         // Feature occurs only once
-        else if (JML_LIKELY(first + 1 == last))
+        else if (MLDB_LIKELY(first + 1 == last))
             weights[apply(first.value())] += weight;
 
         // Feature occurs more than once

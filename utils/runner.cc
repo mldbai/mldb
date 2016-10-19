@@ -398,7 +398,7 @@ run(const vector<string> & command,
        the subprocess to exit to due to PR_SET_DEATHSIG being set .*/
     auto toRun = [=] () {
         try {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
         }
         catch (const std::exception & exc) {
@@ -787,7 +787,7 @@ postTerminate(Runner & runner)
 
     auto unregisterFd = [&] (int & fd) {
         if (fd > -1) {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             try {
                 runner.removeFd(fd, true);
             }

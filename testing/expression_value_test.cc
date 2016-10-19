@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_atom )
 
     {
         /// Test that extracting from an atom throws as it's not an embedding
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(val.getEmbedding(nullptr, 0), HttpReturnException);
     }
 }

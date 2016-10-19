@@ -44,7 +44,7 @@ struct PerThreadAccumulator {
         bool hadInfo = false;
         std::shared_ptr<Payload> * payload = payloadPerThread.get(&hadInfo);
 
-        if (JML_UNLIKELY(!hadInfo)) {
+        if (MLDB_UNLIKELY(!hadInfo)) {
             ExcAssert(!payload->get());
             payload->reset(createPayload(), destroyPayload);
 

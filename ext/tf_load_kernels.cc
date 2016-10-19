@@ -10,7 +10,7 @@
 #include <dlfcn.h>
 #include <mutex>
 #include <iostream>
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 #  include "mldb/arch/simd.h"
 #endif
 #include <cassert>
@@ -33,7 +33,7 @@ struct AtInit {
 
         const char * error = nullptr;
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
         // Try avx2 first
         if (!handle && has_avx2()) {
             error = load("avx2");

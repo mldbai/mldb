@@ -165,7 +165,7 @@ open(const asio::ip::tcp::endpoint & asioEndpoint,
         }
         if (bound) {
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 acceptorPtr->listen(backlog);
                 acceptor_ = std::move(*acceptorPtr);
                 isOpen_ = true;

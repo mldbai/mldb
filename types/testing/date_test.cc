@@ -19,7 +19,7 @@ using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Date date;
     string expected;
 
@@ -186,7 +186,7 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
 #if 0
 BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_time)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Date date;
     string expected;
 

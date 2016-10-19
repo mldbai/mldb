@@ -18,9 +18,9 @@ extern int num_cpus_result;
 
 void init_num_cpus();
 
-JML_ALWAYS_INLINE int num_cpus()
+MLDB_ALWAYS_INLINE int num_cpus()
 {
-    if (JML_UNLIKELY(!num_cpus_result)) init_num_cpus();
+    if (MLDB_UNLIKELY(!num_cpus_result)) init_num_cpus();
     return num_cpus_result;
 }
 

@@ -42,7 +42,7 @@ struct AtInit {
     {
         if (false)
             ;
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
         else if (has_avx2()) {
             highwayHashImpl = &HighwayTreeHashC;
         }
