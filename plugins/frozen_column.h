@@ -32,26 +32,20 @@ struct FrozenColumn {
 
     virtual size_t memusage() const = 0;
 
-    virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn)
-        const = 0;
-
     CellValue operator [] (size_t index) const
     {
         return this->get(index);
     }
 
-    template<typename Fn>
-    bool forEach(Fn && fn) const
-    {
-        // TODO: sparse columns have nulls...
-        size_t sz = this->size();
-        for (size_t i = 0;  i < sz;  ++i) {
-            if (!fn(i, std::move(this->get(i))))
-                return false;
-        } 
-        return true;
-    }
+    typedef std::function<bool (size_t rowNum, const CellValue & val)> ForEachRowFn;
+
+    virtual bool forEach(const ForEachRowFn & onRow) const = 0;
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const = 0;
+
+    virtual bool
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn)
+        const = 0;
 
     virtual ColumnTypes getColumnTypes() const = 0;
 
