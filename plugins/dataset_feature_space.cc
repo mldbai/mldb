@@ -8,7 +8,9 @@
 #include "mldb/base/parallel.h"
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/types/hash_wrapper_description.h"
+#include "mldb/http/http_exception.h"
 
 using namespace std;
 
@@ -131,12 +133,24 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
             // TODO: if we have both numbers and strings, we probably do need
             // to support it in the long term.
             if (!descriptions.strings.buckets.empty()) {
-                cerr << "column " << columnName
-                 << " has both strings and numbers: " << endl;
-                for (auto & n: descriptions.numeric.splits)
-                    cerr << "number " << n << endl;
-                for (auto & s: descriptions.strings.buckets)
-                    cerr << "string " << s << endl;
+                std::vector<Utf8String> stringValues;
+                if (descriptions.strings.buckets.size() > 100) {
+                    stringValues.insert(stringValues.end(),
+                                        descriptions.strings.buckets.begin(),
+                                        descriptions.strings.buckets.begin() + 100);
+                }
+                else stringValues = std::move(descriptions.strings.buckets);
+
+                throw HttpReturnException
+                    (400, "This classifier can't train on column "
+                     + columnName.toUtf8String() + " which has both string "
+                     + " and numeric values.  Consider using \nCAST ("
+                     + columnName.toUtf8String() + " AS STRING)\nor splitting "
+                     + "into two columns, one numeric-or-null and one "
+                     + "string-or-null, eg\nCASE WHEN " + columnName.toUtf8String() + " IS NUMBER THEN " + columnName.toUtf8String() + " ELSE NULL END AS "
+                     + columnName.toUtf8String() + "_numeric, CASE WHEN " + columnName.toUtf8String() + " IS STRING THEN " + columnName.toUtf8String() + " ELSE NULL END AS "
+                     + columnName.toUtf8String() + "_string",
+                     "stringValues", stringValues);
             }
             ExcAssert(descriptions.strings.buckets.empty());
         }

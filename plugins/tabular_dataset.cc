@@ -499,7 +499,12 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             onChunk2(i);
 
         if (numWritten != totalRows) {
-            throw HttpReturnException(400, "Column " + column.toUtf8String() + " had wrong number written (" + to_string(numWritten) + " vs " + to_string(totalRows));
+            throw HttpReturnException
+                (500, "Column " + column.toUtf8String()
+                 + " had wrong number written ("
+                 + to_string(numWritten) + " vs " + to_string(totalRows)
+                 + "); internal error (contact support with your script and "
+                 + "dataset if possible");
         }
 
         ExcAssertEqual(numWritten, totalRows);
