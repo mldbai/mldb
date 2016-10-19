@@ -646,9 +646,6 @@ injectMldbWrapper(PythonSubinterpreter & pyControl)
     std::string code = R"code(
 
 import unittest
-from datetime import datetime
-from dateutil.tz import tzutc
-from dateutil.parser import parse as parse_date
 
 class mldb_wrapper(object):
 
@@ -699,6 +696,9 @@ class mldb_wrapper(object):
             return self.text
 
     class StepsLogger(object):
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from dateutil.parser import parse as parse_date
 
         def __init__(self, mldb):
             self.done_steps = set()
