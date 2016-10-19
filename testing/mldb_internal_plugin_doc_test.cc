@@ -29,7 +29,9 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     server.init();
 
     // Load plugins, so we can also test them for documentation
-    server.scanPlugins("file://build/x86_64/mldb_plugins");
+    server.scanPlugins("file://build/x86_64/mldb_plugins/tensorflow");
+    server.scanPlugins("file://build/x86_64/mldb_plugins/postgresql");
+    server.scanPlugins("file://build/x86_64/mldb_plugins/mongodb");
     
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
     

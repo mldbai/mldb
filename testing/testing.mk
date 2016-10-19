@@ -41,6 +41,7 @@ $(eval $(call test,procedure_run_test,mldb,boost))
 $(eval $(call test,python_procedure_test,mldb,boost manual)) #manual -- unclear why
 $(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
 
+$(TEST)/mldb_internal_plugin_doc_test: $(foreach plugin,tensorflow mongodb postgres,$(warning depends on $(MLDB_PLUGIN_FILES_$(plugin))))
 
 
 $(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
