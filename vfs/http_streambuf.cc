@@ -268,6 +268,9 @@ struct HttpStreamingDownloadSource {
                     cerr << "resp.errorCode_ = " << resp.errorCode() << endl;
                     cerr << "resp.errorMessage = " << resp.errorMessage() << endl;
                     throw MLDB::Exception("HTTP code %d reading %s\n\n%s",
+                                          resp.code(),
+                                          urlStr.c_str(),
+                                          resp.errorMessage().c_str());
                 }
                 
                 dataQueue.push("");
