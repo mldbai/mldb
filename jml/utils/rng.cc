@@ -9,7 +9,6 @@
 #include "rng.h"
 
 #include <random>
-#include <boost/random/uniform_01.hpp>
 
 namespace ML {
 
@@ -19,12 +18,12 @@ namespace ML {
 
 struct RNG::Itl {
     Itl()
-    : uniform01_(rng_)
+    : uniform01_(0, 1)
     {
     }
         
     std::mt19937 rng_;
-    boost::uniform_01<std::mt19937> uniform01_;
+    std::uniform_real_distribution<> uniform01_;
 };
 
 RNG::
@@ -51,7 +50,6 @@ seed(uint32_t value)
 {
     if (value == 0) value = 1;
     itl->rng_.seed(value);
-    itl->uniform01_.base().seed(value);
 }
 
 uint32_t
@@ -73,7 +71,7 @@ float
 RNG::
 random01()
 {
-    return itl->uniform01_();
+    return itl->uniform01_(itl->rng_);
 }
 
 RNG & RNG::defaultRNG()

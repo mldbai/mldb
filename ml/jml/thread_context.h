@@ -13,7 +13,6 @@
 //#include "mldb/jml/utils/worker_task.h"
 #include <random>
 #include "mldb/jml/utils/smart_ptr_utils.h"
-#include <boost/random/uniform_01.hpp>
 #include "mldb/arch/exception.h"
 
 namespace ML {
@@ -39,7 +38,7 @@ class Thread_Context {
 public:
     Thread_Context(uint32_t rand_seed = 0,
                    int recursion = 0)
-        : uniform01_(rng_), recursion_(recursion)
+        : recursion_(recursion)
     {
         if (rand_seed != 0)
             rng_.seed(rand_seed);
@@ -49,7 +48,6 @@ public:
     {
         if (value == 0) value = 1;
         rng_.seed(value);
-        uniform01_.base().seed(value);
     }
 
     /** Get a random number in a deterministic way */
@@ -61,7 +59,7 @@ public:
     /** Get a uniform (0, 1) random number in a deterministic way */
     float random01()
     {
-        return uniform01_();
+        return uniform01_(rng_);
     }
 
     typedef RNG_Adaptor<std::mt19937> RNG_Type;
@@ -79,7 +77,7 @@ public:
 
 private:
     std::mt19937 rng_;
-    boost::uniform_01<std::mt19937> uniform01_;
+    std::uniform_real_distribution<> uniform01_;
     int recursion_;
 };
 

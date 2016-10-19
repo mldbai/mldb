@@ -256,10 +256,10 @@ train_weighted(Thread_Context & context,
         while (filtered_features.empty() && iter < 50) {
             typedef mt19937 engine_type;
             engine_type engine(context.random());
-            boost::uniform_01<engine_type> rng(engine);
+            std::uniform_real_distribution<> rng(0, 1);
             
             for (unsigned i = 0;  i < features.size();  ++i) {
-                if (rng() < random_feature_propn)
+                if (rng(engine) < random_feature_propn)
                     filtered_features.push_back(features[i]);
             }
         }

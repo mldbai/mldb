@@ -19,7 +19,6 @@
 #include "dataset_js.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/sql/sql_utils.h"
-#include <boost/random/uniform_01.hpp>
 #include <random>
 
 #include "mldb/vfs/fs_utils.h"
@@ -468,7 +467,7 @@ registerMe()
 
 struct RandomNumberGenerator {
     RandomNumberGenerator(int randomSeed)
-        : normal_gen(std::bind(norm, rng)), uniform01(rng)
+        : normal_gen(std::bind(norm, rng)), uniform01(0, 1)
     {
         if (randomSeed)
             rng.seed(randomSeed);
@@ -480,7 +479,7 @@ struct RandomNumberGenerator {
     normal_distribution<double> norm;
 
     std::function<double()> normal_gen;
-    boost::uniform_01<mt19937> uniform01;
+    std::uniform_real_distribution<> uniform01;
 
     void seed(int randomSeed)
     {
@@ -489,7 +488,7 @@ struct RandomNumberGenerator {
 
     double uniform(double min = 0.0, double max = 1.0)
     {
-        return min + (max - min) * uniform01();
+        return min + (max - min) * uniform01(rng);
     }
 
     double normal(double mean = 0.0, double stddev = 1.0)
