@@ -126,9 +126,35 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
         BucketList & buckets = std::get<0>(bucketsAndDescriptions);
         BucketDescriptions & descriptions = std::get<1>(bucketsAndDescriptions);
 
+        if (descriptions.numeric.active) {
+            result.info = ML::REAL;
+            // TODO: if we have both numbers and strings, we probably do need
+            // to support it in the long term.
+            if (!descriptions.strings.buckets.empty()) {
+                cerr << "column " << columnName
+                 << " has both strings and numbers: " << endl;
+                for (auto & n: descriptions.numeric.splits)
+                    cerr << "number " << n << endl;
+                for (auto & s: descriptions.strings.buckets)
+                    cerr << "string " << s << endl;
+            }
+            ExcAssert(descriptions.strings.buckets.empty());
+        }
+        else if (!descriptions.strings.buckets.empty()) {
+            std::vector<std::string> categories;
+            categories.reserve(descriptions.strings.buckets.size());
+            for (auto & s: descriptions.strings.buckets) {
+                categories.emplace_back(s.rawString());
+            }
+            auto categorical
+                = std::make_shared<ML::Fixed_Categorical_Info>(std::move(categories));
+            result.info = ML::Feature_Info(categorical);
+        }
+
         result.distinctValues = descriptions.numBuckets();
         result.buckets = std::move(buckets);
         result.bucketDescriptions = std::move(descriptions);
+
     }
 
     return result;
@@ -475,7 +501,6 @@ reconstitute(ML::DB::Store_Reader & store)
     }
 
     columnInfo.swap(newColumnInfo);
-
 }
 
 void
