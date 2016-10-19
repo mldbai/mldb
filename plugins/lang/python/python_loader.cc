@@ -696,15 +696,15 @@ class mldb_wrapper(object):
             return self.text
 
     class StepsLogger(object):
-        from datetime import datetime
-        from dateutil.tz import tzutc
-        from dateutil.parser import parse as parse_date
 
         def __init__(self, mldb):
             self.done_steps = set()
             self.log = mldb.log
 
         def log_progress_steps(self, progress_steps):
+            from datetime import datetime
+            from dateutil.tz import tzutc
+            from dateutil.parser import parse as parse_date
             now = datetime.now(tzutc())
             for step in progress_steps:
                 if 'ended' in step:
