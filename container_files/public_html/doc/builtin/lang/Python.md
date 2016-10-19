@@ -139,3 +139,17 @@ use of MLDB:
   optimized path each time that one is encountered (50% probability of each).
   Note that this setting applies to the entire MLDB instance, and so should
   not be used in production.
+
+## mldb_wrapper
+
+A higher level object named `mldb_wrapper` can be used to wrap the `mldb` object. Key features are:
+
+* REST calls (GET, POST, PUT, DELETE) validate the returned status_code. If it's not between 200 and 399,
+it raises `mldb_wrapper.ResponseException`. It eliminates the need to validate the status code after each call.
+* The `log(thing)` function acts differently based on `thing` type. `dicts` and `lists` are formatted using `json.dumps`.
+`str` and `unicode` are output as is. Any other type will output the string representation of `thing`
+* The `query(query)` function, which is a shorhand for `GET /v1/query?q=<query>&format=table`. Whenever you work without
+dates, that is likely the go to function for querying.
+* The `post_run_and_track_procedure(payload, refresh_rate_sesc)`, which creates a procedure based on `payload`, run it and print its progress status every `refresh_rate_sec` seconds. It returns as soon as the procedure stops running. Useful to
+see what's going on for long running procedures.
+* The `run_tests()` function, which executes python unittest of the current context.
