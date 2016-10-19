@@ -815,8 +815,8 @@ struct ImportTextProcedureWorkInstance
                 if (config.autoGenerateHeaders) {
                     // Re-open stream
                     stream.open(config.dataFileUrl, { { "mapped", "true" } });
-                    auto limit = fields.size();
-                    for (ssize_t i = 0; i < limit; ++i) {
+                    auto nfields = fields.size();
+                    for (ssize_t i = 0; i < nfields; ++i) {
                         inputColumnNames.emplace_back(i);
                     }
                 }
