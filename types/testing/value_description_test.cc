@@ -570,7 +570,7 @@ BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
     }
 
@@ -581,7 +581,7 @@ BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
     }
 
@@ -592,7 +592,7 @@ BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
                                             testJson.c_str(),
                                             testJson.c_str()
                                             + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
     }
 
@@ -614,7 +614,7 @@ BOOST_AUTO_TEST_CASE(test_null_parsing)
 {
     { 
         // Make sure that nulls result in parsing errors not zeros
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(jsonDecode<int>(Json::Value()), std::exception);
         BOOST_CHECK_THROW(jsonDecode<unsigned int>(Json::Value()), std::exception);
         BOOST_CHECK_THROW(jsonDecode<long int>(Json::Value()), std::exception);
@@ -661,7 +661,7 @@ BOOST_AUTO_TEST_CASE(test_array_description)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
     }
 
@@ -672,7 +672,7 @@ BOOST_AUTO_TEST_CASE(test_array_description)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
     }
 
@@ -683,7 +683,7 @@ BOOST_AUTO_TEST_CASE(test_array_description)
                                             testJson.c_str(),
                                             testJson.c_str()
                                             + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
     }
 

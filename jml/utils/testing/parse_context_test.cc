@@ -306,7 +306,7 @@ void run_test1(ParseContext & context)
     BOOST_CHECK(context.match_eol());
     BOOST_CHECK(context.eof());
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(*context, MLDB::Exception);
     }
     BOOST_CHECK_EQUAL(context.get_offset(), strlen(test1_str));

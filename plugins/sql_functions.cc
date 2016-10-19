@@ -585,48 +585,73 @@ run(const ProcedureRunConfig & run,
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
     if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
+        Dataset::MultiChunkRecorder recorder
+            = output->getChunkRecorder();
 
-        // We accumulate multiple rows per thread and insert with recordRows
-        // to be more efficient.
-        PerThreadAccumulator<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > > accum;
+        struct ThreadAccum {
+            /// Recorder object for this thread that the dataset gives us
+            /// to record into the dataset.
+            std::unique_ptr<Recorder> threadRecorder;
 
+            /// Special function to allow rapid insertion of fixed set of
+            /// atom valued columns.  Only for isIdentitySelect.
+            //std::function<void (RowPath rowName,
+            //                    Date timestamp,
+            //                    CellValue * vals,
+            //                    size_t numVals,
+            //                    std::vector<std::pair<ColumnPath, CellValue> > extra)>
+            //specializedRecorder;
+
+        };
+
+        PerThreadAccumulator<ThreadAccum> accum;
+
+        std::atomic<size_t> chunkNumber(0);
         auto recordRowInOutputDataset
-            = [&] (NamedRowValue & row_,
-                   const std::vector<ExpressionValue> & calc)
+            = [&] (RowPath & rowPath,
+                   ExpressionValue & row,
+                   std::vector<ExpressionValue> & calc)
             {
-                MatrixNamedRow row = row_.flattenDestructive();
-
-                std::vector<std::tuple<ColumnPath, CellValue, Date> > cols
-                    = filterEmptyColumns(row);
-
-                if (!skipEmptyRows || cols.size() > 0) {
-                    auto & rows = accum.get();
-                    rows.reserve(10000);
-                    try {
-                        rows.emplace_back(calc.at(0).coerceToPath(),
-                                          std::move(cols));
-                    } catch (...) {
-                        cerr << "parsing " << calc.at(0).toUtf8String() << endl;
-                        throw;
-                    }
-
-                    if (rows.size() >= 10000) {
-                        output->recordRows(rows);
-                        rows.clear();
-                    }
+                auto & threadAccum = accum.get();
+                if (!threadAccum.threadRecorder) {
+                    threadAccum.threadRecorder = recorder.newChunk(chunkNumber.fetch_add(1));
                 }
+                if (skipEmptyRows) {
+                    if (row.empty())
+                        return true;
 
+                    bool hasNonNull = false;
+                    // Also look to see if we have only null elements
+                    auto onAtom = [&] (const Path & columnName,
+                                       const Path & prefix,
+                                       const CellValue & val,
+                                       Date ts)
+                    {
+                        if (!val.empty()) {
+                            hasNonNull = true;
+                            return false;
+                        }
+                        return true;
+                    };
+                    row.forEachAtom(onAtom);
+                    if (!hasNonNull)
+                        return true;
+                }
+                // TODO: could optimize slightly by finding rowName == rowName()
+                // and copying the existing rowPath in that case
+                threadAccum.threadRecorder->recordRowExprDestructive
+                    (calc[0].coerceToPath(), std::move(row));
                 return true;
             };
 
         if (!BoundSelectQuery(runProcConf.inputData.stm->select,
-                         *boundDataset.dataset,
-                         boundDataset.asName,
-                         runProcConf.inputData.stm->when,
-                         *runProcConf.inputData.stm->where,
-                         runProcConf.inputData.stm->orderBy,
-                         { runProcConf.inputData.stm->rowName })
-            .execute({recordRowInOutputDataset, true /*processInParallel*/},
+                              *boundDataset.dataset,
+                              boundDataset.asName,
+                              runProcConf.inputData.stm->when,
+                              *runProcConf.inputData.stm->where,
+                              runProcConf.inputData.stm->orderBy,
+                              { runProcConf.inputData.stm->rowName })
+            .executeExpr({recordRowInOutputDataset, true /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
                      onProgress) )
@@ -638,10 +663,13 @@ run(const ProcedureRunConfig & run,
             }
 
         // Finish off the last bits of each thread
-        accum.forEach([&] (std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > * rows)
-                      {
-                          output->recordRows(*rows);
-                      });
+        parallelMap(0, accum.threads.size(),
+                    [&] (size_t n)
+                    {
+                        auto & threadAccum = *accum.threads[n];
+                        ExcAssert(threadAccum.threadRecorder.get());
+                        threadAccum.threadRecorder->finishedChunk();
+                    });
     }
     else {
         auto recordRowInOutputDataset

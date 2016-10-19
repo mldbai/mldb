@@ -190,20 +190,20 @@ struct MergedDataset::Itl
         {            
         }
 
-        virtual std::shared_ptr<RowStream> clone() const
+        virtual std::shared_ptr<RowStream> clone() const override
         {
             return make_shared<MergedRowStream>(source);
         }
 
         /* set where the stream should start*/
-        virtual void initAt(size_t start)
+        virtual void initAt(size_t start) override
         {
             it = source->rowIndex.begin();
             for (size_t i = 0; i < start; ++i)
                 ++it;
         }
 
-        virtual RowPath next()
+        virtual RowPath next() override
         {
             uint64_t hash = (*it).first;
             ++it;
@@ -211,10 +211,116 @@ struct MergedDataset::Itl
             return source->getRowPath(RowHash(hash));
         }
 
-        virtual const RowPath & rowName(RowPath & storage) const
+        virtual const RowPath & rowName(RowPath & storage) const override
         {
             uint64_t hash = (*it).first;
             return storage = source->getRowPath(RowHash(hash));
+        }
+
+        virtual bool supportsExtendedInterface() const override
+        {
+            return true;
+        }
+
+        virtual void advance() override
+        {
+            ++it;
+        }
+
+        virtual void
+        extractColumns(size_t numValues,
+                       const std::vector<ColumnPath> & columnNames,
+                       CellValue * output) override
+        {
+            std::unordered_map<ColumnHash, int> pathToPosition;
+            for (size_t i = 0;  i < columnNames.size();  ++i) {
+                pathToPosition[columnNames[i]] = i;
+            }
+            
+            std::vector<std::vector<int> > outputPositions
+                (source->datasets.size());
+            std::vector<std::vector<ColumnPath> > outputNames
+                (source->datasets.size());
+
+            for (size_t i = 0;  i < source->datasets.size();  ++i) {
+                // For this dataset, find a linear mapping between the
+                // input column position and the output it gives.
+                const Dataset & d = *source->datasets[i];
+                bool hasConsistentPositions = true;
+                auto info = d.getRowInfo();
+                if (info->getSchemaCompletenessRecursive() == SCHEMA_CLOSED) {
+                    //cerr << "dataset " << i << " has closed schema" << endl;
+                    //cerr << "dataset type is " << ML::type_name(d) << endl;
+                    auto cols = info->getFlattenedInfo()->getKnownColumns();
+                    outputPositions[i].resize(cols.size(), -1);
+                    outputNames[i].resize(cols.size());
+
+                    //cerr << "dataset " << i << " has " << cols.size() << " columns"
+                    //     << endl;
+
+                    for (auto & col: cols) {
+                        if (col.sparsity != COLUMN_IS_DENSE
+                            || col.offset == KnownColumn::VARIABLE_OFFSET) {
+                            //cerr << "column " << col.columnName
+                            //     << " has sparsity " << col.sparsity
+                            //     << " and offset " << col.offset << endl;
+                            hasConsistentPositions = false;
+                            break;
+                        }
+                        auto it = pathToPosition.find(col.columnName);
+                        if (it != pathToPosition.end()) {
+                            outputPositions[i].at(col.offset) = it->second;
+                            outputNames[i].at(col.offset)
+                                = std::move(col.columnName);
+                        }
+                    }
+                }
+                if (!hasConsistentPositions) {
+                    outputPositions[i].clear();
+                    outputNames[i].clear();
+                }
+
+                //cerr << "input dataset " << i
+                //     << " has " << outputPositions[i].size()
+                //     << " output positions" << endl;
+            }
+
+            while (numValues--) {
+                uint32_t bitmap = (*it).second;
+                
+                RowPath storage;
+                const RowPath & rowName = this->rowName(storage);
+
+                while (bitmap) {
+                    int bit = ML::lowest_bit(bitmap, -1);
+                    bitmap = bitmap & ~(1 << bit);
+
+                    MatrixNamedRow row
+                        = source->datasets[bit]->getMatrixView()->getRow(rowName);
+                    
+                    if (!outputPositions[bit].empty()) {
+                        ExcAssertEqual(row.columns.size(),
+                                       outputPositions[bit].size());
+                        for (size_t i = 0;  i < row.columns.size();  ++i) {
+                            int pos = outputPositions[bit][i];
+                            if (pos != -1) {
+                                output[pos] = std::move(std::get<1>(row.columns[i]));
+                            }
+                        }
+                    }
+                    else {
+                        for (auto & c: row.columns) {
+                            auto it = pathToPosition.find(std::get<0>(c));
+                            if (it != pathToPosition.end()) {
+                                output[it->second] = std::move(std::get<1>(c));
+                            }
+                        }
+                    }
+                }
+
+                output += columnNames.size();
+                ++it;
+            }
         }
 
         const MergedDataset::Itl* source;
@@ -435,6 +541,42 @@ struct MergedDataset::Itl
                              result.end());
             }
         }
+
+        return result;
+    }
+
+    std::vector<CellValue>
+    getColumnDistinctValues(const ColumnPath & columnName) const
+    {
+        std::vector<CellValue> result;
+        uint32_t bitmap = getColumnBitmap(columnName);
+        while (bitmap) {
+            int bit = ML::lowest_bit(bitmap, -1);
+            bitmap = bitmap & ~(1ULL << bit);
+
+            std::vector<CellValue> current
+                = datasets[bit]->getColumnIndex()
+                ->getColumnDistinctValues(columnName);
+
+            if ((bitmap || !result.empty())
+                && !std::is_sorted(current.begin(), current.end())) {
+                std::sort(current.begin(), current.end());
+            }
+            
+            if (result.empty()) {
+                current.swap(result);
+            }
+            else {
+                size_t split = result.size();
+                result.insert(result.end(),
+                              std::make_move_iterator(current.begin()),
+                              std::make_move_iterator(current.end()));
+                std::inplace_merge(result.begin(), result.begin() + split,
+                                   result.end());
+                result.erase(std::unique(result.begin(), result.end()),
+                             result.end());
+            }
+        }                
 
         return result;
     }

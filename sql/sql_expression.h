@@ -886,7 +886,7 @@ struct SqlRowScope {
     template<typename T>
     T & as()
     {
-        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
+        if (MLDB_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<T &>(*this);
 
         auto * cast = dynamic_cast<T *>(this);
@@ -902,7 +902,7 @@ struct SqlRowScope {
     template<typename T>
     const T & as() const
     {
-        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
+        if (MLDB_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<const T &>(*this);
 
         auto * cast = dynamic_cast<const T *>(this);

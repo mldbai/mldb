@@ -15,10 +15,10 @@
 namespace MLDB {
 
 /** Return the number of CPU clock ticks since some epoch. */
-JML_ALWAYS_INLINE uint64_t ticks()
+MLDB_ALWAYS_INLINE uint64_t ticks()
 {
-#if defined(JML_INTEL_ISA)
-# if (JML_BITS == 32)
+#if defined(MLDB_INTEL_ISA)
+# if (MLDB_BITS == 32)
     uint64_t result;
     asm volatile ("rdtsc\n\t" : "=A" (result));
     return result;

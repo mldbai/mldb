@@ -423,7 +423,7 @@ start()
     string address;
     try {
         address = future.get();
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error getting plugin address",
                              "config", config);
     }

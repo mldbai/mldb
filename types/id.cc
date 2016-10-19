@@ -20,7 +20,7 @@
 #include <iostream>
 #include "mldb/ext/jsoncpp/value.h"
 
-#if JML_BITS == 32
+#if MLDB_BITS == 32
 #include <boost/multiprecision/cpp_int.hpp>
 #endif
 
@@ -30,7 +30,7 @@ using namespace std;
 
 namespace MLDB {
 
-#if JML_BITS < 64
+#if MLDB_BITS < 64
 
 typedef boost::multiprecision::number
     <boost::multiprecision::cpp_int_backend
@@ -127,9 +127,9 @@ static const signed char hexToDecLookups[128] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
 };
 
-JML_ALWAYS_INLINE int hexToDec(unsigned c) JML_CONST_FN;
+MLDB_ALWAYS_INLINE int hexToDec(unsigned c) MLDB_CONST_FN;
 
-JML_ALWAYS_INLINE int hexToDec(unsigned c)
+MLDB_ALWAYS_INLINE int hexToDec(unsigned c)
 {
     //cerr << "c = " << (char)c
     //     << " index " << (c & 0x7f) << " value = "
@@ -152,7 +152,7 @@ static const signed char base64ToDecLookups[128] = {
     53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, -1, -1, -1, -1, -1,
 };
 
-JML_ALWAYS_INLINE int base64ToDec(unsigned c)
+MLDB_ALWAYS_INLINE int base64ToDec(unsigned c)
 {
     int mask = (c <= 0x7f);
     return base64ToDecLookups[c & 0x7f] * mask - 1 + mask;
@@ -657,7 +657,7 @@ hash() const
     if (type == SHORTSTR) {
         return CityHash64(shortStr, strnlen(shortStr, 16));
     }
-    if (JML_UNLIKELY(type >= STR)) return complexHash();
+    if (MLDB_UNLIKELY(type >= STR)) return complexHash();
     return Hash128to64(std::make_pair(val1, val2));
 }
 

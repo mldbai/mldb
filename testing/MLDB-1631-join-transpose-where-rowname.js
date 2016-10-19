@@ -25,7 +25,6 @@ var expected = [
          [ "x.rating", 1, "-Inf" ],
          [ "y.title", "this is toy story time", "-Inf" ]
       ],
-      "rowHash" : "d6855a03c5f5789a",
       "rowName" : "[result]-[toy story]"
    }
 ];

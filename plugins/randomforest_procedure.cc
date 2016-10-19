@@ -24,6 +24,7 @@
 #include "mldb/types/set_description.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/arch/simd_vector.h"
 
 #include <random>
 
@@ -102,7 +103,8 @@ getStatus() const
 
 struct RandomForestRNG {
 
-    RandomForestRNG()
+    RandomForestRNG(int seed)
+        : rng(seed + (seed == 0))
     {
     }
 
@@ -155,25 +157,51 @@ run(const ProcedureRunConfig & run,
             return nullptr;
         };
 
-    auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select)->expression;
-    auto features = extractNamedSubSelect("features", runProcConf.trainingData.stm->select)->expression;
-    shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(features);
-
-    if (!label || !subSelect)
+    auto labelVal = extractNamedSubSelect("label", runProcConf.trainingData.stm->select);
+    auto featuresVal = extractNamedSubSelect("features", runProcConf.trainingData.stm->select);
+    if (!labelVal || !featuresVal) {
         throw HttpReturnException(400, "trainingData must return a 'features' row and a 'label'");
+    }
 
+    auto weightVal = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);
+    auto weight = weightVal ? weightVal->expression : SqlExpression::ONE;
+
+    shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(featuresVal->expression);
+
+    if (!subSelect) {
+        throw HttpReturnException(400, "trainingData must return a 'features' row");
+    }
+
+    auto label = labelVal->expression;
+    
     ColumnScope colScope(server, boundDataset.dataset);
     auto boundLabel = label->bind(colScope);
+    auto boundWhere = runProcConf.trainingData.stm->where->bind(colScope);
+    auto boundWeight = weight->bind(colScope);
 
     cerr << "label uses columns " << jsonEncode(colScope.requiredColumns)
          << endl;
 
     Timer labelsTimer;
 
-    std::vector<CellValue> labels(std::move(colScope.run({boundLabel})[0]));
+    std::vector<std::vector<CellValue> > labelsWhereWeight
+        = colScope.run({boundLabel, boundWhere, boundWeight});
+
+    const std::vector<CellValue> & labels = labelsWhereWeight[0];
+    const std::vector<CellValue> & wheres = labelsWhereWeight[1];
+    const std::vector<CellValue> & weights = labelsWhereWeight[2];
 
     cerr << "got " << labels.size() << " labels in " << labelsTimer.elapsed()
          << endl;
+
+    size_t numRowsKept = 0;
+    for (size_t i = 0;  i < labels.size();  ++i) {
+        if (!weights[i].empty()
+            && weights[i].toDouble() > 0.0
+            && !labels[i].empty()
+            && wheres[i].isTrue())
+            ++numRowsKept;
+    }
 
     SelectExpression select({subSelect});
 
@@ -203,79 +231,118 @@ run(const ProcedureRunConfig & run,
     cerr << "feature space construction took " << timer.elapsed() << endl;
     timer.restart();
 
+#if 0
     for (auto& c : knownInputColumns) {
         cerr << c << " feature " << featureSpace->getFeature(c)
              << " had " << featureSpace->columnInfo[c].buckets.numBuckets
              << " buckets"
              << " type is " << featureSpace->columnInfo[c].info << endl;
     }
+#endif
 
     // Get the feature buckets per row
 
     //TODO: Need to pack this into 1 memory buffer
-
-    //optimize when we want every row
-    size_t numRows = boundDataset.dataset->getMatrixView()->getRowCount();
 
     int numFeatures = knownInputColumns.size();
     cerr << "NUM FEATURES : " << numFeatures << endl;
 
     PartitionData allData(featureSpace);
 
-    allData.reserve(numRows);
-    for (size_t i = 0;  i < numRows;  ++i) {
-        allData.addRow(labels[i].isTrue(), 1.0 /* weight */, i);
+    allData.reserve(numRowsKept);
+    size_t numRows = 0;
+    for (size_t i = 0;  i < labels.size();  ++i) {
+        if (!wheres[i].isTrue() || labels[i].empty()
+            || weights[i].empty() || weights[i].toDouble() == 0)
+            continue;
+        allData.addRow(labels[i].isTrue(), weights[i].toDouble(), numRows++);
     }
+    ExcAssertEqual(numRows, numRowsKept);
 
     const float trainprop = 1.0f;
-    RandomForestRNG myrng;
     int totalResultCount = runProcConf.featureVectorSamplings*runProcConf.featureSamplings;
     vector<shared_ptr<Decision_Tree>> results(totalResultCount);
 
-    //We will serialize the classifier with the unbucketized feature space
-    //todo: we should get it directly from the bucketized one and potentially PartitionData.
-    auto contFeatureSpace = std::make_shared<DatasetFeatureSpace>
-        (boundDataset.dataset, labelInfo, knownInputColumns, false /* bucketize */);
+    auto contFeatureSpace = featureSpace;
 
     auto doFeatureVectorSampling = [&] (int bag)
         {
             Timer bagTimer;
 
-            mt19937 rng(bag + 245);
-            distribution<float> in_training(numRows);
-            vector<int> tr_ex_nums(numRows);
-            std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
-            std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);
-            for (unsigned i = 0;  i < numRows * trainprop;  ++i)
-                in_training[tr_ex_nums[i]] = 1.0;
+            size_t numPartitions = std::min<size_t>(numRows, 32);
 
-            distribution<float> example_weights(numRows);
+            distribution<float> trainingWeights(numRows);
+            std::atomic<size_t> numNonZero(0);
+            
+            // Parallelize the setup, since the slow part is random number
+            // generation and we set up each bag independently
+            auto doPartition = [&] (size_t i)
+            {
+                RandomForestRNG myrng(38341 + i);
 
-            // Generate our example weights.
-            for (unsigned i = 0;  i < numRows;  ++i)
-                example_weights[myrng(numRows)] += 1.0;
+                size_t first = (numRows / numPartitions) * i;
+                size_t last = (numRows / numPartitions) * (i + 1);
+                if (last > numRows || i == numPartitions)
+                    last = numRows;
 
-            distribution<float> training_weights
-                = in_training * example_weights;
+                mt19937 rng(245 + (bag * numPartitions) + i);
 
-            training_weights.normalize();
+                size_t numRowsInPartition = last - first;
 
-            size_t numNonZero = (training_weights != 0).count();
+                distribution<float> in_training(numRowsInPartition);
+                vector<int> tr_ex_nums(numRowsInPartition);
+                std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
+                std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);
+                
+                for (unsigned i = 0;  i < numRowsInPartition * trainprop;  ++i)
+                    in_training[tr_ex_nums[i]] = 1.0;
+
+                distribution<float> example_weights(numRowsInPartition);
+
+                // Generate our example weights.
+                for (unsigned i = 0;  i < numRowsInPartition;  ++i)
+                    example_weights[myrng(numRowsInPartition)] += 1.0;
+
+                size_t partitionNumNonZero = 0;
+                double totalTrainingWeights = 0;
+                for (unsigned i = 0;  i < numRowsInPartition;  ++i) {
+                    float wt = in_training[i] * example_weights[i];
+                    trainingWeights[first + i] = wt;
+                    partitionNumNonZero += (wt != 0);
+                    totalTrainingWeights += wt;
+                }
+
+                SIMD::vec_scale(trainingWeights.data() + first,
+                                1.0 / (totalTrainingWeights * numPartitions),
+                                trainingWeights.data() + first,
+                                numRowsInPartition);
+                numNonZero += partitionNumNonZero;
+            };
+
+            parallelMap(0, numPartitions, doPartition);
+
+            cerr << "bag " << bag << " weight generation took "
+                 << bagTimer.elapsed() << endl;
+
             cerr << "numNonZero = " << numNonZero << endl;
-
-            auto data = allData.reweightAndCompact(training_weights);
+            
+            auto data = allData.reweightAndCompact(trainingWeights, numNonZero);
 
             cerr << "bag " << bag << " setup took " << bagTimer.elapsed() << endl;
 
             auto trainFeaturePartition = [&] (int partitionNum)
             {
-                mt19937 rng(bag + 245 + partitionNum);
+                mt19937 rng(bag + 371 + partitionNum);
+                uniform_real_distribution<> uniform01(0, 1);
 
                 PartitionData mydata(data);
+
+                // Cull the features according to the sampling proportion
                 for (unsigned i = 0;  i < data.features.size();  ++i) {
                     if (mydata.features[i].active
-                        && rng() % 3 != 0)
+                        && uniform01(rng) > procedureConfig.featureVectorSamplingProp) {
                         mydata.features[i].active = false;
+                    }
                 }
 
                 Timer timer;

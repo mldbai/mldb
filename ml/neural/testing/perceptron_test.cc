@@ -9,7 +9,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
-#define JML_TESTING_PERCEPTRON
+#define MLDB_TESTING_PERCEPTRON
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
@@ -94,7 +94,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_classification )
     std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
-    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+    float accuracy MLDB_UNUSED = classifier->accuracy(data).first;
 
     cerr << "accuracy = " << accuracy << endl;
 
@@ -149,7 +149,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_regression )
     std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
-    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+    float accuracy MLDB_UNUSED = classifier->accuracy(data).first;
 
     cerr << "accuracy = " << accuracy << endl;
 
@@ -217,7 +217,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing )
     std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
-    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+    float accuracy MLDB_UNUSED = classifier->accuracy(data).first;
 
     cerr << "accuracy = " << accuracy << endl;
 
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing2 )
     std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
-    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+    float accuracy MLDB_UNUSED = classifier->accuracy(data).first;
 
     cerr << "accuracy = " << accuracy << endl;
 
@@ -335,7 +335,7 @@ BOOST_AUTO_TEST_CASE( test_decode_value )
     BOOST_CHECK_EQUAL(do_decode(NaN, PRESENCE), 0.0);
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(do_decode(Inf, VALUE), Exception);
         BOOST_CHECK_THROW(do_decode(Inf, VALUE_IF_PRESENT), Exception);
         BOOST_CHECK_THROW(do_decode(NaN, VALUE), Exception);

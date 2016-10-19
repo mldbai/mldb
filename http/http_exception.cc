@@ -16,7 +16,7 @@ namespace MLDB {
 
 void rethrowHttpException(int httpCode, const Utf8String & message, Any details)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     try {
         std::rethrow_exception(std::current_exception());
     } catch (const HttpReturnException & http) {

@@ -320,7 +320,7 @@ RestRequestRouter::
 handleRequest(RestConnection & connection,
               const RestRequest & request) const
 {
-    //JML_TRACE_EXCEPTIONS(false);
+    //MLDB_TRACE_EXCEPTIONS(false);
 
     RestRequestParsingContext context(request);
     RestRequestMatchResult res = processRequest(connection, request, context);

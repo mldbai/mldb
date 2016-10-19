@@ -304,7 +304,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                             // by trying first, and then disabling exceptions.
                             if (weakThis.expired())
                                 return;
-                            JML_TRACE_EXCEPTIONS(false);
+                            MLDB_TRACE_EXCEPTIONS(false);
                             auto strongThis = weakThis.lock();
                             if (strongThis)
                                 strongThis->runParentWorker();
@@ -432,7 +432,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                  << endl;
             abort();
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             finished += 1;
             cerr << "ERROR: job submitted to ThreadPool of type "
                  << demangle(job.target_type())

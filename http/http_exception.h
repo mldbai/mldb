@@ -102,17 +102,17 @@ struct HttpReturnException: public MLDB::Exception {
 /** Rethrow an exception, adding some extra context to it.  The exception is
     obtained from std::current_exception().
 */
-void rethrowHttpException(int httpCode, const Utf8String & message, Any details = Any()) JML_NORETURN;
-void rethrowHttpException(int httpCode, const std::string & message, Any details = Any()) JML_NORETURN;
-void rethrowHttpException(int httpCode, const char * message, Any details = Any()) JML_NORETURN;
+void rethrowHttpException(int httpCode, const Utf8String & message, Any details = Any()) MLDB_NORETURN;
+void rethrowHttpException(int httpCode, const std::string & message, Any details = Any()) MLDB_NORETURN;
+void rethrowHttpException(int httpCode, const char * message, Any details = Any()) MLDB_NORETURN;
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
 void rethrowHttpException(int httpCode, const Utf8String & message,
-                          Key && key, Val && val, OtherKeyValuePairs&&... details) JML_NORETURN;
+                          Key && key, Val && val, OtherKeyValuePairs&&... details) MLDB_NORETURN;
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
 void rethrowHttpException(int httpCode, const std::string & message,
-                          Key && key, Val && val, OtherKeyValuePairs&&... details) JML_NORETURN;
+                          Key && key, Val && val, OtherKeyValuePairs&&... details) MLDB_NORETURN;
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
 void rethrowHttpException(int httpCode, const Utf8String & message,

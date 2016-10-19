@@ -64,7 +64,7 @@ struct Feature {
     const id_type&  arg2() const { return args_[2]; }
     void set_arg2(id_type new_arg2) { args_[2] = new_arg2; }
 
-    JML_ALWAYS_INLINE size_t hash() const
+    MLDB_ALWAYS_INLINE size_t hash() const
     {
         id_type id1 = type(), id2 = arg1(), id3 = arg2();
         size_t result
@@ -73,18 +73,18 @@ struct Feature {
         return result;
     }
 
-    JML_ALWAYS_INLINE bool operator == (const Feature & other) const
+    MLDB_ALWAYS_INLINE bool operator == (const Feature & other) const
     {
         return args_[0] == other.args_[0] && args_[1] == other.args_[1]
             && args_[2] == other.args_[2];
     }
 
-    JML_ALWAYS_INLINE bool operator != (const Feature & other) const
+    MLDB_ALWAYS_INLINE bool operator != (const Feature & other) const
     {
         return ! operator == (other);
     }
 
-    JML_ALWAYS_INLINE bool operator < (const Feature & other) const
+    MLDB_ALWAYS_INLINE bool operator < (const Feature & other) const
     {
         return (args_[0] < other.args_[0]
                 || (args_[0] == other.args_[0]

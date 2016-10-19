@@ -22,12 +22,12 @@ namespace ML {
 struct DualFloatAccum {
     float val, err;
     
-#ifdef JML_COMPILER_NVCC
+#ifdef MLDB_COMPILER_NVCC
     DualFloatAccum(float2 other)
         : val(other.x), err(other.y)
     {
     }
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 
     DualFloatAccum(float other = 0.0f)
     {
@@ -107,7 +107,7 @@ struct DualFloatAccum {
 } __align__(8);
 
 
-#ifdef JML_COMPILER_NVCC
+#ifdef MLDB_COMPILER_NVCC
 
 __device__
 void
@@ -147,7 +147,7 @@ atomic_add_shared(FloatAccum & result, FloatAccum other)
     return atomic_add(result, other);
 }
 
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 
 } // namespace ML
 

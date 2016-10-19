@@ -153,6 +153,42 @@ compareNatural(const char * p1, size_t len1,
     return len1 - len2;
 }
 
+int
+compareElements(const char * s0, size_t l0,
+                const char * s1, size_t l1,
+                int d0, int d1)
+{
+    if (MLDB_LIKELY(d0 == d1)) {
+        if (d0 == PathElement::NO_DIGITS) {
+            int res = std::memcmp(s0, s1, std::min(l0, l1));
+            if (res == 0)
+                res = l0 - l1;
+            return res;
+        }
+        else if (d0 == PathElement::DIGITS_ONLY
+                 && MLDB_LIKELY(s0[0] != '0' && s1[0] != '0')) {
+            int res = 0;
+            if (l0 != l1)
+                res = l0 - l1;
+            else {
+                res = std::memcmp(s0, s1, l0);
+                if (res == 0)
+                    res = l0 - l1;
+            }
+            return res;
+        }
+        else if (l0 == l1 && std::memcmp(s0, s1, l0) == 0)
+            return 0;
+    }
+    else {
+        // Different digits.  They are definitely not equal.  Only 
+        // need to determine which one is higher.
+        // ...
+    }
+
+    return compareNatural(s0, l0, s1, l1);
+}
+
 
 /*****************************************************************************/
 /* PATH ELEMENT                                                              */
@@ -406,9 +442,11 @@ operator == (const PathElement & other) const
     //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
     //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
 
+    // We can use strcmp because the lengths and digits are the same, and we
+    // are only looking for equality.
     return digits_ == other.digits_
         && dataLength() == other.dataLength()
-        && compareString(other.data(), other.dataLength()) == 0;
+        && strncmp(data(), other.data(), dataLength()) == 0;
 }
 
 bool
@@ -422,36 +460,16 @@ bool
 PathElement::
 operator <  (const PathElement & other) const
 {
-    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
-    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
-
-    if (digits_ == NO_DIGITS && other.digits_ == NO_DIGITS) {
-        size_t l1 = dataLength();
-        size_t l2 = other.dataLength();
-        int res = std::memcmp(data(), other.data(), std::min(l1, l2));
-        if (res) return res < 0;
-        return l1 < l2;
-    }
-
-    return compareString(other.data(), other.dataLength()) < 0;
+    return compareElements(data(), dataLength(), other.data(), other.dataLength(),
+                           digits_, other.digits_) < 0;
 }
 
 bool
 PathElement::
 operator <= (const PathElement & other) const
 {
-    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
-    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
-
-    if (digits_ == NO_DIGITS && other.digits_ == NO_DIGITS) {
-        size_t l1 = dataLength();
-        size_t l2 = other.dataLength();
-        int res = std::memcmp(data(), other.data(), std::min(l1, l2));
-        if (res) return res <= 0;
-        return l1 <= l2;
-    }
-
-    return compareString(other.data(), other.dataLength()) <= 0;
+    return compareElements(data(), dataLength(), other.data(), other.dataLength(),
+                           digits_, other.digits_) <= 0;
 }
 
 bool
@@ -827,6 +845,15 @@ compareStringNullTerminated(const char * str) const
     return compareString(str, ::strlen(str));
 }
 
+int
+PathElement::
+compare(const PathElement & other) const
+{
+    return compareElements(data(), dataLength(),
+                           other.data(), other.dataLength(),
+                           digits_, other.digits_);
+}
+
 const Utf8String &
 PathElement::
 getComplex() const
@@ -930,7 +957,8 @@ PathBuilder &
 PathBuilder::
 addRange(const Path & path, size_t first, size_t last)
 {
-    if (path.empty()) {
+    ExcAssertLessEqual(first, last);
+    if (path.empty() || first == last) {
         return *this;
     }
 
@@ -938,10 +966,20 @@ addRange(const Path & path, size_t first, size_t last)
         last = path.size();
     if (first > last)
         first = last;
-    for (auto it = path.begin() + first, end = path.begin() + last;
-         it < end;  ++it) {
-        add(*it);
+    size_t o1 = path.offset(first);
+    size_t o2 = path.offset(last);
+    const char * d = path.data();
+    size_t beforeSize = bytes.size();
+    
+    // Do it all at once to reduce the amount of string manipulation
+    bytes.append(d + o1, d + o2);
+    for (size_t i = first;  i < last;  ++i) {
+        if (indexes.size() <= 16) {
+            digits_ = digits_ | (path.digits(i) << (2 * (indexes.size() - 1)));
+        }
+        indexes.emplace_back(path.offset(i + 1) - o1 + beforeSize);
     }
+    ExcAssertEqual(indexes.back(), bytes.size());
     return *this;
 }
 
@@ -1340,9 +1378,9 @@ oldHash() const
     uint64_t result = 0;
     if (empty())
         return result;
-    result = at(0).oldHash();
+    result = oldHashElement(0);
     for (size_t i = 1;  i < size();  ++i) {
-        result = Hash128to64({result, at(i).newHash()});
+        result = Hash128to64({result, oldHashElement(i)});
     }
     return result;
 }
@@ -1351,14 +1389,33 @@ uint64_t
 Path::
 newHash() const
 {
+    //auto startTicks = Date::now();
     uint64_t result = 0;
     if (empty())
         return result;
-    result = at(0).newHash();
+    result = newHashElement(0);
     for (size_t i = 1;  i < size();  ++i) {
-        result = Hash128to64({result, at(i).newHash()});
+        result = Hash128to64({result, newHashElement(i)});
     }
+    //cerr << "newHash() of " << *this << " took "
+    //     << Date::now().secondsSince(startTicks) * 1000000 << "us" << endl;
     return result;
+}
+
+uint64_t
+Path::
+oldHashElement(size_t el) const
+{
+    auto sv = getStringView(el);
+    return CityHash64(sv.first, sv.second);
+}
+
+uint64_t
+Path::
+newHashElement(size_t el) const
+{
+    auto sv = getStringView(el);
+    return highwayHash(defaultSeedStable.u64, sv.first, sv.second);
 }
 
 size_t
@@ -1407,28 +1464,7 @@ compareElement(size_t el, const Path & other, size_t otherEl) const
     int d0 = digits(el);
     int d1 = other.digits(otherEl);
 
-    if (JML_LIKELY(d0 == d1)) {
-        if (d0 == PathElement::NO_DIGITS) {
-            int res = std::memcmp(s0, s1, std::min(l0, l1));
-            if (res == 0)
-                res = l0 - l1;
-            return res;
-        }
-        else if (d0 == PathElement::DIGITS_ONLY
-                 && JML_LIKELY(s0[0] != '0' && s1[0] != '0')) {
-            int res = 0;
-            if (l0 != l1)
-                res = l0 - l1;
-            else {
-                res = std::memcmp(s0, s1, l0);
-                if (res == 0)
-                    res = l0 - l1;
-            }
-            return res;
-        }
-    }
-
-    return compareNatural(s0, l0, s1, l1);
+    return compareElements(s0, l0, s1, l1, d0, d1);
 }
 
 int
@@ -1454,7 +1490,7 @@ operator == (const Path & other) const
     if (digits_ != other.digits_)
         return false;
 
-    // Short circuit (currently offset(0) is always 0, so always taken.
+    // Short circuit (currently offset(0) is always 0, so always taken).
     if (PATH_OFFSET_ZERO_IS_ALWAYS_ZERO
         || (offset(0) == 0 && other.offset(0) == 0)) {
         for (size_t i = 1;  i <= length_;  ++i) {

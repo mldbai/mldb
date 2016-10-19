@@ -175,6 +175,10 @@ struct ColumnIndex {
     virtual std::vector<CellValue>
     getColumnDense(const ColumnPath & column) const;
 
+    /** Return the set of distinct values in the column. */
+    virtual std::vector<CellValue>
+    getColumnDistinctValues(const ColumnPath & column) const;
+
     /** Return a bucketed dense column, with one value for every row in the same
         order as rowNames().  Numerical values will be split into a maximum of
         maxNumBuckets buckets, with split points as described in the

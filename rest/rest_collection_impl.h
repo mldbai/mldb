@@ -346,7 +346,7 @@ initRoutes(RouteManager & result)
 
                 auto collection = result.getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto resultStr = jsonEncodeStr(collection->getKeys());
                 connection.sendHttpResponse(200, resultStr,
                                             "application/json", {});
@@ -377,7 +377,7 @@ initRoutes(RouteManager & result)
                 auto collection = result.getCollection(cxt);
                 auto key = result.getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 collection->handleGetValue(key, connection, req, cxt);
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
@@ -579,7 +579,7 @@ addBackgroundJobInThread(Key key,
 
         auto toRun = [=] ()
             {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 try {
                     WatchT<bool> cancelled = std::move(*cancelledPtr);
                     task->value = fn(onProgressFn, std::move(cancelled));
@@ -1511,7 +1511,7 @@ addPutRoute()
                 auto collection = getCollection(cxt);
                 Key key = this->getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Status status = collection->handlePut(key, config);
 
@@ -1551,7 +1551,7 @@ addPutRoute()
 
                 validatePayloadForPut(req, this->nounPlural);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Status status = collection->handlePutSync(key, config);
 
@@ -1615,7 +1615,7 @@ addPostRoute()
 
                 auto collection = getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Key key = collection->getKey(config);
                 Status status = collection->handlePostSync(key, config);
@@ -1651,7 +1651,7 @@ addPostRoute()
 
                 auto collection = getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Key key = collection->getKey(config);
                 Status status = collection->handlePost(key, config);
@@ -1707,7 +1707,7 @@ addDeleteRoute()
                 auto collection = getCollection(cxt);
                 auto key = this->getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 collection->handleDelete(key);
 
                 connection.sendHttpResponse(204, "", "", {});

@@ -290,7 +290,7 @@ runWorkerThread()
             // First time, we sleep for up to one second waiting for events to come
             // in to the event loop, and handle as many as we can until we hit the
             // limit or we're idle.
-            int res JML_UNUSED = handleEvents(999999 /* microseconds */, maxEventsToHandle,
+            int res MLDB_UNUSED = handleEvents(999999 /* microseconds */, maxEventsToHandle,
                                               nullptr, beforeSleep, afterSleep);
             //cerr << "handleEvents returned " << res << endl;
 

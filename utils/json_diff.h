@@ -74,7 +74,7 @@ struct JsonDiff {
     /** Functional version of ignore(). */
     JsonDiff ignored(const std::string & toIgnoreRegex, bool debug = false) const;
 
-    JML_IMPLEMENT_OPERATOR_BOOL(!empty());
+    MLDB_IMPLEMENT_OPERATOR_BOOL(!empty());
  
     // Reverse the patch
     void reverse();

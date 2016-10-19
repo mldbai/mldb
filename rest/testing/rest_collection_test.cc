@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE( test_watching )
     
     // Wrong watch type should throw immediately
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(WatchT<int> w4 = dir.watch({"items", "elements:*"},
                                                      true /* catchUp */,
                                                      string("w4")),
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE( test_watching_config )
     
     // Wrong watch type should throw immediately
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(WatchT<int> w3 = dir.watch({"items", "elements:*"},
                                                      true /* catchUp */),
                           std::exception);
@@ -371,7 +371,7 @@ BOOST_AUTO_TEST_CASE( test_watching_multi_level )
 
     // watch is wrong type
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w2 = coll.watch({"*", "elements:*"}, true /* catchUp */, string("w2")),
                           std::exception);
     }

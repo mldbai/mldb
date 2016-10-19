@@ -90,7 +90,7 @@ struct Optimization_Info {
         it corresponds to.  If there is none, an exception will be thrown. */
     int get_optimized_index(const Feature & feature) const;
 
-    JML_IMPLEMENT_OPERATOR_BOOL(initialized);
+    MLDB_IMPLEMENT_OPERATOR_BOOL(initialized);
 };
 
 

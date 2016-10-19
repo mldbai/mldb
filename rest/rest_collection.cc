@@ -619,7 +619,7 @@ initRoutes(RouteManager & manager)
             try {
                 auto collection = manager.getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto managerStr = jsonEncodeStr(collection->getKeys());
                 connection.sendHttpResponse(200, managerStr,
                                             "application/json", {});
@@ -789,7 +789,7 @@ void validatePayloadForPut(const RestRequest & req,
                            const Utf8String & nounPlural)
 {
     if (req.payload.empty()) {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException
             (400, "PUT to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "
@@ -804,7 +804,7 @@ void validatePayloadForPost(const RestRequest & req,
                             const Utf8String & nounPlural)
 {
     if (req.payload.empty()) {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException
             (400, "POST to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "

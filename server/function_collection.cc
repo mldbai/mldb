@@ -95,7 +95,7 @@ call(const ExpressionValue & input) const
             auto it = info.input.values.find(name);
 
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
 
                 // skip unknown values
                 if (it == info.input.values.end())
@@ -267,7 +267,7 @@ initRoutes(RouteManager & manager)
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 connection.sendErrorResponse(400, "Unknown exception was thrown");
                 return RestRequestRouter::MR_ERROR;
             }

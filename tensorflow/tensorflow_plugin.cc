@@ -4,6 +4,8 @@
 
 */
 
+#include <thread>
+
 #include "mldb/core/mldb_entity.h"
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
@@ -400,13 +402,13 @@ struct TensorflowGraphBase: public Function {
         std::vector<::tensorflow::Device *> devices;
         tensorflow::DeviceFactory::AddDevices(options, "", &devices);
         
-        int sessionsPerDevice = 1;
+        int sessionsPerDevice = 5;
 
         // Operations hardcoded to the CPU.  These are those that
         // can't use GPUs or need large amounts of data to be
         // transferred back and forth and so don't make sense.
         set<string> hardcodedCpu = {
-            "ExpandDims", "ResizeBilinear" /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
+            /*"ExpandDims", "ResizeBilinear"*/ /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
 
         for (const auto & d: devices) {
             std::string deviceName = d->name();
@@ -414,6 +416,8 @@ struct TensorflowGraphBase: public Function {
 
             //if (isCpuDevice)
             //    continue;
+            if (!isCpuDevice)
+                continue;
 
             // Set the device for all nodes where it's not hardcoded
             for (auto & node: *graph->mutable_node()) {
@@ -439,7 +443,7 @@ struct TensorflowGraphBase: public Function {
 
             if (isCpuDevice) {
                 // Use the thread pool for CPU threads
-                options.config.set_use_per_session_threads(true);
+                //options.config.set_use_per_session_threads(true);
                 //options.config.set_inter_op_parallelism_threads(2);
             }
             else {
@@ -455,7 +459,7 @@ struct TensorflowGraphBase: public Function {
             // NOTE: eventually, this will work... but until it does, we
             // need to go through the above.  Currently Tensorflow just
             // ignores the device_filters fields.
-            //options.config.add_device_filters(d->name());
+            options.config.add_device_filters(d->name());
 
             for (unsigned i = 0;  i < sessionsPerDevice;  ++i) {
                 std::unique_ptr<tensorflow::Session> session;
@@ -746,8 +750,8 @@ struct TensorflowGraphBase: public Function {
             for (auto & t: threads)
                 t.join();
 
-
-            //ML::run_in_parallel(0, 100, doRun);
+#elif 0
+            parallelMap(0, 100, doRun);
 #else
             doRun(0);
 #endif
@@ -1095,7 +1099,7 @@ struct TensorflowGraphBase: public Function {
             // Scalar
             auto flattened = tensor.flat<std::string>();
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 CellValue cell(flattened(0));
                 return ExpressionValue(std::move(cell), ts);
             } catch (const std::exception & exc) {
@@ -1114,7 +1118,7 @@ struct TensorflowGraphBase: public Function {
         vector<CellValue> cells(n);
         for (size_t i = 0;  i < n;  ++i) {
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 cells[i] = flattened(i);
             } catch (const std::exception & exc) {
                 cells[i] = CellValue::blob(flattened(i).data(),
@@ -1238,6 +1242,7 @@ struct TensorflowGraphBase: public Function {
     {
         std::unique_lock<std::mutex> guard(queueLock);
         while (true) {
+            cerr << "spin on session " << &guard << endl;
             int bestSession = -1;
             double bestSessionScore = INFINITY;
             for (unsigned i = 0;  i < sessions.size();  ++i) {
@@ -1250,17 +1255,22 @@ struct TensorflowGraphBase: public Function {
                 }
             }
 
+            cerr << "bestSession = " << bestSession << endl;
+
             if (bestSession != -1) {
                 ++sessions[bestSession].numQueued;
                 auto onDel = [bestSession, this] (tensorflow::Session *)
                     {
-                        std::unique_lock<std::mutex> guard(queueLock);
-                        --sessions[bestSession].numQueued;
-                        queueCond.notify_one();
+                        cerr << "before release session" << endl;
+                        std::unique_lock<std::mutex> guard(this->queueLock);
+                        cerr << "after release session" << endl;
+                        --this->sessions[bestSession].numQueued;
+                        this->queueCond.notify_one();
                     };
 
                 return { std::shared_ptr<tensorflow::Session>(sessions[bestSession].session.get(), onDel), sessions[bestSession].device };
             }
+
 
             queueCond.wait(guard);
         }
@@ -2088,7 +2098,6 @@ struct TensorflowPlugin: public Plugin {
     /// Handle to the documentation macro we register
     std::shared_ptr<void> tfOperationMacroHandle;
 };
-
 
 // tf_node function
 

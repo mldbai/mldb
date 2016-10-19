@@ -45,7 +45,7 @@ enum StringCharacteristics {
 
 struct CellValue {
 
-    JML_ALWAYS_INLINE CellValue() noexcept
+    MLDB_ALWAYS_INLINE CellValue() noexcept
         : bits1(0), bits2(0), flags(0)
     {
     }
@@ -94,7 +94,7 @@ struct CellValue {
     CellValue(Date timestampstatic) noexcept;
     
     CellValue(const CellValue & other);
-    JML_ALWAYS_INLINE CellValue(CellValue && other) noexcept
+    MLDB_ALWAYS_INLINE CellValue(CellValue && other) noexcept
         : bits1(other.bits1), bits2(other.bits2), flags(other.flags)
     {
         other.type = ST_EMPTY;
@@ -131,7 +131,7 @@ struct CellValue {
         return *this;
     }
 
-    JML_ALWAYS_INLINE CellValue & operator = (CellValue && other) noexcept
+    MLDB_ALWAYS_INLINE CellValue & operator = (CellValue && other) noexcept
     {
         CellValue newMe(std::move(other));
         swap(newMe);
@@ -139,14 +139,14 @@ struct CellValue {
 
     }
     
-    JML_ALWAYS_INLINE void swap(CellValue & other) noexcept
+    MLDB_ALWAYS_INLINE void swap(CellValue & other) noexcept
     {
         auto t1 = flags;  flags = other.flags;  other.flags = t1;
         auto t2 = bits1;  bits1 = other.bits1;  other.bits1 = t2;
         auto t3 = bits2;  bits2 = other.bits2;  other.bits2 = t3;
     }
     
-    JML_ALWAYS_INLINE ~CellValue()
+    MLDB_ALWAYS_INLINE ~CellValue()
     {
         if (type == ST_ASCII_LONG_STRING || type == ST_UTF8_LONG_STRING
             || type == ST_LONG_BLOB)
@@ -201,7 +201,7 @@ struct CellValue {
     
     double toDouble() const
     {
-        if (JML_LIKELY(type == ST_FLOAT))
+        if (MLDB_LIKELY(type == ST_FLOAT))
             return floatVal;
         return toDoubleImpl();
     }

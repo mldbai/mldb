@@ -928,7 +928,7 @@ operator <  (const CellValue & other) const
     // 3.  STRING or BLOB, compared lexicographically
 
     try {
-        if (JML_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
+        if (MLDB_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
             return false;
  
         switch (type) {
@@ -1175,7 +1175,7 @@ trimmedExceptionString() const
 
         return Utf8String(str, 0, 200) + "... (trimmed)";
     }
-    JML_CATCH_ALL {
+    MLDB_CATCH_ALL {
         return Utf8String("Exception trying to print string");
     }
 }

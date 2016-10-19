@@ -156,7 +156,7 @@ std::shared_ptr<RowValueInfo>
 ExpressionValueInfo::
 getFlattenedInfo() const
 {
-    throw HttpReturnException(500, "Non-scalar values need to implement getFlattenedInfo()");
+    throw HttpReturnException(400, "ExpressionValueInfo::getFlattenedInfo()");
 }
 
 void
@@ -743,7 +743,8 @@ std::shared_ptr<RowValueInfo>
 EmbeddingValueInfo::
 getFlattenedInfo() const
 {
-    throw HttpReturnException(400, "EmbeddingValueInfo::getFlattenedInfo()");
+    // TODO: embeddings are more regular
+    return RowValueInfo::getFlattenedInfo();
 }
 
 void
@@ -776,7 +777,7 @@ std::shared_ptr<RowValueInfo>
 AnyValueInfo::
 getFlattenedInfo() const
 {
-    throw HttpReturnException(400, "AnyValueInfo::getFlattenedInfo()");
+    return std::make_shared<UnknownRowValueInfo>();
 }
 
 void
@@ -841,7 +842,29 @@ std::shared_ptr<RowValueInfo>
 RowValueInfo::
 getFlattenedInfo() const
 {
-    throw HttpReturnException(400, "RowValueInfo::getFlattenedInfo()");
+    std::vector<KnownColumn> flattenedKnownColumns;
+    SchemaCompleteness schemaCompleteness = SCHEMA_CLOSED;
+
+    for (auto & col: getKnownColumns()) {
+        if (!col.valueInfo->isRow()) {
+            flattenedKnownColumns.emplace_back(std::move(col));
+        }
+        else {
+            if (col.valueInfo->getSchemaCompleteness() == SCHEMA_OPEN)
+                schemaCompleteness = SCHEMA_OPEN;
+            auto info = col.valueInfo->getFlattenedInfo();
+            auto cols2 = info->getKnownColumns();
+            for (auto & col2: cols2) {
+                col2.columnName = col.columnName + col2.columnName;
+            }
+            flattenedKnownColumns.insert(flattenedKnownColumns.end(),
+                                         std::make_move_iterator(cols2.begin()),
+                                         std::make_move_iterator(cols2.end()));
+        }
+    }
+
+    return std::make_shared<RowValueInfo>(std::move(flattenedKnownColumns),
+                                          schemaCompleteness);
 }
 
 void

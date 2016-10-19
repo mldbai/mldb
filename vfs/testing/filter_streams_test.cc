@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE( test_open_failure )
 {
     filter_ostream stream;
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
@@ -213,7 +213,7 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
     cerr <<" done close" << endl;
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream << "hello again" << std::endl, std::exception);
     }
 }
@@ -502,7 +502,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
 
     string data;
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream >> data;
     };
 
@@ -511,7 +511,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     filter_ostream stream("throw-on-write://exception-zone");
 
     auto action = [&]() {
@@ -531,7 +531,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
     filter_ostream stream("throw-on-close://exception-zone");
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.close();
     };
 
@@ -544,7 +544,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_ostream)
     stream.reset(new filter_ostream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.reset();
     };
 
@@ -557,7 +557,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
     stream.reset(new filter_istream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.reset();
     };
 

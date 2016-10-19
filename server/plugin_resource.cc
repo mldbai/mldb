@@ -269,7 +269,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
                             &clone_opts);
         if(rtn != 0) {
             const git_error *err = giterr_last();
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             if (err) throw MLDB::Exception(MLDB::format("Git ERROR %d for %s: %s\n",
                                             err->klass, urlToClone, err->message));
             else throw MLDB::Exception("Git ERROR %d: no detailed info\n", rtn);

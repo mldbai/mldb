@@ -290,7 +290,7 @@ PythonPlugin(MldbServer * server,
     addPluginPathToEnv(pyControl);
 
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] =
             boost::python::object(boost::python::ptr(mldbPy.get()));
     } catch (const boost::python::error_already_set & exc) {
@@ -301,7 +301,7 @@ PythonPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(500, "Exception creating Python context", pyexc);
 
     }
@@ -319,7 +319,7 @@ PythonPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
 
         string context = "Exception executing Python initialization script";
         ScriptOutput result = exceptionToScriptOutput(pyControl, pyexc, context);
@@ -387,7 +387,7 @@ getStatus() const
 //                 LOG(itl->loader) << jsonEncode(pyexc) << endl;
 //             }
 // 
-//             JML_TRACE_EXCEPTIONS(false);
+//             MLDB_TRACE_EXCEPTIONS(false);
 //             string context = "Exception in Python status call";
 //             ScriptOutput result = exceptionToScriptOutput(
 //                 pyControl, pyexc, context);
@@ -439,7 +439,7 @@ handleRequest(RestConnection & connection,
         try {
             RestRequestMatchResult rtn;
             {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
 
                 pyControl.releaseGil();
 
@@ -472,7 +472,7 @@ handleRequest(RestConnection & connection,
                 LOG(itl->loader) << jsonEncode(pyexc) << endl;
             }
 
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             string context = "Exception in Python request handler";
             ScriptOutput result = exceptionToScriptOutput(
                     pyControl, pyexc, context);
@@ -557,7 +557,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     pyControl.acquireGil();
 
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
         injectMldbWrapper(pyControl);
 
@@ -569,7 +569,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             LOG(titl->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
 
         ScriptOutput result;
 
@@ -590,7 +590,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     // if we're simply executing the body of the script
     try {
         if(elementToRun == PackageElement::MAIN) {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             pySetArgv();
             boost::python::object obj =
                 pyExec(scriptSource,

@@ -126,7 +126,7 @@ inline v4sf sse2_logf(v4sf x)
     int mask = 0;
 
     // For out of range results, we have to use the other values
-    if (JML_UNLIKELY(mask = out_of_range_mask_oo(x, 0.0f, INFINITY))) {
+    if (MLDB_UNLIKELY(mask = out_of_range_mask_oo(x, 0.0f, INFINITY))) {
         //using namespace std;
         //cerr << "mask = " << mask << " x = " << x << endl;
 

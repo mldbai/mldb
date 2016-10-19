@@ -241,7 +241,7 @@ struct BehaviourModule {
             *err = (char *)sqlite3_malloc(strlen(exc.what()) + 1);
             strcpy(*err, exc.what());
             return SQLITE_ERROR;
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             return SQLITE_ERROR;
         }
     }

@@ -30,7 +30,7 @@ using boost::unit_test::test_suite;
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     BOOST_CHECK(cpuid_flags() != 0);
 #endif
 }
@@ -308,7 +308,7 @@ void vec_dotprod_test_case(int nvals)
     BOOST_CHECK(error < eps);
 }
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 namespace MLDB {
 namespace SIMD {
 namespace Generic {

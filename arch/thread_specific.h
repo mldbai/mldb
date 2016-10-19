@@ -159,7 +159,7 @@ private:
 
         Value& val = (*info)[index];
 
-        if (JML_UNLIKELY(!val.object)) {
+        if (MLDB_UNLIKELY(!val.object)) {
             if (hadInfo)
                 *hadInfo = false;
             val.construct(const_cast<ThreadSpecificInstanceInfo*>(this));

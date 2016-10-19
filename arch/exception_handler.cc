@@ -26,7 +26,7 @@ using namespace std;
 
 namespace MLDB {
 
-EnvOption<bool> TRACE_EXCEPTIONS("JML_TRACE_EXCEPTIONS", true);
+EnvOption<bool> TRACE_EXCEPTIONS("MLDB_TRACE_EXCEPTIONS", true);
 
 __thread bool trace_exceptions = false;
 __thread bool trace_exceptions_initialized = false;

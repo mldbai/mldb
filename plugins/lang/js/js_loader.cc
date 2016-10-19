@@ -198,7 +198,7 @@ struct JsPluginJS {
                             LOG(itl->loader) << jsonEncode(exc) << endl;
                         }
 
-                        JML_TRACE_EXCEPTIONS(false);
+                        MLDB_TRACE_EXCEPTIONS(false);
                         throw HttpReturnException(400, "Exception in JS status function", exc);
                     }
 
@@ -468,7 +468,7 @@ JavascriptPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(rep) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception compiling plugin script", rep);
     }
 
@@ -485,7 +485,7 @@ JavascriptPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(rep) << endl;
         }
         
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception running plugin script", rep);
     }
     

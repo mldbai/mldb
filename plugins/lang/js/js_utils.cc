@@ -166,7 +166,7 @@ translateCurrentException()
     catch(const std::exception& ex) {
         return mapException(ex);
     }
-    JML_CATCH_ALL {
+    MLDB_CATCH_ALL {
         std::string msg = "unknown exception type";
         auto error = v8::Exception::Error(v8::String::NewFromUtf8(isolate, msg.c_str()));
         return isolate->ThrowException(injectBacktrace(error));

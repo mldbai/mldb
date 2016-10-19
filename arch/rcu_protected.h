@@ -151,7 +151,7 @@ struct RcuProtected {
         val = 0;
     }
 
-    JML_IMPLEMENT_OPERATOR_BOOL(val);
+    MLDB_IMPLEMENT_OPERATOR_BOOL(val);
 
     RcuLocked<T> operator () ()
     {

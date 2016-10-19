@@ -233,7 +233,7 @@ struct Id {
     {
         if (type != other.type) return false;
         if (type == NONE || type == NULLID) return true;
-        if (JML_UNLIKELY(type >= STR)) return complexEqual(other);
+        if (MLDB_UNLIKELY(type >= STR)) return complexEqual(other);
         return val1 == other.val1 && val2 == other.val2;  // works for SHORTSTR too
     }
 
@@ -248,7 +248,7 @@ struct Id {
             return complexLess(other);
         if (type < other.type) return true;
         if (other.type < type) return false;
-        if (JML_UNLIKELY(type > STR)) return complexLess(other);
+        if (MLDB_UNLIKELY(type > STR)) return complexLess(other);
         return (valHigh < other.valHigh
                 || (valHigh == other.valHigh && valLow < other.valLow));
     }
@@ -340,7 +340,7 @@ struct Id {
     
     Json::Value toJson() const;
     static Id fromJson(const Json::Value & val);
-} JML_PACKED;
+} MLDB_PACKED;
 
 std::ostream & operator << (std::ostream & stream, const Id & id);
 

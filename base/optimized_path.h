@@ -34,11 +34,11 @@ struct OptimizedPath {
     OptimizedPath(const std::string & name);
     ~OptimizedPath();
 
-    JML_ALWAYS_INLINE bool take(bool canTake) const
+    MLDB_ALWAYS_INLINE bool take(bool canTake) const
     {
         // Fast path, which will always be used in production.  Definitely
         // take the optimized path if it's optimized.
-        if (JML_LIKELY(alwaysTake.load(std::memory_order_relaxed)))
+        if (MLDB_LIKELY(alwaysTake.load(std::memory_order_relaxed)))
             return canTake;
 
         // Otherwise, lookup internally whether we should take it.  Slow
@@ -47,11 +47,11 @@ struct OptimizedPath {
     }
 
     /** Should the path be taken? */
-    JML_ALWAYS_INLINE bool take() const
+    MLDB_ALWAYS_INLINE bool take() const
     {
         // Fast path, which will always be used in production.  Definitely
         // take the optimized path.
-        if (JML_LIKELY(alwaysTake.load(std::memory_order_relaxed)))
+        if (MLDB_LIKELY(alwaysTake.load(std::memory_order_relaxed)))
             return true;
 
         // Otherwise, lookup internally whether we should take it.  Slow
@@ -59,12 +59,12 @@ struct OptimizedPath {
         return maybeTake();
     }
 
-    JML_ALWAYS_INLINE bool operator () () const
+    MLDB_ALWAYS_INLINE bool operator () () const
     {
         return take();
     }
     
-    JML_ALWAYS_INLINE bool operator () (bool canTake) const
+    MLDB_ALWAYS_INLINE bool operator () (bool canTake) const
     {
         return take(canTake);
     }

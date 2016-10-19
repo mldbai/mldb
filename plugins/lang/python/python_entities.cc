@@ -125,7 +125,7 @@ createPythonProcedure(MldbPythonContext * c,
 //                             LOG(itl->loader) << jsonEncode(pyexc) << endl;
                         }
 
-                        JML_TRACE_EXCEPTIONS(false);
+                        MLDB_TRACE_EXCEPTIONS(false);
                         throw HttpReturnException(400, "Exception creating procedure", 
                                                   pyexc);
                     }

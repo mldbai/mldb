@@ -301,7 +301,7 @@ struct Watch {
 
     // Throw the given exception with the given message
     void throwException(WatchErrorKind kind,
-                        const char * message, ...) const JML_NORETURN;
+                        const char * message, ...) const MLDB_NORETURN;
 
 protected:
     void release(WatchData * data);
@@ -430,7 +430,7 @@ struct Watches {
 
     // Throw the given exception with the given message
     void throwException(WatchErrorKind kind,
-                        const char * message, ...) const JML_NORETURN;
+                        const char * message, ...) const MLDB_NORETURN;
 
 protected:
     /// Mutex.  We handle recursion in via triggerThread, so this is a straight

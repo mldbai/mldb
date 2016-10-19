@@ -809,7 +809,7 @@ struct ExpressionValue {
 
     ExpressionValue(const ExpressionValue & other);
 
-    JML_ALWAYS_INLINE ExpressionValue(ExpressionValue && other) noexcept
+    MLDB_ALWAYS_INLINE ExpressionValue(ExpressionValue && other) noexcept
     {
         // Dodgy as hell.  But none of them have self referential pointers, and so it
         // works and with no possibility of an exception.
@@ -819,7 +819,7 @@ struct ExpressionValue {
 
     ExpressionValue & operator = (const ExpressionValue & other);
 
-    JML_ALWAYS_INLINE ExpressionValue &
+    MLDB_ALWAYS_INLINE ExpressionValue &
     operator = (ExpressionValue && other) noexcept
     {
         ExpressionValue newMe(std::move(other));
@@ -827,7 +827,7 @@ struct ExpressionValue {
         return *this;
     }
 
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void swap(ExpressionValue & other) noexcept
     {
         // Dodgy as hell.  But none of them have self referential pointers, and so it

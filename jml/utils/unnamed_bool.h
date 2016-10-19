@@ -40,12 +40,12 @@ typedef unnamed_bool_t::type unnamed_bool;
 static const unnamed_bool unnamed_true = &unnamed_bool_t::fn;
 static const unnamed_bool unnamed_false = 0;
 
-JML_ALWAYS_INLINE unnamed_bool make_unnamed_bool(bool val)
+MLDB_ALWAYS_INLINE unnamed_bool make_unnamed_bool(bool val)
 {
     return (val ? unnamed_true : unnamed_false);
 }
 
-#define JML_IMPLEMENT_OPERATOR_BOOL(expr) \
+#define MLDB_IMPLEMENT_OPERATOR_BOOL(expr) \
     operator ML::unnamed_bool () const { return ML::make_unnamed_bool(expr); }
 
 } // namespace ML

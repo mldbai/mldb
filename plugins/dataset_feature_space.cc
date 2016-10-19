@@ -8,7 +8,9 @@
 #include "mldb/base/parallel.h"
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/types/hash_wrapper_description.h"
+#include "mldb/http/http_exception.h"
 
 using namespace std;
 
@@ -126,9 +128,47 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
         BucketList & buckets = std::get<0>(bucketsAndDescriptions);
         BucketDescriptions & descriptions = std::get<1>(bucketsAndDescriptions);
 
+        if (descriptions.numeric.active) {
+            result.info = ML::REAL;
+            // TODO: if we have both numbers and strings, we probably do need
+            // to support it in the long term.
+            if (!descriptions.strings.buckets.empty()) {
+                std::vector<Utf8String> stringValues;
+                if (descriptions.strings.buckets.size() > 100) {
+                    stringValues.insert(stringValues.end(),
+                                        descriptions.strings.buckets.begin(),
+                                        descriptions.strings.buckets.begin() + 100);
+                }
+                else stringValues = std::move(descriptions.strings.buckets);
+
+                throw HttpReturnException
+                    (400, "This classifier can't train on column "
+                     + columnName.toUtf8String() + " which has both string "
+                     + " and numeric values.  Consider using \nCAST ("
+                     + columnName.toUtf8String() + " AS STRING)\nor splitting "
+                     + "into two columns, one numeric-or-null and one "
+                     + "string-or-null, eg\nCASE WHEN " + columnName.toUtf8String() + " IS NUMBER THEN " + columnName.toUtf8String() + " ELSE NULL END AS "
+                     + columnName.toUtf8String() + "_numeric, CASE WHEN " + columnName.toUtf8String() + " IS STRING THEN " + columnName.toUtf8String() + " ELSE NULL END AS "
+                     + columnName.toUtf8String() + "_string",
+                     "stringValues", stringValues);
+            }
+            ExcAssert(descriptions.strings.buckets.empty());
+        }
+        else if (!descriptions.strings.buckets.empty()) {
+            std::vector<std::string> categories;
+            categories.reserve(descriptions.strings.buckets.size());
+            for (auto & s: descriptions.strings.buckets) {
+                categories.emplace_back(s.rawString());
+            }
+            auto categorical
+                = std::make_shared<ML::Fixed_Categorical_Info>(std::move(categories));
+            result.info = ML::Feature_Info(categorical);
+        }
+
         result.distinctValues = descriptions.numBuckets();
         result.buckets = std::move(buckets);
         result.bucketDescriptions = std::move(descriptions);
+
     }
 
     return result;
@@ -475,7 +515,6 @@ reconstitute(ML::DB::Store_Reader & store)
     }
 
     columnInfo.swap(newColumnInfo);
-
 }
 
 void

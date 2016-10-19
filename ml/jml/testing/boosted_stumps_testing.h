@@ -47,7 +47,7 @@ struct Update_Weights_Basic {
 
 /* Non-optimised version of the boosting loss function. */
 struct Boosting_Loss_Test {
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (bool correct, float pred, float current) const
     {
         float sign = (correct == l ? 1.0 : -1.0);

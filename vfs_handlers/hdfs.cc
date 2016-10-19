@@ -101,7 +101,7 @@ read(char * s, streamsize n)
 
     tSize readRes;
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         readRes = hdfsRead(fsHandle_, fileHandle_, s, n);
     }
     if (readRes == -1) {

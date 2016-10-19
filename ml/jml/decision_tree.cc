@@ -92,7 +92,7 @@ struct OptimizedGetFeatures {
 
     const float * features;
 
-    JML_ALWAYS_INLINE Split::Weights operator () (const Split & split) const
+    MLDB_ALWAYS_INLINE Split::Weights operator () (const Split & split) const
     {
         return split.apply(features);
     }
@@ -109,10 +109,10 @@ struct AccumResults {
     int nl;
     double weight;
 
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight1)
     {
-        if (JML_LIKELY(nl == 2)) {
+        if (MLDB_LIKELY(nl == 2)) {
             double factor = weight1 * weight;
             accum[0] += dist[0] * factor;
             accum[1] += dist[1] * factor;
@@ -134,7 +134,7 @@ struct DistResults {
     double * accum;
     int nl;
 
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight)
     {
         for (unsigned i = 0;  i < nl;  ++i)
@@ -150,7 +150,7 @@ struct LabelResults {
     {
     }
 
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight)
     {
         result += weight * dist[label];

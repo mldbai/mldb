@@ -10,7 +10,7 @@
 #include <dlfcn.h>
 #include <mutex>
 #include <iostream>
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 #  include "mldb/arch/simd.h"
 #endif
 #include <cassert>
@@ -33,7 +33,7 @@ struct AtInit {
 
         const char * error = nullptr;
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
         // Try avx2 first
         if (!handle && has_avx2()) {
             error = load("avx2");
@@ -46,10 +46,6 @@ struct AtInit {
         if (!handle && has_sse42()) {
             error = load("sse42");
         }
-        // Finally SSE2
-        if (!handle && has_sse2()) {
-            error = load("sse2");
-        }
 #else
         error = load("generic");
 #endif
@@ -57,7 +53,7 @@ struct AtInit {
         if (!handle) {
             cerr << "Couldn't load any TensorFlow kernels library: "
                  << error << endl;
-            cerr << "Tensorflow operations will abort on launch" << endl;
+            cerr << "Tensorflow operations will abort on kernel launch" << endl;
         }
     }
 

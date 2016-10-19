@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(test_percent_sign_with_spaces)
 #if TEST_ALL
 BOOST_AUTO_TEST_CASE(test_invalid_input)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Utf8String in("%");
 #if TOLERATE_URL_BAD_ENCODING
     BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(test_utf8_repetitions)
 #if TEST_ALL
 BOOST_AUTO_TEST_CASE(test_invalid_utf8)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Utf8String in = "%C3";
 #if TOLERATE_URL_BAD_ENCODING
     Utf8String expected = "Ã";
