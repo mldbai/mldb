@@ -105,7 +105,8 @@ getStatus() const
 
 struct RandomForestRNG {
 
-    RandomForestRNG()
+    RandomForestRNG(int seed)
+        : rng(seed + (seed == 0))
     {
     }
 
@@ -261,7 +262,6 @@ run(const ProcedureRunConfig & run,
     ExcAssertEqual(numRows, numRowsKept);
 
     const float trainprop = 1.0f;
-    RandomForestRNG myrng;
     int totalResultCount = runProcConf.featureVectorSamplings*runProcConf.featureSamplings;
     vector<shared_ptr<Decision_Tree>> results(totalResultCount);
 
@@ -280,6 +280,8 @@ run(const ProcedureRunConfig & run,
             // generation and we set up each bag independently
             auto doPartition = [&] (size_t i)
             {
+                RandomForestRNG myrng(38341 + i);
+
                 size_t first = (numRows / numPartitions) * i;
                 size_t last = (numRows / numPartitions) * (i + 1);
                 if (last > numRows || i == numPartitions)
