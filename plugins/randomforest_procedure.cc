@@ -26,7 +26,6 @@
 #include "mldb/plugins/sql_config_validator.h"
 
 #include <random>
-#include <boost/random/uniform_int.hpp>
 #include <boost/random/uniform_01.hpp>
 
 using namespace std;

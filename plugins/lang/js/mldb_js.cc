@@ -19,7 +19,6 @@
 #include "dataset_js.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/sql/sql_utils.h"
-#include <boost/random/normal_distribution.hpp>
 #include <boost/random/uniform_01.hpp>
 #include <random>
 #include <boost/random/variate_generator.hpp>
@@ -479,10 +478,9 @@ struct RandomNumberGenerator {
 
     // Random number support
     mt19937 rng;
-    boost::normal_distribution<double> norm;
+    normal_distribution<double> norm;
 
-    boost::variate_generator<mt19937,
-                             boost::normal_distribution<double> > normal_gen;
+    boost::variate_generator<mt19937, normal_distribution<double> > normal_gen;
     boost::uniform_01<mt19937> uniform01;
 
     void seed(int randomSeed)

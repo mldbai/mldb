@@ -20,7 +20,6 @@
 
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
-#include <boost/random/normal_distribution.hpp>
 #include <random>
 #include <boost/random/variate_generator.hpp>
 #include "mldb/base/parallel.h"
@@ -958,10 +957,9 @@ tsne_init(int nx, int nd, int randomSeed)
     mt19937 rng;
     if (randomSeed)
         rng.seed(randomSeed);
-    boost::normal_distribution<float> norm;
+    normal_distribution<float> norm;
 
-    boost::variate_generator<mt19937,
-                             boost::normal_distribution<float> >
+    boost::variate_generator<mt19937, normal_distribution<float> >
         randn(rng, norm);
 
     boost::multi_array<float, 2> Y(boost::extents[nx][nd]);

@@ -23,8 +23,6 @@
 #include "mldb/base/thread_pool.h"
 
 #include <random>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/variate_generator.hpp>
 #include <mutex>
 
 

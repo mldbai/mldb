@@ -17,8 +17,6 @@
 #include "mldb/ml/jml/committee.h"
 #include "mldb/jml/utils/sgi_numeric.h"
 #include <random>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/variate_generator.hpp>
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"

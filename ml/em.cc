@@ -14,7 +14,6 @@
 
 #include "mldb/base/exc_assert.h"
 
-#include <boost/random/uniform_int.hpp>
 #include <random>
 #include <mutex>
 

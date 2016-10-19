@@ -11,7 +11,6 @@
 
 #include <random>
 #include "mldb/jml/utils/smart_ptr_utils.h"
-#include <boost/random/uniform_int.hpp>
 
 namespace ML {
 
