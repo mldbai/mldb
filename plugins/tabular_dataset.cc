@@ -18,10 +18,12 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/scope.h"
 #include "mldb/server/bucket.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
+#include "mldb/jml/utils/floating_point.h"
 #include <mutex>
 
 using namespace std;
@@ -429,50 +431,80 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                                       "knownColumns", getColumnPaths());
         }
 
-        std::vector<CellValue> valueList;
+        std::atomic<size_t> totalRows(0);
 
-        size_t totalRows = 0;
-
-        std::vector<std::tuple<BucketList, BucketDescriptions> > chunkBuckets
-            (chunks.size());
+        std::vector<std::vector<double> > numerics(chunks.size());
+        std::vector<std::vector<Utf8String> > strings(chunks.size());
+        std::atomic<bool> hasNulls(false);
 
         auto onChunk = [&] (size_t i)
             {
-                std::vector<CellValue> valueList;
-
                 auto onValue = [&] (const CellValue & val)
                 {
-                    valueList.push_back(std::move(val));
+                    if (val.empty()) {
+                        if (!hasNulls)
+                            hasNulls = true;
+                    }
+                    else if (val.isNumber()) {
+                        numerics[i].emplace_back(val.toDouble());
+                    }
+                    else if (val.isString()) {
+                        strings[i].emplace_back(val.toUtf8String());
+                    }
+                    else {
+                        throw HttpReturnException
+                        (400, "Can only bucketize numbers and strings, not "
+                         + jsonEncodeStr(val));
+                    }
                     return true;
                 };
 
                 chunks[i].columns[it->second]->forEachDistinctValue(onValue);
 
-                BucketDescriptions descriptions;
-                descriptions.initialize(std::move(valueList), maxNumBuckets);
-
-                // Finally, perform the bucketed lookup
-                WritableBucketList buckets(chunks[i].rowCount(),
-                                           descriptions.numBuckets());
-            
-                auto onRow = [&] (size_t, const CellValue & val)
-                {
-                    uint32_t bucket = descriptions.getBucket(val);
-                    buckets.write(bucket);
-                    return true;
-                };
-            
-                chunks[i].columns[it->second]->forEach(onRow);
-                
                 totalRows += chunks[i].rowCount();
-
-                chunkBuckets[i]
-                    = std::make_tuple(std::move(buckets), std::move(descriptions));
             };
-
+        
         parallelMap(0, chunks.size(), onChunk);
 
-        return BucketDescriptions::merge(std::move(chunkBuckets), maxNumBuckets);
+        //cerr << chunks.size() << " chunks and " << totalRows << " rows" << endl;
+
+        auto sortedNumerics = parallelMergeSortUnique(numerics, ML::safe_less<double>());
+        auto sortedStrings = parallelMergeSortUnique(strings);
+
+        BucketDescriptions desc;
+        desc.initialize(hasNulls,
+                        std::move(sortedNumerics),
+                        std::move(sortedStrings),
+                        maxNumBuckets);
+
+        WritableBucketList buckets(totalRows, desc.numBuckets());
+
+        size_t numWritten = 0;
+
+        auto onChunk2 = [&] (size_t i)
+            {
+
+                auto onRow = [&] (size_t rowNum, const CellValue & val)
+                {
+                    uint32_t bucket = desc.getBucket(val);
+                    buckets.write(bucket);
+                    ++numWritten;
+                    return true;
+                };
+                
+                chunks[i].columns[it->second]->forEachDense(onRow);
+            };
+        
+        for (size_t i = 0;  i < chunks.size();  ++i)
+            onChunk2(i);
+
+        if (numWritten != totalRows) {
+            throw HttpReturnException(400, "Column " + column.toUtf8String() + " had wrong number written (" + to_string(numWritten) + " vs " + to_string(totalRows));
+        }
+
+        ExcAssertEqual(numWritten, totalRows);
+
+        return std::make_tuple(std::move(buckets), std::move(desc));
     }
 
     virtual uint64_t getColumnRowCount(const ColumnPath & column) const override
