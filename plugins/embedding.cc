@@ -270,7 +270,7 @@ struct EmbeddingDataset::Itl
     RestRequestRouter router;
 
     virtual std::vector<RowPath>
-    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -326,7 +326,7 @@ struct EmbeddingDataset::Itl
     }
 
     virtual std::vector<RowHash>
-    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
+    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -344,7 +344,7 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const RowPath & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -362,7 +362,7 @@ struct EmbeddingDataset::Itl
         return it != repr->rowIndex.end() && it->second != -1;
     }
 
-    virtual MatrixNamedRow getRow(const RowPath & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -412,7 +412,7 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    virtual RowPath getRowPath(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const override
     {
         static const RowHash nullHash(RowPath("null"));
         static const RowHash nullHashMunged(RowPath("\x01null"));
@@ -430,7 +430,7 @@ struct EmbeddingDataset::Itl
         return repr->rows[it->second].rowName;
     }
 
-    virtual bool knownColumn(const ColumnPath & column) const
+    virtual bool knownColumn(const ColumnPath & column) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -439,7 +439,7 @@ struct EmbeddingDataset::Itl
         return repr->columnIndex.count(column);
     }
 
-    virtual ColumnPath getColumnPath(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const override
     {
         // TODO: shouldn't need to
         auto repr = committed();
@@ -453,7 +453,7 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath> getColumnPaths() const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -462,7 +462,7 @@ struct EmbeddingDataset::Itl
         return repr->columnNames;
     }
 
-    virtual size_t getRowCount() const
+    virtual size_t getRowCount() const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -470,7 +470,7 @@ struct EmbeddingDataset::Itl
         return repr->rows.size();
     }
 
-    virtual size_t getColumnCount() const
+    virtual size_t getColumnCount() const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -479,7 +479,7 @@ struct EmbeddingDataset::Itl
     }
 
     virtual const ColumnStats &
-    getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const
+    getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -503,7 +503,7 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnPath & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const override
     {
         auto repr = committed();
         if (!repr->initialized())

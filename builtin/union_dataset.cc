@@ -129,19 +129,19 @@ struct UnionDataset::Itl
             //throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
-        virtual std::shared_ptr<RowStream> clone() const
+        virtual std::shared_ptr<RowStream> clone() const override
         {
             return make_shared<UnionRowStream>(source);
         }
 
         /* set where the stream should start*/
-        virtual void initAt(size_t start)
+        virtual void initAt(size_t start) override
         {
             cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
             //throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
-        virtual RowPath next()
+        virtual RowPath next() override
         {
             cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
             throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
