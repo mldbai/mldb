@@ -27,10 +27,10 @@ MockProcedureConfigDescription::
 MockProcedureConfigDescription()
 {
     addField("durationMs", &MockProcedureConfig::durationMs,
-             "Total duration in ms the procedure will fake work.");
+             "Total duration in ms the procedure will fake work.", 5000);
     addField("refreshRateMs", &MockProcedureConfig::refreshRateMs,
-             "The frequency at wich the procedure will update its fake "
-             "progress");
+             "The frequency at which the procedure will update its fake "
+             "progress", 50);
     addParent<ProcedureConfig>();
 
     onPostValidate = [&] (MockProcedureConfig * cfg,
