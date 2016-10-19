@@ -17,14 +17,11 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 struct RestRequest;
 struct RestConnection;
 struct RestRequestParsingContext;
-
-namespace MLDB {
-
 struct MldbServer;
 struct Sensor;
 struct ExpressionValue;
@@ -166,4 +163,3 @@ struct RegisterSensorType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
