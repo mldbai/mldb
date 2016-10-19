@@ -157,7 +157,7 @@ see what's going on for long running procedures.
 ### Example
 
 Code
-```
+```python
 # We create the mldb_wrapper object
 wrapper = mldb_wrapper.wrap(mldb)
 
