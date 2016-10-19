@@ -11,7 +11,6 @@
 #include "mldb/core/sensor.h"
 #include "mldb/rest/poly_collection.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 /*****************************************************************************/
@@ -26,8 +25,7 @@ struct SensorCollection: public PolyCollection<Sensor> {
     virtual Any getEntityStatus(const Sensor & sensor) const;
 };
 
-} // namespace MLDB
-
 extern template class PolyCollection<MLDB::Sensor>;
 
-} // namespace Datacratic
+} // namespace MLDB
+

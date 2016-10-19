@@ -20,7 +20,6 @@ extern "C" {
 
 using namespace std;
 
-namespace Datacratic {
 namespace MLDB {
 
 const Package & avPackage()
@@ -113,9 +112,8 @@ AudioVideoPlugin * AudioVideoPlugin::staticPlugin = nullptr;
 
 
 } // namespace MLDB
-} // namespace Datacratic
 
-Datacratic::MLDB::Plugin *
+MLDB::Plugin *
 mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
 {
     return new Datacratic::MLDB::AudioVideoPlugin(server);

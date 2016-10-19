@@ -13,7 +13,6 @@
 using namespace std;
 
 
-namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<SensorCollection>
@@ -184,8 +183,7 @@ getEntityStatus(const Sensor & sensor) const
     return sensor.getStatus();
 }
 
-} // namespace MLDB
-
 template class PolyCollection<MLDB::Sensor>;
 
-} // namespace Datacratic
+} // namespace MLDB
+

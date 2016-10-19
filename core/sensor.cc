@@ -16,7 +16,6 @@
 #include "mldb/sql/expression_value.h"
 #include "mldb/sql/builtin_functions.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -56,7 +55,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Sensor of type '" + ML::type_name(*this)
+    error["error"] = "Sensor of type '" + type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
@@ -110,4 +109,3 @@ static RegisterFunction registerReadSensor("read_sensor", readSensorFunction);
 
 
 } // namespace MLDB
-} // namespace Datacratic

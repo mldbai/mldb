@@ -32,7 +32,6 @@ extern "C" {
 
 using namespace std;
 
-namespace Datacratic {
 namespace MLDB {
 
 struct CaptureAudioSensorConfig {
@@ -328,10 +327,7 @@ struct CaptureAudioSensor: public Sensor {
                     throw HttpReturnException(500, "Unknown audio sample format");
                 }
                 return result;
-            }
-                    
             };
-                              
 
         auto decodeSample = [&] (const uint8_t * & start,
                                  size_t numBytes)
@@ -489,7 +485,6 @@ regAudioSensor(avPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
 
 #if 0
 extern "C"

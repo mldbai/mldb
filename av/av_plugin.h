@@ -9,14 +9,12 @@
 
 #include "mldb/core/mldb_entity.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 /** Package that we register the av types under. */
 const Package & avPackage();
 
 } // namespace MLDB
-} // namespace Datacratic
 
 
 
