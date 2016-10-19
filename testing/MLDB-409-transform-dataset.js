@@ -71,14 +71,14 @@ var transform_config = {
 
 createAndRunProcedure(transform_config, "transform");
 
-var resp = mldb.get("/v1/query", {q: 'SELECT x,y,z,q from transformed order by rowHash()',format: 'table'});
+var resp = mldb.get("/v1/query", {q: 'SELECT x,y,z,q from transformed order by rowName()',format: 'table'});
 
 plugin.log("transform limit 3 query result", resp.json);
 
 var expected = [
    [ "_rowName", "q", "x", "y", "z" ],
-   [ "ex3_transformed", 8, 1, 2, 10 ],
    [ "ex2_transformed", 7, 1, 1, 10 ],
+   [ "ex3_transformed", 8, 1, 2, 10 ],
    [ "ex4_transformed", 12, 6, 6, 60 ]
 ];
 

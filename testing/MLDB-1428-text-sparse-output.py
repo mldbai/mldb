@@ -71,10 +71,10 @@ class ImportTextToSparseTest(unittest.TestCase):
             } 
         })
 
-        res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL LIMIT 1')
+        res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL ORDER BY rowName() LIMIT 1')
 
         expected = [["_rowName","gonewild"],
-                    ["471242",1]]
+                    ["100030",1]]
         self.assertEqual(res, expected)
 
     # MLDB-1513

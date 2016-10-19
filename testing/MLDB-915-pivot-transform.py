@@ -53,7 +53,6 @@ result = mldb.get('/v1/query', q='select * from example2')
 expected = [
     {
         "rowName": "\"[\"\"nick\"\"]\"",
-        "rowHash": "676fb0c3ba9e8500",
         "columns": [
             [
                 "appl",
@@ -69,7 +68,6 @@ expected = [
     },
     {
         "rowName": "\"[\"\"francois\"\"]\"",
-        "rowHash": "65a04ce6031d924d",
         "columns": [
             [
                 "appl",
