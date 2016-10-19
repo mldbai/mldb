@@ -364,7 +364,7 @@ getMessage(std::string & payload)
                 if (msg.onError) {
                     try {
                         msg.onError(std::move(msg));
-                    } JML_CATCH_ALL {
+                    } MLDB_CATCH_ALL {
                         cerr << "warning: onError handler threw"
                              << endl;
                     }
@@ -578,7 +578,7 @@ handleResponse(PeerMessage && response)
         } catch (const std::exception & exc) {
             cerr << "error: exception thrown in onResponse: "
                  << exc.what() << endl;
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             cerr << "error: exception thrown in onResponse"
                  << endl;
         }
@@ -638,7 +638,7 @@ checkDeadlines()
             msg.error = "Timeout waiting for response";
             try {
                 msg.onError(std::move(msg));
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 cerr << "Exception in onError handler" << endl;
                 abort();
             }

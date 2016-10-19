@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(test_coord_parsing)
     }
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(PathElement::parse("."), MLDB::Exception);
         BOOST_CHECK_THROW(PathElement::parse("\n"), MLDB::Exception);
         BOOST_CHECK_THROW(PathElement::parse("\""), MLDB::Exception);
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
     }
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(Path::parse("\n"), MLDB::Exception);
         BOOST_CHECK_THROW(Path::parse("\0", 1), MLDB::Exception);
         BOOST_CHECK_THROW(Path::parse("\"\0\"", 3), MLDB::Exception);
@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(test_null)
 
     // pe = path element
     // p = path
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_THROW(null + e, MLDB::Exception); // pe - pe, null lhs
     BOOST_CHECK_THROW(e + null, MLDB::Exception); // pe - pe, null rhs
     BOOST_CHECK_THROW(null + std::move(e), MLDB::Exception); // pe - moved pe, null lhs

@@ -526,15 +526,15 @@ public:
             union {
                 struct {
                     Char restOfIntBytes_[Bytes - 3];
-                } JML_PACKED;
+                } MLDB_PACKED;
                 struct {
                     uint32_t extLength_;
                     uint32_t extCapacity_;
                     Char * extBytes_;
-                } JML_PACKED;
+                } MLDB_PACKED;
                 uint32_t internalWords[NUM_WORDS * 2 - 1];
-            } JML_PACKED;
-        } JML_PACKED;
+            } MLDB_PACKED;
+        } MLDB_PACKED;
     };
 };
 
@@ -602,7 +602,7 @@ struct Path {
           digits_(other.digits_),
           ofsBits_(other.ofsBits_)
     {
-        if (JML_UNLIKELY(other.externalOfs())) {
+        if (MLDB_UNLIKELY(other.externalOfs())) {
             ofsPtr_ = new uint32_t[length_ + 1];
             ExcAssert(other.ofsPtr_);
             for (size_t i = 0;  i <= length_;  ++i) {
@@ -641,7 +641,7 @@ struct Path {
 
     ~Path()
     {
-        if (JML_UNLIKELY(externalOfs())) {
+        if (MLDB_UNLIKELY(externalOfs())) {
             delete[] ofsPtr_;
         }
     }
@@ -829,7 +829,7 @@ struct Path {
         const char * d = data();
         const char * b = d + offset(el);
         const char * e = d + offset(el + 1);
-        if (JML_LIKELY(el < 16)) {
+        if (MLDB_LIKELY(el < 16)) {
             return PathElement(b, e - b, digits(el));
         }
         else {
@@ -893,10 +893,10 @@ private:
     }
 
     /// Return the byte offsets of the begin and end of this element
-    JML_ALWAYS_INLINE size_t offset(size_t el) const
+    MLDB_ALWAYS_INLINE size_t offset(size_t el) const
     {
         //ExcAssertLessEqual(el, length_);
-        if (JML_LIKELY(!externalOfs())) {
+        if (MLDB_LIKELY(!externalOfs())) {
             return ofs_[el];
         }
         return ofsPtr_[el];

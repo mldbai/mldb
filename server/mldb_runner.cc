@@ -251,7 +251,7 @@ int main(int argc, char ** argv)
                  << exc.what() << endl;
             return 1;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             cerr << "error reading credentials from command line: unknown error"
                  << endl;
             return 1;
@@ -297,7 +297,7 @@ int main(int argc, char ** argv)
                  << endl;
             return 1;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             cerr << "error reading credentials from file "
                  << addCredentialsFromUrl << ": unknown error"
                  << endl;

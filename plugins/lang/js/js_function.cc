@@ -120,7 +120,7 @@ initialize(const JsFunctionData & data)
 
     if (compiled.IsEmpty()) {  
         auto rep = convertException(trycatch, "Compiling jseval script");
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception compiling jseval script",
                                   "exception", rep,
                                   "scriptSource", data.scriptSource,
@@ -172,7 +172,7 @@ run(const std::vector<ExpressionValue> & args,
     
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running jseval script");
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception running jseval script",
                                   "exception", rep,
                                   "scriptSource", data->scriptSource,

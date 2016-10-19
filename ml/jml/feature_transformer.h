@@ -128,7 +128,7 @@ public:
     }
 
     /** Operator bool, which tells us if there is any implementation or not. */
-    JML_IMPLEMENT_OPERATOR_BOOL(!!impl_);
+    MLDB_IMPLEMENT_OPERATOR_BOOL(!!impl_);
 private:
     std::shared_ptr<Feature_Transformer_Impl> impl_;
 };

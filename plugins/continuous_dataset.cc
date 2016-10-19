@@ -66,7 +66,7 @@ struct ContinuousDataset::Itl {
             // Get the metadata dataset.  This is what stores the internal
             // metadata about which datasets are available.
             metadataDataset = obtainDataset(server, config.metadataDataset);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "metadata initialization: " + getExceptionString(),
                                  "continuousDatasetConfig", config);
@@ -74,7 +74,7 @@ struct ContinuousDataset::Itl {
         
         try {
             createStorageDataset = obtainProcedure(server, config.createStorageDataset);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "createStorageDataset initialization: "
                                  + getExceptionString(),
@@ -83,7 +83,7 @@ struct ContinuousDataset::Itl {
         
         try {
             saveStorageDataset = obtainProcedure(server, config.saveStorageDataset);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "saveStorageDataset procedure initialization: "
                                  + getExceptionString(),
@@ -544,7 +544,7 @@ ContinuousWindowDataset(MldbServer * owner,
         // Get the metadata dataset.  This is what stores the internal
         // metadata about which datasets are available.
         metadataDataset = obtainDataset(server, config.metadataDataset);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
                              "metadata initialization: " + getExceptionString(),
                              "continuousDatasetConfig", config);
@@ -556,7 +556,7 @@ ContinuousWindowDataset(MldbServer * owner,
         // Query the metadata dataset for the datasets that we need to load
         // up, and turn it into a merged dataset configuration.
         toLoadConfig = getDatasetConfig(config.datasetFilter, config.from, config.to);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
                              "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);
@@ -567,7 +567,7 @@ ContinuousWindowDataset(MldbServer * owner,
         std::shared_ptr<Dataset> underlying
             = obtainDataset(server, toLoadConfig, onProgress);
         setUnderlying(underlying);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
                              "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);

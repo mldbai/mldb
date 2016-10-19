@@ -1142,7 +1142,7 @@ BoundSelectQuery(const SelectExpression & select,
                                                  numBuckets));
         }
 
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Binding error: "
                              + getExceptionString(),
                              "select", select.surface,
@@ -1188,7 +1188,7 @@ execute(std::function<bool (NamedRowValue & output,
 
     try {
         return executor->execute(processor, processInParallel, offset, limit, onProgress);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
                              + getExceptionString(),
                              "select", select.surface,
@@ -1238,7 +1238,7 @@ executeExpr(std::function<bool (Path & rowName,
     try {
         return executor->executeExpr(processor, processInParallel,
                                      offset, limit, onProgress);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
                              + getExceptionString(),
                              "select", select.surface,

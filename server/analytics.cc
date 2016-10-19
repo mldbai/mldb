@@ -569,7 +569,7 @@ RowPath getValidatedRowName(const ExpressionValue& rowNameEV)
     try {
         name = rowNameEV.coerceToPath();
     }
-    JML_CATCH_ALL {
+    MLDB_CATCH_ALL {
         rethrowHttpException
             (400, "Unable to create a row name from the passed expression. "
              "Row names must be either a simple atom, or a Path atom, or an "

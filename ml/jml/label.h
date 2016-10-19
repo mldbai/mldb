@@ -45,7 +45,7 @@ struct Label {
     int label() const { return label_; }
     int & label() { return label_; }
     
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
     bool is(int lab) const
     {
         if (label_ & 0x80000000)
@@ -61,7 +61,7 @@ struct Label {
     
     /** Reconstitute from a store. */
     void reconstitute(DB::Store_Reader & store);
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 };
 
 

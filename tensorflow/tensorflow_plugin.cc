@@ -1099,7 +1099,7 @@ struct TensorflowGraphBase: public Function {
             // Scalar
             auto flattened = tensor.flat<std::string>();
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 CellValue cell(flattened(0));
                 return ExpressionValue(std::move(cell), ts);
             } catch (const std::exception & exc) {
@@ -1118,7 +1118,7 @@ struct TensorflowGraphBase: public Function {
         vector<CellValue> cells(n);
         for (size_t i = 0;  i < n;  ++i) {
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 cells[i] = flattened(i);
             } catch (const std::exception & exc) {
                 cells[i] = CellValue::blob(flattened(i).data(),

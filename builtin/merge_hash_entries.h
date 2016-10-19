@@ -21,7 +21,7 @@ struct MergeHashEntry {
         
     uint64_t hash;
     uint32_t bitmap;
-} JML_PACKED;
+} MLDB_PACKED;
 
 struct MergeHashEntryBucket {
     MergeHashEntry * data;
@@ -82,7 +82,7 @@ struct MergeHashEntryBucket {
         auto out = data;
 
         for (;it1 != end1 && it2 != end2;) {
-            if (JML_LIKELY(it2->hash < it1->hash)) {
+            if (MLDB_LIKELY(it2->hash < it1->hash)) {
                 *out++ = *it2++;
                 __builtin_prefetch(it2 + 16, 0, 3);
             }

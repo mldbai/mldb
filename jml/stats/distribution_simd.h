@@ -18,7 +18,7 @@
 namespace MLDB {
 
 template<>
-JML_ALWAYS_INLINE float
+MLDB_ALWAYS_INLINE float
     distribution<float, std::vector<float> >::
 total() const
 {
@@ -26,7 +26,7 @@ total() const
 }
 
 template<>
-JML_ALWAYS_INLINE double
+MLDB_ALWAYS_INLINE double
     distribution<double, std::vector<double> >::
 total() const
 {
@@ -34,7 +34,7 @@ total() const
 }
 
 template<>
-JML_ALWAYS_INLINE double
+MLDB_ALWAYS_INLINE double
 distribution<float>::
 dotprod(const distribution<float, std::vector<float> > & d2) const
 {
@@ -44,7 +44,7 @@ dotprod(const distribution<float, std::vector<float> > & d2) const
 }
 
 template<>
-JML_ALWAYS_INLINE double
+MLDB_ALWAYS_INLINE double
 distribution<double>::
 dotprod(const distribution<double, std::vector<double> > & d2) const
 {
@@ -55,7 +55,7 @@ dotprod(const distribution<double, std::vector<double> > & d2) const
 
 template<>
 template<>
-JML_ALWAYS_INLINE double
+MLDB_ALWAYS_INLINE double
 distribution<double, std::vector<double> >::
 dotprod(const distribution<float, std::vector<float> > & d2) const
 {
@@ -66,7 +66,7 @@ dotprod(const distribution<float, std::vector<float> > & d2) const
 
 template<>
 template<>
-JML_ALWAYS_INLINE double
+MLDB_ALWAYS_INLINE double
 distribution<float, std::vector<float> >::
 dotprod(const distribution<double, std::vector<double> > & d2) const
 {

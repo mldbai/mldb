@@ -42,7 +42,7 @@ namespace MLDB {
 
 namespace {
 bool supportsSystemRequirements() {
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     return has_sse42();
 #else
     return true;

@@ -28,7 +28,7 @@ double seconds_per_tick = -1.0;
 
 namespace {
 
-JML_ALWAYS_INLINE uint64_t fake_ticks()
+MLDB_ALWAYS_INLINE uint64_t fake_ticks()
 {
     uint64_t result = 0;
     asm volatile ("nop");

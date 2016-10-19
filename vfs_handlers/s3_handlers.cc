@@ -574,7 +574,7 @@ struct S3Uploader {
                                            S3Api::UR_EXCLUSIVE);
             uploadId = upload.id;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             if (onException) {
                 onException();
             }
@@ -705,7 +705,7 @@ struct S3Uploader {
             finalEtag = api->finishMultiPartUpload(bucket, resource,
                                                    uploadId, etags);
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             if (onException) {
                 onException();
             }

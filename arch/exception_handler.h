@@ -39,5 +39,5 @@ void default_exception_tracer(void * object, const std::type_info * tinfo);
 
 } // namespace MLDB
 
-#define JML_TRACE_EXCEPTIONS(value) \
+#define MLDB_TRACE_EXCEPTIONS(value) \
 MLDB::Set_Trace_Exceptions trace_exc__(value);

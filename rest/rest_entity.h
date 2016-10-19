@@ -436,7 +436,7 @@ struct RestRouteManager {
     std::map<Utf8String, std::shared_ptr<RestRouteManager> > childRoutes;
 
     /** Throw an exception that the given child is already added. */
-    void throwChildAlreadyAdded(const Utf8String & name) JML_NORETURN;
+    void throwChildAlreadyAdded(const Utf8String & name) MLDB_NORETURN;
 
     /** Add routes from a child. */
     template<typename Child, typename... Args>

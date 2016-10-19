@@ -459,7 +459,7 @@ void forEachLineBlock(std::istream & stream,
                     if (!endBlock(myChunkNumber, chunkLineNumber))
                         return;
 
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 if (hasExc.fetch_add(1) == 0) {
                     exc = std::current_exception();
                 }
@@ -531,7 +531,7 @@ void forEachChunk(std::istream & stream,
                     stop = true;
                     return;
                 }
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 if (hasExc.fetch_add(1) == 0) {
                     exc = std::current_exception();
                 }

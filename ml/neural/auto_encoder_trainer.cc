@@ -235,8 +235,8 @@ train_iter(Auto_Encoder & encoder,
            double learning_rate) const
 {
     int nx = data.size();
-    int ni JML_UNUSED = encoder.inputs();
-    int no JML_UNUSED = encoder.outputs();
+    int ni MLDB_UNUSED = encoder.inputs();
+    int no MLDB_UNUSED = encoder.outputs();
 
     int microbatch_size = minibatch_size / (MLDB::numCpus() * 4);
             
@@ -309,8 +309,8 @@ train_iter(Auto_Encoder & encoder,
            const Parameters_Copy<float> & learning_rates) const
 {
     int nx = data.size();
-    int ni JML_UNUSED = encoder.inputs();
-    int no JML_UNUSED = encoder.outputs();
+    int ni MLDB_UNUSED = encoder.inputs();
+    int no MLDB_UNUSED = encoder.outputs();
 
     int microbatch_size = minibatch_size / (MLDB::numCpus() * 4);
             
@@ -874,8 +874,8 @@ struct Test_Examples_Job {
         double test_error_exact = 0.0, test_error_noisy = 0.0;
 
         for (unsigned x = first;  x < last;  ++x) {
-            int ni JML_UNUSED = layer.inputs();
-            int no JML_UNUSED = layer.outputs();
+            int ni MLDB_UNUSED = layer.inputs();
+            int no MLDB_UNUSED = layer.outputs();
 
             // Present this input
             distribution<float> model_input(data_in[x]);

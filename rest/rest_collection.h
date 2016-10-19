@@ -441,11 +441,11 @@ protected:
     struct Impl;
     std::unique_ptr<Impl> impl;
 
-    void throwEntryAlreadyExists(const Key & key) const JML_NORETURN;
-    void throwEntryNotReady(const Key & key) const JML_NORETURN;
-    void throwEntryDoesntExist(const Key & key) const JML_NORETURN;
-    void throwEntryNotObtained(const Key & key) const JML_NORETURN;
-    void throwEntryNotOverwritten(const Key & key) const JML_NORETURN;
+    void throwEntryAlreadyExists(const Key & key) const MLDB_NORETURN;
+    void throwEntryNotReady(const Key & key) const MLDB_NORETURN;
+    void throwEntryDoesntExist(const Key & key) const MLDB_NORETURN;
+    void throwEntryNotObtained(const Key & key) const MLDB_NORETURN;
+    void throwEntryNotOverwritten(const Key & key) const MLDB_NORETURN;
 };
 
 

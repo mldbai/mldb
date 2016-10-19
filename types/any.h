@@ -141,7 +141,7 @@ private:
 
     /** Conversion function. */
     void convert(void * result, const std::type_info & toType);
-    void throwNoValueDescription() const JML_NORETURN;
+    void throwNoValueDescription() const MLDB_NORETURN;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(Any);

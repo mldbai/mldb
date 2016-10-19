@@ -469,7 +469,7 @@ std::string expect_feature_name(MLDB::ParseContext & c);
 } // namespace ML
 
 
-namespace JML_HASH_NS {
+namespace MLDB_HASH_NS {
 
 template<>
 struct hash<ML::Feature> {
@@ -479,4 +479,4 @@ struct hash<ML::Feature> {
     }
 };
 
-} // namespace JML_HASH_NS
+} // namespace MLDB_HASH_NS

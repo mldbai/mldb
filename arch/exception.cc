@@ -77,7 +77,7 @@ const char * Exception::what() const throw()
 std::string getExceptionString()
 {
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw;
     }
     catch (const std::bad_alloc & exc) {

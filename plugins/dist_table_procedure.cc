@@ -89,7 +89,7 @@ DistTableStats::
 increment(double value)
 {
     // special case if first value
-    if (JML_UNLIKELY(count == 0)) {
+    if (MLDB_UNLIKELY(count == 0)) {
         count = 1;
         avg = min = max = sum = value;
         M2 = 0.;

@@ -158,7 +158,7 @@ compareElements(const char * s0, size_t l0,
                 const char * s1, size_t l1,
                 int d0, int d1)
 {
-    if (JML_LIKELY(d0 == d1)) {
+    if (MLDB_LIKELY(d0 == d1)) {
         if (d0 == PathElement::NO_DIGITS) {
             int res = std::memcmp(s0, s1, std::min(l0, l1));
             if (res == 0)
@@ -166,7 +166,7 @@ compareElements(const char * s0, size_t l0,
             return res;
         }
         else if (d0 == PathElement::DIGITS_ONLY
-                 && JML_LIKELY(s0[0] != '0' && s1[0] != '0')) {
+                 && MLDB_LIKELY(s0[0] != '0' && s1[0] != '0')) {
             int res = 0;
             if (l0 != l1)
                 res = l0 - l1;

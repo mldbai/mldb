@@ -328,7 +328,7 @@ initRoutes(RouteManager & manager)
                 //auto collection = manager.getCollection(cxt);
                 //auto key = manager.getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
 
                 auto dataset = std::static_pointer_cast<Dataset>
                     (cxt.getSharedPtrAs<PolyEntity>(2));
@@ -371,7 +371,7 @@ initRoutes(RouteManager & manager)
                  JsonParam<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >
                  ("", "[ [ row name, [ [ column name, value, timestamp ], ... ] ], ...] tuples to record"));
 
-    auto & row JML_UNUSED
+    auto & row MLDB_UNUSED
         = rows.addSubRouter(Rx("/([0-9a-z]{16})", "/<rowHash>"),
                             "operations on an individual row");
 
@@ -412,11 +412,11 @@ initRoutes(RouteManager & manager)
                                                      "Maximum number to return",
                                                      -1));
 
-    //auto & column JML_UNUSED
+    //auto & column MLDB_UNUSED
     //    = columns.addSubRouter(Rx("/([0-9a-z]{16})", "/<columnHash>"),
     //                           "operations on an individual column");
 
-    auto & column JML_UNUSED
+    auto & column MLDB_UNUSED
         = columns.addSubRouter(Rx("/([^/]*)", "/<columnName>"),
                                "operations on an individual column");
 
@@ -432,7 +432,7 @@ initRoutes(RouteManager & manager)
                 //auto collection = manager.getCollection(cxt);
                 //auto key = manager.getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
 
                 //cerr << "cxt.resources = " << cxt.resources << endl;
                 auto dataset = std::static_pointer_cast<Dataset>
@@ -493,7 +493,7 @@ initRoutes(RouteManager & manager)
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 connection.sendErrorResponse(400, "Unknown exception was thrown");
                 return RestRequestRouter::MR_ERROR;
             }

@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE(time_period_test)
 
     bool threw = false;
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         tp.parse("1m25s");
     }
     catch (...) {
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(time_period_test)
 #if 1
 BOOST_AUTO_TEST_CASE(time_period_granularity_multiplier)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
 
     /* different families */
     BOOST_CHECK_THROW(granularityMultiplier(YEARS, MINUTES), MLDB::Exception);
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(time_period_op_plus_equal)
         yearly.interval = -1; // years do not have a fixed set of seconds
         TimePeriod minutely("2m");
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(yearly + minutely, MLDB::Exception);
     }
 

@@ -387,7 +387,7 @@ namespace {
 }
 
 // Inline version of isascii
-JML_ALWAYS_INLINE bool isascii(int c)
+MLDB_ALWAYS_INLINE bool isascii(int c)
 {
     return (c & (~127)) == 0;
 }

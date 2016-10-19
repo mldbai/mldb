@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE( test_sign_extend )
 }
 
 template<class T>
-JML_ALWAYS_INLINE
+MLDB_ALWAYS_INLINE
 T do_shrd(T low, T high, int bits)
 {
     cerr << "**** do_shrd " << (unsigned long)low << ", " << (unsigned long) high << "," << bits << endl;

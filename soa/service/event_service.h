@@ -98,7 +98,7 @@ struct EventRecorder {
     void recordEventFmt(EventType type,
                         float value,
                         std::initializer_list<int> extra,
-                        const char * fmt, ...) const JML_FORMAT_STRING(5, 6);
+                        const char * fmt, ...) const MLDB_FORMAT_STRING(5, 6);
 
     template<typename... Args>
     void recordHit(const std::string & event, Args... args) const
@@ -108,7 +108,7 @@ struct EventRecorder {
     }
 
     template<typename... Args>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void recordHit(const char * event, Args... args) const
     {
         return recordEventFmt(ET_HIT, 1.0, {}, event,
@@ -133,7 +133,7 @@ struct EventRecorder {
     }
     
     template<typename... Args>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void recordCount(float count, const char * event, Args... args) const
     {
         return recordEventFmt(ET_COUNT, count, {}, event,

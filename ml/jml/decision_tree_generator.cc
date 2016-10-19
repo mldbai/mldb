@@ -665,7 +665,7 @@ void split_dataset(const Training_Data & data,
         float divisor = index[i].divisor();
         w *= divisor;
         
-        if (JML_UNLIKELY(isnanf(val))) {
+        if (MLDB_UNLIKELY(isnanf(val))) {
             // We only have NaN values explicitly represented if there is a
             // feature that is both present and missing in the same example.
             // In that case, we need to deal with the missing part here.

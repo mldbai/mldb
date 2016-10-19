@@ -117,7 +117,7 @@ createHttpWatch(RestConnection & connection,
 {
             
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         auto resource = jsonDecodeStr<ResourceSpec>(req.payload);
 
         struct Data {
@@ -313,7 +313,7 @@ std::future_status getStatus(std::future_status st)
 }
 
 // G++ 4.6 returns a bool, against the standard
-JML_UNUSED std::future_status getStatus(bool st)
+MLDB_UNUSED std::future_status getStatus(bool st)
 {
     return (st ? std::future_status::ready : std::future_status::timeout);
 }
@@ -541,7 +541,7 @@ sendPeerMessage(const std::string & peer,
 
             try {
                 onError(std::move(peerMessage));
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 logger->error() << "error on onError handler of message";
                 abort();
             }
@@ -599,7 +599,7 @@ initRoutes(RouteManager & manager)
             try {
                 auto service = getServicePeer(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto res = service->knownPeers();
                 connection.sendHttpResponse(200, jsonEncodeStr(res),
                                             "application/json", {});
@@ -627,7 +627,7 @@ initRoutes(RouteManager & manager)
                 auto service = getServicePeer(cxt);
                 auto key = manager.getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto res = service->getPeerStatus(key);
                 connection.sendHttpResponse(200, jsonEncodeStr(res),
                                             "application/json", {});

@@ -428,7 +428,7 @@ run(const ProcedureRunConfig & run,
             for (auto & c: row.columns) {
                 try {
                     featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException
                         (KEEP_HTTP_CODE,
                          "Error processing row '" + row.rowName.toUtf8String()
@@ -695,7 +695,7 @@ run(const ProcedureRunConfig & run,
         try {
             classifier.save(runProcConf.modelFileUrl.toDecodedString());
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             rethrowHttpException(400, "Error saving classifier to '"
                                  + runProcConf.modelFileUrl.toString() + "': "
                                  + getExceptionString(),
