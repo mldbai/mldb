@@ -79,16 +79,13 @@ assert res.json()["status"]["firstRun"]["status"]["auc"] > 0.7
 
 start = datetime.datetime.now();
 mldb.put("/v1/procedures/airline", {
-    "type":"import.text",
+    "type": "transform",
     "params": {
-        "dataFileUrl": "https://s3.amazonaws.com/benchm-ml--main/train-1m.csv",
-        "offset" : 0,
-        "ignoreBadLines" : True,
+        "inputData": "SELECT * FROM airline",
         "outputDataset": {
             "id": "airline_embedding",
             "type" : "sparse.mutable"
         },
-       # "limit" : 10,
         "runOnCreation": True        
     }
 })
@@ -128,6 +125,8 @@ accuracyConf = {
         }
 
 res = mldb.put("/v1/procedures/trainer4", accuracyConf);
+
+mldb.log(res)
 
 mldb.log(datetime.datetime.now() - start)
 
