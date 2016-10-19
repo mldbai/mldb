@@ -16,9 +16,7 @@
 #include "weighted_training.h"
 #include "mldb/ml/jml/committee.h"
 #include "mldb/jml/utils/sgi_numeric.h"
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
@@ -129,7 +127,7 @@ struct Bag_Job {
     int bag_num;
     int verbosity;
 
-    typedef boost::mt19937 engine_type;
+    typedef mt19937 engine_type;
 
     void operator () () const
     {

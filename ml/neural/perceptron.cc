@@ -17,8 +17,6 @@
 #include "mldb/ml/algebra/irls.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include <iomanip>
-#include <boost/random/lagged_fibonacci.hpp>
-#include <boost/random/uniform_01.hpp>
 #include "mldb/base/parse_context.h"
 #include "mldb/jml/stats/distribution_simd.h"
 #include "mldb/jml/stats/distribution_ops.h"

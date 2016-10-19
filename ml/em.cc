@@ -14,8 +14,7 @@
 
 #include "mldb/base/exc_assert.h"
 
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include <mutex>
 
 #include "mldb/ml/algebra/matrix_ops.h"
@@ -113,7 +112,7 @@ train(const std::vector<distribution<double>> & points,
     if (nbClusters < 2)
         throw MLDB::Exception("EM with less than 2 clusters doesn't make any sense!");
 
-    boost::mt19937 rng;
+    mt19937 rng;
     rng.seed(randomSeed);
 
     int npoints = points.size();

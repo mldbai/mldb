@@ -20,9 +20,7 @@
 
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/timer.hpp>
@@ -37,6 +35,7 @@
 #include "quadtree.h"
 #include "vantage_point_tree.h"
 #include <fstream>
+#include <functional>
 
 using namespace std;
 
@@ -955,14 +954,12 @@ void recenter_about_origin(boost::multi_array<Float, 2> & Y)
 boost::multi_array<float, 2>
 tsne_init(int nx, int nd, int randomSeed)
 {
-    boost::mt19937 rng;
+    mt19937 rng;
     if (randomSeed)
         rng.seed(randomSeed);
-    boost::normal_distribution<float> norm;
+    normal_distribution<float> norm;
 
-    boost::variate_generator<boost::mt19937,
-                             boost::normal_distribution<float> >
-        randn(rng, norm);
+    std::function<double()> randn(std::bind(norm, rng));
 
     boost::multi_array<float, 2> Y(boost::extents[nx][nd]);
     for (unsigned i = 0;  i < nx;  ++i)

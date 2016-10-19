@@ -26,9 +26,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/arch/simd_vector.h"
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/uniform_01.hpp>
+#include <random>
 
 using namespace std;
 using namespace ML;
@@ -110,7 +108,7 @@ struct RandomForestRNG {
     {
     }
 
-    boost::mt19937 rng;
+    mt19937 rng;
 
     template<class T>
     T operator () (T val)
@@ -287,7 +285,7 @@ run(const ProcedureRunConfig & run,
                 if (last > numRows || i == numPartitions)
                     last = numRows;
 
-                boost::mt19937 rng(245 + (bag * numPartitions) + i);
+                mt19937 rng(245 + (bag * numPartitions) + i);
 
                 size_t numRowsInPartition = last - first;
 
@@ -334,15 +332,15 @@ run(const ProcedureRunConfig & run,
 
             auto trainFeaturePartition = [&] (int partitionNum)
             {
-                boost::mt19937 rng(bag + 371 + partitionNum);
-                boost::uniform_01<boost::mt19937> uniform01(rng);
+                mt19937 rng(bag + 371 + partitionNum);
+                uniform_real_distribution<> uniform01(0, 1);
 
                 PartitionData mydata(data);
 
                 // Cull the features according to the sampling proportion
                 for (unsigned i = 0;  i < data.features.size();  ++i) {
                     if (mydata.features[i].active
-                        && uniform01() > procedureConfig.featureVectorSamplingProp) {
+                        && uniform01(rng) > procedureConfig.featureVectorSamplingProp) {
                         mydata.features[i].active = false;
                     }
                 }

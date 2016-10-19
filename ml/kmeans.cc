@@ -9,9 +9,8 @@
 
 #include "kmeans.h"
 
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include "mldb/jml/utils/smart_ptr_utils.h"
-#include <boost/random/uniform_int.hpp>
 
 namespace ML {
 
@@ -31,7 +30,7 @@ train(const std::vector<distribution<float>> & points,
     if (points.size() == 0)
         throw MLDB::Exception("kmeans training requires at least 1 datapoint");
 
-    boost::mt19937 rng;
+    mt19937 rng;
     rng.seed(randomSeed);
 
     int npoints = points.size();

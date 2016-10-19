@@ -12,6 +12,7 @@
 
 #include "parameters.h"
 #include "layer.h"
+#include <iostream>
 
 namespace ML {
 

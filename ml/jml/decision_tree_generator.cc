@@ -22,9 +22,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include <mutex>
 
 
@@ -256,12 +254,12 @@ train_weighted(Thread_Context & context,
 
         int iter = 0;
         while (filtered_features.empty() && iter < 50) {
-            typedef boost::mt19937 engine_type;
+            typedef mt19937 engine_type;
             engine_type engine(context.random());
-            boost::uniform_01<engine_type> rng(engine);
+            std::uniform_real_distribution<> rng(0, 1);
             
             for (unsigned i = 0;  i < features.size();  ++i) {
-                if (rng() < random_feature_propn)
+                if (rng(engine) < random_feature_propn)
                     filtered_features.push_back(features[i]);
             }
         }
