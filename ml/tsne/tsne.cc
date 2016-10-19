@@ -21,7 +21,6 @@
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
 #include <random>
-#include <boost/random/variate_generator.hpp>
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/timer.hpp>
@@ -36,6 +35,7 @@
 #include "quadtree.h"
 #include "vantage_point_tree.h"
 #include <fstream>
+#include <functional>
 
 using namespace std;
 
@@ -959,8 +959,7 @@ tsne_init(int nx, int nd, int randomSeed)
         rng.seed(randomSeed);
     normal_distribution<float> norm;
 
-    boost::variate_generator<mt19937, normal_distribution<float> >
-        randn(rng, norm);
+    std::function<double()> randn(std::bind(norm, rng));
 
     boost::multi_array<float, 2> Y(boost::extents[nx][nd]);
     for (unsigned i = 0;  i < nx;  ++i)
