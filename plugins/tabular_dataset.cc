@@ -52,7 +52,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (numColumns == 0)
             numColumns = 1;
         size_t rowsPerChunk
-            = std::min<size_t>(65536, 65536*NUM_PARALLEL_CHUNKS/numColumns);
+            = std::min<size_t>(131072, 131072*numCpus()/numColumns);
         if (rowsPerChunk < 16)
             rowsPerChunk = 16;
         return rowsPerChunk;
@@ -206,8 +206,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                         (chunkiter->maybeGetColumn(columnIndexes[i],
                                                    columnNames[i]));
                     if (!columns.back())
-                        throw HttpReturnException(400,
-                                                  "Couldn't find column " + columnNames[i].toUtf8String());
+                        throw HttpReturnException
+                            (400,
+                             "Couldn't find column "
+                             + columnNames[i].toUtf8String());
                 }
 
                 // 2.  Go through the rows and get the values
