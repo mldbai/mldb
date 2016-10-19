@@ -34,7 +34,6 @@ var expected = [
          [ "res.1.0", 1.4999999999999998, "NaD" ],
          [ "res.1.1", -0.49999999999999994, "NaD" ]
       ],
-      "rowHash" : "d54892b736cac3ab",
       "rowName" : "result"
    }
 ];

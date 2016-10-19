@@ -28,7 +28,6 @@ function expectFound(query)
             "columns" : [
                 [ "x", 1, "-Inf" ]
             ],
-            "rowHash" : "e20a37a5e1a781d3",
             "rowName" : "\"msnbc.com\""
         }
     ];

@@ -69,6 +69,8 @@ accuracyConf = {
 
 res = mldb.put("/v1/procedures/trainer3", accuracyConf);
 
+mldb.log(res);
+
 mldb.log(datetime.datetime.now() - start)
 
 assert res.json()["status"]["firstRun"]["status"]["auc"] > 0.7

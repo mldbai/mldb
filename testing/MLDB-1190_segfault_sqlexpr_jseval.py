@@ -42,7 +42,6 @@ for i in range(25):
 expected_response = [
     {
         "rowName": "result", 
-        "rowHash": "d54892b736cac3ab", 
         "columns": [
             [
                 "msgStats.msgLen", 

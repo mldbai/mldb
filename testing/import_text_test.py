@@ -148,7 +148,7 @@ class ImportTextTest(MldbUnitTest):
         self.assertTableResultEquals(
             mldb.query("select count(*) from titanic_hashed"),
             [["_rowName","count(*)"],
-             ["[]",279]]
+             ["[]",287]]
         )
 
         self.assertTableResultEquals(
