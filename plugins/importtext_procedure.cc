@@ -22,6 +22,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/progress.h"
 #include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -669,20 +670,23 @@ parseFixedWidthCsvRow(const char * & line,
 
 struct ImportTextProcedureWorkInstance
 {
-    ImportTextProcedureWorkInstance() : lineOffset(1), // we start at line 1
-                                        isTextLine(false),
-                                        areOutputColumnNamesKnown(true),
-                                        separator(0),
-                                        quote(0),
-                                        replaceInvalidCharactersWith(-1),
-                                        hasQuoteChar(false),
-                                        isIdentitySelect(false),
-                                        rowCount(0),
-        numLineErrors(0)
+    ImportTextProcedureWorkInstance(std::shared_ptr<spdlog::logger> logger)
+        : logger(logger),
+          lineOffset(1), // we start at line 1
+          isTextLine(false),
+          areOutputColumnNamesKnown(true),
+          separator(0),
+          quote(0),
+          replaceInvalidCharactersWith(-1),
+          hasQuoteChar(false),
+          isIdentitySelect(false),
+          rowCount(0),
+          numLineErrors(0)
     {
-
+        
     }
 
+    std::shared_ptr<spdlog::logger> logger;
     vector<ColumnPath> knownColumnNames;
     Lightweight_Hash<ColumnHash, int> columnIndex; //To check for duplicates column names
     int64_t lineOffset;
@@ -1021,10 +1025,14 @@ struct ImportTextProcedureWorkInstance
             uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
             if (linesDone && linesDone % 100000 == 0) {
+
                 double wall = timer.elapsed_wall();
-                cerr << "done " << linesDone << " in " << wall
-                     << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
-                     << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+                INFO_MSG(this->logger)
+                    << "done " << linesDone << " in " << wall
+                    << "s at " << linesDone / wall * 0.000001
+                    << "M lines/second on "
+                    << timer.elapsed_cpu() / timer.elapsed_wall()
+                    << " CPUs";
             }
 #endif
 
@@ -1166,15 +1174,16 @@ struct ImportTextProcedureWorkInstance
         }
 
         double wall = timer.elapsed_wall();
-        cerr << "imported " << totalLinesProcessed << " in " << wall
-             << "s at " << totalLinesProcessed / wall * 0.000001
-             << "M lines/second on "
-             << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
-        cerr << "done " << byteCount * 0.000001 << " megabytes at "
-             << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec"
-             << endl;
+        INFO_MSG(logger)
+            << "imported " << totalLinesProcessed << " in " << wall
+            << "s at " << totalLinesProcessed / wall * 0.000001
+            << "M lines/second on "
+            << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs";
+        INFO_MSG(logger)
+            << "done " << byteCount * 0.000001 << " megabytes at "
+            << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec";
         //cerr << "processed " << totalLinesProcessed << " lines" << endl;
-
+        
         recorder.commit();
 
         numLineErrors = numSkipped;
@@ -1215,7 +1224,7 @@ run(const ProcedureRunConfig & run,
         = createDataset(server, runProcConf.outputDataset, onProgress,
                         true /*overwrite*/);
 
-    ImportTextProcedureWorkInstance instance;
+    ImportTextProcedureWorkInstance instance(logger);
 
     instance.loadText(config, dataset, server, onProgress);
 
