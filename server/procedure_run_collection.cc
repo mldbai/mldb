@@ -78,7 +78,9 @@ initRoutes(RouteManager & manager)
             auto collection = manager.getCollection(cxt);
             Utf8String key = manager.getKey(cxt);
             
+
             MLDB_TRACE_EXCEPTIONS(false);
+
             auto config = jsonDecodeStr<ProcedureRunState>(req.payload);
             
             if (config.state == "cancelled") {

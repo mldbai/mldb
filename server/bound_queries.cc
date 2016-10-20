@@ -17,6 +17,9 @@
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/sql/sql_utils.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
+#include "mldb/arch/demangle.h"
+
 #include <boost/algorithm/string.hpp>
 
 #include "mldb/jml/utils/profile.h"
@@ -99,6 +102,9 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
     int numBuckets;
+    std::shared_ptr<spdlog::logger> logger;
+
+
     typedef std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> ExecutorAggregator;
@@ -110,14 +116,16 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                       BoundSqlExpression boundSelect,
                       std::vector<BoundSqlExpression> boundCalc,
                       OrderByExpression newOrderBy,
-                      int numBuckets)
+                      int numBuckets,
+                      std::shared_ptr<spdlog::logger> logger)
         : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
           whenBound(std::move(whenBound)),
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
-          numBuckets(numBuckets)
+          numBuckets(numBuckets),
+          logger(logger)
     {
     }
 
@@ -150,12 +158,13 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                       std::function<bool (const Json::Value &)> onProgress)
     {
         //STACK_PROFILE(UnorderedExecutor);
-        //cerr << "bound query unordered num buckets: " << numBuckets << endl;
+        DEBUG_MSG(logger) << "bound query unordered num buckets: " << numBuckets
+                          << (processInParallel ? " multi-threaded"  : " single-threaded");
         QueryThreadTracker parentTracker;
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
-        auto rows = whereGenerator(-1, Any()).first;
+        auto rows = whereGenerator(-1, Any(), BoundParameters(), onProgress).first;
 
         //cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
 
@@ -169,13 +178,21 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         size_t numRows = rows.size();
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, numRows);
-
+        std::atomic_ulong rowCount(0);
         auto doRow = [&] (size_t rowNum) -> bool
             {
-                //if (rowNum % 1000 == 0)
-                //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
+                ++rowCount;
 
-                //RowPath rowName = rows[rowNum];
+                if (rowCount % 1000 == 0) {
+                    if (onProgress) {
+                        Json::Value progress;
+                        progress["percent"] = (float) rowCount / numRows;
+                        if (!onProgress(progress)) {
+                            DEBUG_MSG(logger) << "dataset iteration was cancelled";
+                            return false;
+                        }
+                    }
+                }
 
                 ExpressionValue row = dataset.getRowExpr(rows[rowNum]);
                 auto output = processRow(rows[rowNum], row, rowNum, numPerBucket,
@@ -195,7 +212,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             ExcAssert(processInParallel);
             ExcAssertEqual(limit, -1);
             ExcAssertEqual(offset, 0);
-            std::atomic_ulong bucketCount(0);
+
             auto doBucket = [&] (int bucketNumber) -> bool
                 {
                     size_t it = bucketNumber * numPerBucket;
@@ -206,15 +223,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                             return false;
                     }
 
-                    if (onProgress) {
-                        Json::Value progress;
-                        progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
-                        if (!onProgress(progress))
-                            return false;
-                    }
                     return true;
                 };
 
+            DEBUG_MSG(logger) << "iterating rows in parallel using buckets";
             return parallelMapHaltable(0, effectiveNumBucket, doBucket);
         }
         else {
@@ -224,6 +236,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
             if (offset <= upper) {
                 if (processInParallel) {
+                    DEBUG_MSG(logger) << "iterating rows in parallel";
                     return parallelMapHaltable(offset, upper, doRow);
                 }
                 else {
@@ -235,16 +248,28 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     std::vector<std::tuple<Path, ExpressionValue, std::vector<ExpressionValue> > >
                         output(upper-offset);
                 
-                    auto copyRow = [&] (int rowNum)
+                    auto copyRow = [&] (int rowNum) -> bool
                         {
+                            if (rowNum % 1000 == 0) {
+                                if (onProgress) {
+                                    Json::Value progress;
+                                    progress["percent"] = (float) rowNum / (upper - offset);
+                                    if (!onProgress(progress)) {
+                                        DEBUG_MSG(logger) << "dataset iteration was cancelled";
+                                        return false;
+                                    }
+                                }
+                            }
                             auto row = dataset.getRowExpr(rows[rowNum]);
                             auto outputRow = processRow(rows[rowNum], row, rowNum,
                                                         numPerBucket, selectStar);
                             output[rowNum-offset] = std::move(outputRow);
+                            return true;
                         };
 
-
-                    parallelMap(offset, upper, copyRow);
+                    DEBUG_MSG(logger) << "iterating rows sequentially";
+                    if (!parallelMapHaltable(offset, upper, copyRow))
+                        return false;
 
                     for (size_t i = offset; i < upper; ++i) {
                         auto& outputRow = output[i-offset];
@@ -270,7 +295,9 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                            std::function<bool (const Json::Value &)> onProgress)
     {
         //STACK_PROFILE(UnorderedExecutor_optimized);
-        //cerr << "UnorderedIterExecutor num buckets: " << numBuckets << " allowMT " << allowMT << endl;
+        DEBUG_MSG(logger) << "UnorderedIterExecutor num buckets: " << numBuckets 
+                          << (processInParallel ? " multi-threaded " : " single-threaded");
+
         QueryThreadTracker parentTracker;
 
         // Simple case... no order by and no limit
@@ -1057,7 +1084,8 @@ BoundSelectQuery(const SelectExpression & select,
                  std::vector<std::shared_ptr<SqlExpression> > calc,
                  int numBuckets)
     : select(select), from(from), when(when), where(where), calc(calc),
-      orderBy(orderBy), context(new SqlExpressionDatasetScope(from, std::move(alias)))
+      orderBy(orderBy), context(new SqlExpressionDatasetScope(from, std::move(alias))),
+      logger(getMldbLog<BoundSelectQuery>())
 {
     try {
         SqlExpressionWhenScope whenScope(*context);
@@ -1111,6 +1139,7 @@ BoundSelectQuery(const SelectExpression & select,
  
         if (orderByRowHash) {
             ExcAssert(numBuckets < 0);
+            DEBUG_MSG(logger) << "executing with " << demangle(typeid(RowHashOrderedExecutor));
             executor.reset(new RowHashOrderedExecutor(from,
                                                       std::move(whereGenerator),
                                                       *context,
@@ -1123,6 +1152,7 @@ BoundSelectQuery(const SelectExpression & select,
         }
         else if (!newOrderBy.clauses.empty()) {
             ExcAssert(numBuckets < 0);
+            DEBUG_MSG(logger) << "executing with " << demangle(typeid(OrderedExecutor));
             executor.reset(new OrderedExecutor(from,
                                                std::move(whereGenerator),
                                                *context,
@@ -1132,6 +1162,7 @@ BoundSelectQuery(const SelectExpression & select,
                                                std::move(newOrderBy),
                                                select.distinctExpr.size()));
         } else {
+            DEBUG_MSG(logger) << "executing with " << demangle(typeid(UnorderedExecutor));
             executor.reset(new UnorderedExecutor(from,
                                                  std::move(whereGenerator),
                                                 *context,
@@ -1139,7 +1170,8 @@ BoundSelectQuery(const SelectExpression & select,
                                                  std::move(boundSelect),
                                                  std::move(boundCalc),
                                                  std::move(newOrderBy),
-                                                 numBuckets));
+                                                 numBuckets,
+                                                 logger));
         }
 
     } MLDB_CATCH_ALL {
@@ -1556,7 +1588,8 @@ BoundGroupByQuery(const SelectExpression & select,
       select(select),
       having(having),
       orderBy(orderBy),
-      numBuckets(1)
+      numBuckets(1),
+      logger(getMldbLog<BoundGroupByQuery>())
 {
     for (auto & g: groupBy.clauses) {
         calc.push_back(g);

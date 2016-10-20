@@ -38,8 +38,15 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
         while running:
             resp = mldb.get(location + "/state")
             mldb.log(resp)
+
             if resp.json()['state'] == 'cancelled':
                 running = False
+            if resp.json()['state'] == 'finished':
+                self.fail("suspicious - the procedure finished before it was cancelled")
+            if resp.json()['state'] == 'error':
+                mldb.log(mldb.get(location))
+                self.fail("the procedure generated an error before or after cancellation")
+
             sleep(0.1)
 
 
@@ -47,10 +54,22 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
     def setUpClass(cls):
         # create a dummy dataset
         ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
-        row_count = 10000
+
+        row_count = 1000000
         for i in xrange(row_count):
             # row name is x's value
-            ds.record_row(str(i), [['x', i, 0]])
+            ds.record_rows([ [str(i*10+1), [['x', i*10 + 1, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+2), [['x', i*10 + 2, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+3), [['x', i*10 + 3, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+4), [['x', i*10 + 4, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+5), [['x', i*10 + 5, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+6), [['x', i*10 + 6, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+7), [['x', i*10 + 7, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+8), [['x', i*10 + 8, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+9), [['x', i*10 + 9, 0], ['y', i*10 + 3, 0]]],
+                             [str(i*10+0), [['x', i*10 + 0, 0], ['y', i*10 + 3, 0]]]
+                           ])
+
         ds.commit()
 
     @timed
@@ -82,6 +101,36 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
                 'outputDataset' : {
                     'id' : 'transform_output',
                     'type' : 'sparse.mutable'
+                },
+                'runOnCreation' : False
+            }
+        })
+
+
+    @timed
+    def test_group_by_transform_cancellation(self):
+        self.run_and_cancel('group_by_transform',  {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT x + 10 FROM sample GROUP BY x',
+                'outputDataset' : {
+                    'id' : 'transform_output',
+                    'type' : 'sparse.mutable'
+                },
+                'runOnCreation' : False
+            }
+        })
+
+
+    @timed
+    def test_svd_train_cancellation(self):
+        self.run_and_cancel('svd.train', {
+            'type' : 'svd.train',
+            'params' : {
+                "trainingData": 'select * from sample',
+                "columnOutputDataset": {
+                    "type": "sparse.mutable",
+                    "id": "column"
                 },
                 'runOnCreation' : False
             }

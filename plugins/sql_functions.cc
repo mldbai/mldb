@@ -575,6 +575,7 @@ run(const ProcedureRunConfig & run,
         };
 
     if (!runProcConf.inputData.stm->from) {
+        DEBUG_MSG(logger) << "performing transform without a dataset";
         // query without dataset
         std::vector<MatrixNamedRow> rows = queryWithoutDataset(*runProcConf.inputData.stm, context);
         std::for_each(rows.begin(), rows.end(), recordRowInOutputDataset);
@@ -644,6 +645,8 @@ run(const ProcedureRunConfig & run,
                 return true;
             };
 
+        DEBUG_MSG(logger) << "performing dataset transform";
+   
         if (!BoundSelectQuery(runProcConf.inputData.stm->select,
                               *boundDataset.dataset,
                               boundDataset.asName,
@@ -652,9 +655,9 @@ run(const ProcedureRunConfig & run,
                               runProcConf.inputData.stm->orderBy,
                               { runProcConf.inputData.stm->rowName })
             .executeExpr({recordRowInOutputDataset, true /*processInParallel*/},
-                     runProcConf.inputData.stm->offset,
-                     runProcConf.inputData.stm->limit,
-                     onProgress) )
+                         runProcConf.inputData.stm->offset,
+                         runProcConf.inputData.stm->limit,
+                         onProgress) )
             {
                 DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
                 throw CancellationException(std::string(TransformDatasetConfig::name) +
@@ -687,6 +690,8 @@ run(const ProcedureRunConfig & run,
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
         aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
         aggregators.insert(aggregators.end(), namedaggregators.begin(), namedaggregators.end());
+
+        DEBUG_MSG(logger) << "performing dataset transform with group by";
 
         if(!BoundGroupByQuery(runProcConf.inputData.stm->select,
                           *boundDataset.dataset,

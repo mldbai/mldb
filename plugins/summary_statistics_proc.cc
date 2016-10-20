@@ -56,7 +56,7 @@ SummaryStatisticsProcedureConfigDescription()
     onPostValidate = [&] (SummaryStatisticsProcedureConfig * cfg,
                           JsonParsingContext & context)
     {
-        auto logger = MLDB::getMldbLog("SummaryStatisticsProcedure");
+        auto logger = MLDB::getMldbLog<SummaryStatisticsProcedure>();
         //logger->set_level(spdlog::level::debug);
         MustContainFrom()(cfg->inputData, SummaryStatisticsProcedureConfig::name);
         NoGroupByHaving()(cfg->inputData, SummaryStatisticsProcedureConfig::name);

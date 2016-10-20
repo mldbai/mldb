@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include "sql/sql_expression.h"
-#include "server/analytics.h"
+#include "mldb/sql/sql_expression.h"
+#include "mldb/server/analytics.h"
+#include "mldb/utils/log_fwd.h"
 
 
 
@@ -84,6 +85,8 @@ struct BoundSelectQuery {
     const OrderByExpression & orderBy;
     std::shared_ptr<SqlExpressionDatasetScope> context;
     std::shared_ptr<ExpressionValueInfo> selectInfo;
+    std::shared_ptr<spdlog::logger> logger;
+    
 
     /** Note on the ordering of rows
      *  Users are expecting determinist results (e.g. repeated queries
@@ -186,6 +189,8 @@ struct BoundGroupByQuery {
     std::shared_ptr<BoundSelectQuery> subSelect;
 
     size_t numBuckets;
+
+    std::shared_ptr<spdlog::logger> logger;
 
 };
 
