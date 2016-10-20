@@ -426,7 +426,8 @@ invertFeatures(const ClassifiedColumns & columns,
             return true;
         };
     
-    parallelMapHaltable(0, featureBuckets.size(), doBucket);
+    if (!parallelMapHaltable(0, featureBuckets.size(), doBucket))
+        throw CancellationException("invertFeature was cancelled");
 
     DEBUG_MSG(logger) << "done indexes and correlations in " << timer.elapsed();
 

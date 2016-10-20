@@ -1948,13 +1948,16 @@ generateRowsWhere(const SqlBindingScope & scope,
                 bool needSort = false;
                 if (rows.size() >= 1000) {
                     // Scan the whole lot with the when in parallel
-                    parallelMapHaltable(0, rows.size(), onRow);
+                    if (!parallelMapHaltable(0, rows.size(), onRow))
+                        throw CancellationException("row where generation was cancelled");
+
                     needSort = true;
                 } else {
                     // Serial, since probably it's not worth the overhead
                     // to run them in parallel.
                     for (unsigned i = 0;  i < rows.size();  ++i)
-                        onRow(i);
+                        if (!onRow(i))
+                            throw CancellationException("row where generation was cancelled");
                 }
 
                 // Now merge together the results of all the threads
