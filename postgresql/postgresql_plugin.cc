@@ -229,7 +229,8 @@ struct PostgresqlDataset: public Dataset {
         PQfinish(conn);
 
         return {[=] (ssize_t numToGenerate, Any token,
-             const BoundParameters & params)
+                     const BoundParameters & params,
+                     std::function<bool (const Json::Value &)> onProgress)
         {
             ssize_t start = 0;
             ssize_t limit = numToGenerate;

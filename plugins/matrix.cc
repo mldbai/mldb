@@ -16,6 +16,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/utils/less.h"
 #include "mldb/utils/log.h"
+#include "mldb/rest/cancellation_exception.h"
 #include <mutex>
 
 using namespace std;
@@ -30,7 +31,8 @@ namespace {
                   const SqlExpression & where,
                   const OrderByExpression & orderBy,
                   ssize_t offset,
-                  ssize_t limit) {
+                  ssize_t limit,
+                  const std::function<bool (const Json::Value &)> & onProgress) {
 
        std::unordered_map<ColumnPath, ColumnStats> stats;
        
@@ -55,8 +57,11 @@ namespace {
            return true;
        };
 
-       iterateDataset(select, from, "", when, where, 
-                      {onRow, false /*processInParallel*/}, orderBy, offset, limit, nullptr);
+       if (!iterateDataset(select, from, "", when, where, 
+                          {onRow, false /*processInParallel*/}, 
+                          orderBy, offset, limit, onProgress).first) {
+           throw CancellationException("getColumnStats was cancelled");
+       }
        return stats;
    }
 }
@@ -94,7 +99,8 @@ classifyColumns(const SelectExpression & select_,
                 const OrderByExpression & orderBy,
                 ssize_t offset,
                 ssize_t limit,
-                std::shared_ptr<spdlog::logger> logger)
+                std::shared_ptr<spdlog::logger> logger,
+                std::function<bool (const Json::Value &)> & onProgress)
 {
     // Get a list of the columns we want to use, by parsing the select
     // expression.  Note that only direct expression values will work.
@@ -123,7 +129,7 @@ classifyColumns(const SelectExpression & select_,
     std::vector<SparseColumnInfo> sparseColumns;
 
     std::unordered_map<ColumnPath, ColumnStats> stats = 
-        getColumnStats(select, dataset, when, where, orderBy, offset, limit);
+        getColumnStats(select, dataset, when, where, orderBy, offset, limit, onProgress);
  
     DEBUG_MSG(logger) << "stats size " << stats.size();
 
@@ -212,7 +218,9 @@ extractFeaturesFromRows(const SelectExpression & select,
                         const OrderByExpression & orderBy, 
                         ssize_t offset,
                         ssize_t limit,
-                        const ClassifiedColumns & columns)
+                        const ClassifiedColumns & columns,
+                        std::shared_ptr<spdlog::logger> logger,
+                        std::function<bool (const Json::Value &)> & onProgress)
 {
     static const int numBuckets = 32;
 
@@ -222,7 +230,7 @@ extractFeaturesFromRows(const SelectExpression & select,
 
     Timer timer;
 
-    cerr << "extracting values" << endl;
+    DEBUG_MSG(logger) << "extracting values";
 
     // Get an index of ColumnHash to dense value
     std::unordered_map<ColumnHash, int> continuousIndex;
@@ -266,9 +274,9 @@ extractFeaturesFromRows(const SelectExpression & select,
             return true;
         };
     iterateDataset(select, dataset, "", when, *where, 
-                   {onRow, true /*processInParallel*/}, orderBy, offset, limit, nullptr);
+                   {onRow, true /*processInParallel*/}, orderBy, offset, limit, onProgress);
 
-    cerr << "done extracting values in " << timer.elapsed() << endl;
+    DEBUG_MSG(logger) << "done extracting values in " << timer.elapsed();
 
     timer.restart();
 
@@ -288,7 +296,7 @@ extractFeaturesFromRows(const SelectExpression & select,
         };
     parallelMap(0, featureBuckets.size(), sortBucket);
 
-    cerr << "done sorting buckets in " << timer.elapsed() << endl;
+    DEBUG_MSG(logger) << "done sorting buckets in " << timer.elapsed();
     
     featureBuckets.numExamples = numExamples;
 
@@ -330,7 +338,9 @@ extractFeaturesFromRows(const SelectExpression & select,
 
 ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
-               const FeatureBuckets & featureBuckets)
+               const FeatureBuckets & featureBuckets,
+               std::shared_ptr<spdlog::logger> logger,
+               std::function<bool (const Json::Value &)> & onProgress)
 {
     Timer timer;
 
@@ -343,6 +353,9 @@ invertFeatures(const ClassifiedColumns & columns,
     // Index of examples for each discrete behaviour
     std::mutex discreteValuesLock;
 
+    std::atomic<uint64_t> bucketCount(0);
+    size_t bucketNum = featureBuckets.size();
+
     auto doBucket = [&] (int n)
         {
             // For each discrete column, a list of the indexes of this bucket
@@ -351,11 +364,18 @@ invertFeatures(const ClassifiedColumns & columns,
             std::vector<std::vector<std::pair<int, float> > > bucketSparseIndexes(numSparseColumns);
             
             int index = featureBuckets[n].startIndex;
+            ++bucketCount;
+            if (onProgress) {
+                Json::Value progress;
+                progress["percent"] = (float) bucketCount / bucketNum;
+                if (!onProgress(progress))
+                    return false;
+            }
 
             for (const ExtractedRow & entry: featureBuckets[n]) {
                 //cerr << "continuous " << entry.continuous.size() << " sparse "
                 //     << entry.sparse.size() << endl;
-
+                    
                 for (unsigned i = 0;  i < entry.continuous.size();  ++i) {
                     result[i].continuousValues[index] = entry.continuous[i];
                 }
@@ -402,12 +422,14 @@ invertFeatures(const ClassifiedColumns & columns,
                                 bucketSparseIndexes[i].end());
                 }
             }
+
+            return true;
         };
     
-    parallelMap(0, featureBuckets.size(), doBucket);
+    if (!parallelMapHaltable(0, featureBuckets.size(), doBucket))
+        throw CancellationException("invertFeature was cancelled");
 
-    cerr << "done indexes and correlations" << endl;
-    cerr << timer.elapsed() << endl;
+    DEBUG_MSG(logger) << "done indexes and correlations in " << timer.elapsed();
 
     auto sortIndex = [&] (int i)
         {
@@ -416,8 +438,7 @@ invertFeatures(const ClassifiedColumns & columns,
 
     parallelMap(0, result.size(), sortIndex);
     
-    cerr << "done feature matrix inversion" << endl;
-    cerr << timer.elapsed() << endl;
+    DEBUG_MSG(logger) << "done feature matrix inversion" << timer.elapsed();
 
     return result;
 }
