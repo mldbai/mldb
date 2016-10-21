@@ -10,7 +10,6 @@
 #include "js_common.h"
 
 
-namespace Datacratic {
 namespace MLDB {
 
 struct Sensor;
@@ -50,4 +49,3 @@ struct SensorJS: public JsObjectBase {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
