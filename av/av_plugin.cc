@@ -114,8 +114,8 @@ AudioVideoPlugin * AudioVideoPlugin::staticPlugin = nullptr;
 } // namespace MLDB
 
 MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
+mldbPluginEnterV100(MLDB::MldbServer * server)
 {
-    return new Datacratic::MLDB::AudioVideoPlugin(server);
+    return new MLDB::AudioVideoPlugin(server);
 }
 

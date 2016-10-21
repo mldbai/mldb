@@ -345,8 +345,6 @@ struct CaptureAudioSensor: public Sensor {
                 
             };
 
-
-
         AVFrame * frame = avcodec_alloc_frame();
         if (!frame) {
             fprintf(stderr, "Could not allocate frame\n");
@@ -396,20 +394,21 @@ struct CaptureAudioSensor: public Sensor {
 
             do {
                 int ret = 0;
-                int decoded = pkt.size;
+                //int decoded = pkt.size;
 
-                *got_frame = 0;
+                got_frame = 0;
 
                 //cerr << "pkt.size = " << pkt.size << endl;
-                ExcAssertEqual(pkt.stream_index, streamIndex);
-                ret = avcodec_decode_audio4(audio_dec_ctx, frame, got_frame, &pkt);
+                //ExcAssertEqual(pkt.stream_index, streamIndex);
+                ret = avcodec_decode_audio4(audio_dec_ctx, frame, &got_frame,
+                                            &pkt);
                 if (ret < 0) {
                     // FFmpeg users should use av_err2str
                     char errbuf[128];
                     av_strerror(ret, errbuf, sizeof(errbuf));
                     fprintf(stderr, "Error decoding audio frame (%s)\n", errbuf);
                     cerr << "frame had " << pkt.size << " bytes" << endl;
-                    return ret;
+                    throw HttpReturnException(400, "Error decoding audio frame");
                 }
 
                 if (!got_frame)
@@ -420,50 +419,41 @@ struct CaptureAudioSensor: public Sensor {
                 
 
 #if 1
-                        cerr << "got frame " << frame->coded_picture_number << " " 
-                             << frame->pts << endl;
-                        cerr << "frame->nb_samples = " << frame->nb_samples << endl;
-                        cerr << "frame->linesize[0] = " << frame->linesize[0] << endl;
-                        cerr << "frame->sample_rate = " << frame->sample_rate << endl;
-                        cerr << "frame->channel_layout = " << frame->channel_layout << endl;
-                        //cerr << "frame->extended_data = " << frame->extended_data << endl;
-                        //cerr << "frame->data[0] = " << string(frame->data[0],
-                        //                                      frame->data[0] + frame->linesize[0]) << endl;
-                        //cerr << "frame->extended_data[0] = " << frame->extended_data[0] << endl;
-                        cerr << "frame->format = " << frame->format << endl;
-                        //printf("audio_frame%s n:%d coded_n:%d pts:%" PRId64 "\n",
-                        //       cached ? "(cached)" : "",
-                        //       audio_frame_count++, frame->coded_picture_number,
-                        //       frame->pts);
+                cerr << "got frame " << frame->coded_picture_number << " " 
+                     << frame->pts << endl;
+                cerr << "frame->nb_samples = " << frame->nb_samples << endl;
+                cerr << "frame->linesize[0] = " << frame->linesize[0] << endl;
+                cerr << "frame->sample_rate = " << frame->sample_rate << endl;
+                cerr << "frame->channel_layout = " << frame->channel_layout << endl;
+                //cerr << "frame->extended_data = " << frame->extended_data << endl;
+                //cerr << "frame->data[0] = " << string(frame->data[0],
+                //                                      frame->data[0] + frame->linesize[0]) << endl;
+                //cerr << "frame->extended_data[0] = " << frame->extended_data[0] << endl;
+                cerr << "frame->format = " << frame->format << endl;
+                //printf("audio_frame%s n:%d coded_n:%d pts:%" PRId64 "\n",
+                //       cached ? "(cached)" : "",
+                //       audio_frame_count++, frame->coded_picture_number,
+                //       frame->pts);
              
-                        //int16_t * dataPtr = (int16_t *)(frame->data);
-                        cerr << dataPtr[0] << " " << dataPtr[1] << " " << dataPtr[2]
-                             << " " << dataPtr[3] << endl;
+                //int16_t * dataPtr = (int16_t *)(frame->data);
+                cerr << dataPtr[0] << " " << dataPtr[1] << " " << dataPtr[2]
+                     << " " << dataPtr[3] << endl;
    
 #endif
-                    }
-                
-
-                ret = decode_packet(pkt, audio_stream_idx, audio_dec_ctx, frame,
-                                    &got_frame, 0);
-
-                if (ret < 0)
-                    break;
-
                 if (got_frame) {
                     numSamples += frame->nb_samples;
                     avcodec_get_frame_defaults(frame);
                 }
-
+                
                 //cerr << "decoded " << ret << endl;
                 pkt.data += ret;
                 pkt.size -= ret;
             } while (pkt.size > 0);
             av_free_packet(&orig_pkt);
+
+            break;
         }
-
-
-
+        
         std::vector<float> result;
         result.resize(2);
         return ExpressionValue(std::move(result), Date::now());
