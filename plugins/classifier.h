@@ -129,8 +129,8 @@ struct ClassifyFunction: public Function {
     // can be produced.
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const;
-
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const;
+    
     virtual ExpressionValue apply(const FunctionApplier & applier,
                               const ExpressionValue & context) const;
 

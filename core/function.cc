@@ -71,6 +71,18 @@ checkInputCompatibility(const ExpressionValueInfo & input) const
     // For now, say yes...
 }
 
+void
+FunctionInfo::
+checkInputCompatibility(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
+{
+    if (input.size() != this->input.size()) {
+        throw HttpReturnException
+            (400, "Wrong number of arguments (" + to_string(input.size())
+             + ") passed to user function expecting " + to_string(this->input.size()));
+    }
+    // For now, say yes...
+}
+
 
 /*****************************************************************************/
 /* FUNCTION APPLIER                                                          */
@@ -114,16 +126,15 @@ getDetails() const
     return Any();
 }
 
-
 std::unique_ptr<FunctionApplier>
 Function::
 bind(SqlBindingScope & outerContext,
-     const std::shared_ptr<RowValueInfo> & input) const
+     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<FunctionApplier> result(new FunctionApplier());
     result->function = this;
     result->info = getFunctionInfo();
-    result->info.checkInputCompatibility(*input);
+    result->info.checkInputCompatibility(input);
     return result;
 }
 

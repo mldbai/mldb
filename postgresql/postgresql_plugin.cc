@@ -737,12 +737,12 @@ struct PostgresqlQueryFunction : public Function
         PostgresqlQueryFunctionConfig config;
 
         PostgresqlQueryFunctionApplier(const PostgresqlQueryFunction * function,
-                                const PostgresqlQueryFunctionConfig & config)
+                                       const PostgresqlQueryFunctionConfig & config)
             : FunctionApplier(function), function(function), config(config)
         {
            std::vector<KnownColumn> noColumns;
 
-           this->info.input = std::make_shared<RowValueInfo>(noColumns, SCHEMA_CLOSED);
+           this->info.input = { std::make_shared<RowValueInfo>(noColumns, SCHEMA_CLOSED) };
            
            this->info.output.reset(new RowValueInfo(std::move(noColumns),
                                                     SCHEMA_OPEN));
@@ -791,12 +791,12 @@ struct PostgresqlQueryFunction : public Function
 
     std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
     {
         std::unique_ptr<PostgresqlQueryFunctionApplier> result
             (new PostgresqlQueryFunctionApplier(this, functionConfig));
 
-        result->info.checkInputCompatibility(*input);
+        result->info.checkInputCompatibility(input);
 
         return std::move(result);
     }

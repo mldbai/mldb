@@ -337,7 +337,7 @@ EMFunction(MldbServer * owner,
 
 struct EMFunctionApplier: public FunctionApplierT<EMInput, EMOutput> {
     EMFunctionApplier(const EMFunction * owner,
-                      const std::shared_ptr<RowValueInfo> & input)
+                      const std::shared_ptr<ExpressionValueInfo> & input)
         : FunctionApplierT<EMInput, EMOutput>(owner)
     {
         info = owner->getFunctionInfo();
@@ -349,10 +349,13 @@ struct EMFunctionApplier: public FunctionApplierT<EMInput, EMOutput> {
 
 std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
 EMFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
+    if (input.size() != 1)
+        throw HttpReturnException(400, "EM function requires a single input");
     return std::unique_ptr<EMFunctionApplier>
-        (new EMFunctionApplier(this, input));
+        (new EMFunctionApplier(this, input.at(0)));
 }
 
 EMOutput 

@@ -3401,7 +3401,9 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
     
     // MLDB-1315.  Note that although this looks like a dataset function,
     // in actual fact it's argument is a normal row-valued expression.
-    if (matchKeyword(context, "row_dataset")) {
+    bool isColumn = false, isAtom = false;
+    if ((isColumn = matchKeyword(context, "row_dataset"))
+        || (isAtom = matchKeyword(context, "atom_dataset"))) {
         skip_whitespace(context);
         context.expect_literal('(');
         skip_whitespace(context);
@@ -3419,7 +3421,10 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
                 context.exception("Expected identifier after the row_dataset(...) AS clause");
         }
         
-        result = std::make_shared<RowTableExpression>(statement, asName);
+        RowTableExpression::Style style
+            = isColumn ? RowTableExpression::COLUMNS : RowTableExpression::ATOMS;
+
+        result = std::make_shared<RowTableExpression>(statement, asName, style);
         result->surface = ML::trim(token.captured());
     }
 

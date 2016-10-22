@@ -739,6 +739,18 @@ fromJsForRestParams(const JSValue & val)
         MLDB::CellValue cv(Date::fromSecondsSinceEpoch(ms / 1000.0));
         return jsonEncode(cv);
     }
+    else if (val->IsArray()) {
+        auto arrayPtr = v8::Array::Cast(*val);
+
+        Json::Value result;
+
+        for (int i=0; i<arrayPtr->Length(); ++i) {
+            v8::Local<v8::Value> val = arrayPtr->Get(i);
+            result[i] = fromJsForRestParams(val);
+        }
+        
+        return result;
+    }
     else if (val->IsObject()) {
 
         auto objPtr = v8::Object::Cast(*val);

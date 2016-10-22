@@ -141,7 +141,8 @@ struct NearestNeighborsFunction
     
     virtual std::unique_ptr<ApplierT>
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const override;
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override;
     
     NearestNeighborsFunctionConfig functionConfig;
 
@@ -190,7 +191,8 @@ struct ReadPixelsFunction
     
     virtual std::unique_ptr<ApplierT>
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const override;
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override;
     
     ReadPixelsFunctionConfig functionConfig;
 
@@ -242,7 +244,8 @@ struct ProximateVoxelsFunction
     
     virtual std::unique_ptr<ApplierT>
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const override;
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override;
     
     ProximateVoxelsFunctionConfig functionConfig;
 
