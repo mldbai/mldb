@@ -29,7 +29,8 @@ freezeAndTest(const std::vector<CellValue> & cells)
         col.add(i, cells[i]);
     }
 
-    std::shared_ptr<FrozenColumn> frozen = col.freeze();
+    ColumnFreezeParameters params;
+    std::shared_ptr<FrozenColumn> frozen = col.freeze(params);
 
     ExcAssertEqual(frozen->size(), cells.size());
 

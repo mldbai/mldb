@@ -31,6 +31,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	frozen_column.cc \
 	column_types.cc \
 	tabular_dataset_column.cc \
+	tabular_dataset_chunk.cc \
 	randomforest_procedure.cc \
 	classifier.cc \
 	sql_functions.cc \

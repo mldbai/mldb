@@ -9,12 +9,22 @@
 #pragma once
 
 #include "column_types.h"
-#include "mldb/sql/cell_value.h"
+#include <memory>
 
 
 namespace MLDB {
 
 struct TabularDatasetColumn;
+
+
+/*****************************************************************************/
+/* COLUMN FREEZE PARAMETERS                                                  */
+/*****************************************************************************/
+
+/** Parameters used to control the freeze operation. */
+struct ColumnFreezeParameters {
+};
+
 
 /*****************************************************************************/
 /* FROZEN COLUMN                                                             */
@@ -32,11 +42,6 @@ struct FrozenColumn {
 
     virtual size_t memusage() const = 0;
 
-    CellValue operator [] (size_t index) const
-    {
-        return this->get(index);
-    }
-
     typedef std::function<bool (size_t rowNum, const CellValue & val)> ForEachRowFn;
 
     virtual bool forEach(const ForEachRowFn & onRow) const = 0;
@@ -49,8 +54,10 @@ struct FrozenColumn {
 
     virtual ColumnTypes getColumnTypes() const = 0;
 
+    /** Freeze the given column into the best fitting frozen column type. */
     static std::shared_ptr<FrozenColumn>
-    freeze(TabularDatasetColumn & column);
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params);
 };
 
 
