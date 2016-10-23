@@ -706,6 +706,25 @@ struct SparseMatrixDataset::Itl
         return { columnName, std::make_shared<AnyValueInfo>(), COLUMN_IS_SPARSE };
     }
 
+    virtual uint64_t getColumnRowCount(const ColumnPath & column) const override
+    {
+        auto trans = getReadTransaction();
+
+        uint64_t result = 0;
+
+        uint64_t lastRow = -1;
+        auto onEntry = [&] (const BaseEntry & entry)
+            {
+                if (entry.rowcol != lastRow)
+                    result += 1;
+                lastRow = entry.rowcol;
+                return true;
+            };
+        
+        trans->inverse->iterateRow(column.hash(), onEntry);
+        return result;
+    }
+
     /** Return the value of the column for all rows and timestamps. */
     MatrixColumn getColumnTrans(const ColumnPath & column,
                                 ReadTransaction & trans) const

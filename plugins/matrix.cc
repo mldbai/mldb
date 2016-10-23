@@ -24,47 +24,49 @@ using namespace std;
 namespace MLDB {
 
 namespace {
-   std::unordered_map<ColumnPath, ColumnStats>
-   getColumnStats(const SelectExpression & select,
-                  const Dataset & from,
-                  const WhenExpression & when,
-                  const SqlExpression & where,
-                  const OrderByExpression & orderBy,
-                  ssize_t offset,
-                  ssize_t limit,
-                  const std::function<bool (const Json::Value &)> & onProgress) {
 
-       std::unordered_map<ColumnPath, ColumnStats> stats;
+std::unordered_map<ColumnPath, ColumnStats>
+getColumnStats(const SelectExpression & select,
+               const Dataset & from,
+               const WhenExpression & when,
+               const SqlExpression & where,
+               const OrderByExpression & orderBy,
+               ssize_t offset,
+               ssize_t limit,
+               const std::function<bool (const Json::Value &)> & onProgress)
+{
+    std::unordered_map<ColumnPath, ColumnStats> stats;
        
-       auto onRow = [&stats] (NamedRowValue & output_) {
-           MatrixNamedRow output = output_.flattenDestructive();
-           for (auto & col : output.columns) {
-               auto columnPath = get<0>(col);
-               auto cellValue = get<1>(col);
-               auto it = stats.find(columnPath);
-               if (it == stats.end()) {
-                   auto & colStats = stats[columnPath];
-                   colStats.isNumeric_ = cellValue.isNumber();
-               }
-               auto & colStats = stats[columnPath];
-               colStats.isNumeric_ = colStats.isNumeric_ && cellValue.isNumber();
-               colStats.rowCount_ +=1;
-               // since there could be several values for a column in the same row 
-               // this is more a value count than a row count!
-               colStats.values[cellValue].rowCount_ += 1;
-           }
+    auto onRow = [&stats] (NamedRowValue & output_) {
+        MatrixNamedRow output = output_.flattenDestructive();
+        for (auto & col : output.columns) {
+            auto & columnPath = get<0>(col);
+            auto & cellValue = get<1>(col);
+            auto it = stats.find(columnPath);
+            if (it == stats.end()) {
+                it = stats.emplace(std::move(columnPath), ColumnStats()).first;
+                it->second.isNumeric_ = cellValue.isNumber();
+            }
+            auto & colStats = it->second;
+            colStats.isNumeric_ = colStats.isNumeric_ && cellValue.isNumber();
+            colStats.rowCount_ +=1;
+            // since there could be several values for a column in the same row 
+            // this is more a value count than a row count!
+            colStats.values[cellValue].rowCount_ += 1;
+        }
 
-           return true;
-       };
+        return true;
+    };
 
-       if (!iterateDataset(select, from, "", when, where, 
-                          {onRow, false /*processInParallel*/}, 
-                          orderBy, offset, limit, onProgress).first) {
+    if (!iterateDataset(select, from, "", when, where, 
+                        {onRow, false /*processInParallel*/}, 
+                        orderBy, offset, limit, onProgress).first) {
            throw CancellationException("getColumnStats was cancelled");
        }
-       return stats;
-   }
+    return stats;
 }
+
+} // file scope
 
 DEFINE_ENUM_DESCRIPTION(ColumnOperator);
 
@@ -110,11 +112,12 @@ classifyColumns(const SelectExpression & select_,
     if (select.clauses.empty())
         select = SelectExpression::parse("*");
 
-    SqlExpressionDatasetScope context(dataset, "");
+    SqlExpressionDatasetScope context(dataset, "" /* alias */);
 
     auto boundSelect = select.bind(context);
 
-    std::vector<ColumnPath> selectedColumnsVec = boundSelect.info->allColumnNames();
+    std::vector<ColumnPath> selectedColumnsVec
+        = boundSelect.info->allColumnNames();
     std::set<ColumnPath> selectedColumns(selectedColumnsVec.begin(),
                                          selectedColumnsVec.end());
     if (boundSelect.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN)
