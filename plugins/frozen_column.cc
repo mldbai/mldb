@@ -641,7 +641,8 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
 std::shared_ptr<FrozenColumn>
 FrozenColumn::
-freeze(TabularDatasetColumn & column)
+freeze(TabularDatasetColumn & column,
+       const ColumnFreezeParameters & params)
 {
     size_t required1 = TableFrozenColumn::bytesRequired(column);
     size_t required2 = SparseTableFrozenColumn::bytesRequired(column);
