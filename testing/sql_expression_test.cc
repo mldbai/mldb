@@ -1281,8 +1281,6 @@ BOOST_AUTO_TEST_CASE(test_alignment)
     cerr << "alignof(PathElement) = " << alignof(PathElement) << endl;
     cerr << "sizeof(Path) = " << sizeof(Path) << endl;
     cerr << "alignof(Path) = " << alignof(Path) << endl;
-    cerr << "sizeof(Id) = " << sizeof(Id) << endl;
-    cerr << "alignof(Id) = " << alignof(Id) << endl;
     cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;
     cerr << "alignof(Utf8String) = " << alignof(Utf8String) << endl;
     cerr << "sizeof(std::string) = " << sizeof(std::string) << endl;

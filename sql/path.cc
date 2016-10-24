@@ -624,7 +624,7 @@ uint64_t
 PathElement::
 oldHash() const
 {
-    return Id(data(), dataLength()).hash();
+    return CityHash64(data(), dataLength());
 }
 
 constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
@@ -1592,8 +1592,18 @@ PathElementDescription::
 printJsonTyped(const PathElement * val,
                JsonPrintingContext & context) const
 {
-    context.writeJson(jsonEncode(Id(val->toUtf8String())));
-    //context.writeStringUtf8(val->toUtf8String());
+    if (val->null()) {
+        context.writeNull();
+        return;
+    }
+    int64_t index = val->toIndex();
+    if (index != -1) {
+        context.writeLongLong(index);
+    }
+    else {
+        auto sv = val->getStringView();
+        context.writeStringUtf8(sv.first, sv.second);
+    }
 }
 
 bool

@@ -38,15 +38,15 @@ namespace MLDB {
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
-    return store << Id(coord.toUtf8String());
+    return store << coord.toUtf8String();
 }
 
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
-    Id id;
+    Utf8String id;
     store >> id;
-    coord = id.toUtf8String();
+    coord = std::move(id);
     return store;
 }
 

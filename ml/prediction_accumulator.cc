@@ -52,15 +52,15 @@ Prediction_Accumulator(const string& loadFrom) :
 
         int c       = boost::lexical_cast<int>(tokens[0]);
         float score = boost::lexical_cast<float>(tokens[1]);
-        Id uid      = boost::lexical_cast<Id>(tokens[2]);
-
+        Utf8String uid = std::move(tokens[2]);
+        
         addPrediction(c==1, score, uid);
     }
     cout << "  > Added " << i << " scores" << endl;
 }
 
 void Prediction_Accumulator::
-addPrediction(bool click, float pred, Id uid, const string & groupId)
+addPrediction(bool click, float pred, Utf8String uid, const string & groupId)
 {
     // if we previously calibrated groups, the calibration is now
     // invalid
@@ -270,7 +270,7 @@ getGroupCalibration() const
 }
 
 float Prediction_Accumulator::
-getUidWeight(const Id & uid, const string & groupId) const
+getUidWeight(const Utf8String & uid, const string & groupId) const
 {
     float groupCalib = 1;
     if(groupsCalibrated && groupId != "") {

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* hash_wrapper.h                                                  -*- C++ -*-
    Jeremy Barnes, 5 September 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -10,9 +9,9 @@
 
 #include <iostream>
 #include "mldb/ext/jsoncpp/json.h"
-#include "mldb/types/id.h"
 #include "mldb/arch/format.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/arch/exception.h"
 
 namespace MLDB {
 
@@ -43,10 +42,12 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
     {
     }
     
+#if 0
     HashWrapper(const Id & id)
         : IntWrapper<uint64_t, Domain>(id.hash())
     {
     }
+#endif
 
     static HashWrapper max() { return HashWrapper(-1); }
 

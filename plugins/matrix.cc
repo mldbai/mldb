@@ -411,9 +411,9 @@ invertFeatures(const ClassifiedColumns & columns,
                 //<< " sparse " << bucketSparseIndexes[i].size() << endl;
 
                 if (bucketDiscreteIndexes[i].size() > 0) {
-                    result[i + numContinuousColumns].discreteValues
-                        .insert(bucketDiscreteIndexes[i].begin(),
-                                bucketDiscreteIndexes[i].end());
+                    for (auto & rowNumber: bucketDiscreteIndexes[i])
+                        result[i + numContinuousColumns].discreteValues
+                            .add(rowNumber, PathElement(rowNumber).hash());
                 }
                 else {
                     result[i + numContinuousColumns].sparseValues
