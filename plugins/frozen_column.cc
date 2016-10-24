@@ -12,6 +12,7 @@
 #include "mldb/utils/compact_vector.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/atomic_shared_ptr.h"
 #include <mutex>
 
 using namespace std;
@@ -21,9 +22,8 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* FROZEN COLUMN                                                             */
+/* TABLE FROZEN COLUMN                                                       */
 /*****************************************************************************/
-
 
 /// Frozen column that finds each value in a lookup table
 struct TableFrozenColumn: public FrozenColumn {
@@ -169,6 +169,48 @@ struct TableFrozenColumn: public FrozenColumn {
         return result;
     }
 };
+
+struct TableFrozenColumnFormat: public FrozenColumnFormat {
+
+    virtual ~TableFrozenColumnFormat()
+    {
+    }
+
+    virtual std::string format() const override
+    {
+        return "Table";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return true;
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        return TableFrozenColumn::bytesRequired(column);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new TableFrozenColumn(column);
+    }
+};
+
+RegisterFrozenColumnFormatT<TableFrozenColumnFormat> regTable;
+
+
+/*****************************************************************************/
+/* SPARSE FROZEN COLUMN                                                      */
+/*****************************************************************************/
 
 /// Sparse frozen column that finds each value in a lookup table
 struct SparseTableFrozenColumn: public FrozenColumn {
@@ -363,12 +405,53 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     ColumnTypes columnTypes;
 };
 
+struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
+
+    virtual ~SparseTableFrozenColumnFormat()
+    {
+    }
+
+    virtual std::string format() const override
+    {
+        return "SparseTable";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return true;
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        return SparseTableFrozenColumn::bytesRequired(column);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new SparseTableFrozenColumn(column);
+    }
+};
+
+RegisterFrozenColumnFormatT<SparseTableFrozenColumnFormat> regSparseTable;
+
+
+/*****************************************************************************/
+/* INTEGER FROZEN COLUMN                                                     */
+/*****************************************************************************/
+
 /// Frozen column that stores each value as a signed 64 bit integer
 struct IntegerFrozenColumn: public FrozenColumn {
 
     struct SizingInfo {
         SizingInfo(const TabularDatasetColumn & column)
-            : bytesRequired(-1)
         {
             if (!column.columnTypes.onlyIntegersAndNulls())
                 return;  // can't use this column type
@@ -450,7 +533,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
             return bytesRequired;
         }
 
-        ssize_t bytesRequired;
+        ssize_t bytesRequired = -1;
         uint64_t range;
         int64_t offset;
         size_t numEntries;
@@ -639,25 +722,143 @@ struct IntegerFrozenColumn: public FrozenColumn {
     }
 };
 
+struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
+    
+    virtual ~IntegerFrozenColumnFormat()
+    {
+    }
+
+    virtual std::string format() const override
+    {
+        return "Integer";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return true;
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        return IntegerFrozenColumn::bytesRequired(column);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new IntegerFrozenColumn(column);
+    }
+};
+
+RegisterFrozenColumnFormatT<IntegerFrozenColumnFormat> regInteger;
+
+
+/*****************************************************************************/
+/* FROZEN COLUMN FORMAT                                                      */
+/*****************************************************************************/
+
+namespace {
+
+typedef std::map<std::string, std::shared_ptr<FrozenColumnFormat> > Formats;
+
+atomic_shared_ptr<const Formats> & getFormats()
+{
+    static atomic_shared_ptr<const Formats> formats
+        (std::make_shared<Formats>());
+    return formats;
+}
+
+
+} // file scope
+
+FrozenColumnFormat::
+~FrozenColumnFormat()
+{
+}
+
+std::shared_ptr<void>
+FrozenColumnFormat::
+registerFormat(std::shared_ptr<FrozenColumnFormat> format)
+{
+    std::string name = format->format();
+    auto & formats = getFormats();
+    for (;;) {
+        auto ptr = formats.load();
+        if (ptr->count(name)) {
+            throw HttpReturnException
+                (500, "Attempt to double-register frozen column format "
+                 + name);
+        }
+        auto newFormats = *ptr;
+        newFormats.emplace(name, format);
+        auto newFormatsPtr
+            = std::make_shared<Formats>(std::move(newFormats));
+        if (formats.compare_exchange_strong(ptr, newFormatsPtr)) {
+
+            auto deregister = [name] (void *)
+                {
+                    auto & formats = getFormats();
+                    for (;;) {
+                        auto ptr = formats.load();
+                        auto newFormats = *ptr;
+                        newFormats.erase(name);
+                        auto newFormatsPtr
+                            = std::make_shared<Formats>(std::move(newFormats));
+                        if (formats.compare_exchange_strong(ptr, newFormatsPtr))
+                            break;
+                    }
+                };
+
+            return std::shared_ptr<void>(format.get(), deregister);
+        }
+    }
+}
+
+
+/*****************************************************************************/
+/* FROZEN COLUMN                                                             */
+/*****************************************************************************/
+
 std::shared_ptr<FrozenColumn>
 FrozenColumn::
 freeze(TabularDatasetColumn & column,
        const ColumnFreezeParameters & params)
 {
-    size_t required1 = TableFrozenColumn::bytesRequired(column);
-    size_t required2 = SparseTableFrozenColumn::bytesRequired(column);
-    size_t required3 = IntegerFrozenColumn::bytesRequired(column);
+    // Get the current list of formats
+    auto formats = getFormats().load();
+    
+    ssize_t bestBytes = FrozenColumnFormat::NOT_BEST;
+    const FrozenColumnFormat * bestFormat = nullptr;
+    std::shared_ptr<void> bestData;
 
-    if (required3 < std::min(required1, required2)) {
-        return std::make_shared<IntegerFrozenColumn>(column);
-        //cerr << "integer requires " << required3 << " instead of "
-        //     << std::min(required1, required2) << endl;
+    for (auto & f: *formats) {
+        std::shared_ptr<void> data;
+        if (f.second->isFeasible(column, params, data)) {
+            ssize_t bytes = f.second->columnSize(column, params, bestBytes,
+                                                 data);
+            if (bytes >= 0 && (bestBytes < 0 || bytes < bestBytes)) {
+                bestFormat = f.second.get();
+                bestData = std::move(data);
+                bestBytes = bytes;
+            }
+        }
     }
 
-    if (required1 <= required2)
-        return std::make_shared<TableFrozenColumn>(column);
-    else return std::make_shared<SparseTableFrozenColumn>(column);
+    if (!bestFormat) {
+        throw HttpReturnException(500, "No column format found for column");
+    }
+
+    return std::shared_ptr<FrozenColumn>
+        (bestFormat->freeze(column, params, std::move(bestData)));
 }
+
 
 } // namespace MLDB
 
