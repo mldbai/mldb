@@ -695,6 +695,32 @@ class mldb_wrapper(object):
         def __str__(self):
             return self.text
 
+    class StepsLogger(object):
+
+        def __init__(self, mldb):
+            self.done_steps = set()
+            self.log = mldb.log
+
+        def log_progress_steps(self, progress_steps):
+            from datetime import datetime
+            from dateutil.tz import tzutc
+            from dateutil.parser import parse as parse_date
+            now = datetime.now(tzutc())
+            for step in progress_steps:
+                if 'ended' in step:
+                    if step['name'] in self.done_steps:
+                        continue
+                    self.done_steps.add(step['name'])
+                    ran_in = parse_date(step['ended']) - parse_date(step['started'])
+                    self.log("{} completed in {} seconds - {} {}"
+                            .format(step['name'], ran_in.total_seconds(),
+                                    step['type'], step['value']))
+                elif 'started' in step:
+                    running_since = now - parse_date(step['started'])
+                    self.log("{} runing since {} seconds - {} {}"
+                            .format(step['name'], running_since.total_seconds(),
+                                    step['type'], step['value']))
+
     class wrap(object):
         def __init__(self, mldb):
             self._mldb = mldb
@@ -798,6 +824,55 @@ class mldb_wrapper(object):
 
             if res.wasSuccessful():
                 self.script.set_return("success")
+
+        def post_run_and_track_procedure(self, payload, refresh_rate_sec=10):
+            import threading
+
+            if 'params' not in payload:
+                payload['params'] = {}
+            payload['params']['runOnCreation'] = False
+
+            res = self.post('/v1/procedures', payload).json()
+            proc_id = res['id']
+            event = threading.Event()
+
+            def monitor_progress():
+                # wrap everything in a try/except because exceptions are not passed to
+                # mldb.log by themselves.
+                try:
+                    # find run id
+                    run_id = None
+                    sl = mldb_wrapper.StepsLogger(self)
+                    while not event.wait(refresh_rate_sec):
+                        if run_id is None:
+                            res = self.get('/v1/procedures/{}/runs'.format(proc_id)).json()
+                            if res:
+                                run_id = res[0]
+                            else:
+                                continue
+
+                        res = self.get('/v1/procedures/{}/runs/{}'.format(proc_id, run_id)).json()
+                        if res['state'] == 'executing':
+                            sl.log_progress_steps(res['progress']['steps'])
+                        else:
+                            break
+
+                except Exception as e:
+                    self.log(str(e))
+                    import traceback
+                    self.log(traceback.format_exc())
+
+            t = threading.Thread(target=monitor_progress)
+            t.start()
+
+            try:
+                return self.post('/v1/procedures/{}/runs'.format(proc_id), {})
+            except mldb_wrapper.ResponseException as e:
+                return e.response
+            finally:
+                event.set()
+                t.join()
+
 
 
 class MldbUnitTest(unittest.TestCase):
