@@ -25,7 +25,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_two_members )

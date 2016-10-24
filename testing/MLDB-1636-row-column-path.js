@@ -52,7 +52,6 @@ var expected = [
          ],
          [ "rowPathElement(2)", null, "-Inf" ]
       ],
-      "rowHash" : "dec1ca216cd01079",
       "rowName" : "examples.4"
    }
 ];
@@ -74,10 +73,9 @@ var expected = [
             "-Inf"
          ],
          [ "x.1", 1, "-Inf" ],
-         [ "y.column", "x", "-Inf" ],
+         [ "y.column", { path: ["x"] }, "-Inf" ],
          [ "y.value", 1, "-Inf" ]
       ],
-       "rowHash" : "77a5d17e0b01f7cb",
        "rowName" : "[result]-[0]"
    }
 ];

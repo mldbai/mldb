@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -777,17 +777,17 @@ struct XlsxImporter: public Procedure {
                         }
                     }
 
-                    return ColumnName(result);
+                    return ColumnPath(result);
                 };
 
             if (output && !sheet.rows.empty()) {
                 int maxRowIndex = sheet.rows.back().index;
-                int indexLength = ML::format("%d", maxRowIndex).length();
+                int indexLength = MLDB::format("%d", maxRowIndex).length();
 
                 for (auto & row: sheet.rows) {
                     MatrixNamedRow outputRow;
                     outputRow.rowHash = outputRow.rowName
-                        = RowName(sheetEntry.name + ML::format(":%0*d", indexLength, row.index));
+                        = RowPath(sheetEntry.name + MLDB::format(":%0*d", indexLength, row.index));
 
                     for (auto & col: row.columns) {
                         outputRow.columns.emplace_back(getColName(std::get<0>(col)),
@@ -820,4 +820,4 @@ regXlsx(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

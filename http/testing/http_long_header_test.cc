@@ -24,7 +24,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_accept_speed )
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE( test_accept_speed )
 
             bytesDone += data.size();
             if (bytesDone > 1000000)
-                throw ML::Exception("allowed infinite headers");
+                throw MLDB::Exception("allowed infinite headers");
             HttpConnectionHandler::handleData(data);
         }
 
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE( test_accept_speed )
         if (res > 0)
             written += res;
         else if (res == 0)
-            throw ML::Exception("nothing written");
+            throw MLDB::Exception("nothing written");
         else {
             writeError = errno;
             cerr << strerror(errno) << endl;

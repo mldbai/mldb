@@ -21,7 +21,7 @@
 # define GC_LOCK_INLINE 
 #endif
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -51,7 +51,7 @@ GcLockBase::ThreadGcInfoEntry::
 unlockShared(RunDefer runDefer)
 {
     if (readLocked <= 0)
-        throw ML::Exception("Bad read lock nesting");
+        throw MLDB::Exception("Bad read lock nesting");
 
     --readLocked;
     if (!readLocked && !writeLocked) 
@@ -80,7 +80,7 @@ GcLockBase::ThreadGcInfoEntry::
 unlockExclusive()
 {
     if (writeLocked <= 0)
-        throw ML::Exception("Bad write lock nesting");
+        throw MLDB::Exception("Bad write lock nesting");
 
     --writeLocked;
     if (!writeLocked)
@@ -102,7 +102,7 @@ GcLockBase::ThreadGcInfoEntry::
 unlockSpeculative(RunDefer runDefer)
 {
     if (!specLocked) 
-        throw ML::Exception("Bad speculative lock nesting");
+        throw MLDB::Exception("Bad speculative lock nesting");
 
     --specLocked;
     if (!specLocked) {
@@ -264,4 +264,4 @@ isLockedExclusive(GcInfo::PerThreadInfo * info) const
     return entry.writeLocked;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

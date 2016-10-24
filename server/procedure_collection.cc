@@ -20,7 +20,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::shared_ptr<ProcedureCollection>
@@ -219,8 +219,8 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
     return polyStatus;
 }
 
+template class PolyCollection<Procedure>;
+
 } // namespace MLDB
 
-template class PolyCollection<MLDB::Procedure>;
 
-} // namespace Datacratic

@@ -64,7 +64,7 @@ std::shared_ptr<const T> make_unowned_std_sp(const T & val)
 
 extern const struct Null_SP {
     template<typename T>
-    JML_ALWAYS_INLINE operator std::shared_ptr<T>() const
+    MLDB_ALWAYS_INLINE operator std::shared_ptr<T>() const
     {
         return std::shared_ptr<T>();
     }
@@ -73,7 +73,7 @@ extern const struct Null_SP {
 
 extern const struct Null_STD_SP {
     template<typename T>
-    JML_ALWAYS_INLINE operator std::shared_ptr<T>() const
+    MLDB_ALWAYS_INLINE operator std::shared_ptr<T>() const
     {
         return std::shared_ptr<T>();
     }

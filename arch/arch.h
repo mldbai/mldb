@@ -9,13 +9,13 @@
 #pragma once
 
 #if defined(__i386__) || defined(__amd64__)
-# define JML_INTEL_ISA 1
+# define MLDB_INTEL_ISA 1
 #elif defined (__aarch64__) || defined(__arm__)
-# define JML_ARM_ISA 1
+# define MLDB_ARM_ISA 1
 #endif // intel ISA
 
 # if defined(__amd64__) || defined(__aarch64__)
-#  define JML_BITS 64
+#  define MLDB_BITS 64
 # else
-#  define JML_BITS 32
+#  define MLDB_BITS 32
 # endif // 32/64 bits

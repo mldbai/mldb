@@ -20,9 +20,9 @@
 
 using namespace std;
 using namespace boost::python;
-using namespace Datacratic;
-using namespace Datacratic::Python;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB::Python;
+using namespace MLDB;
 namespace bp = boost::python;
 
 struct Tester {

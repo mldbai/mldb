@@ -17,9 +17,9 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
-/* S3 backend credentials not provided, ~/.cloud_credentials expected, ask marc@datacratic.com */
+/* S3 backend credentials not provided, ~/.cloud_credentials expected, ask your friendly @ops */
 
 /* local fs backend */
 /* ensures tryGetUriObjectInfo and derivatives works for local files */
@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE( test_local_tryGetUriObjectInfo )
         string filename = (testDir + "/" + fixtures.uniqueName()
                            + to_string(filecount));
         filecount++;
-        
+
         {
             filter_ostream stream(filename);
             stream << "this file exists";

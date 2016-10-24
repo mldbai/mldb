@@ -114,7 +114,7 @@ var functionInfo = mldb.get("/v1/functions/iris_cls/info");
 plugin.log(functionInfo.json);
 
 var expected = {
-    "input" : {
+    "input" : [ {
         "hasUnknownColumns" : false,
         "hasUnknownColumnsRecursive" : false,
         "kind" : "row",
@@ -133,7 +133,7 @@ var expected = {
                             "valueInfo" : {
                                 "kind" : "scalar",
                                 "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                                "type" : "MLDB::Float32ValueInfo"
                             }
                         },
                         {
@@ -142,7 +142,7 @@ var expected = {
                             "valueInfo" : {
                                 "kind" : "scalar",
                                 "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                                "type" : "MLDB::Float32ValueInfo"
                             }
                         },
                         {
@@ -151,7 +151,7 @@ var expected = {
                             "valueInfo" : {
                                 "kind" : "scalar",
                                 "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                                "type" : "MLDB::Float32ValueInfo"
                             }
                         },
                         {
@@ -160,16 +160,16 @@ var expected = {
                             "valueInfo" : {
                                 "kind" : "scalar",
                                 "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                                "type" : "MLDB::Float32ValueInfo"
                             }
                         }
                     ],
-                    "type" : "Datacratic::MLDB::RowValueInfo"
+                    "type" : "MLDB::RowValueInfo"
                 }
             }
         ],
-        "type" : "Datacratic::MLDB::RowValueInfo"
-    },
+        "type" : "MLDB::RowValueInfo"
+    } ],
     "output" : {
         "hasUnknownColumns" : false,
         "hasUnknownColumnsRecursive" : false,
@@ -191,7 +191,7 @@ var expected = {
                             "valueInfo" : {
                                 "kind" : "scalar",
                                 "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                                "type" : "MLDB::Float32ValueInfo"
                             }
                         },
                         {
@@ -201,7 +201,7 @@ var expected = {
                             "valueInfo" : {
                                 "kind" : "scalar",
                                 "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                                "type" : "MLDB::Float32ValueInfo"
                             }
                         },
                         {
@@ -211,15 +211,15 @@ var expected = {
                             "valueInfo" : {
                                 "kind" : "scalar",
                                 "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                                "type" : "MLDB::Float32ValueInfo"
                             }
                         }
                     ],
-                    "type" : "Datacratic::MLDB::RowValueInfo"
+                    "type" : "MLDB::RowValueInfo"
                 }
             }
         ],
-        "type" : "Datacratic::MLDB::RowValueInfo"
+        "type" : "MLDB::RowValueInfo"
     }
 };
 

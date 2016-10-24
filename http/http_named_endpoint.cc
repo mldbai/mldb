@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -93,4 +93,4 @@ bindTcp(PortRange const & portRange, std::string host)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -17,7 +17,7 @@
 #include <sys/time.h>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 void Logging::ConsoleWriter::head(char const * timestamp,
                                   char const * name,
@@ -65,7 +65,7 @@ void Logging::FileWriter::open(char const * filename, char const mode) {
     else if (mode == 'w')
         file.open(filename);
     else
-        throw ML::Exception("File mode not recognized");
+        throw MLDB::Exception("File mode not recognized");
 
     if(!file) {
         std::cerr << "unable to open log file '" << filename << "'" << std::endl;
@@ -353,7 +353,7 @@ void Logging::Thrower::operator&(std::ostream & stream) {
     text.str("");
     loggingMutex.unlock();
 
-    throw ML::Exception(message);
+    throw MLDB::Exception(message);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

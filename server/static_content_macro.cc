@@ -22,7 +22,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -37,8 +37,6 @@ using namespace Json;
 
 static std::string printTypeName(std::string t)
 {
-    if (t.find("Datacratic::") == 0)
-        t = string(t, 12);
     if (t.find("MLDB::") == 0)
         t = string(t, 6);
     return t;
@@ -95,7 +93,7 @@ static std::string getTypeName(const ValueDescription & description,
     }
     case ValueKind::ANY:       return description.typeName == "Json::Value" ? "JSON" : printTypeName(description.typeName);
     default:
-        throw ML::Exception("Unknown description kind");
+        throw MLDB::Exception("Unknown description kind");
     }
 }
 
@@ -136,7 +134,7 @@ static void renderType(MacroContext & context,
                         context.writeHtml(",");
                     }
                     context.writeHtml(
-                        ML::format("\n        \"%s\": &lt;%s&gt;",
+                        MLDB::format("\n        \"%s\": &lt;%s&gt;",
                                    fd.fieldName.c_str(),
                                    getTypeName(*fd.description,
                                                context.server).c_str()));
@@ -149,7 +147,7 @@ static void renderType(MacroContext & context,
 
             auto onField = [&] (const ValueDescription::FieldDescription & fd)
                 {
-                    context.writeHtml(ML::format("<tr><td align='right'><p><strong>%s</strong> <br/> <nobr>%s</nobr> <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
+                    context.writeHtml(MLDB::format("<tr><td align='right'><p><strong>%s</strong> <br/> <nobr>%s</nobr> <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
                                          getTypeName(*fd.description, context.server).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
@@ -163,7 +161,7 @@ static void renderType(MacroContext & context,
         context.writeHtml("<h4>Enumeration <code>" + printTypeName(cppType.rawString()) +"</code></h4>");
         context.writeHtml("<table class=\"params table\"><tr><th>Value</th><th>Description</th></tr>\n");
         for (auto & v: vd->getEnumValues()) {
-            context.writeHtml(ML::format("<tr><td><code>%s</code></td><td><p>%s</td></tr>\n",
+            context.writeHtml(MLDB::format("<tr><td><code>%s</code></td><td><p>%s</td></tr>\n",
                                  std::get<1>(v).c_str(),
                                  std::get<2>(v).c_str()));
         }
@@ -318,11 +316,11 @@ void callMacro(MacroContext & context,
     }
     
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         it->second.macro(context, macroName, args);
     } catch (const std::exception & exc) {
         context.writeText("Error executing macro %%" + macroName + " with arguments " + args + ": " + exc.what());
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         context.writeText("Error executing macro %%" + macroName + " with arguments " + args + ": unknown exception");
     }
 }
@@ -565,4 +563,4 @@ auto regConfig = RegisterMacro("config", configMacro);
 auto regAvailableTypes = RegisterMacro("availabletypes", availabletypesMacro);
 
 } // namespace MLDB
-} // namespace Datacratic
+

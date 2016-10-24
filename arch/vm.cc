@@ -12,6 +12,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/info.h"
+#include "mldb/base/scope.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -25,7 +26,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 std::string
 Pagemap_Entry::
@@ -82,17 +83,17 @@ std::vector<Page_Info> page_info(const void * addr, int npages)
     int pm_fd = open("/proc/self/pagemap", O_RDONLY);
     if (pm_fd == -1)
         throw Exception("open pagemap; " + string(strerror(errno)));
-    Call_Guard close_pm_fd(std::bind(::close, pm_fd));
+    Scope_Exit(::close(pm_fd));
 
     // Both of these might fail as these two files require special priviledges
     // to read
     int pf_fd = open("/proc/kpageflags", O_RDONLY);
+    Scope_Exit(::close(pf_fd));
     int pc_fd = open("/proc/kpagecount", O_RDONLY);
 
     // These will call guard with an fd of -1 if the files weren't open, which
     // won't hurt us
-    Call_Guard close_pf_fd(std::bind(::close, pf_fd), pf_fd != -1);
-    Call_Guard close_pc_fd(std::bind(::close, pc_fd), pc_fd != -1);
+    Scope_Exit(::close(pc_fd));
 
     size_t page_num = (size_t)addr / 4096;
 
@@ -166,7 +167,7 @@ std::vector<unsigned char> page_flags(const void * addr, int npages)
     int pm_fd = open("/proc/self/pagemap", O_RDONLY);
     if (pm_fd == -1)
         throw Exception("open pagemap; " + string(strerror(errno)));
-    Call_Guard close_pm_fd(std::bind(::close, pm_fd));
+    Scope_Exit(std::bind(::close, pm_fd));
 
     size_t page_num = (size_t)addr / 4096;
 
@@ -243,7 +244,7 @@ Pagemap_Reader(const char * mem, size_t bytes,
     if (this->fd == -1)
         throw Exception(errno, "Pagemap_Reader()",
                         "open(\"proc/self/pagemap\", O_RDONLY)");
-    Call_Guard do_close_fd(std::bind(close, this->fd), close_fd);
+    Scope_Failure(if (close_fd) {close(this->fd);});
 
     if (delete_entries)
         this->entries = new Pagemap_Entry[npages];
@@ -259,8 +260,6 @@ Pagemap_Reader(const char * mem, size_t bytes,
     //     << ": entries = " << entries << " this->entries = "
     //     << this->entries << " delete_entries = " << delete_entries
     //     << " fd = " << this->fd << endl;
-
-    do_close_fd.clear();
 }
 
 Pagemap_Reader::
@@ -377,6 +376,7 @@ dump(std::ostream & stream) const
 }
 
 
-} // namespace ML
+} // namespace MLDB
+
 
 

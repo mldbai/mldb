@@ -6,7 +6,7 @@
 #include "mldb/core/function.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -42,5 +42,4 @@ struct TestFunction: public Function {
 };
 
 
-}
 }

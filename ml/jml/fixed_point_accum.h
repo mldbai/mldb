@@ -86,7 +86,7 @@ struct FixedPointAccum32 {
     }
 };
 
-#ifdef JML_COMPILER_NVCC
+#ifdef MLDB_COMPILER_NVCC
 __device__
 void
 atomic_add(FixedPointAccum32 & result, FixedPointAccum32 other)
@@ -101,10 +101,10 @@ atomic_add_shared(FixedPointAccum32 & result, FixedPointAccum32 other)
 {
     atomic_add(result, other);
 }
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 
 struct FixedPointAccum64 {
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
     union {
         struct {
             uint32_t l;
@@ -112,14 +112,14 @@ struct FixedPointAccum64 {
         };
         int64_t hl;
     };
-#else // JML_COMPILER_NVCC
+#else // MLDB_COMPILER_NVCC
     // Note that using a union like this for NVCC forces the structure into
     // local memory, which adversely affects the speed.
 
     long long hl;
     __host__ __device__ unsigned h() const { return hl >> 32; }
     __host__ __device__ unsigned l() const { return hl; }
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
     static constexpr float VAL_2_HL = 1.0f * (1ULL << 63);
     static constexpr float HL_2_VAL = 1.0f / (1ULL << 63);
     static constexpr float VAL_2_H = (1ULL << 31);
@@ -136,7 +136,7 @@ struct FixedPointAccum64 {
     {
     }
 
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
     operator float() const { return h * H_2_VAL; }
 #else
     operator float() const { return h() * H_2_VAL; }
@@ -176,7 +176,7 @@ struct FixedPointAccum64 {
     }
 };
 
-#ifdef JML_COMPILER_NVCC
+#ifdef MLDB_COMPILER_NVCC
 __device__
 void
 atomic_add(FixedPointAccum64 & result, const FixedPointAccum64 & other)
@@ -200,7 +200,7 @@ atomic_add_shared(FixedPointAccum64 & result, const FixedPointAccum64 & other)
     // Do the high bit
     if (toadd != 0) atomicAdd(((unsigned *)(&result)) + 1, toadd);
 }
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 
 template<typename F>
 float operator / (const FixedPointAccum64 & f1, const F & f2)

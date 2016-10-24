@@ -9,7 +9,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
-#define JML_TESTING_GLZ_CLASSIFIER
+#define MLDB_TESTING_GLZ_CLASSIFIER
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
@@ -74,7 +74,8 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
     config.parse_string(config_options, "inbuilt config file");
 
     GLZ_Classifier_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to root out invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
@@ -87,7 +88,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
     std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
-    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+    float accuracy MLDB_UNUSED = classifier->accuracy(data).first;
 
     cerr << "accuracy = " << accuracy << endl;
 
@@ -140,7 +141,8 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
     config.parse_string(config_options, "inbuilt config file");
 
     GLZ_Classifier_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to root out invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
@@ -153,7 +155,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
     std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
-    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+    float accuracy MLDB_UNUSED = classifier->accuracy(data).first;
 
     cerr << "accuracy = " << accuracy << endl;
 
@@ -212,7 +214,8 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
     config.parse_string(config_options, "inbuilt config file");
 
     GLZ_Classifier_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to root out invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
@@ -225,7 +228,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
     std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
-    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+    float accuracy MLDB_UNUSED = classifier->accuracy(data).first;
 
     cerr << "accuracy = " << accuracy << endl;
 
@@ -267,7 +270,7 @@ BOOST_AUTO_TEST_CASE( test_decode_value )
     BOOST_CHECK_EQUAL(do_decode(NaN, PRESENCE), 0.0);
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(do_decode(Inf, VALUE), Exception);
         BOOST_CHECK_THROW(do_decode(Inf, VALUE_IF_PRESENT), Exception);
         

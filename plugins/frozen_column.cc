@@ -16,8 +16,14 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
+
+
+/*****************************************************************************/
+/* FROZEN COLUMN                                                             */
+/*****************************************************************************/
+
 
 /// Frozen column that finds each value in a lookup table
 struct TableFrozenColumn: public FrozenColumn {
@@ -50,6 +56,34 @@ struct TableFrozenColumn: public FrozenColumn {
                 writer.write(r_i.second + 1, indexBits);
             }
         }
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.get());
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            int index = bits.extract<uint32_t>(indexBits);
+
+            CellValue val;
+            if (hasNulls) {
+                if (index > 0)
+                    val = table[index - 1];
+            }
+            else {
+                val = table[index];
+            }
+
+            if (!onRow(i + firstEntry, val))
+                return false;
+        }
+
+        return true;
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        return forEach(onRow);
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -142,6 +176,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         : table(column.indexedVals.size()), columnTypes(column.columnTypes)
     {
         firstEntry = column.minRowNumber;
+        lastEntry = column.maxRowNumber;
         std::move(std::make_move_iterator(column.indexedVals.begin()),
                   std::make_move_iterator(column.indexedVals.end()),
                   table.begin());
@@ -174,6 +209,48 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             }
         }
 #endif
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.get());
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
+            uint32_t index = bits.extract<uint32_t>(indexBits);
+            if (!onRow(rowNum + firstEntry, table[index]))
+                return false;
+        }
+        
+        return true;
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.get());
+
+        size_t lastRowNum = 0;
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
+            uint32_t index = bits.extract<uint32_t>(indexBits);
+
+            while (lastRowNum < rowNum) {
+                if (!onRow(firstEntry + lastRowNum, CellValue()))
+                    return false;
+                ++lastRowNum;
+            }
+
+            if (!onRow(firstEntry + rowNum, table[index]))
+                return false;
+        }
+
+        while (firstEntry + lastRowNum <= lastEntry) {
+            if (!onRow(firstEntry + lastRowNum, CellValue()))
+                return false;
+            ++lastRowNum;
+        }
+        
+        return true;
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -282,6 +359,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     uint8_t indexBits;
     uint32_t numEntries;
     size_t firstEntry;
+    size_t lastEntry;  // WARNING: this is the number, not number + 1
     ColumnTypes columnTypes;
 };
 
@@ -437,6 +515,42 @@ struct IntegerFrozenColumn: public FrozenColumn {
 #endif
     }
 
+    bool forEachImpl(const ForEachRowFn & onRow, bool keepNulls) const
+    {
+        ML::Bit_Extractor<uint64_t> bits(storage.get());
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            int64_t val = bits.extract<uint64_t>(entryBits);
+            if (hasNulls) {
+                if (val == 0) {
+                    if (keepNulls && !onRow(i + firstEntry, CellValue()))
+                        return false;
+                }
+                else {
+                    if (!onRow(i + firstEntry, val + offset - 1))
+                        return false;
+                }
+            }
+            else {
+                if (!onRow(i + firstEntry, val + offset))
+                    return false;
+            }
+        }
+
+        return true;
+
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, false /* keep nulls */);
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, true /* keep nulls */);
+    }
+
     virtual CellValue get(uint32_t rowIndex) const
     {
         CellValue result;
@@ -545,5 +659,5 @@ freeze(TabularDatasetColumn & column)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

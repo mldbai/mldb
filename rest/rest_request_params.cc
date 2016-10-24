@@ -8,7 +8,7 @@
 #include "mldb/rest/rest_request_params.h"
 #include "mldb/http/http_exception.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 Utf8String restEncode(const Utf8String & str)
 {
@@ -90,4 +90,4 @@ std::string encodeUriComponent(const std::string & in)
     return std::string(buffer.data(), buffer.length());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

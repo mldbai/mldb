@@ -7,7 +7,7 @@
 #include "exception_ptr.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/

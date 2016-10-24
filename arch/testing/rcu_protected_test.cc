@@ -18,7 +18,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 struct Collection1 {

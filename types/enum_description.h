@@ -10,7 +10,7 @@
 
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -31,7 +31,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     {
         auto it = parse.find(s);
         if (it == parse.end())
-            throw ML::Exception("unknown value for " + this->typeName
+            throw MLDB::Exception("unknown value for " + this->typeName
                                 + ": " + s);
         return it->second;
     }
@@ -98,7 +98,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     void addValue(const std::string & name, Enum value)
     {
         if (!parse.insert(make_pair(name, value)).second)
-            throw ML::Exception("double added name to enum");
+            throw MLDB::Exception("double added name to enum");
         print.insert({ value, { name, "" } });
     }
 
@@ -106,7 +106,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
                   const std::string & description)
     {
         if (!parse.insert(make_pair(name, value)).second)
-            throw ML::Exception("double added name to enum");
+            throw MLDB::Exception("double added name to enum");
         print.insert({ value, { name, description } });
     }
 
@@ -132,4 +132,4 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     std::map<Enum, std::pair<std::string, std::string> > print;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

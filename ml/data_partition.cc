@@ -12,7 +12,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -68,4 +68,4 @@ add(bool label, const boost::any & key, double weight)
     examples.push_back(make_tuple(label, key, weight));
 }
 
-} // namespace Datacratic
+} // namespace MLDB

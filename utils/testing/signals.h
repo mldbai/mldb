@@ -4,7 +4,7 @@
 
 #include <signal.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct BlockedSignals
 {

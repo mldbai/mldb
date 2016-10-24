@@ -10,7 +10,7 @@
 
 #include "peer_connection.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -60,5 +60,5 @@ private:
     std::unique_ptr<Impl> impl;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

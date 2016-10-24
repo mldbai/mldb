@@ -24,8 +24,8 @@
 #include <cstring>
 #include "mldb/jml/utils/guard.h"
 
-namespace Datacratic {
 
+namespace MLDB {
 
 /******************************************************************************/
 /* LZ4 ERROR                                                                  */
@@ -85,7 +85,7 @@ void read(Source& src, T* typedData, size_t size)
 /* HEADER                                                                     */
 /******************************************************************************/
 
-struct JML_PACKED Header
+struct MLDB_PACKED Header
 {
     Header() : magic(0) {}
     Header( int blockId,
@@ -369,4 +369,4 @@ private:
     void* streamChecksumState;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

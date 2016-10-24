@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** svd_utils.h                                                    -*- C++ -*-
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Utilities for SVD calculations.
 */
@@ -14,7 +13,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Select which inner product space we use */
 enum SvdSpace {
@@ -138,14 +137,6 @@ struct SvdColumnEntry {
     void add(int subject, uint64_t rowHash);
     void add(int subject, uint64_t rowHash, int count);
 
-    template<typename It>
-    void insert(It first, It last)
-    {
-        for (; first != last;  ++first) {
-            add(*first, Id(*first).hash());
-        }
-    }
-
     // Sort all buckets
     void sort();
 
@@ -175,4 +166,4 @@ struct SvdColumnEntry {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

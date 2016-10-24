@@ -22,8 +22,7 @@
 namespace po = boost::program_options;
 
 using namespace std;
-using namespace Datacratic;
-using namespace ML;
+using namespace MLDB;
 
 int main(int argc, char* argv[])
 {
@@ -92,7 +91,7 @@ int main(int argc, char* argv[])
         if (res == -1 && errno == EINTR)
             continue;
         if (res == -1)
-            throw ML::Exception(errno, "read");
+            throw MLDB::Exception(errno, "read");
         for (unsigned s = 0;  s < streams.size();  ++s)
             streams[s].write(buf, res);
         streams[0] << std::flush;

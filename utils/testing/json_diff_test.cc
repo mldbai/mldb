@@ -17,9 +17,9 @@
 #include "mldb/vfs/filter_streams.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
-namespace Datacratic {
+namespace MLDB {
 
 // jsonDecode implementation for any type which:
 // 1) has a default description;
@@ -36,7 +36,7 @@ T jsonDecodeFile(const std::string & filename, T * = 0)
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_diff_1 )

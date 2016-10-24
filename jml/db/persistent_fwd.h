@@ -110,7 +110,7 @@ operator >> (::ML::DB::Store_Reader & store, type & val) \
     return store; \
 } \
 
-#define JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(template_params, type)       \
+#define MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(template_params, type)       \
 template<template_params> \
 inline ::ML::DB::Store_Writer & \
 operator << (::ML::DB::Store_Writer & store, const type & val) \

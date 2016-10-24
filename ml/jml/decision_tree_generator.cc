@@ -22,9 +22,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include <mutex>
 
 
@@ -123,14 +121,15 @@ Decision_Tree_Generator::~Decision_Tree_Generator()
 
 void
 Decision_Tree_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
+    Classifier_Generator::configure(config, unparsedKeys);
 
-    config.find(trace, "trace");
-    config.find(max_depth, "max_depth");
-    config.find(update_alg, "update_alg");
-    config.find(random_feature_propn, "random_feature_propn");
+    config.findAndRemove(trace, "trace", unparsedKeys);
+    config.findAndRemove(max_depth, "max_depth", unparsedKeys);
+    config.findAndRemove(update_alg, "update_alg", unparsedKeys);
+    config.findAndRemove(random_feature_propn, "random_feature_propn", unparsedKeys);
+    config.findAndRemove(verbosity, "verbosity", unparsedKeys);
 }
 
 void
@@ -255,12 +254,12 @@ train_weighted(Thread_Context & context,
 
         int iter = 0;
         while (filtered_features.empty() && iter < 50) {
-            typedef boost::mt19937 engine_type;
+            typedef mt19937 engine_type;
             engine_type engine(context.random());
-            boost::uniform_01<engine_type> rng(engine);
+            std::uniform_real_distribution<> rng(0, 1);
             
             for (unsigned i = 0;  i < features.size();  ++i) {
-                if (rng() < random_feature_propn)
+                if (rng(engine) < random_feature_propn)
                     filtered_features.push_back(features[i]);
             }
         }
@@ -664,7 +663,7 @@ void split_dataset(const Training_Data & data,
         float divisor = index[i].divisor();
         w *= divisor;
         
-        if (JML_UNLIKELY(isnanf(val))) {
+        if (MLDB_UNLIKELY(isnanf(val))) {
             // We only have NaN values explicitly represented if there is a
             // feature that is both present and missing in the same example.
             // In that case, we need to deal with the missing part here.
@@ -800,7 +799,7 @@ struct TreeTrainer {
                    double total_in_class,
                    int new_depth, int max_depth,
                    Tree & tree,
-                   Datacratic::ThreadPool & tp) const
+                   MLDB::ThreadPool & tp) const
     {
 #if 0
         if (total_in_class > 1024) {
@@ -1057,7 +1056,7 @@ struct TreeTrainer {
         node->examples = total_weight;
         node->pred = leaf.pred;
 
-        Datacratic::ThreadPool tp;
+        MLDB::ThreadPool tp;
         
         do_branch(node->child_true,
                   context, data, weights, binary_weights, advance, features,

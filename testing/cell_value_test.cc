@@ -20,8 +20,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_size )
 {
@@ -41,10 +41,10 @@ BOOST_AUTO_TEST_CASE( test_basics )
     //BOOST_CHECK_NO_THROW(CellValue(L"Crédit Agricole Suisse Open Gstaad").cellType());
     //BOOST_CHECK_NO_THROW(CellValue(L"Mutua Madrileña Madrid Open").cellType());
     {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(CellValue(std::string("Crédit Agricole Suisse Open Gstaad")).cellType(), ML::Exception);
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(CellValue(std::string("Crédit Agricole Suisse Open Gstaad")).cellType(), MLDB::Exception);
         BOOST_CHECK_THROW(CellValue(std::string("Mutua Madrileña Madrid Open")).cellType(),
-                          ML::Exception);
+                          MLDB::Exception);
     }
     BOOST_CHECK_EQUAL(CellValue(Utf8String("Crédit Agricole Suisse Open Gstaad")).cellType(), CellValue::UTF8_STRING);
     BOOST_CHECK_EQUAL(CellValue(Utf8String("Mutua Madrileña Madrid Open")).cellType(), CellValue::UTF8_STRING);
@@ -135,9 +135,9 @@ BOOST_AUTO_TEST_CASE( test_64_bit_range )
     BOOST_CHECK_EQUAL(CellValue(std::numeric_limits<uint64_t>::max()).toUInt(),
                       std::numeric_limits<uint64_t>::max());
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         auto v = [&] () { return CellValue(std::numeric_limits<uint64_t>::max()).toInt(); };
-        BOOST_CHECK_THROW(v(), ML::Exception);
+        BOOST_CHECK_THROW(v(), MLDB::Exception);
     }
 }
 

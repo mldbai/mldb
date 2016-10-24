@@ -8,7 +8,7 @@ The script apply function type is used to create functions written in Javascript
 
 With `ScriptResource` defined as:
 
-![](%%type Datacratic::MLDB::ScriptResource)
+![](%%type MLDB::ScriptResource)
 
 ## Input and Output Values
 

@@ -15,14 +15,12 @@
 #include "mldb/soa/service/event_service.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+
+namespace MLDB {
 
 struct PolyConfig;
 struct Utf8String;
 struct Package;
-
-
-namespace MLDB {
 
 
 struct PluginCollection;
@@ -179,4 +177,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

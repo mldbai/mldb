@@ -9,7 +9,7 @@
 
 #include "mldb/ext/jsoncpp/json.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Print an abbreviated version of the given value, with the
     information that takes lots of spaced summarized.
@@ -29,7 +29,7 @@ union HashSeed {
     invocations.  Note that if the default seed is known, then it
     is not possible to protect against hash collisions.
 */
-extern const HashSeed defaultSeedStable;
+extern const HashSeed defaultHashSeedStable;
 
 /** Create a hash from the given JSON value, with the given hash seed.
     This uses the highway hash, which is collision resistant and can
@@ -41,7 +41,7 @@ extern const HashSeed defaultSeedStable;
     against hash collision attacks.
 */
 uint64_t jsonHash(const Json::Value & val,
-                  HashSeed seed = defaultSeedStable);
+                  HashSeed seed = defaultHashSeedStable);
 
 /** Flatten each of the JSON arguments, which should be arrays, into
     a single array containing all of the values.
@@ -67,5 +67,5 @@ Json::Value jsonMaxVector(const std::vector<Json::Value> & args);
 Json::Value jsonMinVector(const std::vector<Json::Value> & args);
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

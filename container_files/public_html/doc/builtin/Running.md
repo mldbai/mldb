@@ -49,8 +49,8 @@ If you want to run MLDB on your own hardware, either bare metal or in the cloud,
 **MLDB**    | ✓ | ✓ | ✓
 **MLDB Pro Plugin[<sup>?</sup>](ProPlugin.md)**            |  &nbsp; | ✓ | ✓
 **Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Non-Commercial](licenses.md) | [Commercial](licenses.md)
-**Pricing**     | free! |  free! | <a href="http://datacratic.com/site/contact-us" target="_blank">contact sales</a>
-**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a> | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a>
+**Pricing**     | free! |  free! | <a href="mailto:info@mldb.ai?Subject=MLDB%20pricing%20inquiry">contact sales</a>
+**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="mailto:info@mldb.ai?Subject=MLDB%20support">MLDB Support</a> | <a href="mailto:info@mldb.ai?Subject=MLDB%20support">MLDB Support</a>
 **Getting Started**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md)<p>takes about 1 hr |  [download](#packages) <p>takes about 5 min |  [download](#packages) <p>takes about 5 min
 
 ### Creating a Free Trial license key is easy
@@ -94,7 +94,7 @@ You can get MLDB as a Docker image and run it as a Docker container. If you've n
 
 **Step 1 - Launch an MLBD container with a mapped directory**
     
-*Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/installation/ubuntulinux/#create-a-docker-group) for more information regarding running containers from regular user accounts.*
+*Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/engine/installation/linux/ubuntulinux/#/create-a-docker-group) for more information regarding running containers from regular user accounts.*
 
 First, create an *empty* directory on the host machine by running the following command, where `</absolute/path/to/mldb_data>` needs to be replaced by the absolute path on your local machine where you want your MLDB working directory to be:
 

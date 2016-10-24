@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* label.h                                                         -*- C++ -*-
    Jeremy Barnes, 18 May 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Label class.
 */
 
-#ifndef __jml__boosting__label_h__
-#define __jml__boosting__label_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include "mldb/jml/db/persistent_fwd.h"
@@ -47,14 +45,14 @@ struct Label {
     int label() const { return label_; }
     int & label() { return label_; }
     
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
     bool is(int lab) const
     {
         if (label_ & 0x80000000)
             return label_ & ((1 << lab) & 0x3fffffff);
         else if (label_ & 0x40000000)
-            throw Exception("Training_Data::Label::is_label(): "
-                            "label sets not done yet");
+            throw MLDB::Exception("Training_Data::Label::is_label(): "
+                                  "label sets not done yet");
         else return (label_ == lab);
     }
     
@@ -63,11 +61,9 @@ struct Label {
     
     /** Reconstitute from a store. */
     void reconstitute(DB::Store_Reader & store);
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 };
 
 
 
 } // namespace ML
-
-#endif /* __jml__boosting__label_h__ */

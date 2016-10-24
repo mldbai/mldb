@@ -13,18 +13,18 @@
 #include "mldb/types/date.h"
 #include <unistd.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 const Date startupDate = Date::now();
 
 PeerInfo::
 PeerInfo()
 {
-    epoch = ML::format("%s-%d-%lld-%d",
-                       ML::hostname().c_str(),
-                       getpid(),
-                       (long long)Date::now().secondsSinceEpoch() * 1000000,
-                       random());
+    epoch = format("%s-%d-%lld-%d",
+                   hostname().c_str(),
+                   getpid(),
+                   (long long)Date::now().secondsSinceEpoch() * 1000000,
+                   random());
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(PeerInfo);
@@ -39,4 +39,4 @@ PeerInfoDescription()
     addField("epoch", &PeerInfo::epoch, "Epoch of peer");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

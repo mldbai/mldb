@@ -27,8 +27,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 namespace fs = boost::filesystem;
 
 
@@ -228,7 +228,7 @@ int main(int argc, char ** argv)
     }
 
     if (numThreads < minimumWorkerThreads) {
-        cerr << ML::format("'num-threads' cannot be less than %d: %d\n",
+        cerr << MLDB::format("'num-threads' cannot be less than %d: %d\n",
                            minimumWorkerThreads, numThreads);
         exit(1);
     }
@@ -251,7 +251,7 @@ int main(int argc, char ** argv)
                  << exc.what() << endl;
             return 1;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             cerr << "error reading credentials from command line: unknown error"
                  << endl;
             return 1;
@@ -275,7 +275,7 @@ int main(int argc, char ** argv)
             else if (val.type() == Json::nullValue) {
                 // skip
             }
-            else throw ML::Exception("Couldn't understand credentials " + val.toString());
+            else throw MLDB::Exception("Couldn't understand credentials " + val.toString());
 
             if (!fileCredentials.empty()) {
                 CredentialProvider::registerProvider
@@ -297,7 +297,7 @@ int main(int argc, char ** argv)
                  << endl;
             return 1;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             cerr << "error reading credentials from file "
                  << addCredentialsFromUrl << ": unknown error"
                  << endl;
@@ -343,7 +343,7 @@ int main(int argc, char ** argv)
         string runner = "";
         if     (extension == ".js")   runner = "javascript";
         else if(extension == ".py")   runner = "python";
-        else throw ML::Exception("Unsupported extension '" +extension+ "'");
+        else throw MLDB::Exception("Unsupported extension '" +extension+ "'");
 
         HttpRestProxy proxy(server.httpBoundAddress);
 

@@ -10,7 +10,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T, size_t I, typename S, bool Sf, typename P, typename A>
 struct CompactVectorDescription
@@ -108,4 +108,4 @@ DECLARE_TEMPLATE_VALUE_DESCRIPTION_6(CompactVectorDescription, compact_vector,
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

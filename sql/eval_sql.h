@@ -10,7 +10,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/expression_value.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Bind the given SQL expression with the given argument info into a
@@ -27,6 +27,7 @@ bindSql(SqlBindingScope & scope,
 ExpressionValue
 evalSql(SqlBindingScope & scope,
         const Utf8String & expr,
+        const SqlRowScope & rowScope,
         const std::vector<ExpressionValue> & argsVec);
 
 /** Parse, bind and evaluate the given SQL expression (not statement)
@@ -37,6 +38,7 @@ evalSql(SqlBindingScope & scope,
 ExpressionValue
 evalSql(SqlBindingScope & scope,
         const Utf8String & expr,
+        const SqlRowScope & rowScope,
         ExpressionValue * argsVec,
         size_t numArgs);
 
@@ -46,6 +48,7 @@ evalSql(SqlBindingScope & scope,
 ExpressionValue
 evalSql(SqlBindingScope & scope,
         const Utf8String & expr,
+        const SqlRowScope & rowScope,
         const ExpressionValue * argsVec,
         size_t numArgs);
 
@@ -84,6 +87,8 @@ inline ExpressionValue bindSqlArg(ExpressionValue val)
     ExpressionValue, and then they will be bound to the $1, $2, ...
     parameters in the expression.
 
+    The binding will be in context of the given rowScope.
+
     For example, evalSql("$1 + $2", 1, 2).toInt() will return 3.
 
     Any exceptions will be returned as a return of the function.
@@ -91,12 +96,13 @@ inline ExpressionValue bindSqlArg(ExpressionValue val)
 template<typename... Args>
 ExpressionValue evalSql(SqlBindingScope & scope,
                         const Utf8String & expr,
+                        const SqlRowScope & rowScope,
                         Args&&... args)
 {
     ExpressionValue argsArray[sizeof...(args)]
         = { bindSqlArg(std::forward<Args>(args))... };
-    return evalSql(scope, expr, argsArray, sizeof...(args));
+    return evalSql(scope, expr, rowScope, argsArray, sizeof...(args));
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

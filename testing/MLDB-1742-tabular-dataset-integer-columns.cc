@@ -15,8 +15,8 @@
 #include "mldb/arch/timers.h"
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 std::shared_ptr<FrozenColumn>
 freezeAndTest(const std::vector<CellValue> & cells)
@@ -50,8 +50,8 @@ BOOST_AUTO_TEST_CASE( test_frozen_ints_only )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
-                      "Datacratic::MLDB::IntegerFrozenColumn");
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::IntegerFrozenColumn");
 }
 
 // Simple positive and null integers
@@ -65,8 +65,8 @@ BOOST_AUTO_TEST_CASE( test_frozen_ints_and_nulls_only )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
-                      "Datacratic::MLDB::IntegerFrozenColumn");
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::IntegerFrozenColumn");
 }
 
 // Simple negative, positive and null integers
@@ -80,8 +80,8 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_ints )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
-                   "Datacratic::MLDB::IntegerFrozenColumn");
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                   "MLDB::IntegerFrozenColumn");
 }
 
 // Simple negative, positive and null integers
@@ -96,8 +96,8 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_ints_and_nulls_only )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
-                   "Datacratic::MLDB::IntegerFrozenColumn");
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                   "MLDB::IntegerFrozenColumn");
 }
 
 // Simple negative, positive and null integers
@@ -111,8 +111,8 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_only_ints_and_nulls )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
-                   "Datacratic::MLDB::IntegerFrozenColumn");
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                   "MLDB::IntegerFrozenColumn");
 }
 
 // Simple negative, positive and null integers
@@ -169,8 +169,8 @@ BOOST_AUTO_TEST_CASE( test_big_pos_neg_range )
 
     auto frozen = freezeAndTest(vals);
 
-    BOOST_CHECK_EQUAL(ML::type_name(*frozen),
-                   "Datacratic::MLDB::IntegerFrozenColumn");
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                   "MLDB::IntegerFrozenColumn");
 }
 
 // Full range and nulls.  Not enough 64 bit integers to represent all values.

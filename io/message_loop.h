@@ -20,7 +20,7 @@
 #include "typed_message_channel.h"
 #include "mldb/logging/logging.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /******************************************************************************/
 /* LOGS                                                                       */
@@ -146,7 +146,7 @@ private:
     
     void wakeupMainThread();
 
-    typedef ML::Spinlock Lock;
+    typedef Spinlock Lock;
     typedef std::lock_guard<Lock> Guard;
 
     struct SourceEntry
@@ -218,4 +218,4 @@ private:
     void processRunAction(const SourceEntry & entry);
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -41,6 +41,7 @@ $(eval $(call test,procedure_run_test,mldb,boost))
 $(eval $(call test,python_procedure_test,mldb,boost manual)) #manual -- unclear why
 $(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
 
+$(TEST)/mldb_internal_plugin_doc_test: $(foreach plugin,tensorflow mongodb postgres,$(MLDB_PLUGIN_FILES_$(plugin)))
 
 
 $(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
@@ -322,7 +323,6 @@ $(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
 $(eval $(call mldb_unit_test,MLDB-1323-complicated-query.py,,manual)) # slow and depends on iffy file
 $(eval $(call mldb_unit_test,MLDB-1345-having.py))
 $(eval $(call mldb_unit_test,mldb_unit_test_test.py))
-$(eval $(call mldb_unit_test,MLDB-1216-fetcher-function.js))
 $(eval $(call mldb_unit_test,MLDBFB-335_when_timestamp_variable_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-192_row_name_as_string_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-199_invalid_script_test.py))
@@ -413,6 +413,10 @@ $(eval $(call mldb_unit_test,MLDBFB-646-column-expression-select.js))
 $(eval $(call mldb_unit_test,MLDBFB-650-names-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-1841-distinct-on.py))
 $(eval $(call mldb_unit_test,MLDB-1843-select-disappearing-values.js))
+$(eval $(call mldb_unit_test,MLDB-1933-subselect-flatten.py))
+$(eval $(call mldb_unit_test,MLDB-1947-reshape-builtin.py))
+$(eval $(call mldb_unit_test,MLDB-1891-case-in-import.py))
+$(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,,manual)) #require tensorflow plugin
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))
@@ -430,3 +434,16 @@ $(eval $(call mldb_unit_test,MLDB-1899-duplicated-rows-in-equijoins.py))
 $(eval $(call mldb_unit_test,MLDB-1713-wildcard-groupby.py))
 $(eval $(call mldb_unit_test,MLDB-1907-value-description-error.py))
 $(eval $(call mldb_unit_test,test_classifier_test_proc.py))
+$(eval $(call mldb_unit_test,MLDB-1937-svd-with-complex-select.py))
+$(eval $(call mldb_unit_test,fetcher-function.py))
+$(eval $(call mldb_unit_test,MLDB-1950-crash-in-merge.py))
+$(eval $(call mldb_unit_test,MLDB-408-task-cancellation.py))
+$(eval $(call mldb_unit_test,MLDB-1921_merge_ds_strings.py))
+$(eval $(call mldb_unit_test,MLDB-1911_horizontal_agg_no_from.py))
+$(eval $(call mldb_unit_test,MLDB-1788_select_col_as_star_err.py))
+$(eval $(call mldb_unit_test,MLDB-1972-fft.js))
+$(eval $(call mldb_unit_test,MLDB-1984-constant-functions.js))
+$(eval $(call mldb_unit_test,union_dataset_test.py))
+$(eval $(call mldb_unit_test,deepteach_test.py,tensorflow,manual))
+$(eval $(call mldb_unit_test,post_run_and_track_procedure_test.py))
+$(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))

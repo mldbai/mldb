@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 const tinyxml2::XMLNode *
 extractNode(const tinyxml2::XMLNode * element, const string & path)
@@ -30,12 +30,30 @@ extractNode(const tinyxml2::XMLNode * element, const string & path)
         p = p->FirstChildElement(splitPath[i].c_str());
         if (!p) {
             //element->GetDocument()->Print();
-            throw ML::Exception("required key " + splitPath[i]
+            throw MLDB::Exception("required key " + splitPath[i]
                                 + " not found on path " + path);
         }
     }
 
     return p;
 }
+
+bool
+pathExists(const tinyxml2::XMLNode * element, const string & path)
+{
+    using namespace std;
+
+    vector<string> splitPath = ML::split(path, '/');
+    const tinyxml2::XMLNode * p = element;
+    for (unsigned i = 0;  i < splitPath.size();  ++i) {
+        p = p->FirstChildElement(splitPath[i].c_str());
+        if (!p) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 }

@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string
 shellEscape(const std::string & str)
@@ -197,4 +197,4 @@ CommandStatusDescription()
              "Result of the command executed locally");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

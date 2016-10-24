@@ -13,7 +13,7 @@
 #include "mldb/types/date.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Step {
@@ -48,4 +48,4 @@ struct IterationProgress {
 DECLARE_STRUCTURE_DESCRIPTION(IterationProgress);
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -19,8 +19,8 @@
 
 using namespace std;
 using namespace boost;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 
 /* Test various forms of invalid HTTP requests. Currently, this test is itself

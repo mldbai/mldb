@@ -30,7 +30,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_protocol_dump )
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
                     while (current != end) {
                         res = send(fd, current, end - current, MSG_NOSIGNAL);
                         if (res == -1)
-                            throw ML::Exception(errno, "send()");
+                            throw MLDB::Exception(errno, "send()");
                         current += res;
                     }
                     
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
                     //cerr << "shutdown reader " << res << " " << strerror(errno)
                     //<< endl;
                     if (res == -1)
-                        throw ML::Exception(errno, "shutdown");
+                        throw MLDB::Exception(errno, "shutdown");
                     
                     ExcAssertEqual((void *)current, (void *)end);
                     
@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
 
                     res = poll(fds, 1, 500 /* ms timeout */);
                     if (res == -1)
-                        throw ML::Exception(errno, "poll");
+                        throw MLDB::Exception(errno, "poll");
 
                     if (res == 0) {
                         cerr << "fd " << fd << " timed out after 500ms"
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
                     char buf[16384];
                     res = recv(fd, buf, 16384, 0);
                     if (res == -1)
-                        throw ML::Exception(errno, "recv");
+                        throw MLDB::Exception(errno, "recv");
                     
                     //double timeTaken = Date::now().secondsSince(before);
                     //cerr << "took " << timeTaken * 1000 << "ms" << endl;
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
                 //cerr << "shutdown reader " << res << " " << strerror(errno)
                 //<< endl;
                 //if (res == -1)
-                //    throw ML::Exception(errno, "shutdown");
+                //    throw MLDB::Exception(errno, "shutdown");
 
                 // Wait for the other end to close down
                 //char buf[16384];
@@ -181,22 +181,22 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
                 //cerr << "recv " << res << " " << strerror(errno)
                 //<< endl;
                 //if (res == -1)
-                //    throw ML::Exception(errno, "recv");
+                //    throw MLDB::Exception(errno, "recv");
                 //if (res != 0)
-                //    throw ML::Exception("got garbage");
+                //    throw MLDB::Exception("got garbage");
                 
                 // Close our writing half
                 //res = ::shutdown(fd, SHUT_RD);
                 //cerr << "shutdown writer " << res << " " << strerror(errno)
                 //<< endl;
                 if (res == -1)
-                    throw ML::Exception(errno, "shutdown");
+                    throw MLDB::Exception(errno, "shutdown");
             
                 res = close(fd);
                 //cerr << "close " << res << " " << strerror(errno)
                 //<< endl;
                 if (res == -1)
-                    throw ML::Exception(errno, "close");
+                    throw MLDB::Exception(errno, "close");
             }            
         };
     

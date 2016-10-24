@@ -24,7 +24,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_two_members )
 {
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
 
     // Check we get a connection refused
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(proxy.get("/"), std::exception);
     }
 

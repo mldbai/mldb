@@ -22,7 +22,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /****************************************************************************/
@@ -42,7 +42,7 @@ PythonSubinterpreter(bool isChild) : isChild(isChild)
     // acquire gilles
     PyEval_AcquireLock();
     hasGil = true;
-    
+
     // Create the sub interpreter
     interpState = Py_NewInterpreter();
     threadState = PyThreadState_New(interpState->interp);
@@ -50,7 +50,7 @@ PythonSubinterpreter(bool isChild) : isChild(isChild)
     // change current thread state
     savedThreadState = PyThreadState_Swap(threadState);
 
-    main_module = boost::python::import("__main__"); 
+    main_module = boost::python::import("__main__");
     main_namespace = main_module.attr("__dict__");
 
     injectOutputLoggingCode();
@@ -70,9 +70,9 @@ PythonSubinterpreter::
     // destroy the interpreter
     PyThreadState_Swap(interpState);
     Py_EndInterpreter(interpState);
-    
+
     PyThreadState_Swap(savedThreadState);
-    
+
     // release gilles
     PyEval_ReleaseLock();
 }
@@ -116,7 +116,7 @@ convertException(PythonSubinterpreter & pyControl,
     PyObject *exc,*val,*tb;
     object formatted_list, formatted;
     PyErr_Fetch(&exc,&val,&tb);
-    handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb)); 
+    handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb));
     object traceback(import("traceback"));
 
     ScriptException result;
@@ -126,8 +126,8 @@ convertException(PythonSubinterpreter & pyControl,
         result.lineNumber = extract<long>(tbb.attr("tb_lineno"));
     }
 
-    // why is this not always working? for plugins it doesn't look like it is... 
-    if(PyString_Check(val))
+    // why is this not always working? for plugins it doesn't look like it is...
+    if(val && PyString_Check(val))
         result.message = Utf8String(extract<string>(val));
 
     if (!tb) {
@@ -137,7 +137,7 @@ convertException(PythonSubinterpreter & pyControl,
         object format_exception(traceback.attr("format_exception"));
         formatted_list = format_exception(hexc,hval,htb);
     }
-    
+
     boost::python::ssize_t n = boost::python::len(formatted_list);
     result.stack.reserve(n);
 
@@ -214,7 +214,16 @@ _sys.stderr = catctOutErr
 
 )foo"; //this is python code to redirect stdouts/stderr
 
-    PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
+    int res = PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
+    if (res) {
+        cerr << "error injecting logging code: " << endl;
+        PyErr_Print(); //make python print any errors, unfortunately to console
+        cerr << "MLDB will now raise an exception" << endl;
+        throw HttpReturnException
+            (500, "Couldn't inject Python code (see error message on console). "
+             "Have you installed python_dependenies (json and datetime) and "
+             "properly set up your virtual environment?");
+    }
 }
 
 void getOutputFromPy(PythonSubinterpreter & pyControl,
@@ -225,8 +234,17 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
     PyObject *outCatcher = PyObject_GetAttrString(pyControl.main_module.ptr(),"catchOut"); //get our catchOutErr created above
 
+    // Until we figure out WTF is going on here...
+    if (!outCatcher) {
+        throw HttpReturnException
+            (500, "Couldn't extract output from injected Python code.  Look for "
+             "an earlier error message on the console.");
+        return;
+    }
+    
     PyErr_Print(); //make python print any errors
     PyObject *outOutput = PyObject_GetAttrString(outCatcher,"value"); //get the stdout and stderr from our catchOutErr object
+    
     if(outOutput) {
         boost::python::list lst = boost::python::extract<boost::python::list>(outOutput);
         for(int i = 0; i < len(lst); i++) {
@@ -250,7 +268,7 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
     Py_DecRef(outOutput);
     Py_DecRef(outCatcher);
-    
+
     // reset logging code
     if(reset) {
         injectOutputLoggingCode();
@@ -332,7 +350,7 @@ perform4(MldbPythonContext * mldbCon,
     return perform(mldbCon, verb, resource, params, payload);
 }
 
-    
+
 Json::Value
 perform(MldbPythonContext * mldbCon,
         const std::string & verb,
@@ -347,10 +365,10 @@ perform(MldbPythonContext * mldbCon,
     header.queryParams = params;
     for (auto & h: headers)
         header.headers.insert({h.first.toLower().extractAscii(), h.second.extractAscii()});
-        
+
     RestRequest request(header, payload.toString());
     InProcessRestConnection connection;
-    
+
     // add magic token to notify the receiver that this is a child call
     if(resource.find("/plugins/") != std::string::npos) {
         // if it's a python plugin creation call
@@ -433,7 +451,7 @@ ls(MldbPythonContext * mldbCon,
 {
     std::vector<std::string> dirs;
     std::map<std::string, FsObjectInfo> objects;
-    
+
     auto onSubdir = [&] (const std::string & dirName,
                          int depth)
         {
@@ -507,7 +525,7 @@ void PythonPluginContext::
 setStatusHandler(PyObject * callback)
 {
     if(!callback)
-        throw ML::Exception("Must specify handler function");
+        throw MLDB::Exception("Must specify handler function");
 
     auto localsPlugin = boost::python::object(boost::python::ptr(mldbContext));
     getStatus = [=] ()
@@ -520,13 +538,13 @@ void PythonPluginContext::
 serveStaticFolder(const std::string & route, const std::string & dir)
 {
     if(route.empty() || dir.empty()) {
-        throw ML::Exception("Route and static directory cannot be empty "
+        throw MLDB::Exception("Route and static directory cannot be empty "
                 "for serving static folder");
     }
 
     fs::path fullDir(fs::path(getPluginDirectory()) / fs::path(dir));
     if(!fs::exists(fullDir)) {
-        throw ML::Exception("Cannot serve static folder for path that does "
+        throw MLDB::Exception("Cannot serve static folder for path that does "
                 "not exist: " + fullDir.string());
     }
 
@@ -541,12 +559,12 @@ void PythonPluginContext::
 serveDocumentationFolder(const std::string & dir)
 {
     if(dir.empty()) {
-        throw ML::Exception("Documentation directory cannot be empty");
+        throw MLDB::Exception("Documentation directory cannot be empty");
     }
 
     fs::path fullDir(fs::path(getPluginDirectory()) / fs::path(dir));
     if(!fs::exists(fullDir)) {
-        throw ML::Exception("Cannot serve documentation folder for path that does "
+        throw MLDB::Exception("Cannot serve documentation folder for path that does "
                 "not exist: " + fullDir.string());
     }
 
@@ -558,17 +576,17 @@ getPluginDirectory() const
 {
     return pluginResource->getPluginDir().string();
 }
-    
+
 std::shared_ptr<PythonRestRequest> PythonPluginContext::
 getRestRequest() const
 {
     if(!restRequest) cout << "WANRING!! got restRequest pointer but it is nullz!" << endl;
     return restRequest;
 }
-    
+
 
 /****************************************************************************/
-/* MLDB PYTHON CONTEXT                                                      */ 
+/* MLDB PYTHON CONTEXT                                                      */
 /****************************************************************************/
 
 void MldbPythonContext::
@@ -598,19 +616,19 @@ void MldbPythonContext::
 logUnicode(const Utf8String & msg)
 {
     getPyContext()->log(msg.rawString());
-}  
+}
 
 PythonContext* MldbPythonContext::
 getPyContext()
 {
     if(script && plugin)
-        throw ML::Exception("Both script and plugin are defined!!");
+        throw MLDB::Exception("Both script and plugin are defined!!");
 
     if(script) return script.get();
     if(plugin) return plugin.get();
-    throw ML::Exception("Neither script or plugin is defined!");
+    throw MLDB::Exception("Neither script or plugin is defined!");
 }
-    
+
 void MldbPythonContext::
 setPlugin(std::shared_ptr<PythonPluginContext> plug) {
     plugin = plug;
@@ -629,7 +647,7 @@ getPlugin()
     if(plugin) {
         return plugin;
     }
-    throw ML::Exception("Cannot call the plugin object in this context");
+    throw MLDB::Exception("Cannot call the plugin object in this context");
 
 }
 
@@ -639,7 +657,7 @@ getScript()
     if(script)
         return script;
 
-    throw ML::Exception("Cannot call the script object in this context");
+    throw MLDB::Exception("Cannot call the script object in this context");
 }
 
 void MldbPythonContext::
@@ -658,7 +676,7 @@ setPathOptimizationLevel(const std::string & val)
     else if (valLc == "sometimes") {
         level = OptimizedPath::SOMETIMES;
     }
-    else throw ML::Exception("Couldn't parse path optimization level '"
+    else throw MLDB::Exception("Couldn't parse path optimization level '"
                              + val + "': accepted are 'always', 'never' "
                              "and 'sometimes'");
 
@@ -666,5 +684,5 @@ setPathOptimizationLevel(const std::string & val)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

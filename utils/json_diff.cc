@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 JsonDiff::Deleted JsonDiff::deleted;
 
@@ -567,7 +567,7 @@ jsonPatch(const Json::Value * val,
                             current = &(*val)[f.first];
                         }
                         else {
-                            throw ML::Exception("element does not exist");
+                            throw MLDB::Exception("element does not exist");
                         }
 
                         JsonDiff fieldConflicts;
@@ -591,7 +591,7 @@ jsonPatch(const Json::Value * val,
                             }
                         }
                         else if (f.first > oldSize) {
-                            throw ML::Exception("index " + to_string(f.first)
+                            throw MLDB::Exception("index " + to_string(f.first)
                                                 + " is invalid");
                         }
                         (*patchedValue)[f.first] = *f.second.newValue;
@@ -689,7 +689,7 @@ jsonPatch(const Json::Value * val,
         }
     }
     else {
-        throw ML::Exception("logic error");
+        throw MLDB::Exception("logic error");
     }
 
     return make_pair(std::move(patchedValue), std::move(conflicts));
@@ -732,4 +732,4 @@ JsonArrayElementDiffDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

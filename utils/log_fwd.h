@@ -18,8 +18,6 @@ namespace spdlog {
     }
 }
 
-namespace Datacratic {
-
 namespace MLDB {
 
 std::shared_ptr<spdlog::logger> getQueryLog();
@@ -29,7 +27,7 @@ std::shared_ptr<spdlog::logger> getServerLog();
 template <typename Class>
 std::string
 getLoggerNameFromClass() {
-    return ML::demangle(typeid(Class));
+    return demangle(typeid(Class));
 }
 
 template <typename Class>
@@ -51,17 +49,15 @@ struct LogDummy {
 };
 
 #define DEBUG_MSG(logger)                                               \
-    !logger->should_log(spdlog::level::debug) ? (void) 0 : Datacratic::MLDB::LogDummy() & logger->debug()
+    !logger->should_log(spdlog::level::debug) ? (void) 0 : MLDB::LogDummy() & logger->debug()
 
 #define INFO_MSG(logger)                                                \
-    !logger->should_log(spdlog::level::info) ? (void) 0 : Datacratic::MLDB::LogDummy() & logger->info()
+    !logger->should_log(spdlog::level::info) ? (void) 0 : MLDB::LogDummy() & logger->info()
 
 #define WARNING_MSG(logger)                                             \
-    !logger->should_log(spdlog::level::warn) ? (void) 0 :  Datacratic::MLDB::LogDummy() & logger->warn()
+    !logger->should_log(spdlog::level::warn) ? (void) 0 : MLDB::LogDummy() & logger->warn()
 
 #define ERROR_MSG(logger)                                               \
-    !logger->should_log(spdlog::level::err) ? (void) 0 :  Datacratic::MLDB::LogDummy() & logger->error()
+    !logger->should_log(spdlog::level::err) ? (void) 0 :  MLDB::LogDummy() & logger->error()
 
 } // MLDB
-
-} // Datacratic

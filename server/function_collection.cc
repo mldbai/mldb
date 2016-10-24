@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::shared_ptr<FunctionCollection>
@@ -95,7 +95,7 @@ call(const ExpressionValue & input) const
             auto it = info.input.values.find(name);
 
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
 
                 // skip unknown values
                 if (it == info.input.values.end())
@@ -147,8 +147,8 @@ FunctionCollection::
 applyFunction(const Function * function,
               const std::map<Utf8String, ExpressionValue> & input,
               const std::vector<Utf8String> & keepValues,
-              RestConnection & connection
-              ) const
+              const std::string & outputFormat,
+              RestConnection & connection) const
 {
     StructValue inputExpr;
     inputExpr.reserve(input.size());
@@ -174,28 +174,109 @@ applyFunction(const Function * function,
         result = std::move(output);
     }
 
-    static auto valDesc = getExpressionValueDescriptionNoTimestamp();
+    if (outputFormat == "compat") {
+        static auto valDesc = getExpressionValueDescriptionNoTimestamp();
 
-    std::ostringstream stream;
-    StreamJsonPrintingContext context(stream);
+        Utf8String str;
+        Utf8StringJsonPrintingContext context(str);
 
-    context.startObject();
-    context.startMember("output");
-    context.startObject();
+        context.startObject();
+        context.startMember("output");
+        context.startObject();
 
-    auto onColumn = [&] (const PathElement & columnName,
-                         const ExpressionValue & val)
+        auto onColumn = [&] (const PathElement & columnName,
+                             const ExpressionValue & val)
+            {
+                context.startMember(columnName.toUtf8String());
+                valDesc->printJsonTyped(&val, context);
+                return true;
+            };
+
+        result.forEachColumn(onColumn);
+    
+        context.endObject();
+        context.endObject();
+        connection.sendResponse(200, str.stealRawString(), "application/json");
+    }
+    else if (outputFormat == "json") {
+        Utf8String str;
+        Utf8StringJsonPrintingContext context(str);
+        result.extractJson(context);
+        connection.sendResponse(200, str.stealRawString(), "application/json");
+    }
+    else {
+        throw HttpReturnException(400, "Unknown 'format' for application call: "
+                                  "got " + outputFormat + ", accepted is "
+                                  + " 'compat' or 'json'");
+    }
+}
+
+void
+FunctionCollection::
+applyBatch(const Function * function,
+           const Json::Value & inputs,
+           const std::string & inputFormat,
+           const std::string & outputFormat,
+           RestConnection & connection) const
+{
+    if (inputFormat != "json") {
+        throw HttpReturnException
+            (400, "batch apply only accepts 'json' input format currently; got '"
+             + inputFormat + "'");
+    }
+    if (outputFormat != "json") {
+        throw HttpReturnException
+            (400, "batch apply only accepts 'json' output format currently; got '"
+             + inputFormat + "'");
+    }
+
+    Utf8String str;
+    Utf8StringJsonPrintingContext printingContext(str);
+
+    SqlExpressionMldbScope outerContext(MldbEntity::getOwner(this->server));
+    
+    auto info = function->getFunctionInfo();
+    auto applier = function->bind(outerContext, info.input);
+    
+    Date ts = Date::now();
+
+    auto doInput = [&] (const Json::Value & val)
         {
-            context.startMember(columnName.toUtf8String());
-            valDesc->printJsonTyped(&val, context);
-            return true;
+            StructuredJsonParsingContext context(val);
+            ExpressionValue inputExpr
+                = ExpressionValue::parseJson(context, ts);
+            ExpressionValue output
+                = function->apply(*applier, std::move(inputExpr));
+            output.extractJson(printingContext);
         };
 
-    result.forEachColumn(onColumn);
-    
-    context.endObject();
-    context.endObject();
-    connection.sendResponse(200, stream.str(), "application/json");
+    if (inputs.isNull()) {
+        connection.sendResponse(200, inputs, "application/json");
+        return;
+    }
+    else if (inputs.isArray()) {
+        printingContext.startArray(inputs.size());
+        for (auto it = inputs.begin(), end = inputs.end();
+             it != end;  ++it) {
+            printingContext.newArrayElement();
+            doInput(*it);
+        }
+        printingContext.endArray();
+    }
+    else if (inputs.isObject()) {
+        printingContext.startObject();
+        for (auto it = inputs.begin(), end = inputs.end();
+             it != end;  ++it) {
+            printingContext.startMember(it.memberName());
+            doInput(*it);
+        }
+        printingContext.endObject();
+    }
+    else {
+        doInput(inputs);
+    }
+
+    connection.sendResponse(200, str.stealRawString(), "application/json");
 }
 
 void
@@ -221,6 +302,9 @@ initRoutes(RouteManager & manager)
     const auto keepValuesDefStr = "Keep only these values for the output. "
                                   "Must be defined either as a query string "
                                   "parameter or the json body.";
+    const char * outputFormatDefStr = "String describing output format: "
+        "'json' is JSON output; 'compat' (default) is structured output "
+        "compatible with old versions of MLDB.";
 
     addRouteAsync(*manager.valueNode, "/application", { "GET" },
                   "Apply a function to a given set of input values and return the output",
@@ -233,11 +317,36 @@ initRoutes(RouteManager & manager)
                       JsonStrCodec<MapType>(mapDesc)),
                   HybridParamJsonDefault<std::vector<Utf8String>>(
                       "keepValues", keepValuesDefStr, {}),
+                  HybridParamDefault<std::string>
+                      ("outputFormat", outputFormatDefStr, "compat"),
                   PassConnectionId()
                   );
 
+    const char * outputFormatDefStr2 = "String describing output format: "
+        "'json' is JSON output (the output of the expression will be turned "
+        "back into a vanilla JSON object, dropping any non-JSON types like "
+        "dates;  This is the default and currently the only value accepted.";
 
-
+    const char * inputFormatDefStr2 = "String describing input format: "
+        "'json' is JSON input (the fields will be interpreted as JSON, and "
+        "it is not possible to pass types that are not representable in JSON "
+        "like dates into the call. This is the default and currently the only "
+        "value accepted.";
+    
+    addRouteAsync(*manager.valueNode, "/batch", { "GET" },
+                  "Apply a function to each element of a given set of input values and return the output",
+                  //"Output of all values or those selected in the keepValues parameter",
+                  &FunctionCollection::applyBatch,
+                  manager.getCollection,
+                  getFunction,
+                  HybridParamJsonDefault<Json::Value>
+                      ("input", inputDefStr, {}, ""),
+                  HybridParamDefault<std::string>
+                      ("inputFormat", inputFormatDefStr2, "json"),
+                  HybridParamDefault<std::string>
+                      ("outputFormat", outputFormatDefStr2, "json"),
+                  PassConnectionId()
+                  );
 
     addRouteSyncJsonReturn(*manager.valueNode, "/info", { "GET" },
                            "Return information about the values and metadata of the function",
@@ -267,7 +376,7 @@ initRoutes(RouteManager & manager)
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 connection.sendErrorResponse(400, "Unknown exception was thrown");
                 return RestRequestRouter::MR_ERROR;
             }
@@ -297,8 +406,9 @@ construct(PolyConfig config, const OnProgress & onProgress) const
     return PolyCollection<Function>::construct(config, onProgress);
 }
 
-} // namespace MLDB
-
 template class PolyCollection<MLDB::Function>;
 
-} // namespace Datacratic
+} // namespace MLDB
+
+
+

@@ -22,7 +22,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 
 namespace MLDB {
@@ -46,19 +46,36 @@ typedef EntityType<Function> FunctionType;
 
 struct FunctionInfo {
 
-    /// Values that this function takes as an input
-    std::shared_ptr<RowValueInfo> input;
-
+    /// Values that this function takes as an input.  Historically, functions
+    /// could only take a single argument (which was a row), but now they
+    /// can take any arity and can have non-row parameters.  The length of
+    /// this array is the arity of the function.
+    std::vector<std::shared_ptr<ExpressionValueInfo> > input;
+    
     /// Values that this function produces as an output
-    std::shared_ptr<RowValueInfo> output;
+    std::shared_ptr<ExpressionValueInfo> output;
+    
+    /** Statically check that the fields in input are compatible with our
+        input specification, and throw an exception if incompatibility can
+        be statically proven at bind time.  Note that this function succeeding
+        is not a guarantee that input will always be compatible; if the
+        input is dynamic, then it may fail at runtime.
+
+        This version asserts also that there is only one input value.
+    */
+
+    void checkInputCompatibility(const ExpressionValueInfo & input) const;
 
     /** Statically check that the fields in input are compatible with our
         input specification, and throw an exception if incompatibility can
         be statically proven at bind time.  Note that this function succeeding
         is not a guarantee that input will always be compatible; if the
         input is dynamic, then it may fail at runtime.
+
+        This version checks each of the values in input.
     */
-    void checkInputCompatibility(const ExpressionValueInfo & input) const;
+    void checkInputCompatibility
+    (const std::vector<std::shared_ptr<ExpressionValueInfo> > & inputs) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);
@@ -145,8 +162,8 @@ struct Function: public MldbEntity {
     */
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const;
-
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const;
+    
     /** Return the input and the output expected by the function.  Every
         function needs to be able to say what it expects; there is no
         such thing as a function that will take "whatever comes in".
@@ -265,4 +282,4 @@ struct RegisterFunctionType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

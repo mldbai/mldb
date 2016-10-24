@@ -11,7 +11,7 @@
 
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* LOCALDATE                                                                 */
@@ -42,4 +42,4 @@ private:
     void recomputeTZOffset();
 };
 
-} // namespace Datacratic
+} // namespace MLDB

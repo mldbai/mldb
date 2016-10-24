@@ -35,7 +35,7 @@
 #include "signals.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 // #define BOOST_CHECK_EQUAL(x,y)  { ExcCheckEqual((x), (y), ""); }
 
@@ -66,7 +66,7 @@ vector<string> pendingSignals()
     sigset_t sigs;
     int res = sigpending(&sigs);
     if (res == -1)
-        throw ML::Exception(errno, "sigpending");
+        throw MLDB::Exception(errno, "sigpending");
     
     vector<string> result;
     for (unsigned i = 1;  i < 32;  ++i)

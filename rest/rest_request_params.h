@@ -11,7 +11,7 @@
 #include "json_codec.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST CODEC                                                                */
@@ -445,4 +445,4 @@ struct ObjectExtractor {
         
 
 
-} // namespace Datacratic
+} // namespace MLDB

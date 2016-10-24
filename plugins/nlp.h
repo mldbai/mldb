@@ -11,7 +11,7 @@
 #include "mldb/ext/libstemmer/libstemmer.h"
 #include <mutex>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -100,5 +100,5 @@ struct StemmerOnDocumentFunction: public ValueFunctionT<Document, Document> {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

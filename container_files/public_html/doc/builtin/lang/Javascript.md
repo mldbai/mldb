@@ -9,7 +9,7 @@ into MLDB to extend its functionality.
 
 With `PackageElementSources` defined as:
 
-![](%%type Datacratic::MLDB::PackageElementSources)
+![](%%type MLDB::PackageElementSources)
 
 ## Returning a result
 
@@ -24,21 +24,21 @@ then the script will return a string "hello" as its result.
 Running a Javsascript script directly as a plugin, procedure or function will
 return a ScriptOutput result, that looks like this:
 
-![](%%type Datacratic::MLDB::ScriptOutput)
+![](%%type MLDB::ScriptOutput)
 
 with log entries looking like
 
-![](%%type Datacratic::MLDB::ScriptLogEntry)
+![](%%type MLDB::ScriptLogEntry)
 
 ### Exceptions
 
 Exceptions are represented as
 
-![](%%type Datacratic::MLDB::ScriptException)
+![](%%type MLDB::ScriptException)
 
 with stack frames like
 
-![](%%type Datacratic::MLDB::ScriptStackFrame)
+![](%%type MLDB::ScriptStackFrame)
 
 
 ## <a name="API"></a> Server-side Javascript API
@@ -211,7 +211,7 @@ MLDB:
   in the directory, with the URI as the key and the following structure
   as the value:
 
-  ![](%%type Datacratic::FsObjectInfo)
+  ![](%%type MLDB::FsObjectInfo)
 
 #### Stream object
 
@@ -302,8 +302,14 @@ A function object is created similarly to procedure and dataset objects.
 
 It has the following methods defined:
 
+- `function.callJson(args)` calls the function, with the given single
+  JSON argument, waits for it to finish, and returns the JSON output of
+  the function.
 - `function.call(args)` calls the function, with the given arguments,
   waits for it to finish, and returns the output of the function.
+  The input and output are JSON-encoded ExpressionValue objects, which
+  are hard to work with.  It is recommended that the callJson object
+  be used instead.
 - `function.id()` returns the id of the function
 - `function.type()` returns the type of the function
 - `function.config()` returns the configuration of the function

@@ -37,7 +37,7 @@ struct Dont_Delete {
 } // file scope
 
 
-namespace Datacratic {
+namespace MLDB {
 
 Logging::Category MessageLoopLogs::print("Message Loop");
 Logging::Category MessageLoopLogs::warning("Message Loop Warning", print);
@@ -100,7 +100,7 @@ MessageLoop::
 start(const OnStop & onStop)
 {
     if (numThreadsCreated)
-        throw ML::Exception("already have started message loop");
+        throw MLDB::Exception("already have started message loop");
 
     shutdown_ = false;
 
@@ -122,7 +122,7 @@ MessageLoop::
 startSync()
 {
     if (numThreadsCreated)
-        throw ML::Exception("already have started message loop");
+        throw MLDB::Exception("already have started message loop");
 
     ++numThreadsCreated;
 
@@ -172,7 +172,7 @@ addSource(const std::string & name,
     }
 
     // cerr << "addSource: " << source.get()
-    //      << " (" << ML::type_name(*source) << ")"
+    //      << " (" << MLDB::type_name(*source) << ")"
     //      << " needsPoll: " << source->needsPoll
     //      << " in msg loop: " << this
     //      << " needsPoll: " << needsPoll
@@ -255,7 +255,7 @@ runWorkerThread()
 {
     Date lastCheck = Date::now();
 
-    ML::Duty_Cycle_Timer duty;
+    Duty_Cycle_Timer duty;
 
     while (!shutdown_) {
         Date start = Date::now();
@@ -290,7 +290,7 @@ runWorkerThread()
             // First time, we sleep for up to one second waiting for events to come
             // in to the event loop, and handle as many as we can until we hit the
             // limit or we're idle.
-            int res JML_UNUSED = handleEvents(999999 /* microseconds */, maxEventsToHandle,
+            int res MLDB_UNUSED = handleEvents(999999 /* microseconds */, maxEventsToHandle,
                                               nullptr, beforeSleep, afterSleep);
             //cerr << "handleEvents returned " << res << endl;
 
@@ -369,14 +369,14 @@ handleEpollEvent(epoll_event & event)
     if (debug) {
         ExcAssert(source->poll());
         cerr << "message loop " << this << " with parent " << parent_
-             << " handing source " << ML::type_name(*source) << " poll result "
+             << " handing source " << MLDB::type_name(*source) << " poll result "
              << Epoller::poll() << endl;
     }
 
     int res = source->processOne();
 
     if (debug) {
-        cerr << "source " << ML::type_name(*source) << " had processOne() result " << res << endl;
+        cerr << "source " << MLDB::type_name(*source) << " had processOne() result " << res << endl;
         cerr << "poll() is now " << Epoller::poll() << endl;
     }
 
@@ -409,7 +409,7 @@ processAddSource(const SourceEntry & entry)
         return;
 
     // cerr << "processAddSource: " << entry.source.get()
-    //      << " (" << ML::type_name(*entry.source) << ")"
+    //      << " (" << MLDB::type_name(*entry.source) << ")"
     //      << " needsPoll: " << entry.source->needsPoll
     //      << " in msg loop: " << this
     //      << " needsPoll: " << needsPoll
@@ -561,4 +561,4 @@ checkNeedsPoll()
     if (parent_) parent_->checkNeedsPoll();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

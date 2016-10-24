@@ -12,7 +12,7 @@ using namespace std;
 /* Ensure that long long/int64 header content-length are supported */
 BOOST_AUTO_TEST_CASE(test_http_header_long_long)
 {
-    Datacratic::HttpHeader header;
+    MLDB::HttpHeader header;
 
     string response = ("HTTP/1.1 200 OK\r\n"
                        "x-amz-id-2: a4KTwfjQazJISfG4fout1ZGxh8zT9okHNw+x0IK9yeOf13sfBCPWaTU9NVX9UYDe\r\n"
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(test_http_header_query_parser_no_query)
 {
     const std::string query = "GET /bid? HTTP/1.1\r\n"
                               "\r\n";
-    Datacratic::HttpHeader header;
+    MLDB::HttpHeader header;
     header.parse(query);
 }
 
@@ -45,22 +45,22 @@ BOOST_AUTO_TEST_CASE(test_http_header_query_parser_no_var)
 {
     const std::string query = "GET /bid?& HTTP/1.1\r\n"
                               "\r\n";
-    Datacratic::HttpHeader header;
+    MLDB::HttpHeader header;
     header.parse(query);
 }
 
 namespace {
 
-Datacratic::HttpHeader generateParser(const std::string& q)
+MLDB::HttpHeader generateParser(const std::string& q)
 {
 
     const std::string query = "GET " + q + " HTTP/1.1\r\n\r\n";
-    Datacratic::HttpHeader parser;
+    MLDB::HttpHeader parser;
     parser.parse(query);
     return parser;
 }
 
-void testQueryParam(const Datacratic::HttpHeader& header,
+void testQueryParam(const MLDB::HttpHeader& header,
                     const std::string& var,
                     const std::string& expectedValue)
 {

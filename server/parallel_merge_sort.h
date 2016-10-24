@@ -14,7 +14,7 @@
 
 #include "mldb/base/thread_pool.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 template<class VecOfVecs, typename SortFn, typename MergeFn, typename SizeFn>
@@ -101,6 +101,72 @@ parallelMergeSort(std::vector<std::vector<T> > & range,
                                cmp);
         };
 
+    parallelMergeSortRecursive(range, 0, range.size(), sort, merge, size, threadThreshold);
+
+    return std::move(range[0]);
+}
+
+template<typename T, typename Compare>
+std::vector<T> uniqueMerge(std::vector<T> & v1, std::vector<T> & v2,
+                           const Compare & cmp = Compare())
+{
+    std::vector<T> result;
+    result.reserve(v1.size() + v2.size());
+
+    auto it1 = v1.begin(), e1 = v1.end(), it2 = v2.begin(), e2 = v2.end();
+    while (it1 < e1 && it2 < e2) {
+        if (cmp(*it1, *it2)) {
+            result.emplace_back(std::move(*it1));
+            ++it1;
+        }
+        else if (cmp(*it2, *it1)) {
+            result.emplace_back(std::move(*it2));
+            ++it2;
+        }
+        else {
+            // Equal; keep only one
+            result.emplace_back(std::move(*it1));
+            ++it1;
+            ++it2;
+        }
+    }
+    result.insert(result.end(),
+                  std::make_move_iterator(it1),
+                  std::make_move_iterator(e1));
+    result.insert(result.end(),
+                  std::make_move_iterator(it2),
+                  std::make_move_iterator(e2));
+    v1.clear();
+    v2.clear();
+    return result;
+}
+
+template<class T, class Compare = std::less<T> >
+std::vector<T>
+parallelMergeSortUnique(std::vector<std::vector<T> > & range,
+                        const Compare & cmp = std::less<T>(),
+                        size_t threadThreshold = 10000)
+{
+    if (range.empty())
+        return {};
+
+    auto sort = [&cmp] (std::vector<T> & v)
+        {
+            std::sort(v.begin(), v.end(), cmp);
+            v.erase(std::unique(v.begin(), v.end()),
+                    v.end());
+        };
+
+    auto size = [] (const std::vector<T> & v)
+        {
+            return v.size();
+        };
+
+    auto merge = [&cmp] (std::vector<T> & v1, std::vector<T> & v2)
+        {
+            v1 = uniqueMerge(v1, v2, cmp);
+        };
+    
     parallelMergeSortRecursive(range, 0, range.size(), sort, merge, size, threadThreshold);
 
     return std::move(range[0]);
@@ -197,4 +263,4 @@ parallelQuickSortRecursive(std::vector<T> & vec)
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

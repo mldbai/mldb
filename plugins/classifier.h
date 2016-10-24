@@ -21,7 +21,7 @@ struct Mutable_Feature_Set;
 struct Classifier_Impl;
 } // namespace ML
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -129,8 +129,8 @@ struct ClassifyFunction: public Function {
     // can be produced.
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const;
-
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const;
+    
     virtual ExpressionValue apply(const FunctionApplier & applier,
                               const ExpressionValue & context) const;
 
@@ -179,4 +179,4 @@ struct ExplainFunction: public ClassifyFunction {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

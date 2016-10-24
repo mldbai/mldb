@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 // Empty string to avoid construction of temporary object
@@ -32,6 +32,14 @@ inline void checkArgsSize(size_t number, size_t expected,
             throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " argument, got " + to_string(number));
     }
 }
+
+/** Return the value of an argument that may not be present (in which case
+    the default value is returned).
+*/
+CellValue getArg(const std::vector<ExpressionValue> & args,
+                 size_t n,
+                 const char * name,
+                 const CellValue & def);
 
 inline void checkArgsSize(size_t number, size_t minArgs, size_t maxArgs,
                           const Utf8String & fctName_=NO_FUNCTION_NAME)
@@ -121,18 +129,18 @@ struct RegisterBuiltin {
                     {
                         try {
                             return fn(args, scope);
-                        } JML_CATCH_ALL {
+                        } MLDB_CATCH_ALL {
                             rethrowHttpException(-1, "Executing builtin function "
-                                                 + str + ": " + ML::getExceptionString(),
+                                                 + str + ": " + getExceptionString(),
                                                  "functionName", str,
                                                  "functionArgs", args);
                         }
                     };
 
                     return result;
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
-                                         + str + ": " + ML::getExceptionString(),
+                                         + str + ": " + getExceptionString(),
                                          "functionName", str,
                                          "functionArgs", args);
                 }
@@ -146,6 +154,31 @@ struct RegisterBuiltin {
 
 
 /*****************************************************************************/
+/* BUILTIN CONSTANTS                                                         */
+/*****************************************************************************/
+
+/** This class is used to register a new builtin constant with the given
+    value.  The constant is expressed as a function.
+
+    Example:
+
+    static RegisterBuiltinConstant registerPi("pi", 3.1415....);
+
+    This will create a new function 'pi()' which returns the value of
+    pi.
+*/
+
+struct RegisterBuiltinConstant: public RegisterFunction {
+    RegisterBuiltinConstant(const Utf8String & name, const CellValue & value);
+
+    static BoundFunction bind(const Utf8String &,
+                              const std::vector<BoundSqlExpression> & args,
+                              SqlBindingScope & context,
+                              const CellValue & value);
+};
+
+
+/*****************************************************************************/
 /* SQL BUILTIN                                                               */
 /*****************************************************************************/
 
@@ -153,7 +186,7 @@ struct RegisterBuiltin {
 
     Example:
 
-    DEF_SQL_BUILTIN(sincos, 2, "[sin($1), cos($1)]");
+    DEF_SQL_BUILTIN(sincos, 1, "[sin($1), cos($1)]");
 
     This will add a builtin function called sincos that is essentially a
     macro for the given implementation.
@@ -174,8 +207,8 @@ struct SqlBuiltin {
 };
 
 #define DEF_SQL_BUILTIN(op, arity, expr) \
-    static Datacratic::MLDB::Builtins::SqlBuiltin register_##op(#op, expr, arity);
+    static MLDB::Builtins::SqlBuiltin register_##op(#op, expr, arity);
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

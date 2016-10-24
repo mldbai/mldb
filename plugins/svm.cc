@@ -29,7 +29,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(SVMType);
@@ -252,7 +252,7 @@ run(const ProcedureRunConfig & run,
     auto embeddingOutput
         = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
 
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+    std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;
 
@@ -261,7 +261,7 @@ run(const ProcedureRunConfig & run,
     size_t num_features = vars.size();
     size_t sizeY = rows.size();
     size_t labelIndex = 0;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     for (size_t i = 0; i < num_features; ++i) {
         if (vars[i].columnName.toUtf8String() == "label")
@@ -330,9 +330,9 @@ run(const ProcedureRunConfig & run,
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_a.svm");
     try {
         if (svm_save_model(model_tmp_name.c_str(),model))
-            throw ML::Exception("");
+            throw MLDB::Exception("");
 
-        Datacratic::makeUriDirectory(
+        makeUriDirectory(
             runProcConf.modelFileUrl.toDecodedString());
         filter_istream in(model_tmp_name);
         filter_ostream out(runProcConf.modelFileUrl);
@@ -387,7 +387,7 @@ SVMExpressionValueDescription()
 
 struct SVMFunction::Itl {
     svm_model * model;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 };
 
 SVMFunction::
@@ -415,7 +415,7 @@ SVMFunction(MldbServer * owner,
         if (md["version"].asInt() != 1) {
             throw HttpReturnException(400, "SVM model version is wrong");
         }
-        itl->columnNames = jsonDecode<std::vector<ColumnName> >(md["columnNames"]);
+        itl->columnNames = jsonDecode<std::vector<ColumnPath> >(md["columnNames"]);
         filter_ostream out(model_tmp_name);
         out << in.rdbuf();
         in.close();
@@ -482,4 +482,4 @@ regClassifyFunction(builtinPackage(),
 
 } // filescope
 } // MLDB
-} // Datacratic
+

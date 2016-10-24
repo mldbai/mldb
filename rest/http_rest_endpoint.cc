@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP REST ENDPOINT                                                       */
@@ -78,7 +78,7 @@ bindTcpAddress(const std::string & address)
     string portPart(address, pos + 1);
 
     if (portPart.empty())
-        throw ML::Exception("invalid port " + portPart + " in address "
+        throw MLDB::Exception("invalid port " + portPart + " in address "
                             + address);
 
     if (portPart[portPart.size() - 1] == '+') {
@@ -88,7 +88,7 @@ bindTcpAddress(const std::string & address)
             return bindTcp(PortRange(port, last), hostPart);
         }
 
-        throw ML::Exception("invalid port " + to_string(port));
+        throw MLDB::Exception("invalid port " + to_string(port));
     }
 
     return bindTcp(boost::lexical_cast<int>(portPart), hostPart);
@@ -263,5 +263,5 @@ logRequest(int code) const
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -316,7 +316,7 @@ onReadLengthDone(boost::system::error_code err, size_t bytesDone,
     if (bytesDone != 8) {
         // This is a logic error; it should never happen.  It's OK to
         // crash the world.
-        throw ML::Exception("wrong number of length bytes read in packet");
+        throw MLDB::Exception("wrong number of length bytes read in packet");
     }
 
     //cerr << "itl->currentPacketLength = " << itl->currentPacketLength << endl;
@@ -417,7 +417,7 @@ AsioPeerConnection::
 getTimer(Date expiry, double period,
          std::function<void (Date)> toBind)
 {
-    return Datacratic::getTimer(expiry, period, StrandHolder(itl->strand), toBind);
+    return MLDB::getTimer(expiry, period, StrandHolder(itl->strand), toBind);
 }
 
 void
@@ -435,5 +435,5 @@ postWorkAsync(std::function<void ()> work)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

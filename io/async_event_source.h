@@ -15,7 +15,7 @@
 #include "mldb/arch/exception.h"
 #include <thread>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct MessageLoop;
 
@@ -108,7 +108,7 @@ struct AsyncEventSource {
     virtual void connected(MessageLoop * parent)
     {
         if (parent_)
-            throw ML::Exception("attempt to connect AsyncEventSource "
+            throw MLDB::Exception("attempt to connect AsyncEventSource "
                                 "to two parents");
         parent_ = parent;
     }
@@ -199,7 +199,7 @@ private:
 };
 #endif
 
-} // namespace Datacratic
+} // namespace MLDB
 
 
 #endif /* __service__async_event_source_h__ */

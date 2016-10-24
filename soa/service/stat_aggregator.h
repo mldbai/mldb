@@ -18,7 +18,7 @@
 #include <atomic>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct StatReading {
@@ -106,7 +106,7 @@ struct GaugeAggregator : public StatAggregator {
     virtual void record(float value);
 
     /** Obtain a the current statistics and replace with a new version. */
-    std::pair<ML::distribution<float> *, Date> reset();
+    std::pair<distribution<float> *, Date> reset();
 
     /** Read and reset the counter, providing output in Graphite's preferred
         format.
@@ -116,9 +116,9 @@ struct GaugeAggregator : public StatAggregator {
 private:
     Verbosity verbosity;
     Date start;  //< Date at which we last cleared the counter
-    std::atomic<ML::distribution<float> *> values;  //< List of added values
+    std::atomic<distribution<float> *> values;  //< List of added values
     std::vector<int> extra;
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

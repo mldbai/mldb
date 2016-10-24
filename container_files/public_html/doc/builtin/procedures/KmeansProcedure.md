@@ -7,7 +7,7 @@ into an output dataset, as well as storing the cluster labels for its input data
 
 ![](%%config procedure kmeans.train)
 
-![](%%type Datacratic::MLDB::MetricSpace)
+![](%%type MLDB::MetricSpace)
 
 ## Training
 

@@ -45,13 +45,13 @@ std::string Null_Feature_Space::print(const Feature & feature) const
 }
 
 bool Null_Feature_Space::
-parse(Parse_Context & context, Feature & feature) const
+parse(ParseContext & context, Feature & feature) const
 {
     throw Exception("Null_Feature_Space::parse() not implemented");
 }
 
 void Null_Feature_Space::
-expect(Parse_Context & context, Feature & feature) const
+expect(ParseContext & context, Feature & feature) const
 {
     throw Exception("Null_Feature_Space::expect() not implemented");
 }

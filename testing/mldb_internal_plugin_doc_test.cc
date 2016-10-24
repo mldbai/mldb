@@ -19,8 +19,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_plugin_loading )
 {
@@ -29,7 +29,9 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     server.init();
 
     // Load plugins, so we can also test them for documentation
-    server.scanPlugins("file://build/x86_64/mldb_plugins");
+    server.scanPlugins("file://build/x86_64/mldb_plugins/tensorflow");
+    server.scanPlugins("file://build/x86_64/mldb_plugins/postgresql");
+    server.scanPlugins("file://build/x86_64/mldb_plugins/mongodb");
     
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
     
@@ -42,10 +44,12 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     // For each instance of each plugin, we try to get the documentation
     for (string typeClass: { "plugins", "datasets", "functions", "procedures" }) {
         for (auto type: proxy.get("/v1/types/" + typeClass).jsonBody()) {
-            auto doc = proxy.get("/v1/types/" + typeClass + "/" + type.asString() + "/doc",
-                                 {}, {}, -1, true, nullptr, nullptr, true /* redirect */);
+            string url = "/v1/types/" + typeClass + "/" + type.asString() + "/doc";
+            auto doc = proxy.get(
+                url, {}, {}, -1, true, nullptr, nullptr, true /* redirect */);
             string error;
             if (doc.code() != 200) {
+                cerr << url << endl;
                 error = ML::trim(doc.body());
             }
             //BOOST_CHECK_EQUAL(doc.code(), 200);

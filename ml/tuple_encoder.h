@@ -14,7 +14,7 @@
 #include <tuple>
 #include "mldb/jml/utils/positioned_types.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* CALL WITH UNPACKED TUPLE                                                  */
@@ -114,7 +114,7 @@ struct TupleEncoder {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 
 #endif /* __ml__tuple_encoder_h__ */

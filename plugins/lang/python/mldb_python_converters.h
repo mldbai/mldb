@@ -16,7 +16,7 @@
 #include "mldb/http/http_exception.h"
 #include "python_converters.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct RestParamsConverter
@@ -71,7 +71,7 @@ struct RestParamsConverter
                 else
                 { 
                     throw HttpReturnException(400,
-                            ML::format("Exception while parsing REST parameter at position: %d", i));
+                            MLDB::format("Exception while parsing REST parameter at position: %d", i));
                 }
             }
         }
@@ -115,7 +115,7 @@ struct CellValueConverter
             //std::cerr << "   recording val as STR: " << val << std::endl;
             new (storage) CellValue(Utf8String(val));
         } else {
-            throw ML::Exception("Unsupported value type for CellValue converter");
+            throw MLDB::Exception("Unsupported value type for CellValue converter");
         }
     }
 };
@@ -162,7 +162,7 @@ struct PathConverter
                 return PathElement(Utf8String(val));
             }
 
-            throw ML::Exception("Unsupported value type for Path converter");
+            throw MLDB::Exception("Unsupported value type for Path converter");
         };
 
         boost::python::extract<PyList> listExtract(obj_ptr);
@@ -186,5 +186,5 @@ struct PathConverter
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

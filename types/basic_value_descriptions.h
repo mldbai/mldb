@@ -15,8 +15,8 @@
 #include "pair_description.h"
 #include "pointer_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

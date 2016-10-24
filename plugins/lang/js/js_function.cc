@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct JsFunctionData;
@@ -48,7 +48,7 @@ struct JsFunctionThreadData {
 
 struct JsFunctionData {
     MldbServer * server;
-    ML::ThreadSpecificInstanceInfo<JsFunctionThreadData, void> threadInfo;
+    ThreadSpecificInstanceInfo<JsFunctionThreadData, void> threadInfo;
     Utf8String scriptSource;
     std::string filenameForErrorMessages;
     std::vector<std::string> params;
@@ -120,7 +120,7 @@ initialize(const JsFunctionData & data)
 
     if (compiled.IsEmpty()) {  
         auto rep = convertException(trycatch, "Compiling jseval script");
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception compiling jseval script",
                                   "exception", rep,
                                   "scriptSource", data.scriptSource,
@@ -172,7 +172,7 @@ run(const std::vector<ExpressionValue> & args,
     
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running jseval script");
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception running jseval script",
                                   "exception", rep,
                                   "scriptSource", data->scriptSource,
@@ -257,5 +257,5 @@ BoundFunction bindJsEval(const Utf8String & name,
 
 RegisterFunction registerJs(Utf8String("jseval"), bindJsEval);
 
-} // namespace Datacratic
+
 } // namespace MLDB

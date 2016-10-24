@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::shared_ptr<PluginCollection>
@@ -185,8 +185,9 @@ getEntityStatus(const Plugin & plugin) const
     return plugin.getStatus();
 }
 
+template class PolyCollection<Plugin>;
+
 } // namespace MLDB
 
-template class PolyCollection<MLDB::Plugin>;
 
-} // namespace Datacratic
+

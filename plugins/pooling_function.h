@@ -13,7 +13,7 @@
 #include "mldb/types/optional.h"
 #include "mldb/plugins/sql_functions.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -60,17 +60,18 @@ struct PoolingFunction: public ValueFunctionT<PoolingInput, PoolingOutput> {
     
     virtual std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const override;
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override;
    
     std::shared_ptr<SqlQueryFunction> queryFunction;
 
     BoundTableExpression boundEmbeddingDataset;
 
     PoolingFunctionConfig functionConfig;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     SelectExpression select;
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

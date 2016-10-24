@@ -13,7 +13,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 struct RestDirectory;
 
@@ -226,4 +226,4 @@ public:
 
 DECLARE_REST_COLLECTION_INSTANTIATIONS(Utf8String, PolyEntity, PolyConfig, PolyStatus);
 
-} // namespace Datacratic
+} // namespace MLDB

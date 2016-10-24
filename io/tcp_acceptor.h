@@ -15,7 +15,7 @@
 #include "mldb/io/tcp_socket.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct PortRange;
@@ -80,4 +80,4 @@ private:
     std::set<std::shared_ptr<TcpSocketHandler> > associatedHandlers_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

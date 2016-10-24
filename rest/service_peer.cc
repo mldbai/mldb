@@ -23,7 +23,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -117,7 +117,7 @@ createHttpWatch(RestConnection & connection,
 {
             
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         auto resource = jsonDecodeStr<ResourceSpec>(req.payload);
 
         struct Data {
@@ -221,7 +221,7 @@ onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
     case CE_NEW:
         if (newPeer.key == peerInfo.peerName) {
             if (jsonEncode(*newPeer.value) != jsonEncode(peerInfo))
-                throw ML::Exception("our peer was discovered with different info");
+                throw MLDB::Exception("our peer was discovered with different info");
             DEBUG_MSG(logger) << "new entry for me " << peerInfo.peerName << " "
                  << newPeer.key << " " << jsonEncode(peers.getKeys());
             ExcAssert(peers.tryGetExistingEntry(peerInfo.peerName));
@@ -276,7 +276,7 @@ onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
         DEBUG_MSG(logger) << "updated peer " << newPeer.key;
         DEBUG_MSG(logger) << "TODO: implement updates";
     default:
-        throw ML::Exception("unexpected discovery event type");
+        throw MLDB::Exception("unexpected discovery event type");
     }
 }
 
@@ -313,7 +313,7 @@ std::future_status getStatus(std::future_status st)
 }
 
 // G++ 4.6 returns a bool, against the standard
-JML_UNUSED std::future_status getStatus(bool st)
+MLDB_UNUSED std::future_status getStatus(bool st)
 {
     return (st ? std::future_status::ready : std::future_status::timeout);
 }
@@ -359,7 +359,7 @@ start()
         std::future_status status
             = getStatus(future.wait_for(std::chrono::seconds(1)));
         if (status != std::future_status::ready)
-            throw ML::Exception("Self connection not accepted after "
+            throw MLDB::Exception("Self connection not accepted after "
                                 "one second");
         
         PeerInfo info = future.get();
@@ -377,7 +377,7 @@ start()
 
     // ... and check that we could
     if (selfEntry->state != PS_OK) {
-        throw ML::Exception("Can't start service peer: unable to talk to itself (error is '" + selfEntry->error + "').  Check that etcd is OK and that the published port and hostname is really the exterally accessible port and hostname.");
+        throw MLDB::Exception("Can't start service peer: unable to talk to itself (error is '" + selfEntry->error + "').  Check that etcd is OK and that the published port and hostname is really the exterally accessible port and hostname.");
     }
     //DEBUG_MSG(logger) << "done checking";
 
@@ -541,7 +541,7 @@ sendPeerMessage(const std::string & peer,
 
             try {
                 onError(std::move(peerMessage));
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 logger->error() << "error on onError handler of message";
                 abort();
             }
@@ -561,8 +561,8 @@ void
 ServicePeer::
 handlePeerMessage(RemotePeer * peer, PeerMessage && msg)
 {
-    throw ML::Exception("Service peer of type %s doesn't support peer to peer "
-                        "messages", ML::type_name(*this).c_str());
+    throw MLDB::Exception("Service peer of type %s doesn't support peer to peer "
+                        "messages", MLDB::type_name(*this).c_str());
 }
 
 WatchT<Date>
@@ -599,7 +599,7 @@ initRoutes(RouteManager & manager)
             try {
                 auto service = getServicePeer(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto res = service->knownPeers();
                 connection.sendHttpResponse(200, jsonEncodeStr(res),
                                             "application/json", {});
@@ -627,7 +627,7 @@ initRoutes(RouteManager & manager)
                 auto service = getServicePeer(cxt);
                 auto key = manager.getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto res = service->getPeerStatus(key);
                 connection.sendHttpResponse(200, jsonEncodeStr(res),
                                             "application/json", {});
@@ -651,19 +651,19 @@ ServicePeer::PeerCollection::
 getWatchBoundType(const ResourceSpec & spec)
 {
     if (spec.empty())
-        throw ML::Exception("no type for empty spec");
+        throw MLDB::Exception("no type for empty spec");
 
     if (spec.size() == 1) {
         if (spec[0].channel == "names")
             return make_pair(&typeid(tuple<std::string>), nullptr);
         else if (spec[0].channel == "children")
             return make_pair(&typeid(tuple<RestEntityChildEvent>), nullptr);
-        else throw ML::Exception("PeerCollection has no channel named '%s'",
+        else throw MLDB::Exception("PeerCollection has no channel named '%s'",
                                  spec[0].channel.rawData());
     }
     
     if (spec[0].channel != "children")
-        throw ML::Exception("PeerCollection has only a children channel, "
+        throw MLDB::Exception("PeerCollection has only a children channel, "
                             "not '%s'", spec[0].channel.rawData());
 
     return service->getWatchBoundType(ResourceSpec(spec.begin() + 1, spec.end()));
@@ -693,10 +693,10 @@ watchChannel(const Utf8String & channel,
                                                ? "+" : "-") + ev.name; });
 #endif
     }
-    else throw ML::Exception("No channel named '%s' on PeerCollection",
+    else throw MLDB::Exception("No channel named '%s' on PeerCollection",
                              channel.rawData());
 }
 
 template class RestCollection<std::string, RemotePeer>;
 
-} // namespace Datacratic
+} // namespace MLDB

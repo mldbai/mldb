@@ -20,7 +20,7 @@
 #include "mldb/types/value_description.h"
 #include <mutex>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TemporaryEtcdServer {
 
@@ -63,10 +63,10 @@ struct TemporaryEtcdServer {
         cerr << "done waiting for start" << endl;
         
         if (!started) {
-            throw ML::Exception("error starting etcd: " + jsonEncodeStr(runResult));
+            throw MLDB::Exception("error starting etcd: " + jsonEncodeStr(runResult));
         }
         if (!runner.running()) {
-            throw ML::Exception("service is not running");
+            throw MLDB::Exception("service is not running");
         }
 
         string uri = "http://localhost:" + std::to_string(port);
@@ -143,9 +143,9 @@ inline std::string getEtcdPath()
     std::string val = stream.readAll();
     std::string exe = ML::split(val, 0).at(0);
     std::string basename = ML::split(exe, '/').back();
-    std::string result = ML::username() + "-" + basename;
+    std::string result = MLDB::username() + "-" + basename;
     return result;
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

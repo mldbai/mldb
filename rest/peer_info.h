@@ -11,7 +11,7 @@
 #include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -34,4 +34,4 @@ struct PeerInfo {
 DECLARE_STRUCTURE_DESCRIPTION(PeerInfo);
 
 
-} // namespace Datacratic
+} // namespace MLDB

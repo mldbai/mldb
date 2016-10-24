@@ -17,7 +17,7 @@
 #include "mldb/types/optional.h"
 #include "mldb/plugins/classifier.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -70,4 +70,4 @@ struct AccuracyProcedure: public Procedure {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

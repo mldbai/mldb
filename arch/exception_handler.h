@@ -1,16 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* exception_handler.h                                             -*- C++ -*-
    Jeremy Barnes, 2 December 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Interface for the exception handler.
 */
 
-#ifndef __jml__arch__exception_handler_h__
-#define __jml__arch__exception_handler_h__
+#pragma once
 
-namespace ML {
+namespace MLDB {
 
 /// Set the default value of tracing exceptions.  New threads will be
 /// initialized to this value.
@@ -39,9 +37,7 @@ struct Set_Trace_Exceptions {
 
 void default_exception_tracer(void * object, const std::type_info * tinfo);
 
-} // namespace ML
+} // namespace MLDB
 
-#define JML_TRACE_EXCEPTIONS(value) \
-ML::Set_Trace_Exceptions trace_exc__(value);
-
-#endif /* __jml__arch__exception_handler_h__ */
+#define MLDB_TRACE_EXCEPTIONS(value) \
+MLDB::Set_Trace_Exceptions trace_exc__(value);

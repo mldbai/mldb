@@ -22,7 +22,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /******************************************************************************/
@@ -185,7 +185,7 @@ HttpMonitorHandler<Handler, arg>::
 sendErrorResponse(int code, const Json::Value & error)
 {
     std::string encodedError = error.toString();
-    send(ML::format("HTTP/1.1 %d Pants are on fire\r\n"
+    send(MLDB::format("HTTP/1.1 %d Pants are on fire\r\n"
                     "Content-Type: application/json\r\n"
                     "Access-Control-Allow-Origin: *\r\n"
                     "Content-Length: %zd\r\n"
@@ -210,7 +210,7 @@ sendResponse(const Json::Value & response)
          "sendResponse");
     };
 
-    send(ML::format("HTTP/1.1 200 OK\r\n"
+    send(MLDB::format("HTTP/1.1 200 OK\r\n"
                     "Content-Type: application/json\r\n"
                     "Access-Control-Allow-Origin: *\r\n"
                     "Content-Length: %zd\r\n"

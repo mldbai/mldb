@@ -15,14 +15,14 @@
 #include "http_parsers.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /****************************************************************************/
 /* HTTP PARSER :: BUFFER STATE                                              */
 /****************************************************************************/
 
-struct HttpParser::BufferState : public ML::Parse_Context {
+struct HttpParser::BufferState : public ParseContext {
     BufferState(const char * start, size_t length, bool fromBuffer);
 
     /* skip as many characters as possible until character "c" is found */
@@ -68,7 +68,7 @@ antoi(const char * start, const char * end, int base = 10)
             neg = true;
         }
         else {
-            throw ML::Exception("Cannot negate non base 10");
+            throw MLDB::Exception("Cannot negate non base 10");
         }
         start++;
     }
@@ -88,11 +88,11 @@ antoi(const char * start, const char * end, int base = 10)
             digit = *ptr - 'a' + 10;
         }
         else {
-            throw ML::Exception("expected digit");
+            throw MLDB::Exception("expected digit");
         }
         if (digit > base) {
             intptr_t offset = ptr - start;
-            throw ML::Exception("digit '%c' (%d) exceeds base '%d'"
+            throw MLDB::Exception("digit '%c' (%d) exceeds base '%d'"
                                 " at offset '%d'",
                                 *ptr, digit, base, offset);
         }
@@ -225,9 +225,9 @@ parseHeaders(BufferState & state)
     string multiline;
     unsigned int numLines(0);
 
-    std::unique_ptr<ML::Parse_Context::Revert_Token> token;
+    std::unique_ptr<ParseContext::Revert_Token> token;
 
-    token.reset(new ML::Parse_Context::Revert_Token(state));
+    token.reset(new ParseContext::Revert_Token(state));
 
     /* header line parsing */
     while (*state != '\r' || numLines > 0) {
@@ -264,7 +264,7 @@ parseHeaders(BufferState & state)
                 numLines = 0;
             }
             token->ignore();
-            token.reset(new ML::Parse_Context::Revert_Token(state));
+            token.reset(new ParseContext::Revert_Token(state));
         }
     }
     if (state.get_offset() + 1 == state.total_buffered()) {
@@ -370,7 +370,7 @@ parseChunkedBody(BufferState & state)
 
     /* we loop as long as there are chunks to process */
     while (chunkSize != 0) {
-        ML::Parse_Context::Revert_Token token(state);
+        ParseContext::Revert_Token token(state);
         const char * sizeStart = state.get_offset_ptr();
         if (!state.skip_to_char('\r', false)) {
             return false;
@@ -411,7 +411,7 @@ bool
 HttpParser::
 parseBlockBody(BufferState & state)
 {
-    ML::Parse_Context::Revert_Token token(state);
+    ParseContext::Revert_Token token(state);
 
     size_t chunkSize = min<size_t>(state.readahead_available(), remainingBody_);
     // cerr << "toSend: " + to_string(chunkSize) + "\n";
@@ -443,7 +443,7 @@ finalizeParsing()
 
 HttpParser::BufferState::
 BufferState(const char * start, size_t length, bool fromBuffer)
-    : ML::Parse_Context(ML::Parse_Context::CONSOLE, start, start + length),
+    : ParseContext(ParseContext::CONSOLE, start, start + length),
       start_(start), fromBuffer_(fromBuffer)
 {
 }
@@ -457,7 +457,7 @@ skip_to_char(char c, bool throwOnEol)
             return true;
         }
         else if (throwOnEol && match_eol(false)) {
-            throw ML::Exception("unexpected end of line");
+            throw MLDB::Exception("unexpected end of line");
         }
         operator ++();
     }
@@ -481,14 +481,14 @@ parseFirstLine(BufferState & state)
         return false;
     }
 
-    ML::Parse_Context::Revert_Token token(state);
+    ParseContext::Revert_Token token(state);
     if (!state.match_literal_str("HTTP/", 5)) {
-        throw ML::Exception("version must start with 'HTTP/'");
+        throw MLDB::Exception("version must start with 'HTTP/'");
     }
 
     if (!state.skip_to_char(' ', true)) {
         /* post-version ' ' not found even though size is sufficient */
-        throw ML::Exception("version too long");
+        throw MLDB::Exception("version too long");
     }
     size_t versionEnd = state.get_offset();
 
@@ -496,7 +496,7 @@ parseFirstLine(BufferState & state)
     const char * codeStartPtr = state.get_offset_ptr();
     if (!state.skip_to_char(' ', true)) {
         /* post-code ' ' not found even though size is sufficient */
-        throw ML::Exception("code too long");
+        throw MLDB::Exception("code too long");
     }
     const char * codeEndPtr = state.get_offset_ptr();
     int code = antoi(codeStartPtr, codeEndPtr);
@@ -530,7 +530,7 @@ parseFirstLine(BufferState & state)
 {
     /* request line parsing */
 
-    ML::Parse_Context::Revert_Token token(state);
+    ParseContext::Revert_Token token(state);
     size_t methodStart = state.get_offset();
     if (!state.skip_to_char(' ', true)) {
         return false;
@@ -546,7 +546,7 @@ parseFirstLine(BufferState & state)
     state++;
 
     if (!state.match_literal_str("HTTP/", 5)) {
-        throw ML::Exception("version must start with 'HTTP/'");
+        throw MLDB::Exception("version must start with 'HTTP/'");
     }
     size_t versionStart = urlStart + urlSize + 1;
     /* we skip the whole "reason" string */

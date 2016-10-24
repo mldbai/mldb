@@ -14,7 +14,7 @@ ul {
 
 <base target="rh">
 <div align="center">
-<a href="{{HTTP_BASE_URL}}/" target="_top"><img src="{{HTTP_BASE_URL}}/resources/images/mldb_ipython_logo.png" alt="MLDB Logo" /></a>
+<a href="{{HTTP_BASE_URL}}/" target="_top"><img src="{{HTTP_BASE_URL}}/resources/images/mldb_ipython_logo.png" alt="MLDB Logo" /></a><br>
 <span id="version" style="font-size: 12px;"></span>
 </div>
 
@@ -46,6 +46,7 @@ ul {
 * [Files and URLs](Url.md)
 * [MLDB Pro](ProPlugin.md)
 * [Algorithm Support](Algorithms.md)
+* [Classifier configuration](ClassifierConf.md)
 * [Scaling MLDB](Scaling.md)
 * [Help and Feedback](help.md)
 * [Licenses](licenses.md)

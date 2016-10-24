@@ -15,7 +15,7 @@
 #include "mldb/ml/value_descriptions.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -74,4 +74,4 @@ struct HashedColumnFeatureGenerator: public ValueFunctionT<FeatureGeneratorInput
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

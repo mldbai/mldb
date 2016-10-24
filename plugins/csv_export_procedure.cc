@@ -28,7 +28,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
@@ -68,10 +68,10 @@ CsvExportProcedureConfigDescription()
                           JsonParsingContext & context)
     {
         if (cfg->delimiter.size() != 1) {
-            throw ML::Exception("delimiter must be 1 char long.");
+            throw MLDB::Exception("delimiter must be 1 char long.");
         }
         if (cfg->quoteChar.size() != 1) {
-            throw ML::Exception("Quotechar must be 1 char long.");
+            throw MLDB::Exception("Quotechar must be 1 char long.");
         }
         MustContainFrom()(cfg->exportData, CsvExportProcedureConfig::name);
     };
@@ -147,7 +147,7 @@ run(const ProcedureRunConfig & run,
                         if(runProcConf.skipDuplicateCells)
                             return false;
 
-                        throw ML::Exception(Utf8String("CSV export does not work over "
+                        throw MLDB::Exception(Utf8String("CSV export does not work over "
                                 "cells having multiple values, at row '" + row.rowName.toUtf8String() +
                                 "' for column '" + seekColumn.toUtf8String() + "'").utf8String());
                     }
@@ -234,4 +234,4 @@ regCsvExportProcedure(
     "procedures/CsvExportProcedure.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -92,16 +92,26 @@ sub-select.  This can be done using the syntax
 SELECT ... FROM row_dataset(expression) ...
 ```
 
+if a dataset with one row per *column* in the input row is required, or
+
+```sql
+SELECT ... FROM atom_dataset(expression) ...
+```
+
+if a dataset with one row per *atom* in the input row is required
+(in other words, the row is pre-flattened and a table is made of
+the scalar values at the leaf nodes).
+
 When this construct is used, a dataset is constructed with one row
-for each column in the expression, with one column called `value`
+for each column or atom in the expression, with one column called `value`
 containing the value of the column, and one column called `column`
 with the column name.  For example, the query
 
 ```sql
-select * from row_dataset({x: 1, y:2, z: 'three'})
+SELECT * FROM row_dataset({x: 1, y:2, z: 'three'})
 ```
 
-would yield the following result:
+would yield the following result for both `row_dataset` and `atom_dataset`:
 
 
 column  |  value
@@ -109,6 +119,42 @@ column  |  value
 x       |  1
 y       |  2
 z       |  "three"
+
+whereas the following query
+
+```sql
+SELECT * FROM row_dataset({w: {x: 1, y:1, y:2, z: 'three'}})
+```
+
+would yield the following:
+
+
+column  |  value
+:------:|:-------:
+w       |  {x: 1, y:1, y:2, z: 'three'}
+
+whereas replacing `row_dataset` with `atom_dataset` would yield
+
+```sql
+SELECT * FROM atom_dataset({w: {x: 1, y:1, y:2, z: 'three'}})
+```
+
+column    |  value
+:--------:|:-------:
+w.x       |  1
+w.y       |  2
+w.z       |  "three"
+
+The `COLUMN EXPR` and `STRUCTURED COLUMN EXPR` constructs can be used to
+similar effect when the goal is to apply a function or transformation to
+each element of a row, rather then convert it into a table.
+
+### Caveats
+
+The `column` column of the `row_dataset` and `atom_dataset` functions will
+be of type `PATH`.  This will not compare true with any literal string,
+which can be surprising.  If it is necessary to compare it with a string, it is
+necessary to convert the string into a path with `CAST ('stringtocomparewith' AS PATH)` or `parse_path('stringtocomparewith')`.
 
 ## See also
 

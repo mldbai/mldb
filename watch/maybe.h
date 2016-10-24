@@ -11,7 +11,7 @@
 
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Dummy {
     void dummy() {};
@@ -90,4 +90,4 @@ template<typename Val, typename None>
 ValueDescriptionT<MaybeT<Val, None> > *
 getDefaultDescription(MaybeT<Val, None> * = 0);
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -28,13 +28,13 @@
 #include <map>
 #include "mldb/types/string.h"
 
-namespace Datacratic {
+
+namespace MLDB {
 
 struct HttpReturnException;
 
 template<typename T, size_t I, typename Sz, bool Sf, typename P, class A>
 struct compact_vector;
-
 
 namespace JS {
 
@@ -82,19 +82,19 @@ v8::Handle<v8::Value> injectBacktrace(v8::Handle<v8::Value> value);
     exceptions. */
 #define HANDLE_JS_EXCEPTIONS(args)                              \
     catch (...) {                                               \
-        args.GetReturnValue().Set(Datacratic::JS::translateCurrentException()); \
+        args.GetReturnValue().Set(MLDB::JS::translateCurrentException()); \
         return;                                                         \
     }
 
 #define HANDLE_JS_EXCEPTIONS_SETTER                             \
     catch (...) {                                               \
-        Datacratic::JS::translateCurrentException();            \
+        MLDB::JS::translateCurrentException();                  \
         return;                                                 \
     }
 
-/** Convert a ML::Exception into a Javascript exception. */
+/** Convert a MLDB::Exception into a Javascript exception. */
 v8::Handle<v8::Value>
-mapException(const ML::Exception & exc);
+mapException(const MLDB::Exception & exc);
 
 /** Convert a std::exception into a Javascript exception. */
 v8::Handle<v8::Value>
@@ -108,10 +108,10 @@ toObject(v8::Handle<v8::Value> handle)
 {
     ExcAssert(!handle.IsEmpty());
     if (!handle->IsObject())
-        throw ML::Exception("value " + cstr(handle) + " is not an object");
+        throw MLDB::Exception("value " + cstr(handle) + " is not an object");
     v8::Handle<v8::Object> object = handle->ToObject();
     if (object.IsEmpty())
-        throw ML::Exception("value " + cstr(handle) + " is not an object");
+        throw MLDB::Exception("value " + cstr(handle) + " is not an object");
     return object;
 }
 
@@ -123,10 +123,10 @@ toArray(v8::Handle<v8::Value> handle)
 {
     ExcAssert(!handle.IsEmpty());
     if (!handle->IsArray())
-        throw ML::Exception("value " + cstr(handle) + " is not an array");
+        throw MLDB::Exception("value " + cstr(handle) + " is not an array");
     auto array = handle.As<v8::Array>();
     if (array.IsEmpty())
-        throw ML::Exception("value " + cstr(handle) + " is not an array");
+        throw MLDB::Exception("value " + cstr(handle) + " is not an array");
     return array;
 }
 
@@ -195,7 +195,7 @@ std::map<std::string, T>
 from_js(const JSValue & val, const std::map<std::string, T> * = 0)
 {
     if(!val->IsObject()) {
-        throw ML::Exception("invalid JSValue for map extraction");
+        throw MLDB::Exception("invalid JSValue for map extraction");
     }
     
     std::map<std::string, T> result;
@@ -237,7 +237,7 @@ std::map<Utf8String, T>
 from_js(const JSValue & val, const std::map<Utf8String, T> * = 0)
 {
     if(!val->IsObject()) {
-        throw ML::Exception("invalid JSValue for map extraction");
+        throw MLDB::Exception("invalid JSValue for map extraction");
     }
     
     std::map<Utf8String, T> result;
@@ -291,7 +291,7 @@ std::map<K, V, H>
 from_js(const JSValue & val, const std::map<K, V, H> * = 0)
 {
     if(!val->IsObject()) {
-        throw ML::Exception("invalid JSValue for map extraction");
+        throw MLDB::Exception("invalid JSValue for map extraction");
     }
     
     std::map<K, V, H> result;
@@ -342,12 +342,12 @@ std::pair<T,V>
 from_js(const JSValue & val, const std::pair<T,V> * = 0)
 {
     if(!val->IsArray()) {
-        throw ML::Exception("invalid JSValue for pair extraction");
+        throw MLDB::Exception("invalid JSValue for pair extraction");
     }
 
     auto arrPtr = v8::Array::Cast(*val);
     if(arrPtr->Length() != 2) {
-        throw ML::Exception("invalid length for pair extraction");
+        throw MLDB::Exception("invalid length for pair extraction");
     }
 
     return std::make_pair(from_js(JSValue(arrPtr->Get(0)),(T *) 0),
@@ -408,7 +408,7 @@ std::tuple<Args...>
 from_js(const JSValue & val, const std::tuple<Args...> * v = 0)
 {
     if (!val->IsArray())
-        throw ML::Exception("invalid JSValue for tuple extraction");
+        throw MLDB::Exception("invalid JSValue for tuple extraction");
 
     auto arrPtr = v8::Array::Cast(*val);
 
@@ -478,7 +478,7 @@ std::vector<T>
 from_js(const JSValue & val, const std::vector<T> * = 0)
 {
     if(!val->IsArray()) {
-        throw ML::Exception("invalid JSValue for vector extraction");
+        throw MLDB::Exception("invalid JSValue for vector extraction");
     }
 
     std::vector<T> result;
@@ -495,7 +495,7 @@ std::set<T>
 from_js(const JSValue & val, const std::set<T> * = 0)
 {
     if(!val->IsArray()) {
-        throw ML::Exception("invalid JSValue for set extraction");
+        throw MLDB::Exception("invalid JSValue for set extraction");
     }
 
     std::set<T> result;
@@ -581,16 +581,16 @@ struct ValuePromise {
             return from_js(this->value, (T *)0);
         } catch (const std::exception & exc) {
             if (argnum == -1)
-                throw ML::Exception("value \"%s\" could not be "
+                throw MLDB::Exception("value \"%s\" could not be "
                                     "converted to a %s: %s",
                                     cstr(this->value).c_str(),
-                                    ML::type_name<T>().c_str(),
+                                    MLDB::type_name<T>().c_str(),
                                     exc.what());
-            throw ML::Exception("argument %d (%s): value \"%s\" could not be "
+            throw MLDB::Exception("argument %d (%s): value \"%s\" could not be "
                                 "converted to a %s: %s",
                                 this->argnum, this->name.c_str(),
                                 cstr(this->value).c_str(),
-                                ML::type_name<T>().c_str(),
+                                MLDB::type_name<T>().c_str(),
                                 exc.what());
         }
     }
@@ -602,16 +602,16 @@ struct ValuePromise {
             return from_js_ref(this->value, (T *)0);
         } catch (const std::exception & exc) {
             if (argnum == -1)
-                throw ML::Exception("value \"%s\" could not be "
+                throw MLDB::Exception("value \"%s\" could not be "
                                     "converted to a %s: %s",
                                     cstr(this->value).c_str(),
-                                    ML::type_name<T>().c_str(),
+                                    MLDB::type_name<T>().c_str(),
                                     exc.what());
-            throw ML::Exception("argument %d (%s): value \"%s\" could not be "
+            throw MLDB::Exception("argument %d (%s): value \"%s\" could not be "
                                 "converted to a %s: %s",
                                 this->argnum, this->name.c_str(),
                                 cstr(this->value).c_str(),
-                                ML::type_name<T>().c_str(),
+                                MLDB::type_name<T>().c_str(),
                                 exc.what());
         }
     }
@@ -758,4 +758,5 @@ from_js_ref(const JSValue & val, T *,
 }
 
 } // namespace JS
-} // namespace Datacratic
+
+} // namespace MLDB

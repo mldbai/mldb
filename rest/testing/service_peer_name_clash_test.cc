@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 // Checks that a second ServicePeer with the same name as another can't start up
@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE( test_name_clash_leads_to_error )
     peer2->init(PortRange(15000, 16000), "127.0.0.1");
     cerr << "----------- peers is now starting" << endl;
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(peer2->start(), std::exception);
     }
 

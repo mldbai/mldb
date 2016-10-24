@@ -25,7 +25,8 @@
 #include <boost/python.hpp>
 #include <iostream>
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 /******************************************************************************/
@@ -112,6 +113,5 @@ private:
 
 
 } // namespace Python
-} // Datacratic
 
-// * I always wanted to do that.
+} // namespace MLDB

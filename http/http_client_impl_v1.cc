@@ -21,7 +21,7 @@
 #include "mldb/http/http_client_impl_v1.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {
@@ -78,7 +78,7 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
       nextAvail_(0)
 {
     if (queueSize > 0) {
-        throw ML::Exception("'queueSize' semantics not implemented");
+        throw MLDB::Exception("'queueSize' semantics not implemented");
     }
 
     bool success(false);
@@ -88,7 +88,7 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
 
     fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (fd_ == -1) {
-        throw ML::Exception(errno, "epoll_create");
+        throw MLDB::Exception(errno, "epoll_create");
     }
 
     addFd(wakeup_.fd(), false, EPOLLIN);
@@ -115,7 +115,7 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
                                               CURL_SOCKET_TIMEOUT, 0,
                                               &runningHandles);
     if (rc != ::CURLM_OK) {
-        throw ML::Exception("curl error " + to_string(rc));
+        throw MLDB::Exception("curl error " + to_string(rc));
     }
 
     success = true;
@@ -182,7 +182,7 @@ addFd(int fd, bool isMod, int flags)
     }
     if (rc == -1) {
 	if (errno != EBADF) {
-            throw ML::Exception(errno, "epoll_ctl");
+            throw MLDB::Exception(errno, "epoll_ctl");
         }
     }
 }
@@ -282,7 +282,7 @@ processOne()
                 continue;
             }
             else {
-                throw ML::Exception(errno, "epoll_wait");
+                throw MLDB::Exception(errno, "epoll_wait");
             }
         }
     }
@@ -323,7 +323,7 @@ handleWakeupEvent()
             CURLMcode code = ::curl_multi_add_handle(multi_.get(),
                                                      conn->easy_);
             if (code != CURLM_CALL_MULTI_PERFORM && code != CURLM_OK) {
-                throw ML::Exception("failing to add handle to multi");
+                throw MLDB::Exception("failing to add handle to multi");
             }
         }
     }
@@ -337,7 +337,7 @@ handleTimerEvent()
     ssize_t len = ::read(timerFd_, &misses, sizeof(misses));
     if (len == -1) {
         if (errno != EAGAIN) {
-            throw ML::Exception(errno, "read timerd");
+            throw MLDB::Exception(errno, "read timerd");
         }
     }
     int runningHandles;
@@ -345,7 +345,7 @@ handleTimerEvent()
                                               CURL_SOCKET_TIMEOUT, 0,
                                               &runningHandles);
     if (rc != ::CURLM_OK) {
-        throw ML::Exception("curl error " + to_string(rc));
+        throw MLDB::Exception("curl error " + to_string(rc));
     }
     checkMultiInfos();
 }
@@ -367,7 +367,7 @@ handleMultiEvent(const ::epoll_event & event)
                                               actionFlags,
                                               &runningHandles);
     if (rc != ::CURLM_OK) {
-        throw ML::Exception("curl error " + to_string(rc));
+        throw MLDB::Exception("curl error " + to_string(rc));
     }
 
     checkMultiInfos();
@@ -392,7 +392,7 @@ checkMultiInfos()
             CURLMcode code = ::curl_multi_remove_handle(multi_.get(),
                                                         conn->easy_);
             if (code != CURLM_CALL_MULTI_PERFORM && code != CURLM_OK) {
-                throw ML::Exception("failed to remove handle to multi");
+                throw MLDB::Exception("failed to remove handle to multi");
             }
             releaseConnection(conn);
             wakeup_.signal();
@@ -430,7 +430,7 @@ onCurlSocketEvent(CURL *e, curl_socket_t fd, int what, void *sockp)
         if (sockp == nullptr) {
             CURLMcode rc = ::curl_multi_assign(multi_.get(), fd, this);
             if (rc != ::CURLM_OK) {
-                throw ML::Exception("curl error " + to_string(rc));
+                throw MLDB::Exception("curl error " + to_string(rc));
             }
         }
     }
@@ -454,7 +454,7 @@ onCurlTimerEvent(long timeoutMs)
     // cerr << "onCurlTimerEvent: timeout = " + to_string(timeoutMs) + "\n";
 
     if (timeoutMs < -1) {
-        throw ML::Exception("unhandled timeout value: %ld", timeoutMs);
+        throw MLDB::Exception("unhandled timeout value: %ld", timeoutMs);
     }
 
     struct itimerspec timespec;
@@ -465,7 +465,7 @@ onCurlTimerEvent(long timeoutMs)
     }
     int res = ::timerfd_settime(timerFd_, 0, &timespec, nullptr);
     if (res == -1) {
-        throw ML::Exception(errno, "timerfd_settime");
+        throw MLDB::Exception(errno, "timerfd_settime");
     }
 
     if (timeoutMs == 0) {
@@ -474,7 +474,7 @@ onCurlTimerEvent(long timeoutMs)
                                                   CURL_SOCKET_TIMEOUT, 0,
                                                   &runningHandles);
         if (rc != ::CURLM_OK) {
-            throw ML::Exception("curl error " + to_string(rc));
+            throw MLDB::Exception("curl error " + to_string(rc));
         }
         checkMultiInfos();
     }
@@ -616,14 +616,14 @@ onCurlHeader(const char * data, size_t size)
             size_t oldTokenIdx(0);
             size_t tokenIdx = headerLine.find(" ");
             if (tokenIdx == string::npos || tokenIdx >= lineSize) {
-                throw ML::Exception("malformed header");
+                throw MLDB::Exception("malformed header");
             }
             string version = headerLine.substr(oldTokenIdx, tokenIdx);
 
             oldTokenIdx = tokenIdx + 1;
             tokenIdx = headerLine.find(" ", oldTokenIdx);
             if (tokenIdx == string::npos || tokenIdx >= lineSize) {
-                throw ML::Exception("malformed header");
+                throw MLDB::Exception("malformed header");
             }
             int code = stoi(headerLine.substr(oldTokenIdx, tokenIdx));
 

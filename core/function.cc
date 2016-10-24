@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 
 namespace MLDB {
 
@@ -71,6 +71,18 @@ checkInputCompatibility(const ExpressionValueInfo & input) const
     // For now, say yes...
 }
 
+void
+FunctionInfo::
+checkInputCompatibility(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
+{
+    if (input.size() != this->input.size()) {
+        throw HttpReturnException
+            (400, "Wrong number of arguments (" + to_string(input.size())
+             + ") passed to user function expecting " + to_string(this->input.size()));
+    }
+    // For now, say yes...
+}
+
 
 /*****************************************************************************/
 /* FUNCTION APPLIER                                                          */
@@ -114,16 +126,15 @@ getDetails() const
     return Any();
 }
 
-
 std::unique_ptr<FunctionApplier>
 Function::
 bind(SqlBindingScope & outerContext,
-     const std::shared_ptr<RowValueInfo> & input) const
+     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<FunctionApplier> result(new FunctionApplier());
     result->function = this;
     result->info = getFunctionInfo();
-    result->info.checkInputCompatibility(*input);
+    result->info.checkInputCompatibility(input);
     return result;
 }
 
@@ -131,7 +142,7 @@ FunctionInfo
 Function::
 getFunctionInfo() const
 {
-    throw HttpReturnException(400, "Function " + ML::type_name(*this)
+    throw HttpReturnException(400, "Function " + MLDB::type_name(*this)
                         + " needs to override getFunctionInfo()");
 }
 
@@ -142,7 +153,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Function of type '" + ML::type_name(*this)
+    error["error"] = "Function of type '" + MLDB::type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
@@ -151,4 +162,4 @@ handleRequest(RestConnection & connection,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

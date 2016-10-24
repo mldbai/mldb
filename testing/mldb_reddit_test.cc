@@ -15,8 +15,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -25,8 +25,8 @@ using namespace Datacratic::MLDB;
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_two_members )
 {

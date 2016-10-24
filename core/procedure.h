@@ -22,7 +22,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 struct RestDirectory;
 
@@ -48,6 +48,12 @@ struct ProcedureRunConfig {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunConfig);
+
+struct ProcedureRunState {
+    Utf8String state;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunState);
 
 struct ProcedureRunStatus: public PolyStatus {
     Date runStarted;   ///< Timestamp at which run of the procedure started
@@ -377,4 +383,4 @@ struct RegisterProcedureType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

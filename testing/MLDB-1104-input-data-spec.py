@@ -123,14 +123,13 @@ class InputDataSpecTest(unittest.TestCase):
         self.train_svd('select x AS z, y from kmeans_example')
         self.train_svd('select * EXCLUDING(x) from kmeans_example')
         self.train_svd({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
+        self.train_svd('select x + 1, y from kmeans_example')
 
         with self.assertRaises(mldb_wrapper.ResponseException):
             self.train_svd('select x, y from kmeans_example group by x')
         with self.assertRaises(mldb_wrapper.ResponseException):
             self.train_svd(
                 'select x, y from kmeans_example group by x having y > 2')
-        with self.assertRaises(mldb_wrapper.ResponseException):
-            self.train_svd('select x + 1, y from kmeans_example')
 
     def test_train_classifier(self):
         mldb.log(self.train_classifier(

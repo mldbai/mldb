@@ -27,7 +27,7 @@
 #include "signals.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 // #define BOOST_CHECK_EQUAL(x,y)  { ExcCheckEqual((x), (y), ""); }
 
@@ -247,7 +247,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
             }
         }
         else {
-            throw ML::Exception("pid was never set");
+            throw MLDB::Exception("pid was never set");
         }
     }
 }

@@ -19,12 +19,9 @@
 #pragma once
 
 
-namespace Datacratic {
-
-struct RestRequestRouter;
-
 namespace MLDB {
 
+struct RestRequestRouter;
 struct CellValue;
 struct ExpressionValue;
 struct MldbServer;
@@ -105,9 +102,9 @@ ExpressionValue from_js_ref(const JS::JSValue & value, ExpressionValue * = 0);
 ScriptException convertException(const v8::TryCatch & trycatch,
                                  const Utf8String & context);
 
-struct JsException: public ML::Exception {
+struct JsException: public MLDB::Exception {
     JsException(const ScriptException & exc)
-        : ML::Exception(exc.where.rawString()), rep(exc)
+        : MLDB::Exception(exc.where.rawString()), rep(exc)
     {
     }
 
@@ -237,9 +234,6 @@ private:
     garbageCollectionCallback(const v8::WeakCallbackInfo<JsObjectBase> & info);
 };
 
-} // namespace MLDB
-
-
 namespace JS {
 
 RestParams
@@ -250,4 +244,6 @@ fromJsForRestParams(const JSValue & val);
 
 } // namespace JS
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

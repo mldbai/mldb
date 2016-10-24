@@ -12,7 +12,7 @@
 #include "date.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct DateDescription
     : public ValueDescriptionI<Date, ValueKind::ATOM, DateDescription> {
@@ -24,8 +24,8 @@ struct DateDescription
     virtual bool isDefaultTyped(const Date * val) const override;
 };
 
-extern template struct ValueDescriptionT<Datacratic::Date>;
-extern template struct ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
+extern template struct ValueDescriptionT<MLDB::Date>;
+extern template struct ValueDescriptionI<MLDB::Date, ValueKind::ATOM, DateDescription>;
 
 struct JavaTimestampValueDescription: public DateDescription {
 
@@ -44,4 +44,4 @@ struct Iso8601TimestampValueDescription: public DateDescription {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

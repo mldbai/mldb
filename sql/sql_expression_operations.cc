@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -188,7 +188,7 @@ struct BinaryOpHelper {
         // row * row
         RowValue output;
 
-        auto onColumn = [&] (ColumnName columnName,
+        auto onColumn = [&] (ColumnPath columnName,
                              std::pair<CellValue, Date> * vals1,
                              std::pair<CellValue, Date> * vals2,
                              size_t n1, size_t n2)
@@ -250,7 +250,7 @@ struct BinaryOpHelper {
                          const RhsContext & rhsContext)
     {
         // Row * row
-        auto onInfo = [] (const ColumnName &,
+        auto onInfo = [] (const ColumnPath &,
                           std::shared_ptr<ExpressionValueInfo> lhsInfo,
                           std::shared_ptr<ExpressionValueInfo> rhsInfo)
             {
@@ -371,8 +371,8 @@ struct BinaryOpHelper {
             RowValue output;
             const CellValue & r = rhs.getAtom();
             Date rts = rhs.getEffectiveTimestamp();
-            auto onVal = [&] (ColumnName columnName,
-                              const ColumnName & prefix,
+            auto onVal = [&] (ColumnPath columnName,
+                              const ColumnPath & prefix,
                               const CellValue & val,
                               Date ts)
                 {
@@ -592,8 +592,8 @@ struct BinaryOpHelper {
             RowValue output;
             const CellValue & l = lhs.getAtom();
             Date lts = lhs.getEffectiveTimestamp();
-            auto onVal = [&] (ColumnName columnName,
-                              const ColumnName & prefix,
+            auto onVal = [&] (ColumnPath columnName,
+                              const ColumnPath & prefix,
                               const CellValue & val,
                               Date ts)
                 {
@@ -1497,7 +1497,7 @@ getChildren() const
 /*****************************************************************************/
 
 ReadColumnExpression::
-ReadColumnExpression(ColumnName columnName)
+ReadColumnExpression(ColumnPath columnName)
     : columnName(std::move(columnName))
 {
 }
@@ -1514,7 +1514,7 @@ bind(SqlBindingScope & scope) const
     auto getVariable = scope.doGetColumn("" /*tableName*/, columnName);
 
     if (!getVariable.info) {
-        throw HttpReturnException(400, "scope " + ML::type_name(scope)
+        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
                                   + " getColumn '" + columnName.toUtf8String()
                                   + "' didn't return info");
     }
@@ -1758,6 +1758,8 @@ bind(SqlBindingScope & scope) const
              true /* is constant */);
     }
 
+    bool isConstant = true;
+
     vector<BoundSqlExpression> boundClauses;
     DimsVector knownDims = {clauses.size()};
 
@@ -1765,6 +1767,7 @@ bind(SqlBindingScope & scope) const
 
     for (auto & c: clauses) {
         boundClauses.emplace_back(c->bind(scope));
+        isConstant = isConstant && boundClauses.back().metadata.isConstant;
         clauseInfo.push_back(boundClauses.back().info);
     }   
 
@@ -1837,7 +1840,7 @@ bind(SqlBindingScope & scope) const
             }
         };
 
-    return BoundSqlExpression(exec, this, outputInfo, false);
+    return BoundSqlExpression(exec, this, outputInfo, isConstant);
 }
 
 Utf8String
@@ -2231,7 +2234,7 @@ bind(SqlBindingScope & scope) const
         throw HttpReturnException(400, message,
                                   "functionName", functionName,
                                   "tableName", tableName,
-                                  "scopeType", ML::type_name(scope),
+                                  "scopeType", MLDB::type_name(scope),
                                   "expr", print(),
                                   "surface", surface);
     }
@@ -2262,7 +2265,8 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo};
+                fn.resultInfo,
+                fn.resultMetadata};
     }
     else {
         return {[=] (const SqlRowScope & row,
@@ -2277,7 +2281,8 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo};
+                fn.resultInfo,
+                fn.resultMetadata};
     }
 }
 
@@ -2358,7 +2363,7 @@ functionNames() const
 {
     std::map<ScopedName, UnboundFunction> result;
     // TODO: actually get arguments
-    result[ScopedName(tableName, ColumnName(functionName))]
+    result[ScopedName(tableName, ColumnPath(functionName))]
         .argsForArity[args.size()] = {};
     
     // Now go into our arguments and also extract the functions called
@@ -2505,14 +2510,22 @@ BoundSqlExpression
 CaseExpression::
 bind(SqlBindingScope & scope) const
 {
+    std::shared_ptr<ExpressionValueInfo> info;
+
     BoundSqlExpression boundElse;
-    if (elseExpr)
+    if (elseExpr) {
         boundElse = elseExpr->bind(scope);
+        info = boundElse.info;
+    }
 
     std::vector<std::pair<BoundSqlExpression, BoundSqlExpression> > boundWhen;
 
     for (auto & w: when) {
         boundWhen.emplace_back(w.first->bind(scope), w.second->bind(scope));
+        if (info)
+            info = VariantExpressionValueInfo::createVariantValueInfo(info, boundWhen.back().second.info);
+        else
+            info = boundWhen.back().second.info;
     }
 
     if (expr) {
@@ -2553,8 +2566,7 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue();
                 },
                 this,
-                // TODO: infer the type
-                std::make_shared<AnyValueInfo>()};
+                info};
     }
     else {
         // Searched CASE expression
@@ -2575,7 +2587,7 @@ bind(SqlBindingScope & scope) const
                     else return storage = ExpressionValue();
                 },
                 this,
-                std::make_shared<AnyValueInfo>()};
+                info};
     }
 }
 
@@ -3379,7 +3391,7 @@ bind(SqlBindingScope & scope) const
     auto getParam = scope.doGetBoundParameter(paramName);
 
     if (!getParam.info) {
-        throw HttpReturnException(400, "scope " + ML::type_name(scope)
+        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
                             + " getBoundParameter '" + paramName
                             + "' didn't return info");
     }
@@ -3442,9 +3454,9 @@ getChildren() const
 /*****************************************************************************/
 
 WildcardExpression::
-WildcardExpression(ColumnName prefix,
-                   ColumnName asPrefix,
-                   std::vector<std::pair<ColumnName, bool> > excluding)
+WildcardExpression(ColumnPath prefix,
+                   ColumnPath asPrefix,
+                   std::vector<std::pair<ColumnPath, bool> > excluding)
     : prefix(std::move(prefix)), asPrefix(std::move(asPrefix)),
       excluding(std::move(excluding))
 {
@@ -3454,7 +3466,7 @@ BoundSqlExpression
 WildcardExpression::
 bind(SqlBindingScope & scope) const
 {
-    ColumnName simplifiedPrefix = prefix;
+    ColumnPath simplifiedPrefix = prefix;
     Utf8String resolvedTableName;
 
     //cerr << "binding wildcard expression " << print() << endl;
@@ -3473,7 +3485,7 @@ bind(SqlBindingScope & scope) const
 
         // This function figures out the new name of the column.  If it's excluded,
         // then it returns the empty column name
-        newColumnName = ColumnFilter([=] (const ColumnName & inputColumnName) -> ColumnName
+        newColumnName = ColumnFilter([=] (const ColumnPath & inputColumnName) -> ColumnPath
             {
                 //cerr << "input column name " << inputColumnName << endl;
 
@@ -3485,7 +3497,7 @@ bind(SqlBindingScope & scope) const
                 if (!inputColumnName.matchWildcard(simplifiedPrefix)
                     && !inputColumnName.matchWildcard(prefix)) {
                     //cerr << "rejected by prefix: " << simplifiedPrefix << "," << prefix << endl;
-                    return ColumnName();
+                    return ColumnPath();
                 }
 
                 // Second, check it doesn't match an exclusion
@@ -3493,12 +3505,12 @@ bind(SqlBindingScope & scope) const
                     if (ex.second) {
                         // prefix
                         if (inputColumnName.matchWildcard(ex.first))
-                            return ColumnName();
+                            return ColumnPath();
                     }
                     else {
                         // exact match
                         if (inputColumnName == ex.first)
-                            return ColumnName();
+                            return ColumnPath();
                     }
                 }
 
@@ -3519,7 +3531,7 @@ bind(SqlBindingScope & scope) const
             });
     }   
 
-    auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
+    auto allColumns = scope.doGetAllAtoms(resolvedTableName, newColumnName);
 
     auto exec = [=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
@@ -3577,7 +3589,7 @@ WildcardExpression::
 wildcards() const
 {
     std::map<ScopedName, UnboundWildcard> result;
-    result[{"" /*tableName*/, ColumnName(prefix + "*")}].prefix = prefix;
+    result[{"" /*tableName*/, ColumnPath(prefix + "*")}].prefix = prefix;
     return result;
 }
 
@@ -3600,7 +3612,7 @@ isIdentitySelect(SqlExpressionDatasetScope & scope) const
 /*****************************************************************************/
 
 NamedColumnExpression::
-NamedColumnExpression(ColumnName alias,
+NamedColumnExpression(ColumnPath alias,
                std::shared_ptr<SqlExpression> expression)
     : alias(std::move(alias)),
       expression(std::move(expression))
@@ -3723,13 +3735,15 @@ SelectColumnExpression(std::shared_ptr<SqlExpression> select,
                        std::shared_ptr<SqlExpression> where,
                        OrderByExpression orderBy,
                        int64_t offset,
-                       int64_t limit)
+                       int64_t limit,
+                       bool isStructured)
     : select(std::move(select)),
       as(std::move(as)),
       where(std::move(where)),
       orderBy(std::move(orderBy)),
       offset(offset),
-      limit(limit)
+      limit(limit),
+      isStructured(isStructured)
 {
 }
 
@@ -3739,9 +3753,8 @@ bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
     ColumnFilter filter = ColumnFilter::identity();
-    auto allColumns
-        = scope.doGetAllColumns("" /* table name */,
-                                filter);
+    auto allColumns 
+        = isStructured ? scope.doGetAllColumns("" /* table name */, filter) : scope.doGetAllAtoms("" /* table name */, filter);
     
     bool hasDynamicColumns
         = allColumns.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
@@ -3750,8 +3763,8 @@ bind(SqlBindingScope & scope) const
     // the order by expression.
 
     struct ColumnEntry {
-        ColumnName inputColumnName;
-        ColumnName columnName;
+        ColumnPath inputColumnName;
+        ColumnPath columnName;
         ColumnHash columnHash;
         int columnNumber;
         std::vector<ExpressionValue> sortFields;
@@ -3774,13 +3787,15 @@ bind(SqlBindingScope & scope) const
     /// List of all functions to run in our run() operator
     std::vector<std::function<void (const SqlRowScope &, StructValue &)> > functionsToRun;
 
-    std::vector<KnownColumn> knownColumns = allColumns.info->getKnownColumns();
+    std::vector<KnownColumn> knownColumns;
+
+    knownColumns = allColumns.info->getKnownColumns(); 
 
     // For each group of columns, find which match
     for (unsigned j = 0;  j < knownColumns.size();  ++j) {
         const auto & col = knownColumns[j];
 
-        const ColumnName & columnName = col.columnName;
+        const ColumnPath & columnName = col.columnName;
             
         auto thisScope = colScope.getColumnScope(columnName);
 
@@ -3789,7 +3804,7 @@ bind(SqlBindingScope & scope) const
         if (!keep)
             continue;
 
-        ColumnName newColName = boundAs(thisScope, GET_LATEST).coerceToPath();
+        ColumnPath newColName = boundAs(thisScope, GET_LATEST).coerceToPath();
 
         vector<ExpressionValue> orderBy;
         for (auto & c: boundOrderBy) {
@@ -3798,7 +3813,7 @@ bind(SqlBindingScope & scope) const
 
         ColumnEntry entry;
         entry.inputColumnName = columnName;
-        entry.columnName = ColumnName(newColName);
+        entry.columnName = ColumnPath(newColName);
         entry.columnHash = entry.columnName;
         entry.columnNumber = j;
         entry.sortFields = std::move(orderBy);
@@ -3807,9 +3822,7 @@ bind(SqlBindingScope & scope) const
 
         columns.emplace_back(std::move(entry));
     }
-
-    //cerr << "considering " << columns.size() << " columns" << endl;
-    
+   
     // Compare two columns according to the sort criteria
     auto compareColumns = [&] (const ColumnEntry & col1,
                                const ColumnEntry & col2)
@@ -3870,25 +3883,26 @@ bind(SqlBindingScope & scope) const
 
     //cerr << "restricted set of columns has " << columns.size() << " entries" << endl;
 
-    std::unordered_map<ColumnName, ColumnName> keepColumns;
+    std::unordered_map<ColumnPath, ColumnPath> keepColumns;
     for (auto & c: columns)
         keepColumns[c.inputColumnName]
             = c.columnName;
-    
+
     if (selectValue && asColumnPath && !hasDynamicColumns) {
 
-        ColumnFilter filterColumns([=] (const ColumnName & name) -> ColumnName
+        ColumnFilter filterColumns([=] (const ColumnPath & name) -> ColumnPath
             {
                 auto it = keepColumns.find(name);
                 if (it == keepColumns.end()) {
-                    return ColumnName();
+                    return ColumnPath();
                 }
                 return it->second;
             });
     
         // Finally, return a filtered set from the underlying dataset
         auto outputColumns
-            = scope.doGetAllColumns("" /* prefix */, filterColumns);
+            = isStructured ? scope.doGetAllColumns("" /* prefix */, filterColumns) : 
+                             scope.doGetAllAtoms("" /* prefix */, filterColumns);
 
         auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
@@ -3903,10 +3917,8 @@ bind(SqlBindingScope & scope) const
         return result;
     }
     else {
-        ColumnFilter filterColumns = ColumnFilter::identity();
 
-        auto outputColumns
-            = scope.doGetAllColumns("" /* prefix */, filterColumns);
+        ColumnFilter filterColumns = ColumnFilter::identity();
 
         BoundSqlExpression boundSelect = select->bind(colScope);
 
@@ -3915,15 +3927,13 @@ bind(SqlBindingScope & scope) const
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                ExpressionValue input = outputColumns.exec(scope, filter);
+                ExpressionValue input = allColumns.exec(scope, filter);
 
                 RowValue output;
-                
-                auto onAtom = [&] (ColumnName & columnName,
-                                   CellValue & val,
-                                   Date ts)
+               
+                auto onValue = [&] (const ColumnPath & columnName,
+                                   ExpressionValue in)
                 {
-                    ExpressionValue in(std::move(val), ts);
                     auto scope = ColumnExpressionBindingScope
                         ::getColumnScope(columnName, in);
 
@@ -3940,8 +3950,8 @@ bind(SqlBindingScope & scope) const
                             ? storage
                             : boundSelect(scope, storage, GET_ALL);
 
-                    ColumnName columnNameStorage;
-                    ColumnName * columnNameOut = &columnName;
+                    ColumnPath columnNameStorage;
+                    const ColumnPath * columnNameOut = &columnName;
                     if (!asColumnPath) {
                         ExpressionValue tmp;
                         columnNameStorage
@@ -3959,7 +3969,7 @@ bind(SqlBindingScope & scope) const
                         else {
                             // The expression may produce more than one atom as an
                             // output, so take all of them.
-                            auto onAtom2 = [&] (ColumnName & columnName2,
+                            auto onAtom2 = [&] (ColumnPath & columnName2,
                                                 CellValue & val,
                                                 Date ts)
                             {
@@ -3974,8 +3984,8 @@ bind(SqlBindingScope & scope) const
                     }
                     else {
 
-                        auto onAtom2 = [&] (const ColumnName & prefix,
-                                            const ColumnName & suffix,
+                        auto onAtom2 = [&] (const ColumnPath & prefix,
+                                            const ColumnPath & suffix,
                                             const CellValue & val,
                                             Date ts)
                             {
@@ -3991,13 +4001,28 @@ bind(SqlBindingScope & scope) const
 
                     return true;
                 };
+
+                auto onAtom = [&] (ColumnPath & columnName,
+                                   CellValue & val,
+                                   Date ts) -> bool
+                {
+                    return onValue(columnName,ExpressionValue(val, ts));
+                };
+
+                auto onColumn = [&] (PathElement & columnName, ExpressionValue & val) -> bool
+                {
+                    return onValue(ColumnPath(columnName), val);
+                };
                 
-                input.forEachAtomDestructive(onAtom);
+                if (isStructured)
+                    input.forEachColumnDestructive(onColumn);
+                else 
+                    input.forEachAtomDestructive(onAtom);
 
                 return storage = std::move(output);
             };
 
-        BoundSqlExpression result(exec, this, outputColumns.info);
+        BoundSqlExpression result(exec, this, allColumns.info);
     
         return result;
     }
@@ -4064,11 +4089,11 @@ wildcards() const
 {
     //COLMUN EXPR has an *implicit* wildcard because it reads all columns.
     std::map<ScopedName, UnboundWildcard> result;
-    result[{"", ColumnName("*")}].prefix = ColumnName();
+    result[{"", ColumnPath("*")}].prefix = ColumnPath();
     return result;
 }
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

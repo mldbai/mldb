@@ -17,7 +17,7 @@
 #include "mldb/types/url.h"
 #include <boost/filesystem.hpp>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -61,7 +61,7 @@ struct PackageElementSources {
             case ROUTES:    return routes;
             case STATUS:    return status;
         }
-        throw ML::Exception("Unknown PackageElem");
+        throw MLDB::Exception("Unknown PackageElem");
     }
 };
 
@@ -184,4 +184,4 @@ struct LoadedPluginResource {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -11,7 +11,7 @@
 
 #include <tuple>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 // implementation details, users never invoke these directly
@@ -95,4 +95,4 @@ std::tuple<Args...> detuplize(std::tuple<Args...> && res)
     return res;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

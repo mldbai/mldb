@@ -11,7 +11,7 @@
 
 #include "mldb/base/parallel.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct MergeHashEntry {
     MergeHashEntry(uint64_t hash = SH(), uint32_t bitmap = 0)
@@ -21,7 +21,7 @@ struct MergeHashEntry {
         
     uint64_t hash;
     uint32_t bitmap;
-} JML_PACKED;
+} MLDB_PACKED;
 
 struct MergeHashEntryBucket {
     MergeHashEntry * data;
@@ -82,7 +82,7 @@ struct MergeHashEntryBucket {
         auto out = data;
 
         for (;it1 != end1 && it2 != end2;) {
-            if (JML_LIKELY(it2->hash < it1->hash)) {
+            if (MLDB_LIKELY(it2->hash < it1->hash)) {
                 *out++ = *it2++;
                 __builtin_prefetch(it2 + 16, 0, 3);
             }
@@ -118,7 +118,7 @@ struct MergeHashEntryBucket {
 
         auto newData = (MergeHashEntry *)malloc(newCap * sizeof(MergeHashEntry));
         if (!newData) {
-            throw ML::Exception("not enough memory to allocate %d",
+            throw MLDB::Exception("not enough memory to allocate %d",
                                 (int) (newCap * sizeof(MergeHashEntry)));
         }
         std::copy(data, data + size_, newData);
@@ -256,7 +256,7 @@ extractAndMerge(size_t numElementsToMerge,
                 return;
             }
             else if (first >= last) {
-                throw ML::Exception("first should come before last");
+                throw MLDB::Exception("first should come before last");
             }
             else if (last == first + 1) {
                 // One of them
@@ -285,5 +285,5 @@ extractAndMerge(size_t numElementsToMerge,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

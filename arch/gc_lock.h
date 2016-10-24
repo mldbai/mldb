@@ -40,7 +40,7 @@
 
 */
 
-namespace Datacratic {
+namespace MLDB {
 
 extern int32_t SpeculativeThreshold;
 
@@ -90,7 +90,7 @@ public:
         std::string print() const;
     };
 
-    typedef ML::ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
+    typedef ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
         GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
 
@@ -105,7 +105,7 @@ public:
     int myEpoch(GcInfo::PerThreadInfo * threadInfo = 0) const;
     int currentEpoch() const;
 
-    JML_ALWAYS_INLINE ThreadGcInfoEntry &
+    MLDB_ALWAYS_INLINE ThreadGcInfoEntry &
     getEntry(GcInfo::PerThreadInfo * info = 0) const
     {
         ThreadGcInfoEntry *entry = gcInfo.get(info);
@@ -373,4 +373,4 @@ private:
     std::unique_ptr<Data> localData;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

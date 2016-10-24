@@ -19,7 +19,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 constexpr HashSeed defaultSeedStable { .u64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
@@ -82,7 +82,7 @@ HashedColumnFeatureGenerator(MldbServer * owner,
     functionConfig = config.params.convert<HashedColumnFeatureGeneratorConfig>();
 
     for(int i=0; i<numBuckets(); i++) {
-        outputColumns.emplace_back(ColumnName(ML::format("hashColumn%d", i)),
+        outputColumns.emplace_back(ColumnPath(MLDB::format("hashColumn%d", i)),
                                    std::make_shared<Float32ValueInfo>(),
                                    COLUMN_IS_DENSE);
     }
@@ -97,9 +97,9 @@ FeatureGeneratorOutput
 HashedColumnFeatureGenerator::
 call(FeatureGeneratorInput input) const
 {
-    ML::distribution<float> result(numBuckets());
+    distribution<float> result(numBuckets());
 
-    ML::Lightweight_Hash_Set<uint64_t> doneHashes;
+    Lightweight_Hash_Set<uint64_t> doneHashes;
 
     Date ts = Date::negativeInfinity();
 
@@ -118,7 +118,7 @@ call(FeatureGeneratorInput input) const
             hash = sipHash(defaultSeedStable.u64, str.rawData(), str.rawLength());
         }
         else {
-            throw ML::Exception("Unsupported hashing mode");
+            throw MLDB::Exception("Unsupported hashing mode");
         }
 
         if (!doneHashes.insert(hash).second)
@@ -144,7 +144,7 @@ call(FeatureGeneratorInput input) const
     ExpressionValue foResult;
     RowValue rowVal;
     for(int i=0; i<result.size(); i++) {
-        rowVal.push_back(make_tuple(ColumnName(ML::format("hashColumn%d", i)),
+        rowVal.push_back(make_tuple(ColumnPath(MLDB::format("hashColumn%d", i)),
                                     CellValue(result[i]), ts));
     }
 
@@ -164,5 +164,5 @@ regHashedColFeatGenFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

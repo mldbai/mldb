@@ -27,7 +27,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {
@@ -194,7 +194,7 @@ performStateRequest(const shared_ptr<S3RequestState> & state)
                                   headers,
                                   timeout)) {
         /* TODO: should invoke onResponse with "too many requests" */
-        throw ML::Exception("the http client could not enqueue the request");
+        throw MLDB::Exception("the http client could not enqueue the request");
     }
 }
 
@@ -299,7 +299,7 @@ onDone(const HttpRequest & rq, HttpClientError errorCode)
             scheduleRestart();
         }
         else {
-            auto excPtr = std::make_exception_ptr(ML::Exception(message));
+            auto excPtr = std::make_exception_ptr(MLDB::Exception(message));
             state_->onResponse(std::move(response_), excPtr);
         }
     }
@@ -414,7 +414,7 @@ scheduleRestart()
 } // file scope
 
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(S3Config);
 
@@ -454,7 +454,7 @@ S3Api::Range::
 adjust(size_t downloaded)
 {
     if (downloaded > size) {
-        throw ML::Exception("excessive adjustment size: downloaded %d size %d",
+        throw MLDB::Exception("excessive adjustment size: downloaded %d size %d",
                             downloaded, size);
     }
     offset += downloaded;
@@ -527,7 +527,7 @@ body()
     const
 {
     if (code_ < 200 || code_ >= 300)
-        throw ML::Exception("invalid http code returned");
+        throw MLDB::Exception("invalid http code returned");
     return body_;
 }
 
@@ -537,7 +537,7 @@ bodyXml()
     const
 {
     if (code_ != 200)
-        throw ML::Exception("invalid http code returned");
+        throw MLDB::Exception("invalid http code returned");
     std::unique_ptr<tinyxml2::XMLDocument> result(new tinyxml2::XMLDocument());
     result->Parse(body_.c_str());
     return result;
@@ -568,7 +568,7 @@ getHeader(const string & name)
 {
     auto it = header_.headers.find(name);
     if (it == header_.headers.end())
-        throw ML::Exception("required header " + name + " not found");
+        throw MLDB::Exception("required header " + name + " not found");
     return it->second;
 }
 
@@ -657,7 +657,11 @@ ObjectInfo(tinyxml2::XMLNode * element)
     string lastModifiedStr = extract<string>(element, "LastModified");
     lastModified = Date::parseIso8601DateTime(lastModifiedStr);
     etag = extract<string>(element, "ETag");
-    ownerId = extract<string>(element, "Owner/ID");
+
+    if (pathExists(element, "Owner/ID")) {
+        ownerId = extract<string>(element, "Owner/ID");
+    }
+
     ownerName = extractDef<string>(element, "Owner/DisplayName", "");
     storageClass = extract<string>(element, "StorageClass");
     exists = true;
@@ -686,11 +690,11 @@ S3Api::
 s3EscapeResource(const string & str)
 {
     if (str.size() == 0) {
-        throw ML::Exception("empty str name");
+        throw MLDB::Exception("empty str name");
     }
 
     if (str[0] != '/') {
-        throw ML::Exception("resource name must start with a '/'");
+        throw MLDB::Exception("resource name must start with a '/'");
     }
 
     string result;
@@ -698,7 +702,7 @@ s3EscapeResource(const string & str)
 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/')
             result += c;
-        else result += ML::format("%%%02X", c);
+        else result += MLDB::format("%%%02X", c);
     }
 
     return result;
@@ -752,7 +756,7 @@ perform(const OnResponse & onResponse, const shared_ptr<SignedRequest> & rq)
 {
     size_t spacePos = rq->resource.find(" ");
     if (spacePos != string::npos) {
-        throw ML::Exception("url '" + rq->resource + "' contains an unescaped"
+        throw MLDB::Exception("url '" + rq->resource + "' contains an unescaped"
                             " space at position " + to_string(spacePos));
     }
 
@@ -805,7 +809,7 @@ prepare(const RequestParams & request) const
 {
     string protocol = defaultProtocol;
     if(protocol.length() == 0){
-        throw ML::Exception("attempt to perform s3 request without a "
+        throw MLDB::Exception("attempt to perform s3 request without a "
             "default protocol. (Could be caused by S3Api initialisation with "
             "the empty constructor.)");
     }
@@ -815,7 +819,7 @@ prepare(const RequestParams & request) const
     result->bandwidthToServiceMbps = bandwidthToServiceMbps;
 
     if (request.resource.find("//") != string::npos)
-        throw ML::Exception("attempt to perform s3 request with double slash: "
+        throw MLDB::Exception("attempt to perform s3 request with double slash: "
                             + request.resource);
 
     result->resource += request.resource;
@@ -1278,7 +1282,7 @@ finishMultiPartUpload(const string & bucket,
     for (unsigned i = 0;  i < etags.size();  ++i) {
         auto n = r->InsertEndChild(joinRequest.NewElement("Part"));
         n->InsertEndChild(joinRequest.NewElement("PartNumber"))
-            ->InsertEndChild(joinRequest.NewText(ML::format("%d", i + 1).c_str()));
+            ->InsertEndChild(joinRequest.NewText(MLDB::format("%d", i + 1).c_str()));
         n->InsertEndChild(joinRequest.NewElement("ETag"))
             ->InsertEndChild(joinRequest.NewText(etags[i].c_str()));
     }
@@ -1455,7 +1459,7 @@ getObjectInfoFull(const string & bucket, const string & object)
 
     if (listingResult.code_ != 200) {
         cerr << listingResult.bodyXmlStr() << endl;
-        throw ML::Exception("error getting object");
+        throw MLDB::Exception("error getting object");
     }
 
     auto listingResultXml = listingResult.bodyXml();
@@ -1467,13 +1471,13 @@ getObjectInfoFull(const string & bucket, const string & object)
         .ToElement();
 
     if (!foundObject)
-        throw ML::Exception("object " + object + " not found in bucket "
+        throw MLDB::Exception("object " + object + " not found in bucket "
                             + bucket);
 
     ObjectInfo info(foundObject);
 
     if(info.key != object){
-        throw ML::Exception("object " + object + " not found in bucket "
+        throw MLDB::Exception("object " + object + " not found in bucket "
                             + bucket);
     }
     return info;
@@ -1486,11 +1490,11 @@ getObjectInfoShort(const string & bucket, const string & object)
 {
     auto res = head(bucket, "/" + object);
     if (res.code_ == 404) {
-        throw ML::Exception("object " + object + " not found in bucket "
+        throw MLDB::Exception("object " + object + " not found in bucket "
                             + bucket);
     }
     if (res.code_ != 200) {
-        throw ML::Exception("error getting object");
+        throw MLDB::Exception("error getting object");
     }
     return ObjectInfo(res);
 }
@@ -1518,7 +1522,7 @@ tryGetObjectInfoFull(const string & bucket, const string & object)
     auto listingResult = get(bucket, "/", Range::Full, "", {}, queryParams);
     if (listingResult.code_ != 200) {
         cerr << listingResult.bodyXmlStr() << endl;
-        throw ML::Exception("error getting object request: %d",
+        throw MLDB::Exception("error getting object request: %d",
                             listingResult.code_);
     }
     auto listingResultXml = listingResult.bodyXml();
@@ -1551,7 +1555,7 @@ tryGetObjectInfoShort(const string & bucket, const string & object)
         return ObjectInfo();
     }
     if (res.code_ != 200) {
-        throw ML::Exception("error getting object");
+        throw MLDB::Exception("error getting object");
     }
 
     return ObjectInfo(res);
@@ -1586,7 +1590,7 @@ eraseObject(const string & bucket,
 
     if (response.code_ != 204) {
         cerr << response.bodyXmlStr() << endl;
-        throw ML::Exception("error erasing object request: %d",
+        throw MLDB::Exception("error erasing object request: %d",
                             response.code_);
     }
 }
@@ -1647,11 +1651,11 @@ S3Api::
 parseUri(const string & uri)
 {
     if (uri.find("s3://") != 0)
-        throw ML::Exception("wrong scheme (should start with s3://)");
+        throw MLDB::Exception("wrong scheme (should start with s3://)");
     string pathPart(uri, 5);
     string::size_type pos = pathPart.find('/');
     if (pos == string::npos)
-        throw ML::Exception("couldn't find bucket name");
+        throw MLDB::Exception("couldn't find bucket name");
     string bucket(pathPart, 0, pos);
     string object(pathPart, pos + 1);
 
@@ -1699,7 +1703,7 @@ S3Api::
 setDefaultRedundancy(Redundancy redundancy)
 {
     if (redundancy == REDUNDANCY_DEFAULT)
-        throw ML::Exception("Can't set default redundancy as default");
+        throw MLDB::Exception("Can't set default redundancy as default");
     defaultRedundancy = redundancy;
 }
 
@@ -1966,4 +1970,4 @@ std::shared_ptr<S3Api> getS3ApiForUri(const string & uri)
                                    creds.protocol, creds.location);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

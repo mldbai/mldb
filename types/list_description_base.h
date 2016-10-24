@@ -13,7 +13,7 @@
 
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T>
 void clearList(T & list)
@@ -97,4 +97,4 @@ struct ListDescriptionBase {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB

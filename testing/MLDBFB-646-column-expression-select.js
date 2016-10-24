@@ -20,7 +20,6 @@ var expected = [
          [ "x", 10, "-Inf" ],
          [ "y", 20, "-Inf" ]
       ],
-      "rowHash" : "4ba25cf9b5244b88",
       "rowName" : "res"
    }
 ];
@@ -41,7 +40,6 @@ expected = [
          [ "y.a", 20, "-Inf" ],
          [ "y.b", 40, "-Inf" ]
       ],
-      "rowHash" : "4ba25cf9b5244b88",
       "rowName" : "res"
    }
 ];
@@ -58,7 +56,6 @@ expected = [
          [ "x.y.y", 2, "-Inf" ],
          [ "x.y.z", 1, "-Inf" ]
       ],
-      "rowHash" : "4ba25cf9b5244b88",
       "rowName" : "res"
    }
 ];

@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 namespace Builtins {
 
@@ -850,7 +850,7 @@ struct LikelihoodRatioAccum {
             
     std::array<uint64_t, 2> n;
     Date ts;
-    std::unordered_map<ColumnName, std::array<uint64_t, 2> > counts;
+    std::unordered_map<ColumnPath, std::array<uint64_t, 2> > counts;
 };
 
 BoundAggregator lr(const std::vector<BoundSqlExpression> & args,
@@ -1122,5 +1122,5 @@ static RegisterAggregatorT<StdDevAccum> registerStdDevAgg("stddev", "vertical_st
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+
 

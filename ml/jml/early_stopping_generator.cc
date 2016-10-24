@@ -30,10 +30,10 @@ Early_Stopping_Generator::
 
 void
 Early_Stopping_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
-    config.find(validate_split, "validate_split");
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(validate_split, "validate_split", unparsedKeys);
 }
 
 void

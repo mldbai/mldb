@@ -27,8 +27,6 @@
 
 using namespace std;
 
-
-namespace Datacratic {
 namespace MLDB {
 
 SummaryStatisticsProcedureConfig::
@@ -58,7 +56,7 @@ SummaryStatisticsProcedureConfigDescription()
     onPostValidate = [&] (SummaryStatisticsProcedureConfig * cfg,
                           JsonParsingContext & context)
     {
-        auto logger = MLDB::getMldbLog("SummaryStatisticsProcedure");
+        auto logger = MLDB::getMldbLog<SummaryStatisticsProcedure>();
         //logger->set_level(spdlog::level::debug);
         MustContainFrom()(cfg->inputData, SummaryStatisticsProcedureConfig::name);
         NoGroupByHaving()(cfg->inputData, SummaryStatisticsProcedureConfig::name);
@@ -71,13 +69,13 @@ SummaryStatisticsProcedureConfigDescription()
             auto expr = dynamic_cast<NamedColumnExpression *>(clause.get());
             if (expr == nullptr) {
                 DEBUG_MSG(logger) << "Failed to cast " << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
             if (expr->alias.empty()) {
                 DEBUG_MSG(logger) << "Empty alias " << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
@@ -86,10 +84,10 @@ SummaryStatisticsProcedureConfigDescription()
                     "sum(" + expr->getChildren()[0]->surface + ") AS "
                     + expr->alias.toSimpleName());
             }
-            catch (const ML::Exception & exc) {
+            catch (const MLDB::Exception & exc) {
                 DEBUG_MSG(logger) << "Failed to parse within sum "
                                 << clause->surface;
-                throw ML::Exception("%s is not a supported SELECT value "
+                throw MLDB::Exception("%s is not a supported SELECT value "
                                     "expression for summary.statistics",
                                     clause->surface.rawData());
             }
@@ -106,7 +104,7 @@ SummaryStatisticsProcedure(MldbServer * owner,
     procedureConfig = config.params.convert<SummaryStatisticsProcedureConfig>();
 }
 
-typedef tuple<ColumnName, CellValue, Date> Cell;
+typedef tuple<ColumnPath, CellValue, Date> Cell;
 
 template <typename T, int size>
 struct MostFrequents {
@@ -174,13 +172,13 @@ struct NumericRowHandler {
 
         int64_t numNotNull = 0;
         bool isNumeric = false;
-        ColumnName value("value");
+        ColumnPath value("value");
         auto onRow = [&] (NamedRowValue & row) {
 
             // If the data is categorical, we don't even reach this point
 
             const auto & cols = row.columns;
-            if (JML_UNLIKELY(first)) {
+            if (MLDB_UNLIKELY(first)) {
                 // Checks on the first row if the expected order is correct
                 ExcAssert(std::get<0>(cols[AVG_IDX]).toUtf8String() == "avg");
                 ExcAssert(std::get<0>(cols[MAX_IDX]).toUtf8String() == "max");
@@ -242,7 +240,7 @@ struct NumericRowHandler {
                          -1, // limit
                          onProgress);
         }
-        catch (const ML::Exception & exc) {
+        catch (const MLDB::Exception & exc) {
             if (!isNumeric) {
                 // Categorical, the query doesn't work
                 return false;
@@ -269,7 +267,7 @@ struct NumericRowHandler {
         MostFrequents<double, 10> mostFrequents; // Keep top 10
         auto onRow2 = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
-            if (JML_UNLIKELY(first)) {
+            if (MLDB_UNLIKELY(first)) {
                 ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");
                 ExcAssert(std::get<0>(cols[1]).toUtf8String() == "_1");
                 first = false;
@@ -306,7 +304,8 @@ struct NumericRowHandler {
         toRecord.emplace_back(value + "3rd_quartile", quartiles[2], now);
         for (int i = 0; i < mostFrequents.currSize; ++ i) {
             toRecord.emplace_back(
-                value + "most_frequent_items" + to_string(mostFrequents.top[i].second),
+                // CellValue::to_string returns "1" instead of "1.00000"
+                value + "most_frequent_items" + to_string(CellValue(mostFrequents.top[i].second)),
                 mostFrequents.top[i].first, now);
         }
         output->recordRow(rowName, toRecord);
@@ -336,10 +335,10 @@ struct CategoricalRowHandler {
     std::function<bool (const Json::Value &)> onProgress;
 
     void recordStatsForColumn(const Utf8String & name, const Path & rowName) {
-        ColumnName value("value");
+        ColumnPath value("value");
         auto onRow = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
-            if (JML_UNLIKELY(first)) {
+            if (MLDB_UNLIKELY(first)) {
                 // Checks on the first row if the expected order is correct
                 ExcAssert(std::get<0>(cols[NUM_NULL_IDX]).toUtf8String() == "num_null");
                 ExcAssert(std::get<0>(cols[NUM_UNIQUE_IDX]).toUtf8String() == "num_unique");
@@ -382,11 +381,11 @@ struct CategoricalRowHandler {
         MostFrequents<Utf8String, 10> mostFrequents; // Keep top 10
         auto onRow2 = [&] (NamedRowValue & row) {
             const auto & cols = row.columns;
-            if (JML_UNLIKELY(first)) {
+            if (MLDB_UNLIKELY(first)) {
                 ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");
                 ExcAssert(std::get<0>(cols[1]).toUtf8String() == "_1");
             }
-            if (JML_UNLIKELY(std::get<1>(cols[1]).empty())) {
+            if (MLDB_UNLIKELY(std::get<1>(cols[1]).empty())) {
                 // skipp null
                 return true;
             }
@@ -519,4 +518,4 @@ regSummaryStatisticsProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

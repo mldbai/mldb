@@ -17,7 +17,7 @@ using namespace std;
 using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -190,7 +190,7 @@ dumpFeatureVectors(std::ostream & stream,
 
             std::tie(label, user, weight) = partition.getExample(exampleNum);
 
-            std::string line = ML::format("%d %f ", label, weight);
+            std::string line = MLDB::format("%d %f ", label, weight);
             std::string extraFeatures, comment;
             
             if (gfac)
@@ -316,7 +316,7 @@ trainProbabilizer(const DataPartition & partition,
     filter_ostream out("prob-in.txt");
 
     for (unsigned i = 0;  i < nd;  ++i) {
-        out << ML::format("%.15f %.16f %d\n",
+        out << MLDB::format("%.15f %.16f %d\n",
                           outputs[0][i],
                           outputs[1][i],
                           correct[i]);
@@ -486,7 +486,7 @@ explainFeaturesGeneric(const ML::Explanation & explanation,
         = classifier.mapping();
 
     // Get the feature weights
-    ML::distribution<float> weightsIn(arity);
+    distribution<float> weightsIn(arity);
     
     // And now break it down...
     for (auto & fw: explanation.feature_weights) {
@@ -546,12 +546,12 @@ reconstitute(ML::DB::Store_Reader & store)
     unsigned char version;
     store >> version;
     if (version > 2)
-        throw ML::Exception("unknown DenseClassifierScorer version "
+        throw MLDB::Exception("unknown DenseClassifierScorer version "
                             "to reconstitute");
     string tag;
     store >> tag;
     if (tag != "DenseClassifierScorer")
-        throw ML::Exception("unknown DenseClassifierScorer tag [" + tag + "]");
+        throw MLDB::Exception("unknown DenseClassifierScorer tag [" + tag + "]");
     if (version >= 2 )
         store >> truePositiveRate;
     else
@@ -583,4 +583,4 @@ load(const std::string & filename)
     reconstitute(store);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

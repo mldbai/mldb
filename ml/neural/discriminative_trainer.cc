@@ -243,7 +243,7 @@ train_iter(const std::vector<const float *> & data,
 {
     int nx = data.size();
 
-    int microbatch_size = std::max(minibatch_size / (Datacratic::numCpus() * 4), 1);
+    int microbatch_size = std::max(minibatch_size / (MLDB::numCpus() * 4), 1);
             
     Lock update_lock;
 
@@ -292,7 +292,7 @@ train_iter(const std::vector<const float *> & data,
                                    verbosity)();
             };
         
-        Datacratic::parallelMapChunked
+        MLDB::parallelMapChunked
             (x, std::min<size_t>(nx2, x + minibatch_size),
              microbatch_size, onBatch);
         
@@ -530,7 +530,7 @@ test(const std::vector<const float *> & data,
     
     
     // 20 jobs per CPU
-    int batch_size = nx / (Datacratic::numCpus() * 20);
+    int batch_size = nx / (MLDB::numCpus() * 20);
         
     auto onBatch = [&] (size_t x0, size_t x1)
         {
@@ -544,7 +544,7 @@ test(const std::vector<const float *> & data,
                               verbosity)();
         };
     
-    Datacratic::parallelMapChunked(0, nx, batch_size, onBatch);
+    MLDB::parallelMapChunked(0, nx, batch_size, onBatch);
 
     return make_pair(sqrt(mse_total / nx),
                      output_encoder.calc_auc(outputs, labels));

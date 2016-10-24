@@ -14,7 +14,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -67,8 +67,8 @@ struct JoinedDataset: public Dataset {
                      const Utf8String & functionName,
                      SqlBindingScope & scope) const;
 
-    virtual RowName getOriginalRowName(const Utf8String& tableName,
-                                       const RowName & name) const;
+    virtual RowPath getOriginalRowName(const Utf8String& tableName,
+                                       const RowPath & name) const;
 
     virtual int getChainedJoinDepth() const;
 
@@ -92,4 +92,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -4,7 +4,7 @@
 #include <string>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct RunnerTestHelperCommands : std::vector<std::string>
 {
@@ -33,7 +33,7 @@ struct RunnerTestHelperCommands : std::vector<std::string>
         int len = data.size();
         int totalLen = len + 3 + sizeof(int);
         if (totalLen > 16384) {
-            throw ML::Exception("message too large");
+            throw MLDB::Exception("message too large");
         }
         ::sprintf(cmdBuffer, (isStdOut ? "out" : "err"));
         ::memcpy(cmdBuffer + 3, &len, sizeof(int));
@@ -65,4 +65,4 @@ struct RunnerTestHelperCommands : std::vector<std::string>
     int active_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

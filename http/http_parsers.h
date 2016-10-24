@@ -17,7 +17,7 @@
 #include <string>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP PARSER                                                              */
@@ -163,4 +163,4 @@ private:
     bool expectBody_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

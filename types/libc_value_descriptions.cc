@@ -6,7 +6,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/libc_value_descriptions.h"
 
-using namespace Datacratic;
+using namespace MLDB;
 
 
 DEFINE_STRUCTURE_DESCRIPTION(timeval);

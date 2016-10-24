@@ -17,7 +17,7 @@
 
 namespace Json { struct Value; }
 
-namespace Datacratic {
+namespace MLDB {
 
 /******************************************************************************/
 /* PORT RANGE                                                                 */
@@ -44,27 +44,27 @@ struct PortRange
         char * endPtr = 0;
         first = strtol(rangeSpec.c_str(), &endPtr, 10);
         if (errno)
-            throw ML::Exception(errno, "strtol() parsing first port in '" + rangeSpec + "'");
+            throw MLDB::Exception(errno, "strtol() parsing first port in '" + rangeSpec + "'");
         if (first <= 0 || first >= 65536)
-            throw ML::Exception("first port number %d out of range parsing '%s'",
+            throw MLDB::Exception("first port number %d out of range parsing '%s'",
                                 first, rangeSpec.c_str());
         if (*endPtr == 0) {
             last = first + 1;
             return;
         }
         else if (*endPtr != '-')
-            throw ML::Exception("Range spec is <int> or <int>-<int> parsing "
+            throw MLDB::Exception("Range spec is <int> or <int>-<int> parsing "
                                 + rangeSpec);
         
         last = strtol(endPtr + 1, &endPtr, 10);
         if (errno)
-            throw ML::Exception(errno, "strtol() parsing last port in'"
+            throw MLDB::Exception(errno, "strtol() parsing last port in'"
                                 + rangeSpec + "'");
         if (last <= 0 || last >= 65536)
-            throw ML::Exception("last port number %d out of range parsing '%s'",
+            throw MLDB::Exception("last port number %d out of range parsing '%s'",
                                 last, rangeSpec.c_str());
         if (*endPtr != 0)
-            throw ML::Exception("extra junk after last port parsing '%s'",
+            throw MLDB::Exception("extra junk after last port parsing '%s'",
                                 rangeSpec.c_str());
     }
 
@@ -173,4 +173,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

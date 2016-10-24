@@ -18,7 +18,7 @@
 
 namespace ML {
 
-using Datacratic::compact_vector;
+using MLDB::compact_vector;
 
 typedef compact_vector<float, 3, uint32_t, false> QCoord;
 
@@ -112,7 +112,7 @@ struct QuadtreeNode {
                 cerr << "point = " << point << endl;
                 cerr << "mins " << mins << endl;
                 cerr << "maxs " << maxs << endl;
-                throw ML::Exception("point is not within cell");
+                throw MLDB::Exception("point is not within cell");
             }
         }
 

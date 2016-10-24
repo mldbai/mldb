@@ -218,7 +218,7 @@ For example: `expr IN (3,5,7,11)`
 
 #### IN (KEYS OF ...) expression
 
-For example: `expr IN (KEYS OF tokenize({text: sentence}))`
+For example: `expr IN (KEYS OF tokenize('sentence'))`
 
 That will evaluate to true if expr is a word within the given sentence.
 
@@ -397,11 +397,11 @@ With `{arrays: 'encode'}` the output will be:
 
 The full set of options to the `parse_json` function are as follows:
 
-![](%%type Datacratic::MLDB::Builtins::ParseJsonOptions)
+![](%%type MLDB::Builtins::ParseJsonOptions)
 
 and the possible values for the `arrays` field are:
 
-![](%%type Datacratic::MLDB::JsonArrayHandling)
+![](%%type MLDB::JsonArrayHandling)
 
 
 ### Numeric functions
@@ -420,7 +420,13 @@ and the possible values for the `arrays` field are:
 - `isnan(x)`: returns true if `x` is `NaN` in the floating point representation.
 - `isinf(x)`: return true if `x` is +/- infinity in the floating point representation.
 - `isfinite(x)`: returns true if `x` is neither infinite nor `NaN`.
-
+- `sin(x)`, `cos(x)` and `tan(x)` are the normal trigononic functions;
+- `asin(x)`, `acos(x)` and `atan(x)` are the normal invese trigonomic functions;
+- `atan2(x, y)` returns the two-argument arctangent of `x` and `y`, in other
+  words the angle (in radians) of the point through `x` and `y` from the origin
+  with respect to the positive `x` axis;
+- `sinh(x)`, `cosh(x)` and `tanh(x)` are the normal hyperbolic functions;
+- `asinh(x)`, `acosh(x)` and `atanh(x)` are the normal invese hyperbolic functions.
 - `quantize(x, y)`: returns `x` rounded to the precision of `y`.  Here are some examples:
 
 expression|result
@@ -448,6 +454,15 @@ expression|result
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
+
+### Constant functions
+
+The following functions return numerical constants:
+
+- `pi()` returns the value of *pi*, the ratio of a circle's circumfrence to its
+  diameter, as a double precision floating point number.
+- `e()` returns the value of *e*, the base of natural logarithms, as a double
+  precision floating point number.
 
 ### String functions
 
@@ -487,7 +502,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `now()` returns the timestamp at the current moment, according to system
   time.
 - `date_part(unit, x)` returns the subfield `unit` of timestamp `x`. The following are the supported units:
-  
   - `microsecond` as the total number of microseconds after the rounded down second.
   - `millisecond` as the total number of millisecond after the rounded down second.
   - `second` as the number of seconds after the minute (0-59)
@@ -504,7 +518,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - `quarter` as the number of the date's quarter (1-4)
   - `year` as the gregorian calendar year of the date
   - `isoyear` as the ISO-8601 calendar year of the date
-
 - `date_trunc(unit, x)` will truncate the timestamp `x` to the specified `unit`.
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
@@ -536,11 +549,31 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
+- `reshape(val, shape)` will take a n-dimensional embedding and reinterpret it
+  as a N-dimensional embedding of the provided shape containing all of the
+  elements, allowing for example a 1-dimensional vector to be re-interpreted
+  as a 2-dimensional array. The shape argument is an embedding containing the
+  size of each dimension.  This will fail if the number of elements in `shape`
+  is not the same as the number of elements in `val`.
+- `reshape(val, shape, newel)` is similar to the two argument version of
+  `reshape`, but allows for the number of elements to be different.  If the
+  number of elements increases, new elements will be filled in with the
+  `newel` parameter.
+- `shape(val)` will take a n-dimensional embedding and return the size of each dimension as as array.
+- `concat(x, ...)` will take several embeddings with identical sizes in all
+  but their last dimension and join them together on the last dimension.
+  For single dimension embeddings, this is normal concatenation.  For two
+  dimension embeddings, this will join them vertically.  And so forth.
+- `slice(val, index)` will take an n-dimensional embedding and select only
+  the `index`th element of the last index.  For example, with a `m x n` embedding
+  `x` a single row can be selected with `x[index]` (returning a `n` element
+  embedding).  Whereas `slice(x, index)` will return the `index`th *column*
+  as an `m` element embedding. 
 
 ### <a name="geofunctions"></a>Geographical functions
 
 The following functions operate on latitudes and longtitudes and can be used to
-calculate
+calculate things to do with locations on Earth:
 
 - `geo_distance(lat1, lon1, lat2, lon2)` calculates the great circle distance from
   the point at `(lat1, lon1)` to the point at (lat2, lon2)` in meters assuming that
@@ -548,15 +581,82 @@ calculate
   accurate to within 0.3% anywhere on earth, apart from near the North or South
   Poles.
 
+### <a name="geofunctions"></a>Signal processing functions
+
+The following functions provide digital signal processing capabilities:
+
+- `fft(data [,direction='forward' [,type='real']])` performs a fast fourier
+   transform on the given data.  `direction` can be `'forward'` or `'backward'`
+   and controls the direction of the transform (the default is `'forward'`).
+   `type` controls whether the data in the time domain is `'real'` or `'complex'`
+   valued (default is real).  `data` must be an embedding of `n` reals (for the
+   real case) or an `n` by 2 embedding (for the complex case), and `n` must be
+   divisible by 32 (you can zero-pad the data otherwise).
+   <p>The output of the forward FFT function is always complex valued, with
+   the real and imaginary components in a `n` by 2 embedding on the output.
+   Note that for real-valued FFTs, the imaginary part of the first (DC) component
+   contains the half-frequency real component, unlike most FFT implementations.
+   This needs to be maintained for the `reverse` direction to work, but will
+   need to be handled in any analysis that is performed in the frequency
+   domain.
+- `phase(data)` returns takes a `n` by 2 embedding, with real and complex
+  parts, and returns an `n` element embedding with the phase angle.
+- `amplitude(data)` returns takes a `n` by 2 embedding, with real and complex
+  parts, and returns an `n` element embedding with the amplitude.
+- `real(data)` takes an `n` by 2 embedding, and returns the a `n` element
+  embedding with the real parts.
+- `imag(data)` takes an `n` by 2 embedding, and returns the a `n` element
+  embedding with the real parts.
+- `impulse(n)` returns an `n` element real embedding with the impulse function,
+  with the first element 1 and the rest zero.
+- `shifted_impulse(n, e)` returns an impulse function of length `n
+  time-shifted by `e` steps, ie zeros everywhere apart from the `e`th element
+  which is one.
+
+
 ### <a name="httpfunctions"></a>Web data functions
 
 The following functions are used to extract and process web data.
 
-- `extract_domain(str, {removeSubdomain: false})` extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
+#### `fetcher(str)`
+
+Fetches resources from a given file or URL. It acts as the
+default version of [function fetcher](../functions/Fetcher.md.html). It returns
+two output columns:
+* content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
+* error is a string containing the error message. If the fetch succeeded, it will be null.
+
+**Example**
+
+The following query will use fetcher to return the country code from an IP
+address from an external web service.
+
+```sql
+SELECT CAST (fetcher('http://www.geoplugin.net/json.gp?ip=158.245.13.123')[content] AS STRING)
+```
+
+**Limitations**
+
+  - The fetcher function will only attempt one fetch of the given URL; for
+  transient errors a manual retry will be required
+  * There is currently no timeout parameter.  Hung requests will timeout
+  eventually, but there is no guarantee as to when.
+  * There is currently no rate limiting built in.
+  * There is currently no facility to limit the maximum size of data that
+  will be fetched.
+  * There is currently no means to authenticate when fetching a URL,
+  apart from using the credentials daemon built in to MLDB.
+  * There is currently no caching mechanism.
+  * There is currently no means to fetch a resource only if it has not
+  changed since the last time it was fetched.
+
+#### `extract_domain(str, {removeSubdomain: false})`
+
+Extracts the domain name from a URL. Setting the option `removeSubdomain` to `true` will return only the domain without the subdomain. Note that the string passed in must be a complete and valid URL. If a scheme (`http://`, etc) is not present, an error will be thrown.
 
 The full set of options to the `extract_domain` function are as follows:
 
-![](%%type Datacratic::MLDB::Builtins::ExtractDomainOptions)
+![](%%type MLDB::Builtins::ExtractDomainOptions)
 
 
 See also the ![](%%doclink http.useragent function) that can be used to parse a user agent string.
@@ -571,7 +671,7 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 
 Parameters to `tokenize` and `token_extract` are as follows:
 
-![](%%type Datacratic::TokenizeOptions)
+![](%%type MLDB::TokenizeOptions)
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions

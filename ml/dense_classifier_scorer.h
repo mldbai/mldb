@@ -21,7 +21,7 @@
 #include <tuple>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -201,7 +201,7 @@ struct DenseClassifierScorerT
             = std::dynamic_pointer_cast<DenseFeatureGeneratorT<Args...> >
             (featureGenerator);
         if (!featureGeneratorCast)
-            throw ML::Exception("couldn't cast dense feature generator");
+            throw MLDB::Exception("couldn't cast dense feature generator");
     }
 
     /** Reconstitute from disk. */
@@ -243,4 +243,4 @@ struct DenseClassifierScorerT
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

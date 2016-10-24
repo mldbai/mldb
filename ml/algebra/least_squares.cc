@@ -240,7 +240,7 @@ diag_mult_impl(const boost::multi_array<Float, 2> & U,
                               std::placeholders::_1);
 
     if (parallel)
-        Datacratic::parallelMap(0, n, doColumn);
+        MLDB::parallelMap(0, n, doColumn);
     else {
         for (unsigned j = 0;  j < n;  ++j)
             doColumn(j);
@@ -276,7 +276,7 @@ struct RidgeRegressionIteration {
 
     void run(const distribution<Float> & singular_values,
              const boost::multi_array<Float, 2> & A,
-             const ML::distribution<Float> & b,
+             const distribution<Float> & b,
              const boost::multi_array<Float, 2> & VT,
              const boost::multi_array<Float, 2> & U,
              const boost::multi_array<Float, 2> & GK,
@@ -412,7 +412,7 @@ template<typename Float>
 struct RidgeRegressionIterations: public std::vector<RidgeRegressionIteration<Float> > {
     void run(const distribution<Float> & singular_values,
              const boost::multi_array<Float, 2> & A,
-             const ML::distribution<Float> & b,
+             const distribution<Float> & b,
              const boost::multi_array<Float, 2> & VT,
              const boost::multi_array<Float, 2> & U,
              const boost::multi_array<Float, 2> & GK,
@@ -546,7 +546,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
             iterations.push_back(iter);
         };
 
-        Datacratic::parallelMap(0, iterations.size(),
+        MLDB::parallelMap(0, iterations.size(),
                         std::bind(std::mem_fn(&RidgeRegressionIterations<Float>::run),
                                   std::ref(iterations),
                                   std::cref(singular_values),
@@ -690,7 +690,7 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
         if (iter >= maxIter) {
             // if we stopped after max iteration and not because we have
             // converge, let's issue a warning
-            cerr << ML::format("LASSO did not converge in %i iterations, last "
+            cerr << MLDB::format("LASSO did not converge in %i iterations, last "
                                " max_step > eps (%f > %f)",
                                iter, max_step, epsilon);
             break;
@@ -783,7 +783,7 @@ weighted_square_impl(const boost::multi_array<Float, 2> & XT,
             x += nxc;
         }
     } else {
-        Datacratic::parallelMap(0, nv, std::bind(doWeightedSquareRow<Float>,
+        MLDB::parallelMap(0, nv, std::bind(doWeightedSquareRow<Float>,
                                                  std::cref(XT),
                                                  std::cref(d),
                                                  std::ref(result),

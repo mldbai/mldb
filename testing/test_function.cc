@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TestFunctionConfig);
@@ -66,7 +66,7 @@ getFunctionInfo() const
     FunctionInfo result;
     result.output = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
     cols.clear();
-    result.input = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
+    result.input.emplace_back(new RowValueInfo(cols, SCHEMA_CLOSED));
     return result;
 }
 
@@ -84,4 +84,4 @@ regTestFunction(testPackage,
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

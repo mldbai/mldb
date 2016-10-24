@@ -19,7 +19,7 @@
 #include "mldb/types/url.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct UriHandler;
 
@@ -230,4 +230,6 @@ private:
     bool commited_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

@@ -19,7 +19,7 @@
 #include "plugins/accuracy.h"
 #include "types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -131,7 +131,7 @@ struct JsStatsStatsGenerator {
                             const std::string & path) const;
 
     Json::Value lastObj;
-    std::map<std::string, ML::distribution<double>> outputStatsAccum;
+    std::map<std::string, distribution<double>> outputStatsAccum;
 };
 
 
@@ -154,4 +154,4 @@ struct ExperimentProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -18,15 +18,18 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE(test_element_compare)
 {
     SqlBindingScope scope;
 
-    BOOST_CHECK_EQUAL(evalSql(scope, "$1 + $2", 1, 2).getAtom(), 3);
-    BOOST_CHECK_EQUAL(evalSql(scope, "$1 * $2", 5, 20).getAtom(), 100);
-    BOOST_CHECK_EQUAL(evalSql(scope, "[1, 2] + [3, 4]").extractJson().toString(),
+    SqlRowScope rowScope;
+
+    BOOST_CHECK_EQUAL(evalSql(scope, "$1 + $2", rowScope, 1, 2).getAtom(), 3);
+    BOOST_CHECK_EQUAL(evalSql(scope, "$1 * $2", rowScope, 5, 20).getAtom(), 100);
+    BOOST_CHECK_EQUAL(evalSql(scope, "[1, 2] + [3, 4]", rowScope)
+                      .extractJson().toString(),
                       "[4,6]\n");
 }

@@ -19,8 +19,7 @@
 namespace po = boost::program_options;
 
 using namespace std;
-using namespace Datacratic;
-using namespace ML;
+using namespace MLDB;
 
 int main(int argc, char* argv[])
 {

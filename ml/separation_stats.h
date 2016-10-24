@@ -17,7 +17,7 @@
 #include <boost/any.hpp>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -266,4 +266,4 @@ struct ScoredStats {
     Json::Value toJson() const;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -12,7 +12,7 @@
 
 #include <utility>
 
-namespace Datacratic {
+namespace MLDB {
 
 enum EventType {
     ET_HIT,          ///< Represents an extra count on a counter
@@ -25,7 +25,7 @@ enum EventType {
 static constexpr std::initializer_list<int> DefaultOutcomePercentiles =
     { 90, 95, 98 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 
 

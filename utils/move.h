@@ -8,7 +8,7 @@
 #include <iterator>
 #include <algorithm>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename I, typename F>
 F uninitialized_move(I first, I last, F result)
@@ -43,4 +43,4 @@ template<typename I, typename F>
    return first;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -24,28 +24,28 @@ using namespace ML;
 namespace {
 
 uint64_t highwayhash(const void *src, unsigned long src_sz,
-                     const Datacratic::HashSeed & key)
+                     const MLDB::HashSeed & key)
 {
-    return Datacratic::highwayHash(key.u64, (const char *)src, src_sz);
+    return MLDB::highwayHash(key.u64, (const char *)src, src_sz);
 }
 
-uint64_t highwayhash(const std::string & str, const Datacratic::HashSeed & key)
+uint64_t highwayhash(const std::string & str, const MLDB::HashSeed & key)
 {
-    return Datacratic::highwayHash(key.u64, str.data(), str.length());
+    return MLDB::highwayHash(key.u64, str.data(), str.length());
 }
 
 template<typename T>
-uint64_t highwayhash_bin(const T & v, const Datacratic::HashSeed & key)
+uint64_t highwayhash_bin(const T & v, const MLDB::HashSeed & key)
 {
     char c[sizeof(v)];
     std::memcpy(c, &v, sizeof(v));
-    return Datacratic::highwayHash(key.u64, c, sizeof(v));
+    return MLDB::highwayHash(key.u64, c, sizeof(v));
 }
 
 } // file scope
 
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string
 jsonPrintAbbreviatedString(const Json::Value & val,
@@ -137,7 +137,7 @@ jsonPrintAbbreviated(const Json::Value & val,
     }
 }
 
-const HashSeed defaultSeedStable { .u64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+const HashSeed defaultHashSeedStable { .u64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 uint64_t jsonHashObject(const Json::Value & val,
                         HashSeed seed)
@@ -193,7 +193,7 @@ uint64_t jsonHash(const Json::Value & val,
     case Json::nullValue:
         return 1;
     default:
-        throw ML::Exception("unknown value type for jsonHash");
+        throw MLDB::Exception("unknown value type for jsonHash");
     }
 }
 
@@ -219,7 +219,7 @@ Json::Value jsonMin(const Json::Value & v1,
         return v1.asDouble() < v2.asDouble() ? v1 : v2;
     else if (v1.isString() && v2.isString())
         return v1.asString() < v2.asString() ? v1 : v2;
-    else throw ML::Exception("cannot compare " + v1.toString() + " to "
+    else throw MLDB::Exception("cannot compare " + v1.toString() + " to "
                              + v2.toString());
 }
 
@@ -230,7 +230,7 @@ Json::Value jsonMax(const Json::Value & v1,
         return v1.asDouble() < v2.asDouble() ? v2 : v1;
     else if (v1.isString() && v2.isString())
         return v1.asString() < v2.asString() ? v2 : v1;
-    else throw ML::Exception("cannot compare " + v1.toString() + " to "
+    else throw MLDB::Exception("cannot compare " + v1.toString() + " to "
                              + v2.toString());
 }
 
@@ -255,5 +255,5 @@ Json::Value jsonMinVector(const std::vector<Json::Value> & args)
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

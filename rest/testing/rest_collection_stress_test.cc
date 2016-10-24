@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /******************************************************************************/
@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
 
     auto mutateThread = [&] ()
         {
-            int index JML_UNUSED = 0;
+            int index MLDB_UNUSED = 0;
             while (!shutdown) {
                 lock.readLock();
 
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
                 if (collection.addEntry(key ,
                                         std::make_shared<std::string>(value),
                                         false /* mustAdd */)) {
-                    //cerr << ML::format("mut: added entry %s %s\n",
+                    //cerr << MLDB::format("mut: added entry %s %s\n",
                     //                   key.c_str(), value.c_str());
                 }
                     
@@ -183,7 +183,7 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
                 key = "item" + to_string(random() % 20);
                 
                 if (collection.deleteEntry(key)) {
-                    //cerr << ML::format("mut: deleted entry %s\n",
+                    //cerr << MLDB::format("mut: deleted entry %s\n",
                     //                   key.c_str());
                 }
 
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
                         break;
                     }
                     default:
-                    throw ML::Exception("unexpected watch event");
+                    throw MLDB::Exception("unexpected watch event");
                     }
                 };
                 // Bind in our event handler
@@ -318,7 +318,7 @@ BOOST_AUTO_TEST_CASE( stress_test_collection_integrity )
 
     auto overwriteThread = [&] ()
         {
-            ML::Timer timer;
+            Timer timer;
             while (!shutdown) {
 
                 std::string key = "item";
@@ -397,7 +397,7 @@ BOOST_AUTO_TEST_CASE( stress_test_collection_overwrite )
 
     auto overwriteThread = [&] ()
         {
-            ML::Timer timer;
+            Timer timer;
             while (!shutdown) {
 
                 std::string key = "counter";

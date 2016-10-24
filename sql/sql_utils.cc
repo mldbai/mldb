@@ -18,7 +18,6 @@
 using namespace std;
 
 
-namespace Datacratic {
 namespace MLDB {
 
 Utf8String escapeSql(const Utf8String & str)
@@ -129,5 +128,5 @@ removeTableName(const Utf8String & alias, const Path & columnName)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
     

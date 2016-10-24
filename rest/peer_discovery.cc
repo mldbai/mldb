@@ -9,7 +9,7 @@
 #include "peer_discovery.h"
 #include "rest_collection_impl.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -57,4 +57,4 @@ wakeup()
     // no op
 }
 
-} // namespace Datacratic
+} // namespace MLDB

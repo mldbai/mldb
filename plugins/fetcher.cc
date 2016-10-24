@@ -14,7 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -115,9 +115,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
             result.error = ExpressionValue::null(Date::notADate());
             return result;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             result.content = ExpressionValue::null(Date::notADate());
-            result.error = ExpressionValue(ML::getExceptionString(), Date::now());
+            result.error = ExpressionValue(getExceptionString(), Date::now());
         }
         return result;
     }
@@ -129,8 +129,10 @@ static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
 regFetcherFunction(builtinPackage(),
                    "fetcher",
                    "Fetches the contents of a URL each time it's invoked",
-                   "functions/Fetcher.md.html");
+                   "functions/Fetcher.md.html",
+                   nullptr, //static route
+                   { MldbEntity::INTERNAL_ENTITY });
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

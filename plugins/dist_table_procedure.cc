@@ -32,21 +32,21 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
-    return store << Id(coord.toUtf8String());
+    return store << coord.toUtf8String();
 }
 
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
-    Id id;
+    Utf8String id;
     store >> id;
-    coord = id.toUtf8String();
+    coord = std::move(id);
     return store;
 }
 
@@ -89,7 +89,7 @@ DistTableStats::
 increment(double value)
 {
     // special case if first value
-    if (JML_UNLIKELY(count == 0)) {
+    if (MLDB_UNLIKELY(count == 0)) {
         count = 1;
         avg = min = max = sum = value;
         M2 = 0.;
@@ -125,7 +125,7 @@ getStat(DISTTABLE_STATISTICS stat) const
         case DT_LAST:   return last;
         case DT_SUM:    return sum;
         default:
-            throw ML::Exception("Unknown DistTable_Stat");
+            throw MLDB::Exception("Unknown DistTable_Stat");
     }
 }
 
@@ -203,7 +203,7 @@ reconstitute(ML::DB::Store_Reader & store)
                                   "table model");
     }
     if(version!=REQUIRED_V) {
-        throw HttpReturnException(400, ML::format(
+        throw HttpReturnException(400, MLDB::format(
                     "invalid DistTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -338,11 +338,11 @@ run(const ProcedureRunConfig & run,
     }
     else if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
         distTablesMap.insert(
-                make_pair(ColumnName("words"),
-                          DistTable(ColumnName("words"), outcome_names)));
+                make_pair(ColumnPath("words"),
+                          DistTable(ColumnPath("words"), outcome_names)));
     }
     else {
-        throw ML::Exception("unsupported dist table mode");
+        throw MLDB::Exception("unsupported dist table mode");
     }
 
     auto onProgress2 = [&] (const Json::Value & progress)
@@ -355,7 +355,7 @@ run(const ProcedureRunConfig & run,
     std::shared_ptr<Dataset> output;
     if(runProcConf.output) {
         if(runProcConf.mode == DT_MODE_BAG_OF_WORDS)
-            throw ML::Exception("Cannot use outputDataset when mode=bagOfWords");
+            throw MLDB::Exception("Cannot use outputDataset when mode=bagOfWords");
 
         PolyConfigT<Dataset> outputDataset = *runProcConf.output;
         if (outputDataset.type.empty())
@@ -376,7 +376,7 @@ run(const ProcedureRunConfig & run,
 
             if (num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;
                 progress["message"] = message; 
                 onProgress(progress);
@@ -394,22 +394,22 @@ run(const ProcedureRunConfig & run,
             if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
                 // there is only a single table
                 DistTable & distTable = distTablesMap.begin()->second;
-                for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
+                for(const std::tuple<ColumnPath, CellValue, Date> & col : row.columns) {
                     distTable.increment(get<0>(col).toUtf8String(), targets);
                 }
             }
             else if(runProcConf.mode == DT_MODE_FIXED_COLUMNS) {
 
-                std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > output_cols;
 
-                map<ColumnName, size_t> column_idx;
+                map<ColumnPath, size_t> column_idx;
                 for (int i=0; i<row.columns.size(); i++) {
                     column_idx.insert(make_pair(get<0>(row.columns[i]), i));
                 }
 
                 // for each of our feature column (or distribution table)
                 for (auto it = distTablesMap.begin(); it != distTablesMap.end(); it++) {
-                    const ColumnName & featureColumnName = it->first;
+                    const ColumnPath & featureColumnName = it->first;
                     DistTable & distTable = it->second;
 
                     // It seems that all the columns from the select will always
@@ -421,7 +421,7 @@ run(const ProcedureRunConfig & run,
                         ExcAssert(false);
                     }
 
-                    const tuple<ColumnName, CellValue, Date> & col =
+                    const tuple<ColumnPath, CellValue, Date> & col =
                         row.columns[col_ptr->second];
 
                     const Utf8String & featureValue = get<1>(col).toUtf8String();
@@ -449,11 +449,11 @@ run(const ProcedureRunConfig & run,
                 }
 
                 if(output) {
-                    output->recordRow(ColumnName(row.rowName), std::move(output_cols));
+                    output->recordRow(ColumnPath(row.rowName), std::move(output_cols));
                 }
             }
             else {
-                throw ML::Exception("Unknown distTable mode");
+                throw MLDB::Exception("Unknown distTable mode");
             }
 
             return true;
@@ -579,13 +579,13 @@ DistTableFunction(MldbServer * owner,
     ML::DB::Store_Reader store(stream);
     store >> version;
     if(version != REQUIRED_VERSION)
-        throw ML::Exception("Wrong DistTable map version");
+        throw MLDB::Exception("Wrong DistTable map version");
 
     store >> i_mode;
     mode = (DistTableMode)i_mode;
 
     if(mode != DT_MODE_BAG_OF_WORDS && mode != DT_MODE_FIXED_COLUMNS)
-        throw ML::Exception("Unsupported DistTable mode");
+        throw MLDB::Exception("Unsupported DistTable mode");
 
     store >> distTablesMap;
 
@@ -654,7 +654,7 @@ increment(const vector<pair<Utf8String, Utf8String>> & keys,
         Path pKey(key.first);
         auto table_it = distTablesMap.find(pKey);
         if(table_it == distTablesMap.end())
-            throw ML::Exception("Unknown dist table '"+
+            throw MLDB::Exception("Unknown dist table '"+
                         key.first.utf8String()+"'");
 
         //for(double outcome : outcomes)
@@ -714,8 +714,8 @@ apply(const FunctionApplier & applier,
     RowValue rtnRow;
     // TODO should we cache column names
     auto onAtomFixedColumns =
-        [&] (const ColumnName & columnName,
-             const ColumnName & prefix,
+        [&] (const ColumnPath & columnName,
+             const ColumnPath & prefix,
              const CellValue & val,
              Date ts)
     {
@@ -739,8 +739,8 @@ apply(const FunctionApplier & applier,
     };
 
     auto onAtomBow =
-        [&] (const ColumnName & columnName,
-             const ColumnName & prefix,
+        [&] (const ColumnPath & columnName,
+             const ColumnPath & prefix,
              const CellValue & val,
              Date ts)
     {
@@ -792,9 +792,9 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("stats"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
 
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(std::make_shared<RowValueInfo>(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-
+    
     return result;
 }
 
@@ -824,4 +824,4 @@ regClassifyFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

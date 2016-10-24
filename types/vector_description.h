@@ -13,7 +13,7 @@
 #include "list_description_base.h"
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -113,4 +113,4 @@ struct VectorDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(VectorDescription, std::vector, typename, T, typename, A);
 
-} // namespace Datacratic
+} // namespace MLDB

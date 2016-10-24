@@ -1,4 +1,4 @@
-/** coord_test.cc
+/** path_test.cc
     Jeremy Barnes, 10 April 2016
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
@@ -10,6 +10,7 @@
 #include "mldb/sql/path.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include <set>
@@ -23,8 +24,14 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
+
+
+BOOST_AUTO_TEST_CASE( test_size )
+{
+    BOOST_CHECK_EQUAL(sizeof(Path), 64);
+}
 
 BOOST_AUTO_TEST_CASE(test_element_compare)
 {
@@ -138,16 +145,16 @@ BOOST_AUTO_TEST_CASE(test_coord_parsing)
     }
 
     {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(PathElement::parse("."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\n"), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\""), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse(".."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("x\"\""), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("x.y"), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\"x\",y"), ML::Exception);
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(PathElement::parse("."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\n"), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\""), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse(".."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("x\"\""), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("x.y"), MLDB::Exception);
+        BOOST_CHECK_THROW(PathElement::parse("\"x\",y"), MLDB::Exception);
     }
 }
 
@@ -214,15 +221,15 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
     }
 
     {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(Path::parse("\n"), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\0", 1), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"\0\"", 3), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\""), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("x\"\""), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"x\",y"), ML::Exception);
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(Path::parse("\n"), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\0", 1), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"\0\"", 3), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\""), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"x."), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("x\"\""), MLDB::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"x\",y"), MLDB::Exception);
     }
 
     {
@@ -365,21 +372,28 @@ BOOST_AUTO_TEST_CASE(test_path_builder)
     Path path = builder.extract();
 }
 
-#if 0
+// MLDB-1936
 BOOST_AUTO_TEST_CASE(test_ordered2)
 {
     vector<Path> paths;
 
-    filter_istream stream("columns.txt");
+    vector<int> lengthBuckets;
+
+    filter_istream stream("mldb/sql/testing/path_test_columns.txt");
     while (stream) {
         std::string s;
         getline(stream, s);
         if (s.empty())
             continue;
         paths.emplace_back(Path::parse(s));
+        int l = paths.back().size();
+        if (l >= lengthBuckets.size())
+            lengthBuckets.resize(l + 1);
+        lengthBuckets[l] += 1;
     }
    
     cerr << "got " << paths.size() << " paths" << endl;
+    cerr << jsonEncodeStr(lengthBuckets) << endl;
 
     for (unsigned i = 0;  i < 10;  ++i) {
         std::random_shuffle(paths.begin(), paths.end());
@@ -389,19 +403,31 @@ BOOST_AUTO_TEST_CASE(test_ordered2)
         std::set<uint64_t> orderedHashes;
 
         for (const Path & p: paths) {
+            BOOST_CHECK(!ordered.count(p));
+            BOOST_CHECK(!unordered.count(p));
             BOOST_CHECK(unordered.insert(p).second);
             BOOST_CHECK(unorderedHashes.insert(p.hash()).second);
             BOOST_CHECK(ordered.insert(p).second);
             BOOST_CHECK(orderedHashes.insert(p.hash()).second);
+            BOOST_CHECK(ordered.count(p));
+            BOOST_CHECK(unordered.count(p));
         }
 
         BOOST_CHECK_EQUAL(ordered.size(), paths.size());
         BOOST_CHECK_EQUAL(unordered.size(), paths.size());
         BOOST_CHECK_EQUAL(orderedHashes.size(), paths.size());
         BOOST_CHECK_EQUAL(unorderedHashes.size(), paths.size());
+
+        for (const Path & p: paths) {
+            if (!ordered.count(p))
+                cerr << "missing path " << p << endl;
+            BOOST_CHECK(ordered.count(p));
+            BOOST_CHECK(unordered.count(p));
+            BOOST_CHECK(orderedHashes.count(p.hash()));
+            BOOST_CHECK(unorderedHashes.count(p.hash()));
+        }
     }
 }
-#endif
 
 BOOST_AUTO_TEST_CASE(test_null)
 {
@@ -411,12 +437,13 @@ BOOST_AUTO_TEST_CASE(test_null)
 
     // pe = path element
     // p = path
-    BOOST_CHECK_THROW(null + e, ML::Exception); // pe - pe, null lhs
-    BOOST_CHECK_THROW(e + null, ML::Exception); // pe - pe, null rhs
-    BOOST_CHECK_THROW(null + std::move(e), ML::Exception); // pe - moved pe, null lhs
-    BOOST_CHECK_THROW(e + std::move(null), ML::Exception); // pe - moved pe, null rhs
-    BOOST_CHECK_THROW(null + p, ML::Exception); // pe - path, null lhs
-    BOOST_CHECK_THROW(null + std::move(p), ML::Exception); // pe - moved path, null lhs
-    BOOST_CHECK_THROW(p + null, ML::Exception); // path - pe, null rhs
-    BOOST_CHECK_THROW(p + std::move(null), ML::Exception); // path - moved pe, null rhs
+    MLDB_TRACE_EXCEPTIONS(false);
+    BOOST_CHECK_THROW(null + e, MLDB::Exception); // pe - pe, null lhs
+    BOOST_CHECK_THROW(e + null, MLDB::Exception); // pe - pe, null rhs
+    BOOST_CHECK_THROW(null + std::move(e), MLDB::Exception); // pe - moved pe, null lhs
+    BOOST_CHECK_THROW(e + std::move(null), MLDB::Exception); // pe - moved pe, null rhs
+    BOOST_CHECK_THROW(null + p, MLDB::Exception); // pe - path, null lhs
+    BOOST_CHECK_THROW(null + std::move(p), MLDB::Exception); // pe - moved path, null lhs
+    BOOST_CHECK_THROW(p + null, MLDB::Exception); // path - pe, null rhs
+    BOOST_CHECK_THROW(p + std::move(null), MLDB::Exception); // path - moved pe, null rhs
 }

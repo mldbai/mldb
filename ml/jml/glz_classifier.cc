@@ -240,7 +240,7 @@ float
 GLZ_Classifier::
 decode_value(float feat_val, const Feature_Spec & spec) const
 {
-    if (JML_UNLIKELY(isnan(feat_val))) {
+    if (MLDB_UNLIKELY(isnan(feat_val))) {
         switch (spec.type) {
         case Feature_Spec::VALUE:
             feat_val = 0.0;
@@ -262,9 +262,9 @@ decode_value(float feat_val, const Feature_Spec & spec) const
     }
     else if (spec.type == Feature_Spec::VALUE_EQUALS)
         feat_val = (feat_val == spec.value);
-    else if (JML_UNLIKELY(spec.type == Feature_Spec::PRESENCE))
+    else if (MLDB_UNLIKELY(spec.type == Feature_Spec::PRESENCE))
         feat_val = 1.0;
-    else if (JML_UNLIKELY(!isfinite(feat_val)))
+    else if (MLDB_UNLIKELY(!isfinite(feat_val)))
         throw Exception("GLZ_Classifier: feature "
                         + feature_space()->print(spec.feature)
                         + " is not finite");
@@ -373,7 +373,7 @@ explain(const Feature_Set & feature_set,
     }
 
     if(label_idx > weights.size() - 1) {
-        throw ML::Exception("label bigger than weight vector");
+        throw MLDB::Exception("label bigger than weight vector");
     }
 
     for (unsigned j = 0;  j < features.size();  ++j) {
@@ -479,7 +479,7 @@ reconstitute(DB::Store_Reader & store)
         }
     }
     else {
-        throw ML::Exception("Unknown GLZ classifier version %d", (int)version);
+        throw MLDB::Exception("Unknown GLZ classifier version %d", (int)version);
     }
     
     compact_size_t guard(store);

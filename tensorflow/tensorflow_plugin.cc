@@ -4,6 +4,8 @@
 
 */
 
+#include <thread>
+
 #include "mldb/core/mldb_entity.h"
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
@@ -22,6 +24,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/server/static_content_macro.h"
+#include "mldb/sql/builtin_functions.h"
 
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
@@ -55,17 +58,17 @@ using namespace std;
 namespace tensorflow {
 #define DEFINE_ENUM_DESCRIPTION_PROTO(Name, Type) \
     struct Name                                                     \
-        : public Datacratic::EnumDescription<Type> {     \
+        : public MLDB::EnumDescription<Type> {                      \
         Name();                                                     \
     };                                                              \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescription(Type *)                        \
     {                                                               \
         return new Name();                                          \
     }                                                               \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescriptionUninitialized(Type *)           \
     {                                                               \
         return new Name();                                          \
@@ -95,18 +98,18 @@ DEFINE_STRUCTURE_DESCRIPTION_NAMED(TensorflowAttrValueDescription,
 
 TensorflowAttrValueDescription::
 TensorflowAttrValueDescription()
-{
-    using namespace Datacratic;
+{    
+    using namespace MLDB;
 
     const ::google::protobuf::Descriptor * desc
         = tensorflow::AttrValue::descriptor();
 
     onUnknownField = [=] (tensorflow::AttrValue * val,
-                          Datacratic::JsonParsingContext & context)
+                          JsonParsingContext & context)
         {
             if (context.fieldName() == "type") {
                 Json::Value j = context.expectJson();
-                val->set_type(Datacratic::jsonDecode<tensorflow::DataType>(j));
+                val->set_type(jsonDecode<tensorflow::DataType>(j));
                 return;
             }
             throw HttpReturnException(400, "Unknown field '" + context.fieldName()
@@ -115,11 +118,11 @@ TensorflowAttrValueDescription()
 }
 #endif
 
-struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
+struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
     virtual void parseJsonTyped(AttrValue * val,
-                                Datacratic::JsonParsingContext & context) const
+                                MLDB::JsonParsingContext & context) const
     {
-        using namespace Datacratic;
+        using namespace MLDB;
 
         if (context.isNull()) {
             context.expectNull();
@@ -137,7 +140,7 @@ struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
             Json::Value v = context.expectJson();
             ExcAssertEqual(v.size(), 1);
             if (v.isMember("type")) {
-                val->set_type(Datacratic::jsonDecode<tensorflow::DataType>(v["type"]));
+                val->set_type(jsonDecode<tensorflow::DataType>(v["type"]));
             }
             else if (v.isMember("shape")) {
                 throw HttpReturnException(500, "shape attributes not done");
@@ -214,9 +217,9 @@ struct AttrValueDescription: public Datacratic::ValueDescriptionT<AttrValue> {
     }
     
     virtual void printJsonTyped(const AttrValue * val,
-                                Datacratic::JsonPrintingContext & context) const
+                                MLDB::JsonPrintingContext & context) const
     {
-        using namespace Datacratic;
+        using namespace MLDB;
 
         switch (val->value_case()) {
         case tensorflow::AttrValue::kS:
@@ -257,7 +260,7 @@ DEFINE_VALUE_DESCRIPTION_NS(AttrValue, AttrValueDescription);
 
 } // namespace tensorflow
 
-namespace Datacratic {
+
 namespace MLDB {
 
 static Json::Value protoToJson(const ::google::protobuf::Message & obj)
@@ -336,7 +339,6 @@ struct TensorflowGraphBase: public Function {
 
         // These nodes have constants which we shouldn't need to spend
         // time running one after the other
-        std::map<std::string, Tensor> constants;
 
         size_t constantTotalBytes = 0;
 
@@ -400,13 +402,13 @@ struct TensorflowGraphBase: public Function {
         std::vector<::tensorflow::Device *> devices;
         tensorflow::DeviceFactory::AddDevices(options, "", &devices);
         
-        int sessionsPerDevice = 1;
+        int sessionsPerDevice = 5;
 
         // Operations hardcoded to the CPU.  These are those that
         // can't use GPUs or need large amounts of data to be
         // transferred back and forth and so don't make sense.
         set<string> hardcodedCpu = {
-            "ExpandDims", "ResizeBilinear" /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
+            /*"ExpandDims", "ResizeBilinear"*/ /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
 
         for (const auto & d: devices) {
             std::string deviceName = d->name();
@@ -414,6 +416,8 @@ struct TensorflowGraphBase: public Function {
 
             //if (isCpuDevice)
             //    continue;
+            if (!isCpuDevice)
+                continue;
 
             // Set the device for all nodes where it's not hardcoded
             for (auto & node: *graph->mutable_node()) {
@@ -439,8 +443,8 @@ struct TensorflowGraphBase: public Function {
 
             if (isCpuDevice) {
                 // Use the thread pool for CPU threads
-                options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(2);
+                //options.config.set_use_per_session_threads(true);
+                //options.config.set_inter_op_parallelism_threads(2);
             }
             else {
                 // The GPU gets some CPU threads of its own so that
@@ -448,14 +452,14 @@ struct TensorflowGraphBase: public Function {
                 // is necessary to achieve maximum occupancy of the
                 // GPU.
                 options.config.set_allow_soft_placement(true);
-                options.config.set_use_per_session_threads(true);
-                options.config.set_inter_op_parallelism_threads(4);
+                //options.config.set_use_per_session_threads(true);
+                //options.config.set_inter_op_parallelism_threads(4);
             }
 
             // NOTE: eventually, this will work... but until it does, we
             // need to go through the above.  Currently Tensorflow just
             // ignores the device_filters fields.
-            //options.config.add_device_filters(d->name());
+            options.config.add_device_filters(d->name());
 
             for (unsigned i = 0;  i < sessionsPerDevice;  ++i) {
                 std::unique_ptr<tensorflow::Session> session;
@@ -469,7 +473,7 @@ struct TensorflowGraphBase: public Function {
                 }
                 
                 sessions.emplace_back(d->name(), std::move(session),
-                                      16 /* queue length */);
+                                      4 /* queue length */);
             }
         }
 
@@ -480,7 +484,7 @@ struct TensorflowGraphBase: public Function {
     std::unique_ptr<tensorflow::GraphDef> graph;
 
     /// Timestamp at which the model was created
-    Date modelTs;
+    Date modelTs = Date::notADate();
 
     struct DeviceSession {
         DeviceSession(std::string device,
@@ -499,7 +503,7 @@ struct TensorflowGraphBase: public Function {
         int numQueued;
     };
 
-    std::vector<std::pair<std::string, tensorflow::Tensor> > constants;
+    std::map<std::string, tensorflow::Tensor> constants;  // const once constructed
 
     mutable std::vector<DeviceSession> sessions;  // mutable for numQueued
 
@@ -557,11 +561,11 @@ struct TensorflowGraphBase: public Function {
         };
 
         std::map<Utf8String, const tensorflow::NodeDef *> graphNodes;
-        std::map<ColumnName, int> nodesRead;  // index into outputLayers
+        std::map<ColumnPath, int> nodesRead;  // index into outputLayers
         std::vector<Utf8String> outputLayers;
 
         ColumnGetter doGetColumn(const Utf8String & tableName,
-                                 const ColumnName & columnName)
+                                 const ColumnPath & columnName)
         {
             if (!tableName.empty())
                 return ReadThroughBindingScope
@@ -618,7 +622,7 @@ struct TensorflowGraphBase: public Function {
             std::vector<std::pair<PathElement, int> > indexes;
 
             for (const auto & n: graphNodes) {
-                ColumnName kept = keep(PathElement(n.first));
+                ColumnPath kept = keep(PathElement(n.first));
                 if (kept.empty())
                     continue;
                 if (kept.size() != 1)
@@ -664,7 +668,7 @@ struct TensorflowGraphBase: public Function {
     struct Applier: public FunctionApplier {
         Applier(const TensorflowGraphBase * owner,
                 SqlBindingScope & outerScope,
-                const std::shared_ptr<RowValueInfo> & input)
+                const std::shared_ptr<ExpressionValueInfo> & input)
             : FunctionApplier(owner),
               owner(owner),
               mldbScope(owner->server),
@@ -678,12 +682,16 @@ struct TensorflowGraphBase: public Function {
             //     infer what is read from the graph to make it work.
             boundOutputs = owner->outputs.bind(graphScope);
 
-            info.input = input;
+            info.input = { input };
             info.output = ExpressionValueInfo::toRow(boundOutputs.info);
             
             // Check that all values on the passed input are compatible with the
             // required inputs.
             info.checkInputCompatibility(*input);
+        }
+
+        virtual ~Applier()
+        {
         }
 
         const TensorflowGraphBase * owner;
@@ -704,7 +712,8 @@ struct TensorflowGraphBase: public Function {
             auto rowScope = functionScope.getRowScope(inputData);
 
             ExpressionValue inStorage;
-            const ExpressionValue & in = boundInputs(rowScope, inStorage, GET_LATEST);
+            const ExpressionValue & in
+                = boundInputs(rowScope, inStorage, GET_LATEST);
 
             Date outputTs = owner->modelTs;
 
@@ -746,8 +755,8 @@ struct TensorflowGraphBase: public Function {
             for (auto & t: threads)
                 t.join();
 
-
-            //ML::run_in_parallel(0, 100, doRun);
+#elif 0
+            parallelMap(0, 100, doRun);
 #else
             doRun(0);
 #endif
@@ -762,9 +771,16 @@ struct TensorflowGraphBase: public Function {
 
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerScope,
-         const std::shared_ptr<RowValueInfo> & input) const
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override
     {
-        std::unique_ptr<FunctionApplier> result(new Applier(this, outerScope, input));
+        if (input.size() != 1 || !input[0] || !input[0]->couldBeRow())
+            throw HttpReturnException
+                (400, "Tensorflow functions must be called with exactly "
+                 "one row as input",
+                 "inputs", input);
+        std::unique_ptr<FunctionApplier> result
+            (new Applier(this, outerScope, ExpressionValueInfo::toRow(input[0])));
         return result;
     }
 
@@ -810,8 +826,8 @@ struct TensorflowGraphBase: public Function {
                 return result;
             }
             case tensorflow::DT_UINT8: {
-                tensorflow::Tensor result(tensorflow::DT_INT8, {});
-                result.flat<int8_t>()(0) = atom.toInt();
+                tensorflow::Tensor result(tensorflow::DT_UINT8, {});
+                result.flat<uint8_t>()(0) = atom.toInt();
                 return result;
             }
             case tensorflow::DT_INT16: {
@@ -819,9 +835,14 @@ struct TensorflowGraphBase: public Function {
                 result.flat<int16_t>()(0) = atom.toInt();
                 return result;
             }
+            case tensorflow::DT_UINT16: {
+                tensorflow::Tensor result(tensorflow::DT_UINT16, {});
+                result.flat<uint16_t>()(0) = atom.toInt();
+                return result;
+            }
             case tensorflow::DT_INT8: {
-                tensorflow::Tensor result(tensorflow::DT_UINT8, {});
-                result.flat<uint8_t>()(0) = atom.toInt();
+                tensorflow::Tensor result(tensorflow::DT_INT8, {});
+                result.flat<int8_t>()(0) = atom.toInt();
                 return result;
             }
             case tensorflow::DT_STRING: {
@@ -854,61 +875,71 @@ struct TensorflowGraphBase: public Function {
             }
             
             switch (type) {
-            case tensorflow::DT_FLOAT: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<float>().data(),
-                                     len, ST_FLOAT32);
-                return result;
-            }
-            case tensorflow::DT_DOUBLE: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<double>().data(),
-                                     len, ST_FLOAT64);
-                return result;
-            }
-            case tensorflow::DT_INT32: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int32_t>().data(),
-                                     len, ST_INT32);
-                return result;
-            }
-            case tensorflow::DT_UINT8: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<uint8_t>().data(),
-                                     len, ST_UINT8);
-                return result;
-            }
-            case tensorflow::DT_INT16: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int16_t>().data(),
-                                     len, ST_INT16);
-                return result;
-            }
-            case tensorflow::DT_INT8: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<int8_t>().data(),
-                                     len, ST_INT8);
-                return result;
-            }
-            case tensorflow::DT_STRING: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<std::string>().data(),
-                                     len, ST_STRING);
-                return result;
-            }
-            case tensorflow::DT_INT64: {
-                tensorflow::Tensor result(type, shape);
-                val.convertEmbedding(result.flat<long long>().data(),
-                                     len, ST_INT64);
-                return result;
-            }
+                case tensorflow::DT_FLOAT: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<float>().data(),
+                                         len, ST_FLOAT32);
+                    return result;
+                }
+                case tensorflow::DT_DOUBLE: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<double>().data(),
+                                         len, ST_FLOAT64);
+                    return result;
+                }
+                case tensorflow::DT_INT32: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int32_t>().data(),
+                                         len, ST_INT32);
+                    return result;
+                }
+                case tensorflow::DT_UINT8: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<uint8_t>().data(),
+                                         len, ST_UINT8);
+                    return result;
+                }
+                case tensorflow::DT_INT16: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int16_t>().data(),
+                                         len, ST_INT16);
+                    return result;
+                }
+                case tensorflow::DT_UINT16: {
+                    tensorflow::Tensor result(type, shape);
+                        val.convertEmbedding(result.flat<uint16_t>().data(),
+                                          len, ST_UINT16);
+                    return result;
+                }
+                case tensorflow::DT_INT8: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<int8_t>().data(),
+                                         len, ST_INT8);
+                    return result;
+                }
+                case tensorflow::DT_STRING: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<std::string>().data(),
+                                         len, ST_STRING);
+                    return result;
+                }
+                case tensorflow::DT_INT64: {
+                    tensorflow::Tensor result(type, shape);
+                    val.convertEmbedding(result.flat<long long>().data(),
+                                         len, ST_INT64);
+                    return result;
+                }
             default:
                 break;
             }
         }
+        else if (val.isArray()) {
+            return castToTypedTensor(val.coerceToEmbedding(), type);
+        }
 
         //cerr << "val = " << jsonEncode(val) << endl;
         //cerr << "type = " << type << endl;
+        //cerr << "value type " << val.getTypeAsString() << endl;
         throw HttpReturnException(500, "Unable to cast value to typed tensor");
     }
     
@@ -974,11 +1005,15 @@ struct TensorflowGraphBase: public Function {
             }
         }
         else if (val.isEmbedding()) {
-            // TODO: infer consistent type for tensor, and convert it
+            auto storageType = val.getEmbeddingType();
+            if (storageType == ST_ATOM) {
+                storageType = ST_FLOAT64; //TODO not sure its possible to get consistent type then
+            }
+            return castToTypedTensor(val, storageToDatatype(storageType));
         }
 
-        cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
-        throw HttpReturnException(500, "Unable to cast value to tensor");
+        //cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
+        throw HttpReturnException(500, "Unable to cast value of type " + val.getTypeAsString() + " to tensor");
     }
     
     tensorflow::Tensor
@@ -1009,6 +1044,10 @@ struct TensorflowGraphBase: public Function {
 
                     // It has a datatype, but no value (and hence size).
                     // Attempt to match the data type only.
+
+                    //cerr << "casting type-no-size: " << layer << endl;
+                    //cerr << "value: " << jsonEncode(val) << endl;
+
                     return castToTypedTensor(val, it->second.type());
                 }
 
@@ -1072,7 +1111,7 @@ struct TensorflowGraphBase: public Function {
             // Scalar
             auto flattened = tensor.flat<std::string>();
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 CellValue cell(flattened(0));
                 return ExpressionValue(std::move(cell), ts);
             } catch (const std::exception & exc) {
@@ -1091,7 +1130,7 @@ struct TensorflowGraphBase: public Function {
         vector<CellValue> cells(n);
         for (size_t i = 0;  i < n;  ++i) {
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 cells[i] = flattened(i);
             } catch (const std::exception & exc) {
                 cells[i] = CellValue::blob(flattened(i).data(),
@@ -1122,6 +1161,7 @@ struct TensorflowGraphBase: public Function {
         case DT_INT16:
         case DT_QINT16:
             return ST_INT16;
+        case DT_UINT16:
         case DT_QUINT16:
             return ST_UINT16;
         case DT_STRING:
@@ -1153,6 +1193,8 @@ struct TensorflowGraphBase: public Function {
             return tensorToValueT<uint8_t>(tensor, ts);
         case DT_INT16:
             return tensorToValueT<int16_t>(tensor, ts);
+        case DT_UINT16:
+            return tensorToValueT<uint16_t>(tensor, ts);
         case DT_INT8:
             return tensorToValueT<int8_t>(tensor, ts);
         case DT_STRING:
@@ -1175,11 +1217,44 @@ struct TensorflowGraphBase: public Function {
         }
     }
 
+    static tensorflow::DataType storageToDatatype(StorageType type)
+    {
+        using namespace tensorflow;
+
+        switch (type) {
+            case ST_FLOAT32:
+                return DT_FLOAT;
+            case ST_FLOAT64:
+                return DT_DOUBLE;
+            case ST_INT32:
+                return DT_INT32;
+            case ST_UINT8:
+                return DT_UINT8;
+            case ST_INT8:
+                return DT_INT8;
+            case ST_INT16:
+                return DT_INT16;
+            case ST_UINT16:
+                return DT_UINT16;
+            case ST_BLOB:
+                return DT_STRING;
+            case ST_TIMESTAMP:
+            case ST_TIMEINTERVAL:
+                return DT_DOUBLE;
+            default:
+
+            throw HttpReturnException(400, "Can't return value of this type to TensorFlow",
+                                      "type", type);
+        }
+    }
+
+
     std::pair<std::shared_ptr<tensorflow::Session>, std::string>
     getSession() const
     {
         std::unique_lock<std::mutex> guard(queueLock);
         while (true) {
+            cerr << "spin on session " << &guard << endl;
             int bestSession = -1;
             double bestSessionScore = INFINITY;
             for (unsigned i = 0;  i < sessions.size();  ++i) {
@@ -1192,17 +1267,22 @@ struct TensorflowGraphBase: public Function {
                 }
             }
 
+            cerr << "bestSession = " << bestSession << endl;
+
             if (bestSession != -1) {
                 ++sessions[bestSession].numQueued;
                 auto onDel = [bestSession, this] (tensorflow::Session *)
                     {
-                        std::unique_lock<std::mutex> guard(queueLock);
-                        --sessions[bestSession].numQueued;
-                        queueCond.notify_one();
+                        cerr << "before release session" << endl;
+                        std::unique_lock<std::mutex> guard(this->queueLock);
+                        cerr << "after release session" << endl;
+                        --this->sessions[bestSession].numQueued;
+                        this->queueCond.notify_one();
                     };
 
                 return { std::shared_ptr<tensorflow::Session>(sessions[bestSession].session.get(), onDel), sessions[bestSession].device };
             }
+
 
             queueCond.wait(guard);
         }
@@ -1244,6 +1324,8 @@ struct TensorflowGraphBase: public Function {
 
         auto session = getSession();
 
+        Date gotSession = Date::now();
+
         tensorflow::StepStats stats;
         //Status run_status = session.first
         //    ->RunWithStats(inputTensors, outputLayers,
@@ -1260,7 +1342,9 @@ struct TensorflowGraphBase: public Function {
         
         Date after = Date::now();
         cerr << "latency on " << session.second << " was "
-             << after.secondsSince(before) * 1000 << "ms" << endl;
+             << after.secondsSince(gotSession) * 1000 << "ms"
+             << " plus " << gotSession.secondsSince(before) * 1000
+             << " ms to get session" << endl;
 
 #if 0
         uint64_t earliest = -1;
@@ -1315,8 +1399,8 @@ struct TensorflowGraphBase: public Function {
         for (const auto & st: sortedStats) {
             if (i++ % 50 == 0)
                 cerr << "device    \tkernel                                            \tsched\twait\tpre\trun\tpost" << endl;
-                    cerr << ML::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
-                 << "\t" << ML::format("%-50s", st.first.second.c_str()) << "\t"
+                    cerr << MLDB::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
+                 << "\t" << MLDB::format("%-50s", st.first.second.c_str()) << "\t"
                  << st.second.sched << "\t" << st.second.wait << "\t"
                  << st.second.pre << "\t" << st.second.run << "\t"
                  << st.second.post << endl;
@@ -1332,14 +1416,16 @@ struct TensorflowGraphBase: public Function {
 
     virtual ExpressionValue
     apply(const FunctionApplier & applier,
-          const ExpressionValue & context) const
+          const ExpressionValue & context) const override
     {
+        //cerr << "applying tensor flow function, context: " << jsonEncode(context) << endl;
+
         return static_cast<const Applier &>(applier)
             .apply(context);
     }
 
-    FunctionInfo
-    getFunctionInfo() const
+    virtual FunctionInfo
+    getFunctionInfo() const override
     {
         // Create a function binding context that can infer the
         // required inputs
@@ -1357,7 +1443,7 @@ struct TensorflowGraphBase: public Function {
         functionScope.inferInput();
         
         FunctionInfo result;
-        result.input = std::move(functionScope.inputInfo);
+        result.input = { functionScope.inputInfo };
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;
@@ -1408,8 +1494,8 @@ struct TensorflowOp: public TensorflowGraphBase {
     {
         functionConfig = config.params.convert<TensorflowOpConfig>();   
         tensorflow::Status status;
-        op = tensorflow::OpRegistry::Global()->LookUp(functionConfig.op.rawString(),
-                                                      &status);
+        status = tensorflow::OpRegistry::Global()->LookUpOpDef(functionConfig.op.rawString(),
+                                                      &op);
 
         if (!op) {
             throw HttpReturnException(400, "Unable to obtain TensorFlow operator '"
@@ -1568,8 +1654,8 @@ struct TensorflowPlugin: public Plugin {
     TensorflowPlugin(MldbServer * server)
         : Plugin(server)
     {
-        using namespace Datacratic;
-        using namespace Datacratic::MLDB;
+        
+        using namespace MLDB;
 
         int argc = 0;
         char ** argv = new char * [2];
@@ -1590,8 +1676,7 @@ struct TensorflowPlugin: public Plugin {
             const tensorflow::OpDef & op = ops.op(i);
             RegisteredOp entry;
 
-            Status status;
-            entry.op = OpRegistry::Global()->LookUp(op.name(), &status);
+            Status status = OpRegistry::Global()->LookUpOpDef(op.name(), &entry.op);
             ExcAssert(status.ok());
 
             entry.builtinFunctionHandle
@@ -1832,8 +1917,10 @@ struct TensorflowPlugin: public Plugin {
                     SqlBindingScope & context)
             -> BoundFunction
             {
-                tensorflow::Status status;
-                auto * opDef = tensorflow::OpRegistry::Global()->LookUp(op, &status);
+                
+                const tensorflow::OpDef * opDef;
+                tensorflow::Status status
+                    = tensorflow::OpRegistry::Global()->LookUpOpDef(op, &opDef);
 
                 if (args.size() < 1 || args.size() > 2)
                     throw HttpReturnException
@@ -1882,8 +1969,12 @@ struct TensorflowPlugin: public Plugin {
                              + op + "' which takes more than one input"); 
                     }
                 }
-                else {
+                else if (args[0].info->isRow()) {
                     inputInfo = ExpressionValueInfo::toRow(args[0].info);
+                }
+                else {
+                    //we dont know the type of input
+                    inputInfo.reset(new UnknownRowValueInfo());
                 }
 
                 for (size_t i = 0;  i < opDef->input_arg_size();  ++i) {
@@ -1920,7 +2011,7 @@ struct TensorflowPlugin: public Plugin {
                     (server, pconfig, nullptr /* progress */);
 
                 std::shared_ptr<FunctionApplier> applier
-                    (fn->bind(context, inputInfo)
+                    (fn->bind(context, {inputInfo})
                      .release());
                 
                 BoundFunction result;
@@ -1942,7 +2033,6 @@ struct TensorflowPlugin: public Plugin {
                     };
 
                 result.resultInfo = applier->info.output;
-
                 return result;
             };
     }
@@ -2021,14 +2111,80 @@ struct TensorflowPlugin: public Plugin {
     std::shared_ptr<void> tfOperationMacroHandle;
 };
 
+// tf_node function
 
+BoundFunction
+tf_extract_constant (const Utf8String &functionName,
+                     const std::vector<BoundSqlExpression> & args,
+                     SqlBindingScope & context)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 2);
+
+    MldbServer * server = context.getMldbServer();
+
+    auto exec = [=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+        -> ExpressionValue
+        {
+            checkArgsSize(args.size(), 2);
+            Utf8String graphName = args[0].toUtf8String();
+            PolyConfig pconfig;
+            pconfig.id = graphName;
+            auto graph = std::dynamic_pointer_cast<TensorflowGraphBase>
+                (obtainFunction(server, pconfig));
+
+            if (!graph) {
+                throw HttpReturnException
+                    (404, "No TensorFlow graph with name found");
+            }
+
+            Path path = args[1].coerceToPath();
+
+            std::string key;
+            for (PathElement p: path) {
+                if (!key.empty())
+                    key += '/';
+                key += p.toUtf8String().extractAscii();
+            }
+
+            auto it = graph->constants.find(key);
+
+            if (it == graph->constants.end()) {
+                std::vector<Utf8String> constantExamples;
+                size_t n = 0;
+                for (auto & c: graph->constants) {
+                    constantExamples.emplace_back(c.first);
+                    if (n++ > 100)
+                        break;
+                }
+
+                throw HttpReturnException
+                    (500, "Constant " + path.toUtf8String()
+                     + " not found (path is " + key + ")",
+                     "examples", constantExamples);
+            }
+
+            auto result = TensorflowGraphBase::tensorToValue
+                (it->second, graph->modelTs);
+
+            return result;
+        };
+
+    return {
+        exec,
+        std::make_shared<EmbeddingValueInfo>()
+    };
+}
+
+static RegisterFunction registerTfExtractConstant("tf_extract_constant", tf_extract_constant);
 
 } // namespace MLDB
-} // namespace Datacratic
 
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
+
+MLDB::Plugin *
+mldbPluginEnterV100(MLDB::MldbServer * server)
 {
-    return new Datacratic::MLDB::TensorflowPlugin(server);
+    return new MLDB::TensorflowPlugin(server);
 }
 

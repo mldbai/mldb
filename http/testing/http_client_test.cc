@@ -30,7 +30,7 @@
 #include "mldb/utils/testing/print_utils.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 /* helpers functions used in tests */
@@ -349,7 +349,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
     auto makeBody = [&] (size_t i) {
         int multiplier = (i < maxRequests / 2) ? -2 : 2;
         size_t bodySize = 2000 + multiplier * i;
-        string body = ML::format("%.4x", bodySize);
+        string body = MLDB::format("%.4x", bodySize);
         size_t rndSize = bodySize - body.size();
         body += randomString(rndSize);
 

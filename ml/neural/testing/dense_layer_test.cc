@@ -110,16 +110,16 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     // Check the missing values throw an exception
     input[0] = numeric_limits<float>::quiet_NaN();
     {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(layer.apply(input), ML::Exception);
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(layer.apply(input), MLDB::Exception);
     }
 
     // Check that the wrong size throws an exception
     input.push_back(2.0);
     input[0] = 1.0;
     {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(layer.apply(input), ML::Exception);
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(layer.apply(input), MLDB::Exception);
     }
 
     input.pop_back();

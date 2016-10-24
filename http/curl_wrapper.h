@@ -17,14 +17,14 @@
 #include <vector>
 #include <memory>
 
-namespace Datacratic
+namespace MLDB
 {
     class RestParams;
     
 namespace CurlWrapper {
     class Easy;
 
-    class RuntimeError : public ML::Exception
+    class RuntimeError : public MLDB::Exception
     {
     public:
         RuntimeError(const std::string & reason, CURLcode code);

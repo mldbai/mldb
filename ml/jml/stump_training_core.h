@@ -51,7 +51,7 @@ struct LW_Array {
     T * base;
     size_t stride;
     
-    JML_ALWAYS_INLINE T * operator [] (size_t i) const { return base + i * stride; }
+    MLDB_ALWAYS_INLINE T * operator [] (size_t i) const { return base + i * stride; }
 };
 
 /*****************************************************************************/
@@ -64,7 +64,7 @@ struct LW_Array {
 
 struct No_Trace {
     /** Are we tracing? */
-    JML_ALWAYS_INLINE operator bool () const { return false; }
+    MLDB_ALWAYS_INLINE operator bool () const { return false; }
 
     /** Return the stream to which we trace.
 
@@ -93,7 +93,7 @@ struct Stream_Tracer {
     }
     
     /** Are we tracing? */
-    JML_ALWAYS_INLINE operator bool () const
+    MLDB_ALWAYS_INLINE operator bool () const
     {
         return trace && message++ >= start_message;
     }
@@ -138,26 +138,26 @@ struct LW_Array;
     value.  In this case, we use an advance of 0 which keeps us pointing
     to the same value.
 */
-JML_ALWAYS_INLINE int get_advance(const boost::multi_array<float, 2> & weights)
+MLDB_ALWAYS_INLINE int get_advance(const boost::multi_array<float, 2> & weights)
 {
     return (weights.shape()[1] == 1 ? 0 : 1);
 }
 
 template<class T>
-JML_ALWAYS_INLINE int get_advance(const LW_Array<T> & weights)
+MLDB_ALWAYS_INLINE int get_advance(const LW_Array<T> & weights)
 {
     return (weights.stride == 1 ? 0 : 1);
 }
 
 /** When the weights are like this, it's always regression or one
     dimensional, so the advance doesn't matter. */
-JML_ALWAYS_INLINE int get_advance(const std::vector<float> & weights)
+MLDB_ALWAYS_INLINE int get_advance(const std::vector<float> & weights)
 {
     return 1;
 }
 
 /** Ditto. */
-JML_ALWAYS_INLINE int get_advance(const std::vector<const float *> & weights)
+MLDB_ALWAYS_INLINE int get_advance(const std::vector<const float *> & weights)
 {
     return 1;  // assume not binsym
 }
@@ -343,7 +343,7 @@ struct Stump_Trainer {
             };
         
 
-        Datacratic::parallelMap(0, features.size(), onFeature);
+        MLDB::parallelMap(0, features.size(), onFeature);
     }
 
     /* Test all of the given features, and return them sorted by their best
@@ -966,7 +966,7 @@ struct Stump_Trainer {
         if (hasMissingWeight) {
             /* One candidate split point is -INF, which lets us split only based
                upon missing or not. */
-            float Zvalue JML_UNUSED = results.add(feature, w, -INFINITY, missing);
+            float Zvalue MLDB_UNUSED = results.add(feature, w, -INFINITY, missing);
         }
         
         float prev = index[i].value();
@@ -1068,7 +1068,7 @@ struct Stump_Trainer {
 
         W w = default_w;
 
-        int nl JML_UNUSED = default_w.nl();
+        int nl MLDB_UNUSED = default_w.nl();
 
         if (categorical) {
             // For catgorical, the value itself gives the bucket number, so we

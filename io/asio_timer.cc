@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 void
@@ -25,7 +25,7 @@ StrandHolder::
 init(void * strand, const std::type_info * type)
 {
     if (type != &typeid(boost::asio::strand))
-        throw ML::Exception("StrandHolder initialized from " + ML::demangle(type->name()) + " not boost::asio::strand");
+        throw MLDB::Exception("StrandHolder initialized from " + demangle(type->name()) + " not boost::asio::strand");
     this->strand = strand;
 }
 
@@ -197,7 +197,7 @@ struct AsioTimer::Impl {
                      << " strand " << state->strand
                      << endl;
                 if (!doneBacktrace) {
-                    ML::backtrace();
+                    backtrace();
                     doneBacktrace = true;
                 }
             }
@@ -343,5 +343,5 @@ WatchT<Date> getTimer(Date nextExpiry,
 template class WatchT<Date>;
 template class WatchesT<Date>;
 
-} // namespace Datacratic
+} // namespace MLDB
 

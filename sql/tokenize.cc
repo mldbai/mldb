@@ -13,8 +13,7 @@
 
 using namespace std;
 
-
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TokenizeOptions);
 
@@ -89,7 +88,7 @@ struct NGramer {
           count(0), buffer_pos(0)
     {
         if(max_range<min_range || min_range<1 || max_range<1)
-            throw ML::Exception("ngramRange values must be bigger than 0 "
+            throw MLDB::Exception("ngramRange values must be bigger than 0 "
                     "and the second value needs to be equal or bigger than the first");
     
         buffer.resize(max_range);
@@ -136,7 +135,7 @@ struct NGramer {
 
 
 
-char32_t expectUtf8Char(ML::Parse_Context & context)
+char32_t expectUtf8Char(ParseContext & context)
 {
     if (!context)
         context.exception("Expected UTF-8 character but got EOF instead");
@@ -170,9 +169,9 @@ char32_t expectUtf8Char(ML::Parse_Context & context)
     return res;
 }
 
-static bool matchUtf8Literal(ML::Parse_Context & context, const Utf8String& literal)
+static bool matchUtf8Literal(ParseContext & context, const Utf8String& literal)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
     auto it = literal.begin();
     while (!context.eof() && it != literal.end())
     {
@@ -190,9 +189,9 @@ static bool matchUtf8Literal(ML::Parse_Context & context, const Utf8String& lite
     return false;
 }
 
-static bool matchOneOfUtf8(ML::Parse_Context & context, const Utf8String& literals)
+static bool matchOneOfUtf8(ParseContext & context, const Utf8String& literals)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
 
     if (context.eof())
        return false;
@@ -212,12 +211,12 @@ static bool matchOneOfUtf8(ML::Parse_Context & context, const Utf8String& litera
 
 void
 tokenize_exec(std::function<bool (Utf8String&)> exec,
-              ML::Parse_Context& context,
+              ParseContext& context,
               const Utf8String& splitchars,
               const Utf8String& quotechar,
               int minTokenLength)
 {
-    auto expect_token = [=] (ML::Parse_Context& context, bool& another) -> Utf8String
+    auto expect_token = [=] (ParseContext& context, bool& another) -> Utf8String
         {
             Utf8String result;
 
@@ -260,7 +259,7 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
             }
 
             if (quoted)
-                throw ML::Exception("string finished inside quote");
+                throw MLDB::Exception("string finished inside quote");
 
             return result;
         };
@@ -281,7 +280,7 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
 }
 
 bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
-              ML::Parse_Context& pcontext,
+              ParseContext& pcontext,
               const TokenizeOptions & options)
 {
     int count = 0;
@@ -326,7 +325,7 @@ bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
 }
 
 
-Utf8String token_extract(ML::Parse_Context& context,
+Utf8String token_extract(ParseContext& context,
                          int nth,
                          const TokenizeOptions & options)
 {
@@ -387,4 +386,4 @@ Utf8String token_extract(ML::Parse_Context& context,
 }
 
 
-} //Datacratic
+} // namespace MLDB

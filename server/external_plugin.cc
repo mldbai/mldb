@@ -20,9 +20,8 @@
 
 
 using namespace std;
+using namespace MLDB::PluginCommand;
 
-
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -424,7 +423,7 @@ start()
     string address;
     try {
         address = future.get();
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error getting plugin address",
                              "config", config);
     }
@@ -475,9 +474,9 @@ struct AtInit {
 
 } // file scope
 
-} // namespace MLDB
-
 template class PolyCollection<MLDB::ExternalPluginSetup>;
 template class PolyCollection<MLDB::ExternalPluginStartup>;
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

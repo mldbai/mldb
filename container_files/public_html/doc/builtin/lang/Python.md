@@ -9,7 +9,7 @@ into MLDB to extend its functionality.
 
 With `PackageElementSources` defined as:
 
-![](%%type Datacratic::MLDB::PackageElementSources)
+![](%%type MLDB::PackageElementSources)
 
 If the `address` parameter is used, it may contain:
 
@@ -45,7 +45,7 @@ There are two functions that allow access to the virtual filesystem of MLDB:
   in the directory, with the URI as the key and the following structure
   as the value:
 
-  ![](%%type Datacratic::FsObjectInfo)
+  ![](%%type MLDB::FsObjectInfo)
 
 ### `dataset` object (available to plugins and scripts)
 
@@ -108,19 +108,19 @@ If an exception was thrown, the output will look like
 
 The actual output object looks like this:
 
-![](%%type Datacratic::MLDB::ScriptOutput)
+![](%%type MLDB::ScriptOutput)
 
 with log entries looking like
 
-![](%%type Datacratic::MLDB::ScriptLogEntry)
+![](%%type MLDB::ScriptLogEntry)
 
 Exceptions are represented as
 
-![](%%type Datacratic::MLDB::ScriptException)
+![](%%type MLDB::ScriptException)
 
 with stack frames like
 
-![](%%type Datacratic::MLDB::ScriptStackFrame)
+![](%%type MLDB::ScriptStackFrame)
 
 Note that the Python plugin only fills in the `where` field of stack frame
 entries.
@@ -139,3 +139,65 @@ use of MLDB:
   optimized path each time that one is encountered (50% probability of each).
   Note that this setting applies to the entire MLDB instance, and so should
   not be used in production.
+
+## mldb_wrapper
+
+A higher level object named `mldb_wrapper` can be used to wrap the `mldb` object. Key features are:
+
+* REST calls (GET, POST, PUT, DELETE) validate the returned status_code. If it's not between 200 and 399,
+it raises `mldb_wrapper.ResponseException`. It eliminates the need to validate the status code after each call.
+* The `log(thing)` function acts differently based on `thing` type. `dicts` and `lists` are formatted using `json.dumps`.
+`str` and `unicode` are output as is. Any other type will output the string representation of `thing`
+* The `query(query)` function, which is a shorhand for `GET /v1/query?q=<query>&format=table`. It returns a list of the
+rows. Whenever you work without dates, that is likely the go-to function for querying.
+* The `post_run_and_track_procedure(payload, refresh_rate_sesc)`, which creates a procedure based on `payload`, runs it and prints its progress status every `refresh_rate_sec` seconds. It returns as soon as the procedure stops running. Useful to
+see what's going on for long running procedures.
+* The `run_tests()` function, which executes python unittest of the current context.
+
+### Example
+
+Code
+```python
+# We create the mldb_wrapper object
+wrapper = mldb_wrapper.wrap(mldb)
+
+# The functions of the mldb object are still accessible. Here we use 
+# create_dataset, record 2 rows and commit.
+ds = wrapper.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+ds.record_row('row 1', [['ColA', 'A', 0]])
+ds.record_row('row 2', [['ColB', 'B', 0]])
+ds.commit()
+
+# We use the query function which returns a list of the rows.
+res = wrapper.query("SELECT * FROM ds")
+
+# Output the result. Since it's a list the log function will format it.
+wrapper.log(res)
+
+# The way to set the return is the same as before. Here we set "success".
+mldb.script.set_return("success")
+
+````
+
+Output
+```
+2016-10-19 20:37:34.535 script runner plugin [
+    [
+        "_rowName",
+        "ColB",
+        "ColA"
+    ],
+    [
+        "row 2",
+        "B",
+        null
+    ],
+    [
+        "row 1",
+        null,
+        "A"
+    ]
+]
+```
+
+For more examples, refer to the python tests, which are mostly written with the `mldb_wrapper`.

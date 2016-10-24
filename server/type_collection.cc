@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -65,7 +65,7 @@ struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
                    const Utf8String & nounPlural,
                    MldbServer * server, RestEntity * parent)
         : RestCollection<Utf8String, TypeEntry>(nounSingular, nounPlural, parent),
-          parent(parent), name(ML::type_name<Base>()),
+          parent(parent), name(MLDB::type_name<Base>()),
           server(server)
     {
         entryWatch = PolyCollection<Base>::watchTypes(true /* catchup */);
@@ -148,7 +148,7 @@ struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
 
     bool isCollection() const { return true; }
     
-    Utf8String getDescription() const { return "Collection of classes of type " + ML::type_name<Base>(); }
+    Utf8String getDescription() const { return "Collection of classes of type " + MLDB::type_name<Base>(); }
 
     Utf8String getName() const { return name; }
 
@@ -245,5 +245,5 @@ initRoutes(RouteManager & manager)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

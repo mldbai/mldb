@@ -16,7 +16,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST PARAMS                                                               */
@@ -121,4 +121,4 @@ const std::string & getResponseReasonPhrase(int code);
 
 DECLARE_STRUCTURE_DESCRIPTION(HttpHeader);
 
-} // namespace Datacratic
+} // namespace MLDB

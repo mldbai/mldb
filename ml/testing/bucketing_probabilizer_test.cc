@@ -23,7 +23,7 @@ using boost::test_toolbox::close_at_tolerance;
 #define PI 3.14159265
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( getProb_test )
@@ -177,19 +177,19 @@ BOOST_AUTO_TEST_CASE( uidWeightedProbabilizerTraining )
     // Generate test data
     Prediction_Accumulator predAccum;
 
-    predAccum.addPrediction(1, 0.25, Id("a"));
-    predAccum.addPrediction(1, 0.25, Id("a"));
-    predAccum.addPrediction(1, 0.25, Id("a"));
-    predAccum.addPrediction(0, 0.25, Id("weras"));
+    predAccum.addPrediction(1, 0.25, Utf8String("a"));
+    predAccum.addPrediction(1, 0.25, Utf8String("a"));
+    predAccum.addPrediction(1, 0.25, Utf8String("a"));
+    predAccum.addPrediction(0, 0.25, Utf8String("weras"));
     
-    predAccum.addPrediction(1, 0.5, Id("b"));
-    predAccum.addPrediction(0, 0.5, Id("asdf"));
-    predAccum.addPrediction(0, 0.5, Id("asdf23"));
-    predAccum.addPrediction(1, 0.5, Id("b"));
+    predAccum.addPrediction(1, 0.5, Utf8String("b"));
+    predAccum.addPrediction(0, 0.5, Utf8String("asdf"));
+    predAccum.addPrediction(0, 0.5, Utf8String("asdf23"));
+    predAccum.addPrediction(1, 0.5, Utf8String("b"));
     
-    predAccum.addPrediction(1, 0.75, Id("c"));
-    predAccum.addPrediction(0, 0.75, Id("z"));
-    predAccum.addPrediction(1, 0.75, Id("a"));
+    predAccum.addPrediction(1, 0.75, Utf8String("c"));
+    predAccum.addPrediction(0, 0.75, Utf8String("z"));
+    predAccum.addPrediction(1, 0.75, Utf8String("a"));
 
     auto ctr_buckets = Bucketing_Probabilizer::
             trainBucketingProbabilizer(predAccum, 3);

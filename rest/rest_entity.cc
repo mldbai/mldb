@@ -10,7 +10,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/http/http_exception.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(RestEntityChildEvent);
 
@@ -27,4 +27,4 @@ throwChildAlreadyAdded(const Utf8String & name)
     throw HttpReturnException(400, "Child of '" + name + "' already added");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

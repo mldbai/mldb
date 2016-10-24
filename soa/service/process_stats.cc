@@ -23,7 +23,7 @@
 #include <sys/resource.h>
 
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 using namespace boost;
 
@@ -59,13 +59,13 @@ enum ProcLoadAvgFields {
 vector<string> readProcFile(const string& procFile) {
     ifstream ifs(procFile);
     if (ifs.fail()) {
-        throw ML::Exception ("Unable to open proc file " + procFile);
+        throw MLDB::Exception ("Unable to open proc file " + procFile);
     }
 
     std::array<char, 1024> buffer;
     ifs.getline(&buffer[0], buffer.max_size());
     if (ifs.fail() || ifs.eof()) {
-        throw ML::Exception ("Unable to read proc file " + procFile);
+        throw MLDB::Exception ("Unable to read proc file " + procFile);
     }
 
     std::string rawStats = &buffer[0];

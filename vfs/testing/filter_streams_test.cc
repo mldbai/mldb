@@ -36,7 +36,7 @@
 using namespace std;
 namespace fs = boost::filesystem;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
@@ -59,9 +59,9 @@ void system(const std::string & command)
 {
     int res = ::system(command.c_str());
     if (res == -1)
-        throw ML::Exception(errno, "system(): system");
+        throw MLDB::Exception(errno, "system(): system");
     if (res != 0)
-        throw ML::Exception("command %s returned code %d",
+        throw MLDB::Exception("command %s returned code %d",
                             command.c_str(), res);
 }
 
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE( test_open_failure )
 {
     filter_ostream stream;
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
@@ -213,7 +213,7 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
     cerr <<" done close" << endl;
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream << "hello again" << std::endl, std::exception);
     }
 }
@@ -413,7 +413,7 @@ struct ExceptionSource {
     std::streamsize write(const char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnWrite) {
-            throw ML::Exception("throwing when writing");
+            throw MLDB::Exception("throwing when writing");
         }
         return n;
     }
@@ -421,7 +421,7 @@ struct ExceptionSource {
     std::streamsize read(char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnRead) {
-            throw ML::Exception("throwing when reading");
+            throw MLDB::Exception("throwing when reading");
         }
         char randomdata[n];
         ::memcpy(s, randomdata, n);
@@ -449,7 +449,7 @@ struct RegisterExcHandlers {
         handler.reset(new boost::iostreams::stream_buffer<ExceptionSource>
                       (ExceptionSource(onException, throwType),
                        1));
-        Datacratic::FsObjectInfo info;
+        FsObjectInfo info;
         info.exists = true;
         return UriHandler(handler.get(), handler, info);
     }
@@ -502,16 +502,16 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
 
     string data;
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream >> data;
     };
 
-    BOOST_CHECK_THROW(action(), ML::Exception);
+    BOOST_CHECK_THROW(action(), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     filter_ostream stream("throw-on-write://exception-zone");
 
     auto action = [&]() {
@@ -523,7 +523,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
         }
     };
 
-    BOOST_CHECK_THROW(action(), ML::Exception);
+    BOOST_CHECK_THROW(action(), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
@@ -531,7 +531,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
     filter_ostream stream("throw-on-close://exception-zone");
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.close();
     };
 
@@ -544,7 +544,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_ostream)
     stream.reset(new filter_ostream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.reset();
     };
 
@@ -557,7 +557,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
     stream.reset(new filter_istream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.reset();
     };
 

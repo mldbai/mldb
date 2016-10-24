@@ -24,7 +24,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE(test_peer_generic_links)
 {
@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE(test_peer_generic_links)
     BOOST_CHECK_EQUAL(link2->getState(), LS_CONNECTING);
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(link2->waitUntilConnected(1.0), std::exception);
     }
 

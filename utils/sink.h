@@ -17,7 +17,7 @@
 #include "mldb/io/async_writer_source.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* OUTPUTSINK
 
@@ -202,4 +202,4 @@ private:
     std::vector<std::shared_ptr<InputSink> > sinks_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

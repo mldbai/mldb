@@ -14,7 +14,7 @@
 #include "mldb/http/http_rest_proxy.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -82,4 +82,4 @@ struct SnsApiWrapper {
         }
 };
 
-} // namespace Datacratic
+} // namespace MLDB

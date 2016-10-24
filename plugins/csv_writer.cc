@@ -9,7 +9,7 @@
 #include "csv_writer.h"
 #include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 using namespace std;
 
@@ -34,13 +34,6 @@ CsvWriter::
 operator<< (int value)
 {
     return *this << std::to_string(value);
-}
-
-CsvWriter&
-CsvWriter::
-operator<< (const Id & value)
-{
-    return *this << value.toString();
 }
 
 CsvWriter&
@@ -96,4 +89,4 @@ endl()
     lineStart = true;
 }
 
-} // Datacratic
+} // namespace MLDB

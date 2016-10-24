@@ -9,8 +9,7 @@
    definitions.
 */
 
-#ifndef __jml__arch__exception_internals_h__
-#define __jml__arch__exception_internals_h__
+#pragma once
 
 #include <typeinfo>
 #include <exception>
@@ -62,6 +61,3 @@ struct __cxa_eh_globals
 extern "C" __cxa_eh_globals *__cxa_get_globals () throw();
 
 } // __cxxabiv1
-
-
-#endif /* __jml__arch__exception_internals_h__ */

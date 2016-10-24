@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -51,6 +51,7 @@ doGetFunction(const Utf8String & tableName,
     // Call it with the outer scope
     result.exec = [=] (const std::vector<ExpressionValue> & args,
                        const SqlRowScope & scope)
+        -> ExpressionValue
         {
             if (!scope.hasRow()) {
                 // We don't normally need a scope for function calls, since their
@@ -93,7 +94,7 @@ rebind(BoundSqlExpression expr)
 ColumnGetter
 ReadThroughBindingScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     auto outerImpl = outer.doGetColumn(tableName, columnName);
 
@@ -273,7 +274,7 @@ doGetFunction(const Utf8String & tableName,
 
 ColumnGetter 
 ColumnExpressionBindingScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
     throw HttpReturnException(400, "Cannot read column '"
                               + columnName.toUtf8String()
@@ -288,9 +289,9 @@ doGetAllColumns(const Utf8String & tableName,
     throw HttpReturnException(400, "Cannot use wildcard inside COLUMN EXPR");
 }
 
-ColumnName
+ColumnPath
 ColumnExpressionBindingScope::
-doResolveTableName(const ColumnName & fullVariableName,
+doResolveTableName(const ColumnPath & fullVariableName,
                    Utf8String & tableName) const
 {
     throw HttpReturnException
@@ -386,7 +387,7 @@ SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer,
                           std::shared_ptr<ExpressionValueInfo> inputInfo)
     : outer(outer),
-      inputInfo(ExpressionValueInfo::toRow(inputInfo)),
+      inputInfo(inputInfo),
       wildcardsInInput(false)
 {
     ExcAssert(this->inputInfo);
@@ -419,7 +420,7 @@ inferInput()
 ColumnGetter
 SqlExpressionExtractScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     ExcAssert(!columnName.empty());
     
@@ -519,7 +520,7 @@ doGetAllColumns(const Utf8String & tableName,
                                   CellValue val,
                                   Date ts)
                 {
-                    ColumnName outputColumnName
+                    ColumnPath outputColumnName
                         = keep(prefix + std::move(columnName));
                     if (outputColumnName.empty())
                         return true;
@@ -545,10 +546,10 @@ doGetAllColumns(const Utf8String & tableName,
     vector<KnownColumn> outputColumns;
 
     // List of input name -> outputName for those to keep
-    std::unordered_map<ColumnName, ColumnName> toKeep;
+    std::unordered_map<ColumnPath, ColumnPath> toKeep;
 
     for (auto & c: inputColumns) {
-        ColumnName outputColumnName = keep(c.columnName);
+        ColumnPath outputColumnName = keep(c.columnName);
         if (outputColumnName.empty())
             continue;
 
@@ -607,9 +608,9 @@ doGetFunction(const Utf8String & tableName,
     return outer.doGetFunction(tableName, functionName, args, argScope);
 }
 
-ColumnName
+ColumnPath
 SqlExpressionExtractScope::
-doResolveTableName(const ColumnName & fullVariableName,
+doResolveTableName(const ColumnPath & fullVariableName,
                    Utf8String & tableName) const
 {
     // Let the outer context resolve our table name
@@ -697,4 +698,4 @@ getDatasetDerivedFunction(const Utf8String & tableName,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -17,7 +17,7 @@
 #include <iostream>
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -53,9 +53,9 @@ public:
 /** An environment option variable */
 
 template<typename T, bool Trace = false>
-class Env_Option {
+class EnvOption {
 public:
-    Env_Option(const std::string & var_name, const T & def)
+    EnvOption(const std::string & var_name, const T & def)
         : t_(def), specified_(false)
     {
         const Environment & env = Environment::instance();
@@ -87,4 +87,4 @@ private:
     bool specified_;
 
 };
-} // namespace ML
+} // namespace MLDB

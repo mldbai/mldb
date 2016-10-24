@@ -12,7 +12,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/jml/stats/distribution.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum MetricSpace {
@@ -34,15 +34,15 @@ struct DistanceMetric {
     }
 
     /** Add a row, caching information about it. */
-    virtual void addRow(int rowNum, const ML::distribution<float> & coords) = 0;
+    virtual void addRow(int rowNum, const distribution<float> & coords) = 0;
 
     /** Calculate the distance between two rows.  If either of them have
         a known number, it is passed in rowNum, otherwise that rowNum
         will be -1.
     */
     virtual float dist(int rowNum1, int rowNum2,
-                       const ML::distribution<float> & coords1,
-                       const ML::distribution<float> & coords2) const = 0;
+                       const distribution<float> & coords1,
+                       const distribution<float> & coords2) const = 0;
 
     /** Factor for distance metric objects. */
     static DistanceMetric * create(MetricSpace space);
@@ -55,19 +55,19 @@ struct DistanceMetric {
 
 struct EuclideanDistanceMetric: public DistanceMetric {
 
-    void addRow(int rowNum, const ML::distribution<float> & coords);
+    void addRow(int rowNum, const distribution<float> & coords);
 
     float dist(int rowNum1, int rowNum2,
-               const ML::distribution<float> & coords1,
-               const ML::distribution<float> & coords2) const;
+               const distribution<float> & coords1,
+               const distribution<float> & coords2) const;
 
     /// Pre cached ||vec||^2 for each row, to allow optimization of the
     /// calculation.
     std::vector<double> sum_dist;
 
     /// Static method to perform the calculation, with no caching
-    static float calc(const ML::distribution<float> & coords1,
-                      const ML::distribution<float> & coords2);
+    static float calc(const distribution<float> & coords1,
+                      const distribution<float> & coords2);
 };
 
 
@@ -77,23 +77,23 @@ struct EuclideanDistanceMetric: public DistanceMetric {
 
 struct CosineDistanceMetric: public DistanceMetric {
 
-    void addRow(int rowNum, const ML::distribution<float> & coords);
+    void addRow(int rowNum, const distribution<float> & coords);
 
     float dist(int rowNum1, int rowNum2,
-               const ML::distribution<float> & coords1,
-               const ML::distribution<float> & coords2) const;
+               const distribution<float> & coords1,
+               const distribution<float> & coords2) const;
 
     /// Pre-cached reciprocal of the two norm of each vector, to allow
     /// optimization of the calculation.
     std::vector<double> two_norm_recip;
     
     /// Static method to perform the calculation, with no caching
-    static float calc(const ML::distribution<float> & coords1,
-                      const ML::distribution<float> & coords2);
+    static float calc(const distribution<float> & coords1,
+                      const distribution<float> & coords2);
 };
 
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

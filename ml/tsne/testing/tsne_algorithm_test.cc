@@ -32,7 +32,7 @@
 
 using namespace ML;
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
@@ -45,7 +45,7 @@ X sqr(X x)
 void calcRep(const QuadtreeNode & node,
              int depth,
              bool inside,
-             const ML::distribution<float> & y,
+             const distribution<float> & y,
              double * FrepZ,
              double & exampleZ,
              int & nodesTouched,
@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE( test_small )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 100;
@@ -296,10 +296,10 @@ BOOST_AUTO_TEST_CASE( test_small )
     for (unsigned i = 0;  i < 100;  ++i)
         BOOST_CHECK_CLOSE(probabilities[0][i], expected[i], tolerance);
 
-    boost::multi_array<float, 2> reduction JML_UNUSED
+    boost::multi_array<float, 2> reduction MLDB_UNUSED
         = tsne(probabilities, 2);
 
-    boost::multi_array<float, 2> reductionAppox JML_UNUSED
+    boost::multi_array<float, 2> reductionAppox MLDB_UNUSED
         = tsne(probabilities, 2);
 
     // Now try to rerun t-SNE on a point that is identical to one of the others
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_CASE( test_vantage_point_tree )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 2500;
@@ -427,7 +427,7 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 100;
@@ -512,7 +512,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     string input_file = "mldb/tsne/testing/mnist2500_X_min.txt.gz";
 
     filter_istream stream(input_file);
-    Parse_Context context(input_file, stream);
+    ParseContext context(input_file, stream);
 
     int nd = 784;
     int nx = 2500;
@@ -543,7 +543,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     cerr << "done." << endl;
 
     cerr << "converting to probabilities...";
-    boost::multi_array<float, 2> probabilities JML_UNUSED
+    boost::multi_array<float, 2> probabilities MLDB_UNUSED
         = distances_to_probabilities(distances);
     cerr << "done." << endl;
 
@@ -564,7 +564,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
         }
     }
 
-    boost::multi_array<float, 2> reduction JML_UNUSED
+    boost::multi_array<float, 2> reduction MLDB_UNUSED
         = tsneApproxFromSparse(sparseProbs, 2);
 #endif
 
@@ -574,14 +574,14 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     params.numNeighbours = 60;//2499;
 
     cerr << "doing sparse t-SNE" << endl;
-    boost::multi_array<float, 2> reduction JML_UNUSED
+    boost::multi_array<float, 2> reduction MLDB_UNUSED
         = tsneApproxFromCoords(data, 2, params);
 
     cerr << t.elapsed() << endl;
 
     t.restart();
 
-    boost::multi_array<float, 2> reduction2 JML_UNUSED
+    boost::multi_array<float, 2> reduction2 MLDB_UNUSED
         = tsne(probabilities, 2);
 
     cerr << t.elapsed() << endl;

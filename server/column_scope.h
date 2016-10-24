@@ -11,7 +11,7 @@
 
 #include "mldb/server/dataset_context.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Dataset;
@@ -31,8 +31,8 @@ struct ColumnScope: public SqlExpressionMldbScope {
 
     std::shared_ptr<Dataset> dataset;
 
-    std::map<ColumnName, size_t> requiredColumnIndexes;
-    std::vector<ColumnName> requiredColumns;
+    std::map<ColumnPath, size_t> requiredColumnIndexes;
+    std::vector<ColumnPath> requiredColumns;
 
     struct RowScope: public SqlRowScope {
         // Initialize with a dense column for each input
@@ -65,7 +65,7 @@ struct ColumnScope: public SqlExpressionMldbScope {
     
     virtual ColumnGetter
     doGetColumn(const Utf8String & tableName,
-                const ColumnName & columnName);
+                const ColumnPath & columnName);
 
     /** This will throw, as the ColumnScope can't execute an expression
         with wildcards in it.
@@ -149,5 +149,5 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

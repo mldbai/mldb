@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* rest_connection.h                                               -*- C++ -*-
    Jeremy Barnes, 1 December 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Connection object for REST connections.  Abstract class; can be specialized
    for the different kinds of connections.
@@ -15,7 +14,7 @@
 #include "mldb/http/http_header.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST CONNECTION                                                           */
@@ -125,4 +124,4 @@ struct RestConnection {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

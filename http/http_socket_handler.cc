@@ -13,17 +13,9 @@
 #include "http_socket_handler.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
-namespace {
-
-constexpr char header100Continue[] = "Expect: 100-continue\r\n";
-constexpr int sizeof100Continue = sizeof(header100Continue) - 1;
-
-}
-
-
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -115,7 +107,7 @@ onReceivedData(const char * data, size_t size)
         parser_.feed(data, size);
         requestReceive();
     }
-    catch (const ML::Exception & exc) {
+    catch (const MLDB::Exception & exc) {
         requestClose();
     }
 }
@@ -129,7 +121,7 @@ onReceiveError(const boost::system::error_code & ec, size_t bufferSize)
         requestClose();
     }
     else {
-        throw ML::Exception("unhandled error: " + ec.message());
+        throw MLDB::Exception("unhandled error: " + ec.message());
     }
 }
 
@@ -281,5 +273,5 @@ onDone(bool requireClose)
     bodyStarted_ = false;
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

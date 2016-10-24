@@ -18,9 +18,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/sql/sql_expression_operations.h"
 
-namespace Datacratic {
 
-struct Id;
 
 namespace MLDB {
 
@@ -72,7 +70,8 @@ struct RowProcessorEx {
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-bool iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -86,7 +85,8 @@ bool iterateDataset(const SelectExpression & select,
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-bool iterateDatasetExpr(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetExpr(const SelectExpression & select,
                         const Dataset & from,
                         const Utf8String & alias,
                         const WhenExpression & when,
@@ -101,7 +101,8 @@ bool iterateDatasetExpr(const SelectExpression & select,
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-bool iterateDataset(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String& alias,
                     const WhenExpression & when,
@@ -114,7 +115,8 @@ bool iterateDataset(const SelectExpression & select,
                     std::function<bool (const Json::Value &)> onProgress = nullptr);
 
 /** Full select function, with grouping. */
-bool iterateDatasetGrouped(const SelectExpression & select,
+std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String& alias,
                            const WhenExpression & when,
@@ -134,7 +136,7 @@ bool iterateDatasetGrouped(const SelectExpression & select,
     (tuples of row name, embedding, and extra parameters) and the
     list of variable info for the variables in the embedding.
 */
-std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectExpression & select,
              const Dataset & from,
@@ -148,7 +150,7 @@ getEmbedding(const SelectExpression & select,
              int limit = -1,
              const std::function<bool (const Json::Value &)> & onProgress = nullptr);
 
-std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectStatement & stm,
              SqlExpressionMldbScope & context,
@@ -166,6 +168,9 @@ getEmbedding(const SelectStatement & stm,
 std::vector<MatrixNamedRow>
 queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope);
 
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope);
+
 /** Select from the given statement.  This will choose the most
     appropriate execution method based upon what is in the query.
 
@@ -174,6 +179,11 @@ queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope);
 */
 std::vector<MatrixNamedRow>
 queryFromStatement(const SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params = nullptr);
+
+std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+queryFromStatementExpr(const SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params = nullptr);
 
@@ -193,11 +203,11 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
                    SqlBindingScope & scope,
                    BoundParameters params = nullptr);
 
-/** Build a RowName from an expression value and throw if
+/** Build a RowPath from an expression value and throw if
     it is not valid (row, empty, etc)
 */
-RowName getValidatedRowName(const ExpressionValue& rowNameEV);
+RowPath getValidatedRowName(const ExpressionValue& rowNameEV);
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

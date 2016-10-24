@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST SERVICE ENDPOINT CONNECTION ID                                       */
@@ -29,7 +29,7 @@ RestServiceEndpoint::ConnectionId::
 sendResponse(int responseCode, std::string response, std::string contentType)
 {
     if (itl->responseSent)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (itl->endpoint->logResponse)
         itl->endpoint->logResponse(*this, responseCode, response,
@@ -39,7 +39,7 @@ sendResponse(int responseCode, std::string response, std::string contentType)
         itl->http->sendResponse(responseCode,
                                 std::move(response), std::move(contentType));
     else
-        throw ML::Exception("missing connection handler");
+        throw MLDB::Exception("missing connection handler");
 
     itl->responseSent = true;
 }
@@ -50,7 +50,7 @@ sendResponse(int responseCode,
              const Json::Value & response, std::string contentType)
 {
     if (itl->responseSent)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (itl->endpoint->logResponse)
         itl->endpoint->logResponse(*this, responseCode, response.toString(),
@@ -60,7 +60,7 @@ sendResponse(int responseCode,
         itl->http->sendResponse(responseCode,
                                 std::move(response), std::move(contentType));
     else
-        throw ML::Exception("missing connection handler");
+        throw MLDB::Exception("missing connection handler");
 
     itl->responseSent = true;
 }
@@ -75,7 +75,7 @@ sendErrorResponse(int responseCode,
          << endl;
 
     if (itl->responseSent)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
 
     if (itl->endpoint->logResponse)
@@ -85,7 +85,7 @@ sendErrorResponse(int responseCode,
     if (itl->http)
         itl->http->sendResponse(responseCode, std::move(error));
     else
-        throw ML::Exception("missing connection handler");
+        throw MLDB::Exception("missing connection handler");
     
     itl->responseSent = true;
 }
@@ -99,7 +99,7 @@ sendErrorResponse(int responseCode, const Json::Value & error)
          << endl;
 
     if (itl->responseSent)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (itl->endpoint->logResponse)
         itl->endpoint->logResponse(*this, responseCode, error.toString(),
@@ -108,7 +108,7 @@ sendErrorResponse(int responseCode, const Json::Value & error)
     if (itl->http)
         itl->http->sendResponse(responseCode, error);
     else
-        throw ML::Exception("missing connection handler");
+        throw MLDB::Exception("missing connection handler");
     
     itl->responseSent = true;
 }
@@ -118,7 +118,7 @@ RestServiceEndpoint::ConnectionId::
 sendRedirect(int responseCode, std::string location)
 {
     if (itl->responseSent)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (itl->endpoint->logResponse)
         itl->endpoint->logResponse(*this, responseCode, location,
@@ -128,7 +128,7 @@ sendRedirect(int responseCode, std::string location)
         itl->http->sendResponse(responseCode, string(""), "",
                                 { { "Location", std::move(location) } });
     else
-        throw ML::Exception("missing connection handler");
+        throw MLDB::Exception("missing connection handler");
     
     itl->responseSent = true;
 }
@@ -140,7 +140,7 @@ sendHttpResponse(int responseCode,
                  RestParams headers)
 {
     if (itl->responseSent)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (itl->endpoint->logResponse)
         itl->endpoint->logResponse(*this, responseCode, response,
@@ -151,7 +151,7 @@ sendHttpResponse(int responseCode,
                                 std::move(response), std::move(contentType),
                                 std::move(headers));
     else
-        throw ML::Exception("missing connection handler");
+        throw MLDB::Exception("missing connection handler");
     
     itl->responseSent = true;
 }
@@ -163,10 +163,10 @@ sendHttpResponseHeader(int responseCode,
                        RestParams headers_)
 {
     if (itl->responseSent)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (!itl->http)
-        throw ML::Exception("sendHttpResponseHeader only works on HTTP connections");
+        throw MLDB::Exception("sendHttpResponseHeader only works on HTTP connections");
 
     if (itl->endpoint->logResponse)
         itl->endpoint->logResponse(*this, responseCode, "", contentType);
@@ -186,7 +186,7 @@ sendHttpResponseHeader(int responseCode,
     if (itl->http)
         itl->http->sendResponseHeader(responseCode, std::move(contentType), std::move(headers));
     else
-        throw ML::Exception("missing connection handler");
+        throw MLDB::Exception("missing connection handler");
 }
 
 void
@@ -195,7 +195,7 @@ sendPayload(std::string payload)
 {
     if (itl->chunkedEncoding) {
         if (payload.empty()) {
-            throw ML::Exception("Can't send empty chunk over a chunked connection");
+            throw MLDB::Exception("Can't send empty chunk over a chunked connection");
         }
         itl->http->sendHttpChunk(std::move(payload),
                                  HttpLegacySocketHandler::NEXT_CONTINUE);
@@ -223,7 +223,7 @@ std::shared_ptr<RestConnection>
 RestServiceEndpoint::ConnectionId::
 capture(std::function<void ()> onDisconnect)
 {
-    throw ML::Exception("RestServiceEndpoint::ConnectionId::capture(): "
+    throw MLDB::Exception("RestServiceEndpoint::ConnectionId::capture(): "
                         "needs to be implemented");
 }
 
@@ -231,7 +231,7 @@ std::shared_ptr<RestConnection>
 RestServiceEndpoint::ConnectionId::
 captureInConnection(std::shared_ptr<void> piggyBack)
 {
-    throw ML::Exception("RestServiceEndpoint::ConnectionId::captureInConnection(): "
+    throw MLDB::Exception("RestServiceEndpoint::ConnectionId::captureInConnection(): "
                         "needs to be implemented");
 }
 
@@ -305,7 +305,7 @@ handleRequest(ConnectionId & connection,
         onHandleRequest(connection, request);
     }
     else {
-        throw ML::Exception("need to override handleRequest or assign to "
+        throw MLDB::Exception("need to override handleRequest or assign to "
                             "onHandleRequest");
     }
 }
@@ -314,9 +314,9 @@ std::string
 RestServiceEndpoint::
 getHttpRequestId() const
 {
-    std::string s = Date::now().print(9) + ML::format("%d", random());
+    std::string s = Date::now().print(9) + MLDB::format("%d", random());
     uint64_t jobId = CityHash64(s.c_str(), s.size());
-    return ML::format("%016llx", jobId);
+    return MLDB::format("%016llx", jobId);
 }
 
 void
@@ -347,7 +347,7 @@ logToStream(std::ostream & stream)
             stream << "<-- ========================= finished request "
             << conn.itl->requestId
             << " at " << now.print(9)
-            << ML::format(" (%.3fms)", conn.itl->startDate.secondsUntil(now) * 1000)
+            << MLDB::format(" (%.3fms)", conn.itl->startDate.secondsUntil(now) * 1000)
             << endl;
             stream << code << " " << contentType << " " << resp.length() << " bytes" << endl;;
                 
@@ -360,4 +360,4 @@ logToStream(std::ostream & stream)
         };
 }
 
-} // namespace Datacratic
+} // namespace MLDB

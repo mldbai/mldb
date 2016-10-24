@@ -13,7 +13,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* IN PROCESS HTTP REST CONNECTION                                           */
@@ -137,13 +137,13 @@ isConnected() const
 std::shared_ptr<RestConnection> InProcessRestConnection::
 capture(std::function<void ()> onDisconnect)
 {
-    throw ML::Exception("Capturing not supported");
+    throw MLDB::Exception("Capturing not supported");
 }
 
 std::shared_ptr<RestConnection> InProcessRestConnection::
 captureInConnection(std::shared_ptr<void> toCapture)
 {
-    throw ML::Exception("Capturing not supported");
+    throw MLDB::Exception("Capturing not supported");
 }
 
 };

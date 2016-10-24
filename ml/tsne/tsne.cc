@@ -20,14 +20,12 @@
 
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 # include "mldb/arch/sse2.h"
 # include "mldb/arch/sse2_log.h"
 #endif
@@ -37,6 +35,7 @@
 #include "quadtree.h"
 #include "vantage_point_tree.h"
 #include <fstream>
+#include <functional>
 
 using namespace std;
 
@@ -168,7 +167,7 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
         };
     
     // TODO: in original version, we did chunks in reverse order.
-    Datacratic::parallelMapChunked(0, n, chunk_size, onJob);
+    MLDB::parallelMapChunked(0, n, chunk_size, onJob);
 
     if (fill_upper)
         copy_lower_to_upper(D);
@@ -409,7 +408,7 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
             (D, tolerance, perplexity, P, beta, i0, i1)();
         };
 
-    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
+    MLDB::parallelMapChunked(0, n, chunk_size, onChunk);
 
     cerr << "mean sigma is " << sqrt(1.0 / beta).mean() << endl;
 
@@ -462,7 +461,7 @@ double calc_D_row(float * Di, int n)
     double total = 0.0;
 
     if (false) ;
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     else if (n >= 8) {
         using namespace SIMD;
 
@@ -525,7 +524,7 @@ double calc_D_row(float * Di, int n)
 
         total = (results[0] + results[1]);
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
     
     for (;  i < n;  ++i) {
         Di[i] = 1.0f / (1.0f + Di[i]);
@@ -537,7 +536,7 @@ double calc_D_row(float * Di, int n)
 
 namespace {
 
-Env_Option<bool> PROFILE_TSNE("PROFILE_TSNE", false);
+EnvOption<bool> PROFILE_TSNE("PROFILE_TSNE", false);
 
 double t_v2d = 0.0, t_D = 0.0, t_dY = 0.0, t_update = 0.0;
 double t_recenter = 0.0, t_cost = 0.0, t_PmQxD = 0.0, t_clu = 0.0;
@@ -595,7 +594,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
 
     if (false) ;
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     else if (true) {
         using namespace SIMD;
 
@@ -611,7 +610,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
             v4sf qqqq0 = __builtin_ia32_maxps(mmmm, dddd0 * ffff);
             v4sf ssss0 = (pppp0 - qqqq0) * dddd0;
             __builtin_ia32_storeups(Di + i + 0, ssss0);
-            if (JML_LIKELY(!calc_costs)) continue;
+            if (MLDB_LIKELY(!calc_costs)) continue;
 
             v4sf pqpq0  = pppp0 / qqqq0;
             v4sf lpq0   = sse2_logf_unsafe(pqpq0);
@@ -630,7 +629,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
         
         cost = results[0] + results[1];
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
 
     for (;  i < n;  ++i) {
         float d = Di[i];
@@ -699,7 +698,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
         };
 
     // TODO: chunks in reverse?
-    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
+    MLDB::parallelMapChunked(0, n, chunk_size, onChunk);
 
     double d_total_offdiag = SIMD::vec_sum(d_totals, n);
 
@@ -721,7 +720,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
         };
 
     // TODO: chunks in reverse?
-    Datacratic::parallelMapChunked(0, n, chunk_size2, onChunk2);
+    MLDB::parallelMapChunked(0, n, chunk_size2, onChunk2);
 
     double cost = 0.0;
     if (calc_cost) cost = SIMD::vec_sum(row_costs, n);
@@ -741,7 +740,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
                 const boost::multi_array<float, 2> & Y,
                 int i, int n)
 {
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     using namespace SIMD;
 
     v4sf totals01 = vec_splat(0.0f), totals23 = totals01;
@@ -776,7 +775,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
     __builtin_ia32_storeups(&dY[i][0], totals01);
     __builtin_ia32_storeups(&dY[i + 2][0], totals23);
 
-#else // JML_INTEL_ISA
+#else // MLDB_INTEL_ISA
     enum { b = 4 };
 
     float totals[b][2];
@@ -798,7 +797,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
         dY[i + ii][0] = totals[ii][0];
         dY[i + ii][1] = totals[ii][1];
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
 }
 
 inline void
@@ -895,7 +894,7 @@ void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
             Calc_Gradient_Job(dY, Y, PmQxD, i0, i1)();
         };
 
-    Datacratic::parallelMapChunked(0, n, chunk_size, doJob);
+    MLDB::parallelMapChunked(0, n, chunk_size, doJob);
 }
 
 void tsne_update(boost::multi_array<float, 2> & Y,
@@ -955,14 +954,12 @@ void recenter_about_origin(boost::multi_array<Float, 2> & Y)
 boost::multi_array<float, 2>
 tsne_init(int nx, int nd, int randomSeed)
 {
-    boost::mt19937 rng;
+    mt19937 rng;
     if (randomSeed)
         rng.seed(randomSeed);
-    boost::normal_distribution<float> norm;
+    normal_distribution<float> norm;
 
-    boost::variate_generator<boost::mt19937,
-                             boost::normal_distribution<float> >
-        randn(rng, norm);
+    std::function<double()> randn(std::bind(norm, rng));
 
     boost::multi_array<float, 2> Y(boost::extents[nx][nd]);
     for (unsigned i = 0;  i < nx;  ++i)
@@ -1221,7 +1218,7 @@ float pythag_dist(const float * d1, const float * d2, int nd)
 
     for (unsigned i = 0;  i < nd;  ++i)
         if (!isfinite(newExampleCoords[i]))
-            throw ML::Exception("non-finite coordinates to sparseProbsFromCoords");
+            throw MLDB::Exception("non-finite coordinates to sparseProbsFromCoords");
 
     // Distance between neighbours.  Must satisfy the triangle inequality,
     // so the sqrt is important.
@@ -1250,7 +1247,7 @@ sparseProbsFromCoords(const std::function<float (int, int)> & dist,
     // For each one, find the numNeighbours nearest neighbours
     std::vector<TsneSparseProbs> neighbours(nx);
 
-    ML::Timer timer;
+    Timer timer;
 
     auto calcExample = [&] (int x)
         {
@@ -1267,7 +1264,7 @@ sparseProbsFromCoords(const std::function<float (int, int)> & dist,
                 cerr << "done " << x << " in " << timer.elapsed() << "s" << endl;
         };
 
-    Datacratic::parallelMap(0, nx, calcExample);
+    MLDB::parallelMap(0, nx, calcExample);
 
     if (treeOut)
         treeOut->reset(tree.release());
@@ -1405,7 +1402,7 @@ sparseProbsFromCoords(const std::function<float (int)> & dist,
     if ((result.probs == 0.0).any()) {
         cerr << "probs " << result.probs << endl;
         cerr << "distances " << distances << endl;
-        throw ML::Exception("zero probability from perplexity calculation");
+        throw MLDB::Exception("zero probability from perplexity calculation");
     }
 
     // put it back in the node
@@ -1418,7 +1415,7 @@ std::vector<TsneSparseProbs>
 symmetrize(const std::vector<TsneSparseProbs> & input)
 {
     // 1.  Convert to a sparse matrix format, and accumulate
-    std::vector<ML::Lightweight_Hash<int, float> > probs(input.size());
+    std::vector<Lightweight_Hash<int, float> > probs(input.size());
     
     for (unsigned j = 0;  j < input.size();  ++j) {
         const TsneSparseProbs & p = input[j];
@@ -1515,7 +1512,7 @@ operator () (int x1, int x2) const
 // quadtree.  We primarily use a separate object to avoid the overhead in passing
 // all of these parameters around.
 struct CalcRepContext {
-    CalcRepContext(const ML::distribution<float> & y,
+    CalcRepContext(const distribution<float> & y,
                    double * FrepZ,
                    double & exampleZ,
                    int & nodesTouched,
@@ -1532,7 +1529,7 @@ struct CalcRepContext {
     }
 
 
-    const ML::distribution<float> & y;
+    const distribution<float> & y;
     double * FrepZ;
     double & exampleZ;
     int & nodesTouched;
@@ -1671,7 +1668,7 @@ struct CalcRepContext {
 void calcRep(const QuadtreeNode & node,
              int depth,
              bool inside,
-             const ML::distribution<float> & y,
+             const distribution<float> & y,
              double * FrepZ,
              double & exampleZ,
              int & nodesTouched,
@@ -1704,11 +1701,11 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
     // Verify that no point is its own neighbour and that no probability is zero
     for (unsigned j = 0;  j < nx;  ++j) {
         if (exampleNeighbours[j].indexes.empty())
-            throw ML::Exception("tsneApproxFromSparse(): point %d has no"
+            throw MLDB::Exception("tsneApproxFromSparse(): point %d has no"
                                 " neighbours", j);
         if (exampleNeighbours[j].indexes.size()
             != exampleNeighbours[j].probs.size())
-            throw ML::Exception("tsneApproxFromSparse(): point %d index and "
+            throw MLDB::Exception("tsneApproxFromSparse(): point %d index and "
                                 "probs sizes don't match: %zd != %zd",
                                 exampleNeighbours[j].indexes.size(),
                                 exampleNeighbours[j].probs.size());
@@ -1718,10 +1715,10 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
             //float prob = exampleNeighbours[j].probs[i];
 
             if (index ==j)
-                throw ML::Exception("tsneApproxFromSparse: error in input: "
+                throw MLDB::Exception("tsneApproxFromSparse: error in input: "
                                     "point %d is its own neighbour", j);
             //if (prob == 0.0)
-            //    throw ML::Exception("tsneApproxFromSparse: error in input: point %d has "
+            //    throw MLDB::Exception("tsneApproxFromSparse: error in input: point %d has "
             //                        "zero probability");
         }
     }
@@ -1776,10 +1773,10 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
     auto updateQtree = [&] () -> Quadtree &
         {
             // Find the bounding box for the quadtree
-            ML::distribution<float> mins(nd), maxs(nd);
+            distribution<float> mins(nd), maxs(nd);
 
             for (unsigned j = 0;  j < nx;  ++j) {
-                ML::distribution<float> y(nd);
+                distribution<float> y(nd);
                 for (unsigned i = 0;  i < nd;  ++i)
                     y[i] = Y[j][i];
             
@@ -1811,7 +1808,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 qtree.insert(coord);
             }
         
-            int numNodes JML_UNUSED = qtree.root->finish();
+            int numNodes MLDB_UNUSED = qtree.root->finish();
 
             return qtree;
         };
@@ -1854,7 +1851,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         //calcC = true;
 
         // Approximation for Z, accumulated here
-        ML::Spinlock Zmutex;
+        Spinlock Zmutex;
         std::vector<double> ZApproxValues;
         ZApproxValues.reserve(nx);
 
@@ -1919,7 +1916,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 }
 
                 // Working storage for onNode
-                ML::distribution<double> com(nd);
+                distribution<double> com(nd);
 
                 int nodesTouched = 0;
 
@@ -1994,7 +1991,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 }
 
                 {
-                    std::unique_lock<ML::Spinlock> guard(Zmutex);
+                    std::unique_lock<Spinlock> guard(Zmutex);
                     ZApproxValues.push_back(exampleZ);
                 }
 
@@ -2004,7 +2001,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
             };
 
 #if 1
-        int totalThreads = std::max(1, std::min(16, Datacratic::numCpus() / 2));
+        int totalThreads = std::max(1, std::min(16, MLDB::numCpus() / 2));
 
         auto doThread = [&] (int n)
             {
@@ -2022,7 +2019,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 //}
             };
 
-        Datacratic::parallelMap(0, totalThreads, doThread);
+        MLDB::parallelMap(0, totalThreads, doThread);
         //parallelMap(0, nx, calcExample);
 #else
         // Each example proceeds more or less independently
@@ -2385,8 +2382,8 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
     return Y;
 }
 
-ML::distribution<float>
-retsneApproxFromCoords(const ML::distribution<float> & newExampleCoords,
+distribution<float>
+retsneApproxFromCoords(const distribution<float> & newExampleCoords,
                        const boost::multi_array<float, 2> & coreCoords,
                        const boost::multi_array<float, 2> & prevOutput,
                        const Quadtree & qtree,
@@ -2414,13 +2411,13 @@ retsneApproxFromCoords(const ML::distribution<float> & newExampleCoords,
     return retsneApproxFromSparse(neighbours, prevOutput, qtree, params);
 }
 
-ML::distribution<float>
+distribution<float>
 retsneApproxFromSparse(const TsneSparseProbs & neighbours,
                        const boost::multi_array<float, 2> & prevOutput,
                        const Quadtree & qtree,
                        const TSNE_Params & params)
 {
-    int nx JML_UNUSED = prevOutput.shape()[0];
+    int nx MLDB_UNUSED = prevOutput.shape()[0];
     int nd = prevOutput.shape()[1];
     int nn = neighbours.indexes.size();
 
@@ -2433,7 +2430,7 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
         neighbourCoords[i] = QCoord(&prevOutput[neighbours.indexes[i]][0], &prevOutput[neighbours.indexes[i]][0] + nd);
     }
 
-    ML::distribution<float> y(nd);
+    distribution<float> y(nd);
 
     // Start off at the Y of the point with the highest probability, to get faster
     // convergance
@@ -2542,12 +2539,12 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
                             std::ofstream stream("debug.txt");
                             stream << nx << " " << nd << " " << i;
                             for (unsigned i = 0;  i < nd;  ++i) {
-                                stream << ML::format(" %+.16g", y[i]);
+                                stream << MLDB::format(" %+.16g", y[i]);
                             }
                             stream << endl;
                             for (unsigned x = 0;  x < nx;  ++x) {
                                 for (unsigned i = 0;  i < nd;  ++i) {
-                                    stream << ML::format("%+.16g ", prevOutput[x][i]);
+                                    stream << MLDB::format("%+.16g ", prevOutput[x][i]);
                                 }
                                 stream << endl;
                             }

@@ -15,12 +15,11 @@
 #include <climits>
 
 using namespace std;
-using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Date date;
     string expected;
 
@@ -187,7 +186,7 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
 #if 0
 BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_time)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Date date;
     string expected;
 
@@ -291,7 +290,7 @@ BOOST_AUTO_TEST_CASE( test_date_parse_roundtrip )
             cerr << "d2:6: " << d2.print(6) << endl;
             cerr << "d1:9: " << d1.print(9) << endl;
             cerr << "d2:9: " << d2.print(9) << endl;
-            cerr << "sec: " << ML::format("%32.10f", sec + frac) << endl;
+            cerr << "sec: " << MLDB::format("%32.10f", sec + frac) << endl;
         }
 
         BOOST_CHECK_EQUAL(d1.print(6), d2.print(6));
@@ -331,7 +330,7 @@ BOOST_AUTO_TEST_CASE( test_date_equality )
 BOOST_AUTO_TEST_CASE( test_date_parse_no_delimiter )
 {
     const char * s = "20120624";
-    Parse_Context context(s, s, s + strlen(s));
+    ParseContext context(s, s, s + strlen(s));
     Date date = Date::expect_date(context, "%y%m%d");
 
     BOOST_CHECK_EQUAL(date, Date(2012, 06, 24));
@@ -378,11 +377,11 @@ BOOST_AUTO_TEST_CASE( test_addFromString )
         bool failureFailed = false;
         try{
             d.addFromString("pwel");
-        }catch(const ML::Exception& e){
+        }catch(const MLDB::Exception& e){
             failureFailed = true;
         }
         if(!failureFailed){
-            throw ML::Exception("Invalid string should fail with a ML exception");
+            throw MLDB::Exception("Invalid string should fail with a ML exception");
         }
     }
 }

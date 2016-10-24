@@ -8,7 +8,7 @@
 
 #include "mldb/types/basic_value_descriptions.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 using namespace std;
@@ -20,7 +20,7 @@ nextStep(float endValue) {
     value = endValue;
     auto nextStep = _nextStep.lock();
     if (!nextStep) {
-        throw ML::Exception("No next step!");
+        throw MLDB::Exception("No next step!");
     }
     nextStep->started = Date::now();
     return nextStep;
@@ -72,4 +72,4 @@ IterationProgressDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

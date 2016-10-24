@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -171,7 +171,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
-                    throw ML::Exception("Invalid sequence within utf-8 string");
+                    throw MLDB::Exception("Invalid sequence within utf-8 string");
             }
             type = ST_UTF8_SHORT_STRING;
         }
@@ -187,7 +187,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
-                    throw ML::Exception("Invalid sequence within utf-8 string");
+                    throw MLDB::Exception("Invalid sequence within utf-8 string");
             }
 
             type = ST_UTF8_LONG_STRING;
@@ -388,11 +388,11 @@ toString() const
     case ST_EMPTY:
         return "";
     case ST_INTEGER:
-        return Datacratic::itoa(intVal);
+        return itoa(intVal);
     case ST_UNSIGNED:
-        return Datacratic::itoa(uintVal);
+        return itoa(uintVal);
     case ST_FLOAT: {
-        return Datacratic::dtoa(floatVal);
+        return dtoa(floatVal);
     }
     case ST_ASCII_SHORT_STRING:
         return string(shortString, shortString + strLength);
@@ -730,6 +730,64 @@ isNumber() const
 
 bool
 CellValue::
+isPositiveNumber() const
+{
+    switch (type) {
+    case ST_EMPTY:
+        return false;
+    case ST_INTEGER:
+        return intVal > 0;
+    case ST_UNSIGNED:
+        return uintVal > 0;
+    case ST_FLOAT:
+        return !std::isnan(floatVal) && floatVal > 0;
+    case ST_ASCII_SHORT_STRING:
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return false;
+    }
+
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
+bool
+CellValue::
+isNegativeNumber() const
+{
+    switch (type) {
+    case ST_EMPTY:
+        return false;
+    case ST_INTEGER:
+        return intVal < 0;
+    case ST_UNSIGNED:
+        return false;
+    case ST_FLOAT:
+        return !std::isnan(floatVal) && floatVal < 0;
+    case ST_ASCII_SHORT_STRING:
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return false;
+    }
+
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
+bool
+CellValue::
 isFalse() const
 {
     switch (type) {
@@ -870,7 +928,7 @@ operator <  (const CellValue & other) const
     // 3.  STRING or BLOB, compared lexicographically
 
     try {
-        if (JML_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
+        if (MLDB_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
             return false;
  
         switch (type) {
@@ -1117,7 +1175,7 @@ trimmedExceptionString() const
 
         return Utf8String(str, 0, 200) + "... (trimmed)";
     }
-    JML_CATCH_ALL {
+    MLDB_CATCH_ALL {
         return Utf8String("Exception trying to print string");
     }
 }
@@ -1157,12 +1215,12 @@ CellValue::printInterval() const
 
     if (year != 0)
     {
-        result.append(ML::format("%dY", year));
+        result.append(MLDB::format("%dY", year));
     }  
 
     if (monthsCount != 0)
     {
-        result.append(ML::format("%d MONTH", monthsCount));
+        result.append(MLDB::format("%d MONTH", monthsCount));
     } 
 
     if (timeInterval.days != 0)
@@ -1170,7 +1228,7 @@ CellValue::printInterval() const
         if (year != 0 || monthsCount != 0)
             result.append(" ");
 
-        result.append(ML::format("%dD", timeInterval.days));
+        result.append(MLDB::format("%dD", timeInterval.days));
     }   
 
     if (hours != 0 || minutes != 0 || secondCount != 0)
@@ -1179,11 +1237,11 @@ CellValue::printInterval() const
             result.append(" ");
 
         if (hours != 0)
-            result.append(ML::format("%dH %dM %gS", hours, minutes, secondCount));
+            result.append(MLDB::format("%dH %dM %gS", hours, minutes, secondCount));
         else if (minutes != 0)
-            result.append(ML::format("%dM %gS", minutes, secondCount));
+            result.append(MLDB::format("%dM %gS", minutes, secondCount));
         else
-            result.append(ML::format("%gS", secondCount));
+            result.append(MLDB::format("%gS", secondCount));
     }
 
     if (result.empty())
@@ -1383,7 +1441,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
             }
             else if (v.isMember("interval")) {
                 std::string text = v["interval"].asString();
-                ML::Parse_Context context(text, text.c_str(), text.length());
+                ParseContext context(text, text.c_str(), text.length());
                 uint32_t months = 0;
                 uint32_t days = 0;
                 double seconds = 0.0f;
@@ -1511,5 +1569,5 @@ std::ostream & operator << (std::ostream & stream, const CellValue::CellType & t
 }
 
 } // namespace MLDB
-} // namespace Datacratic 
+ 
 

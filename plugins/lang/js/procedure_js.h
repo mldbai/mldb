@@ -10,7 +10,7 @@
 #include "js_common.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Procedure;
@@ -50,4 +50,4 @@ struct ProcedureJS: public JsObjectBase {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

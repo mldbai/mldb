@@ -38,11 +38,11 @@ init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 
 void
 Classifier_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    config.find(verbosity, "verbosity");
-    config.find(profile, "profile");
-    config.find(validate, "validate");
+    config.findAndRemove(verbosity, "verbosity", unparsedKeys);
+    config.findAndRemove(profile, "profile", unparsedKeys);
+    config.findAndRemove(validate, "validate", unparsedKeys);
 }
 
 void
@@ -199,7 +199,7 @@ log(const std::string & module, int level) const
 {
     //cerr << "level " << level << " verbosity " << verbosity << endl;
 
-    static Datacratic::filter_ostream cnull("");
+    static MLDB::filter_ostream cnull("");
 
     if (level <= verbosity)
         return cerr;
@@ -212,7 +212,6 @@ type() const
 {
     return demangle(typeid(*this).name());
 }
-
 
 /*****************************************************************************/
 /* FACTORIES                                                                 */
@@ -262,10 +261,17 @@ get_trainer(const std::string & name, const Configuration & config)
         = Registry<Classifier_Generator>::singleton().create(type);
 
     Configuration config2(config, name, Configuration::PREFIX_APPEND);
-    result->configure(config2);
+    auto unparsedKeys = config2.allKeys();
+    result->configure(config2, unparsedKeys);
+
+    string typeKey = config2.prefix() + ".type";
+    string allowPrefix = config2.prefix() + "._";
+    auto allowKeyFct = [&] (const string & str) {
+        return str == typeKey || str.find(allowPrefix) == 0;
+    };
+    config2.throwOnUnknwonKeys(unparsedKeys, allowKeyFct);
 
     return result;
 }
-
 } // namespace ML
 

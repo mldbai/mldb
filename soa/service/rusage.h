@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Resource usage structure. */
 struct RUsage {
@@ -88,4 +88,4 @@ struct RUsage {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB

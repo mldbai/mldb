@@ -12,11 +12,11 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 void rethrowHttpException(int httpCode, const Utf8String & message, Any details)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     try {
         std::rethrow_exception(std::current_exception());
     } catch (const HttpReturnException & http) {
@@ -55,4 +55,4 @@ void rethrowHttpException(int httpCode, const char * message, Any details)
     rethrowHttpException(httpCode, Utf8String(message), details);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

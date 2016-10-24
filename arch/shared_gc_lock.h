@@ -11,7 +11,7 @@
 
 #include "gc_lock.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* SHARED GC LOCK                                                            */
@@ -46,4 +46,4 @@ private:
 
 };
 
-} // namespace Datacratic
+} // namespace MLDB

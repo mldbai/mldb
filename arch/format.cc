@@ -16,7 +16,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 struct va_ender {
     va_ender(va_list & ap)
@@ -66,4 +66,4 @@ std::string vformat(const char * fmt, va_list ap)
     }
 }
 
-} // namespace ML
+} // namespace MLDB

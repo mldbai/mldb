@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -39,6 +39,14 @@ ProcedureRunConfigDescription()
 
     addField("id", &ProcedureRunConfig::id, "ID of run");
     addField("params", &ProcedureRunConfig::params, "Parameters of run");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ProcedureRunState);
+
+ProcedureRunStateDescription::
+ProcedureRunStateDescription()
+{
+    addField("state", &ProcedureRunState::state, "State of the run");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(ProcedureRunStatus);
@@ -429,4 +437,4 @@ ProcedurePolyConfigDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

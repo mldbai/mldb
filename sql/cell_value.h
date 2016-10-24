@@ -7,12 +7,13 @@
 
 #pragma once
 
+#include <atomic>
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/date.h"
 #include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+
 
 struct JsonPrintingContext;
 
@@ -45,7 +46,7 @@ enum StringCharacteristics {
 
 struct CellValue {
 
-    JML_ALWAYS_INLINE CellValue() noexcept
+    MLDB_ALWAYS_INLINE CellValue() noexcept
         : bits1(0), bits2(0), flags(0)
     {
     }
@@ -94,7 +95,7 @@ struct CellValue {
     CellValue(Date timestampstatic) noexcept;
     
     CellValue(const CellValue & other);
-    JML_ALWAYS_INLINE CellValue(CellValue && other) noexcept
+    MLDB_ALWAYS_INLINE CellValue(CellValue && other) noexcept
         : bits1(other.bits1), bits2(other.bits2), flags(other.flags)
     {
         other.type = ST_EMPTY;
@@ -131,7 +132,7 @@ struct CellValue {
         return *this;
     }
 
-    JML_ALWAYS_INLINE CellValue & operator = (CellValue && other) noexcept
+    MLDB_ALWAYS_INLINE CellValue & operator = (CellValue && other) noexcept
     {
         CellValue newMe(std::move(other));
         swap(newMe);
@@ -139,14 +140,14 @@ struct CellValue {
 
     }
     
-    JML_ALWAYS_INLINE void swap(CellValue & other) noexcept
+    MLDB_ALWAYS_INLINE void swap(CellValue & other) noexcept
     {
         auto t1 = flags;  flags = other.flags;  other.flags = t1;
         auto t2 = bits1;  bits1 = other.bits1;  other.bits1 = t2;
         auto t3 = bits2;  bits2 = other.bits2;  other.bits2 = t3;
     }
     
-    JML_ALWAYS_INLINE ~CellValue()
+    MLDB_ALWAYS_INLINE ~CellValue()
     {
         if (type == ST_ASCII_LONG_STRING || type == ST_UTF8_LONG_STRING
             || type == ST_LONG_BLOB)
@@ -201,7 +202,7 @@ struct CellValue {
     
     double toDouble() const
     {
-        if (JML_LIKELY(type == ST_FLOAT))
+        if (MLDB_LIKELY(type == ST_FLOAT))
             return floatVal;
         return toDoubleImpl();
     }
@@ -210,6 +211,12 @@ struct CellValue {
     uint64_t toUInt() const;
 
     bool isNumber() const;
+
+    /** Is this a number that's positive? */
+    bool isPositiveNumber() const;
+
+    /** Is this a number that's negative? */
+    bool isNegativeNumber() const;
 
     /** Is it a timestamp? */
     bool isTimestamp() const
@@ -280,6 +287,11 @@ struct CellValue {
     bool isInteger() const
     {
         return cellType() == INTEGER;
+    }
+
+    bool isUnsignedInteger() const
+    {
+        return type == ST_UNSIGNED;
     }
 
     bool isInt64() const;
@@ -529,7 +541,7 @@ CellValue::CellType stringToKey(const std::string & str, CellValue::CellType *);
 std::ostream & operator << (std::ostream & stream, const CellValue::CellType & val);
 
 } // namespace MLDB
-} // namespace Datacratic
+
 
 // Allow std::unordered_xxx<CellValue> to work
 namespace std {
@@ -537,9 +549,9 @@ namespace std {
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::MLDB::CellValue> : public std::unary_function<Datacratic::MLDB::CellValue, size_t>
+struct hash<MLDB::CellValue> : public std::unary_function<MLDB::CellValue, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::CellValue & val) const { return val.hash(); }
+    size_t operator()(const MLDB::CellValue & val) const { return val.hash(); }
 };
 
 } // namespace std

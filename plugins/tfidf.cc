@@ -33,7 +33,7 @@ namespace {
 void
 serialize(ML::DB::Store_Writer & store,
           uint64_t corpusSize,
-          const std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+          const std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
     std::string name = "tfidf";
     int version = 0;
@@ -49,17 +49,17 @@ serialize(ML::DB::Store_Writer & store,
 void
 reconstitute(ML::DB::Store_Reader & store,
              uint64_t & corpusSize,
-             std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+             std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
     std::string name;
     store >> name;
     if (name != "tfidf")
-        throw ML::Exception("invalid name when loading a tf-idf object");
+        throw MLDB::Exception("invalid name when loading a tf-idf object");
 
     int version;
     store >> version;
     if (version != 0)
-        throw ML::Exception("invalid tf-idf version");
+        throw MLDB::Exception("invalid tf-idf version");
 
     uint64_t termCount = 0;
 
@@ -79,9 +79,9 @@ reconstitute(ML::DB::Store_Reader & store,
 void
 save(const std::string & filename,
      uint64_t corpusSize,
-     const std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+     const std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
-    Datacratic::filter_ostream stream(filename);
+    MLDB::filter_ostream stream(filename);
     ML::DB::Store_Writer store(stream);
     serialize(store, corpusSize, dfs);
 }
@@ -89,15 +89,15 @@ save(const std::string & filename,
 void
 load(const std::string & filename,
      uint64_t & corpusSize,
-     std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
+     std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
-    Datacratic::filter_istream stream(filename);
+    MLDB::filter_istream stream(filename);
     ML::DB::Store_Reader store(stream);
     reconstitute(store, corpusSize, dfs);
 }
 }
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(TFType);
@@ -225,7 +225,7 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            Datacratic::makeUriDirectory(
+            makeUriDirectory(
                 runProcConf.modelFileUrl.toDecodedString());
             save(runProcConf.modelFileUrl.toDecodedString(), corpusSize, dfs);
             saved = true;
@@ -245,10 +245,10 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        ColumnName columnName(PathElement("count"));
+        ColumnPath columnName(PathElement("count"));
 
         for (auto & df : dfs) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
             columns.emplace_back(columnName, df.second, applyDate);
             output->recordRow(PathElement(df.first), columns);
         }
@@ -295,7 +295,7 @@ TfidfFunctionConfigDescription()
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
+            throw MLDB::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -457,7 +457,7 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("output"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
     
     return result;
@@ -479,4 +479,4 @@ regTfidfFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

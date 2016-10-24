@@ -85,9 +85,21 @@ var fnConfig = {
 
 var fn = mldb.createFunction(fnConfig);
 
+var constant = mldb.query("select tf_extract_constant('incept', ['mixed','conv', 'batchnorm', 'beta'])");
+
+mldb.log(constant);
+
+constant = mldb.query("select tf_extract_constant('incept', parse_path('mixed.conv.batchnorm.gamma'))");
+
+mldb.log(constant);
+
+
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
+var filename = "file://./560px-Calle_E_Monroe_St,_Chicago,_Illinois,_Estados_Unidos,_2012-10-20,_DD_04.jpg";
 
 mldb.log("classifying", filename);
+
+//mldb.log(mldb.get('/v1/functions/incept/details'));
 
 var res = mldb.query('SELECT incept({url: ' + mldb.sqlEscape(filename) + '})[output] AS *');
 
@@ -100,6 +112,7 @@ var filename = "https://upload.wikimedia.org/wikipedia/commons/6/6f/Soyuz_TMA-19
 var filename = "https://upload.wikimedia.org/wikipedia/commons/1/18/Cardiff_City_Hall_cropped.jpg";
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Maureen_O%27Hara_1947_2.jpg/198px-Maureen_O%27Hara_1947_2.jpg";
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
+var filename = "file://./560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
 
 mldb.log("classifying", filename);
 

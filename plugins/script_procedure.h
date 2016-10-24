@@ -13,7 +13,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/procedure.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -56,4 +56,4 @@ struct ScriptProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

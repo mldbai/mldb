@@ -22,6 +22,7 @@
 #include "live_counting_obj.h"
 
 using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 BOOST_AUTO_TEST_CASE(test1)
@@ -207,7 +208,7 @@ BOOST_AUTO_TEST_CASE(test_insert_guard_object)
 
     int nobj = 100;
 
-    ML::Lightweight_Hash<int, int> h;
+    Lightweight_Hash<int, int> h;
         
     for (unsigned j = 0;  j < nobj;  ++j) {
         BOOST_CHECK_EQUAL(h.size(), j);

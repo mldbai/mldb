@@ -8,7 +8,7 @@
 #include "eval_sql.h"
 #include "binding_contexts.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 BoundSqlExpression
@@ -26,6 +26,7 @@ bindSql(SqlBindingScope & scope,
 ExpressionValue
 evalSql(SqlBindingScope & scope,
         const Utf8String & expr,
+        const SqlRowScope & rowScope,
         ExpressionValue * argsVec,
         size_t numArgs)
 {
@@ -34,6 +35,7 @@ evalSql(SqlBindingScope & scope,
     // we forward.
 
     return evalSql(scope, expr,
+                   rowScope,
                    static_cast<const ExpressionValue *>(argsVec),
                    numArgs);
 }
@@ -41,6 +43,7 @@ evalSql(SqlBindingScope & scope,
 ExpressionValue
 evalSql(SqlBindingScope & scope,
         const Utf8String & expr,
+        const SqlRowScope & rowScope,
         const ExpressionValue * argsVec,
         size_t numArgs)
 {
@@ -53,18 +56,19 @@ evalSql(SqlBindingScope & scope,
     SqlExpressionEvalScope evalScope(scope, info);
 
     auto bound = bindSql(evalScope, expr, info);
-
-    auto rowScope = evalScope.getRowScope(argsVec, numArgs);
     
-    return bound(rowScope, GET_ALL);
+    auto innerRowScope = evalScope.getRowScope(rowScope, argsVec, numArgs);
+    
+    return bound(innerRowScope, GET_ALL);
 }
 
 ExpressionValue evalSql(SqlBindingScope & scope,
                         const Utf8String & expr,
+                        const SqlRowScope & rowScope,
                         const std::vector<ExpressionValue> & argsVec)
 {
-    return evalSql(scope, expr, argsVec.data(), argsVec.size());
+    return evalSql(scope, expr, rowScope, argsVec.data(), argsVec.size());
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

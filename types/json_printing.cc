@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 namespace {
 
@@ -77,12 +77,12 @@ char * jsonEscapeCore(const char * str, size_t strLen, char * p, char * end)
                     break;
                 }
                 else if (c == 0) {
-                    throw ML::Exception("JSON strings cannot contain null characters");
+                    throw MLDB::Exception("JSON strings cannot contain null characters");
                 }
                 else {
                     for (auto & c: string(str, str + strLen))
                         cerr << "char " << (int)c << " " << c << endl;
-                    throw ML::Exception("Invalid character in JSON string %d: %s", (int)c,
+                    throw MLDB::Exception("Invalid character in JSON string %d: %s", (int)c,
                                         str);
                 }
             }
@@ -115,7 +115,7 @@ jsonEscape(const std::string & str)
         p = jsonEscapeCore(str.data(), str.length(), p, end);
         
         if (p == BUFFER_TOO_SMALL)
-            throw ML::Exception("To fix: logic error in JSON escaping");
+            throw MLDB::Exception("To fix: logic error in JSON escaping");
         else if (p == NO_ESCAPING)
             return str;
         return string(buf, p);
@@ -127,7 +127,7 @@ jsonEscape(const std::string & str)
         p = jsonEscapeCore(str.data(), str.length(), p, end);
         
         if (p == BUFFER_TOO_SMALL)
-            throw ML::Exception("To fix: logic error in JSON escaping");
+            throw MLDB::Exception("To fix: logic error in JSON escaping");
         else if (p == NO_ESCAPING)
             return str;
         heap_buf.resize(p - heap_buf.data());
@@ -148,7 +148,7 @@ void jsonEscape(const std::string & str, std::ostream & stream)
         p = jsonEscapeCore(str.data(), str.length(), p, end);
 
         if (p == BUFFER_TOO_SMALL)
-            throw ML::Exception("To fix: logic error in JSON escaping");
+            throw MLDB::Exception("To fix: logic error in JSON escaping");
         else if (p == NO_ESCAPING)
             p = buf + str.size();
 
@@ -173,7 +173,7 @@ void jsonEscape(const char * str, size_t len, std::ostream & stream)
         p = jsonEscapeCore(str, len, p, end);
 
         if (p == BUFFER_TOO_SMALL)
-            throw ML::Exception("To fix: logic error in JSON escaping");
+            throw MLDB::Exception("To fix: logic error in JSON escaping");
         else if (p == NO_ESCAPING)
             p = buf + len;
 
@@ -198,7 +198,7 @@ void jsonEscape(const std::string & str, std::string & out)
         p = jsonEscapeCore(str.data(), str.length(), p, end);
 
         if (p == BUFFER_TOO_SMALL)
-            throw ML::Exception("To fix: logic error in JSON escaping");
+            throw MLDB::Exception("To fix: logic error in JSON escaping");
         else if (p == NO_ESCAPING)
             p = buf + str.size();
 
@@ -224,7 +224,7 @@ void jsonEscape(const char * str, size_t len, std::string & out)
         p = jsonEscapeCore(str, len, p, end);
 
         if (p == BUFFER_TOO_SMALL)
-            throw ML::Exception("To fix: logic error in JSON escaping");
+            throw MLDB::Exception("To fix: logic error in JSON escaping");
         else if (p == NO_ESCAPING)
             p = buf + len;
 
@@ -250,7 +250,7 @@ writeStringUtf8(const Utf8String & s)
         else {
             switch (c) {
             case '\0':
-                throw ML::Exception("JSON strings may not contain embedded nulls");
+                throw MLDB::Exception("JSON strings may not contain embedded nulls");
             case '\t': stream << "\\t";  break;
             case '\n': stream << "\\n";  break;
             case '\r': stream << "\\r";  break;
@@ -267,7 +267,7 @@ writeStringUtf8(const Utf8String & s)
                 }
                 else {
                     ExcAssert(c > 0 && c < 65536);
-                    stream << ML::format("\\u%04x", (unsigned)c);
+                    stream << MLDB::format("\\u%04x", (unsigned)c);
                 }
             }
         }
@@ -291,7 +291,7 @@ writeStringUtf8(const char * p, size_t len)
         else {
             switch (c) {
             case '\0':
-                throw ML::Exception("JSON strings may not contain embedded nulls");
+                throw MLDB::Exception("JSON strings may not contain embedded nulls");
             case '\t': stream << "\\t";  break;
             case '\n': stream << "\\n";  break;
             case '\r': stream << "\\r";  break;
@@ -308,7 +308,7 @@ writeStringUtf8(const char * p, size_t len)
                 }
                 else {
                     ExcAssert(c > 0 && c < 65536);
-                    stream << ML::format("\\u%04x", (unsigned)c);
+                    stream << MLDB::format("\\u%04x", (unsigned)c);
                 }
             }
         }
@@ -459,7 +459,7 @@ StreamJsonPrintingContext::
 writeFloat(float f)
 {
     if (std::isfinite(f))
-        stream << Datacratic::dtoa(f);
+        stream << MLDB::dtoa(f);
     else stream << "\"" << f << "\"";
 }
 
@@ -468,7 +468,7 @@ StreamJsonPrintingContext::
 writeDouble(double d)
 {
     if (std::isfinite(d))
-        stream << Datacratic::dtoa(d);
+        stream << MLDB::dtoa(d);
     else stream << "\"" << d << "\"";
 }
 
@@ -574,7 +574,7 @@ writeStringUtf8(const Utf8String & s)
                 }
                 else {
                     ExcAssert(c >= 0 && c < 65536);
-                    write(ML::format("\\u%04x", (unsigned)c));
+                    write(MLDB::format("\\u%04x", (unsigned)c));
                 }
             }
         }
@@ -613,7 +613,7 @@ writeStringUtf8(const char * p, size_t len)
                 }
                 else {
                     ExcAssert(c >= 0 && c < 65536);
-                    write(ML::format("\\u%04x", (unsigned)c));
+                    write(MLDB::format("\\u%04x", (unsigned)c));
                 }
             }
         }
@@ -771,7 +771,7 @@ StringJsonPrintingContext::
 writeFloat(float f)
 {
     if (std::isfinite(f))
-        str += Datacratic::dtoa(f);
+        str += MLDB::dtoa(f);
     else {
         write('"');
         write(std::to_string(f));
@@ -784,7 +784,7 @@ StringJsonPrintingContext::
 writeDouble(double d)
 {
     if (std::isfinite(d))
-        str += Datacratic::dtoa(d);
+        str += MLDB::dtoa(d);
     else {
         write('"');
         write(std::to_string(d));
@@ -1013,4 +1013,4 @@ writeBool(bool b)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

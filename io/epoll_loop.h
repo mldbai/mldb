@@ -24,7 +24,7 @@
 #include "mldb/io/async_event_source.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* EPOLL LOOP                                                               */
@@ -132,4 +132,4 @@ private:
     OnException onException_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

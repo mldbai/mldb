@@ -15,7 +15,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* PACKAGE                                                                   */
@@ -127,21 +127,21 @@ struct PolyEntity {
     const PolyConfig & getConfig() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return *config_;
     }
 
     const Utf8String & getId() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->id;
     }
 
     const Utf8String & getType() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->type;
     }
 
@@ -179,4 +179,4 @@ bool operator==(const PolyConfigT<Entity> & lhs, const PolyConfigT<Entity> & rhs
 typedef std::function<RestRequestMatchResult (RestDirectory *, RestConnection &, const RestRequest &, RestRequestParsingContext &)> TypeCustomRouteHandler;
 
 
-} // namespace Datacratic
+} // namespace MLDB

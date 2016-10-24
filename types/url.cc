@@ -13,7 +13,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 namespace {
@@ -84,7 +84,7 @@ Url::init(std::string s)
     }
 
     if (s.find("://") == string::npos) {
-        throw ML::Exception("Attempt to create a URL without a scheme: if you mean http:// or file:// then add it explicitly: " + s);
+        throw MLDB::Exception("Attempt to create a URL without a scheme: if you mean http:// or file:// then add it explicitly: " + s);
         //s = "http://" + s;
     }
     url.reset(new GURL(encodeUri(s)));
@@ -246,14 +246,14 @@ uint64_t
 Url::
 urlHash()
 {
-    throw ML::Exception("urlHash");
+    throw MLDB::Exception("urlHash");
 }
 
 uint64_t
 Url::
 hostHash()
 {
-    throw ML::Exception("hostHash");
+    throw MLDB::Exception("hostHash");
 }
 
 #if 0
@@ -340,7 +340,7 @@ decodeUri(Utf8String in)
 
             ++it; // over high
             if (it == in.end() || !isxdigit(*it)) {
-                throw ML::Exception("Invalid encoding on uri fragment: "
+                throw MLDB::Exception("Invalid encoding on uri fragment: "
                                     + inCopy.rawString());
             }
             high = *it;
@@ -348,7 +348,7 @@ decodeUri(Utf8String in)
 
             ++it; // over low
             if (it == in.end() || !isxdigit(*it)) {
-                throw ML::Exception("Invalid encoding on uri fragment: "
+                throw MLDB::Exception("Invalid encoding on uri fragment: "
                                     + inCopy.rawString());
             }
             low = *it;
@@ -371,7 +371,7 @@ decodeUri(Utf8String in)
         }
 
         if (remaining != 0) {
-            throw ML::Exception("Invalid encoding on uri fragment: "
+            throw MLDB::Exception("Invalid encoding on uri fragment: "
                                 + inCopy.rawString());
         }
 
@@ -471,8 +471,8 @@ struct UrlDescription
     virtual bool isDefaultTyped(const Url * val) const;
 };
 
-extern template class ValueDescriptionT<Datacratic::Url>;
-extern template class ValueDescriptionI<Datacratic::Url, ValueKind::ATOM, UrlDescription>;
+extern template class ValueDescriptionT<MLDB::Url>;
+extern template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
 DEFINE_VALUE_DESCRIPTION(Url, UrlDescription);
 
@@ -513,6 +513,6 @@ void setUrlDocumentationUri(const std::string & newUri)
         ->documentationUri = "/doc/builtin/Url.md";
 }
 
-template class ValueDescriptionI<Datacratic::Url, ValueKind::ATOM, UrlDescription>;
+template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
-} // namespace Datacratic
+} // namespace MLDB

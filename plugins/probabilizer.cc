@@ -37,7 +37,7 @@ using namespace ML;
 #define override
 //#endif
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerConfig);
@@ -90,7 +90,7 @@ ProbabilizerConfigDescription()
 struct ProbabilizerRepr {
     std::string style;
     ML::Link_Function link;
-    ML::distribution<double> params;
+    distribution<double> params;
 };
 
 DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerRepr);
@@ -167,7 +167,7 @@ run(const ProcedureRunConfig & run,
     // ...
 
     std::mutex fvsLock;
-    std::vector<std::tuple<RowName, float, float, float> > fvs;
+    std::vector<std::tuple<RowPath, float, float, float> > fvs;
 
     std::atomic<int> numRows(0);
 
@@ -199,8 +199,8 @@ run(const ProcedureRunConfig & run,
     /* Convert to the correct data structures. */
 
     boost::multi_array<double, 2> outputs(boost::extents[2][nx]);  // value, bias
-    ML::distribution<double> correct(nx, 0.0);
-    ML::distribution<double> weights(nx, 1.0);
+    distribution<double> correct(nx, 0.0);
+    distribution<double> weights(nx, 1.0);
 
     size_t numTrue = 0;
 
@@ -222,7 +222,7 @@ run(const ProcedureRunConfig & run,
     filter_ostream out("prob-in.txt");
 
     for (unsigned i = 0;  i < nx;  ++i) {
-        out << ML::format("%.15f %.16f %d\n",
+        out << MLDB::format("%.15f %.16f %d\n",
                           outputs[0][i],
                           outputs[1][i],
                           correct[i]);
@@ -246,7 +246,7 @@ run(const ProcedureRunConfig & run,
     auto link = runProcConf.link;
 
     ML::Ridge_Regressor regressor;
-    ML::distribution<double> probParams
+    distribution<double> probParams
         = ML::run_irls(correct, outputs, weights, link, regressor);
 
     cerr << "probParams = " << probParams << endl;
@@ -370,19 +370,19 @@ ProbabilizeFunction::
 getFunctionInfo() const
 {
     std::vector<KnownColumn> knownInputColumns;
-    knownInputColumns.emplace_back(ColumnName("score"),
+    knownInputColumns.emplace_back(ColumnPath("score"),
                                    std::make_shared<NumericValueInfo>(),
                                    COLUMN_IS_DENSE,
                                    0 /* position */);
 
     std::vector<KnownColumn> knownOutputColumns;
-    knownOutputColumns.emplace_back(ColumnName("prob"),
+    knownOutputColumns.emplace_back(ColumnPath("prob"),
                                     std::make_shared<NumericValueInfo>(),
                                     COLUMN_IS_DENSE,
                                     0 /* position */);
 
     FunctionInfo result;
-    result.input.reset(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(knownOutputColumns, SCHEMA_CLOSED));
     return result;
 }
@@ -405,4 +405,4 @@ regProbabilizeFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

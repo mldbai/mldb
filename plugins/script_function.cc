@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -55,7 +55,7 @@ ScriptFunction(MldbServer * owner,
         case PYTHON:        runner = "python";      break;
         case JAVASCRIPT:    runner = "javascript";  break;
         default:
-            throw ML::Exception("unknown script language");
+            throw MLDB::Exception("unknown script language");
     }
 
     LoadedPluginResource loadedResource(parseScriptLanguage(functionConfig.language),
@@ -111,12 +111,12 @@ apply(const FunctionApplier & applier,
     
     vector<tuple<PathElement, ExpressionValue>> vals;
     if(!result.isArray()) {
-        throw ML::Exception("Function should return array of arrays.");
+        throw MLDB::Exception("Function should return array of arrays.");
     }
 
     for(const Json::Value & elem : result) {
         if(!elem.isArray() || elem.size() != 3)
-            throw ML::Exception("elem should be array of size 3");
+            throw MLDB::Exception("elem should be array of size 3");
 
         vals.push_back(make_tuple(PathElement(elem[0].asString()),
                                   ExpressionValue(elem[1],
@@ -141,7 +141,7 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("return"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
     
     return result;
@@ -157,4 +157,4 @@ regScriptFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

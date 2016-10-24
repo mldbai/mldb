@@ -100,7 +100,7 @@ ifneq ($(PREMAKE),1)
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
 $(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)" "$(3)" "$(4)"))
-BUILD_$(CWD)/$(2).lo_COMMAND:=$$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $$(OPTIONS_$(CWD)/$(1)) $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS))
+BUILD_$(CWD)/$(2).lo_COMMAND:=$$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS)) $$(OPTIONS_$(CWD)/$(1))
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 
 BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
@@ -429,6 +429,7 @@ BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 # $(2) libraries to link with
 # $(3) test style.  boost = boost test framework, and options: manual, valgrind
 # $(4) testing targets to add it to
+# $(5) source file for test.  Default is $(1).cc
 
 define test
 ifneq ($(PREMAKE),1)
@@ -436,9 +437,11 @@ $$(if $(trace),$$(warning called test "$(1)" "$(2)" "$(3)"))
 
 $$(if $(3),,$$(error test $(1) needs to define a test style))
 
-$$(eval $$(call add_sources,$(1).cc))
+$$(eval _testsrc := $(if $(5),$(5),$(1).cc))
 
-$(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).cc.lo_OBJ)
+$$(eval $$(call add_sources,$$(_testsrc)))
+
+$(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(CXXEXEPOSTFLAGS)
 
