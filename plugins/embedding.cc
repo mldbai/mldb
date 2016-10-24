@@ -1306,7 +1306,8 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
     
 std::unique_ptr<FunctionApplierT<NearestNeighborsInput, NearestNeighborsOutput> >
 NearestNeighborsFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<NearestNeighborsFunctionApplier> result
         (new NearestNeighborsFunctionApplier(this));
@@ -1366,7 +1367,11 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
         reducedColumnNames = columnNames;
     }
 
-    auto coordInput = *input;//input.getValueInfo("coords").getExpressionValueInfo();
+    if (input.size() != 1)
+        throw HttpReturnException
+            (400, "nearest neighbours function takes a single input");
+    
+    auto & coordInput = *input.at(0);//input.getValueInfo("coords").getExpressionValueInfo();
     if (coordInput.couldBeRow()) {
         result->getEmbeddingFromExpr
             = coordInput.extractDoubleEmbedding(reducedColumnNames);
@@ -1486,7 +1491,8 @@ applyT(const ApplierT & applier_, ReadPixelsInput input) const
     
 std::unique_ptr<FunctionApplierT<ReadPixelsInput, ReadPixelsOutput> >
 ReadPixelsFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<ReadPixelsFunctionApplier> result
         (new ReadPixelsFunctionApplier(this));
@@ -1640,7 +1646,8 @@ applyT(const ApplierT & applier_, ProximateVoxelsInput input) const
     
 std::unique_ptr<FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput> >
 ProximateVoxelsFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<ProximateVoxelsFunctionApplier> result
         (new ProximateVoxelsFunctionApplier(this));

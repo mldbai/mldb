@@ -73,7 +73,7 @@ var expected = [
             "-Inf"
          ],
          [ "x.1", 1, "-Inf" ],
-         [ "y.column", "x", "-Inf" ],
+         [ "y.column", { path: ["x"] }, "-Inf" ],
          [ "y.value", 1, "-Inf" ]
       ],
        "rowName" : "[result]-[0]"

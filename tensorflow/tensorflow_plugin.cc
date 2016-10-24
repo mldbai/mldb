@@ -668,7 +668,7 @@ struct TensorflowGraphBase: public Function {
     struct Applier: public FunctionApplier {
         Applier(const TensorflowGraphBase * owner,
                 SqlBindingScope & outerScope,
-                const std::shared_ptr<RowValueInfo> & input)
+                const std::shared_ptr<ExpressionValueInfo> & input)
             : FunctionApplier(owner),
               owner(owner),
               mldbScope(owner->server),
@@ -682,12 +682,16 @@ struct TensorflowGraphBase: public Function {
             //     infer what is read from the graph to make it work.
             boundOutputs = owner->outputs.bind(graphScope);
 
-            info.input = input;
+            info.input = { input };
             info.output = ExpressionValueInfo::toRow(boundOutputs.info);
             
             // Check that all values on the passed input are compatible with the
             // required inputs.
             info.checkInputCompatibility(*input);
+        }
+
+        virtual ~Applier()
+        {
         }
 
         const TensorflowGraphBase * owner;
@@ -708,7 +712,8 @@ struct TensorflowGraphBase: public Function {
             auto rowScope = functionScope.getRowScope(inputData);
 
             ExpressionValue inStorage;
-            const ExpressionValue & in = boundInputs(rowScope, inStorage, GET_LATEST);
+            const ExpressionValue & in
+                = boundInputs(rowScope, inStorage, GET_LATEST);
 
             Date outputTs = owner->modelTs;
 
@@ -766,9 +771,16 @@ struct TensorflowGraphBase: public Function {
 
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerScope,
-         const std::shared_ptr<RowValueInfo> & input) const
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override
     {
-        std::unique_ptr<FunctionApplier> result(new Applier(this, outerScope, input));
+        if (input.size() != 1 || !input[0] || !input[0]->couldBeRow())
+            throw HttpReturnException
+                (400, "Tensorflow functions must be called with exactly "
+                 "one row as input",
+                 "inputs", input);
+        std::unique_ptr<FunctionApplier> result
+            (new Applier(this, outerScope, ExpressionValueInfo::toRow(input[0])));
         return result;
     }
 
@@ -1404,7 +1416,7 @@ struct TensorflowGraphBase: public Function {
 
     virtual ExpressionValue
     apply(const FunctionApplier & applier,
-          const ExpressionValue & context) const
+          const ExpressionValue & context) const override
     {
         //cerr << "applying tensor flow function, context: " << jsonEncode(context) << endl;
 
@@ -1412,8 +1424,8 @@ struct TensorflowGraphBase: public Function {
             .apply(context);
     }
 
-    FunctionInfo
-    getFunctionInfo() const
+    virtual FunctionInfo
+    getFunctionInfo() const override
     {
         // Create a function binding context that can infer the
         // required inputs
@@ -1431,7 +1443,7 @@ struct TensorflowGraphBase: public Function {
         functionScope.inferInput();
         
         FunctionInfo result;
-        result.input = ExpressionValueInfo::toRow(functionScope.inputInfo);
+        result.input = { functionScope.inputInfo };
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;
@@ -1999,7 +2011,7 @@ struct TensorflowPlugin: public Plugin {
                     (server, pconfig, nullptr /* progress */);
 
                 std::shared_ptr<FunctionApplier> applier
-                    (fn->bind(context, inputInfo)
+                    (fn->bind(context, {inputInfo})
                      .release());
                 
                 BoundFunction result;

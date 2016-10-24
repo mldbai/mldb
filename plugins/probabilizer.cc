@@ -382,7 +382,7 @@ getFunctionInfo() const
                                     0 /* position */);
 
     FunctionInfo result;
-    result.input.reset(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(knownOutputColumns, SCHEMA_CLOSED));
     return result;
 }

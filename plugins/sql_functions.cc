@@ -109,6 +109,7 @@ getStatus() const
     Json::Value result;
     result["expression"]["query"]["surface"] = functionConfig.query.stm->surface;
     result["expression"]["query"]["ast"] = functionConfig.query.stm->print();
+    result["info"] = jsonEncode(getFunctionInfo());
     return result;
 }
 
@@ -129,18 +130,20 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
 
         pipeline = getMldbRoot(function->server)->statement(*config.query.stm, getParamInfo);
 
+        // Bind the pipeline; this populates the input parameters
+        boundPipeline = pipeline->bind();
+
         std::vector<KnownColumn> inputColumns;
         inputColumns.reserve(inputParams.size());
         for (auto & p: inputParams) {
             inputColumns.emplace_back(PathElement(p), std::make_shared<AnyValueInfo>(),
                                       COLUMN_IS_SPARSE);
         }
+
+        if (!inputColumns.empty())
+            this->info.input.emplace_back(new RowValueInfo(std::move(inputColumns),
+                                                           SCHEMA_CLOSED));
         
-        this->info.input = std::make_shared<RowValueInfo>(std::move(inputColumns),
-                                                          SCHEMA_CLOSED);
-        
-        // Bind the pipeline
-        boundPipeline = pipeline->bind();
 
         switch (function->functionConfig.output) {
         case FIRST_ROW:
@@ -283,12 +286,12 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 SqlQueryFunction::
 bind(SqlBindingScope & outerContext,
-     const std::shared_ptr<RowValueInfo> & input) const
+     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<SqlQueryFunctionApplier> result
         (new SqlQueryFunctionApplier(this, functionConfig));
 
-    result->info.checkInputCompatibility(*input);
+    result->info.checkInputCompatibility(input);
 
     return std::move(result);
 }
@@ -343,6 +346,22 @@ SqlExpressionFunctionConfigDescription()
              "This can lead to faster batch queries, at the expense of a "
              "possibly high per-query overhead for individual queries.",
              false);
+    addField("raw", &SqlExpressionFunctionConfig::raw,
+             "If true, then the output will be raw (just the result "
+             "of the expression will be returned; it will not be turned "
+             "into a row and the name of the output will be ignored).  If "
+             "false (default), then the output will be structured into "
+             "a row.  For example, the expression `1 AS z` will return "
+             "`1` if raw is true, but `{z: 1}` if raw is "
+             "false.", false);
+    addField("autoInput", &SqlExpressionFunctionConfig::autoInput,
+             "If true, then a function that takes a single parameter "
+             "will automatically pass that parameter without needing "
+             "to put it within an object.  For example, if `expression` "
+             "is `x + 1`, then with `autoInput` as `false` the function "
+             "must be called with `{x: 2}` but with `autoInput` as `true` "
+             "the function can be called with `2` and the `x` will be "
+             "added automatically.", false);
 }
 
 SqlExpressionFunction::
@@ -358,23 +377,90 @@ SqlExpressionFunction(MldbServer * owner,
     if (functionConfig.prepared) {
         // 1.  Bind the expression in.  That will tell us what it is expecting
         //     as an input.
-        this->bound = functionConfig.expression.bind(*innerScope);
+        this->bound = doBind(*innerScope);
 
         // 2.  Our output is known by the bound expression
-        this->info.output = ExpressionValueInfo::toRow(this->bound.info);
-    
-        // 3.  Infer the input, now the binding is all done
-        innerScope->inferInput();
+        this->info.output = this->bound.info;
+        
+        if (functionConfig.autoInput) {
+            std::tie(this->preparedAutoInputName, info.input)
+                = getAutoInputName(*innerScope);
+        }
+        else {
+            // 3.  Infer the input, now the binding is all done
+            innerScope->inferInput();
+            
+            // 4.  Our required input is known by the binding context, as it
+            // records what was read.
+            info.input.emplace_back(innerScope->inputInfo);
+        }
 
-        // 4.  Our required input is known by the binding context, as it records
-        //     what was read.
-        info.input = ExpressionValueInfo::toRow(innerScope->inputInfo);
     }
 }
 
 SqlExpressionFunction::
 ~SqlExpressionFunction()
 {
+}
+
+std::tuple<PathElement, std::vector<std::shared_ptr<ExpressionValueInfo> > >
+SqlExpressionFunction::
+getAutoInputName(SqlExpressionExtractScope & innerScope) const
+{
+    if (innerScope.inferredInputs.size() != 1) {
+        Utf8String knownVars;
+        for (auto & v: innerScope.inferredInputs) {
+            if (!knownVars.empty())
+                knownVars += ", ";
+            knownVars += v.toUtf8String();
+        }
+        throw HttpReturnException
+            (400, "An sql.expression function with autoInput=true "
+             "must have a single variable in the expression; "
+             "the passed expression " + functionConfig.expression.surface
+             + " had " + to_string(innerScope.inferredInputs.size())
+             + " variables (" + knownVars + ").");
+    }
+    // Can take any input
+    std::vector<std::shared_ptr<ExpressionValueInfo> > inputs
+        = {std::make_shared<AnyValueInfo>()};
+    return make_tuple((*innerScope.inferredInputs.begin())[0],
+                      std::move(inputs));
+}
+
+BoundSqlExpression
+SqlExpressionFunction::
+doBind(SqlExpressionExtractScope & innerScope) const
+{
+    if (functionConfig.raw) {
+        // 1.  Grab the single SqlExpression that we need from the select
+        //     expression
+        if (functionConfig.expression.clauses.size() != 1) {
+            throw HttpReturnException
+                (400, "An sql.expression function with raw=true "
+                 "must have a single clause in the select; there were "
+                 + to_string(functionConfig.expression.clauses.size())
+                 + " in the passed expression "
+                 + functionConfig.expression.surface);
+        }
+        auto singleClause = functionConfig.expression.clauses[0];
+        auto named
+            = std::dynamic_pointer_cast<NamedColumnExpression>(singleClause);
+        if (!named) {
+            throw HttpReturnException
+                (400, "An sql.expression function with raw=true "
+                 "must have a single statement in the select; passed "
+                 "expression was " + functionConfig.expression.surface
+                 + " which parsed as " + functionConfig.expression.print()
+                 + ".");
+        }
+        return named->expression->bind(innerScope);
+    }
+    else {
+        // 1.  Bind the expression in.  That will tell us what it is expecting
+        //     as an input.
+        return functionConfig.expression.bind(innerScope);
+    }
 }
 
 Any
@@ -384,27 +470,41 @@ getStatus() const
     Json::Value result;
     result["expression"]["surface"] = functionConfig.expression.surface;
     result["expression"]["ast"] = functionConfig.expression.print();
+    result["info"] = jsonEncode(getFunctionInfo());
     return result;
 }
 
 /** Structure that does all the work of the SQL expression function. */
 struct SqlExpressionFunctionApplier: public FunctionApplier {
-    SqlExpressionFunctionApplier(SqlBindingScope & outerScope,
-                                 const SqlExpressionFunction * function,
-                                 const std::shared_ptr<RowValueInfo> & input)
+    SqlExpressionFunctionApplier
+        (SqlBindingScope & outerScope,
+         const SqlExpressionFunction * function,
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
         : FunctionApplier(function),
           function(function),
-          innerScope(outerScope, input)
+          autoInputName(nullptr),
+          innerScope(outerScope, input.at(0))
     {
         if (!function->functionConfig.prepared) {
             // Specialize to this input
-            this->bound = function->functionConfig.expression.bind(innerScope);
+            this->bound = function->doBind(innerScope);
 
+            if (function->functionConfig.autoInput) {
+                std::tie(this->autoInputNameStorage,
+                         this->info.input)
+                    = function->getAutoInputName(innerScope);
+                this->autoInputName = &this->autoInputNameStorage;
+            }
+            else {
+                innerScope.inferInput();
+                this->info.input = { std::move(innerScope.inputInfo) };
+            }
             // That leads to a specialized output
-            this->info.output = ExpressionValueInfo::toRow(bound.info);
+            this->info.output = std::move(bound.info);
         }
         else {
             this->info = function->info;
+            this->autoInputName = &function->preparedAutoInputName;
         }
     }
 
@@ -412,25 +512,40 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     {
     }
 
-    ExpressionValue apply(const ExpressionValue & context) const
+    ExpressionValue apply(const ExpressionValue & input) const
     {
+        ExpressionValue autoInputNameStorage;
+        if (function->functionConfig.autoInput) {
+            ExcAssert(this->autoInputName);
+            StructValue val;
+            val.emplace_back(*autoInputName, input);
+            autoInputNameStorage = std::move(val);
+        }
+
+        const ExpressionValue & realInput 
+            = function->functionConfig.autoInput
+            ? autoInputNameStorage
+            : input;
+
         // We know that we won't go outside of the current row, so we can
         // pass in a dummy object here.
         SqlRowScope outerRow;
 
         if (function->functionConfig.prepared) {
             // Use the pre-bound version.   
-            return function->bound(function->innerScope->getRowScope(context),
+            return function->bound(function->innerScope->getRowScope(realInput),
                                    GET_LATEST);
         }
         else {
             // Use the specialized version. 
-            return bound(this->innerScope.getRowScope(context),
+            return bound(this->innerScope.getRowScope(realInput),
                          GET_LATEST);
         }
     }
 
     const SqlExpressionFunction * function;
+    const PathElement * autoInputName;
+    PathElement autoInputNameStorage;
     SqlExpressionExtractScope innerScope;
     BoundSqlExpression bound;
 };
@@ -438,12 +553,12 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 SqlExpressionFunction::
 bind(SqlBindingScope & outerContext,
-     const std::shared_ptr<RowValueInfo> & input) const
+     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<SqlExpressionFunctionApplier> result
         (new SqlExpressionFunctionApplier(outerContext, this, input));
 
-    result->info.checkInputCompatibility(*input);
+    result->info.checkInputCompatibility(input);
 
     return std::move(result);
 }
@@ -485,8 +600,13 @@ getFunctionInfo() const
 
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.
-    result.input = ExpressionValueInfo::toRow(outerScope.inputInfo);
-
+    if (functionConfig.autoInput) {
+        result.input = std::get<1>(getAutoInputName(outerScope));
+    }
+    else {
+        result.input.emplace_back(outerScope.inputInfo);
+    }
+    
     return result;
 }
 

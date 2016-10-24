@@ -86,6 +86,10 @@ getCovering(const std::shared_ptr<ExpressionValueInfo> & info1,
     if (&typeid(dinfo1) == &typeid(dinfo2))
         return info1;
 
+    if (info1->isScalar() && info2->isScalar()) {
+        return std::make_shared<AtomValueInfo>();
+    }
+
     return std::make_shared<AnyValueInfo>();
 }
 
@@ -181,9 +185,13 @@ ExpressionValueInfo::
 toRow(std::shared_ptr<ExpressionValueInfo> row)
 {
     ExcAssert(row);
+
     auto result = dynamic_pointer_cast<RowValueInfo>(row);
-    if (!result)
+    if (!result) {
+        if (row->couldBeRow())
+            return std::make_shared<UnknownRowValueInfo>();
         throw HttpReturnException(500, "Value is not a row: " + MLDB::type_name(*row));
+    }
     return result;
 }
 
@@ -543,6 +551,7 @@ EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & in
     if (input[0]->isScalar()) {
         
         std::shared_ptr<ExpressionValueInfo> info = input[0];
+
         for (auto & e: input) {
             if (!e->isScalar()) {
                 throw HttpReturnException
@@ -4440,51 +4449,73 @@ extractJson(JsonPrintingContext & context) const
         return;
 
     case ExpressionValue::Type::STRUCTURED: {
-        context.startObject();
+        if (structured_->size() == 0) {
+            context.startObject();
+            context.endObject();
+            return;
+        }
 
         std::map<PathElement, compact_vector<int, 2> > vals;
 
+        bool isArray = true;
         for (int i = 0;  i < structured_->size();  ++i) {
             // We need to deal with doubled values
             vals[std::get<0>((*structured_)[i])].push_back(i);
+            if (isArray && std::get<0>((*structured_)[i]).toIndex() != i)
+                isArray = false;
         }
 
-        for (auto & v: vals) {
-            
-            if (v.first.hasStringView()) {
-                const char * start;
-                size_t len;
+        if (isArray) {
+            context.startArray(vals.size());
 
-                std::tie(start, len) = v.first.getStringView();
-                
-                context.startMember(start, len);
-            }
-            else {
-                context.startMember(v.first.toUtf8String());
-            }
-         
-            if (v.second.size() == 1) {
+            for (auto & v: vals) {
+                context.newArrayElement();
                 std::get<1>((*structured_)[v.second.front()])
                     .extractJson(context);
             }
-            else {
-                // Need to merge them together
-                Json::Value jval;
 
-                for (int index: v.second) {
-                    const ExpressionValue & v = std::get<1>((*structured_)[index]);
-                    Json::Value val = v.extractJson();
-                    for (auto it = val.begin();  it != val.end();  ++it) {
-                        jval[it.memberName()] = *it;
-                    }
-                }
-                
-                context.writeJson(jval);
-            }
+            context.endArray();
         }
+        else {
+            context.startObject();
 
-        context.endObject();
+            for (auto & v: vals) {
+            
+                if (v.first.hasStringView()) {
+                    const char * start;
+                    size_t len;
 
+                    std::tie(start, len) = v.first.getStringView();
+                
+                    context.startMember(start, len);
+                }
+                else {
+                    context.startMember(v.first.toUtf8String());
+                }
+         
+                if (v.second.size() == 1) {
+                    std::get<1>((*structured_)[v.second.front()])
+                        .extractJson(context);
+                }
+                else {
+                    // Need to merge them together
+                    Json::Value jval;
+
+                    for (int index: v.second) {
+                        const ExpressionValue & v = std::get<1>((*structured_)[index]);
+                        Json::Value val = v.extractJson();
+                        for (auto it = val.begin();  it != val.end();  ++it) {
+                            jval[it.memberName()] = *it;
+                        }
+                    }
+                
+                    context.writeJson(jval);
+                }
+            }
+
+            context.endObject();
+        }
+        
         return;
     }
     case ExpressionValue::Type::SUPERPOSITION:

@@ -42,11 +42,11 @@ class DatasetFunctionTest(MldbUnitTest):
                     'query': 'SELECT x.a.* FROM x JOIN x AS y ON x.rowHash() = y.rowHash()'
                     }})
 
-        res = mldb.query('SELECT nested({})')
+        res = mldb.query('SELECT nested()')
 
         mldb.log(res)
 
-        expected = [["_rowName", "nested({}).x.a.b", "nested({}).x.a.c"],
+        expected = [["_rowName", "nested().x.a.b", "nested().x.a.c"],
                     ["result", 1, 2 ]]
 
         self.assertTableResultEquals(res, expected)
