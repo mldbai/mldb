@@ -1204,9 +1204,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             for (auto & chunk: c.chunks) {
                 bytesUsed += chunk.second->memusage();
             }
-            cerr << "column " << c.columnName << " used "
-                 << bytesUsed << " bytes at "
-                 << 1.0 * bytesUsed / totalRows << " per row" << endl;
+            //cerr << "column " << c.columnName << " used "
+            //     << bytesUsed << " bytes at "
+            //     << 1.0 * bytesUsed / totalRows << " per row" << endl;
             columnMem += bytesUsed;
         }
 
