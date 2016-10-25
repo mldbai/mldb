@@ -108,7 +108,8 @@ ImportTextConfigDescription::ImportTextConfigDescription()
             }
             else if (context.fieldName() == "quotechar") {
                 config->quoter = context.expectStringAscii();
-                cerr << "The 'quotechar' argument has been renamed to 'quoteChar'" << endl;
+                auto logger = MLDB::getMldbLog<ImportTextProcedure>();
+                WARNING_MSG(logger) << "The 'quotechar' argument has been renamed to 'quoteChar'";
             }
             else {
                 context.exception("Unknown field '" + context.fieldName()
@@ -432,6 +433,7 @@ parseFixedWidthCsvRow(const char * & line,
                       bool hasQuoteChar)
 {
     ExcAssert(!(hasQuoteChar && isTextLine));
+    auto logger = MLDB::getMldbLog<ImportTextProcedure>();
 
     // Skip trailing whitespace in the row.  If we want spaces, we should use
     // quotes.
@@ -444,15 +446,15 @@ parseFixedWidthCsvRow(const char * & line,
 
     size_t colNum = 0;
 
-    //cerr << "parsing line " << string(line, length) << endl;
-
     auto finishString = [encoding,replaceInvalidCharactersWith]
         (const char * start, size_t len, bool eightBit)
         {
-            //cerr << "finishing string " << string(start, len)
-            //     << " with eightBit " << eightBit
-            //     << " encoding " << encoding
-            //     << " replaceInvalidCharactersWith " << replaceInvalidCharactersWith << endl;
+            auto logger = MLDB::getMldbLog<ImportTextProcedure>();
+            DEBUG_MSG(logger)
+                 << "finishing string " << string(start, len)
+                 << " with eightBit " << eightBit
+                 << " encoding " << encoding
+                 << " replaceInvalidCharactersWith " << replaceInvalidCharactersWith;
 
             if (!eightBit) {
                 char buf[len];
@@ -548,7 +550,6 @@ parseFixedWidthCsvRow(const char * & line,
 
             for (; line < lineEnd;  ++line) {
                 c = *line;
-                //cerr << "c = " << c << endl;
                 if (c == quote) {
                     ++line;
                     if (line >= lineEnd) {
@@ -581,11 +582,7 @@ parseFixedWidthCsvRow(const char * & line,
             if (errorMsg)
                 break;
 
-            //cerr << "eightBit = " << eightBit << endl;
-            //cerr << "parsing " << string(s, len) << endl;
             values[colNum++] = finishString(s, len, eightBit);
-
-            //cerr << "after quoted, *line = " << *line << endl;
         }
         else if ((isdigit(c) || c == '-') && !isTextLine) {
             // Special case for something that looks like a number, in order to
@@ -646,8 +643,6 @@ parseFixedWidthCsvRow(const char * & line,
 
             values[colNum++] = finishString(start, len, eightBit);
         }
-
-        //cerr << "added col " << (colNum - 1) << " val " << values[colNum - 1] << endl;
     }
 
     if (errorMsg)
@@ -909,11 +904,13 @@ struct ImportTextProcedureWorkInstance
         if (isIdentitySelect)
             ExcAssertEqual(inputColumnNames, knownColumnNames);
 
-        //cerr << "reading " << inputColumnNames.size() << " columns "
-        //     << jsonEncodeStr(inputColumnNames) << endl;
+        DEBUG_MSG(logger)
+            << "reading " << inputColumnNames.size() << " columns "
+            << jsonEncodeStr(inputColumnNames);
 
-        //cerr << "writing " << columnNames.size() << " columns "
-        //     << jsonEncodeStr(columnNames) << endl;
+        DEBUG_MSG(logger)
+            << "writing " << knownColumnNames.size() << " columns "
+            << jsonEncodeStr(knownColumnNames);
 
         std::string line;
 
@@ -986,8 +983,8 @@ struct ImportTextProcedureWorkInstance
 
         auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
             {
-                //cerr << "started chunk " << chunkNumber << " at line "
-                //     << lineNumber << endl;
+                DEBUG_MSG(logger)
+                    << "started chunk " << chunkNumber << " at line " << lineNumber;
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
                 if (isIdentitySelect)
@@ -999,7 +996,7 @@ struct ImportTextProcedureWorkInstance
 
         auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
             {
-                //cerr << "finished chunk " << chunkNumber << endl;
+                DEBUG_MSG(logger) << "finished chunk " << chunkNumber;
                 auto & threadAccum = accum.get();
                 ExcAssert(threadAccum.threadRecorder.get());
                 threadAccum.threadRecorder->finishedChunk();
@@ -1182,7 +1179,7 @@ struct ImportTextProcedureWorkInstance
         INFO_MSG(logger)
             << "done " << byteCount * 0.000001 << " megabytes at "
             << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec";
-        //cerr << "processed " << totalLinesProcessed << " lines" << endl;
+        DEBUG_MSG(logger) << "processed " << totalLinesProcessed << " lines";
         
         recorder.commit();
 
