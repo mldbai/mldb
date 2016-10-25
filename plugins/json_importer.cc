@@ -44,7 +44,8 @@ struct JSONImporterConfig : ProcedureConfig {
           ignoreBadLines(false),
           select(SelectExpression::STAR),
           where(SqlExpression::TRUE),
-          named(SqlExpression::TRUE) // Trick to ease comparison
+          named(SqlExpression::TRUE), // Trick to ease comparison
+          arrays(PARSE_ARRAYS)
     {
         outputDataset.withType("tabular");
     }
@@ -58,7 +59,7 @@ struct JSONImporterConfig : ProcedureConfig {
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
     std::shared_ptr<SqlExpression> named;
-    JsonArrayHandling arrays = PARSE_ARRAYS;
+    JsonArrayHandling arrays;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JSONImporterConfig);
@@ -90,13 +91,13 @@ JSONImporterConfigDescription()
              "Row name expression for output dataset. Note that each row "
              "must have a unique name and that names cannot be objects.",
              SqlExpression::parse("lineNumber()"));
-    addAuto("arrays", &JSONImporterConfig::arrays,
+    addField("arrays", &JSONImporterConfig::arrays,
             "Describes how arrays are encoded in the JSON output.  For "
             "''parse' (default), the arrays become structured values. "
             "For 'encode', "
             "arrays containing atoms are sparsified with the values "
             "representing one-hot "
-            "keys and boolean true values");
+            "keys and boolean true values", PARSE_ARRAYS);
 
     addParent<ProcedureConfig>();
 
