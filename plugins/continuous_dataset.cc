@@ -21,6 +21,7 @@
 #include "mldb/watch/watch_impl.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/builtin/merged_dataset.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -201,7 +202,8 @@ struct ContinuousDataset::Itl {
         auto storageOutput
             = createStorageDataset->run(runConfig, nullptr /* progress */);
 
-        cerr << "output of storage is " << jsonEncode(storageOutput) << endl;
+        auto logger = MLDB::getMldbLog<ContinuousWindowDataset>();
+        INFO_MSG(logger) << "output of storage is " << jsonEncode(storageOutput);
 
         std::unique_ptr<Current> newCurrent(new Current());
         newCurrent->dataset
@@ -255,7 +257,7 @@ struct ContinuousDataset::Itl {
         // Take the metadata and put it in the metadata database
         
         Json::Value resultsJson = jsonEncode(saveOutput.results);
-        cerr << "metadata is " << jsonEncode(saveOutput) << endl;
+        INFO_MSG(logger) << "metadata is " << jsonEncode(saveOutput);
 
         RowPath rowName(savedDataset->config_->id);
 
@@ -499,7 +501,8 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
         + "AND earliest <= CAST ('" + CellValue(to).toString() + "' AS TIMESTAMP) "
         + "AND latest >= CAST ('" + CellValue(from).toString() + "' AS TIMESTAMP)";
     
-    //cerr << "where is " << where << endl;
+    auto logger = MLDB::getMldbLog<ContinuousWindowDataset>();
+    DEBUG_MSG(logger) << "where is " << where;
 
     // Query our metadata dataset for the datasets to load up
     auto datasets

@@ -22,6 +22,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -378,16 +379,17 @@ struct JSONImporter: public Procedure {
         forEachLineBlock(stream, onLine, runProcConf.limit, 32,
                          startChunk, doneChunk);
 
-        cerr << timer.elapsed() << endl;
+        auto logger = MLDB::getMldbLog<JSONImporter>();
+        DEBUG_MSG(logger) << timer.elapsed();
         timer.restart();
 
-        cerr << "committing dataset" << endl;
+        DEBUG_MSG(logger) << "committing dataset";
 
         recorder.commit();
 
-        cerr << timer.elapsed() << endl;
+        DEBUG_MSG(logger) << timer.elapsed();
 
-        cerr << "done" << endl;
+        DEBUG_MSG(logger) << "done";
 
         Json::Value result;
         result["rowCount"] = (int64_t)recordedLines;

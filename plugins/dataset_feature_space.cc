@@ -11,6 +11,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -74,9 +75,10 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
 {
     ColumnInfo result;
     result.columnName = columnName;
+    auto logger = MLDB::getMldbLog<DatasetFeatureSpace>();
 
     if (!bucketize) {
-        //cerr << "doing column " << columnName << endl;
+        DEBUG_MSG(logger) << "doing column " << columnName;
         ColumnStats statsStorage;
         auto & stats = dataset->getColumnIndex()
             ->getColumnStats(columnName, statsStorage);
@@ -526,7 +528,8 @@ serialize(ML::DB::Store_Writer & store) const
 
     store << labelInfo;
 
-    //cerr << "serializing " << columnInfo.size() << " features" << endl;
+    auto logger = MLDB::getMldbLog<DatasetFeatureSpace>();
+    DEBUG_MSG(logger) << "serializing " << columnInfo.size() << " features";
     for (auto & i: columnInfo) {
         store << jsonEncodeStr(i.first);
         const ColumnInfo& columnInfo = i.second;
@@ -534,7 +537,7 @@ serialize(ML::DB::Store_Writer & store) const
         columnInfo.info.serialize(store);
     }
 
-    //cerr << "done serializing feature space" << endl;
+    DEBUG_MSG(logger) << "done serializing feature space";
 }
 
 std::ostream & operator << (std::ostream & stream,

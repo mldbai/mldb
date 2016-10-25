@@ -28,6 +28,7 @@
 #include "jml/utils/smart_ptr_utils.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -170,9 +171,10 @@ run(const ProcedureRunConfig & run,
     int numClusters = emConfig.numClusters;
     int numIterations = emConfig.maxIterations;
 
-    //cerr << "EM training start" << endl;
+    auto logger = MLDB::getMldbLog<EMProcedure>();
+    DEBUG_MSG(logger) << "EM training start";
     em.train(vecs, inCluster, numClusters, numIterations, 0);
-    //cerr << "EM training end" << endl;
+    DEBUG_MSG(logger) << "EM training end";
 
     // Let the model know about its column names
     std::vector<ColumnPath> columnNames;
@@ -330,9 +332,10 @@ EMFunction(MldbServer * owner,
 
     dimension = impl->em.clusters[0].centroid.size();
 
-    //cerr << "got " << impl->em.clusters.size()
-    //     << " clusters with " << dimension
-    //     << "values" << endl;
+    auto logger = MLDB::getMldbLog<EMFunction>();
+    DEBUG_MSG(logger) << "got " << impl->em.clusters.size()
+         << " clusters with " << dimension
+         << "values";
 }
 
 struct EMFunctionApplier: public FunctionApplierT<EMInput, EMOutput> {

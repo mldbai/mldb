@@ -28,6 +28,7 @@
 #include "mldb/server/bucket.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include <boost/algorithm/clamp.hpp>
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -655,6 +656,7 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         std::unique_lock<Mutex> guard(mutex);
+        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
 
         // If this is the first commit, then create a new structure with the
         // column names now that we know them
@@ -689,8 +691,8 @@ struct EmbeddingDataset::Itl
                     (*uncommitted).rowIndex[rowHash] = index;
                 else {
                                                 
-                    //cerr << "rowName = " << rowName << endl;
-                    //cerr << "rowHash = " << RowHash(rowName) << endl;
+                    DEBUG_MSG(logger) << "rowName = " << rowName;
+                    DEBUG_MSG(logger) << "rowHash = " << RowHash(rowName);
                     // Check if it's a double record or a hash collision
                     RowPath oldName
                         = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
@@ -768,6 +770,7 @@ struct EmbeddingDataset::Itl
 
         // If this is the first commit, then create a new structure with the
         // column names now that we know them
+        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
         if (!uncommitted) {
             if (!repr->initialized()) {
                 // First commit; we just learnt the column names
@@ -778,7 +781,7 @@ struct EmbeddingDataset::Itl
                     columnNames.push_back(std::get<0>(c));
                 }
                 
-                //cerr << "columnNames = " << columnNames << endl;
+                //DEBUG_MSG(logger) << "columnNames = " << columnNames;
                 
                 uncommitted = new EmbeddingDatasetRepr(columnNames, metric);
             }
@@ -791,8 +794,8 @@ struct EmbeddingDataset::Itl
         }
 
         if (embedding.empty()) {
-            //cerr << "embedding is empty" << endl;
-            //cerr << "repr->initialized = " << repr->initialized() << endl;
+            DEBUG_MSG(logger) << "embedding is empty";
+            DEBUG_MSG(logger) << "repr->initialized = " << repr->initialized();
             embedding.resize((*uncommitted).columns.size(),
                              std::numeric_limits<float>::quiet_NaN());
 
@@ -817,8 +820,8 @@ struct EmbeddingDataset::Itl
             if ((*uncommitted).rowIndex[rowHash] == -1)
                 (*uncommitted).rowIndex[rowHash] = index;
             else {
-                //cerr << "rowName = " << rowName << endl;
-                //cerr << "rowHash = " << RowHash(rowName) << endl;
+                DEBUG_MSG(logger) << "rowName = " << rowName;
+                DEBUG_MSG(logger) << "rowHash = " << RowHash(rowName);
                 // Check if it's a double record or a hash collision
                 const RowPath & oldName
                     = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
@@ -860,7 +863,8 @@ struct EmbeddingDataset::Itl
     {
         std::unique_lock<Mutex> guard(mutex);
 
-        cerr << "committing embedding dataset" << endl;
+        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
+        INFO_MSG(logger) << "committing embedding dataset";
 
         if (!uncommitted)
             return;
@@ -878,7 +882,7 @@ struct EmbeddingDataset::Itl
         parallelMap(0, (*uncommitted).rows.size(), indexRow);
 
         // Create the vantage point tree
-        cerr << "creating vantage point tree" << endl;
+        INFO_MSG(logger) << "creating vantage point tree";
         Timer timer;
         
         std::vector<int> items;
@@ -905,8 +909,8 @@ struct EmbeddingDataset::Itl
                         ExcAssertEqual(result[n], 0.0);
 
                     if (!isfinite(result[n])) {
-                        cerr << "dist between " << i << " and " << item << " is "
-                             << result.back() << endl;
+                        INFO_MSG(logger) << "dist between " << i << " and " << item << " is "
+                             << result.back();
                     }
                     ExcAssert(isfinite(result[n]));
                 };
@@ -923,13 +927,13 @@ struct EmbeddingDataset::Itl
         // Create the VP tree for indexed lookups on distance
         (*uncommitted).vpTree.reset(ML::VantagePointTreeT<int>::createParallel(items, dist));
 
-        cerr << "VP tree done in " << timer.elapsed() << endl;
+        INFO_MSG(logger) << "VP tree done in " << timer.elapsed();
         
         committed.replace(uncommitted);
         uncommitted = nullptr;
 
         if (!address.empty()) {
-            cerr << "saving embedding" << endl;
+            INFO_MSG(logger) << "saving embedding";
             committed()->save(address);
         }
     }
@@ -954,9 +958,10 @@ struct EmbeddingDataset::Itl
 
         auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
 
-        //cerr << "neighbors took " << timer.elapsed() << endl;
+        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
+        //DEBUG_MSG(logger) << "neighbors took " << timer.elapsed();
 
-        //cerr << "neighbors = " << jsonEncode(neighbors) << endl;
+        DEBUG_MSG(logger) << "neighbors = " << jsonEncode(neighbors);
         
         vector<tuple<RowPath, RowHash, float> > result;
         for (auto & n: neighbors) {
@@ -1617,7 +1622,7 @@ applyT(const ApplierT & applier_, ProximateVoxelsInput input) const
                     columnPath = columnPath + PathElement(ii);
                     columnPath = columnPath + PathElement(c);
 
-                    //cerr << columnPath << endl;
+                    DEBUG_MSG(logger) << columnPath;
 
                     ExpressionValue storage;
                     auto pValue = embedding.tryGetNestedColumn(columnPath, storage);
@@ -1625,7 +1630,7 @@ applyT(const ApplierT & applier_, ProximateVoxelsInput input) const
                     float val = 0.0f;
 
                     if (!pValue) {
-                        cerr << columnPath << endl;
+                        INFO_MSG(logger) << columnPath;
                         ExcAssert(pValue);
                     }
 
