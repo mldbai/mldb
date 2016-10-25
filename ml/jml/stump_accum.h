@@ -123,7 +123,7 @@ struct Stump_Accum {
 
     void cleanup_best()
     {
-        Guard JML_UNUSED guard(lock);
+        Guard MLDB_UNUSED guard(lock);
         //cerr << "cleanup_best: best.size() = " << best.size()
         //     << " num_results = " << num_results << endl;
         //cerr << "fair = " << fair << endl;
@@ -164,7 +164,7 @@ struct Stump_Accum {
     /** Method that gets called when we have found a potential split point. */
     float add(const Feature & feature, const W & w, float arg, float z)
     {
-        Guard JML_UNUSED guard(lock);
+        Guard MLDB_UNUSED guard(lock);
 
         if (tracer)
             tracer("stump accum", 3)
@@ -232,7 +232,7 @@ struct Stump_Accum {
     std::vector<Stump>
     results(const Training_Data & data, const Feature & predicted)
     {
-        Guard JML_UNUSED guard(lock);
+        Guard MLDB_UNUSED guard(lock);
 
         cleanup_best();
 

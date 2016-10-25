@@ -14,7 +14,7 @@
 #include "mldb/arch/demangle.h"
 #include <typeinfo>
 
-#if (! defined(JML_COMPILER_NVCC) ) || (! JML_COMPILER_NVCC)
+#if (! defined(MLDB_COMPILER_NVCC) ) || (! MLDB_COMPILER_NVCC)
 # warning "This file should only be included for CUDA"
 #endif
 

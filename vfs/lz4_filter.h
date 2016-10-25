@@ -85,7 +85,7 @@ void read(Source& src, T* typedData, size_t size)
 /* HEADER                                                                     */
 /******************************************************************************/
 
-struct JML_PACKED Header
+struct MLDB_PACKED Header
 {
     Header() : magic(0) {}
     Header( int blockId,

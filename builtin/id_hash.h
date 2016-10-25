@@ -31,7 +31,7 @@ struct IdHashBucket {
 
     uint64_t first;
     uint32_t second;
-} JML_PACKED;
+} MLDB_PACKED;
 
 inline std::ostream &
 operator << (std::ostream & stream, const IdHashBucket & bucket)
@@ -40,7 +40,7 @@ operator << (std::ostream & stream, const IdHashBucket & bucket)
 }
 
 struct IdHashFn {
-    size_t operator () (uint64_t val) JML_CONST_FN
+    size_t operator () (uint64_t val) MLDB_CONST_FN
     {
         return val;
     }

@@ -108,7 +108,7 @@ struct ParseContext {
 
     /** Increment.  Note that it always sets up the buffer such that more
         characters are available. */
-    JML_ALWAYS_INLINE ParseContext & operator ++ ()
+    MLDB_ALWAYS_INLINE ParseContext & operator ++ ()
     {
         if (eof()) exception("unexpected EOF");
 
@@ -116,7 +116,7 @@ struct ParseContext {
         ofs_ += 1;  col_ += 1;
 
         ++cur_;
-        if (JML_UNLIKELY(cur_ == ebuf_))
+        if (MLDB_UNLIKELY(cur_ == ebuf_))
             next_buffer();
 
         return *this;
@@ -466,11 +466,11 @@ struct ParseContext {
     /** Return a message giving filename:line:col */
     std::string where() const;
     
-    void exception(const std::string & message) const JML_NORETURN;
+    void exception(const std::string & message) const MLDB_NORETURN;
 
-    void exception(const char * message) const JML_NORETURN;
+    void exception(const char * message) const MLDB_NORETURN;
 
-    void exception_fmt(const char * message, ...) const JML_NORETURN;
+    void exception_fmt(const char * message, ...) const MLDB_NORETURN;
     
     size_t get_offset() const { return ofs_; }
     size_t get_line() const { return line_; }
@@ -478,7 +478,7 @@ struct ParseContext {
 
     /** Query if we are at the end of file.  This occurs when we can't find
         any more characters. */
-    JML_ALWAYS_INLINE bool eof() const
+    MLDB_ALWAYS_INLINE bool eof() const
     { 
         //using namespace std;
         //cerr << "eof: cur_ = " << (void *)cur_ << "ebuf_ = " << (void *)ebuf_

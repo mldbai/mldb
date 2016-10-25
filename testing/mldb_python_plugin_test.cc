@@ -23,11 +23,11 @@ using namespace MLDB;
 BOOST_AUTO_TEST_CASE( test_python_loading )
 {
     MldbServer server;
-    
+
     server.init();
 
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
-    
+
     cerr << "http listening on " << httpBoundAddress << endl;
 
     server.start();
@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
     HttpRestProxy proxy(httpBoundAddress);
 
     PluginResource plugRes;
-    
+
     PolyConfig pluginConfig2;
 
     // 1.  Run the Python script that implements the example
@@ -70,13 +70,24 @@ print datetime.datetime.datime.now()
     BOOST_CHECK_EQUAL(excp["stack"][0]["where"].asString().find("Traceback"), 0);
     // make sure we're getting cout
     BOOST_CHECK_EQUAL(jsonOutput["logs"][0]["c"].asString(), "hoho");
-    
 
     pluginConfig2.type = "python";
     plugRes.source.main = scriptConfig["source"].asString();
     pluginConfig2.params = plugRes;
     output = proxy.put("/v1/plugins/plugin_noimport", jsonEncode(pluginConfig2));
     cout << output << endl;
+
+
+    // this should not segfault and simply fail with a regular exception
+    scriptConfig["address"] = "";
+    scriptConfig["source"] = R"foo(
+next(x for x in enumerate(['a', 'b', 'c']) if x[0] > 5)
+)foo";
+    output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
+    BOOST_CHECK_EQUAL(output.code(), 400);
+    cout << output << endl;
+
+
     
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
     output = proxy.get("/v1/plugins/plugin_noimport");

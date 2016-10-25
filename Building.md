@@ -376,6 +376,12 @@ sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main r
 sudo apt-get update
 ```
 
+This will print some warning messages, which can be safely ignored:
+
+```
+E: Some index files failed to download. They have been ignored, or old ones used instead.
+```
+
 Thirdly, we need to download the cross development environment for the
 target platform.  This will be installed under build/aarch64/osdeps
 
@@ -420,6 +426,16 @@ target platform.  This will be installed under build/aarch64/osdeps
 
 ```
 make port_deps ARCH=arm
+```
+
+If there are errors with missing package, it's because the
+universe and multiverse packages weren't installed.  In that
+case, make sure that the `ubuntu-ports` lines in `/etc/apt/sources.list`
+look like this:
+
+```
+deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse universe
+deb http://ports.ubuntu.com/ubuntu-ports/ trusty-updates restricted multiverse main universe
 ```
 
 Fourthly, we need to make the build tools for the host architecture

@@ -94,7 +94,7 @@ You can get MLDB as a Docker image and run it as a Docker container. If you've n
 
 **Step 1 - Launch an MLBD container with a mapped directory**
     
-*Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/installation/ubuntulinux/#create-a-docker-group) for more information regarding running containers from regular user accounts.*
+*Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/engine/installation/linux/ubuntulinux/#/create-a-docker-group) for more information regarding running containers from regular user accounts.*
 
 First, create an *empty* directory on the host machine by running the following command, where `</absolute/path/to/mldb_data>` needs to be replaced by the absolute path on your local machine where you want your MLDB working directory to be:
 

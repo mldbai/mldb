@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
 
     auto mutateThread = [&] ()
         {
-            int index JML_UNUSED = 0;
+            int index MLDB_UNUSED = 0;
             while (!shutdown) {
                 lock.readLock();
 

@@ -263,7 +263,7 @@ struct PolyCollection<Entity>::Registry {
             result["flags"] = Json::Value(it->second.flags.begin(), it->second.flags.end());
 
             return result;
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(500, "Error getting information for type '" + type
                                  + "' in collection " + nounPlural + ": "
                                  + getExceptionString(),

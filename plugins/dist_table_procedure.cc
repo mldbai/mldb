@@ -38,15 +38,15 @@ namespace MLDB {
 inline ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
-    return store << Id(coord.toUtf8String());
+    return store << coord.toUtf8String();
 }
 
 inline ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
-    Id id;
+    Utf8String id;
     store >> id;
-    coord = id.toUtf8String();
+    coord = std::move(id);
     return store;
 }
 
@@ -89,7 +89,7 @@ DistTableStats::
 increment(double value)
 {
     // special case if first value
-    if (JML_UNLIKELY(count == 0)) {
+    if (MLDB_UNLIKELY(count == 0)) {
         count = 1;
         avg = min = max = sum = value;
         M2 = 0.;
@@ -792,9 +792,9 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("stats"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
 
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(std::make_shared<RowValueInfo>(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-
+    
     return result;
 }
 

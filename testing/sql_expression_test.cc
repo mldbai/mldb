@@ -765,7 +765,7 @@ BOOST_AUTO_TEST_CASE(test_explicit_cast)
     BOOST_CHECK_EQUAL(run("CAST (0 AS timestamp)"), Date());
     BOOST_CHECK_EQUAL(run("CAST ('1971-01-01T01:03:03' AS timestamp)"),
                       Date(1971, 1, 1, 1, 3, 3));
-    //JML_TRACE_EXCEPTIONS(false);
+    //MLDB_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_THROW(run("CAST (123 AS \"\")"), std::exception);
 }
 
@@ -935,7 +935,7 @@ BOOST_AUTO_TEST_CASE(test_result_variable_expressions)
     }
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(SqlRowExpression::parse("* EXCLUDING bonus AS myvar*"),
                           MLDB::Exception);
     }
@@ -975,7 +975,7 @@ BOOST_AUTO_TEST_CASE(test_result_variable_expressions)
 
     {
         // MLDB-200
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(SqlRowExpression::parse("2.2*"),
                           MLDB::Exception);
     }
@@ -1175,7 +1175,7 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
 
     {
          // MLDB-868
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(SelectStatement::parse("select * from tableç"),
                           std::exception);
         auto statement = SelectStatement::parse("select * from \"tableç\"");
@@ -1281,8 +1281,6 @@ BOOST_AUTO_TEST_CASE(test_alignment)
     cerr << "alignof(PathElement) = " << alignof(PathElement) << endl;
     cerr << "sizeof(Path) = " << sizeof(Path) << endl;
     cerr << "alignof(Path) = " << alignof(Path) << endl;
-    cerr << "sizeof(Id) = " << sizeof(Id) << endl;
-    cerr << "alignof(Id) = " << alignof(Id) << endl;
     cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;
     cerr << "alignof(Utf8String) = " << alignof(Utf8String) << endl;
     cerr << "sizeof(std::string) = " << sizeof(std::string) << endl;

@@ -44,7 +44,7 @@ PROTO_SRCS := $(shell cat $(TF_MAKEFILE_DIR)/tf_proto_files.txt)
 TENSORFLOW_EIGEN_INCLUDES:=-Imldb/ext/eigen -I$(CWD)/third_party/eigen3
 
 # Include flags for all of Tensorflow
-TENSORFLOW_BASE_INCLUDE_FLAGS := -I$(CWD) -I$(INC) -Imldb/ext/re2 $(TENSORFLOW_EIGEN_INCLUDES) -I$(INC)/external/eigen_archive -I$(INC)/external -Imldb/ext
+TENSORFLOW_BASE_INCLUDE_FLAGS := -I$(CWD) -I$(INC) -Imldb/ext/re2 $(TENSORFLOW_EIGEN_INCLUDES) -I$(INC)/external/eigen_archive -I$(INC)/external -Imldb/ext -DPLATFORM_POSIX=1
 
 
 # There is a lightweight Protobuf format that is created by this program
@@ -121,9 +121,9 @@ $(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(HOSTBIN)/protoc $(INC)/google/
 	@$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
 # Same for pb_text files
-$(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto | $(BIN)/proto_text
+$(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto | $(HOSTBIN)/proto_text
 	@echo "      $(COLOR_CYAN)[PROTOTXT]$(COLOR_RESET)			$(basename $<)"
-	@$(BIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
+	@$(HOSTBIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
 
 #	(cd mldb/ext/tensorflow && $(PWD)/$(BIN)/proto_text tensorflow/core tensorflow/core tensorflow/tools/proto_text/placeholder.txt $(removeprefix mldb/ext/tensorflow/,$<))
 
@@ -140,6 +140,9 @@ TF_CUDA_CAPABILITIES:=5.3
 # This part deals with CUDA support.  It's only enabled if WITH_CUDA is
 # equal to 1.
 ifeq ($(WITH_CUDA),1)
+
+# Which version of CUDA do we use?
+CUDA_VERSION?=8.0
 
 # This is the directory that the whole CUDA development kit is installed
 # inside.
@@ -205,7 +208,10 @@ TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
 #   between the CUDA and non-CUDA kernels; otherwise there will be linker
 #   errors.  If you get something like "undefined symbol tensorflow::functor::XXXFunctor<Eigen::GpuDevice>::Reduce<..., std::array*, >(...)" then this is
 #   the problem.
-TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -I$(INC)/third_party/gpus
+# - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
+#   Eigen disables needed std::initializer_list constructors in its arrays
+#   because it doesn't properly detect that this feature is available
+TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -DEIGEN_HAS_VARIADIC_TEMPLATES=1 -I$(INC)/third_party/gpus
 
 # Here are the flags we need to pass to NVCC to compile TensorFlow's CUDA
 # files.
@@ -225,14 +231,19 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 # - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
 #   Eigen disables needed std::initializer_list constructors in its arrays
 #   because it doesn't properly detect that this feature is available
-TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_53 -code=sm_53 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) -DEIGEN_HAS_VARIADIC_TEMPLATES=1
+# - For cross-compilation, we tell it exactly what the underlying compiler
+#   is so that it gets it right
+#   See here: http://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#cross-platform
+
+TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_30 -code=sm_30 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) $(TENSORFLOW_ARCH_CUDA_FLAGS) -DEIGEN_HAS_VARIARDIC_TEMPLATES=1
 
 # When compiling the cuda kernels we need to use the include flags and
 # some of our own
 $(eval $(call set_compile_option,$(TENSORFLOW_CUDA_NVCC_BUILD),$(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_INCLUDE_FLAGS) $(TENSORFLOW_NVCC_CUDA_FLAGS)))
 
-# Libraries we need to link with
-TENSORFLOW_CUDA_LINK:=cudart #cublas curand cufft
+# Libraries we need to link with.  Note that no CUDA libraries are required
+# since they are all dynamically loaded
+TENSORFLOW_CUDA_LINK:=  #cudart cublas curand cufft
 
 # Library path for CUDA
 CUDA_LIB_PATH?=$(CUDA_BASE_DIR)/lib64
@@ -378,7 +389,7 @@ TF_KERNEL_VARIANT_x86_64_avx2:=-mavx2 -mfma
 # ARM variants don't currently detect their CPU capabilities at
 # runtime, so only a generic variant is compiled
 TF_KERNEL_VARIANT_aarch64_generic:=-funsafe-math-optimizations -ftree-vectorize -Os
-TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize
+TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize -Os
 
 # By default, we compile all kernel variants for our architecture
 # This can be overridden to speed up compile times
@@ -406,12 +417,12 @@ define tf_kernel_variant
 mldb/ext/tensorflow/../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%:	$(CWD)/%
 	@mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
 
-TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$(TENSORFLOW_KERNEL_CC_BUILD:%=../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%)
+TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$$(addprefix ../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/,$$(TENSORFLOW_KERNEL_CC_BUILD))
 
 $$(eval $$(call set_compile_option,$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)),$$(TENSORFLOW_COMPILE_FLAGS) $$(TF_KERNEL_VARIANT_$(ARCH)_$(1))))
 $$(eval $$(call library,tensorflow-kernels-$(1),$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)) $$(TENSORFLOW_CUDA_NVCC_BUILD),tensorflow-ops $$(TENSORFLOW_CUDA_LINK),,,,,$$(TENSORFLOW_CUDA_LINKER_FLAGS),$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants))
 
-# Tensorflow depends upon having a variant
+# Tensorflow depends upon having this variant available
 $(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so
 
 #$(w arning $(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so)

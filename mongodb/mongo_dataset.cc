@@ -201,7 +201,8 @@ struct MongoDataset: Dataset {
         shared_ptr<cursor::iterator> it(new cursor::iterator(res->begin()));
 
         return {[=] (ssize_t numToGenerate, Any token,
-                     const BoundParameters & params)
+                     const BoundParameters & params,
+                     std::function<bool (const Json::Value &)> onProgress)
             {
                 std::vector<Path> rowsToKeep;
                 for (; *it != res->end() && numToGenerate != 0; ++*it, --numToGenerate) {

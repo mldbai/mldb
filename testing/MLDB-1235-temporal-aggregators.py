@@ -605,7 +605,7 @@ class TemporalTest(MldbUnitTest):
         })
 
         res = mldb.get('/v1/query', 
-                       q = "SELECT early({}) AS * from mldbfb520_sql_query")
+                       q = "SELECT early() AS * from mldbfb520_sql_query")
         expected = [{
             "rowName": "user1",
             "columns": [
@@ -626,7 +626,7 @@ class TemporalTest(MldbUnitTest):
         })
 
         res = mldb.get('/v1/query', 
-                       q = "SELECT late({}) AS * from mldbfb520_sql_query")
+                       q = "SELECT late() AS * from mldbfb520_sql_query")
         
 
         expected = [{

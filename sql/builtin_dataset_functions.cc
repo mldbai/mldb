@@ -56,7 +56,7 @@ struct RegisterBuiltin {
             {
                 try {
                     return function(context, args, options, alias);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin Dataset function "
                                          + str + ": " + getExceptionString(),
                                          "functionName", str);

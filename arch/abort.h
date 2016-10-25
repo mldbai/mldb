@@ -21,8 +21,8 @@ namespace MLDB {
 
 /** Calls abort() if one of the following criterias are met:
 
-    - The environment variable JML_ABORT is set.
-    - The macro JML_ABORT is defined.
+    - The environment variable MLDB_ABORT is set.
+    - The macro MLDB_ABORT is defined.
     - set_abort_state(true) is called.
 
     Note that the value passed to set_abort_state() will override all other

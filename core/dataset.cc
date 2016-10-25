@@ -28,6 +28,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/hash_wrapper_description.h"
+#include "mldb/rest/cancellation_exception.h"
 #include <mutex>
 
 
@@ -393,18 +394,25 @@ getColumnDense(const ColumnPath & column) const
     }
 
     for (auto& name : rowNames) {
-
-        auto iter = values.find(name);
-        if (iter == values.end())
-            throw MLDB::Exception(("Row " + name.toUtf8String() +
-                                   " does not have column " +
-                                     column.toUtf8String()).rawString() +
-                                   " in dense data index.");
-
-        result.push_back(iter->second.first);
+        auto it = values.find(name);
+        if (it == values.end())
+            result.emplace_back();  // add a null value
+        else
+            result.push_back(it->second.first);
     } 
 
     return result;
+}
+
+std::vector<CellValue>
+ColumnIndex::
+getColumnDistinctValues(const ColumnPath & column) const
+{
+    auto vals = getColumnDense(column);
+    std::sort(vals.begin(), vals.end());
+    vals.erase(std::unique(vals.begin(), vals.end()),
+               vals.end());
+    return vals;
 }
 
 std::tuple<BucketList, BucketDescriptions>
@@ -413,30 +421,49 @@ getColumnBuckets(const ColumnPath & column,
                  int maxNumBuckets) const
 {
     auto vals = getColumnDense(column);
-
-    std::unordered_map<CellValue, size_t> values;
-    std::vector<CellValue> valueList;
-
-    size_t totalRows = vals.size();
-
-    for (auto& v : vals) {
-        if (values.insert({v,0}).second)
-            valueList.push_back(v);
+    std::vector<std::pair<CellValue, uint32_t> > vals2;
+    vals2.reserve(vals.size());
+    for (size_t i = 0;  i < vals.size();  ++i) {
+        vals2.emplace_back(std::move(vals[i]), i);
     }
+    vals.clear();  vals.shrink_to_fit();
 
+    std::sort(vals2.begin(), vals2.end());
+
+    size_t totalRows = vals2.size();
+
+    std::vector<CellValue> distinctValues;
+    std::vector<uint32_t> startsAt;
+    for (size_t i = 0;  i < vals2.size();  ++i) {
+        auto & v = vals2[i];
+        if (distinctValues.empty()
+            || v.first != distinctValues.back()) {
+            distinctValues.emplace_back(std::move(v.first));
+            startsAt.push_back(i);
+        }
+    }
+    startsAt.push_back(vals2.size());
+    
     BucketDescriptions descriptions;
-    descriptions.initialize(valueList, maxNumBuckets);
+    descriptions.initialize(distinctValues, maxNumBuckets);
 
-    for (auto & v: values) {
-        v.second = descriptions.getBucket(v.first);            
+    std::vector<int32_t> bucketNumbers(vals2.size(), -1);
+    for (size_t i = 0;  i < distinctValues.size();  ++i) {
+        uint32_t bucket = descriptions.getBucket(distinctValues[i]);
+        size_t startAt = startsAt[i];
+        size_t endAt = startsAt[i + 1];
+        for (size_t j = startAt;  j < endAt;  ++j) {
+            bucketNumbers[vals2[j].second] = bucket;
+        }
     }
-        
-    // Finally, perform the bucketed lookup
-    WritableBucketList buckets(totalRows, descriptions.numBuckets());
 
-    for (auto& v : vals) {
-        uint32_t bucket = values[v];
-        buckets.write(bucket);
+    distinctValues.clear();  distinctValues.shrink_to_fit();
+    vals2.clear();  vals2.shrink_to_fit();
+
+    WritableBucketList buckets(totalRows, descriptions.numBuckets());
+    for (auto & b: bucketNumbers) {
+        ExcAssert(b != -1);
+        buckets.write(b);
     }
 
     return std::make_tuple(std::move(buckets), std::move(descriptions));
@@ -1058,7 +1085,8 @@ generateRowNameIsConstant(const Dataset & dataset,
     std::tie(rowName, wasParsed)
         = RowPath::tryParse(rowNameExpr.constant.toUtf8String());
     return {[=] (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params)
+                 const BoundParameters & params,
+                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 // There should be exactly one row
@@ -1081,7 +1109,8 @@ generateRowNameIsExpression(const Dataset & dataset,
     auto bound = rowNameExpr.bind(scope);
 
     return {[=] (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params)
+                 const BoundParameters & params,
+                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
@@ -1107,7 +1136,8 @@ generateRowPathIsConstant(const Dataset & dataset,
     RowPath rowName = rowNameExpr.constantValue().coerceToPath();
 
     return {[=] (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params)
+                 const BoundParameters & params,
+                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 // There should be exactly one row
@@ -1129,7 +1159,8 @@ generateRowPathIsExpression(const Dataset & dataset,
     auto bound = rowNameExpr.bind(scope);
 
     return {[=] (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params)
+                 const BoundParameters & params,
+                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
@@ -1362,12 +1393,13 @@ generateRowsWhere(const SqlBindingScope & scope,
                     }
                     
                     return {[=] (ssize_t numToGenerate, Any token,
-                                 const BoundParameters & params)
+                                 const BoundParameters & params,
+                                 std::function<bool (const Json::Value &)> onProgress)
                             -> std::pair<std::vector<RowPath>, Any>
                             {
                                 RowPath except = filterCallback(params);
 
-                                auto rows = gen(-1, Any(), params).first;
+                                auto rows = gen(-1, Any(), params, onProgress).first;
                                 auto iter = std::find(rows.begin(), rows.end(),
                                                       except);
                                 if (iter != rows.end()) {
@@ -1391,12 +1423,14 @@ generateRowsWhere(const SqlBindingScope & scope,
                 && rhsGen.complexity < GenerateRowsWhereFunction::UNFILTERED_TABLESCAN) {
 
                 return {[=] (ssize_t numToGenerate, Any token,
-                             const BoundParameters & params)
+                             const BoundParameters & params,
+                             std::function<bool (const Json::Value &)> onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             auto lhsRows = lhsGen(-1, Any(), params).first;
                             auto rhsRows = rhsGen(-1, Any(), params).first;
 
+                            //TODO - review if and how we should report progress here
                             std::sort(lhsRows.begin(), lhsRows.end(), SortByRowHash());
                             std::sort(rhsRows.begin(), rhsRows.end(), SortByRowHash());
 
@@ -1421,12 +1455,14 @@ generateRowsWhere(const SqlBindingScope & scope,
 
             if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
                 return {[=] (ssize_t numToGenerate, Any token,
-                             const BoundParameters & params)
+                             const BoundParameters & params,
+                             std::function<bool (const Json::Value &)> onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
-                            auto lhsRows = lhsGen(-1, Any(), params).first;
-                            auto rhsRows = rhsGen(-1, Any(), params).first;
+                            auto lhsRows = lhsGen(-1, Any(), params, onProgress).first;
+                            auto rhsRows = rhsGen(-1, Any(), params, onProgress).first;
 
+                            //TODO - review if and how we should report progress here
                             std::sort(lhsRows.begin(), lhsRows.end(),
                                       SortByRowHash());
                             std::sort(rhsRows.begin(), rhsRows.end(),
@@ -1486,12 +1522,15 @@ generateRowsWhere(const SqlBindingScope & scope,
             
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
-                             const BoundParameters & params)
+                             const BoundParameters & params,
+                             std::function<bool (const Json::Value &)> onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             std::vector<RowPath> filtered;
                             auto matrixView = this->getMatrixView();
 
+                            // there is probably no need to report progress 
+                            // as the IN clause contains only a handful of values
                             for (auto& c : inExpression->tuple->clauses) {
                                 ExpressionValue v = c->constantValue();
                                 RowPath rowName = extractPath(v);
@@ -1526,7 +1565,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                         ExcAssert(keys || values);
 
                         return {[=] (ssize_t numToGenerate, Any token,
-                                     const BoundParameters & params)
+                                     const BoundParameters & params,
+                                     std::function<bool (const Json::Value &)> onProgress)
                                 -> std::pair<std::vector<RowPath>, Any>
                                 {
                                     SqlExpressionParamScope::RowScope rowScope(params);
@@ -1565,6 +1605,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                                             return true;
                                         };
                                     
+                                    //TODO - review if and how we should report progress here
                                     if (!evaluatedSet.empty()) {
                                         if (keys)
                                             evaluatedSet.forEachColumn(onKey);
@@ -1704,14 +1745,30 @@ generateRowsWhere(const SqlBindingScope & scope,
                 uint64_t c = crhs->constant.getAtom().toUInt();
 
                 return {[=] (ssize_t numToGenerate, Any token,
-                             const BoundParameters & params)
+                             const BoundParameters & params,
+                             std::function<bool (const Json::Value &)> onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             std::vector<RowPath> filtered;
 
+                            std::atomic_ulong rowCount(0);
+                            size_t numRows = this->getMatrixView()->getRowCount();
+
                             // getRowNames can return row names in an arbitrary order as long as it is deterministic.
                             for (const RowPath & n: this->getMatrixView()
                                      ->getRowPaths()) {
+                                
+                                ++rowCount;
+                                if (rowCount % 1000 == 0) {
+                                    if (onProgress) {
+                                        Json::Value progress;
+                                        progress["percent"] = (float) rowCount / numRows;
+                                        if (!onProgress(progress)) {
+                                            throw CancellationException("rows generation was cancelled");
+                                        }
+                                    }
+                                }
+
                                 uint64_t hash = RowHash(n).hash();
                                 
                                 if (op(hash % m, c))
@@ -1763,7 +1820,8 @@ generateRowsWhere(const SqlBindingScope & scope,
         if (where.constantValue().isTrue()) {
             GenerateRowsWhereFunction wheregen
                 = {[=] (ssize_t numToGenerate, Any token,
-                        const BoundParameters & params)
+                        const BoundParameters & params,
+                        std::function<bool (const Json::Value &)> onProgress)
                     {
                         ssize_t start = 0;
                         ssize_t limit = numToGenerate;
@@ -1774,6 +1832,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                             start = token.convert<size_t>();
 
                         //Row names can be returned in an arbitrary order as long as it is deterministic.
+                        //TODO - review if and how we should report progress here
                         auto rows = this->getMatrixView()
                             ->getRowPaths(start, limit);
 
@@ -1796,7 +1855,8 @@ generateRowsWhere(const SqlBindingScope & scope,
         }
         else {
             return { [=] (ssize_t numToGenerate, Any token,
-                          const BoundParameters & params)
+                          const BoundParameters & params,
+                          std::function<bool (const Json::Value &)> onProgress)  // no need to report progress here
                     -> std::pair<std::vector<RowPath>, Any>
                     {
                         return { {}, Any() };
@@ -1828,7 +1888,8 @@ generateRowsWhere(const SqlBindingScope & scope,
     //no need to check for where == true, it was checked above...
 
     return {[=] (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params)
+                 const BoundParameters & params,
+                 std::function<bool (const Json::Value &)> onProgress)
             {
                 ssize_t start = 0;
                 ssize_t limit = numToGenerate;
@@ -1841,14 +1902,30 @@ generateRowsWhere(const SqlBindingScope & scope,
                 auto matrix = this->getMatrixView();
 
                 //Row names can be returned in an arbitrary order as long as it is deterministic.
+                //TODO - review if and how we should report progress here
                 auto rows = matrix->getRowPaths(start, limit);
 
                 std::vector<RowPath> rowsToKeep;
 
                 PerThreadAccumulator<std::vector<RowPath> > accum;
                 
+                size_t numRows = rows.size();
+                std::atomic_ulong rowCount(0);
+
                 auto onRow = [&] (size_t n)
                     {
+                        ++rowCount;
+
+                        if (rowCount % 1000 == 0) {
+                            if (onProgress) {
+                                Json::Value progress;
+                                progress["percent"] = (float) rowCount / numRows;
+                                if (!onProgress(progress)) {
+                                    return false;
+                                }
+                            }
+                        }
+
                         const RowPath & r = rows[n];
 
                         MatrixNamedRow row;
@@ -1864,18 +1941,23 @@ generateRowsWhere(const SqlBindingScope & scope,
                         
                         if (keep)
                             accum.get().push_back(r);
+
+                        return true;
                     };
 
                 bool needSort = false;
                 if (rows.size() >= 1000) {
                     // Scan the whole lot with the when in parallel
-                    parallelMap(0, rows.size(), onRow);
+                    if (!parallelMapHaltable(0, rows.size(), onRow))
+                        throw CancellationException("row where generation was cancelled");
+
                     needSort = true;
                 } else {
                     // Serial, since probably it's not worth the overhead
                     // to run them in parallel.
                     for (unsigned i = 0;  i < rows.size();  ++i)
-                        onRow(i);
+                        if (!onRow(i))
+                            throw CancellationException("row where generation was cancelled");
                 }
 
                 // Now merge together the results of all the threads

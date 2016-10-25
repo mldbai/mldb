@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE( test_s3_attributes )
 /* Test s3 uploads with small payloads */
 BOOST_AUTO_TEST_CASE( test_s3_uploads )
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
 
     vector<string> cleanupUrls;
     auto cleanup = [&] () {
@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE( test_s3_uploads )
  */
 BOOST_AUTO_TEST_CASE( test_s3_large_files )
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
 
     string contents = randomString(100 * 1024 * 1024);
 
@@ -372,7 +372,7 @@ BOOST_AUTO_TEST_CASE( test_s3_foreach_object )
  * parameters. */
 BOOST_AUTO_TEST_CASE( test_s3_getObjectInfo )
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
 
     string filename = "s3-test-getObjectInfo-" + randomString(6);
     string url = "s3://" + bucket + "/" + filename;
@@ -485,7 +485,7 @@ BOOST_AUTO_TEST_CASE( test_s3_getObjectInfo )
 
 BOOST_AUTO_TEST_CASE( test_s3_url_credentials )
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
 
     string filename = "s3-test-getObjectInfo-" + randomString(6);
     string anonymousUrl = "s3://" + bucket + "/" + filename;

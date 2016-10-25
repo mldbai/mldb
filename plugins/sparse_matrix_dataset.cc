@@ -508,7 +508,16 @@ struct SparseMatrixDataset::Itl
     virtual std::vector<RowPath>
     getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
+        if (start < 0)
+            throw HttpReturnException(400, "Invalid start for row names",
+                                      "start", start);
+        if (limit < -1)
+            throw HttpReturnException(400, "Invalid limit for row names",
+                                      "limit", limit);
+
         std::vector<RowPath> result;
+        result.reserve(getRowCount());
+
         auto trans = getReadTransaction();
         trans->matrix
             ->iterateRows([&] (uint64_t row)
@@ -519,13 +528,6 @@ struct SparseMatrixDataset::Itl
                           });
 
         //Make sure that the result of the above is in a deterministic order
-
-        if (start < 0)
-            throw HttpReturnException(400, "Invalid start for row names",
-                                      "start", start);
-        if (limit < -1)
-            throw HttpReturnException(400, "Invalid limit for row names",
-                                      "limit", limit);
         
         if (start >= result.size()) {
             result.clear();

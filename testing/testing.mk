@@ -41,6 +41,7 @@ $(eval $(call test,procedure_run_test,mldb,boost))
 $(eval $(call test,python_procedure_test,mldb,boost manual)) #manual -- unclear why
 $(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
 
+$(TEST)/mldb_internal_plugin_doc_test: $(foreach plugin,tensorflow mongodb postgres,$(MLDB_PLUGIN_FILES_$(plugin)))
 
 
 $(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
@@ -436,8 +437,13 @@ $(eval $(call mldb_unit_test,test_classifier_test_proc.py))
 $(eval $(call mldb_unit_test,MLDB-1937-svd-with-complex-select.py))
 $(eval $(call mldb_unit_test,fetcher-function.py))
 $(eval $(call mldb_unit_test,MLDB-1950-crash-in-merge.py))
+$(eval $(call mldb_unit_test,MLDB-408-task-cancellation.py))
 $(eval $(call mldb_unit_test,MLDB-1921_merge_ds_strings.py))
 $(eval $(call mldb_unit_test,MLDB-1911_horizontal_agg_no_from.py))
 $(eval $(call mldb_unit_test,MLDB-1788_select_col_as_star_err.py))
 $(eval $(call mldb_unit_test,MLDB-1972-fft.js))
 $(eval $(call mldb_unit_test,MLDB-1984-constant-functions.js))
+$(eval $(call mldb_unit_test,union_dataset_test.py))
+$(eval $(call mldb_unit_test,deepteach_test.py,tensorflow,manual))
+$(eval $(call mldb_unit_test,post_run_and_track_procedure_test.py))
+$(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))

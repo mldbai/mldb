@@ -40,7 +40,7 @@ inline void warmup_cache_all_levels(const float * mem, size_t n)
 {
     // TODO: assumes 64 byte cache lines
     // TODO: prefetch?
-    float total JML_UNUSED = 0.0;
+    float total MLDB_UNUSED = 0.0;
     for (unsigned i = 0;  i < n;  i += 16)
         total += mem[n];
 }
@@ -49,7 +49,7 @@ inline void warmup_cache_all_levels(const double * mem, size_t n)
 {
     // TODO: assumes 64 byte cache lines
     // TODO: prefetch?
-    double total JML_UNUSED = 0.0;
+    double total MLDB_UNUSED = 0.0;
     for (unsigned i = 0;  i < n;  i += 8)
         total += mem[n];
 }
@@ -219,7 +219,7 @@ multiply_r(const boost::multi_array<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-//JML_ALWAYS_INLINE
+//MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 multiply(const boost::multi_array<Float1, 2> & A,
          const distribution<Float2> & b)
@@ -228,7 +228,7 @@ multiply(const boost::multi_array<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-//JML_ALWAYS_INLINE
+//MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 operator * (const boost::multi_array<Float1, 2> & A,
             const distribution<Float2> & b)
@@ -275,7 +275,7 @@ multiply_r(const distribution<Float2> & b,
 }
 
 template<typename Float1, typename Float2>
-//JML_ALWAYS_INLINE
+//MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 multiply(const distribution<Float2> & b,
          const boost::multi_array<Float1, 2> & A)
@@ -284,7 +284,7 @@ multiply(const distribution<Float2> & b,
 }
 
 template<typename Float1, typename Float2>
-//JML_ALWAYS_INLINE
+//MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 operator * (const distribution<Float2> & b,
             const boost::multi_array<Float1, 2> & A)

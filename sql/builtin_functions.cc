@@ -92,7 +92,7 @@ struct RegisterBuiltinUnaryScalar {
             {
                 try {
                     return wrapper(fn, args, scope);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
                                          + functionName
                                          + ": " + getExceptionString(),
@@ -247,7 +247,7 @@ struct RegisterBuiltinUnaryScalar {
                                            std::move(info), args,
                                            scope);
                     }
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + functionName + ": "
                                          + getExceptionString(),
@@ -332,7 +332,7 @@ struct RegisterBuiltinBinaryScalar {
             {
                 try {
                     return wrapper(fn, args, scope);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
                                          + functionName
                                          + ": " + getExceptionString(),
@@ -688,7 +688,7 @@ struct RegisterBuiltinBinaryScalar {
 
                     return bindUnknown(functionName, function, std::move(info),
                                        args, scope);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + functionName + ": "
                                          + getExceptionString(),
@@ -987,7 +987,7 @@ struct RegexHelper {
         Utf8String regexStr;
         try {
             regexStr = val.toUtf8String();
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException
                 (400, "Error when extracting regex from argument '"
                  + expr.expr->surface + "': " + getExceptionString()
@@ -997,7 +997,7 @@ struct RegexHelper {
         }
         try {
             return boost::make_u32regex(regexStr.rawData());
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException
                 (400, "Error when compiling regex '"
                  + regexStr + "' from expression " + expr.expr->surface + "': "
@@ -1891,7 +1891,7 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                 }
 
                 try {
-                    JML_TRACE_EXCEPTIONS(!options.ignoreErrors);
+                    MLDB_TRACE_EXCEPTIONS(!options.ignoreErrors);
 
                     Utf8String str = val.toUtf8String();
                     StreamingJsonParsingContext parser(str.rawString(),
@@ -3468,7 +3468,7 @@ bind(const std::vector<BoundSqlExpression> & args,
     
                 try {
                     return bound(rowScope, GET_ALL);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
                                          + functionName + ": " + getExceptionString(),
                                          "functionName", functionName,
@@ -3479,7 +3479,7 @@ bind(const std::vector<BoundSqlExpression> & args,
         result.resultInfo = std::move(bound.info);
         
         return result;
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Binding builtin function "
                              + functionName + ": " + getExceptionString(),
                              "functionName", functionName,
@@ -3527,7 +3527,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                     content = ExpressionValue(std::move(blob),
                                               info.lastModified);
                 }
-                JML_CATCH_ALL {
+                MLDB_CATCH_ALL {
                     error = ExpressionValue(getExceptionString(),
                                             Date::now());
                 }

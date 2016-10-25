@@ -20,14 +20,12 @@
 
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 # include "mldb/arch/sse2.h"
 # include "mldb/arch/sse2_log.h"
 #endif
@@ -37,6 +35,7 @@
 #include "quadtree.h"
 #include "vantage_point_tree.h"
 #include <fstream>
+#include <functional>
 
 using namespace std;
 
@@ -462,7 +461,7 @@ double calc_D_row(float * Di, int n)
     double total = 0.0;
 
     if (false) ;
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     else if (n >= 8) {
         using namespace SIMD;
 
@@ -525,7 +524,7 @@ double calc_D_row(float * Di, int n)
 
         total = (results[0] + results[1]);
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
     
     for (;  i < n;  ++i) {
         Di[i] = 1.0f / (1.0f + Di[i]);
@@ -595,7 +594,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
 
     if (false) ;
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     else if (true) {
         using namespace SIMD;
 
@@ -611,7 +610,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
             v4sf qqqq0 = __builtin_ia32_maxps(mmmm, dddd0 * ffff);
             v4sf ssss0 = (pppp0 - qqqq0) * dddd0;
             __builtin_ia32_storeups(Di + i + 0, ssss0);
-            if (JML_LIKELY(!calc_costs)) continue;
+            if (MLDB_LIKELY(!calc_costs)) continue;
 
             v4sf pqpq0  = pppp0 / qqqq0;
             v4sf lpq0   = sse2_logf_unsafe(pqpq0);
@@ -630,7 +629,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
         
         cost = results[0] + results[1];
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
 
     for (;  i < n;  ++i) {
         float d = Di[i];
@@ -741,7 +740,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
                 const boost::multi_array<float, 2> & Y,
                 int i, int n)
 {
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     using namespace SIMD;
 
     v4sf totals01 = vec_splat(0.0f), totals23 = totals01;
@@ -776,7 +775,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
     __builtin_ia32_storeups(&dY[i][0], totals01);
     __builtin_ia32_storeups(&dY[i + 2][0], totals23);
 
-#else // JML_INTEL_ISA
+#else // MLDB_INTEL_ISA
     enum { b = 4 };
 
     float totals[b][2];
@@ -798,7 +797,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
         dY[i + ii][0] = totals[ii][0];
         dY[i + ii][1] = totals[ii][1];
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
 }
 
 inline void
@@ -955,14 +954,12 @@ void recenter_about_origin(boost::multi_array<Float, 2> & Y)
 boost::multi_array<float, 2>
 tsne_init(int nx, int nd, int randomSeed)
 {
-    boost::mt19937 rng;
+    mt19937 rng;
     if (randomSeed)
         rng.seed(randomSeed);
-    boost::normal_distribution<float> norm;
+    normal_distribution<float> norm;
 
-    boost::variate_generator<boost::mt19937,
-                             boost::normal_distribution<float> >
-        randn(rng, norm);
+    std::function<double()> randn(std::bind(norm, rng));
 
     boost::multi_array<float, 2> Y(boost::extents[nx][nd]);
     for (unsigned i = 0;  i < nx;  ++i)
@@ -1811,7 +1808,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 qtree.insert(coord);
             }
         
-            int numNodes JML_UNUSED = qtree.root->finish();
+            int numNodes MLDB_UNUSED = qtree.root->finish();
 
             return qtree;
         };
@@ -2420,7 +2417,7 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
                        const Quadtree & qtree,
                        const TSNE_Params & params)
 {
-    int nx JML_UNUSED = prevOutput.shape()[0];
+    int nx MLDB_UNUSED = prevOutput.shape()[0];
     int nd = prevOutput.shape()[1];
     int nn = neighbours.indexes.size();
 

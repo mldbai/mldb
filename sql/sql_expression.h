@@ -886,7 +886,7 @@ struct SqlRowScope {
     template<typename T>
     T & as()
     {
-        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
+        if (MLDB_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<T &>(*this);
 
         auto * cast = dynamic_cast<T *>(this);
@@ -902,7 +902,7 @@ struct SqlRowScope {
     template<typename T>
     const T & as() const
     {
-        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
+        if (MLDB_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<const T &>(*this);
 
         auto * cast = dynamic_cast<const T *>(this);
@@ -1477,7 +1477,8 @@ struct GenerateRowsWhereFunction {
 
     typedef std::function<std::pair<std::vector<RowPath>, Any>
                           (ssize_t numToGenerate, Any token,
-                           const BoundParameters & params)> Exec;
+                           const BoundParameters & params,
+                           std::function<bool (const Json::Value &)> onProgress)> Exec;
 
     GenerateRowsWhereFunction(Exec exec = nullptr,
                               Utf8String explain = "",
@@ -1493,9 +1494,10 @@ struct GenerateRowsWhereFunction {
 
     std::pair<std::vector<RowPath>, Any>
     operator () (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params = BoundParameters()) const
+                 const BoundParameters & params = BoundParameters(),
+                 std::function<bool (const Json::Value &)> onProgress = nullptr) const
     {
-        return exec(numToGenerate, token, params);
+        return exec(numToGenerate, token, params, onProgress);
     }
 
     Exec exec;

@@ -129,7 +129,7 @@ struct RegisterBuiltin {
                     {
                         try {
                             return fn(args, scope);
-                        } JML_CATCH_ALL {
+                        } MLDB_CATCH_ALL {
                             rethrowHttpException(-1, "Executing builtin function "
                                                  + str + ": " + getExceptionString(),
                                                  "functionName", str,
@@ -138,7 +138,7 @@ struct RegisterBuiltin {
                     };
 
                     return result;
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + str + ": " + getExceptionString(),
                                          "functionName", str,

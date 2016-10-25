@@ -37,7 +37,7 @@ const Package & builtinPackage();
 /*****************************************************************************/
 
 /** This is the base class of all entities within MLDB, containing the
-    base functionality thath they all support.
+    base functionality that they all support.
 */
 
 struct MldbEntity: public PolyEntity {

@@ -247,7 +247,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                                                             (Val *)0);
                                 }
                                 else {
-                                    results[j] = extractVal(storage.getAtom(),
+                                    results[j] = extractVal(result.getAtom(),
                                                             (Val *)0);
                                 }
                             }
@@ -295,7 +295,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                 RowScope scope(i, inputs);
                 for (unsigned j = 0;  j < exprs.size();  ++j) {
                     if (columnNumbers[j] != -1) {
-                        results[j] = extractVal(std::move(inputs[j][i]), (Val *)0);
+                        results[j] = extractVal(std::move(inputs[columnNumbers[j]][i]), (Val *)0);
                     }
                     else {
                         ExpressionValue storage;
@@ -305,7 +305,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                             results[j] = extractVal(storage.stealAtom(), (Val *)0);
                         }
                         else {
-                            results[j] = extractVal(storage.getAtom(), (Val *)0);
+                            results[j] = extractVal(result.getAtom(), (Val *)0);
                         }
                     }
                 }

@@ -25,6 +25,8 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/server/bucket.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 #include <boost/algorithm/clamp.hpp>
 
 using namespace std;
@@ -268,7 +270,7 @@ struct EmbeddingDataset::Itl
     RestRequestRouter router;
 
     virtual std::vector<RowPath>
-    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -324,7 +326,7 @@ struct EmbeddingDataset::Itl
     }
 
     virtual std::vector<RowHash>
-    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
+    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -342,7 +344,7 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const RowPath & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -360,7 +362,7 @@ struct EmbeddingDataset::Itl
         return it != repr->rowIndex.end() && it->second != -1;
     }
 
-    virtual MatrixNamedRow getRow(const RowPath & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -410,7 +412,7 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
-    virtual RowPath getRowPath(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const override
     {
         static const RowHash nullHash(RowPath("null"));
         static const RowHash nullHashMunged(RowPath("\x01null"));
@@ -428,7 +430,7 @@ struct EmbeddingDataset::Itl
         return repr->rows[it->second].rowName;
     }
 
-    virtual bool knownColumn(const ColumnPath & column) const
+    virtual bool knownColumn(const ColumnPath & column) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -437,7 +439,7 @@ struct EmbeddingDataset::Itl
         return repr->columnIndex.count(column);
     }
 
-    virtual ColumnPath getColumnPath(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const override
     {
         // TODO: shouldn't need to
         auto repr = committed();
@@ -451,7 +453,7 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath> getColumnPaths() const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -460,7 +462,7 @@ struct EmbeddingDataset::Itl
         return repr->columnNames;
     }
 
-    virtual size_t getRowCount() const
+    virtual size_t getRowCount() const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -468,7 +470,7 @@ struct EmbeddingDataset::Itl
         return repr->rows.size();
     }
 
-    virtual size_t getColumnCount() const
+    virtual size_t getColumnCount() const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -477,7 +479,7 @@ struct EmbeddingDataset::Itl
     }
 
     virtual const ColumnStats &
-    getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const
+    getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -501,7 +503,7 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnPath & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const override
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -523,6 +525,58 @@ struct EmbeddingDataset::Itl
                                      repr->rows[i].timestamp);
         }
         return result;
+    }
+
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnPath & column) const override
+    {
+        auto repr = committed();
+        if (!repr->initialized())
+            throw HttpReturnException(400, "Can't get unknown column");
+
+        auto it = repr->columnIndex.find(column);
+        if (it == repr->columnIndex.end())
+            throw HttpReturnException(400, "Can't get name of unknown column");
+
+        const vector<float> & columnVals = repr->columns.at(it->second);
+
+        std::vector<CellValue> result(columnVals.begin(), columnVals.end());
+
+        return result;
+    }
+
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnPath & column,
+                     int maxNumBuckets) const override
+    {
+        auto repr = committed();
+        if (!repr->initialized())
+            throw HttpReturnException(400, "Can't get unknown column");
+
+        auto it = repr->columnIndex.find(column);
+        if (it == repr->columnIndex.end())
+            throw HttpReturnException(400, "Can't get name of unknown column");
+
+        const vector<float> & columnVals = repr->columns.at(it->second);
+        auto sortedVals = columnVals;
+        std::sort(sortedVals.begin(), sortedVals.end());
+        sortedVals.erase(std::unique(sortedVals.begin(), sortedVals.end()),
+                         sortedVals.end());
+        
+        std::vector<CellValue> valueList(sortedVals.begin(), sortedVals.end());
+
+        BucketDescriptions descriptions;
+        descriptions.initialize(valueList, maxNumBuckets);
+
+        // Finally, perform the bucketed lookup
+        WritableBucketList buckets(columnVals.size(), descriptions.numBuckets());
+
+        for (auto& v : columnVals) {
+            uint32_t bucket = descriptions.getBucket(v);
+            buckets.write(bucket);
+        }
+
+        return std::make_tuple(std::move(buckets), std::move(descriptions));
     }
 
     /** Return a RowValueInfo that describes all rows that could be returned
@@ -681,16 +735,27 @@ struct EmbeddingDataset::Itl
         auto repr = committed();
 
         uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
-        distribution<float> embedding;
+
+        // Hash the columns before the lock is taken
+        PossiblyDynamicBuffer<ColumnHash> columnHashesBuf(vals.size());
+        ColumnHash * columnHashes = columnHashesBuf.data();
+
+        for (size_t i = 0;  i < vals.size();  ++i) {
+            columnHashes[i] = ColumnHash(std::get<0>(vals[i]));
+        }
+
         Date latestDate = Date::negativeInfinity();
+
+        distribution<float> embedding;
 
         // Do it here before we acquire the lock in the case that it's initalized
         if (uncommitted) {
             embedding.resize((*uncommitted).columns.size(),
                              std::numeric_limits<float>::quiet_NaN());
 
-            for (auto & v: vals) {
-                auto it = (*uncommitted).columnIndex.find(std::get<0>(v));
+            for (size_t i = 0;  i < vals.size();  ++i) {
+                auto & v = vals[i];
+                auto it = (*uncommitted).columnIndex.find(columnHashes[i]);
                 if (it == (*uncommitted).columnIndex.end())
                     throw HttpReturnException(400, "Couldn't extract column with name");
                 
@@ -730,8 +795,10 @@ struct EmbeddingDataset::Itl
             //cerr << "repr->initialized = " << repr->initialized() << endl;
             embedding.resize((*uncommitted).columns.size(),
                              std::numeric_limits<float>::quiet_NaN());
-            for (auto & v: vals) {
-                auto it = (*uncommitted).columnIndex.find(std::get<0>(v));
+
+            for (size_t i = 0;  i < vals.size();  ++i) {
+                auto & v = vals[i];
+                auto it = (*uncommitted).columnIndex.find(columnHashes[i]);
                 if (it == (*uncommitted).columnIndex.end())
                     throw HttpReturnException(400, "Couldn't extract column with name 2 "
                                         + std::get<0>(v).toUtf8String());
@@ -753,7 +820,7 @@ struct EmbeddingDataset::Itl
                 //cerr << "rowName = " << rowName << endl;
                 //cerr << "rowHash = " << RowHash(rowName) << endl;
                 // Check if it's a double record or a hash collision
-                RowPath oldName
+                const RowPath & oldName
                     = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
                     .rowName;
                 if (oldName == rowName)
@@ -1079,6 +1146,12 @@ getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const
     return itl->getKnownColumnInfos(columnNames);
 }
 
+std::shared_ptr<RowValueInfo>
+EmbeddingDataset::
+getRowInfo() const
+{
+    return itl->getRowInfo();
+}
 
 static RegisterDatasetType<EmbeddingDataset, EmbeddingDatasetConfig>
 regEmbedding(builtinPackage(),
@@ -1233,7 +1306,8 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
     
 std::unique_ptr<FunctionApplierT<NearestNeighborsInput, NearestNeighborsOutput> >
 NearestNeighborsFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<NearestNeighborsFunctionApplier> result
         (new NearestNeighborsFunctionApplier(this));
@@ -1293,7 +1367,11 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
         reducedColumnNames = columnNames;
     }
 
-    auto coordInput = *input;//input.getValueInfo("coords").getExpressionValueInfo();
+    if (input.size() != 1)
+        throw HttpReturnException
+            (400, "nearest neighbours function takes a single input");
+    
+    auto & coordInput = *input.at(0);//input.getValueInfo("coords").getExpressionValueInfo();
     if (coordInput.couldBeRow()) {
         result->getEmbeddingFromExpr
             = coordInput.extractDoubleEmbedding(reducedColumnNames);
@@ -1413,7 +1491,8 @@ applyT(const ApplierT & applier_, ReadPixelsInput input) const
     
 std::unique_ptr<FunctionApplierT<ReadPixelsInput, ReadPixelsOutput> >
 ReadPixelsFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<ReadPixelsFunctionApplier> result
         (new ReadPixelsFunctionApplier(this));
@@ -1567,7 +1646,8 @@ applyT(const ApplierT & applier_, ProximateVoxelsInput input) const
     
 std::unique_ptr<FunctionApplierT<ProximateVoxelsInput, ProximateVoxelsOutput> >
 ProximateVoxelsFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<ProximateVoxelsFunctionApplier> result
         (new ProximateVoxelsFunctionApplier(this));

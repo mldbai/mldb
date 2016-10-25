@@ -619,7 +619,7 @@ initRoutes(RouteManager & manager)
             try {
                 auto collection = manager.getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto managerStr = jsonEncodeStr(collection->getKeys());
                 connection.sendHttpResponse(200, managerStr,
                                             "application/json", {});
@@ -646,14 +646,14 @@ initRoutes(RouteManager & manager)
 
 BackgroundTaskBase::
 BackgroundTaskBase()
-    : cancelled(false), error(false), finished(false), state(State::_initializing)
+    : running(true), state(State::INITIALIZING)
 {
 }
 
 BackgroundTaskBase::
 ~BackgroundTaskBase()
 {
-    if (!cancelled) {
+    if (running) {
         cancel();
     }
 }
@@ -666,15 +666,16 @@ getProgress() const
     return progress;
 }
 
-void
+bool
 BackgroundTaskBase::
 cancel()
 {
-    bool wasCancelled = this->cancelled.exchange(true);
-    if (!wasCancelled) {
+    auto old_state = state.exchange(State::CANCELLED);
+    if (old_state != State::CANCELLED && 
+        old_state != State::FINISHED) {
         cancelledWatches.trigger(true);
-        state = State::_cancelled;
     }
+    // cerr << "state is now CANCELLED " << handle << endl;
 
 #if 0
     // Give it one second to stop
@@ -693,45 +694,70 @@ cancel()
             
     //thread->join();
 
-    while (!error && !finished) {
+    while (running) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
+
+    // note that the old state of the entity and its associated task
+    // can be ERROR or event FINISHED meaning that the cancellation
+    // could not occurred before the task encounter an error or was
+    // completed
+    return old_state != State::CANCELLED;
 }
 
 void
 BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
-    error = true;
+    auto old_state = state.exchange(State::ERROR);
+    // cerr << "state is now ERROR " << handle << endl;
+
+    // the entity and the task to create it cannot be
+    // in ERROR and FINISHED,  however, it can be in
+    // CANCELLED state meaning that the error occurred
+    // before the task could be cancelled
+    ExcAssertNotEqual(old_state, State::FINISHED);
     this->exc = std::move(exc);
-    state = State::_error;
 }
 
 void
 BackgroundTaskBase::
 setFinished()
 {
-    finished = true;
-    state = State::_finished;
+    running = false;
+    State oldState = state.load();
+    if (oldState != State::CANCELLED &&
+        oldState != State::ERROR) {
+        // cerr << "state is now FINISHED " << handle << " was " << oldState << endl;
+        state = State::FINISHED;
+    }
 }
 
 void
 BackgroundTaskBase::
 setProgress(const Json::Value & _progress)
 {
-    state = State::_executing;
-    auto type = _progress.type();
-    if (type == Json::nullValue  ||  
-        type == Json::arrayValue  || 
-        type == Json::objectValue)
-        progress.clear();
+    ExcAssert(running);
+    
+    State oldState = state.load();
+    if (oldState != State::CANCELLED &&
+        oldState != State::ERROR) {
+        // cerr << "state is now EXECUTING " << handle << endl;
+        state = State::EXECUTING;
 
-    ExcAssert(type != Json::stringValue);
+        auto type = _progress.type();
+        if (type == Json::nullValue  ||  
+            type == Json::arrayValue  || 
+            type == Json::objectValue)
+            progress.clear();
 
-    if(!_progress.isNull()) {
-        progress = _progress;
-        for (auto & f: onProgressFunctions) {
-            f(progress);
+        ExcAssert(type != Json::stringValue);
+
+        if(!_progress.isNull()) {
+            progress = _progress;
+            for (auto & f: onProgressFunctions) {
+                f(progress);
+            }
         }
     }
 }
@@ -741,17 +767,20 @@ BackgroundTaskBase::
 getState() const
 {
     switch (state.load()) {
-    case State::_cancelled:
+    case State::CANCELLED:
         return L"cancelled";
-    case State::_error:
+    case State::ERROR:
         return L"error";
-    case State::_finished:
+    case State::FINISHED:
         return L"finished";
-    case State::_initializing:
+    case State::INITIALIZING:
         return L"initializing";
-    case State::_executing:
+    case State::EXECUTING:
         return L"executing";
     default:
+        // you get this assert most likely because you have
+        // added a new state and did not update this method
+        ExcAssert(!"update the BackgroundTaskBase::getState method");
         return L"unknown state";
     }
 }
@@ -760,7 +789,7 @@ void validatePayloadForPut(const RestRequest & req,
                            const Utf8String & nounPlural)
 {
     if (req.payload.empty()) {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException
             (400, "PUT to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "
@@ -775,7 +804,7 @@ void validatePayloadForPost(const RestRequest & req,
                             const Utf8String & nounPlural)
 {
     if (req.payload.empty()) {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException
             (400, "POST to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "

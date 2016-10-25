@@ -12,6 +12,7 @@
 #include "mldb/rest/service_peer.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/rest/rest_request_binding.h"
+#include "mldb/server/procedure_collection.h"
 
 
 using namespace std;
@@ -48,6 +49,72 @@ initRoutes(RouteManager & manager)
     manager.addPostRoute();
     manager.addDeleteRoute();
 
+    RestRequestRouter::OnProcessRequest getRunState
+        = [=] (RestConnection & connection,
+               const RestRequest & req,
+               const RestRequestParsingContext & cxt)
+        {
+            auto collection = manager.getCollection(cxt);
+            Utf8String key = manager.getKey(cxt);
+            
+            ProcedureRunState runState;
+            auto runEntry = collection->getEntry(key);
+            if (runEntry.second) {
+                runState.state = runEntry.second->getState();
+            } else {
+                runState.state = "finished";
+            }
+            
+            connection.sendHttpResponse(200, jsonEncodeStr(runState),
+                                        "application/json", RestParams());
+            return RestRequestRouter::MR_YES;
+        };
+
+    RestRequestRouter::OnProcessRequest setRunState
+        = [=] (RestConnection & connection,
+               const RestRequest & req,
+               const RestRequestParsingContext & cxt)
+        {
+            auto collection = manager.getCollection(cxt);
+            Utf8String key = manager.getKey(cxt);
+            
+            MLDB_TRACE_EXCEPTIONS(false);
+            auto config = jsonDecodeStr<ProcedureRunState>(req.payload);
+            
+            if (config.state == "cancelled") {
+                auto runEntry = collection->getEntry(key);
+                if (runEntry.second) {
+                    runEntry.second->cancel();
+                }
+                
+                ResourcePath path = collection->getPath();
+                path.push_back(encodeUriComponent(restEncode(key)));
+                Utf8String uri = collection->getUriForPath(path);
+                
+                RestParams headers = {
+                    { "Location", uri, },
+                    { "EntityPath", jsonEncodeStr(path) }
+                };
+                
+                ProcedureRunStatus status;
+                connection.sendHttpResponse(200, jsonEncodeStr(status),
+                                            "application/json", headers);
+                return RestRequestRouter::MR_YES;
+            }
+            return RestRequestRouter::MR_YES;
+        };
+
+
+    Json::Value help;
+    help["result"] = manager.nounSingular + " status after creation";
+
+    Json::Value & v = help["jsonParams"];
+    Json::Value & v2 = v[0];
+    v2["description"] = "Configuration of new " + manager.nounSingular;
+    v2["cppType"] = type_name<ProcedureRunConfig>();
+    v2["encoding"] = "JSON";
+    v2["location"] = "Request Body";
+    
     std::function<Procedure * (const RestRequestParsingContext & cxt) > getProcedure = [=] (const RestRequestParsingContext & cxt)
         -> Procedure *
         {
@@ -60,6 +127,19 @@ initRoutes(RouteManager & manager)
             return static_cast<ProcedureRun *>(cxt.getSharedPtrAs<ProcedureRun>(4).get());
         };
     
+    manager.valueNode->addRoute("/state", { "GET" },
+                           "Get the state of the run",
+                                // "JSON containing the state of the run",
+                           getRunState,
+                           help);
+
+    manager.valueNode->addRoute("/state", { "PUT" },
+                              "Change the state of the run",
+                              // "JSON containing the modified state of the run",
+                           setRunState,
+                           help);
+
+
     addRouteSyncJsonReturn(*manager.valueNode, "/details", { "GET" },
                            "Get the details about the run's output",
                            "Run-specific JSON output",
@@ -84,7 +164,7 @@ initRoutes(RouteManager & manager)
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 connection.sendErrorResponse(400, "Unknown exception was thrown");
                 return RestRequestRouter::MR_ERROR;
             }

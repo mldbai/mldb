@@ -33,6 +33,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -681,13 +682,6 @@ run(const ProcedureRunConfig & run,
              "config", runProcConf);
     }
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-        {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-        };
-
     if (!runProcConf.modelFileUrl.empty()) {
         checkWritability(runProcConf.modelFileUrl.toDecodedString(), "modelFileUrl");
     }
@@ -698,6 +692,27 @@ run(const ProcedureRunConfig & run,
 
     auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
 
+    Progress svdProgress;
+    std::shared_ptr<Step> classificationStep = svdProgress.steps({
+            make_pair("classifying columns", "percentile"), 
+            make_pair("extracting features", "percentile"),
+            make_pair("inverting features", "percentile"),
+            make_pair("calculating correlations", "percentile")
+            });
+
+
+    mutex progressMutex;
+
+    std::function<bool (const Json::Value &)> onProgress2;
+    onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        lock_guard<mutex> lock(progressMutex);
+        if (classificationStep->value > itProgress.percent) {
+            classificationStep->value = itProgress.percent;
+        }
+        return onProgress(jsonEncode(svdProgress));
+    };
+
     ClassifiedColumns columns = classifyColumns(runProcConf.trainingData.stm->select,
                                                 *dataset,
                                                 runProcConf.trainingData.stm->when,
@@ -705,7 +720,8 @@ run(const ProcedureRunConfig & run,
                                                 runProcConf.trainingData.stm->orderBy,
                                                 runProcConf.trainingData.stm->offset,
                                                 runProcConf.trainingData.stm->limit,
-                                                logger);
+                                                logger,
+                                                onProgress2);
 
 #if 0
     cerr << "columns: " << columns.continuousColumns.size()
@@ -722,6 +738,17 @@ run(const ProcedureRunConfig & run,
     }
 #endif
 
+    auto extractionStep = classificationStep->nextStep(1);
+
+    onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        lock_guard<mutex> lock(progressMutex);
+        if (extractionStep->value > itProgress.percent) {
+            extractionStep->value = itProgress.percent;
+        }
+        return onProgress(jsonEncode(svdProgress));
+    };
+
     FeatureBuckets extractedFeatures = extractFeaturesFromRows(runProcConf.trainingData.stm->select,
                                                                *dataset,
                                                                runProcConf.trainingData.stm->when,
@@ -729,8 +756,23 @@ run(const ProcedureRunConfig & run,
                                                                runProcConf.trainingData.stm->orderBy,
                                                                runProcConf.trainingData.stm->offset,
                                                                runProcConf.trainingData.stm->limit,
-                                                               columns);
-    ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures);
+                                                               columns,
+                                                               logger,
+                                                               onProgress2);
+
+    auto inversionStep = extractionStep->nextStep(1);
+
+    onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        lock_guard<mutex> lock(progressMutex);
+        if (inversionStep->value > itProgress.percent) {
+            inversionStep->value = itProgress.percent;
+        }
+        return onProgress(jsonEncode(svdProgress));
+    };
+
+    ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures, logger, onProgress2);
+
     ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors);
     SvdBasis svd = SvdTrainer::calcSvdBasis(correlations,
                                             runProcConf.numSingularValues);
@@ -765,6 +807,12 @@ run(const ProcedureRunConfig & run,
         PolyConfigT<Dataset> columnOutput = *runProcConf.columnOutput;
         if (columnOutput.type.empty())
             columnOutput.type = SvdConfig::defaultOutputDatasetType;
+
+        auto onProgress2 = [&] (const Json::Value & progress) {
+            Json::Value value;
+            value["dataset"] = progress;
+            return onProgress(value);
+        };
 
         auto output = createDataset(server, columnOutput, onProgress2, true /*overwrite*/);
 

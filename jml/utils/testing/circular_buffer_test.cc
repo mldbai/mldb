@@ -38,7 +38,7 @@ void circular_buffer_offset_test(Circular_Buffer<int> & buf)
     BOOST_CHECK_EQUAL(buf.begin() - buf.end(), 0);
     BOOST_CHECK_EQUAL(buf.begin() - cbuf.end(), 0);
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(buf.front(), Exception);
         BOOST_CHECK_THROW(buf.back(), Exception);
         BOOST_CHECK_THROW(buf[0], Exception);
@@ -65,7 +65,7 @@ void circular_buffer_offset_test(Circular_Buffer<int> & buf)
     BOOST_CHECK_EQUAL(buf.end() - 1, cbuf.begin());
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(buf[-2], Exception);
         BOOST_CHECK_THROW(buf[1], Exception);
     }
@@ -88,7 +88,7 @@ void circular_buffer_offset_test(Circular_Buffer<int> & buf)
     BOOST_CHECK_EQUAL(buf.back(), 2);
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(buf[-3], Exception);
         BOOST_CHECK_THROW(buf[2], Exception);
     }
@@ -240,7 +240,7 @@ void check_basic_ops_type(Vector & vec)
     BOOST_CHECK_EQUAL(vec.back(), 4);
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(vec.at(4), std::exception);
     }
 

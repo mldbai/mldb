@@ -486,7 +486,8 @@ ClassifiedColumns classifyColumns(const SelectExpression & select,
                                   const OrderByExpression & orderBy,
                                   ssize_t offset,
                                   ssize_t limit,
-                                  std::shared_ptr<spdlog::logger> logger);
+                                  std::shared_ptr<spdlog::logger> logger,
+                                  std::function<bool (const Json::Value &)> & onProgress);
 
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);
@@ -498,11 +499,15 @@ FeatureBuckets extractFeaturesFromRows(const SelectExpression & select,
                                        const OrderByExpression & orderBy, 
                                        ssize_t offset,
                                        ssize_t limit,
-                                       const ClassifiedColumns & columns);
+                                       const ClassifiedColumns & columns,
+                                       std::shared_ptr<spdlog::logger> logger,
+                                       std::function<bool (const Json::Value &)> & onProgress);
 
 ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
-               const FeatureBuckets & featureBuckets);
+               const FeatureBuckets & featureBuckets,
+               std::shared_ptr<spdlog::logger> logger,
+               std::function<bool (const Json::Value &)> & onProgress);
     
 ColumnCorrelations
 calculateCorrelations(const ColumnIndexEntries & columnIndex,

@@ -230,11 +230,11 @@ generate(Thread_Context & context,
 
     const std::vector<Label> & labels
         = training_set.index().labels(predicted);
-    const std::vector<Label> & val_labels JML_UNUSED
+    const std::vector<Label> & val_labels MLDB_UNUSED
         = validation_set.index().labels(predicted);
 
     double last_best_acc = 0.0;
-    double last_best_rmse JML_UNUSED = 0.0;
+    double last_best_rmse MLDB_UNUSED = 0.0;
 
     int our_batch_size = batch_size;
     if (batch_size == 0.0) our_batch_size = nx;

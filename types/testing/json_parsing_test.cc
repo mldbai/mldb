@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     testHex4("0026", 38);
     testHex4("001A", 26);
     
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_THROW(testFp(".", 0.1), std::exception);
     BOOST_CHECK_THROW(testFp("", 0.1), std::exception);
     BOOST_CHECK_THROW(testFp("e3", 0.1), std::exception);

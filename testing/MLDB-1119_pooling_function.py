@@ -110,7 +110,6 @@ class Mldb1119(MldbUnitTest):
         expected = [
                     {
                         "rowName": "doc4",
-                        "rowHash": "78a7b39b2df03a5a",
                         "columns": [
                             [
                                 "word2vec.0",
@@ -136,7 +135,6 @@ class Mldb1119(MldbUnitTest):
                     },
                     {
                         "rowName": "doc3",
-                        "rowHash": "444d1040f96aba43",
                         "columns": [
                             [
                                 "word2vec.0",
@@ -162,7 +160,6 @@ class Mldb1119(MldbUnitTest):
                     },
                     {
                         "rowName": "doc2",
-                        "rowHash": "dccd3de503928181",
                         "columns": [
                             [
                                 "word2vec.0",
@@ -188,7 +185,6 @@ class Mldb1119(MldbUnitTest):
                     },
                     {
                         "rowName": "doc1",
-                        "rowHash": "09b5629be003570f",
                         "columns": [
                             [
                                 "word2vec.0",

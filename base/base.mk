@@ -7,7 +7,7 @@ LIBBASE_SOURCES := \
 	parallel.cc \
 	optimized_path.cc
 
-LIBBASE_LINK :=	arch boost_thread gc
+LIBBASE_LINK :=	arch gc
 
 $(eval $(call library,base,$(LIBBASE_SOURCES),$(LIBBASE_LINK)))
 

@@ -217,7 +217,7 @@ struct ScanFilesData {
                                                (FileType)typeflag,
                                                ftwbuf->level);
             return action;
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             d->thrown = std::current_exception();
             d->isThrown = true;
             return FTW_STOP;

@@ -10,6 +10,7 @@
 #include "mldb/jml/utils/csv.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/per_thread_accumulator.h"
@@ -21,6 +22,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/progress.h"
 #include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -384,6 +386,12 @@ namespace {
     const string notEnoughColsError = "not enough columns in row";
 }
 
+// Inline version of isascii
+MLDB_ALWAYS_INLINE bool isascii(int c)
+{
+    return (c & (~127)) == 0;
+}
+
 /** Parse a single row of CSV into an array of CellValues.
 
     Carefully designed to not perform any memory allocations in the
@@ -425,6 +433,11 @@ parseFixedWidthCsvRow(const char * & line,
 {
     ExcAssert(!(hasQuoteChar && isTextLine));
 
+    // Skip trailing whitespace in the row.  If we want spaces, we should use
+    // quotes.
+    while (length > 0 && isspace(line[length - 1]))
+        --length;
+    
     const char * lineEnd = line + length;
 
     const char * errorMsg = nullptr;
@@ -657,20 +670,23 @@ parseFixedWidthCsvRow(const char * & line,
 
 struct ImportTextProcedureWorkInstance
 {
-    ImportTextProcedureWorkInstance() : lineOffset(1), // we start at line 1
-                                        isTextLine(false),
-                                        areOutputColumnNamesKnown(true),
-                                        separator(0),
-                                        quote(0),
-                                        replaceInvalidCharactersWith(-1),
-                                        hasQuoteChar(false),
-                                        isIdentitySelect(false),
-                                        rowCount(0),
-        numLineErrors(0)
+    ImportTextProcedureWorkInstance(std::shared_ptr<spdlog::logger> logger)
+        : logger(logger),
+          lineOffset(1), // we start at line 1
+          isTextLine(false),
+          areOutputColumnNamesKnown(true),
+          separator(0),
+          quote(0),
+          replaceInvalidCharactersWith(-1),
+          hasQuoteChar(false),
+          isIdentitySelect(false),
+          rowCount(0),
+          numLineErrors(0)
     {
-
+        
     }
 
+    std::shared_ptr<spdlog::logger> logger;
     vector<ColumnPath> knownColumnNames;
     Lightweight_Hash<ColumnHash, int> columnIndex; //To check for duplicates column names
     int64_t lineOffset;
@@ -801,9 +817,10 @@ struct ImportTextProcedureWorkInstance
                 }
 
                 if (config.autoGenerateHeaders) {
-                    stream.seekg(0);
-                    auto limit = fields.size();
-                    for (ssize_t i = 0; i < limit; ++i) {
+                    // Re-open stream
+                    stream.open(config.dataFileUrl, { { "mapped", "true" } });
+                    auto nfields = fields.size();
+                    for (ssize_t i = 0; i < nfields; ++i) {
                         inputColumnNames.emplace_back(i);
                     }
                 }
@@ -992,24 +1009,30 @@ struct ImportTextProcedureWorkInstance
             };
 
         atomic<ssize_t> lineCount(0);
+        atomic<ssize_t> byteCount(0);
         auto onLine = [&] (const char * line,
                            size_t length,
                            int chunkNum,
                            int64_t lineNum)
         {
+            byteCount += length + 1;
             if (++lineCount % 1000 == 0) {
                 iterationStep->value = lineCount;
                 onProgress(jsonEncode(iterationStep));
             }
             int64_t actualLineNum = lineNum + lineOffset;
-#if 0
+#if 1
             uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
-            if (linesDone && linesDone % 1000000 == 0) {
+            if (linesDone && linesDone % 100000 == 0) {
+
                 double wall = timer.elapsed_wall();
-                cerr << "done " << linesDone << " in " << wall
-                     << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
-                     << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+                INFO_MSG(this->logger)
+                    << "done " << linesDone << " in " << wall
+                    << "s at " << linesDone / wall * 0.000001
+                    << "M lines/second on "
+                    << timer.elapsed_cpu() / timer.elapsed_wall()
+                    << " CPUs";
             }
 #endif
 
@@ -1112,7 +1135,7 @@ struct ImportTextProcedureWorkInstance
 
         if(!config.allowMultiLines) {
             forEachLineBlock(stream, onLine, config.limit,
-                             32 /* parallelism */,
+                             numCpus() /* parallelism */,
                              startChunk, doneChunk);
         }
         else {
@@ -1150,8 +1173,17 @@ struct ImportTextProcedureWorkInstance
             doneChunk(0, lineNum);
         }
 
+        double wall = timer.elapsed_wall();
+        INFO_MSG(logger)
+            << "imported " << totalLinesProcessed << " in " << wall
+            << "s at " << totalLinesProcessed / wall * 0.000001
+            << "M lines/second on "
+            << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs";
+        INFO_MSG(logger)
+            << "done " << byteCount * 0.000001 << " megabytes at "
+            << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec";
         //cerr << "processed " << totalLinesProcessed << " lines" << endl;
-
+        
         recorder.commit();
 
         numLineErrors = numSkipped;
@@ -1192,7 +1224,7 @@ run(const ProcedureRunConfig & run,
         = createDataset(server, runProcConf.outputDataset, onProgress,
                         true /*overwrite*/);
 
-    ImportTextProcedureWorkInstance instance;
+    ImportTextProcedureWorkInstance instance(logger);
 
     instance.loadText(config, dataset, server, onProgress);
 

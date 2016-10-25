@@ -24,161 +24,12 @@
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/array_description.h"
 #include "mldb/types/date.h"
-#include "mldb/types/id.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/ext/jsoncpp/json.h"
 
 
 using namespace std;
 using namespace MLDB;
-
-
-/* ensures that signed integers < (1 << 32 - 1) are serialized as integers */
-BOOST_AUTO_TEST_CASE( test_default_description_print_id_32 )
-{
-    auto descPtr = getDefaultDescriptionSharedT<Id>();
-    auto & desc = *descPtr;
-
-    Id idBigDec;
-    ostringstream outStr;
-    StreamJsonPrintingContext jsonContext(outStr);
-    string result;
-
-    idBigDec.type = Id::Type::BIGDEC;
-    idBigDec.val1 = 0x7fffffff;
-    idBigDec.val2 = 0;
-
-    desc.printJsonTyped(&idBigDec, jsonContext);
-    result = outStr.str();
-
-    string expected = "2147483647";
-    BOOST_CHECK_EQUAL(expected, result);
-}
-
-/* ensures that integers >= 1 << 32 are serialized as strings */
-BOOST_AUTO_TEST_CASE( test_default_description_print_id_non_32 )
-{
-    auto descPtr = getDefaultDescriptionSharedT<Id>();
-    auto & desc = *descPtr;
-
-    Id idBigDec;
-    ostringstream outStr;
-    StreamJsonPrintingContext jsonContext(outStr);
-    string result;
-
-    idBigDec.type = Id::Type::BIGDEC;
-    idBigDec.val1 = 0x8fffffff;
-    idBigDec.val2 = 0;
-
-    desc.printJsonTyped(&idBigDec, jsonContext);
-    result = outStr.str();
-
-    string expected = "\"2415919103\"";
-    BOOST_CHECK_EQUAL(expected, result);
-}
-
-/* ensures that 64 bit integers are properly parsed as such */
-BOOST_AUTO_TEST_CASE( test_default_description_parse_id_64 )
-{
-    string input = "81985529216486895";
-    StreamingJsonParsingContext jsonContext("input", input.c_str(), input.size());
-
-    Id expected;
-    expected.type = Id::Type::BIGDEC;
-    expected.val1 = 0x0123456789abcdef;
-    expected.val2 = 0;
-
-    auto descPtr = getDefaultDescriptionSharedT<Id>();
-    auto & desc = *descPtr;
-    Id result;
-    desc.parseJsonTyped(&result, jsonContext);
-
-    BOOST_CHECK_EQUAL(expected, result);
-}
-
-/* ensures that string-encoded 64 bit integers are properly parsed as 64 bit
- * integers */
-BOOST_AUTO_TEST_CASE( test_default_description_parse_id_64_str )
-{
-    string input = "\"81985529216486895\"";
-    StreamingJsonParsingContext jsonContext("input", input.c_str(), input.size());
-
-    Id expected;
-    expected.type = Id::Type::BIGDEC;
-    expected.val1 = 0x0123456789abcdef;
-    expected.val2 = 0;
-
-    auto descPtr = getDefaultDescriptionSharedT<Id>();
-    auto & desc = *descPtr;
-    Id result;
-    desc.parseJsonTyped(&result, jsonContext);
-
-    BOOST_CHECK_EQUAL(expected, result);
-}
-
-/* ensures that 128 bit integers are properly serialized as strings */
-BOOST_AUTO_TEST_CASE( test_default_description_print_id_128 )
-{
-    auto descPtr = getDefaultDescriptionSharedT<Id>();
-    auto & desc = *descPtr;
-    Id idBigDec;
-    ostringstream outStr;
-    StreamJsonPrintingContext jsonContext(outStr);
-    string result;
-
-    idBigDec.type = Id::Type::BIGDEC;
-    idBigDec.val1 = 0x0123456789abcdef;
-    idBigDec.val2 = 0x0011223344556677;
-
-    desc.printJsonTyped(&idBigDec, jsonContext);
-    result = outStr.str();
-
-    /* we do not support 128-bit int output */
-    string expected = "\"88962710306127693105141072481996271\"";
-    BOOST_CHECK_EQUAL(expected, result);
-}
-
-#if 0
-/* ensures that ids are always rendered as strings, notwithstanding their
- * internal type */
-BOOST_AUTO_TEST_CASE( test_stringid_description )
-{
-    StringIdDescription desc;
-    Id idBigDec;
-    ostringstream outStr;
-    StreamJsonPrintingContext jsonContext(outStr);
-    string result;
-
-    idBigDec.type = Id::Type::BIGDEC;
-    idBigDec.val = 2;
-
-    desc.printJsonTyped(&idBigDec, jsonContext);
-    result = outStr.str();
-
-    string expected = "\"2\"";
-    BOOST_CHECK_EQUAL(expected, result);
-}
-#endif
-
-/* ensures that string-encoded 128 bit integers are properly parsed as 128
- * bit integers */
-BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )
-{
-    string input = "\"88962710306127693105141072481996271\"";
-    StreamingJsonParsingContext jsonContext("input", input.c_str(), input.size());
-
-    Id expected;
-    expected.type = Id::Type::BIGDEC;
-    expected.val1 = 0x0123456789abcdef;
-    expected.val2 = 0x0011223344556677;
-
-    auto descPtr = getDefaultDescriptionSharedT<Id>();
-    auto & desc = *descPtr;
-    Id result;
-    desc.parseJsonTyped(&result, jsonContext);
-
-    BOOST_CHECK_EQUAL(expected, result);
-}
 
 
 namespace MLDB {
@@ -329,12 +180,12 @@ SomeSizeDescription()
 }
 
 struct SomeTestStructure {
-    Id someId;
+    Utf8String someId;
     std::string someText;
     std::vector<std::string> someStringVector;
     SomeSize someSize;
 
-    SomeTestStructure(Id id = Id((uint64_t)0), std::string text = "nothing") : someId(id), someText(text) {
+    SomeTestStructure(Utf8String id = "", std::string text = "nothing") : someId(id), someText(text) {
     }
 
     bool operator==(SomeTestStructure const & other) const {
@@ -358,7 +209,7 @@ SomeTestStructureDescription() {
 
 BOOST_AUTO_TEST_CASE( test_structure_description )
 {
-    SomeTestStructure data(Id(42), "hello world");
+    SomeTestStructure data(Utf8String("42"), "hello world");
 
     // write the thing
     using namespace MLDB;
@@ -570,7 +421,7 @@ BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
     }
 
@@ -581,7 +432,7 @@ BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
     }
 
@@ -592,7 +443,7 @@ BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
                                             testJson.c_str(),
                                             testJson.c_str()
                                             + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
     }
 
@@ -614,7 +465,7 @@ BOOST_AUTO_TEST_CASE(test_null_parsing)
 {
     { 
         // Make sure that nulls result in parsing errors not zeros
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(jsonDecode<int>(Json::Value()), std::exception);
         BOOST_CHECK_THROW(jsonDecode<unsigned int>(Json::Value()), std::exception);
         BOOST_CHECK_THROW(jsonDecode<long int>(Json::Value()), std::exception);
@@ -661,7 +512,7 @@ BOOST_AUTO_TEST_CASE(test_array_description)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
     }
 
@@ -672,7 +523,7 @@ BOOST_AUTO_TEST_CASE(test_array_description)
                                             testJson.c_str(),
                                             testJson.c_str()
                                         + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
     }
 
@@ -683,7 +534,7 @@ BOOST_AUTO_TEST_CASE(test_array_description)
                                             testJson.c_str(),
                                             testJson.c_str()
                                             + testJson.size());
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(desc.parseJson(&testArray, context), std::exception);
     }
 

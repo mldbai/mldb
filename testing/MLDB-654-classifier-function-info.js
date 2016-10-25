@@ -114,7 +114,7 @@ var functionInfo = mldb.get("/v1/functions/iris_cls/info");
 plugin.log(functionInfo.json);
 
 var expected = {
-    "input" : {
+    "input" : [ {
         "hasUnknownColumns" : false,
         "hasUnknownColumnsRecursive" : false,
         "kind" : "row",
@@ -169,7 +169,7 @@ var expected = {
             }
         ],
         "type" : "MLDB::RowValueInfo"
-    },
+    } ],
     "output" : {
         "hasUnknownColumns" : false,
         "hasUnknownColumnsRecursive" : false,

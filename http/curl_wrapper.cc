@@ -37,7 +37,7 @@ namespace CurlWrapper {
         Easy::CurlCallback * callback = (Easy::CurlCallback *)userdata;
         try {
             return (*callback)(buffer, size, nitems);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             return size * nitems + 1;  // a number different than the input size indicates an error
         }
     }

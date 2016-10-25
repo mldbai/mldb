@@ -252,7 +252,7 @@ private:
     static RegisterMe register_me;
 };
 
-JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Layer<Float>);
+MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Layer<Float>);
 
 
 extern template class Dense_Layer<float>;

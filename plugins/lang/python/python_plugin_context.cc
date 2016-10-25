@@ -42,7 +42,7 @@ PythonSubinterpreter(bool isChild) : isChild(isChild)
     // acquire gilles
     PyEval_AcquireLock();
     hasGil = true;
-    
+
     // Create the sub interpreter
     interpState = Py_NewInterpreter();
     threadState = PyThreadState_New(interpState->interp);
@@ -50,7 +50,7 @@ PythonSubinterpreter(bool isChild) : isChild(isChild)
     // change current thread state
     savedThreadState = PyThreadState_Swap(threadState);
 
-    main_module = boost::python::import("__main__"); 
+    main_module = boost::python::import("__main__");
     main_namespace = main_module.attr("__dict__");
 
     injectOutputLoggingCode();
@@ -70,9 +70,9 @@ PythonSubinterpreter::
     // destroy the interpreter
     PyThreadState_Swap(interpState);
     Py_EndInterpreter(interpState);
-    
+
     PyThreadState_Swap(savedThreadState);
-    
+
     // release gilles
     PyEval_ReleaseLock();
 }
@@ -116,7 +116,7 @@ convertException(PythonSubinterpreter & pyControl,
     PyObject *exc,*val,*tb;
     object formatted_list, formatted;
     PyErr_Fetch(&exc,&val,&tb);
-    handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb)); 
+    handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb));
     object traceback(import("traceback"));
 
     ScriptException result;
@@ -126,8 +126,8 @@ convertException(PythonSubinterpreter & pyControl,
         result.lineNumber = extract<long>(tbb.attr("tb_lineno"));
     }
 
-    // why is this not always working? for plugins it doesn't look like it is... 
-    if(PyString_Check(val))
+    // why is this not always working? for plugins it doesn't look like it is...
+    if(val && PyString_Check(val))
         result.message = Utf8String(extract<string>(val));
 
     if (!tb) {
@@ -137,7 +137,7 @@ convertException(PythonSubinterpreter & pyControl,
         object format_exception(traceback.attr("format_exception"));
         formatted_list = format_exception(hexc,hval,htb);
     }
-    
+
     boost::python::ssize_t n = boost::python::len(formatted_list);
     result.stack.reserve(n);
 
@@ -214,7 +214,16 @@ _sys.stderr = catctOutErr
 
 )foo"; //this is python code to redirect stdouts/stderr
 
-    PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
+    int res = PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
+    if (res) {
+        cerr << "error injecting logging code: " << endl;
+        PyErr_Print(); //make python print any errors, unfortunately to console
+        cerr << "MLDB will now raise an exception" << endl;
+        throw HttpReturnException
+            (500, "Couldn't inject Python code (see error message on console). "
+             "Have you installed python_dependenies (json and datetime) and "
+             "properly set up your virtual environment?");
+    }
 }
 
 void getOutputFromPy(PythonSubinterpreter & pyControl,
@@ -225,8 +234,17 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
     PyObject *outCatcher = PyObject_GetAttrString(pyControl.main_module.ptr(),"catchOut"); //get our catchOutErr created above
 
+    // Until we figure out WTF is going on here...
+    if (!outCatcher) {
+        throw HttpReturnException
+            (500, "Couldn't extract output from injected Python code.  Look for "
+             "an earlier error message on the console.");
+        return;
+    }
+    
     PyErr_Print(); //make python print any errors
     PyObject *outOutput = PyObject_GetAttrString(outCatcher,"value"); //get the stdout and stderr from our catchOutErr object
+    
     if(outOutput) {
         boost::python::list lst = boost::python::extract<boost::python::list>(outOutput);
         for(int i = 0; i < len(lst); i++) {
@@ -250,7 +268,7 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
     Py_DecRef(outOutput);
     Py_DecRef(outCatcher);
-    
+
     // reset logging code
     if(reset) {
         injectOutputLoggingCode();
@@ -332,7 +350,7 @@ perform4(MldbPythonContext * mldbCon,
     return perform(mldbCon, verb, resource, params, payload);
 }
 
-    
+
 Json::Value
 perform(MldbPythonContext * mldbCon,
         const std::string & verb,
@@ -347,10 +365,10 @@ perform(MldbPythonContext * mldbCon,
     header.queryParams = params;
     for (auto & h: headers)
         header.headers.insert({h.first.toLower().extractAscii(), h.second.extractAscii()});
-        
+
     RestRequest request(header, payload.toString());
     InProcessRestConnection connection;
-    
+
     // add magic token to notify the receiver that this is a child call
     if(resource.find("/plugins/") != std::string::npos) {
         // if it's a python plugin creation call
@@ -433,7 +451,7 @@ ls(MldbPythonContext * mldbCon,
 {
     std::vector<std::string> dirs;
     std::map<std::string, FsObjectInfo> objects;
-    
+
     auto onSubdir = [&] (const std::string & dirName,
                          int depth)
         {
@@ -558,17 +576,17 @@ getPluginDirectory() const
 {
     return pluginResource->getPluginDir().string();
 }
-    
+
 std::shared_ptr<PythonRestRequest> PythonPluginContext::
 getRestRequest() const
 {
     if(!restRequest) cout << "WANRING!! got restRequest pointer but it is nullz!" << endl;
     return restRequest;
 }
-    
+
 
 /****************************************************************************/
-/* MLDB PYTHON CONTEXT                                                      */ 
+/* MLDB PYTHON CONTEXT                                                      */
 /****************************************************************************/
 
 void MldbPythonContext::
@@ -598,7 +616,7 @@ void MldbPythonContext::
 logUnicode(const Utf8String & msg)
 {
     getPyContext()->log(msg.rawString());
-}  
+}
 
 PythonContext* MldbPythonContext::
 getPyContext()
@@ -610,7 +628,7 @@ getPyContext()
     if(plugin) return plugin.get();
     throw MLDB::Exception("Neither script or plugin is defined!");
 }
-    
+
 void MldbPythonContext::
 setPlugin(std::shared_ptr<PythonPluginContext> plug) {
     plugin = plug;

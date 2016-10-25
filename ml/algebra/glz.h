@@ -193,7 +193,7 @@ struct Probit_Link {
         return (SQRT2PI / m) * exp(sqr(erfinv((2.0 * mu / m) - 1.0)));
     }
 
-    JML_ALWAYS_INLINE static Float sqr(Float x) { return x * x; }
+    MLDB_ALWAYS_INLINE static Float sqr(Float x) { return x * x; }
     
     static Float diff(Float mu)
     {

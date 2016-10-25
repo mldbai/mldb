@@ -12,7 +12,7 @@
 
 #include "mldb/compiler/compiler.h"
 
-#if (! defined(JML_COMPILER_NVCC) ) || (! JML_COMPILER_NVCC)
+#if (! defined(MLDB_COMPILER_NVCC) ) || (! MLDB_COMPILER_NVCC)
 # error "This file should only be included for CUDA"
 #endif
 

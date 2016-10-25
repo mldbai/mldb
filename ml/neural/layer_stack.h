@@ -305,7 +305,7 @@ protected:
 
 extern template class Layer_Stack<Layer>;
 
-JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(class LayerT, Layer_Stack<LayerT>);
+MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(class LayerT, Layer_Stack<LayerT>);
 
 
 } // namespace ML

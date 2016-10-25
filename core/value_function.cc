@@ -49,8 +49,8 @@ ValueFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    result.input = ExpressionValueInfo::toRow(this->inputInfo);
-    result.output = ExpressionValueInfo::toRow(this->outputInfo);
+    result.input.emplace_back(this->inputInfo);
+    result.output = this->outputInfo;
     return result;
 }
 

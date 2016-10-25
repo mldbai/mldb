@@ -108,8 +108,9 @@ struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
     
     virtual std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const override;
-   
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override;
+    
     EMFunctionConfig functionConfig;
 
      // holds the dimension of the embedding space

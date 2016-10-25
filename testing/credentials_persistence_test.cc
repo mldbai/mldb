@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE( test_credentials_persistence )
 
         // Check they are no longer there
         try {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             filter_istream persistStream(string("file://") + credentialsPath + "/mycreds");
             auto loadedCreds = jsonDecodeStream<CredentialRuleConfig>(persistStream);
             BOOST_CHECK_MESSAGE(false, "expected the credentials on disk to be deleted");

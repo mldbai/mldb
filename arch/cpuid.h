@@ -164,9 +164,9 @@ void get_cpu_info(CPU_Info & info);
 
 extern CPU_Info * static_cpu_info;
 
-JML_ALWAYS_INLINE const CPU_Info & cpu_info()
+MLDB_ALWAYS_INLINE const CPU_Info & cpu_info()
 {
-    if (JML_UNLIKELY(!static_cpu_info))
+    if (MLDB_UNLIKELY(!static_cpu_info))
         static_cpu_info = new CPU_Info;
     return *static_cpu_info;
 }
