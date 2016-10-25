@@ -193,7 +193,7 @@ $(eval $(call mldb_unit_test,MLDB-881-DELETE-fails-on-in-construction.py))
 $(eval $(call mldb_unit_test,MLDB-909-simple-WHEN-expression.py))
 $(eval $(call mldb_unit_test,MLDB-895-fuzz-cases.py))
 $(eval $(call mldb_unit_test,MLDB-900-archives.js))
-$(eval $(call mldb_unit_test,MLDB-905-docker-archive.js,manual))
+$(eval $(call mldb_unit_test,MLDB-905-docker-archive.js,,manual)) # MLDB-2031
 $(eval $(call mldb_unit_test,MLDB-926_auto_functions_for_procs.py))
 $(eval $(call mldb_unit_test,MLDB-902-non-ascii-row-names.py))
 $(eval $(call mldb_unit_test,MLDB-906-date-function.py))
