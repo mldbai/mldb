@@ -674,8 +674,7 @@ run(const ProcedureRunConfig & run,
         for(int lbl=0; lbl<num_weight_labels; lbl++) {
             double factor = pow(labelWeights[lbl].total(), -equalizationFactor);
 
-            //INFO_MSG(logger) 
-            cerr << "factor for class " << lbl << " = " << factor << endl;
+            INFO_MSG(logger) << "factor for class " << lbl << " = " << factor;
 
             factor_accum += factor * labelWeights[lbl];
         }

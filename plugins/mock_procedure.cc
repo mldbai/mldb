@@ -9,6 +9,7 @@
 #include <thread>
 #include <chrono>
 #include "progress.h"
+#include "mldb/rest/cancellation_exception.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/basic_value_descriptions.h"
 
@@ -76,7 +77,7 @@ run(const ProcedureRunConfig & run,
             iterationStep->value = value++;
             bool keepGoing = onProgress(jsonEncode(mockProgress));
             if (!keepGoing) {
-                return -1;
+                throw MLDB::CancellationException("Procedure mock cancelled");
             }
             this_thread::sleep_for(chrono::milliseconds(
                 std::min(durationMs, runProcConf.refreshRateMs)));

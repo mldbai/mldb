@@ -254,8 +254,9 @@ registerFunctionType(const Package & package,
                                     PolyConfig config,
                                     const std::function<bool (const Json::Value)> & onProgress)
                                 {
+                                    std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<FunctionT>();
                                     auto function = new FunctionT(FunctionT::getOwner(server), config, onProgress);
-                                    function->logger = MLDB::getMldbLog<FunctionT>();
+                                    function->logger = std::move(logger); // noexcept
                                     return function;
                                 },
                                 makeInternalDocRedirect(package, docRoute),

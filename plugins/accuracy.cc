@@ -32,6 +32,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/utils/log.h"
 
 #define NO_DATA_ERR_MSG "Cannot run classifier.test procedure on empty test set"
 
@@ -126,6 +127,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 {
 
     PerThreadAccumulator<ScoredStats> accum;
+    auto logger = MLDB::getMldbLog<AccuracyProcedure>();
 
     auto processor = [&] (NamedRowValue & row,
                           const std::vector<ExpressionValue> & scoreLabelWeight)
@@ -134,7 +136,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
 
-            // cerr << "score=" << score << "; label=" << label << "; weight=" << weight << endl;
+            TRACE_MSG(logger) << "score=" << score << "; label=" << label << "; weight=" << weight;
 
             accum.get().update(label, score, weight, row.rowName);
 
@@ -225,15 +227,15 @@ runBoolean(AccuracyConfig & runAccuracyConf,
         output->commit();
     }
 
-    // cerr << "stats are " << endl;
+    DEBUG_MSG(logger) << "stats are ";
 
-    // cerr << stats.toJson();
+    DEBUG_MSG(logger) << stats.toJson();
 
-    // cerr << stats.atPercentile(0.50).toJson();
-    // cerr << stats.atPercentile(0.20).toJson();
-    // cerr << stats.atPercentile(0.10).toJson();
-    // cerr << stats.atPercentile(0.05).toJson();
-    // cerr << stats.atPercentile(0.01).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.50).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.20).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.10).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.05).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.01).toJson();
 
     return Any(stats.toJson());
 }
@@ -349,6 +351,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
     int nb_predicted_no_label = 0;
 
+    auto logger = MLDB::getMldbLog<AccuracyProcedure>();
     results["confusionMatrix"] = Json::Value(Json::arrayValue);
     for(const auto & actual_it : confusion_matrix) {
 
@@ -365,20 +368,19 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         double fn = real_sums[actual_it.first] - tp;
         double tn = conf_mat_sum - fn - fp - tp;
 
-        /*
-        cerr << "\nlabel: " << actual_it.first << endl;
-        cerr << "TP: " << tp << endl;
-        cerr << "FP: " << fp << endl;
-        cerr << "TN: " << tn << endl;
-        cerr << "FN: " << fn << endl;
-        */
+        DEBUG_MSG(logger) << "label: " << actual_it.first;
+        DEBUG_MSG(logger) << "TP: " << tp;
+        DEBUG_MSG(logger) << "FP: " << fp;
+        DEBUG_MSG(logger) << "TN: " << tn;
+        DEBUG_MSG(logger) << "FN: " << fn;
 
         // if our class was (wrongfully) predicted (fp) but was never actually
         // there (tp + fn == 0), then this is strange
         if (tp + fn == 0 && fp > 0) {
             nb_predicted_no_label++;
-            cerr << "WARNING!! Label '" << actual_it.first
-                 << "' was predicted but not in known labels!" << endl;
+            DEBUG_MSG(logger)
+                << "WARNING!! Label '" << actual_it.first
+                << "' was predicted but not in known labels!";
         }
 
         Json::Value class_stats;
