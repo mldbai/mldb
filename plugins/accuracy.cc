@@ -136,7 +136,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
 
-            DEBUG_MSG(logger) << "score=" << score << "; label=" << label << "; weight=" << weight;
+            TRACE_MSG(logger) << "score=" << score << "; label=" << label << "; weight=" << weight;
 
             accum.get().update(label, score, weight, row.rowName);
 

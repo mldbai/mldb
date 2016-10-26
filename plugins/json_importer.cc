@@ -398,7 +398,6 @@ struct JSONImporter: public Procedure {
             throw MLDB::CancellationException("Procedure import.json cancelled");
         }
 
-        auto logger = MLDB::getMldbLog<JSONImporter>();
         DEBUG_MSG(logger) << timer.elapsed();
         timer.restart();
 

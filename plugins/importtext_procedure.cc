@@ -430,10 +430,10 @@ parseFixedWidthCsvRow(const char * & line,
                       Encoding encoding,
                       int replaceInvalidCharactersWith,
                       bool isTextLine,
-                      bool hasQuoteChar)
+                      bool hasQuoteChar,
+                      shared_ptr<spdlog::logger> & logger)
 {
     ExcAssert(!(hasQuoteChar && isTextLine));
-    auto logger = MLDB::getMldbLog<ImportTextProcedure>();
 
     // Skip trailing whitespace in the row.  If we want spaces, we should use
     // quotes.
@@ -446,10 +446,9 @@ parseFixedWidthCsvRow(const char * & line,
 
     size_t colNum = 0;
 
-    auto finishString = [encoding,replaceInvalidCharactersWith]
+    auto finishString = [encoding,replaceInvalidCharactersWith,&logger]
         (const char * start, size_t len, bool eightBit)
         {
-            auto logger = MLDB::getMldbLog<ImportTextProcedure>();
             DEBUG_MSG(logger)
                  << "finishing string " << string(start, len)
                  << " with eightBit " << eightBit
@@ -1054,7 +1053,7 @@ struct ImportTextProcedureWorkInstance
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith,
                                             isTextLine,
-                                            hasQuoteChar);
+                                            hasQuoteChar, logger);
 
                 if (errorMsg) {
                     if(config.allowMultiLines) {
@@ -1179,7 +1178,7 @@ struct ImportTextProcedureWorkInstance
         INFO_MSG(logger)
             << "done " << byteCount * 0.000001 << " megabytes at "
             << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec";
-        DEBUG_MSG(logger) << "processed " << totalLinesProcessed << " lines";
+        INFO_MSG(logger) << "processed " << totalLinesProcessed << " lines";
         
         recorder.commit();
 

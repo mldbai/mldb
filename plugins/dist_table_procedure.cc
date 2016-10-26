@@ -370,7 +370,6 @@ run(const ProcedureRunConfig & run,
 
     const int nbOutcomes = runProcConf.outcomes.size();
 
-    auto logger = MLDB::getMldbLog<DistTableProcedure>();
     auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {

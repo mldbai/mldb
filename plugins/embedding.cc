@@ -242,13 +242,15 @@ serialize(ML::DB::Store_Writer & store) const
 struct EmbeddingDataset::Itl
     : public MatrixView, public ColumnIndex {
     Itl(MetricSpace metric)
-        : metric(metric), committed(lock, metric), uncommitted(nullptr)
+        : metric(metric), committed(lock, metric), uncommitted(nullptr),
+          logger(MLDB::getMldbLog<ProximateVoxelsFunction>())
     {
     }
 
     // TODO: make it loadable...
     Itl(const std::string & address, MetricSpace metric)
-        : metric(metric), committed(lock, metric), uncommitted(nullptr), address(address)
+        : metric(metric), committed(lock, metric), uncommitted(nullptr), address(address),
+          logger(MLDB::getMldbLog<ProximateVoxelsFunction>())
     {
     }
 
@@ -269,6 +271,8 @@ struct EmbeddingDataset::Itl
     std::string address;
 
     RestRequestRouter router;
+
+    shared_ptr<spdlog::logger> logger;
 
     virtual std::vector<RowPath>
     getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
@@ -656,7 +660,6 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         std::unique_lock<Mutex> guard(mutex);
-        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
 
         // If this is the first commit, then create a new structure with the
         // column names now that we know them
@@ -770,7 +773,6 @@ struct EmbeddingDataset::Itl
 
         // If this is the first commit, then create a new structure with the
         // column names now that we know them
-        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
         if (!uncommitted) {
             if (!repr->initialized()) {
                 // First commit; we just learnt the column names
@@ -863,7 +865,6 @@ struct EmbeddingDataset::Itl
     {
         std::unique_lock<Mutex> guard(mutex);
 
-        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
         INFO_MSG(logger) << "committing embedding dataset";
 
         if (!uncommitted)
@@ -958,7 +959,6 @@ struct EmbeddingDataset::Itl
 
         auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
 
-        auto logger = MLDB::getMldbLog<ProximateVoxelsFunction>();
         //DEBUG_MSG(logger) << "neighbors took " << timer.elapsed();
 
         DEBUG_MSG(logger) << "neighbors = " << jsonEncode(neighbors);

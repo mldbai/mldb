@@ -171,7 +171,6 @@ run(const ProcedureRunConfig & run,
     int numClusters = emConfig.numClusters;
     int numIterations = emConfig.maxIterations;
 
-    auto logger = MLDB::getMldbLog<EMProcedure>();
     DEBUG_MSG(logger) << "EM training start";
     em.train(vecs, inCluster, numClusters, numIterations, 0);
     DEBUG_MSG(logger) << "EM training end";
@@ -332,7 +331,6 @@ EMFunction(MldbServer * owner,
 
     dimension = impl->em.clusters[0].centroid.size();
 
-    auto logger = MLDB::getMldbLog<EMFunction>();
     DEBUG_MSG(logger) << "got " << impl->em.clusters.size()
          << " clusters with " << dimension
          << "values";

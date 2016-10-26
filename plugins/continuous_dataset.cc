@@ -59,7 +59,8 @@ struct ContinuousDataset::Itl {
     Itl(MldbServer * server, const ContinuousDatasetConfig & config)
         : server(server),
           current(gcLock),
-          lastCommit(Date::now().secondsSinceEpoch())
+          lastCommit(Date::now().secondsSinceEpoch()),
+          logger(MLDB::getMldbLog<ContinuousWindowDataset>())
     {
         initRoutes();
 
@@ -181,6 +182,8 @@ struct ContinuousDataset::Itl {
     /// Date of the last commit
     std::atomic<double> lastCommit;
 
+    shared_ptr<spdlog::logger> logger;
+
     /** Rotate the dataset, atomically, and add it to the metadata store. */
     void rotate(Date commitStarted)
     {
@@ -202,7 +205,6 @@ struct ContinuousDataset::Itl {
         auto storageOutput
             = createStorageDataset->run(runConfig, nullptr /* progress */);
 
-        auto logger = MLDB::getMldbLog<ContinuousWindowDataset>();
         INFO_MSG(logger) << "output of storage is " << jsonEncode(storageOutput);
 
         std::unique_ptr<Current> newCurrent(new Current());
@@ -501,7 +503,6 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
         + "AND earliest <= CAST ('" + CellValue(to).toString() + "' AS TIMESTAMP) "
         + "AND latest >= CAST ('" + CellValue(from).toString() + "' AS TIMESTAMP)";
     
-    auto logger = MLDB::getMldbLog<ContinuousWindowDataset>();
     DEBUG_MSG(logger) << "where is " << where;
 
     // Query our metadata dataset for the datasets to load up
