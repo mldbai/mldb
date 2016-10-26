@@ -208,7 +208,7 @@ struct JsonParsingContext {
 
     /// Format an exception with the current context within the object so that
     /// a reasonable error message can be provided to the user.
-    virtual void exception(const std::string & message) = 0;
+    virtual void exception(const std::string & message) const = 0;
 
     /** Return a string that gives the context of where the parsing is
         at, for example line number and column.
@@ -349,6 +349,13 @@ struct JsonParsingContext {
     /// The current array element number can be obtained by counting or
     /// by asking for path.back().index.
     virtual void forEachElement(const std::function<void ()> & fn) = 0;
+
+    /// Is it at the EOF?
+    virtual bool eof() const = 0;
+
+    /// Expect that we are at an EOF position, or throw an exception if not.
+    /// Default uses eof() and exception().
+    virtual void expectEof() const;
 };
 
 
@@ -524,7 +531,7 @@ struct StreamingJsonParsingContext
 
     virtual bool isNull() const;
 
-    virtual void exception(const std::string & message);
+    virtual void exception(const std::string & message) const;
 
     virtual std::string getContext() const;
 
@@ -533,6 +540,8 @@ struct StreamingJsonParsingContext
     virtual std::string printCurrent();
 
     void expectJsonObjectUtf8(const std::function<void (const char *, size_t)> & onEntry);
+
+    virtual bool eof() const;
 };
 
 
@@ -550,7 +559,7 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     const Json::Value * current;
     const Json::Value * top;
 
-    virtual void exception(const std::string & message);
+    virtual void exception(const std::string & message) const;
     
     virtual std::string getContext() const;
 
@@ -613,6 +622,8 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     virtual void forEachElement(const std::function<void ()> & fn);
 
     virtual std::string printCurrent();
+
+    virtual bool eof() const;
 };
 
 

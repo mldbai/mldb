@@ -315,6 +315,46 @@ std::string expectJsonStringAscii(ParseContext & context)
     return result;
 }
 
+inline int getEscapedJsonCharacterPointUtf8(ParseContext & context)
+{
+    int c = *context++;
+
+    switch (c) {
+    case 't': c = '\t';  break;
+    case 'n': c = '\n';  break;
+    case 'r': c = '\r';  break;
+    case 'f': c = '\f';  break;
+    case 'b': c = '\b';  break;
+    case '/': c = '/';   break;
+    case '\\':c = '\\';  break;
+    case '"': c = '"';   break;
+    case 'u': {
+        int code = context.expect_hex4();
+
+        if (code >= 0xd800 && code <= 0xdfff) {
+            // Take the surrogate pair
+            int high = code - 0xd800;
+                    
+            context.expect_literal("\\u");
+            int low = context.expect_hex4();
+                    
+            if (low < 0xdc00 || low > 0xdfff) {
+                context.exception("invalid UTF-16 surrogate pair in JSON string");
+            }
+            c = high << 10 | (low - 0xdc00);
+        }
+        else {
+            c = code;
+        }
+        break;
+    }
+    default:
+        context.exception("invalid escaped char");
+    }
+
+    return c;
+}
+
 Utf8String expectJsonStringUtf8(ParseContext & context)
 {
     skipJsonWhitespace(context);
@@ -356,24 +396,7 @@ Utf8String expectJsonStringUtf8(ParseContext & context)
         ++context;
 
         if (c == '\\') {
-            c = *context++;
-            switch (c) {
-            case 't': c = '\t';  break;
-            case 'n': c = '\n';  break;
-            case 'r': c = '\r';  break;
-            case 'f': c = '\f';  break;
-            case 'b': c = '\b';  break;
-            case '/': c = '/';   break;
-            case '\\':c = '\\';  break;
-            case '"': c = '"';   break;
-            case 'u': {
-                int code = context.expect_hex4();
-                c = code;
-                break;
-            }
-            default:
-                context.exception("invalid escaped char");
-            }
+            c = getEscapedJsonCharacterPointUtf8(context);
         }
 
         if (c < ' ' || c >= 127) {
@@ -588,6 +611,9 @@ JsonNumber expectJsonNumber(ParseContext & context)
 
     char sci = context ? *context : '\0';
     if (sci == 'e' || sci == 'E') {
+        if (number.empty() || (number.size() == 1 && number[0] == '.')) {
+            context.exception("Expected number before exponential");
+        }
         doublePrecision = true;
         number += *context++;
 
@@ -601,34 +627,46 @@ JsonNumber expectJsonNumber(ParseContext & context)
         }
     }
 
+    auto parseAsDouble = [&] ()
+        {
+            char * endptr = 0;
+            errno = 0;
+            result.fp = strtod(number.c_str(), &endptr);
+            if ((errno && errno != ERANGE) || endptr != number.c_str() + number.length())
+                context.exception(MLDB::format("failed to convert '%s' to double",
+                                             number.c_str()));
+            result.type = JsonNumber::FLOATING_POINT;
+        };
+
     try {
         MLDB_TRACE_EXCEPTIONS(false);
         if (number.empty())
             context.exception("expected number");
 
         if (doublePrecision) {
-            char * endptr = 0;
-            errno = 0;
-            result.fp = strtod(number.c_str(), &endptr);
-            if (errno || endptr != number.c_str() + number.length())
-                context.exception(MLDB::format("failed to convert '%s' to long long",
-                                             number.c_str()));
-            result.type = JsonNumber::FLOATING_POINT;
+            parseAsDouble();
         } else if (negative) {
             char * endptr = 0;
             errno = 0;
-            result.sgn = strtol(number.c_str(), &endptr, 10);
-            if (errno || endptr != number.c_str() + number.length())
+            result.sgn = strtoll(number.c_str(), &endptr, 10);
+            if (errno == ERANGE && endptr == number.c_str() + number.length()) {
+                parseAsDouble();
+            }
+            else if (errno || endptr != number.c_str() + number.length()) {
                 context.exception(MLDB::format("failed to convert '%s' to long long",
-                                             number.c_str()));
+                                               number.c_str()));
+            }
             result.type = JsonNumber::SIGNED_INT;
         } else {
             char * endptr = 0;
             errno = 0;
             result.uns = strtoull(number.c_str(), &endptr, 10);
-            if (errno || endptr != number.c_str() + number.length())
+            if (errno == ERANGE && endptr == number.c_str() + number.length()) {
+                parseAsDouble();
+            }
+            else if (errno || endptr != number.c_str() + number.length())
                 context.exception(MLDB::format("failed to convert '%s' to unsigned long long",
-                                             number.c_str()));
+                                               number.c_str()));
             result.type = JsonNumber::UNSIGNED_INT;
         }
     } catch (const std::exception & exc) {
@@ -864,6 +902,13 @@ onUnknownField(const ValueDescription * desc)
     }
 }
 
+void
+JsonParsingContext::
+expectEof() const
+{
+    if (!eof())
+        exception("unexpected characters at end of input");
+}
 
 
 /*****************************************************************************/
@@ -1222,7 +1267,7 @@ isNumber() const
 
 void
 StreamingJsonParsingContext::
-exception(const std::string & message)
+exception(const std::string & message) const
 {
     context->exception("at " + printPath() + ": " + message);
 }
@@ -1285,27 +1330,9 @@ expectStringUtf8(char * buffer, size_t maxLen)
 
             continue;
         }
-        ++(*context);
 
         if (c == '\\') {
-            c = *(*context)++;
-            switch (c) {
-            case 't': c = '\t';  break;
-            case 'n': c = '\n';  break;
-            case 'r': c = '\r';  break;
-            case 'f': c = '\f';  break;
-            case 'b': c = '\b';  break;
-            case '/': c = '/';   break;
-            case '\\':c = '\\';  break;
-            case '"': c = '"';   break;
-            case 'u': {
-                int code = context->expect_hex4();
-                c = code;
-                break;
-            }
-            default:
-                context->exception("invalid escaped char");
-            }
+            c = getEscapedJsonCharacterPointUtf8(*context);
         }
 
         if (c < ' ' || c >= 127) {
@@ -1384,6 +1411,13 @@ expectJsonObjectUtf8(const std::function<void (const char *, size_t)> & onEntry)
     context->expect_literal('}');
 }
 
+bool
+StreamingJsonParsingContext::
+eof() const
+{
+    skipJsonWhitespace(*context);
+    return context->eof();
+}
 
 Json::Value
 expectJson(ParseContext & context)
@@ -1484,14 +1518,14 @@ StructuredJsonParsingContext(const Json::Value & val)
 
 void
 StructuredJsonParsingContext::
-exception(const std::string & message)
+exception(const std::string & message) const
 {
     //using namespace std;
     //cerr << *current << endl;
     //cerr << *top << endl;
     throw MLDB::Exception("At path " + printPath() + ": "
-                        + message + " parsing "
-                        + trim(top->toString()));
+                          + message + " parsing "
+                          + trim(top->toString()));
 }
     
 std::string
@@ -1783,7 +1817,7 @@ forEachMember(const std::function<void ()> & fn)
         fn();
     }
         
-    current = oldCurrent;
+    current = oldCurrent == top ? nullptr: oldCurrent;
 }
 
 void
@@ -1805,10 +1839,11 @@ forEachElement(const std::function<void ()> & fn)
         fn();
     }
 
-    if (oldCurrent->size() != 0)
+    if (oldCurrent->size() != 0) {
         popPath();
-        
-    current = oldCurrent;
+        current = oldCurrent;
+    }
+    else current = nullptr;
 }
 
 std::string
@@ -1816,6 +1851,13 @@ StructuredJsonParsingContext::
 printCurrent()
 {
     return trim(current->toString());
+}
+
+bool
+StructuredJsonParsingContext::
+eof() const
+{
+    return current == nullptr;
 }
 
 
