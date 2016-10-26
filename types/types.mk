@@ -28,7 +28,6 @@ LIBTYPES_SOURCES := \
 	date.cc \
 	localdate.cc \
 	string.cc \
-	id.cc \
 	url.cc \
 	periodic_utils.cc \
 	dtoa.c \

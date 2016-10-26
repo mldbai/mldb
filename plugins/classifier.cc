@@ -897,7 +897,7 @@ struct ClassifyFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 ClassifyFunction::
 bind(SqlBindingScope & outerContext,
-     const std::shared_ptr<RowValueInfo> & input) const
+     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     // Assume there is one of each features
     vector<ML::Feature> features(itl->featureSpace->columnInfo.size());
@@ -1047,8 +1047,9 @@ getFunctionInfo() const
                               std::make_shared<RowValueInfo>(featureColumns,
                                                              SCHEMA_CLOSED),
                               COLUMN_IS_DENSE);
-    result.input = std::make_shared<RowValueInfo>(std::move(inputColumns),
-                                                  SCHEMA_CLOSED);
+    result.input.emplace_back
+        (std::make_shared<RowValueInfo>(std::move(inputColumns),
+                                        SCHEMA_CLOSED));
     
     std::vector<KnownColumn> outputColumns;
 
@@ -1158,9 +1159,11 @@ getFunctionInfo() const
 
     std::vector<KnownColumn> inputCols, outputCols;
 
-    inputCols.emplace_back(PathElement("label"), std::make_shared<AtomValueInfo>(),
+    inputCols.emplace_back(PathElement("label"),
+                           std::make_shared<AtomValueInfo>(),
                            COLUMN_IS_DENSE, 0);
-    inputCols.emplace_back(PathElement("features"), std::make_shared<UnknownRowValueInfo>(),
+    inputCols.emplace_back(PathElement("features"),
+                           std::make_shared<UnknownRowValueInfo>(),
                            COLUMN_IS_DENSE, 1);
 
     outputCols.emplace_back(PathElement("explanation"), std::make_shared<UnknownRowValueInfo>(),
@@ -1168,8 +1171,9 @@ getFunctionInfo() const
     outputCols.emplace_back(PathElement("bias"), std::make_shared<NumericValueInfo>(),
                             COLUMN_IS_DENSE, 1);
 
-    result.input = std::make_shared<RowValueInfo>(std::move(inputCols),
-                                                  SCHEMA_CLOSED);
+    result.input.emplace_back
+        (std::make_shared<RowValueInfo>(std::move(inputCols),
+                                        SCHEMA_CLOSED));
     result.output = std::make_shared<RowValueInfo>(std::move(outputCols),
                                                    SCHEMA_CLOSED);
     

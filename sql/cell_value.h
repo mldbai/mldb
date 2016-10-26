@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <atomic>
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/date.h"
 #include "mldb/types/value_description_fwd.h"

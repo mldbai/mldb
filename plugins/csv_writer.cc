@@ -38,13 +38,6 @@ operator<< (int value)
 
 CsvWriter&
 CsvWriter::
-operator<< (const Id & value)
-{
-    return *this << value.toString();
-}
-
-CsvWriter&
-CsvWriter::
 operator<< (const char* str)
 {
     return *this << string(str);

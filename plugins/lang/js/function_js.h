@@ -50,6 +50,9 @@ struct FunctionJS: public JsObjectBase {
 
     static void
     call(const v8::FunctionCallbackInfo<v8::Value> & args);
+
+    static void
+    callJson(const v8::FunctionCallbackInfo<v8::Value> & args);
 };
 
 } // namespace MLDB

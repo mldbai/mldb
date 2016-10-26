@@ -20,8 +20,6 @@
 
 
 
-struct Id;
-
 namespace MLDB {
 
 struct Dataset;

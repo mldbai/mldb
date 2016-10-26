@@ -14,7 +14,6 @@
 #include <boost/algorithm/string/replace.hpp>
 
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/types/id.h"
 #include "mldb/types/string.h"
 
 namespace MLDB {
@@ -30,7 +29,6 @@ struct CsvWriter {
     CsvWriter(std::ostream & out, char delimiterChar, char quoteChar);
 
     CsvWriter& operator<< (int value);
-    CsvWriter& operator<< (const Id & value);
     CsvWriter& operator<< (const char* str);
     CsvWriter& operator<< (const std::string & value);
     CsvWriter& operator<< (const Utf8String & value);

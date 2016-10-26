@@ -115,7 +115,7 @@ class DistinctOnTest(MldbUnitTest):
                     'query': 'SELECT DISTINCT ON (x) x, y FROM dataset1 ORDER BY x,y'
                     }})
 
-        res = mldb.query('SELECT mydistinct({}) as *')
+        res = mldb.query('SELECT mydistinct() as *')
 
         expected = [["_rowName","x","y"],
                     ["result", 1,  1 ]]
@@ -130,7 +130,7 @@ class DistinctOnTest(MldbUnitTest):
                     'query': 'SELECT DISTINCT ON (x) x, y FROM dataset1 WHERE y % 2 = 0 ORDER BY x,y'
                     }})
 
-        res = mldb.query('SELECT mydistinct({}) as *')
+        res = mldb.query('SELECT mydistinct() as *')
 
         expected = [["_rowName", "x", "y"],
                     ["result", 1, 4]]

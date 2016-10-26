@@ -12,8 +12,6 @@ namespace MLDB {
 template<typename Int, int Domain> struct IntWrapper;
 template<int Domain> struct HashWrapper;
 
-struct Id;
-
 struct MldbServer;
 
 struct SqlExpression;

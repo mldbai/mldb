@@ -457,7 +457,7 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("output"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
     
     return result;

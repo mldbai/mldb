@@ -14,7 +14,6 @@
 
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/separation_stats.h"
-#include "mldb/types/id.h"
 
 namespace MLDB {
 
@@ -37,12 +36,12 @@ struct PredictionStats {
 class Prediction_Accumulator {
 public:
     // click, pred, uid, groupId
-    typedef std::tuple<int, float, Id, std::string> Prediction;
+    typedef std::tuple<int, float, Utf8String, std::string> Prediction;
 
 	Prediction_Accumulator();
 	Prediction_Accumulator(const std::string& loadFrom);
 
-	void addPrediction(bool click, float prediction, Id uid=Id(),
+	void addPrediction(bool click, float prediction, Utf8String uid=Utf8String(),
             const std::string & groupId="");
 	std::vector<Prediction> getPredictions();
 
@@ -79,7 +78,7 @@ protected:
 
     std::vector<Prediction> predictionsAccum;
 
-    std::map<Id, unsigned> uid_counts;
+    std::map<Utf8String, unsigned> uid_counts;
 
     bool groupsCalibrated;
     std::map<std::string, float> groupCalibration;
@@ -119,7 +118,7 @@ protected:
     void computeGroupCalibration(const std::string & calibrateToGroup,
             const std::pair<int, int> & calibrateCountsRef=std::make_pair(0,0));
 
-    float getUidWeight(const Id & uid, const std::string & groupId) const;
+    float getUidWeight(const Utf8String & uid, const std::string & groupId) const;
 
     PredsPerClass getSortedPreds(const std::string & calibrateToGroup="",
             const std::pair<int, int> & calibrateCountsRef=std::make_pair(0,0));
