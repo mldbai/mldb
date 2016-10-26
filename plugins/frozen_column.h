@@ -18,6 +18,56 @@ struct TabularDatasetColumn;
 
 
 /*****************************************************************************/
+/* MAPPED DEVICE                                                             */
+/*****************************************************************************/
+
+/** Represents a single device onto which data structures can be mapped. */
+
+struct MappedDevice {
+};
+
+
+/*****************************************************************************/
+/* MAPPED OBJECT                                                             */
+/*****************************************************************************/
+
+struct MappedObject {
+
+    virtual ~MappedObject()
+    {
+    }
+
+    /** Remap the object so that it's accessible to the given device.
+        Typically this can only be called on a CPU device.
+    */
+    virtual std::shared_ptr<MappedObject>
+    remap(MappedDevice & device);  
+
+};
+
+
+/*****************************************************************************/
+/* MAPPED SERIALIZER                                                         */
+/*****************************************************************************/
+
+struct MappedSerializer {
+    virtual ~MappedSerializer();
+
+    std::shared_ptr<void> allocateWritable(uint64_t bytesRequired,
+                                           size_t alignment);
+};
+
+
+/*****************************************************************************/
+/* MAPPED RECONSTITUTER                                                      */
+/*****************************************************************************/
+
+struct MappedReconstituter {
+    virtual ~MappedReconstituter();
+};
+
+
+/*****************************************************************************/
 /* COLUMN FREEZE PARAMETERS                                                  */
 /*****************************************************************************/
 
@@ -31,10 +81,12 @@ struct ColumnFreezeParameters {
 /*****************************************************************************/
 
 /// Base class for a frozen column
-struct FrozenColumn {
+struct FrozenColumn: public MappedObject {
     virtual ~FrozenColumn()
     {
     }
+
+    virtual std::string format() const = 0;
 
     virtual CellValue get(uint32_t rowIndex) const = 0;
 
@@ -58,6 +110,8 @@ struct FrozenColumn {
     static std::shared_ptr<FrozenColumn>
     freeze(TabularDatasetColumn & column,
            const ColumnFreezeParameters & params);
+
+    virtual void serialize(MappedSerializer & serializer) = 0;
 };
 
 
@@ -112,6 +166,10 @@ struct FrozenColumnFormat {
     freeze(TabularDatasetColumn & column,
            const ColumnFreezeParameters & params,
            std::shared_ptr<void> cachedInfo) const = 0;
+    
+    /** Reconstitute a mapped version of the given frozen column. */
+    virtual FrozenColumn *
+    reconstitute(MappedReconstituter & reconstituter) const = 0;
     
     /** Register a new column format.  Returns a handle that, once released,
         will de-register the column format.
