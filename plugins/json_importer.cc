@@ -6,6 +6,7 @@
    Importer for text files containing a JSON per line
 */
 
+#include "progress.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"
@@ -21,6 +22,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/rest/cancellation_exception.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/utils/log.h"
 
@@ -214,6 +216,11 @@ struct JSONImporter: public Procedure {
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
+        Progress progress;
+
+        std::shared_ptr<Step> iterationStep = progress.steps({
+            make_pair("iterating", "lines")
+        });
 
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
@@ -311,6 +318,8 @@ struct JSONImporter: public Procedure {
         const auto whereBound = config.where->bind(jsonScope);
         const auto selectBound = config.select.bind(jsonScope);
         const auto namedBound = config.named->bind(jsonScope);
+        bool keepGoing = true;
+        mutex progressMutex;
 
         auto onLine = [&] (const char * line,
                            size_t lineLength,
@@ -368,16 +377,26 @@ struct JSONImporter: public Procedure {
 
             }
 
-            recordedLines++;
+            int numLines = recordedLines.fetch_add(1);
+            if (numLines % 10000 == 0) {
+                lock_guard<mutex> l(progressMutex);
+                if (numLines > iterationStep->value) {
+                    iterationStep->value = numLines;
+                }
+                keepGoing = onProgress(jsonEncode(progress));
+            }
 
             threadAccum.threadRecorder->recordRowExprDestructive(
                 std::move(rowName), std::move(expr));
 
-            return true;
+            return keepGoing;
         };
 
         forEachLineBlock(stream, onLine, runProcConf.limit, 32,
                          startChunk, doneChunk);
+        if (!keepGoing) {
+            throw MLDB::CancellationException("Procedure import.json cancelled");
+        }
 
         auto logger = MLDB::getMldbLog<JSONImporter>();
         DEBUG_MSG(logger) << timer.elapsed();
