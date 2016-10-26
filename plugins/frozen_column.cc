@@ -30,7 +30,7 @@ namespace MLDB {
 struct TableFrozenColumn: public FrozenColumn {
     TableFrozenColumn(TabularDatasetColumn & column)
         : table(std::move(column.indexedVals)),
-          columnTypes(column.columnTypes)
+          columnTypes(std::move(column.columnTypes))
     {
         firstEntry = column.minRowNumber;
         numEntries = column.maxRowNumber - column.minRowNumber + 1;
@@ -57,6 +57,11 @@ struct TableFrozenColumn: public FrozenColumn {
                 writer.write(r_i.second + 1, indexBits);
             }
         }
+    }
+
+    virtual std::string format() const
+    {
+        return "T";
     }
 
     virtual bool forEachImpl(const ForEachRowFn & onRow,
@@ -163,19 +168,9 @@ struct TableFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    static size_t bytesRequired(const TabularDatasetColumn & column)
+    virtual void serialize(MappedSerializer & serializer)
     {
-        size_t numEntries = column.maxRowNumber - column.minRowNumber + 1;
-        size_t hasNulls = column.sparseIndexes.size() < numEntries;
-        int indexBits = ML::highest_bit(column.indexedVals.size() + hasNulls) + 1;
-        size_t result
-            = sizeof(TableFrozenColumn)
-            + (indexBits * numEntries + 31) / 8;
-
-        for (auto & v: column.indexedVals)
-            result += v.memusage();
-
-        return result;
+        throw HttpReturnException(600, "TableFrozenColumn::serialize()");
     }
 };
 
@@ -187,7 +182,7 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
 
     virtual std::string format() const override
     {
-        return "Table";
+        return "T";
     }
 
     virtual bool isFeasible(const TabularDatasetColumn & column,
@@ -202,7 +197,17 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
                                ssize_t previousBest,
                                std::shared_ptr<void> & cachedInfo) const override
     {
-        return TableFrozenColumn::bytesRequired(column);
+        size_t numEntries = column.maxRowNumber - column.minRowNumber + 1;
+        size_t hasNulls = column.sparseIndexes.size() < numEntries;
+        int indexBits = ML::highest_bit(column.indexedVals.size() + hasNulls) + 1;
+        size_t result
+            = sizeof(TableFrozenColumn)
+            + (indexBits * numEntries + 31) / 8;
+
+        for (auto & v: column.indexedVals)
+            result += v.memusage();
+        
+        return result;
     }
     
     virtual FrozenColumn *
@@ -224,7 +229,8 @@ RegisterFrozenColumnFormatT<TableFrozenColumnFormat> regTable;
 /// Sparse frozen column that finds each value in a lookup table
 struct SparseTableFrozenColumn: public FrozenColumn {
     SparseTableFrozenColumn(TabularDatasetColumn & column)
-        : table(column.indexedVals.size()), columnTypes(column.columnTypes)
+        : table(column.indexedVals.size()),
+          columnTypes(std::move(column.columnTypes))
     {
         firstEntry = column.minRowNumber;
         lastEntry = column.maxRowNumber;
@@ -260,6 +266,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
                 }
             }
         }
+    }
+
+    virtual std::string format() const
+    {
+        return "ST";
     }
 
     virtual bool forEach(const ForEachRowFn & onRow) const
@@ -388,20 +399,9 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    static size_t bytesRequired(const TabularDatasetColumn & column)
+    virtual void serialize(MappedSerializer & serializer)
     {
-        int indexBits = ML::highest_bit(column.indexedVals.size()) + 1;
-        int rowNumBits = ML::highest_bit(column.maxRowNumber - column.minRowNumber) + 1;
-        size_t numEntries = column.sparseIndexes.size();
-
-        size_t result
-            = sizeof(SparseTableFrozenColumn)
-            + ((indexBits + rowNumBits) * numEntries + 31) / 8;
-
-        for (auto & v: column.indexedVals)
-            result += v.memusage();
-
-        return result;
+        throw HttpReturnException(600, "SparseTableFrozenColumn::serialize()");
     }
 
     std::shared_ptr<const uint32_t> storage;
@@ -422,7 +422,7 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
 
     virtual std::string format() const override
     {
-        return "SparseTable";
+        return "ST";
     }
 
     virtual bool isFeasible(const TabularDatasetColumn & column,
@@ -437,7 +437,18 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
                                ssize_t previousBest,
                                std::shared_ptr<void> & cachedInfo) const override
     {
-        return SparseTableFrozenColumn::bytesRequired(column);
+        int indexBits = ML::highest_bit(column.indexedVals.size()) + 1;
+        int rowNumBits = ML::highest_bit(column.maxRowNumber - column.minRowNumber) + 1;
+        size_t numEntries = column.sparseIndexes.size();
+
+        size_t result
+            = sizeof(SparseTableFrozenColumn)
+            + ((indexBits + rowNumBits) * numEntries + 31) / 8;
+
+        for (auto & v: column.indexedVals)
+            result += v.memusage();
+
+        return result;
     }
     
     virtual FrozenColumn *
@@ -446,6 +457,11 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
            std::shared_ptr<void> cachedInfo) const override
     {
         return new SparseTableFrozenColumn(column);
+    }
+
+    virtual void serialize(MappedSerializer & serializer)
+    {
+        throw HttpReturnException(600, "SparseTableFrozenColumn::serialize()");
     }
 };
 
@@ -550,10 +566,10 @@ struct IntegerFrozenColumn: public FrozenColumn {
         int entryBits;
     };
     
-    IntegerFrozenColumn(TabularDatasetColumn & column)
-        : columnTypes(column.columnTypes)
+    IntegerFrozenColumn(TabularDatasetColumn & column,
+                        const SizingInfo & info)
+        : columnTypes(std::move(column.columnTypes))
     {
-        SizingInfo info(column);
         ExcAssertNotEqual(info.bytesRequired, -1);
 
         firstEntry = column.minRowNumber;
@@ -630,6 +646,11 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
         return true;
 
+    }
+
+    virtual std::string format() const
+    {
+        return "I";
     }
 
     virtual bool forEach(const ForEachRowFn & onRow) const
@@ -722,9 +743,9 @@ struct IntegerFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    static ssize_t bytesRequired(const TabularDatasetColumn & column)
+    virtual void serialize(MappedSerializer & serializer)
     {
-        return SizingInfo(column);
+        throw HttpReturnException(600, "IntegerFrozenColumn::serialize()");
     }
 };
 
@@ -736,7 +757,7 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
 
     virtual std::string format() const override
     {
-        return "Integer";
+        return "I";
     }
 
     virtual bool isFeasible(const TabularDatasetColumn & column,
@@ -753,7 +774,10 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
                                ssize_t previousBest,
                                std::shared_ptr<void> & cachedInfo) const override
     {
-        return IntegerFrozenColumn::bytesRequired(column);
+        auto info = std::make_shared<IntegerFrozenColumn::SizingInfo>(column);
+        size_t result = info->bytesRequired;
+        cachedInfo = info;
+        return result;
     }
     
     virtual FrozenColumn *
