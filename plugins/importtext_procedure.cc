@@ -449,7 +449,7 @@ parseFixedWidthCsvRow(const char * & line,
     auto finishString = [encoding,replaceInvalidCharactersWith,&logger]
         (const char * start, size_t len, bool eightBit)
         {
-            DEBUG_MSG(logger)
+            TRACE_MSG(logger)
                  << "finishing string " << string(start, len)
                  << " with eightBit " << eightBit
                  << " encoding " << encoding
