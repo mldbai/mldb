@@ -1399,6 +1399,48 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             }
         }
     }
+
+    void serialize(MappedSerializer & serializer) const
+    {
+#if 0
+        int64_t rowCount;
+
+        /// This indexes column names to their index, using new (fast) hash
+        Lightweight_Hash<uint64_t, int> columnIndex;
+
+        /// Same index, but using the old (slow) hash.  Useful only for when
+        /// we are forced to lookup on ColumnHash.
+        Lightweight_Hash<ColumnHash, int> columnHashIndex;
+
+        struct ColumnEntry {
+            ColumnEntry()
+                : rowCount(0)
+            {
+            }
+
+            ColumnPath columnName;
+
+            /// The number of non-null values of this row
+            size_t rowCount;
+
+            /// The set of chunks that contain the column.  This may not be all
+            /// chunks for sparse columns.
+            std::vector<std::pair<uint32_t, std::shared_ptr<const FrozenColumn> > > chunks;
+        };
+
+        /// List of all columns in the dataset
+        std::vector<ColumnEntry> columns;
+    
+        /// List of the names of the fixed columns in the dataset
+        std::vector<ColumnPath> fixedColumns;
+
+        /// Index of just the fixed columns
+        Lightweight_Hash<uint64_t, int> fixedColumnIndex;
+
+        /// List of all chunks in the dataset
+        std::vector<TabularDatasetChunk> chunks;
+#endif        
+    }
 };
 
 TabularDataset::
