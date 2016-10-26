@@ -39,13 +39,6 @@ struct MappedObject {
     {
     }
 
-#if 0
-    /** Remap the object so that it's accessible to the given device.
-        Typically this can only be called on a CPU device.
-    */
-    virtual std::shared_ptr<MappedObject>
-    remap(MappedDevice & device);  
-#endif
 };
 
 
