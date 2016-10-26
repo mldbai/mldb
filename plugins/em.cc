@@ -331,6 +331,7 @@ EMFunction(MldbServer * owner,
 
     dimension = impl->em.clusters[0].centroid.size();
 
+    auto logger = MLDB::getMldbLog<EMFunction>();
     DEBUG_MSG(logger) << "got " << impl->em.clusters.size()
          << " clusters with " << dimension
          << "values";
