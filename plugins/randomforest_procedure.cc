@@ -25,6 +25,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/arch/simd_vector.h"
+#include "mldb/utils/log.h"
 
 #include <random>
 
@@ -179,8 +180,7 @@ run(const ProcedureRunConfig & run,
     auto boundWhere = runProcConf.trainingData.stm->where->bind(colScope);
     auto boundWeight = weight->bind(colScope);
 
-    cerr << "label uses columns " << jsonEncode(colScope.requiredColumns)
-         << endl;
+    INFO_MSG(logger) << "label uses columns " << jsonEncode(colScope.requiredColumns);
 
     Timer labelsTimer;
 
@@ -191,8 +191,7 @@ run(const ProcedureRunConfig & run,
     const std::vector<CellValue> & wheres = labelsWhereWeight[1];
     const std::vector<CellValue> & weights = labelsWhereWeight[2];
 
-    cerr << "got " << labels.size() << " labels in " << labelsTimer.elapsed()
-         << endl;
+    INFO_MSG(logger) << "got " << labels.size() << " labels in " << labelsTimer.elapsed();
 
     size_t numRowsKept = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
@@ -228,7 +227,7 @@ run(const ProcedureRunConfig & run,
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns, true /* bucketize */);
 
-    cerr << "feature space construction took " << timer.elapsed() << endl;
+    INFO_MSG(logger) << "feature space construction took " << timer.elapsed();
     timer.restart();
 
 #if 0
@@ -245,7 +244,7 @@ run(const ProcedureRunConfig & run,
     //TODO: Need to pack this into 1 memory buffer
 
     int numFeatures = knownInputColumns.size();
-    cerr << "NUM FEATURES : " << numFeatures << endl;
+    INFO_MSG(logger) << "NUM FEATURES : " << numFeatures;
 
     PartitionData allData(featureSpace);
 
@@ -321,14 +320,14 @@ run(const ProcedureRunConfig & run,
 
             parallelMap(0, numPartitions, doPartition);
 
-            cerr << "bag " << bag << " weight generation took "
-                 << bagTimer.elapsed() << endl;
+            INFO_MSG(logger) << "bag " << bag << " weight generation took "
+                 << bagTimer.elapsed();
 
-            cerr << "numNonZero = " << numNonZero << endl;
+            INFO_MSG(logger) << "numNonZero = " << numNonZero;
             
             auto data = allData.reweightAndCompact(trainingWeights, numNonZero);
 
-            cerr << "bag " << bag << " setup took " << bagTimer.elapsed() << endl;
+            INFO_MSG(logger) << "bag " << bag << " setup took " << bagTimer.elapsed();
 
             auto trainFeaturePartition = [&] (int partitionNum)
             {
@@ -348,8 +347,8 @@ run(const ProcedureRunConfig & run,
                 Timer timer;
                 ML::Tree tree;
                 tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree);
-                cerr << "bag " << bag << " partition " << partitionNum << " took "
-                     << timer.elapsed() << endl;
+                INFO_MSG(logger) << "bag " << bag << " partition " << partitionNum << " took "
+                     << timer.elapsed();
 
                 int resultIndex = bag*runProcConf.featureSamplings + partitionNum;
 
@@ -358,14 +357,13 @@ run(const ProcedureRunConfig & run,
                 results[resultIndex]->tree = std::move(tree);
 
                 if (runProcConf.verbosity)
-                    cerr << results[resultIndex]->print() << endl;
-                //cerr << dtree.print() << endl;
+                    INFO_MSG(logger) << results[resultIndex]->print();
             };
 
             parallelMap(0, runProcConf.featureSamplings, trainFeaturePartition,
                         maxTreesAtOnce);
 
-            cerr << "bag " << bag << " took " << bagTimer.elapsed() << endl;
+            INFO_MSG(logger) << "bag " << bag << " took " << bagTimer.elapsed();
         };
 
     parallelMap(0, runProcConf.featureVectorSamplings, doFeatureVectorSampling, maxBagsAtOnce);
@@ -387,7 +385,7 @@ run(const ProcedureRunConfig & run,
     }
     catch (const std::exception & exc) {
         saved = false;
-        cerr << "Error saving classifier: " << exc.what() << endl;
+        INFO_MSG(logger) << "Error saving classifier: " << exc.what();
     }
 
     if(saved && !runProcConf.functionName.empty()) {

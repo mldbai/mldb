@@ -20,6 +20,7 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/utils/log.h"
 #include <mutex>
 
 using namespace std;
@@ -76,7 +77,8 @@ struct SparseMatrixDataset::Itl
     : public MatrixView, public ColumnIndex {
 
     Itl()
-        : epoch(0), timeQuantumSeconds(1.0)
+        : epoch(0), timeQuantumSeconds(1.0),
+          logger(MLDB::getMldbLog<MutableSparseMatrixDataset>())
     {
     }
 
@@ -183,6 +185,9 @@ struct SparseMatrixDataset::Itl
     /// Control the quantization of timestamp (default is quantize to second)
     double timeQuantumSeconds;
 
+
+    shared_ptr<spdlog::logger> logger;
+
     /// Obtain a new read transaction at the current state
     std::shared_ptr<ReadTransaction>
     getReadTransaction() const
@@ -262,7 +267,7 @@ struct SparseMatrixDataset::Itl
 
     void optimize()
     {
-        //cerr << "optimize() on MutableSparseMatrixDataset" << endl;
+        DEBUG_MSG(logger) << "optimize() on MutableSparseMatrixDataset";
         //Timer timer;
 
         std::unique_lock<RootLock> guard(rootLock);
@@ -737,7 +742,8 @@ struct SparseMatrixDataset::Itl
     recordRowTrans(const RowPath & rowName,
                    const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals,
                    WriteTransaction & trans,
-                   double timeQuantumSeconds)
+                   double timeQuantumSeconds,
+                   shared_ptr<spdlog::logger> logger)
     {
         if (rowName.empty())
             throw HttpReturnException(400, "Datasets don't accept empty row names");
@@ -767,7 +773,7 @@ struct SparseMatrixDataset::Itl
             //ExcAssertEqual(decoded, std::get<1>(v));
 
             uint64_t col = encodeCol(std::get<0>(v), trans);
-            //cerr << "col " << std::get<0>(v) << " encoded as " << col << endl;
+            DEBUG_MSG(logger) << "col " << std::get<0>(v) << " encoded as " << col;
 
             entries.push_back({col, ts, val, tag, {}});
         }
@@ -835,7 +841,7 @@ struct SparseMatrixDataset::Itl
         auto rtrans = getReadTransaction();
         std::shared_ptr<WriteTransaction> trans
             = getWriteTransaction(*rtrans);
-        recordRowTrans(rowName, vals, *trans, timeQuantumSeconds);
+        recordRowTrans(rowName, vals, *trans, timeQuantumSeconds, logger);
         commitWrites(*trans);
     }
 
@@ -847,7 +853,7 @@ struct SparseMatrixDataset::Itl
             = getWriteTransaction(*rtrans);
         
         for (auto & r: rows) {
-            recordRowTrans(r.first, r.second, *trans, timeQuantumSeconds);
+            recordRowTrans(r.first, r.second, *trans, timeQuantumSeconds, logger);
         }
 
         commitWrites(*trans);
@@ -1038,7 +1044,8 @@ enum CommitMode {
 struct MutableBaseData {
 
     MutableBaseData(CommitMode commitMode)
-        : repr(std::make_shared<Repr>()), commitMode(commitMode)
+        : repr(std::make_shared<Repr>()), commitMode(commitMode),
+          logger(MLDB::getMldbLog<MutableSparseMatrixDataset>())
     {
     }
 
@@ -1291,6 +1298,7 @@ struct MutableBaseData {
     atomic_shared_ptr<Repr> repr;
     CommitMode commitMode;
     std::vector<std::shared_ptr<RowsEntry> > nonReadableWrites;
+    shared_ptr<spdlog::logger> logger;
 
     /** Commit and optimize everything that's been written up to here. */
     void optimize()
@@ -1390,9 +1398,8 @@ struct MutableBaseData {
                               std::make_move_iterator(rowIn.second.end()));
             }
             
-            //cerr << "merging " << current->size() << " and " << rows->size()
-            //     << " yielded " << merged->size() << " with ratio " << ratio
-            //     << endl;
+            DEBUG_MSG(logger) << "merging " << current->size() << " and " << rows->size()
+                 << " yielded " << merged->size() << " with ratio " << ratio;
 
             current = merged;
         }
@@ -1736,10 +1743,11 @@ struct MutableSparseMatrixDataset::Itl
         chunks in a deterministic manner.
     */
     struct ChunkRecorder: public Recorder {
-        ChunkRecorder(Itl * itl)
+        ChunkRecorder(Itl * itl, shared_ptr<spdlog::logger> logger)
             : itl(itl),
               readTransaction(itl->getReadTransaction()),
-              trans(*readTransaction)
+              trans(*readTransaction),
+              logger(logger)
         {
         }
 
@@ -1748,6 +1756,7 @@ struct MutableSparseMatrixDataset::Itl
         // Each chunk has its own transaction
         std::shared_ptr<ReadTransaction> readTransaction;
         WriteTransaction trans;
+        shared_ptr<spdlog::logger> logger;
 
         virtual void
         recordRowExpr(const RowPath & rowName,
@@ -1767,14 +1776,14 @@ struct MutableSparseMatrixDataset::Itl
         recordRow(const RowPath & rowName,
                   const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
         {
-            Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds);
+            Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds, logger);
         }
 
         virtual void
         recordRowDestructive(RowPath rowName,
                              std::vector<std::tuple<ColumnPath, CellValue, Date> > vals) override
         {
-            Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds);
+            Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds, logger);
         }
 
         virtual void
@@ -1833,8 +1842,9 @@ getChunkRecorder()
     MultiChunkRecorder result;
     result.newChunk = [=] (size_t)
         {
-            return std::unique_ptr<Recorder>
-            (new MutableSparseMatrixDataset::Itl::ChunkRecorder(static_cast<Itl *>(itl.get())));
+            return std::unique_ptr<Recorder>(
+                new MutableSparseMatrixDataset::Itl::ChunkRecorder(
+                    static_cast<Itl *>(itl.get()), logger));
         };
 
     result.commit = [=] () { this->commit(); };

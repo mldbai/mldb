@@ -21,6 +21,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/sparse_matrix_dataset.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -393,7 +394,7 @@ run(const ProcedureRunConfig & run,
             clsProcPC.type = "classifier.train";
             clsProcPC.params = jsonEncode(clsProcConf);
 
-            cerr << " >>>>> Creating training procedure" << endl;
+            INFO_MSG(logger) << " >>>>> Creating training procedure";
             clsProcedure = createProcedure(server, clsProcPC, onProgress2, true);
             resourcesToDelete.push_back("/v1/procedures/"+clsProcPC.id.utf8String());
         }
@@ -428,7 +429,7 @@ run(const ProcedureRunConfig & run,
             accuracyProcPC.type = "classifier.test";
             accuracyProcPC.params = accuracyConf;
 
-            cerr << " >>>>> Creating testing procedure" << endl;
+            INFO_MSG(logger) << " >>>>> Creating testing procedure";
             accuracyProc = createProcedure(server, accuracyProcPC, onProgress2, true);
 
             resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
@@ -470,7 +471,7 @@ run(const ProcedureRunConfig & run,
             RunOutput accuracyOutput = accuracyProc->run(accuracyProcRunConf, onProgress2);
             Date testFinish = Date::now();
 
-            cerr << "accuracy took " << timer.elapsed() << endl;
+            INFO_MSG(logger) << "accuracy took " << timer.elapsed();
 
             return make_tuple(accuracyOutput,
                               testFinish.secondsSinceEpoch() - testStart.secondsSinceEpoch());

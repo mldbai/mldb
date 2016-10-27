@@ -14,6 +14,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/stats/distribution.h"
 #include <boost/algorithm/string.hpp>
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -124,11 +125,10 @@ struct Word2VecImporter: public Procedure {
                 if (output)
                     output->recordEmbedding(columnNames, rows);
                 rows.clear();
-                cerr << "recorded " << (i+1) << " of " << numWords << " words"
-                     << endl;
+                INFO_MSG(logger) << "recorded " << (i+1) << " of " << numWords << " words";
             }
 
-            //cerr << "got word " << word << endl;
+            TRACE_MSG(logger) << "got word " << word;
         }
 
         if (output) {

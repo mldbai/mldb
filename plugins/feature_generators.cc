@@ -16,6 +16,7 @@
 #include "mldb/types/any_impl.h"
 #include "utils/json_utils.h"
 #include "mldb/ext/highwayhash.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 

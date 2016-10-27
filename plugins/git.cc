@@ -18,6 +18,7 @@
 #include "mldb/base/parallel.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 
 #include <git2.h>
 #include <git2/revwalk.h>
@@ -446,9 +447,10 @@ struct GitImporter: public Procedure {
             }
         }
 
-        //cerr << "id " << sha << " had " << filesChanged << " changes, "
-        //     << insertions << " insertions and " << deletions << " deletions "
-        //     << message << " parents " << parentCount << endl;
+        DEBUG_MSG(logger)
+            << "id " << sha << " had " << filesChanged << " changes, "
+            << insertions << " insertions and " << deletions << " deletions "
+            << message << " parents " << parentCount;
 
         return row;
     }
@@ -534,12 +536,13 @@ struct GitImporter: public Procedure {
 
         PerThreadAccumulator<Accum> accum([&] () { return new Accum(repoName); });
 
-        cerr << "processing " << oids.size() << " commits" << endl;
+        INFO_MSG(logger) << "processing " << oids.size() << " commits";
 
         auto doProcessCommit = [&] (int i)
             {
                 if (i && i % 100 == 0)
-                    cerr << "imported commit " << i << " of " << oids.size() << endl;
+                    INFO_MSG(logger)
+                        << "imported commit " << i << " of " << oids.size();
 
                 Accum & threadAccum = accum.get();
                 auto row = processCommit(repo, oids[i]);
