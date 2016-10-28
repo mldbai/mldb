@@ -25,6 +25,7 @@
 #include "mldb/types/distribution_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/utils/log.h"
 
 #include "mldb/server/analytics.h"
 
@@ -208,8 +209,9 @@ run(const ProcedureRunConfig & run,
         float score, label, weight;
         std::tie(std::ignore, score, label, weight) = fvs[x];
 
-        //cerr << "x = " << x << " score = " << score << " label = " << label
-        //     << " weight = " << weight << endl;
+        DEBUG_MSG(logger) 
+            << "x = " << x << " score = " << score << " label = " << label
+            << " weight = " << weight;
 
         outputs[0][x] = score;
         outputs[1][x] = 1.0;
@@ -237,11 +239,10 @@ run(const ProcedureRunConfig & run,
     double sampleOneRate = numTrue / numExamples;
     double sampleZeroRate = 1.0 - sampleOneRate;
 
-    cerr << "trueOneRate = " << trueOneRate
-         << " trueZeroRate = " << trueZeroRate
-         << " sampleOneRate = " << sampleOneRate
-         << " sampleZeroRate = " << sampleZeroRate
-         << endl;
+    INFO_MSG(logger) << "trueOneRate = " << trueOneRate
+                     << " trueZeroRate = " << trueZeroRate
+                     << " sampleOneRate = " << sampleOneRate
+                     << " sampleZeroRate = " << sampleZeroRate;
 
     auto link = runProcConf.link;
 
@@ -249,7 +250,7 @@ run(const ProcedureRunConfig & run,
     distribution<double> probParams
         = ML::run_irls(correct, outputs, weights, link, regressor);
 
-    cerr << "probParams = " << probParams << endl;
+    INFO_MSG(logger) << "probParams = " << probParams;
 
     // http://gking.harvard.edu/files/0s.pdf, section 4.2
     // Logistic Regression in Rare Events Data (Gary King and Langche Zeng)
@@ -257,13 +258,12 @@ run(const ProcedureRunConfig & run,
     double correction = -log((1 - trueOneRate) / trueOneRate
                              * sampleOneRate / (1 - sampleOneRate));
 
-    //cerr << "paramBefore = " << probParams[1] << endl;
-    //cerr << "correction = " << correction
-    //<< endl;
+    DEBUG_MSG(logger) << "paramBefore = " << probParams[1];
+    DEBUG_MSG(logger) << "correction = " << correction;
 
     probParams[1] += correction;
 
-    cerr << "paramAfter = " << probParams[1] << endl;
+    INFO_MSG(logger) << "paramAfter = " << probParams[1];
 
     ProbabilizerRepr repr;
     repr.style = "glz";

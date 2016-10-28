@@ -30,6 +30,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/jml_serialization.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -241,16 +242,14 @@ run(const ProcedureRunConfig & run,
     itl->params.tolerance = runProcConf.tolerance;
     itl->params.eta = runProcConf.learningRate;
 
-    //cerr << "perplexity = " << itl->params.perplexity << endl;
-    //cerr << "tolerance = " << itl->params.tolerance << endl;
-    // cerr << "learningRate = " << itl->params.eta << endl;
-
-    //cerr << "doing t-SNE" << endl;
+    DEBUG_MSG(logger) << "perplexity = " << itl->params.perplexity;
+    DEBUG_MSG(logger) << "tolerance = " << itl->params.tolerance;
+    DEBUG_MSG(logger) << "learningRate = " << itl->params.eta;
+    DEBUG_MSG(logger) << "doing t-SNE";
 
 
     SqlExpressionMldbScope context(server);
 
-    //cerr << "numDims = " << numDims << endl;
 
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
@@ -263,6 +262,8 @@ run(const ProcedureRunConfig & run,
     std::vector<KnownColumn> & vars = embeddingOutput.second;
 
     size_t numDims = vars.size();
+
+    DEBUG_MSG(logger) << "numDims = " << numDims;
 
     boost::multi_array<float, 2> coords
         (boost::extents[rows.size()][numDims]);
@@ -279,23 +280,16 @@ run(const ProcedureRunConfig & run,
                                   "Make sure your dataset is not empty and that your WHERE, offset "
                                   "and limit expressions do not filter all the rows");
 
-//cerr << "copied into matrix" << endl;
+    DEBUG_MSG(logger) << "copied into matrix";
 
-#if 0
-    cerr << "rows[0] = " << rows[0].second << endl;
-    cerr << "rows[1] = " << rows[1].second << endl;
-    cerr << "rows[2] = " << rows[1].second << endl;
-    cerr << "rows[0] dot rows[1] = " << rows[0].second.dotprod(rows[1].second)
-         << endl;
-    cerr << "rows[0] dot rows[2] = " << rows[0].second.dotprod(rows[2].second)
-         << endl;
-    cerr << "rows[0] dist rows[1] = " << (rows[0].second - rows[1].second).two_norm()
-         << endl;
-    cerr << "rows[0] dist rows[2] = " << (rows[0].second - rows[2].second).two_norm()
-         << endl;
-    cerr << "rows[1] dist rows[2] = " << (rows[1].second - rows[2].second).two_norm()
-         << endl;
-#endif
+//     DEBUG_MSG(logger) << "rows[0] = " << rows[0].second;
+//     DEBUG_MSG(logger) << "rows[1] = " << rows[1].second;
+//     DEBUG_MSG(logger) << "rows[2] = " << rows[1].second;
+//     DEBUG_MSG(logger) << "rows[0] dot rows[1] = " << rows[0].second.dotprod(rows[1].second);
+//     DEBUG_MSG(logger) << "rows[0] dot rows[2] = " << rows[0].second.dotprod(rows[2].second);
+//     DEBUG_MSG(logger) << "rows[0] dist rows[1] = " << (rows[0].second - rows[1].second).two_norm();
+//     DEBUG_MSG(logger) << "rows[0] dist rows[2] = " << (rows[0].second - rows[2].second).two_norm();
+//     DEBUG_MSG(logger) << "rows[1] dist rows[2] = " << (rows[1].second - rows[2].second).two_norm();
 
     itl->inputPath.resize(boost::extents[rows.size()][numDims]);
     itl->inputPath = coords;
@@ -304,8 +298,8 @@ run(const ProcedureRunConfig & run,
                                       std::string phase)
         {
             if (iter == 1 || iter % 10 == 0)
-                cerr << "phase " << phase << " iter " << iter
-                     << " cost " << cost << endl;
+                INFO_MSG(logger) << "phase " << phase << " iter " << iter
+                     << " cost " << cost;
             return true;
         };
 
@@ -352,8 +346,8 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, runProcConf.output, onProgress2, true /*overwrite*/);
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
-            //cerr << "row " << i << " had coords " << itl->outputPath[i][0] << ","
-            //     << itl->outputPath[i][1] << endl;
+            TRACE_MSG(logger) << "row " << i << " had coords " << itl->outputPath[i][0] << ","
+                 << itl->outputPath[i][1];
             std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
             for (unsigned j = 0;  j < runProcConf.numOutputDimensions;  ++j) {
                 ExcAssert(isfinite(itl->outputPath[i][j]));
