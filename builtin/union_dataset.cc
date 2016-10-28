@@ -135,6 +135,7 @@ struct UnionDataset::Itl
         /* set where the stream should start*/
         virtual void initAt(size_t start) override
         {
+            cerr << "IUNIONROWSTREAM" << endl;
             datasetIndex = 0;
             size_t currentTotal = 0;
             std::shared_ptr<Dataset> currentDataset = source->datasets[0];
@@ -153,7 +154,7 @@ struct UnionDataset::Itl
 
         virtual RowPath next() override
         {
-            RowPath mynext = currentSubRowStream->next();
+            RowPath mynext = PathElement(datasetIndex) + currentSubRowStream->next();
             ++subRowIndex;
             if (subRowIndex == subNumRow) {
                 ++datasetIndex;
@@ -169,8 +170,8 @@ struct UnionDataset::Itl
 
         virtual const RowPath & rowName(RowPath & storage) const override
         {
-            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+            RowPath sub = currentSubRowStream->rowName(storage);
+            return storage = PathElement(datasetIndex) + sub;
         }
 
         const UnionDataset::Itl* source;
