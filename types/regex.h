@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** regex.h                                                        -*- C++ -*-
     UTF-8 aware regex class, wrapping the functionality available
     elsewhere.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -129,6 +128,9 @@ struct Regex {
     int mark_count() const;
 
     int flags() const;
+
+    /** Is this initialized? */
+    bool initialized() const { return !!impl; }
 
     /** Return the surface form that was used to build this regex. */
     const Utf8String & surface() const;

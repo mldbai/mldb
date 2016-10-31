@@ -8,10 +8,6 @@
 #include "sql_utils.h"
 #include "path.h"
 #include "http/http_exception.h"
-
-#include <boost/regex.hpp>    //These have defines that conflits with some of our own, so we can't put regex stuff just anywhere.
-#include <boost/regex/icu.hpp>
-
 #include <iostream>
 
 
@@ -45,73 +41,6 @@ std::string escapeSql(const std::string & str)
 std::string escapeSql(const char * str)
 {
     return escapeSql(std::string(str));
-}
-
-bool matchSqlFilter(const Utf8String& valueString, const Utf8String& filterString)
-{
-    if (filterString.empty() || valueString.empty())
-        return false;
-
-    Utf8String regExFilter;
-
-    for (const auto& filterChar : filterString) {
-
-        switch (filterChar) {
-            case ('%'): {
-                regExFilter += ".*";
-                break;
-            }
-            case ('_'): {
-                regExFilter += ".";
-                break;
-            }
-            case ('*'): {
-                regExFilter += "[*]";
-                break;
-            }
-            case ('['): {
-                regExFilter += "\\[";
-                break;
-            }
-            case (']'): {
-                regExFilter += "\\]";
-                break;
-            }
-            case ('.'): {
-                regExFilter += "[.]";
-                break;
-            }
-            case ('|'): {
-                regExFilter += "[|]";
-                break;
-            }
-            case ('('): {
-                regExFilter += "[(]";
-                break;
-            }
-            case (')'): {
-                regExFilter += "[)]";
-                break;
-            }
-            case ('^'): {
-                regExFilter += "\\^";
-                break;
-            }
-            case ('$'): {
-                regExFilter += "[$]";
-                break;
-            }
-            default: {
-                regExFilter += filterChar;
-            }
-        }
-    }
-
-    //std::cerr << "sql filter regex filter: " << regExFilter << std::endl;
-    boost::u32regex regex = boost::make_u32regex(regExFilter.rawData());
-    auto result = boost::u32regex_match(valueString.begin(), valueString.end(), regex);
-
-    return result;
 }
 
 //In a single-dataset context
