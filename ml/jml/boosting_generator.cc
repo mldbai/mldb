@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* boosting_generator.cc
    Jeremy Barnes, 15 March 2006
    Copyright (c) 2006 Jeremy Barnes  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Generator for boosted stumps.
 */
@@ -119,6 +117,14 @@ generate(Thread_Context & context,
     vector<Feature> features = features_;
 
     boost::timer timer;
+
+    bool regression_problem
+        = training_set.feature_space()->info(predicted).type() == REAL;
+
+    if (regression_problem) {
+        throw Exception("Boosting is currently not implemented on regression "
+                        "problems");
+    }
 
     unsigned nl = training_set.label_count(predicted);
 
@@ -602,7 +608,7 @@ train_iteration(Thread_Context & context,
 
 
 /* This does the following: 
-   - Trains a stump
+   - Trains a weak learner
    - Updates the weights
    - Updates the output weights
    - Calculates the accuracy over the training set

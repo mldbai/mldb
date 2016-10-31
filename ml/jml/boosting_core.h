@@ -1,17 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* boosting_core.h                                                 -*- C++ -*-
    Jeremy Barnes, 4 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    This is the core of the boosting library.  It contains the functions
    needed to do the updating and reweighting.
 */
 
-#ifndef __boosting__boosting_core_h__
-#define __boosting__boosting_core_h__
-
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include "training_data.h"
@@ -657,7 +653,3 @@ struct Update_Scores {
 };
 
 } // namespace ML
-
-
-
-#endif /* __boosting__boosting_core_h__ */
