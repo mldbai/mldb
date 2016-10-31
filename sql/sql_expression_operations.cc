@@ -2783,7 +2783,7 @@ InExpression(std::shared_ptr<SqlExpression> expr,
              bool negative)
     : expr(std::move(expr)),
       tuple(std::move(tuple)),
-      isnegative(negative),
+      isNegative(negative),
       kind(TUPLE)
 {
 }
@@ -2794,7 +2794,7 @@ InExpression(std::shared_ptr<SqlExpression> expr,
              bool negative)
     : expr(std::move(expr)),
       subtable(std::move(subtable)),
-      isnegative(negative),
+      isNegative(negative),
       kind(SUBTABLE)
 {
 
@@ -2807,7 +2807,7 @@ InExpression(std::shared_ptr<SqlExpression> expr,
              Kind kind)
     : expr(std::move(expr)),
       setExpr(std::move(setExpr)),
-      isnegative(negative),
+      isNegative(negative),
       kind(kind)
 {
     ExcAssert(kind == KEYS || kind == VALUES);
@@ -2901,7 +2901,7 @@ bind(SqlBindingScope & scope) const
                     bool found = valsPtr->count(v);
 
                     // 4.  Return our result
-                    return storage = ExpressionValue(isnegative ? !found : found,
+                    return storage = ExpressionValue(isNegative ? !found : found,
                                                      v.getEffectiveTimestamp());
                 };
             
@@ -2940,13 +2940,13 @@ bind(SqlBindingScope & scope) const
 
                 if ((v == itemValue))
                 {
-                    return storage = ExpressionValue(!isnegative,
+                    return storage = ExpressionValue(!isNegative,
                                                      std::max(v.getEffectiveTimestamp(),
                                                               itemValue.getEffectiveTimestamp()));
                 }
             }
 
-            return storage = ExpressionValue(isnegative, v.getEffectiveTimestamp());
+            return storage = ExpressionValue(isNegative, v.getEffectiveTimestamp());
         },
         this,
         std::make_shared<BooleanValueInfo>()};
@@ -2970,12 +2970,12 @@ bind(SqlBindingScope & scope) const
             std::pair<bool, Date> found = s.hasKey(v.toUtf8String());
             
             if (found.first) {
-                return storage = ExpressionValue(!isnegative,
+                return storage = ExpressionValue(!isNegative,
                                                  std::max(v.getEffectiveTimestamp(),
                                                           found.second));
             }
 
-            return storage = ExpressionValue(isnegative, v.getEffectiveTimestamp());
+            return storage = ExpressionValue(isNegative, v.getEffectiveTimestamp());
         
         },
         this,
@@ -3000,12 +3000,12 @@ bind(SqlBindingScope & scope) const
             std::pair<bool, Date> found = s.hasValue(v);
             
             if (found.first) {
-                return storage = ExpressionValue(!isnegative,
+                return storage = ExpressionValue(!isNegative,
                                                  std::max(v.getEffectiveTimestamp(),
                                                           found.second));
             }
 
-            return storage = ExpressionValue(isnegative, v.getEffectiveTimestamp());
+            return storage = ExpressionValue(isNegative, v.getEffectiveTimestamp());
         },
         this,
         std::make_shared<BooleanValueInfo>()};
@@ -3118,7 +3118,7 @@ LikeExpression(std::shared_ptr<SqlExpression> left,
                bool negative)
     : left(std::move(left)),
       right(std::move(right)),
-      isnegative(negative)
+      isNegative(negative)
 {
 }
 
@@ -3129,39 +3129,38 @@ bind(SqlBindingScope & scope) const
     BoundSqlExpression boundLeft  = left->bind(scope);
     BoundSqlExpression boundRight  = right->bind(scope);
 
-    return {[=] (const SqlRowScope & rowScope,
+    auto applier = std::make_shared<ApplyLike>(boundRight, isNegative);
+
+    if (applier->isPrecompiled) {
+    
+        return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
-        {
-            ExpressionValue vstorage, fstorage;
-
-            const ExpressionValue & value = boundLeft(rowScope, vstorage, filter);
-
-            if (value.empty()) {
-                return storage =
-                    ExpressionValue::null(Date::negativeInfinity());
-            }
-            if (!value.isString())
-                throw HttpReturnException(400, "LIKE expression expected its left "
-                        "hand value to be a string, got " + value.getTypeAsString());
-
-            const ExpressionValue & filterEV = boundRight(rowScope, fstorage, filter);
-
-            if (!filterEV.isString())
-                throw HttpReturnException(400, "LIKE expression expected its right "
-                        "hand value to be a string, got " + filterEV.getTypeAsString());
-
-            Utf8String valueString = value.toUtf8String();
-            Utf8String filterString = filterEV.toUtf8String();
-
-            bool matched = matchSqlFilter(valueString, filterString);
-
-            return storage = ExpressionValue(matched != isnegative,
-                                             std::max(value.getEffectiveTimestamp(),
-                                                      filterEV.getEffectiveTimestamp()));
-        },
-        this,
-        std::make_shared<BooleanValueInfo>()};
+                {
+                    ExpressionValue vstorage;
+                    const ExpressionValue & value
+                        = boundLeft(rowScope, vstorage, filter);
+                    return storage = (*applier)({value, ExpressionValue()},
+                                                rowScope);
+                },
+                this,
+                std::make_shared<BooleanValueInfo>()};
+    }
+    else {
+        return {[=] (const SqlRowScope & rowScope,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    ExpressionValue vstorage, fstorage;
+                    const ExpressionValue & value
+                        = boundLeft(rowScope, vstorage, filter);
+                    const ExpressionValue & likeFilter
+                        = boundRight(rowScope, fstorage, filter);
+                    return storage = (*applier)({value, likeFilter}, rowScope);
+                },
+                this,
+                std::make_shared<BooleanValueInfo>()};
+    }
 }
 
 Utf8String
@@ -3169,7 +3168,7 @@ LikeExpression::
 print() const
 {
     Utf8String result
-        = (isnegative ? "not like(" : "like(")
+        = (isNegative ? "not like(" : "like(")
         + left->print()
         + ","
         + right->print()
