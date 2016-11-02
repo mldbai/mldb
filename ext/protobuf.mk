@@ -5,14 +5,40 @@
 # We use a recursive make, since we don't care about anything apart from the
 # final executable, the libraries, and the headers.
 
+# NOTE TO USERS OF PROTOBUF
+# This makefile defines variables that need to be used in order to
+# properly use protobuf in other parts of the system:
+#
+# - To link with the protobuf library, you simply need to add protobuf3
+#   to the list of libraries.  This makefile defines the LIB_protobuf3_DEPS
+#   variable which ensures that the library will be built before anything
+#   that links to it.  Anything that needs to explicitly depend on the
+#   library needs to use the variable $(DEPENDS_ON_PROTOBUF_LIB) in the
+#   dependencies.
+# - For any source files that include protobuf headers, they need to
+#   depend on $(DEPENDS_ON_PROTOBUF_INCLUDES) and they should include
+#   -I$(PROTOBUF_INCLUDE_DIR) in the make flags.
+# - Any command that needs to run the protobuf compiler needs to include
+#   $(DEPENDS_ON_PROTOC) in the dependencies of the command, and to use
+#   $(PROTOC) as the executable
+#
+# NO OTHER DEPENDENCIES ON PROTOBUF THAN THESE SHOULD BE USED.  If this
+# rule is not followed, cross builds or docker builds will stop working.
+
+PROTOBUF_INCLUDE_DIR:=$(PWD)/$(BUILD)/$(HOSTARCH)/include
+PROTOC:=$(BUILD)/$(HOSTARCH)/bin/protoc
+DEPENDS_ON_PROTOC:=$(PROTOC)
+DEPENDS_ON_PROTOBUF_INCLUDES:=$(DEPENDS_ON_PROTOC)
+DEPENDS_ON_PROTOBUF_LIB:=$(LIB)/libprotobuf3.so
+LIB_protobuf3_DEPS:=$(DEPENDS_ON_PROTOBUF_LIB)
+
+
 ifneq ($(PREMAKE),1)
 
 # Macro to build protobuf for a given arch (either host or cross)
 #
 # $(1) = arch to build for (either $HOSTARCH or $ARCH)
 # $(2) = place to install libraries
-# $(3) = place to install headers
-# $(4) = place to install binaries
 
 define build_protobuf_for_arch
 
@@ -23,7 +49,7 @@ PROTOC_EXTRA_ARGS_$(1):=$(if $(call sne,$(1),$(HOSTARCH)),--with-protoc=$(PWD)/$
 # path, in other words if it doesn't start with a /
 TMP_ABSOLUTE_PATH:=$(if $(findstring xxxx/,xxxx$(TMP)),,$(PWD)/)$(TMP)
 
-$(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
+$(BUILD)/$(1)/bin/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(BUILD)/$(HOSTARCH)/bin/protoc)
 	@mkdir -p $(TMP)
 	@echo "   $(COLOR_BLUE)[COPY EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 	@mkdir -p $(BUILD)/$(1)/tmp/protobuf-build
@@ -44,24 +70,22 @@ $(4)/protoc: $(if $(call sne,$(1),$(HOSTARCH)),$(HOSTBIN)/protoc)
 	@echo "   $(COLOR_BLUE)[DONE EXTERN]$(COLOR_RESET)                      	protobuf3 $(1)"
 
 # we call it libprotobuf3.so to avoid clashing with the system one
-$(2)/libprotobuf3.so:	$(4)/protoc
-	$(if $(call sne,$(2),$(BUILD)/$(1)/lib),cp $(PWD)/$(BUILD)/$(1)/lib/libprotobuf* $(2))
+$(2)/libprotobuf3.so:	$(BUILD)/$(1)/bin/protoc | $(2)/.dir_exists
+	@$(if $(call sne,$(2),$(BUILD)/$(1)/lib),cp $(PWD)/$(BUILD)/$(1)/lib/libprotobuf* $(2))
 	@cp $(BUILD)/$(1)/lib/libprotobuf.so.10.0.0 $$@~ && mv $$@~ $$@
 
-protobuf: $(4)/protoc
-
-# Allow a dependency on the headers
-$(INC)/google/protobuf: | $(4)/protoc
-	@# Only copy when needing includes elsewhere
-	[ ! "$(PWD)/$(BUILD)/$(1)/include/google/protobuf" -ef "$(3)/google/protobuf" ] \
-	  && ( mkdir -p $(3)/google \
-	     && cp -r $(PWD)/$(BUILD)/$(1)/include/google/protobuf $(3)/google/protobuf) \
-	  || true
+protobuf: $(BUILD)/$(1)/bin/protoc
 
 endef
 
+$(eval $(call build_protobuf_for_arch,$(ARCH),$(LIB)))
 ifneq ($(ARCH),$(HOSTARCH))
-$(eval $(call build_protobuf_for_arch,$(HOSTARCH),$(BUILD)/$(HOSTARCH)/lib,$(BUILD)/$(HOSTARCH)/include,$(BUILD)/$(HOSTARCH)/bin))
+$(eval $(call build_protobuf_for_arch,$(HOSTARCH),$(BUILD)/$(HOSTARCH)/lib))
 endif
-$(eval $(call build_protobuf_for_arch,$(ARCH),$(LIB),$(INC),$(BIN)))
+PROTOBUF_INCLUDE_DIR:=$(PWD)/$(BUILD)/$(ARCH)/include
+PROTOC:=$(BUILD)/$(HOSTARCH)/bin/protoc
+DEPENDS_ON_PROTOC:=$(PROTOC)
+DEPENDS_ON_PROTOBUF_INCLUDES:=$(DEPENDS_ON_PROTOC)
+DEPENDS_ON_PROTOBUF_LIB:=$(LIB)/libprotobuf3.so
+LIB_protobuf3_DEPS:=$(DEPENDS_ON_PROTOBUF_LIB)
 endif
