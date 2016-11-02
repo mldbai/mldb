@@ -38,12 +38,12 @@ class RowAggregatorTest(MldbUnitTest):
 
         ds = mldb.create_dataset({ "id": "test_weight", "type": "sparse.mutable" })
 
-        def recordExample(row, x, y, ts):
-            ds.record_row(row, [ [ "x", x, ts], ["y", y, ts] ]);
+        def recordExample(row, x, z, y, ts):
+            ds.record_row(row, [ [ "x", x, ts], ["z", z, ts], ["y", y, ts] ]);
 
-        recordExample("ex1", 25, 0, 0);
-        recordExample("ex2", 1,  5, 0);
-        recordExample("ex3", 10, 2, 0);
+        recordExample("ex1", 25, 50, 0, 0);
+        recordExample("ex2", 1,  2, 5, 0);
+        recordExample("ex3", 10, 20, 2, 0);
 
         ds.commit()
 
@@ -117,15 +117,29 @@ class RowAggregatorTest(MldbUnitTest):
     
     def test_weighted_avg(self):
 
-        wavg = mldb.query("SELECT weighted_avg(x, y) AS avg FROM test_weight")
+        weighted_avg = (1*5 + 10*2) / 7.
 
+        wavg = mldb.query("SELECT weighted_avg(x, y) AS avg FROM test_weight")
         self.assertTableResultEquals(
             wavg,
             [["_rowName","avg"],
-             ["[]",(1*5 + 10*2) / 7.]])
-
+             ["[]",weighted_avg]])
+            
         self.assertTableResultEquals(wavg,
                 mldb.query("SELECT vertical_weighted_avg(x, y) AS avg FROM test_weight"))
+
+    #@unittest.expectedFailure
+    def test_weighted_avg_row(self):
+        weighted_avg = (1*5 + 10*2) / 7.
+
+        wavg = mldb.query("SELECT weighted_avg({* EXCLUDING (y)}, y) AS avg FROM test_weight")
+        mldb.log(wavg)
+
+        self.assertTableResultEquals(
+            wavg,
+            [["_rowName","avg.x", "avg.z"],
+             ["[]",weighted_avg, weighted_avg*2]])
+
 
     def test_vertical_earliest_is_earliest(self):
         resp = mldb.get("/v1/query", q = "SELECT earliest({*}) AS count FROM test GROUP BY x");

@@ -136,14 +136,24 @@ struct AggregatorT {
 
         void process(const ExpressionValue * args, size_t nargs)
         {
-            checkArgsSize(nargs, 1);
+            checkArgsSize(nargs, State::nargs);
             const ExpressionValue & val = args[0];
+
 
             // This must be a row...
             auto onColumn = [&] (const PathElement & columnName,
                                  const ExpressionValue & val)
                 {
-                    columns[columnName].process(&val, 1);
+                    if(State::nargs == 1) {
+                        columns[columnName].process(&val, 1);
+                    }
+                    else if(State::nargs == 2) {
+                        const vector<ExpressionValue> pwet = {val, args[1]};
+                        columns[columnName].process(pwet.data(), 2);
+                    }
+                    else {
+                        throw ML::Exception("pwet!");
+                    }
                     return true;
                 };
 
@@ -364,7 +374,7 @@ struct AggregatorT {
         // b) what is the best way to implement the query
         // First output: information about the row
         // Second output: is it dense (in other words, all rows are the same)?
-        checkArgsSize(args.size(), 1, name);
+        checkArgsSize(args.size(), State::nargs, name);
         ExcAssert(args[0].info);
 
         // Create a value info object for the output.  It has the same
@@ -556,36 +566,132 @@ struct AverageAccum : public AverageAccumBase {
     }
 };
 
-struct WeightedAverageAccum : public AverageAccumBase {
-    static constexpr int nargs = 2;
+//struct WeightedAverageAccum : public AverageAccumBase {
+    //static constexpr int nargs = 2;
 
-    WeightedAverageAccum()
-        : AverageAccumBase()
-    {
-    }
+    //WeightedAverageAccum()
+        //: AverageAccumBase()
+    //{
+    //}
 
-    void process(const ExpressionValue * args, size_t nargs)
-    {
-        checkArgsSize(nargs, 2);
-        const ExpressionValue & val = args[0];
-        if (val.empty())
-            return;
+    //void process(const ExpressionValue * args, size_t nargs)
+    //{
+        //checkArgsSize(nargs, 2);
+        //const ExpressionValue & val = args[0];
+        //if (val.empty())
+            //return;
 
-        double weight = 1;
-        if(nargs == 2) {
-            const ExpressionValue & ev_weight = args[1];
-            if (!val.empty())
-                weight = ev_weight.toDouble();
-        }
+        //double weight = 1;
+        //if(nargs == 2) {
+            //const ExpressionValue & ev_weight = args[1];
+            //if (!val.empty())
+                //weight = ev_weight.toDouble();
+        //}
 
-        total += val.toDouble() * weight;
-        n += weight;
-        ts.setMax(val.getEffectiveTimestamp());
-    }
-};
+        //total += val.toDouble() * weight;
+        //n += weight;
+        //ts.setMax(val.getEffectiveTimestamp());
+    //}
+//};
 
 static RegisterAggregatorT<AverageAccum> registerAvg("avg", "vertical_avg");
-static RegisterAggregatorT<WeightedAverageAccum> registerWAvg("weighted_avg", "vertical_weighted_avg");
+//static RegisterAggregatorT<WeightedAverageAccum> registerWAvg("weighted_avg", "vertical_weighted_avg");
+
+
+
+
+struct WeightedAverageAccum {
+    WeightedAverageAccum()
+        : ts(Date::negativeInfinity())
+    {
+    }
+
+    double n;
+    std::unordered_map<ColumnName, double> counts;
+    Date ts;
+};
+
+BoundAggregator wavg(const std::vector<BoundSqlExpression> & args,
+                   const string & name)
+{
+    auto init = [] () -> std::shared_ptr<void>
+        {
+            return std::make_shared<WeightedAverageAccum>();
+        };
+
+    auto process = [name] (const ExpressionValue * args,
+                       size_t nargs,
+                       void * data)
+        {
+            checkArgsSize(nargs, 2, name);
+            const ExpressionValue & val = args[0];
+            double weight = args[1].toDouble();
+            WeightedAverageAccum & accum = *(WeightedAverageAccum *)data;
+            // This must be a row...
+            auto onAtom = [&] (const Path & columnName,
+                               const Path & prefix,
+                               const CellValue & val,
+                               Date ts)
+            {
+                accum.counts[columnName] += val.toDouble() * weight;
+                accum.ts.setMax(ts);
+                return true;
+            };
+
+            val.forEachAtom(onAtom);
+
+            accum.n += weight;
+        };
+    
+    /*
+    ExpressionValue extract()
+    {
+        return ExpressionValue(ML::xdiv(total, n), ts);
+    }
+
+    void merge(AverageAccumBase* from)
+    {
+        total += from->total;
+        n += from->n;
+        ts.setMax(from->ts);
+    }*/
+
+    auto extract = [] (void * data) -> ExpressionValue
+        {
+            WeightedAverageAccum & accum = *(WeightedAverageAccum *)data;
+
+            RowValue result;
+            for (auto & v: accum.counts) {
+                result.emplace_back(v.first, ML::xdiv(v.second, accum.n), accum.ts);
+            }
+
+            return ExpressionValue(std::move(result));
+        };
+
+     auto merge = [] (void * data, void* src)
+        {
+            WeightedAverageAccum & accum = *(WeightedAverageAccum *)data;
+            WeightedAverageAccum & srcAccum = *(WeightedAverageAccum *)src;
+
+            for (auto &iter : srcAccum.counts)
+            {
+                accum.counts[iter.first] += iter.second;
+            }
+
+            
+            accum.n += srcAccum.n;
+            accum.ts.setMax(srcAccum.ts);
+        };
+
+
+    return { init, process, extract, merge };
+}
+
+static RegisterAggregator registerWavg(wavg, "weighted_avg", "vertical_weighted_avg");
+
+
+
+
 
 template<typename Op, int Init>
 struct ValueAccum {
