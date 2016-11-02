@@ -202,7 +202,7 @@ construct_recur(PyObject * pyObj)
         val = b;
     }
     else if(PyInt_Check(pyObj)) {
-        int i = bp::extract<int>(pyObj);
+        int64_t i = bp::extract<int64_t>(pyObj);
         val = i;
     }
     else if(PyFloat_Check(pyObj)) {
