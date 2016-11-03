@@ -1331,6 +1331,8 @@ expectStringUtf8(char * buffer, size_t maxLen)
             continue;
         }
 
+        ++(*context);
+
         if (c == '\\') {
             c = getEscapedJsonCharacterPointUtf8(*context);
         }
