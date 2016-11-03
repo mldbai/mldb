@@ -346,6 +346,7 @@ BOOST_AUTO_TEST_CASE( testMaskLower )
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 0), 0);
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 1), 0);
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 64), 0);
+        BOOST_CHECK_EQUAL(maskLower<uint64_t>(-1, 64), -1);
 
         BOOST_CHECK_EQUAL(maskLower<int64_t>(0, 0), 0);
         BOOST_CHECK_EQUAL(maskLower<int64_t>(0, 1), 0);
