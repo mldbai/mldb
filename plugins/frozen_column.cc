@@ -217,6 +217,12 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
     {
         return new TableFrozenColumn(column);
     }
+
+    virtual FrozenColumn *
+    reconstitute(MappedReconstituter & reconstituter) const override
+    {
+        throw HttpReturnException(600, "Tabular reconstitution not finished");
+    }
 };
 
 RegisterFrozenColumnFormatT<TableFrozenColumnFormat> regTable;
@@ -459,9 +465,10 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
         return new SparseTableFrozenColumn(column);
     }
 
-    virtual void serialize(MappedSerializer & serializer)
+    virtual FrozenColumn *
+    reconstitute(MappedReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "SparseTableFrozenColumn::serialize()");
+        throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -785,7 +792,16 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
            const ColumnFreezeParameters & params,
            std::shared_ptr<void> cachedInfo) const override
     {
-        return new IntegerFrozenColumn(column);
+        auto infoCast
+            = std::static_pointer_cast<IntegerFrozenColumn::SizingInfo>
+            (std::move(cachedInfo));
+        return new IntegerFrozenColumn(column, *infoCast);
+    }
+
+    virtual FrozenColumn *
+    reconstitute(MappedReconstituter & reconstituter) const override
+    {
+        throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
 };
 
