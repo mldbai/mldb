@@ -17,7 +17,7 @@ extern "C" {
 } // extern "C"
 
 
-#include "av_plugin.h"
+#include "sensors_plugin.h"
 #include "mldb/core/sensor.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/structure_description.h"
@@ -468,8 +468,8 @@ struct CaptureAudioSensor: public Sensor {
 };
 
 static RegisterSensorType<CaptureAudioSensor, CaptureAudioSensorConfig>
-regAudioSensor(avPackage(),
-               "av.capture.audio",
+regAudioSensor(sensorsPackage(),
+               "sensors.capture.audio",
                "Audio capture sensor for microphones/webcams/USB audio sources",
                "CaptureAudioSensor.md.html");
 
