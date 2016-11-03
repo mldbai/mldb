@@ -113,19 +113,6 @@ T shrd(T low, T high, shift_t bits)
 #endif // MLDB_INTEL_ISA
 
 
-#if defined( MLDB_INTEL_ISA ) && ! defined(MLDB_COMPILER_NVCC) && false
-
-/** Mask off the highest bits of the results, leaving n bits. */
-
-template<typename T>
-MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
-T maskLower(T val, shift_t bits)
-{
-    // use SHL instruction
-}
-
-#else
-
 template<typename T>
 MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T maskLower(T val, shift_t bits)
@@ -134,11 +121,9 @@ T maskLower(T val, shift_t bits)
     ExcAssertLessEqual(bits, TBITS);
     if (MLDB_UNLIKELY(bits == TBITS))
         return val;
-    T mask = ((1 << bits) - 1);
+    T mask = (((T)1 << bits) - 1);
     return val & mask;
 }
-
-#endif
 
 /** Extract the bits from bit to bit+numBits starting at the pointed to
     address.  There can be a maximum of one word extracted in this way.
