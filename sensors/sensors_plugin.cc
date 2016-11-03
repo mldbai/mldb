@@ -22,9 +22,9 @@ using namespace std;
 
 namespace MLDB {
 
-const Package & avPackage()
+const Package & sensorsPackage()
 {
-    static const Package result("av");
+    static const Package result("sensors");
     return result;
 }
 
