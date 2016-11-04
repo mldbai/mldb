@@ -135,7 +135,6 @@ struct UnionDataset::Itl
         /* set where the stream should start*/
         virtual void initAt(size_t start) override
         {
-            cerr << "IUNIONROWSTREAM" << endl;
             datasetIndex = 0;
             size_t currentTotal = 0;
             std::shared_ptr<Dataset> currentDataset = source->datasets[0];
