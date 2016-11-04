@@ -9,11 +9,17 @@
 
 #include <unordered_map>
 #include "frozen_column.h"
+#include "mldb/sql/path.h"
+#include "mldb/types/date.h"
+#include "tabular_dataset_column.h"
 #include <mutex>
 
 
 namespace MLDB {
 
+struct PathElement;
+struct Path;
+struct ExpressionValue;
 
 /*****************************************************************************/
 /* TABULAR DATASET CHUNK                                                     */
@@ -55,222 +61,57 @@ struct TabularDatasetChunk {
         return std::max(rowNames.size(), integerRowNames.size());
     }
 
-    size_t memusage() const
-    {
-        using namespace std;
-        size_t result = sizeof(*this);
-        size_t before = result;
-        for (auto & c: columns)
-            result += c->memusage();
-        
-        //cerr << columns.size() << " columns took " << result - before << endl;
-        before = result;
-        
-        for (auto & c: sparseColumns)
-            result += c.first.memusage() + c.second->memusage();
-
-        //cerr << sparseColumns.size() << " sparse columns took "
-        //     << result - before << endl;
-        before = result;
-
-        for (auto & r: rowNames)
-            result += r.memusage();
-        result += integerRowNames.capacity() * sizeof(uint64_t);
-
-        //cerr << rowNames.size() << " row names took "
-        //     << result - before << endl;
-        before = result;
-
-        result += timestamps->memusage();
-
-        //cerr << "timestamps took "
-        //     << result - before << endl;
-
-        //cerr << "total memory is " << result << endl;
-        return result;
-    }
+    size_t memusage() const;
 
     const FrozenColumn *
-    maybeGetColumn(size_t columnIndex, const PathElement & columnName) const
-    {
-        if (columnIndex < columns.size()) {
-            return columns[columnIndex].get();
-        }
-        else {
-            auto it = sparseColumns.find(columnName);
-            if (it == sparseColumns.end())
-                return nullptr;
-            return it->second.get();
-        }
-    }
+    maybeGetColumn(size_t columnIndex, const PathElement & columnName) const;
 
     /// Return an owned version of the rowname
-    RowPath getRowPath(size_t index) const
-    {
-        if (rowNames.empty()) {
-            return PathElement(integerRowNames.at(index));
-        }
-        else return rowNames.at(index);
-    }
+    Path getRowPath(size_t index) const;
 
     /// Return a reference to the rowName, stored in storage if it's a temp
-    const RowPath & getRowPath(size_t index, RowPath & storage) const
-    {
-        if (rowNames.empty()) {
-            return storage = PathElement(integerRowNames.at(index));
-        }
-        else return rowNames.at(index);
-    }
+    const Path & getRowPath(size_t index, RowPath & storage) const;
 
     const FrozenColumn *
-    maybeGetColumn(size_t columnIndex, const Path & columnName) const
-    {
-        if (columnIndex < columns.size()) {
-            return columns.at(columnIndex).get();
-        }
-        else {
-            auto it = sparseColumns.find(columnName);
-            if (it == sparseColumns.end())
-                return nullptr;
-            return it->second.get();
-        }
-    }
+    maybeGetColumn(size_t columnIndex, const Path & columnName) const;
 
     std::vector<std::shared_ptr<FrozenColumn> > columns;
-    std::unordered_map<ColumnPath, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
+    std::unordered_map<Path, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
 private:
-    std::vector<RowPath> rowNames;
+    std::vector<Path> rowNames;
     std::vector<uint64_t> integerRowNames;
 public:
     std::shared_ptr<FrozenColumn> timestamps;
 
     /// Get the row with the given index
     std::vector<std::tuple<ColumnPath, CellValue, Date> >
-    getRow(size_t index, const std::vector<ColumnPath> & fixedColumnNames) const
-    {
-        ExcAssertLess(index, rowCount());
-        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
-        result.reserve(columns.size());
-        Date ts = timestamps->get(index).mustCoerceToTimestamp();
-        for (size_t i = 0;  i < columns.size();  ++i) {
-            CellValue val = columns[i]->get(index);
-            if (val.empty())
-                continue;
-            result.emplace_back(fixedColumnNames[i], std::move(val), ts);
-        }
-
-        for (auto & c: sparseColumns) {
-            CellValue val = c.second->get(index);
-            if (val.empty())
-                continue;
-            result.emplace_back(c.first, std::move(val), ts);
-
-        }
-        return result;
-    }
+    getRow(size_t index, const std::vector<Path> & fixedColumnNames) const;
 
     /// Get the row with the given index
     ExpressionValue
-    getRowExpr(size_t index, const std::vector<ColumnPath> & fixedColumnNames) const
-    {
-        ExcAssertLess(index, rowCount());
-        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
-        result.reserve(columns.size());
-        Date ts = timestamps->get(index).mustCoerceToTimestamp();
-        for (size_t i = 0;  i < columns.size();  ++i) {
-            CellValue val = columns[i]->get(index);
-            if (val.empty())
-                continue;
-            result.emplace_back(fixedColumnNames[i], std::move(val), ts);
-        }
-
-        for (auto & c: sparseColumns) {
-            CellValue val = c.second->get(index);
-            if (val.empty())
-                continue;
-            result.emplace_back(c.first, std::move(val), ts);
-
-        }
-        return std::move(result);
-    }
+    getRowExpr(size_t index, const std::vector<Path> & fixedColumnNames) const;
 
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
-                     const ColumnPath & colName,
-                     std::vector<std::tuple<RowPath, CellValue, Date> > & rows,
-                     bool dense) const
-    {
-        const FrozenColumn * col = nullptr;
-        if (columnIndex < columns.size())
-            col = columns[columnIndex].get();
-        else {
-            auto it = sparseColumns.find(colName);
-            if (it == sparseColumns.end()) {
-                if (dense) {
-                    for (unsigned i = 0;  i < rowCount();  ++i) {
-                        rows.emplace_back(getRowPath(i),
-                                          CellValue(),
-                                          timestamps->get(i).mustCoerceToTimestamp());
-                    }
-                }
-                return;
-            }
-            col = it->second.get();
-        }
-
-        for (unsigned i = 0;  i < rowCount();  ++i) {
-            CellValue val = col->get(i);
-            if (dense || !val.empty()) {
-                rows.emplace_back(getRowPath(i),
-                                  std::move(val),
-                                  timestamps->get(i).mustCoerceToTimestamp());
-            }
-        }
-    }
-
+                     const Path & colName,
+                     std::vector<std::tuple<Path, CellValue, Date> > & rows,
+                     bool dense) const;
     friend class MutableTabularDatasetChunk;
 };
 
+
+/*****************************************************************************/
+/* MUTABLE TABULAR DATASET CHUNK                                             */
+/*****************************************************************************/
+
 struct MutableTabularDatasetChunk {
 
-    MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
-        : maxSize(maxSize), rowCount_(0),
-          columns(numColumns), isFrozen(false),
-          addFailureNotified(false)
-    {
-        timestamps.reserve(maxSize);
-        integerRowNames.reserve(maxSize);
-        for (unsigned i = 0;  i < numColumns;  ++i)
-            columns[i].reserve(maxSize);
-    }
+    MutableTabularDatasetChunk(size_t numColumns, size_t maxSize);
 
     MutableTabularDatasetChunk(MutableTabularDatasetChunk && other) noexcept = delete;
     MutableTabularDatasetChunk & operator = (MutableTabularDatasetChunk && other) noexcept = delete;
 
-    TabularDatasetChunk freeze()
-    {
-        std::unique_lock<std::mutex> guard(mutex);
-
-        ExcAssert(!isFrozen);
-
-        TabularDatasetChunk result;
-        result.columns.resize(columns.size());
-        result.sparseColumns.reserve(sparseColumns.size());
-
-        for (unsigned i = 0;  i < columns.size();  ++i)
-            result.columns[i] = columns[i].freeze();
-        for (auto & c: sparseColumns)
-            result.sparseColumns.emplace(c.first, c.second.freeze());
-
-        result.timestamps = timestamps.freeze();
-
-        result.rowNames = std::move(rowNames);
-        result.integerRowNames = std::move(integerRowNames);
-
-        isFrozen = true;
-
-        return result;
-    }
+    TabularDatasetChunk freeze(const ColumnFreezeParameters & params);
 
     /// Protect access in a multithreaded context
     mutable std::mutex mutex;
@@ -292,10 +133,10 @@ struct MutableTabularDatasetChunk {
     bool isFrozen;
 
     /// Set of sparse columns
-    std::unordered_map<ColumnPath, TabularDatasetColumn> sparseColumns;
+    std::unordered_map<Path, TabularDatasetColumn> sparseColumns;
 
     /// One per row, or empty if all are simple integers
-    std::vector<RowPath> rowNames;
+    std::vector<Path> rowNames;
 
     /// One per row, or empty if there is any non-integer row names
     std::vector<uint64_t> integerRowNames;
@@ -331,60 +172,12 @@ struct MutableTabularDatasetChunk {
           - ADD_AWAIT_ROTATION    if it wasn't added, and another thread has
                                   already received ADD_PERFORM_ROTATION
     */
-    int add(RowPath & rowName,
+    int add(Path & rowName,
             Date ts,
             CellValue * vals,
             size_t numVals,
-            std::vector<std::pair<ColumnPath, CellValue> > & extra)
-        __attribute__((warn_unused_result))
-    {
-        std::unique_lock<std::mutex> guard(mutex);
-        if (isFrozen)
-            return ADD_AWAIT_ROTATION;
-        size_t numRows = rowCount_;
-
-        if (numRows == maxSize) {
-            if (addFailureNotified)
-                return ADD_AWAIT_ROTATION;
-            else {
-                addFailureNotified = true;
-                return ADD_PERFORM_ROTATION;
-            }
-        }
-
-        ExcAssertEqual(columns.size(), numVals);
-
-        uint64_t intRowName;
-
-        if (!rowNames.empty() || (intRowName = rowName.toIndex()) == -1) {
-            // Non-integer row name
-            if (rowNames.empty()) {
-                rowNames.reserve(maxSize);
-                for (auto & n: integerRowNames)
-                    rowNames.emplace_back(n);
-                integerRowNames.clear();
-            }
-            rowNames.emplace_back(std::move(rowName));
-        }
-        else {
-            // Still integer row names
-            integerRowNames.emplace_back(intRowName);
-        }
-        timestamps.add(numRows, ts.secondsSinceEpoch());
-
-        for (unsigned i = 0;  i < columns.size();  ++i) {
-            columns[i].add(numRows, std::move(vals[i]));
-        }
-
-        for (auto & e: extra) {
-            auto it = sparseColumns.emplace(std::move(e.first), TabularDatasetColumn()).first;
-            it->second.add(numRows, std::move(e.second));
-        }
-
-        ++rowCount_;
-
-        return ADD_SUCCEEDED;
-    }
+            std::vector<std::pair<Path, CellValue> > & extra)
+        __attribute__((warn_unused_result));
 };
 
 } // namespace MLDB

@@ -58,3 +58,6 @@
 [submodule "ext/pffft"]
 	path = ext/pffft
 	url = https://github.com/mldbai/pffft.git
+[submodule "ext/JSONTestSuite"]
+	path = ext/JSONTestSuite
+	url = https://github.com/mldbai/JSONTestSuite.git

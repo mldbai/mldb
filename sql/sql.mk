@@ -27,6 +27,7 @@ SQL_EXPRESSION_SOURCES := \
 	interval.cc \
 	join_utils.cc \
 	tokenize.cc \
+	regex_helper.cc \
 	execution_pipeline.cc \
 	execution_pipeline_impl.cc \
 	sql_utils.cc \

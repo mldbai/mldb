@@ -16,6 +16,7 @@ $(eval $(call include_sub_make,cookbook))
 
 $(eval $(call library,mldb_test_function,test_function.cc,mldb mldb_builtin_plugins))
 
+$(eval $(call test,run_json_test_suite,types vfs,normal))
 
 $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
 
@@ -447,3 +448,5 @@ $(eval $(call mldb_unit_test,union_dataset_test.py))
 $(eval $(call mldb_unit_test,deepteach_test.py,tensorflow,manual))
 $(eval $(call mldb_unit_test,post_run_and_track_procedure_test.py))
 $(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))
+
+$(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))

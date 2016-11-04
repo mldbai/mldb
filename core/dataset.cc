@@ -1496,7 +1496,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Optimize for rowPath() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
 
-    if (inExpression && !inExpression->isnegative) {
+    if (inExpression && !inExpression->isNegative) {
         auto fexpr = getFunction(*(inExpression->expr));
         if (fexpr
             && (fexpr->functionName == "rowName"

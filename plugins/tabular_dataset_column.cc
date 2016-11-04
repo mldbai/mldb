@@ -102,12 +102,12 @@ reserve(size_t sz)
 
 std::shared_ptr<FrozenColumn>
 TabularDatasetColumn::
-freeze()
+freeze(const ColumnFreezeParameters & params)
 {
     ExcAssert(!isFrozen);
     isFrozen = true;
 
-    return FrozenColumn::freeze(*this);
+    return FrozenColumn::freeze(*this, params);
 }
 
 #if 0

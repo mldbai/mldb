@@ -9,12 +9,33 @@ It will take around **45 minutes on a 32-core machine with 244GB of RAM** to run
 For C++ code to compile and the Python modules to install correctly, the following system packages need to be installed:
 
 ```bash
-apt-get install -y git valgrind build-essential libboost-all-dev \
-libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
-liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
-libpython-dev libgit2-dev libarchive-dev libffi-dev \
-libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en libyaml-cpp-dev libsasl2-dev
+apt-get install -y \
+  git \
+  autoconf \
+  build-essential \
+  language-pack-en \
+  libarchive-dev \
+  libblas-dev \
+  libboost-all-dev \
+  libcap-dev \
+  libcrypto++-dev \
+  libcurl4-openssl-dev \
+  libffi-dev \
+  libfreetype6-dev \
+  libgit2-dev \
+  libgoogle-perftools-dev \
+  liblapack-dev \
+  liblzma-dev \
+  libpng12-dev \
+  libpq-dev \
+  libpython-dev \
+  libsasl2-dev \
+  libssh2-1-dev \
+  libtool \
+  libyaml-cpp-dev \
+  python-virtualenv \
+  unzip \
+  valgrind
 ```
 ## Installing Docker
 
