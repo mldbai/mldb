@@ -14,8 +14,15 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
         ds.record_row('row1', [['one', 1, 0], ['two', 1, 0]])
         ds.record_row('row2', [['one', 1, 0], ['two', 2, 0]])
         ds.record_row('row3', [['one', 2, 0], ['two', 1, 0]])
-        ds.record_row('row4', [['one', 2, 0], ['two', 1, 0]])
+        ds.record_row('row4', [['one', 2, 0], ['two', 2, 0]])
         ds.commit()
+
+        ds = mldb.create_dataset({'id' : 'b', 'type' : 'sparse.mutable'})
+        ds.record_row('row0', [['one', 0, 0]])
+        ds.record_row('row1', [['one', 1, 0]])
+        ds.record_row('row2', [['one', 2, 0]])
+        ds.commit()
+
 
     def test_left_join_no_rhs(self):
         ds = mldb.create_dataset({'id' : 'no_rhs', 'type' : 'sparse.mutable'})
@@ -29,7 +36,7 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row1]-[]", 1, 1],
             ["[row2]-[]", 1, 2],
             ["[row3]-[]", 2, 1],
-            ["[row4]-[]", 2, 1]
+            ["[row4]-[]", 2, 2]
         ])
 
     @unittest.expectedFailure
@@ -47,7 +54,7 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row1]-[row1]", 1, 1, 1, 1],
             ["[row2]-[row2]", 1, 2, 1, 2],
             ["[row3]-[]", 2, 1, None, None],
-            ["[row4]-[]", 2, 1, None, None]
+            ["[row4]-[]", 2, 2, None, None]
         ])
 
     @unittest.expectedFailure
@@ -73,7 +80,7 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row2]-[row22]", 1, 2, 1, 2],
             ["[row2]-[row2]", 1, 2, 1, 2],
             ["[row3]-[]", 2, 1, None, None],
-            ["[row4]-[]", 2, 1, None, None]
+            ["[row4]-[]", 2, 2, None, None]
         ])
 
     def test_right_join_no_rhs(self):
@@ -130,6 +137,170 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row2]-[row22]", 1, 2, 1, 2],
             ["[row2]-[row2]", 1, 2, 1, 2]
         ])
+
+    def test_left_join_gt(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one > b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row0]", 1, 1, 0],
+            ["[row2]-[row0]", 1, 2, 0],
+            ["[row3]-[row0]", 2, 1, 0],
+            ["[row3]-[row1]", 2, 1, 1],
+            ["[row4]-[row0]", 2, 2, 0],
+            ["[row4]-[row1]", 2, 2, 1]
+        ])
+
+    def test_left_join_gte(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one >= b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row0]", 1, 1, 0],
+            ["[row1]-[row1]", 1, 1, 1],
+            ["[row2]-[row0]", 1, 2, 0],
+            ["[row2]-[row1]", 1, 2, 1],
+            ["[row3]-[row0]", 2, 1, 0],
+            ["[row3]-[row1]", 2, 1, 1],
+            ["[row3]-[row2]", 2, 1, 2],
+            ["[row4]-[row0]", 2, 2, 0],
+            ["[row4]-[row1]", 2, 2, 1],
+            ["[row4]-[row2]", 2, 2, 2]
+        ])
+
+    def test_left_join_lt(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one < b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row2]", 1, 1, 2],
+            ["[row2]-[row2]", 1, 2, 2]
+        ])
+
+    def test_left_join_lte(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one <= b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row1]", 1, 1, 1],
+            ["[row1]-[row2]", 1, 1, 2],
+            ["[row2]-[row1]", 1, 2, 1],
+            ["[row2]-[row2]", 1, 2, 2],
+            ["[row3]-[row2]", 2, 1, 2],
+            ["[row4]-[row2]", 2, 2, 2]
+        ])
+
+    @unittest.expectedFailure
+    def test_left_join_no_match(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one - 100 > b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two"],
+            ["[row1]-[]", 1, 1],
+            ["[row2]-[]", 1, 2],
+            ["[row3]-[]", 2, 1],
+            ["[row4]-[]", 2, 2]
+        ])
+
+    def test_left_join_gt_dual(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one > b.one AND a.two > b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row0]", 1, 1, 0],
+            ["[row2]-[row0]", 1, 2, 0],
+            ["[row3]-[row0]", 2, 1, 0],
+            ["[row4]-[row0]", 2, 2, 0],
+            ["[row4]-[row1]", 2, 2, 1]
+        ])
+
+    @unittest.expectedFailure
+    def test_left_join_lt_with_op(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one > b.one AND a.two - 1 <  b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[]", 1, 1, None],
+            ["[row2]-[row0]", 1, 2, 0],
+            ["[row3]-[]", 2, 1, None],
+            ["[row4]-[row0]", 2, 2, 0]
+        ])
+
+    def test_left_join_gte_dual(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one >= b.one AND a.two >= b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row0]", 1, 1, 0],
+            ["[row1]-[row1]", 1, 1, 1],
+            ["[row2]-[row0]", 1, 2, 0],
+            ["[row2]-[row1]", 1, 2, 1],
+            ["[row3]-[row0]", 2, 1, 0],
+            ["[row3]-[row1]", 2, 1, 1],
+            ["[row4]-[row0]", 2, 2, 0],
+            ["[row4]-[row1]", 2, 2, 1],
+            ["[row4]-[row2]", 2, 2, 2]
+        ])
+
+    @unittest.expectedFailure
+    def test_left_join_mix_dual(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one >= b.one AND a.two <= b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row1]", 1, 1, 1],
+            ["[row2]-[]", 1, 2, None],
+            ["[row3]-[row1]", 2, 1, 1],
+            ["[row4]-[row2]", 2, 2, 2]
+        ])
+
+    @unittest.expectedFailure
+    def test_left_join_lt_dual(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one < b.one AND a.two < b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row2]", 1, 1, 2],
+            ["[row2]-[]", 1, 2, None],
+            ["[row3]-[]", 2, 1, None],
+            ["[row4]-[]", 2, 2, None]
+        ])
+
+    def test_left_join_lte_dual(self):
+        res = mldb.query("""
+            SELECT * FROM a LEFT JOIN b ON a.one <= b.one AND a.two <= b.one
+            ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two", "b.one"],
+            ["[row1]-[row1]", 1, 1, 1],
+            ["[row1]-[row2]", 1, 1, 2],
+            ["[row2]-[row2]", 1, 2, 2],
+            ["[row3]-[row2]", 2, 1, 2],
+            ["[row4]-[row2]", 2, 2, 2]
+        ])
+
+
 
 
 if __name__ == '__main__':
