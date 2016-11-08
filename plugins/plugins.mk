@@ -54,6 +54,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	summary_statistics_proc.cc \
 	csv_writer.cc \
 	mock_procedure.cc \
+    sparse3dgrid_procedure.cc \
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,python_plugin_loader.cc,-I$(PYTHON_INCLUDE_PATH)))
