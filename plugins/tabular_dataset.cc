@@ -1203,7 +1203,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             for (auto & chunk: c.chunks) {
                 bytesUsed += chunk.second->memusage();
             }
-            INFO_MSG(logger) << "column " << c.columnName << " used "
+            TRACE_MSG(logger) << "column " << c.columnName << " used "
                  << bytesUsed << " bytes at "
                  << 1.0 * bytesUsed / totalRows << " per row";
             columnMem += bytesUsed;
