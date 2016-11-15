@@ -61,3 +61,6 @@
 [submodule "ext/JSONTestSuite"]
 	path = ext/JSONTestSuite
 	url = https://github.com/mldbai/JSONTestSuite.git
+[submodule "sensors/ext/i2cdevlib"]
+	path = sensors/ext/i2cdevlib
+	url = https://github.com/mldbai/i2cdevlib.git
