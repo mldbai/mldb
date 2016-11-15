@@ -95,7 +95,7 @@ recordRow(const v8::FunctionCallbackInfo<v8::Value> & args)
         auto values = JS::getArg<std::vector<std::tuple<ColumnPath, CellValue, Date> > >(args, 1, "values", {});
 
         {
-            //v8::Unlocker unlocker(args.GetIsolate());
+            v8::Unlocker unlocker(args.GetIsolate());
             dataset->recordRow(std::move(rowName), std::move(values));
         }
 
@@ -114,7 +114,7 @@ recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
         auto rows = JS::getArg<std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >(args, 0, "rows", {});
 
         {
-            //v8::Unlocker unlocker(args.GetIsolate());
+            v8::Unlocker unlocker(args.GetIsolate());
             dataset->recordRows(std::move(rows));
         }
         
@@ -134,7 +134,7 @@ recordColumn(const v8::FunctionCallbackInfo<v8::Value> & args)
         auto column = JS::getArg<std::vector<std::tuple<ColumnPath, CellValue, Date> > >(args, 1, "values", {});
 
         {
-            //v8::Unlocker unlocker(args.GetIsolate());
+            v8::Unlocker unlocker(args.GetIsolate());
             dataset->recordColumn(std::move(columnName), std::move(column));
         }
 
@@ -151,7 +151,11 @@ recordColumns(const v8::FunctionCallbackInfo<v8::Value> & args)
         Dataset * dataset = getShared(args.This());
             
         auto columns = JS::getArg<std::vector<std::pair<ColumnPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > >(args, 0, "columns", {});
-        dataset->recordColumns(std::move(columns));
+
+        {
+            v8::Unlocker unlocker(args.GetIsolate());
+            dataset->recordColumns(std::move(columns));
+        }
 
         args.GetReturnValue().Set(args.This());
     } HANDLE_JS_EXCEPTIONS(args);
@@ -164,7 +168,10 @@ commit(const v8::FunctionCallbackInfo<v8::Value> & args)
     try {
         Dataset * dataset = getShared(args.This());
             
-        dataset->commit();
+        {
+            v8::Unlocker unlocker(args.GetIsolate());
+            dataset->commit();
+        }
             
         args.GetReturnValue().Set(args.This());
     } HANDLE_JS_EXCEPTIONS(args);
