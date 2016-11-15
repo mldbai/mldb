@@ -852,8 +852,9 @@ queryStructuredExpr(const SelectExpression & select,
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
 
-        auto processor = [&] (NamedRowValue & row_,
-                               const std::vector<ExpressionValue> & calc)
+        auto processor = [&] (int64_t rowIndex,
+                              NamedRowValue & row_,
+                              const std::vector<ExpressionValue> & calc)
             {
                 row_.rowName = getValidatedRowName(calc.at(0));
                 row_.rowHash = row_.rowName;
@@ -864,9 +865,13 @@ queryStructuredExpr(const SelectExpression & select,
         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
-        structureInfo = iterateDataset(select, *this, alias, when, where,
-                       { rowName->shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                       nullptr).second;
+        structureInfo 
+            = iterateDataset
+            (select, *this, alias, when, where,
+             { rowName->shallowCopy() },
+             {processor, false/*processInParallel*/},
+             orderBy, offset, limit, nullptr)
+            .second;
     }
     else {
 
@@ -875,7 +880,8 @@ queryStructuredExpr(const SelectExpression & select,
         aggregators.insert(aggregators.end(), namedaggregators.begin(), namedaggregators.end());
 
         // Otherwise do it grouped...
-        auto processor = [&] (NamedRowValue & row_)
+        auto processor = [&] (int64_t rowIndex,
+                              NamedRowValue & row_)
             {
                 output.push_back(std::move(row_));
                 return true;
@@ -922,6 +928,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
         auto processor = [&] (RowPath & rowName,
+                              int64_t rowIndex,
                               ExpressionValue & row,
                               std::vector<ExpressionValue> & calc)
             {
@@ -946,7 +953,8 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                            rowNameaggregators.end());
 
         // Otherwise do it grouped...
-        auto processor = [&] (NamedRowValue & row)
+        auto processor = [&] (int64_t rowIndex,
+                              NamedRowValue & row)
             {
                 ExpressionValue val(std::move(row.columns));
                 return onRow(row.rowName, val);

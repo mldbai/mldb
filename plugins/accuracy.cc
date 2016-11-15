@@ -129,23 +129,26 @@ runBoolean(AccuracyConfig & runAccuracyConf,
     PerThreadAccumulator<ScoredStats> accum;
     auto logger = MLDB::getMldbLog<AccuracyProcedure>();
 
-    auto processor = [&] (NamedRowValue & row,
+    auto processor = [&] (int64_t rowIndex, NamedRowValue & row,
                           const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             double score = scoreLabelWeight[0].toDouble();
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
 
-            TRACE_MSG(logger) << "score=" << score << "; label=" << label << "; weight=" << weight;
+            TRACE_MSG(logger)
+                << "score=" << score
+                << "; label=" << label << "; weight=" << weight;
 
             accum.get().update(label, score, weight, row.rowName);
 
             return true;
         };
 
-    selectQuery.execute({processor,true/*processInParallel*/}, runAccuracyConf.testingData.stm->offset,
-             runAccuracyConf.testingData.stm->limit,
-             nullptr /* progress */);
+    selectQuery.execute({processor,true/*processInParallel*/},
+                        runAccuracyConf.testingData.stm->offset,
+                        runAccuracyConf.testingData.stm->limit,
+                        nullptr /* progress */);
 
     // Now merge out stats together
     ScoredStats stats;
@@ -252,8 +255,9 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     Date recordDate = Date::now();
 
 
-    auto processor = [&] (NamedRowValue & row,
-                           const std::vector<ExpressionValue> & scoreLabelWeight)
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row,
+                          const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             CellValue maxLabel;
             double maxLabelScore = -INFINITY;
@@ -479,7 +483,8 @@ runRegression(AccuracyConfig & runAccuracyConf,
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
 
-    auto processor = [&] (NamedRowValue & row,
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row,
                           const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             double score = scoreLabelWeight[0].toDouble();
@@ -506,9 +511,9 @@ runRegression(AccuracyConfig & runAccuracyConf,
         };
 
     selectQuery.execute({processor,true/*processInParallel*/},
-             runAccuracyConf.testingData.stm->offset,
-             runAccuracyConf.testingData.stm->limit,
-             nullptr /* progress */);
+                        runAccuracyConf.testingData.stm->offset,
+                        runAccuracyConf.testingData.stm->limit,
+                        nullptr /* progress */);
 
 
     if(output) {

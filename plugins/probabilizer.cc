@@ -172,8 +172,9 @@ run(const ProcedureRunConfig & run,
 
     std::atomic<int> numRows(0);
 
-    auto processor = [&] (NamedRowValue & row,
-                           const std::vector<ExpressionValue> & extraVals)
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row,
+                          const std::vector<ExpressionValue> & extraVals)
         {
             float score = extraVals.at(0).toDouble();
             float label = extraVals.at(1).toDouble();

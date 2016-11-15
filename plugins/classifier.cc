@@ -375,8 +375,9 @@ run(const ProcedureRunConfig & run,
     PerThreadAccumulator<ThreadAccum> accum;
 
 
-    auto processor = [&] (NamedRowValue & row_,
-                           const std::vector<ExpressionValue> & extraVals)
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row_,
+                          const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             CellValue label = extraVals.at(0).getAtom();

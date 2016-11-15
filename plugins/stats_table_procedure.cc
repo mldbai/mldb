@@ -248,8 +248,9 @@ run(const ProcedureRunConfig & run,
     // columns cache
     map<ColumnPath, vector<ColumnPath>> colCache;
 
-    auto processor = [&] (NamedRowValue & row_,
-                           const std::vector<ExpressionValue> & extraVals)
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row_,
+                          const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
@@ -685,8 +686,9 @@ run(const ProcedureRunConfig & run,
     int num_req = 0;
     Date start = Date::now();
 
-    auto processor = [&] (NamedRowValue & row_,
-                           const std::vector<ExpressionValue> & extraVals)
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row_,
+                          const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 10000 == 0) {

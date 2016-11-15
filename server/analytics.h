@@ -40,31 +40,45 @@ struct SqlExpressionMldbScope;
 extern const OrderByExpression ORDER_BY_NOTHING;
 
 struct RowProcessor {
-    std::function<bool (NamedRowValue & output)> processorfct;
+    std::function<bool (int64_t rowIndex,
+                        NamedRowValue & output)> processorfct;
     bool processInParallel;
 
-    bool operator () (NamedRowValue & output) {return processorfct(output);}
+    bool operator () (int64_t rowIndex,
+                      NamedRowValue & output)
+    {
+        return processorfct(rowIndex, output);
+    }
 };
 
 struct RowProcessorExpr {
     std::function<bool (Path & rowName,
+                        int64_t rowIndex,
                         ExpressionValue & output,
                         std::vector<ExpressionValue> & calc)> processorfct;
     bool processInParallel;
 
     bool operator () (Path & rowName,
+                      int64_t rowIndex,
                       ExpressionValue & output,
                       std::vector<ExpressionValue> & calc)
     {
-        return processorfct(rowName, output, calc);
+        return processorfct(rowName, rowIndex, output, calc);
     }
 };
 
 struct RowProcessorEx {
-    std::function<bool (NamedRowValue & output, const std::vector<ExpressionValue> & calc)> processorfct;
+    std::function<bool (int64_t rowIndex,
+                        NamedRowValue & output,
+                        const std::vector<ExpressionValue> & calc)> processorfct;
     bool processInParallel;
 
-    bool operator () (NamedRowValue & output, const std::vector<ExpressionValue> & calc) {return processorfct(output, calc);}
+    bool operator () (int64_t rowIndex,
+                      NamedRowValue & output,
+                      const std::vector<ExpressionValue> & calc)
+    {
+        return processorfct(rowIndex, output, calc);
+    }
 };
 
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching

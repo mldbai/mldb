@@ -138,8 +138,9 @@ run(const ProcedureRunConfig & run,
     ColumnPath valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
-    auto processor = [&] (NamedRowValue & row_,
-                           const std::vector<ExpressionValue> & extraVals)
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row_,
+                          const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             Date rowTs = Date::negativeInfinity();
