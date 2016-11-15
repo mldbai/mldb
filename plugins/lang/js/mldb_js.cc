@@ -1157,6 +1157,18 @@ struct MldbJS::Methods {
             args.GetReturnValue().Set(args.This());
         } HANDLE_JS_EXCEPTIONS(args);
     }
+
+    static void
+    requirePlugin(const v8::FunctionCallbackInfo<v8::Value> & args)
+    {
+        using namespace v8;
+        try {
+            Utf8String name = JS::getArg<Utf8String>(args, 0, "plugin");
+            MldbServer * server = MldbJS::getShared(args.This());
+            server->requirePlugin(name);
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
+    }
 };
 
 MldbServer *
@@ -1239,6 +1251,9 @@ registerMe()
 
     result->Set(String::NewFromUtf8(isolate, "debugSetPathOptimizationLevel"),
                 FunctionTemplate::New(isolate, Methods::setPathOptimizationLevel));
+
+    result->Set(String::NewFromUtf8(isolate, "requirePlugin"),
+                FunctionTemplate::New(isolate, Methods::requirePlugin));
 
     return scope.Escape(result);
 }

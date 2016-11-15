@@ -8,6 +8,20 @@
 
 #pragma once
 
+#ifndef ARCHDIR
+#  if defined(__i386__)
+#    define ARCHDIR "i686"
+#  elif defined(__amd64__)
+#    define ARCHDIR "x86_64"
+#  elif defined (__aarch64__)
+#    define ARCHDIR "arm64"
+#  elif defined(__arm__)
+#    define ARCHDIR "arm"
+#  else
+#    error "Unknown architecture; define ARCHDIR"
+#  endif
+#endif
+
 #if defined(__i386__) || defined(__amd64__)
 # define MLDB_INTEL_ISA 1
 #elif defined (__aarch64__) || defined(__arm__)
@@ -19,3 +33,4 @@
 # else
 #  define MLDB_BITS 32
 # endif // 32/64 bits
+

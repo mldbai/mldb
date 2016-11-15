@@ -537,6 +537,27 @@ scanPlugins(const std::string & dir_)
     }
 }
 
+void
+MldbServer::
+requirePlugin(const Utf8String & plugin)
+{
+    if (plugins->tryGetExistingEntity(plugin))
+        return;
+
+    
+
+    // Try to load it
+    scanPlugins("file://build/" ARCHDIR "/" + plugin.rawString());
+    scanPlugins("file:///opt/mldb_plugins/" ARCHDIR "/" + plugin.rawString());
+
+    // And look again
+    if (plugins->tryGetExistingEntity(plugin))
+        return;
+
+    throw HttpReturnException(400, "Required plugin " + plugin
+                              + " was not loaded and couldn't be loaded");
+}
+
 Utf8String
 MldbServer::
 getPackageDocumentationPath(const Package & package) const
