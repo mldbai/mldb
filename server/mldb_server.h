@@ -78,6 +78,12 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     */
     void scanPlugins(const std::string & dir);
 
+    /** Make sure that the plugin of the given type is loaded and
+        available.  Will throw an exception if this can't be made
+        to be true.
+    */
+    void requirePlugin(const Utf8String & plugin);
+
     /** Set up the SSD cache directory, where files that need memory
         mapping can be cached.
     */
