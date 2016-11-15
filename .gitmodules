@@ -82,4 +82,6 @@
 [submodule "ext/azure-storage-cpp"]
 	path = ext/azure-storage-cpp
 	url = git@github.com:mldbai/azure-storage-cpp.git
-
+[submodule "sensors/ext/i2cdevlib"]
+	path = sensors/ext/i2cdevlib
+	url = https://github.com/mldbai/i2cdevlib.git
