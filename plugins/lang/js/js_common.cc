@@ -8,12 +8,20 @@
 
 #include "js_common.h"
 #include "js_utils.h"
+#include "mldb/rest/poly_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/server/plugin_resource.h"
+#include "mldb/server/mldb_server.h"
 #include "mldb_js.h"
 #include "mldb/ext/v8-cross-build-output/include/libplatform/libplatform.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb_js.h"
+#include "dataset_js.h"
+#include "function_js.h"
+#include "procedure_js.h"
+#include "sensor_js.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
@@ -243,6 +251,65 @@ struct V8MldbPlatform: public v8::Platform {
     std::thread foregroundMessageLoop;
 };
 
+/*****************************************************************************/
+/* JS ISOLATE                                                                */
+/*****************************************************************************/
+
+namespace {
+
+std::mutex isolateMutex;
+std::vector<std::shared_ptr<v8::Isolate> > spareIsolates;
+
+void cleanupIsolates()
+{
+    spareIsolates.clear();
+}
+
+} // file scope
+
+
+JsIsolate::
+JsIsolate()
+{
+    // not initialized
+}
+
+JsIsolate::
+JsIsolate(bool forThisThreadOnly)
+{
+    init(forThisThreadOnly);
+}
+
+JsIsolate::
+~JsIsolate()
+{
+    using namespace std;
+    locker.reset();
+    if (isolate) {
+        std::unique_lock<std::mutex> guard(isolateMutex);
+        spareIsolates.emplace_back(std::move(isolatePtr));
+        cerr << "-there are now " << spareIsolates.size() << " spare isolates"
+             << endl;
+    }
+}
+
+JsIsolate *
+JsIsolate::
+getIsolateForMyThread()
+{
+    static __thread JsIsolate * result = 0;
+
+    if (!result) {
+        result = new JsIsolate(true);
+    }
+
+    return result;
+}
+
+// In js_loader.cc
+v8::Local<v8::ObjectTemplate>
+getJsPluginTemplate();
+
 void
 JsIsolate::
 init(bool forThisThreadOnly)
@@ -250,9 +317,22 @@ init(bool forThisThreadOnly)
     Isolate::CreateParams create_params;
     create_params.array_buffer_allocator =
         v8::ArrayBuffer::Allocator::NewDefaultAllocator();
-
-    this->isolate = v8::Isolate::New(create_params);
-
+    
+    {
+        std::unique_lock<std::mutex> guard(isolateMutex);
+        if (spareIsolates.empty()) {
+            this->isolate = v8::Isolate::New(create_params);
+            this->isolatePtr.reset(isolate,
+                                   [] (v8::Isolate * i) { i->Dispose(); });
+        }
+        else {
+            this->isolatePtr = spareIsolates.back();
+            this->isolate = isolatePtr.get();
+            spareIsolates.pop_back();
+            cerr << "+there are now " << spareIsolates.size() << " spare isolates"
+                 << endl;
+        }
+    }
 
     this->isolate->Enter();
     v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, 50 /* frame limit */,
@@ -299,6 +379,86 @@ init(bool forThisThreadOnly)
     }
 }
 
+/*****************************************************************************/
+/* JS PLUGIN CONTEXT                                                         */
+/*****************************************************************************/
+
+JsPluginContext::
+JsPluginContext(const Utf8String & pluginName,
+                MldbServer * server,
+                std::shared_ptr<LoadedPluginResource> pluginResource)
+    : 
+      categoryName(pluginName.rawString() + " plugin"),
+      loaderName(pluginName.rawString() + " loader"),
+      category(categoryName.c_str()),
+      loader(loaderName.c_str()),
+      server(server),
+      pluginResource(pluginResource)
+{
+    using namespace v8;
+
+    static V8Init v8Init(server);
+
+    isolate = getIsolate(false /* for this thread only */);
+
+    v8::Locker locker(this->isolate.isolate);
+    v8::Isolate::Scope isolate(this->isolate.isolate);
+
+    HandleScope handle_scope(this->isolate.isolate);
+
+    // Create a new context.
+    context.Reset(this->isolate.isolate,
+                  Context::New(this->isolate.isolate));
+    
+    // Enter the created context to compile and run the script
+    Context::Scope context_scope(context.Get(this->isolate.isolate));
+    
+    // This is how we set it
+    // https://code.google.com/p/v8/issues/detail?id=54
+    v8::Local<v8::Object> globalPrototype
+        = context.Get(this->isolate.isolate)->Global()
+        ->GetPrototype().As<v8::Object>();
+    
+    auto plugin = getJsPluginTemplate()->NewInstance();
+    plugin->SetInternalField(0, v8::External::New(this->isolate.isolate, this));
+    plugin->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
+    if (pluginResource)
+        plugin->Set(String::NewFromUtf8(this->isolate.isolate, "args"), JS::toJS(jsonEncode(pluginResource->args)));
+    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "plugin"), plugin);
+
+    auto mldb = MldbJS::registerMe()->NewInstance();
+    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->server));
+    mldb->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
+    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "mldb"), mldb);
+
+    Stream.Reset(this->isolate.isolate, StreamJS::registerMe());
+    Dataset.Reset(this->isolate.isolate, DatasetJS::registerMe());
+    Function.Reset(this->isolate.isolate, FunctionJS::registerMe());
+    Sensor.Reset(this->isolate.isolate, SensorJS::registerMe());
+    Procedure.Reset(this->isolate.isolate, ProcedureJS::registerMe());
+    CellValue.Reset(this->isolate.isolate, CellValueJS::registerMe());
+    RandomNumberGenerator.Reset(this->isolate.isolate,
+                                RandomNumberGeneratorJS::registerMe());
+}
+
+JsPluginContext::
+~JsPluginContext()
+{
+}
+
+JsIsolate
+JsPluginContext::
+getIsolate(bool ownThread)
+{
+    JsIsolate result(ownThread);
+    return result;
+}
+
+
+/*****************************************************************************/
+/* V8 INIT                                                                   */
+/*****************************************************************************/
+
 V8Init::
 V8Init(MldbServer * server)
 {
@@ -336,6 +496,10 @@ V8Init(MldbServer * server)
     v8::V8::Initialize();
 
     alreadyDone = true;
+
+    // When the server exits, clean up the isolates that have been
+    // cached to avoid deadlocks on destruction.
+    server->onExit(cleanupIsolates);
 }
 
 CellValue from_js(const JS::JSValue & value, CellValue *)

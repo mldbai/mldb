@@ -40,16 +40,16 @@ createSensor(MldbServer * server,
 
 std::shared_ptr<SensorType>
 registerSensorType(const Package & package,
-                        const Utf8String & name,
-                        const Utf8String & description,
-                        std::function<Sensor * (RestDirectory *,
-                                                PolyConfig,
-                                                const std::function<bool (const Json::Value)> &)>
-                        createEntity,
-                        TypeCustomRouteHandler docRoute,
-                        TypeCustomRouteHandler customRoute,
-                        std::shared_ptr<const ValueDescription> config,
-                        std::set<std::string> registryFlags)
+                   const Utf8String & name,
+                   const Utf8String & description,
+                   std::function<Sensor * (RestDirectory *,
+                                           PolyConfig,
+                                           const std::function<bool (const Json::Value)> &)>
+                   createEntity,
+                   TypeCustomRouteHandler docRoute,
+                   TypeCustomRouteHandler customRoute,
+                   std::shared_ptr<const ValueDescription> config,
+                   std::set<std::string> registryFlags)
 {
     return SensorCollection::registerType(package, name, description, createEntity,
                                           docRoute, customRoute,

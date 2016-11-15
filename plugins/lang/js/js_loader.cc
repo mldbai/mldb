@@ -351,74 +351,11 @@ struct JsPluginJS {
     }
 };
 
-
-/*****************************************************************************/
-/* JS PLUGIN CONTEXT                                                         */
-/*****************************************************************************/
-
-JsPluginContext::
-JsPluginContext(const Utf8String & pluginName,
-                MldbServer * server,
-                std::shared_ptr<LoadedPluginResource> pluginResource)
-    : categoryName(pluginName.rawString() + " plugin"),
-      loaderName(pluginName.rawString() + " loader"),
-      category(categoryName.c_str()),
-      loader(loaderName.c_str()),
-      server(server),
-      pluginResource(pluginResource)
+v8::Local<v8::ObjectTemplate>
+getJsPluginTemplate()
 {
-    using namespace v8;
-
-    static V8Init v8Init(server);
-
-    isolate.init(false /* for this thread only */);
-
-    v8::Locker locker(this->isolate.isolate);
-    v8::Isolate::Scope isolate(this->isolate.isolate);
-
-    HandleScope handle_scope(this->isolate.isolate);
-
-    // Create a new context.
-    context.Reset(this->isolate.isolate,
-                  Context::New(this->isolate.isolate));
-    
-    // Enter the created context for compiling and
-    // running the hello world script. 
-    Context::Scope context_scope(context.Get(this->isolate.isolate));
-    
-    // This is how we set it
-    // https://code.google.com/p/v8/issues/detail?id=54
-    v8::Local<v8::Object> globalPrototype
-        = context.Get(this->isolate.isolate)->Global()
-        ->GetPrototype().As<v8::Object>();
-    
-    auto plugin = JsPluginJS::registerMe()->NewInstance();
-    plugin->SetInternalField(0, v8::External::New(this->isolate.isolate, this));
-    plugin->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
-    if (pluginResource)
-        plugin->Set(String::NewFromUtf8(this->isolate.isolate, "args"), JS::toJS(jsonEncode(pluginResource->args)));
-    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "plugin"), plugin);
-
-    auto mldb = MldbJS::registerMe()->NewInstance();
-    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->server));
-    mldb->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
-    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "mldb"), mldb);
-
-    Stream.Reset(this->isolate.isolate, StreamJS::registerMe());
-    Dataset.Reset(this->isolate.isolate, DatasetJS::registerMe());
-    Function.Reset(this->isolate.isolate, FunctionJS::registerMe());
-    Sensor.Reset(this->isolate.isolate, SensorJS::registerMe());
-    Procedure.Reset(this->isolate.isolate, ProcedureJS::registerMe());
-    CellValue.Reset(this->isolate.isolate, CellValueJS::registerMe());
-    RandomNumberGenerator.Reset(this->isolate.isolate,
-                                RandomNumberGeneratorJS::registerMe());
+    return JsPluginJS::registerMe();
 }
-
-JsPluginContext::
-~JsPluginContext()
-{
-}
-
 
 
 /*****************************************************************************/
