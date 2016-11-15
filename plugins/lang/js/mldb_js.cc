@@ -616,8 +616,7 @@ struct MldbJS::Methods {
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
-            Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
-            PolyConfig config = jsonDecode<PolyConfig>(configJson);
+            PolyConfig config = JS::getArg<PolyConfig>(args, 0, "Config");
 
             auto dataset = obtainDataset(server, config);
 
@@ -631,10 +630,8 @@ struct MldbJS::Methods {
             objectIn->Set(v8::String::NewFromUtf8(isolate, "id"),
                           JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
-            if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"),
-                              JS::toJS(paramsOut));
-            }
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "params"),
+                          JS::toJS(paramsOut));
 
             args.GetReturnValue().Set(DatasetJS::create(dataset, context));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -647,8 +644,7 @@ struct MldbJS::Methods {
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
-            Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
-            PolyConfig config = jsonDecode<PolyConfig>(configJson);
+            PolyConfig config = JS::getArg<PolyConfig>(args, 0, "Config");
 
             auto function = obtainFunction(server, config);
 
@@ -661,9 +657,7 @@ struct MldbJS::Methods {
 
             objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
-            if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
-            }
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
 
             args.GetReturnValue().Set(FunctionJS::create(function, context));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -676,8 +670,7 @@ struct MldbJS::Methods {
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
-            Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
-            PolyConfig config = jsonDecode<PolyConfig>(configJson);
+            PolyConfig config = JS::getArg<PolyConfig>(args, 0, "Config");
 
             auto sensor = obtainSensor(server, config);
 
@@ -690,9 +683,7 @@ struct MldbJS::Methods {
 
             objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
-            if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
-            }
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
 
             args.GetReturnValue().Set(SensorJS::create(sensor, context));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -705,8 +696,7 @@ struct MldbJS::Methods {
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
             MldbServer * server = MldbJS::getShared(args.This());
-            Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
-            PolyConfig config = jsonDecode<PolyConfig>(configJson);
+            PolyConfig config = JS::getArg<PolyConfig>(args, 0, "Config");
 
             auto procedure = obtainProcedure(server, config);
 
@@ -719,9 +709,7 @@ struct MldbJS::Methods {
 
             objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
-            if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
-            }
+            objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
 
             args.GetReturnValue().Set(ProcedureJS::create(procedure, context));
         } HANDLE_JS_EXCEPTIONS(args);

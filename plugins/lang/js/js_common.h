@@ -116,6 +116,12 @@ ExpressionValue from_js(const JS::JSValue & value, ExpressionValue * = 0);
 
 ExpressionValue from_js_ref(const JS::JSValue & value, ExpressionValue * = 0);
 
+void to_js(JS::JSValue & value, const PolyConfig & val);
+
+PolyConfig from_js(const JS::JSValue & value, PolyConfig * = 0);
+
+PolyConfig from_js_ref(const JS::JSValue & value, PolyConfig * = 0);
+
 /** Convert an exception to its representation. */
 ScriptException convertException(const v8::TryCatch & trycatch,
                                  const Utf8String & context);
