@@ -169,9 +169,15 @@ The following functions aid in working with SQL from within Javascript.
   rows of the given table.
 - `mldb.sqlEscape(<string>)` will turn the given string into an SQL string,
   including adding delimiters and escaping any SQL characters that need it.
-  For example, `mldb.sqlEscape("It's hot")` will return "`'It''s hot'".  This
+  For example, `mldb.sqlEscape("It's hot")` will return `"'It''s hot'"`.  This
   can be used to help construct SQL queries containing strings that may
   include special characters.
+- `mldb.sqlEscapeVar(<string>)` will turn the given string into an SQL 
+  variable or table name, including adding delimiters and escaping any SQL
+  characters that need it.  For example,
+  `mldb.sqlEscapeVar('"hello it\'s hot"')` will return `"""hello it's hot"""`.
+  This can be used to help construct SQL queries containing table or variable
+  names that may include special characters.
   
 
 ### Interacting with MLDB data types

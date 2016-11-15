@@ -16,9 +16,19 @@ namespace MLDB {
 
 struct Path;
 
+/** These three escape the given string to an SQL string
+    name, by replacing any single quotes with their doubled versions.
+*/
 Utf8String escapeSql(const Utf8String & str);
 std::string escapeSql(const std::string & str);
 std::string escapeSql(const char * str);
+
+/** These three escape the given string to an SQL variable (or table)
+    name, by replacing any double quotes with their doubled versions.
+*/
+Utf8String escapeSqlVar(const Utf8String & str);
+std::string escapeSqlVar(const std::string & str);
+std::string escapeSqlVar(const char * str);
 
 /** For when we have a variable reference like "x.y" in table x, when
     passing the expression through the table we need to remove it from
