@@ -1,9 +1,9 @@
 {
     "config": {
         "type": "sharedLibrary",
-        "id": "av",
+        "id": "sensors",
         "params": {
-            "library": "lib/libmldb_av_plugin.so",
+            "library": "lib/libmldb_sensors_plugin.so",
             "doc": "doc",
             "version": "0.9",
             "apiVersion": "1.0.0"

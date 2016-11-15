@@ -1,1 +1,1 @@
-#define PROGMEM 
+#define PROGMEM const
