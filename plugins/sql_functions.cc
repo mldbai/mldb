@@ -778,6 +778,7 @@ run(const ProcedureRunConfig & run,
         std::atomic<size_t> chunkNumber(0);
         auto recordRowInOutputDataset
             = [&] (RowPath & rowPath,
+                   int64_t rowIndex,
                    ExpressionValue & row,
                    std::vector<ExpressionValue> & calc)
             {
@@ -845,7 +846,8 @@ run(const ProcedureRunConfig & run,
     }
     else {
         auto recordRowInOutputDataset
-            = [&] (NamedRowValue & row_)
+            = [&] (int64_t rowIndex,
+                   NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
                 std::vector<std::tuple<ColumnPath, CellValue, Date> > cols

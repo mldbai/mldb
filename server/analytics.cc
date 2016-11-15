@@ -113,15 +113,19 @@ iterateDataset(const SelectExpression & select,
                     ssize_t limit,
                     const ProgressFunc & onProgress)
 {
-    std::function<bool (NamedRowValue & output,
+    std::function<bool (int64_t rowIndex,
+                        NamedRowValue & output,
                         const std::vector<ExpressionValue> & calcd)>
-    processor2 = [&] (NamedRowValue & output,
-                       const std::vector<ExpressionValue> & calcd)
+    processor2 = [&] (int64_t rowIndex,
+                      NamedRowValue & output,
+                      const std::vector<ExpressionValue> & calcd)
         {
-            return processor(output);
+            return processor(rowIndex, output);
         };
 
-    return iterateDataset(select, from, std::move(alias), when, where, {}, {processor2, processor.processInParallel}, orderBy, offset, limit, onProgress);
+    return iterateDataset(select, from, std::move(alias), when, where, {},
+                          {processor2, processor.processInParallel},
+                          orderBy, offset, limit, onProgress);
 }
 
 /** Iterates over the dataset, extracting a dense feature vector from each row. */
@@ -276,7 +280,8 @@ getEmbedding(const SelectExpression & select,
             return true;
         };
 
-    auto sparseProcessor = [&] (NamedRowValue & output,
+    auto sparseProcessor = [&] (int64_t rowIndex,
+                                NamedRowValue & output,
                                 const std::vector<ExpressionValue> & calcd)
         {
             auto features = getEmbeddingDouble(std::move(output.columns));

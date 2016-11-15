@@ -104,7 +104,7 @@ struct BoundSelectQuery {
                      const SqlExpression & where,
                      const OrderByExpression & orderBy,
                      std::vector<std::shared_ptr<SqlExpression> > calc,
-                     int numBuckets = -1);
+                     int64_t numBuckets = -1);
 
     bool execute(RowProcessorEx processor,
                  ssize_t offset,
@@ -112,7 +112,8 @@ struct BoundSelectQuery {
                  const ProgressFunc & onProgress);
 
     bool execute(std::function<bool (NamedRowValue & output,
-                                     std::vector<ExpressionValue> & calcd, int rowNum)> processor,
+                                     std::vector<ExpressionValue> & calcd,
+                                     int64_t rowNum)> processor,
                  bool processInParallel,
                  ssize_t offset,
                  ssize_t limit,
@@ -126,7 +127,7 @@ struct BoundSelectQuery {
     bool executeExpr(std::function<bool (RowPath & rowName,
                                          ExpressionValue & val,
                                          std::vector<ExpressionValue> & calcd,
-                                         int rowNum)> processor,
+                                         int64_t rowNum)> processor,
                      bool processInParallel,
                      ssize_t offset,
                      ssize_t limit,
@@ -154,9 +155,10 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    std::pair<bool, std::shared_ptr<ExpressionValueInfo> > execute(RowProcessor processor,  
-                     ssize_t offset, ssize_t limit,
-                     const ProgressFunc & onProgress);
+    std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
+    execute(RowProcessor processor,  
+            ssize_t offset, ssize_t limit,
+            const ProgressFunc & onProgress);
 
     const Dataset & from;
     WhenExpression when;

@@ -202,7 +202,7 @@ run(const ProcedureRunConfig & run,
     std::unordered_map<Utf8String, uint64_t> dfs;
     std::atomic<uint64_t> corpusSize(0);
 
-    auto processor = [&] (NamedRowValue & row_)
+    auto processor = [&] (int64_t rowIndex, NamedRowValue & row_)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             for (auto& col : row.columns) {

@@ -462,8 +462,9 @@ run(const ProcedureRunConfig & run,
     };
 
 
-    auto processor = [&] (NamedRowValue & row_,
-                           const std::vector<ExpressionValue> & extraVals)
+    auto processor = [&] (int64_t rowIndex,
+                          NamedRowValue & row_,
+                          const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             ExpressionValue label = extraVals.at(0);
