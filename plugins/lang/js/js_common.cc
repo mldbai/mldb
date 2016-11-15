@@ -610,6 +610,21 @@ ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)
     return ExpressionValue(val, Date::notADate());
 }
 
+void to_js(JS::JSValue & value, const PolyConfig & val)
+{
+    to_js(value, jsonEncode(val));
+}
+
+PolyConfig from_js(const JS::JSValue & value, PolyConfig *)
+{
+    return jsonDecode<PolyConfig>(JS::fromJS(value));
+}
+
+PolyConfig from_js_ref(const JS::JSValue & value, PolyConfig *)
+{
+    return from_js(value, (PolyConfig *)0);
+}
+
 ScriptStackFrame
 parseV8StackFrame(const std::string & v8StackFrameMessage)
 {
