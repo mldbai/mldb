@@ -172,7 +172,7 @@ struct NumericRowHandler {
         int64_t numNotNull = 0;
         bool isNumeric = false;
         ColumnPath value("value");
-        auto onRow = [&] (NamedRowValue & row) {
+        auto onRow = [&] (int64_t rowIndex, NamedRowValue & row) {
 
             // If the data is categorical, we don't even reach this point
 
@@ -265,7 +265,8 @@ struct NumericRowHandler {
         int idx = 0;
         int64_t count = 0;
         MostFrequents<double, 10> mostFrequents; // Keep top 10
-        auto onRow2 = [&] (NamedRowValue & row) {
+        auto onRow2 = [&] (int64_t rowIndex,
+                           NamedRowValue & row) {
             const auto & cols = row.columns;
             if (MLDB_UNLIKELY(first)) {
                 ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");
@@ -336,8 +337,8 @@ struct CategoricalRowHandler {
     std::function<bool (const Json::Value &)> onProgress;
 
     void recordStatsForColumn(const Utf8String & name, const Path & rowName) {
-        ColumnPath value("value");
-        auto onRow = [&] (NamedRowValue & row) {
+        static const ColumnPath value("value");
+        auto onRow = [&] (int64_t rowIndex, NamedRowValue & row) {
             const auto & cols = row.columns;
             if (MLDB_UNLIKELY(first)) {
                 // Checks on the first row if the expected order is correct
@@ -381,7 +382,8 @@ struct CategoricalRowHandler {
         auto orderBy = OrderByExpression::parse("_0 DESC");
 
         MostFrequents<Utf8String, 10> mostFrequents; // Keep top 10
-        auto onRow2 = [&] (NamedRowValue & row) {
+        auto onRow2 = [&] (int64_t rowIndex,
+                           NamedRowValue & row) {
             const auto & cols = row.columns;
             if (MLDB_UNLIKELY(first)) {
                 ExcAssert(std::get<0>(cols[0]).toUtf8String() == "_0");

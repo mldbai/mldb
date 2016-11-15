@@ -37,7 +37,7 @@ getColumnStats(const SelectExpression & select,
 {
     std::unordered_map<ColumnPath, ColumnStats> stats;
        
-    auto onRow = [&stats] (NamedRowValue & output_) {
+    auto onRow = [&stats] (int64_t rowIndex, NamedRowValue & output_) {
         MatrixNamedRow output = output_.flattenDestructive();
         for (auto & col : output.columns) {
             auto & columnPath = get<0>(col);
@@ -62,7 +62,7 @@ getColumnStats(const SelectExpression & select,
                         {onRow, false /*processInParallel*/}, 
                         orderBy, offset, limit, onProgress).first) {
            throw CancellationException("getColumnStats was cancelled");
-       }
+    }
     return stats;
 }
 
@@ -246,7 +246,8 @@ extractFeaturesFromRows(const SelectExpression & select,
     std::fill(modelTs, modelTs + numBuckets, Date::negativeInfinity());
 
     // Extract entire rows
-    auto onRow = [&] (NamedRowValue & output_)
+    auto onRow = [&] (int64_t rowIndex,
+                      NamedRowValue & output_)
         {
             MatrixNamedRow output = output_.flattenDestructive();
 
@@ -278,7 +279,8 @@ extractFeaturesFromRows(const SelectExpression & select,
             return true;
         };
     iterateDataset(select, dataset, "", when, *where, 
-                   {onRow, true /*processInParallel*/}, orderBy, offset, limit, onProgress);
+                   {onRow, true /*processInParallel*/},
+                   orderBy, offset, limit, onProgress);
 
     DEBUG_MSG(logger) << "done extracting values in " << timer.elapsed();
 

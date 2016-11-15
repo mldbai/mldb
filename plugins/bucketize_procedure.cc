@@ -141,9 +141,10 @@ run(const ProcedureRunConfig & run,
 
     vector<RowPath> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
-    auto getSize = [&] (NamedRowValue & row,
+    auto getSize = [&] (int64_t rowIndex,
+                        NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
-    {
+        {
         for (auto & c: calc) {
             auto ts = c.getAtom().toTimestamp();
             if (ts.isADate()) {
