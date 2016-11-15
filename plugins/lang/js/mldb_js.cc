@@ -14,6 +14,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "mldb/core/sensor.h"
+#include "mldb/core/plugin.h"
 #include "mldb/base/optimized_path.h"
 #include "procedure_js.h"
 #include "function_js.h"

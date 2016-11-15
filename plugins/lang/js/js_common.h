@@ -26,21 +26,28 @@ struct CellValue;
 struct ExpressionValue;
 struct MldbServer;
 struct LoadedPluginResource;
+struct PolyConfig;
 
 extern Logging::Category mldbJsCategory;
 
+
+/*****************************************************************************/
+/* JS ISOLATE                                                                */
+/*****************************************************************************/
+
+/** Class to manage lifecycle of Javascript isolates. */
+
 struct JsIsolate {
-    JsIsolate()
-        : isolate(nullptr)
-    {
-        // not initialized
-    }
+private:
+    friend class JsPluginContext;
 
-    JsIsolate(bool forThisThreadOnly)
-    {
-        init(forThisThreadOnly);
-    }
+    JsIsolate();
 
+    JsIsolate(bool forThisThreadOnly);
+
+    JsIsolate(const JsIsolate & other) = delete;
+    void operator = (const JsIsolate & other) = delete;
+    
     /** Initialize the isolate.  If forThisThreadOnly is true, then this isolate
         is a special isolate for running functions only in this thread, and
         consequently will be locked to this thread and pushed to the bottom of
@@ -49,25 +56,36 @@ struct JsIsolate {
     */
     void init(bool forThisThreadOnly);
 
-    ~JsIsolate()
+public:
+    JsIsolate(JsIsolate && other) noexcept
+        : isolate(other.isolate),
+          isolatePtr(std::move(other.isolatePtr)),
+          locker(std::move(other.locker))
     {
-        locker.reset();
-        isolate->Dispose();
+        other.isolate = nullptr;
     }
 
-    v8::Isolate * isolate;
+    void operator = (JsIsolate && other) noexcept
+    {
+        JsIsolate newMe(std::move(other));
+        swap(newMe);
+    }
+
+    void swap(JsIsolate & other) noexcept
+    {
+        using std::swap;
+        swap(isolate, other.isolate);
+        swap(isolatePtr, other.isolatePtr);
+        swap(locker, other.locker);
+    }
+
+    ~JsIsolate();
+    
+    v8::Isolate * isolate = nullptr;
+    std::shared_ptr<v8::Isolate> isolatePtr;
     std::shared_ptr<v8::Locker> locker;
 
-    static JsIsolate * getIsolateForMyThread()
-    {
-        static __thread JsIsolate * result = 0;
-
-        if (!result) {
-            result = new JsIsolate(true);
-        }
-
-        return result;
-    }
+    static JsIsolate * getIsolateForMyThread();
 };
 
 struct V8Init {
@@ -115,13 +133,19 @@ struct JsException: public MLDB::Exception {
     ScriptException rep;
 };
 
+
+/*****************************************************************************/
+/* JS PLUGIN CONTEXT                                                         */
+/*****************************************************************************/
+
 struct JsPluginContext {
 
     /** Create a JS plugin context.  Note that pluginResource may be
         a null pointer if the context is for a JS function rather than
         an actual plugin.
     */
-    JsPluginContext(const Utf8String & pluginName, MldbServer * server,
+    JsPluginContext(const Utf8String & pluginName,
+                    MldbServer * server,
                     std::shared_ptr<LoadedPluginResource> pluginResource);
     ~JsPluginContext();
 
@@ -155,6 +179,9 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Sensor;
     v8::Persistent<v8::FunctionTemplate> Procedure;
     v8::Persistent<v8::FunctionTemplate> RandomNumberGenerator;
+
+private:
+    static JsIsolate getIsolate(bool ownThread);
 };
 
 

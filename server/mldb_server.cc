@@ -376,11 +376,23 @@ start()
 
 void
 MldbServer::
+onExit(std::function<void () noexcept> fn)
+{
+    std::unique_lock<std::mutex> guard(onExitMutex);
+    onExitFunctions.emplace_back(std::move(fn));
+}
+
+void
+MldbServer::
 shutdown()
 {
     httpEndpoint->closePeer();
 
     ServicePeer::shutdown();
+
+    for (auto & f: onExitFunctions) {
+        f();
+    }
 
     datasets.reset();
     procedures.reset();

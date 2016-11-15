@@ -102,6 +102,9 @@ struct MldbServer: public ServicePeer, public EventRecorder {
 
     void shutdown();
 
+    /** Register the given function to be called on exit. */
+    void onExit(std::function<void () noexcept> fn);
+
     typedef std::function<bool (const Json::Value & progress)> OnProgress;
 
     /** Obtain the dataset with the given configuration. */
@@ -183,6 +186,9 @@ private:
     RestRequestRouter * versionNode;
     std::string cacheDirectory_;
     std::shared_ptr<spdlog::logger> logger;
+
+    std::mutex onExitMutex;
+    std::vector<std::function<void () noexcept> > onExitFunctions;
 };
 
 } // namespace MLDB
