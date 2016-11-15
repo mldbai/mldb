@@ -43,6 +43,33 @@ std::string escapeSql(const char * str)
     return escapeSql(std::string(str));
 }
 
+Utf8String escapeSqlVar(const Utf8String & str)
+{
+    return Utf8String(escapeSqlVar(str.rawString()), false /* check */);
+}
+
+std::string escapeSqlVar(const std::string & str)
+{
+    std::string result;
+    result.reserve(str.length() + 16);
+    result += '\"';
+    for (auto & c: str) {
+        if (!c)
+            throw HttpReturnException(400, "SQL string contains embedded nul");
+        if (c == '\"') {
+            result += '\"';
+        }
+        result += c;
+    }
+    result += '\"';
+    return result;
+}
+
+std::string escapeSqlVar(const char * str)
+{
+    return escapeSqlVar(std::string(str));
+}
+
 //In a single-dataset context
 //If we know the alias of the dataset we are working on, this will remove it from the variable's name
 //It will also verify that the variable identifier does not explicitly specify an dataset that is not of this context.

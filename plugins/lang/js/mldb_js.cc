@@ -1106,6 +1106,20 @@ struct MldbJS::Methods {
     }
 
     static void
+    sqlEscapeVar(const v8::FunctionCallbackInfo<v8::Value> & args)
+    {
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
+        try {
+            Utf8String str = JS::getArg<Utf8String>(args, 0, "str");
+
+            auto result = JS::toJS(escapeSqlVar(str));
+            
+            args.GetReturnValue().Set(scope.Escape(result));
+        } HANDLE_JS_EXCEPTIONS(args);
+    }
+
+    static void
     query(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         v8::Isolate* isolate = args.GetIsolate();
@@ -1244,6 +1258,8 @@ registerMe()
                 FunctionTemplate::New(isolate, Methods::query));
     result->Set(String::NewFromUtf8(isolate, "sqlEscape"),
                 FunctionTemplate::New(isolate, Methods::sqlEscape));
+    result->Set(String::NewFromUtf8(isolate, "sqlEscapeVar"),
+                FunctionTemplate::New(isolate, Methods::sqlEscapeVar));
 
     result->Set(String::NewFromUtf8(isolate, "ls"),
                 FunctionTemplate::New(isolate, Methods::ls));
