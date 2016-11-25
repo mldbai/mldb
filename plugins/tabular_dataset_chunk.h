@@ -31,7 +31,7 @@ struct ExpressionValue;
     each named, with a set of columns (either dense or sparse) attached.
 */
 
-struct TabularDatasetChunk {
+struct TabularDatasetChunk: public MappedObject {
 
     TabularDatasetChunk(size_t numColumns = 0)
         : columns(numColumns),
@@ -55,20 +55,16 @@ struct TabularDatasetChunk {
         columns.swap(other.columns);
         sparseColumns.swap(other.sparseColumns);
         rowNames.swap(other.rowNames);
-        integerRowNames.swap(other.integerRowNames);
         std::swap(timestamps, other.timestamps);
         logger.swap(other.logger);
     }
 
     size_t rowCount() const
     {
-        return std::max(rowNames.size(), integerRowNames.size());
+        return rowNames->size();
     }
 
     size_t memusage() const;
-
-    const FrozenColumn *
-    maybeGetColumn(size_t columnIndex, const PathElement & columnName) const;
 
     /// Return an owned version of the rowname
     Path getRowPath(size_t index) const;
@@ -77,16 +73,15 @@ struct TabularDatasetChunk {
     const Path & getRowPath(size_t index, RowPath & storage) const;
 
     const FrozenColumn *
+    maybeGetColumn(size_t columnIndex, const PathElement & columnName) const;
+
+    const FrozenColumn *
     maybeGetColumn(size_t columnIndex, const Path & columnName) const;
 
-    std::vector<std::shared_ptr<FrozenColumn> > columns;
-    std::unordered_map<Path, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
-private:
-    std::vector<Path> rowNames;
-    std::vector<uint64_t> integerRowNames;
-    std::shared_ptr<spdlog::logger> logger;
-public:
-    std::shared_ptr<FrozenColumn> timestamps;
+    const FrozenColumn & getColumnByIndex(size_t columnIndex) const
+    {
+        return *columns.at(columnIndex);
+    }
 
     /// Get the row with the given index
     std::vector<std::tuple<ColumnPath, CellValue, Date> >
@@ -101,6 +96,33 @@ public:
                      const Path & colName,
                      std::vector<std::tuple<Path, CellValue, Date> > & rows,
                      bool dense) const;
+
+    size_t fixedColumnCount() const
+    {
+        return columns.size();
+    }
+
+    size_t sparseColumnCount() const
+    {
+        return sparseColumns.size();
+    }
+
+    size_t columnCount() const
+    {
+        return columns.size() + sparseColumns.size();
+    }
+
+    /** Serialize to the given serializer. */
+    void serialize(MappedSerializer & serializer) const;
+
+private:
+    std::vector<std::shared_ptr<FrozenColumn> > columns;
+    std::unordered_map<Path, std::shared_ptr<FrozenColumn>, PathNewHasher > sparseColumns;
+    std::shared_ptr<FrozenColumn> rowNames;
+    std::shared_ptr<FrozenColumn> timestamps;
+    std::shared_ptr<spdlog::logger> logger;
+
+    friend class TabularDataset;
     friend class MutableTabularDatasetChunk;
 };
 
@@ -109,6 +131,10 @@ public:
 /* MUTABLE TABULAR DATASET CHUNK                                             */
 /*****************************************************************************/
 
+/** This is a mutable chunk of a tabular dataset.  It's not frozen, and so
+    the storage is less efficient, but it can have rows added to it.
+*/
+
 struct MutableTabularDatasetChunk {
 
     MutableTabularDatasetChunk(size_t numColumns, size_t maxSize);
@@ -116,12 +142,13 @@ struct MutableTabularDatasetChunk {
     MutableTabularDatasetChunk(MutableTabularDatasetChunk && other) noexcept = delete;
     MutableTabularDatasetChunk & operator = (MutableTabularDatasetChunk && other) noexcept = delete;
 
-    TabularDatasetChunk freeze(const ColumnFreezeParameters & params);
+    TabularDatasetChunk freeze(MappedSerializer & serializer,
+                               const ColumnFreezeParameters & params);
 
     /// Protect access in a multithreaded context
     mutable std::mutex mutex;
 
-    /// Maximum size
+    /// Maximum size, in rows
     size_t maxSize;
 
     /// Number of rows added so far
@@ -140,12 +167,9 @@ struct MutableTabularDatasetChunk {
     /// Set of sparse columns
     std::unordered_map<Path, TabularDatasetColumn> sparseColumns;
 
-    /// One per row, or empty if all are simple integers
-    std::vector<Path> rowNames;
+    /// Ordered list of row names
+    TabularDatasetColumn rowNames;
 
-    /// One per row, or empty if there is any non-integer row names
-    std::vector<uint64_t> integerRowNames;
-    
     /// One per row; however these are all date valued
     TabularDatasetColumn timestamps;
 

@@ -34,9 +34,7 @@ memusage() const
                       << result - before;
     before = result;
 
-    for (auto & r: rowNames)
-        result += r.memusage();
-    result += integerRowNames.capacity() * sizeof(uint64_t);
+    result += rowNames->memusage();
 
     DEBUG_MSG(logger) << rowNames.size() << " row names took "
                       << result - before;
@@ -71,10 +69,7 @@ RowPath
 TabularDatasetChunk::
 getRowPath(size_t index) const
 {
-    if (rowNames.empty()) {
-        return PathElement(integerRowNames.at(index));
-    }
-    else return rowNames.at(index);
+    return rowNames->get(index).coerceToPath();
 }
 
 /// Return a reference to the rowName, stored in storage if it's a temp
@@ -82,10 +77,7 @@ const RowPath &
 TabularDatasetChunk::
 getRowPath(size_t index, RowPath & storage) const
 {
-    if (rowNames.empty()) {
-        return storage = PathElement(integerRowNames.at(index));
-    }
-    else return rowNames.at(index);
+    return storage = getRowPath(index);
 }
 
 const FrozenColumn *
@@ -202,14 +194,15 @@ MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
       addFailureNotified(false)
 {
     timestamps.reserve(maxSize);
-    integerRowNames.reserve(maxSize);
+    rowNames.reserve(maxSize);
     for (unsigned i = 0;  i < numColumns;  ++i)
         columns[i].reserve(maxSize);
 }
 
 TabularDatasetChunk
 MutableTabularDatasetChunk::
-freeze(const ColumnFreezeParameters & params)
+freeze(MappedSerializer & serializer,
+       const ColumnFreezeParameters & params)
 {
     std::unique_lock<std::mutex> guard(mutex);
 
@@ -220,14 +213,12 @@ freeze(const ColumnFreezeParameters & params)
     result.sparseColumns.reserve(sparseColumns.size());
 
     for (unsigned i = 0;  i < columns.size();  ++i)
-        result.columns[i] = columns[i].freeze(params);
+        result.columns[i] = columns[i].freeze(serializer, params);
     for (auto & c: sparseColumns)
-        result.sparseColumns.emplace(c.first, c.second.freeze(params));
+        result.sparseColumns.emplace(c.first, c.second.freeze(serializer, params));
 
-    result.timestamps = timestamps.freeze(params);
-
-    result.rowNames = std::move(rowNames);
-    result.integerRowNames = std::move(integerRowNames);
+    result.timestamps = timestamps.freeze(serializer, params);
+    result.rowNames = rowNames.freeze(serializer, params);
 
     isFrozen = true;
 
@@ -257,23 +248,12 @@ add(RowPath & rowName,
     }
 
     ExcAssertEqual(columns.size(), numVals);
+    ssize_t index = rowName.toIndex();
+    if (index != -1)
+        rowNames.add(numRows, index);
+    else
+        rowNames.add(numRows, std::move(rowName));
 
-    uint64_t intRowName;
-
-    if (!rowNames.empty() || (intRowName = rowName.toIndex()) == -1) {
-        // Non-integer row name
-        if (rowNames.empty()) {
-            rowNames.reserve(maxSize);
-            for (auto & n: integerRowNames)
-                rowNames.emplace_back(n);
-            integerRowNames.clear();
-        }
-        rowNames.emplace_back(std::move(rowName));
-    }
-    else {
-        // Still integer row names
-        integerRowNames.emplace_back(intRowName);
-    }
     timestamps.add(numRows, ts.secondsSinceEpoch());
 
     for (unsigned i = 0;  i < columns.size();  ++i) {
