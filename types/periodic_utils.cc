@@ -19,6 +19,7 @@ using namespace MLDB;
 namespace {
 
 TimeGranularity granularities[] = {
+    MICROSECONDS,
     MILLISECONDS,
     SECONDS,
     MINUTES,
@@ -142,7 +143,9 @@ parsePeriod(const std::string & pattern)
     //if (number <= 0)
     //    context.exception("invalid time number: must be > 0");
 
-    if (context.match_literal('x') || context.match_literal("ms"))
+    if (context.match_literal("us"))
+	granularity = MICROSECONDS;
+    else if (context.match_literal('x') || context.match_literal("ms"))
 	granularity = MILLISECONDS;
     else if (context.match_literal('s'))
         granularity = SECONDS;
@@ -248,6 +251,15 @@ findPeriod(Date current, TimeGranularity granularity, double number_)
 
     case MILLISECONDS:
 	interval = number / 1000.0;
+
+	result = current.quantized(interval);
+	if (result > current)
+	    result.addSeconds(-interval);
+
+	break;
+
+    case MICROSECONDS:
+	interval = number / 1000000.0;
 
 	result = current.quantized(interval);
 	if (result > current)
