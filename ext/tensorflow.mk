@@ -135,7 +135,7 @@ CUDNN_VERSION?=5
 
 # Which CUDA compute capabilities do we support?  3.0 is needed for the
 # AWS g2 instances.
-TF_CUDA_CAPABILITIES:=5.3
+TF_CUDA_CAPABILITIES:=6.1
 
 # This part deals with CUDA support.  It's only enabled if WITH_CUDA is
 # equal to 1.
@@ -225,7 +225,7 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 # - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
 #   Eigen disables needed std::initializer_list constructors in its arrays
 #   because it doesn't properly detect that this feature is available
-TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_53 -code=sm_53 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) -DEIGEN_HAS_VARIADIC_TEMPLATES=1
+TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_61 -code=sm_61 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) -DEIGEN_HAS_VARIADIC_TEMPLATES=1
 
 # When compiling the cuda kernels we need to use the include flags and
 # some of our own
@@ -274,10 +274,12 @@ endif
 # Second, the include directories required
 TENSORFLOW_INCLUDE_FLAGS := $(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_INCLUDE_FLAGS)
 
-
 # Here are the flags required to be passed to the compiler to compile
-# tensorflow files
-TENSORFLOW_COMPILE_FLAGS := $(TENSORFLOW_WARNING_FLAGS) $(TENSORFLOW_INCLUDE_FLAGS) $(TENSORFLOW_COMMON_CUDA_FLAGS) -DEIGEN_AVOID_STL_ARRAY=1
+# tensorflow files.
+#
+# -DPLATFORM_POSIX: even the Raspberry Pi can decode JPEG and PNG images, so
+#  we want it to be seen as a POSIX platform not a mobile platform.
+TENSORFLOW_COMPILE_FLAGS := $(TENSORFLOW_WARNING_FLAGS) $(TENSORFLOW_INCLUDE_FLAGS) $(TENSORFLOW_COMMON_CUDA_FLAGS) -DEIGEN_AVOID_STL_ARRAY=1 -DPLATFORM_POSIX
 
 # Here is the list of files we need to compile for tensorflow to be incorporated
 $(TENSORFLOW_CC_FILES):	| $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/highwayhash

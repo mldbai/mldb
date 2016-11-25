@@ -77,21 +77,22 @@ var fnConfig = {
     id: 'incept',
     type: 'tensorflow.graph',
     params: {
-        modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
-        inputs: 'fetch({url})[content] AS "DecodeJpeg/contents"',
-        outputs: "lookupLabels({scores: flatten(softmax)}) AS *"
+        //modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
+        modelFileUrl: 'file://./inception_resnet_v2_2016_08_30.ckpt',
+        //inputs: 'fetch({url})[content] AS "DecodeJpeg/contents"',
+        outputs: "lookupLabels({scores: flatten(\"InceptionResnetV2/Logits/Logits\")}) AS *"
     }
 };
 
 var fn = mldb.createFunction(fnConfig);
 
-var constant = mldb.query("select tf_extract_constant('incept', ['mixed','conv', 'batchnorm', 'beta'])");
+//var constant = mldb.query("select tf_extract_constant('incept', ['mixed','conv', 'batchnorm', 'beta'])");
 
-mldb.log(constant);
+//mldb.log(constant);
 
-constant = mldb.query("select tf_extract_constant('incept', parse_path('mixed.conv.batchnorm.gamma'))");
+//constant = mldb.query("select tf_extract_constant('incept', parse_path('mixed.conv.batchnorm.gamma'))");
 
-mldb.log(constant);
+//mldb.log(constant);
 
 
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
