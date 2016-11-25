@@ -240,14 +240,19 @@ struct SqlExpressionParamScope: public ReadThroughBindingScope {
 
 /** Scope that only binds parameters, ie entities referenced as $xxx which
     are passed in after binding but are constant for each query execution.
+
+    xxx can be a number, or a name, depending upon whether paramNames was
+    empty in the constructor.
 */
 
 struct SqlExpressionEvalScope: public ReadThroughBindingScope {
 
     SqlExpressionEvalScope(SqlBindingScope & outer,
-                           std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo)
+                           std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo,
+                           std::vector<Utf8String> argNames = std::vector<Utf8String>())
         : ReadThroughBindingScope(outer),
-          argInfo(std::move(argInfo))
+          argInfo(std::move(argInfo)),
+          argNames(std::move(argNames))
     {
     }
 
@@ -286,6 +291,7 @@ struct SqlExpressionEvalScope: public ReadThroughBindingScope {
     }
     
     std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo;
+    std::vector<Utf8String> argNames;
 };
 
 

@@ -16,7 +16,8 @@ LIBMLDB_SENSORS_PLUGIN_SOURCES:= \
 	sensors_plugin.cc \
 	audio_sensor.cc \
 	video_sensor.cc \
-	memory_sensor.cc
+	memory_sensor.cc \
+	logger.cc
 
 $(eval $(call mldb_plugin_library,sensors,mldb_sensors_plugin,$(LIBMLDB_SENSORS_PLUGIN_SOURCES),avdevice i2c))
 
