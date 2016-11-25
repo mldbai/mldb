@@ -61,12 +61,21 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return rowsPerChunk;
     }
 
-    TabularDataStore(TabularDatasetConfig config,
+    TabularDataStore(MldbServer * server,
+                     TabularDatasetConfig config,
                      shared_ptr<spdlog::logger> logger)
-        : rowCount(0), config(std::move(config)),
+        : server(server),
+          serializer(/*"tabular-dataset.dat"*/),
+          rowCount(0), config(std::move(config)),
           backgroundJobsActive(0), logger(logger)
     {
     }
+
+    MldbServer * server;
+
+    /// This is used to allocate mapped memory when chunks are frozen
+    //FileSerializer serializer;
+    MemorySerializer serializer;
 
     /** A stream of row names used to incrementally query available rows
         without creating an entire list in memory.
@@ -461,8 +470,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     return true;
                 };
 
-                chunks[i].columns[it->second]->forEachDistinctValue(onValue);
-
+                chunks[i].getColumnByIndex(it->second).forEachDistinctValue(onValue);
+                
                 totalRows += chunks[i].rowCount();
             };
         
@@ -786,7 +795,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         // be too many columns.
         for (size_t i = 0;  i < chunks.size();  ++i) {
             const TabularDatasetChunk & chunk = chunks[i];
-            ExcAssertEqual(fixedColumns.size(), chunk.columns.size());
+            ExcAssertEqual(fixedColumns.size(), chunk.fixedColumnCount());
             for (size_t j = 0;  j < chunk.columns.size();  ++j) {
                 columns[j].chunks.emplace_back(i, chunk.columns[j]);
             }
@@ -886,7 +895,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         threads. */
     struct BasicRecorder: public Recorder {
         BasicRecorder(TabularDataStore * store)
-            : store(store)
+            : Recorder(store->server), store(store)
         {
         }
 
@@ -967,7 +976,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     */
     struct ChunkRecorder: public Recorder {
         ChunkRecorder(TabularDataStore * store)
-            : store(store), doneFirst(store->mutableChunks.load())
+            : Recorder(store->server),
+              store(store), doneFirst(store->mutableChunks.load())
         {
             // Note that this may return a null pointer, if nothing has
             // been loaded yet.
@@ -1087,7 +1097,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             if (!chunk || chunk->rowCount() == 0)
                 return;
             ColumnFreezeParameters params;
-            auto frozen = chunk->freeze(params);
+            auto frozen = chunk->freeze(store->serializer, params);
             store->addFrozenChunk(std::move(frozen));
         }
 
@@ -1148,8 +1158,17 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     void commit()
     {
-        // No mutable chunks anymore.  Atomically swap out the old pointer.
-        auto oldMutableChunks = mutableChunks.exchange(nullptr);
+        // Create new chunks to hold any new data that comes in
+        auto newChunks = std::make_shared<ChunkList>(NUM_PARALLEL_CHUNKS);
+
+        for (auto & c: *newChunks) {
+            auto newChunk = std::make_shared<MutableTabularDatasetChunk>
+                (fixedColumns.size(), chunkSizeForNumColumns(fixedColumns.size()));
+            c.store(std::move(newChunk));
+        }
+            
+        // Atomically swap out the old pointer.  New records go in the new chunks.
+        auto oldMutableChunks = mutableChunks.exchange(std::move(newChunks));
 
         if (!oldMutableChunks)
             return;  // a parallel commit beat us to it
@@ -1230,7 +1249,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         auto job = [=] ()
             {
                 Scope_Exit(--this->backgroundJobsActive);
-                auto frozen = chunk->freeze(params);
+                auto frozen = chunk->freeze(serializer, params);
                 addFrozenChunk(std::move(frozen));
             };
         
@@ -1402,6 +1421,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     void serialize(MappedSerializer & serializer) const
     {
+        for (auto & chunk: chunks) {
+            chunk.serialize(serializer);
+        }
+
 #if 0
         int64_t rowCount;
 
@@ -1449,9 +1472,10 @@ TabularDataset(MldbServer * owner,
                const ProgressFunc & onProgress)
     : Dataset(owner)
 {
-    itl = make_shared<TabularDataStore>(
-            config.params.convert<TabularDatasetConfig>(),
-            MLDB::getMldbLog<TabularDataset>());
+    itl = make_shared<TabularDataStore>
+        (owner,
+         config.params.convert<TabularDatasetConfig>(),
+         MLDB::getMldbLog<TabularDataset>());
 }
 
 TabularDataset::
@@ -1566,6 +1590,16 @@ recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPat
         itl->recordRow(r.first, r.second);
 }
 
+RestRequestMatchResult
+TabularDataset::
+handleRequest(RestConnection & connection,
+              const RestRequest & request,
+              RestRequestParsingContext & context) const
+{
+    return Dataset::handleRequest(connection, request, context);
+}
+
+
 /*****************************************************************************/
 /* TABULAR DATASET                                                           */
 /*****************************************************************************/
@@ -1608,7 +1642,7 @@ regTabular(builtinPackage(),
            "Dense dataset which can be recorded to",
            "datasets/TabularDataset.md.html");
 
-} // file scope*/
+} // file scope
 
 } // MLDB
 
