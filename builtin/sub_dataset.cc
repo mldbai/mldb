@@ -71,17 +71,22 @@ struct SubDataset::Itl
         }       
     }
 
-    Itl(std::vector<NamedRowValue> rows)
+    Itl(MldbServer * server,
+        std::vector<NamedRowValue> rows)
+        : server(server)
     {
         init(std::move(rows));
     }
 
+    MldbServer * server;
+    
     struct ChunkRecorder: public Recorder {
 
         Chunk myChunk;
 
         ChunkRecorder(Itl * itl)
-            : itl(itl)
+            : Recorder(itl->server),
+              itl(itl)
         {
         }
 
@@ -572,7 +577,7 @@ SubDataset::
 SubDataset(MldbServer * owner, std::vector<NamedRowValue> rows)
     : Dataset(owner)
 {
-    itl.reset(new Itl(std::move(rows)));
+    itl.reset(new Itl(owner, std::move(rows)));
 }
 
 SubDataset::

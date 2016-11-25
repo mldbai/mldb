@@ -61,13 +61,17 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return rowsPerChunk;
     }
 
-    TabularDataStore(TabularDatasetConfig config,
+    TabularDataStore(MldbServer * server,
+                     TabularDatasetConfig config,
                      shared_ptr<spdlog::logger> logger)
-        : rowCount(0), config(std::move(config)),
+        : server(server),
+          rowCount(0), config(std::move(config)),
           backgroundJobsActive(0), logger(logger)
     {
     }
 
+    MldbServer * server;
+    
     /** A stream of row names used to incrementally query available rows
         without creating an entire list in memory.
     */
@@ -886,7 +890,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         threads. */
     struct BasicRecorder: public Recorder {
         BasicRecorder(TabularDataStore * store)
-            : store(store)
+            : Recorder(store->server),
+              store(store)
         {
         }
 
@@ -967,7 +972,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     */
     struct ChunkRecorder: public Recorder {
         ChunkRecorder(TabularDataStore * store)
-            : store(store), doneFirst(store->mutableChunks.load())
+            : Recorder(store->server),
+              store(store), doneFirst(store->mutableChunks.load())
         {
             // Note that this may return a null pointer, if nothing has
             // been loaded yet.
@@ -1407,9 +1413,10 @@ TabularDataset(MldbServer * owner,
                const ProgressFunc & onProgress)
     : Dataset(owner)
 {
-    itl = make_shared<TabularDataStore>(
-            config.params.convert<TabularDatasetConfig>(),
-            MLDB::getMldbLog<TabularDataset>());
+    itl = make_shared<TabularDataStore>
+        (owner,
+         config.params.convert<TabularDatasetConfig>(),
+         MLDB::getMldbLog<TabularDataset>());
 }
 
 TabularDataset::
