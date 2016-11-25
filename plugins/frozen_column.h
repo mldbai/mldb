@@ -43,14 +43,226 @@ struct MappedObject {
 
 
 /*****************************************************************************/
+/* FROZEN MEMORY REGION                                                      */
+/*****************************************************************************/
+
+struct FrozenMemoryRegion {
+    FrozenMemoryRegion() = default;
+
+    FrozenMemoryRegion(std::shared_ptr<void> handle,
+                       const char * data,
+                       size_t length);
+
+
+    const char * data() const
+    {
+        return data_;
+    }
+
+    size_t length() const
+    {
+        return length_;
+    }
+
+    size_t memusage() const
+    {
+        return length();
+    }
+
+private:
+    const char * data_ = nullptr;
+    size_t length_ = 0;
+    std::shared_ptr<void> handle_;
+};
+
+/*****************************************************************************/
+/* FROZEN MEMORY REGION                                                      */
+/*****************************************************************************/
+
+template<typename T>
+struct FrozenMemoryRegionT {
+    FrozenMemoryRegionT() = default;
+    
+    FrozenMemoryRegionT(FrozenMemoryRegion raw)
+        : data_((const T *)raw.data()),
+          length_(raw.length() / sizeof(T)),
+          raw(std::move(raw))
+    {
+    }
+
+    const T * data() const
+    {
+        return data_;
+    }
+
+    size_t length() const
+    {
+        return length_;
+    }
+    
+    size_t memusage() const
+    {
+        return length();
+    }
+
+private:
+    const T * data_;
+    size_t length_;
+    FrozenMemoryRegion raw;
+};
+
+
+/*****************************************************************************/
+/* MUTABLE MEMORY REGION                                                     */
+/*****************************************************************************/
+
+struct MappedSerializer;
+
+struct MutableMemoryRegion {
+    MutableMemoryRegion(std::shared_ptr<void> handle,
+                        char * data,
+                        size_t length,
+                        MappedSerializer * owner);
+
+    char * data() const
+    {
+        return data_;
+    }
+
+    size_t length() const
+    {
+        return length_;
+    }
+    
+    FrozenMemoryRegion freeze();
+
+    std::shared_ptr<void> handle() const;
+
+private:
+    struct Itl;
+    std::shared_ptr<Itl> itl;
+    char * const data_;
+    size_t const length_;
+};
+
+template<typename T>
+struct MutableMemoryRegionT {
+    MutableMemoryRegionT(MutableMemoryRegion raw)
+        : raw(std::move(raw)),
+          data_(reinterpret_cast<T *>(this->raw.data())),
+          length_(this->raw.length() / sizeof(T))
+    {
+    }
+
+    T * data() const
+    {
+        return data_;
+    }
+
+    size_t length() const
+    {
+        return length_;
+    }
+    
+    FrozenMemoryRegionT<T> freeze()
+    {
+        return FrozenMemoryRegionT<T>(raw.freeze());
+    }
+
+private:
+    MutableMemoryRegion raw;
+    T * data_ = nullptr;
+    size_t length_ = 0;
+};
+
+
+/*****************************************************************************/
 /* MAPPED SERIALIZER                                                         */
 /*****************************************************************************/
 
 struct MappedSerializer {
-    virtual ~MappedSerializer();
+    virtual ~MappedSerializer()
+    {
+    }
 
-    std::shared_ptr<void> allocateWritable(uint64_t bytesRequired,
-                                           size_t alignment);
+    /** Commit all changes; this normally means that the current block
+        is finished writing.  It is guaranteed that no more changes
+        will be made to any allocated blocks after this method is
+        called.
+    */
+    virtual void commit() = 0;
+
+    /** Allocate a writable block of memory with the given size and
+        alignment.  The memory in the block can be written until the
+        commit() method is called.
+    */
+    virtual MutableMemoryRegion
+    allocateWritable(uint64_t bytesRequired, size_t alignment) = 0;
+
+    /** Freeze the given block of writable memory into a fixed, frozen
+        representation of the same data.  For memory that is backed by
+        disk, this may also mean writing it out in whatever is its
+        customary form.  The memory may be moved around, etc.
+        
+        All references to the given region will become invalid once this is
+        completed.
+    */
+    virtual FrozenMemoryRegion
+    freeze(MutableMemoryRegion & region) = 0;
+    
+    template<typename T>
+    MutableMemoryRegionT<T>
+    allocateWritableT(size_t numItems)
+    {
+        return allocateWritable(numItems * sizeof(T), alignof(T));
+    }
+};
+
+
+/*****************************************************************************/
+/* MEMORY SERIALIZER                                                         */
+/*****************************************************************************/
+
+/** Mapped serializer that puts things in memory. */
+
+struct MemorySerializer: public MappedSerializer {
+    virtual ~MemorySerializer()
+    {
+    }
+
+    virtual void commit();
+
+    virtual FrozenMemoryRegion freeze(MutableMemoryRegion & region);
+
+    virtual MutableMemoryRegion
+    allocateWritable(uint64_t bytesRequired,
+                     size_t alignment);
+};
+
+/*****************************************************************************/
+/* FILE SERIALIZER                                                           */
+/*****************************************************************************/
+
+/** Mapped serializer that allocates things from a file that is then memory
+    mapped.  This allows for unused data to be paged out.
+*/
+
+struct FileSerializer: public MappedSerializer {
+    FileSerializer(Utf8String filename);
+
+    virtual ~FileSerializer();
+
+    virtual void commit();
+
+    virtual MutableMemoryRegion
+    allocateWritable(uint64_t bytesRequired,
+                     size_t alignment);
+
+    virtual FrozenMemoryRegion freeze(MutableMemoryRegion & region);
+
+private:
+    struct Itl;
+    std::unique_ptr<Itl> itl;
 };
 
 
@@ -107,6 +319,7 @@ struct FrozenColumn: public MappedObject {
     /** Freeze the given column into the best fitting frozen column type. */
     static std::shared_ptr<FrozenColumn>
     freeze(TabularDatasetColumn & column,
+           MappedSerializer & serializer,
            const ColumnFreezeParameters & params);
 
     std::shared_ptr<spdlog::logger> logger;
@@ -168,6 +381,7 @@ struct FrozenColumnFormat {
     */
     virtual FrozenColumn *
     freeze(TabularDatasetColumn & column,
+           MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
            std::shared_ptr<void> cachedInfo) const = 0;
     
