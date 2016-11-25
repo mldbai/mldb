@@ -1,5 +1,10 @@
 DEFAULTGXX:=arm-linux-gnueabihf-g++
 DEFAULTGCC:=arm-linux-gnueabihf-gcc
+
+# We don't want the version of python we have installed for local development;
+# we want the version being used on the target platform
+PYTHON_INCLUDE_PATH=$(BUILD)/$(ARCH)/osdeps/usr/include/python$(PYTHON_VERSION)
+
 # To explain the extra COMPARE_AND_SWAP arguments, they fix pure
 # virtual method and std::thread problems on the Pi.  See here:
 # https://groups.google.com/forum/#!msg/automatak-dnp3/Jisp_zGhd5I/ck_Cj6nO8joJ

@@ -449,6 +449,10 @@ $(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/
 
 $(CWD)/tensorflow/cc/ops/$(1)_ops.h: | $(CWD)/tensorflow/cc/ops/$(1)_ops.cc
 
+# We need these libraries to be available for the build to run, so make them part
+# of build_tools
+build_tools:	$(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so
+
 endef
 
 $(foreach op,$(TENSORFLOW_OPS),$(eval $(call generate_tensorflow_op,$(op))))
@@ -459,6 +463,8 @@ $(CWD)/tensorflow/cc/ops/no_op.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_op.h
 
 $(CWD)/tensorflow/cc/ops/no_op.h: | $(CWD)/tensorflow/cc/ops/no_op.cc
+
+build_tools: $(BUILD)/$(HOSTARCH)/lib/libtensorflow_no_op.so
 
 # Find the source files needed for the C++ interface.  Some are pre-packaged and
 # others were generated above.
@@ -478,5 +484,11 @@ $(eval $(call library,tensorflow-cpp-interface,$(TENSORFLOW_CC_INTERFACE_BUILD),
 # This variable can be used by something that includes tensorflow to say that
 # it depends on the tensorflow include files.
 DEPENDS_ON_TENSORFLOW_HEADERS:=$(TENSORFLOW_PROTOBUF_HEADERS) $(foreach op,$(TENSORFLOW_OPS),$(CWD)/tensorflow/cc/ops/$(op)_ops.h) $(CWD)/tensorflow/cc/ops/no_op.h
+
+# Finally, we need some host build tools to make everything work.  Those are defined here.
+
+build_tools:   $(HOSTBIN)/cc_op_gen $(HOSTBIN)/proto_text
+
+
 
 endif
