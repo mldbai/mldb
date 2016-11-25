@@ -21,6 +21,7 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
 #include "csv_writer.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include <memory>
@@ -93,6 +94,9 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
     SqlExpressionMldbScope context(server);
+
+    makeUriDirectory(runProcConf.dataFileUrl.toString());
+
     filter_ostream out(runProcConf.dataFileUrl);
     CsvWriter csv(out, runProcConf.delimiter.at(0),
                   runProcConf.quoteChar.at(0));
@@ -108,29 +112,113 @@ run(const ProcedureRunConfig & run,
                          runProcConf.exportData.stm->orderBy,
                          calc);
 
-    const auto columnNames = bsq.getSelectOutputInfo()->allColumnNames();
-    vector<string> lineBuffer; // keeps the data that cannot be outputed
-                               // yet to the csv due to the ordering difference
-                               // between columnNames and the order in which
-                               // columns are in the bound select query execute
-    const auto lineSize = columnNames.size();
-    lineBuffer.resize(columnNames.size());
+    auto outputInfo = bsq.getSelectOutputInfo();
+    if (outputInfo->getSchemaCompletenessRecursive()
+        == SCHEMA_CLOSED) {
+        cerr << "closed schema with " << outputInfo->allColumnNames().size()
+             << " columns" << endl;
+    } else {
+        cerr << "open schema with " << outputInfo->allColumnNames().size()
+             << " columns" << endl;
+    }
+
+    std::vector<Path> columnNames = outputInfo->allColumnNames();
+    std::sort(columnNames.begin(), columnNames.end());
+
     const auto columnNamesEnd = columnNames.end();
     const auto columnNamesBegin = columnNames.begin();
-    auto outputCsvLine = [&] (NamedRowValue & row_,
+
+    //cerr << "working with " << columnNames.size() << " columns" << endl;
+
+    //cerr << jsonEncode(columnNames) << endl;
+
+#if 0
+    std::map<Path, size_t> columnNameIndex;
+
+    for (size_t i = 0;  i < columnNames.size();  ++i) {
+        columnNameIndex[columnNames[i]] = i;
+    }
+#endif
+
+    auto outputCsvLine = [&] (Path & rowName,
+                              int64_t rowIndex,
+                              ExpressionValue & row,
                               const vector<ExpressionValue> & calc)
     {
-        MatrixNamedRow row = row_.flattenDestructive();
-        ExcAssert(lineBuffer.size() == columnNames.size());
-        size_t lineBufferIndex = 0; // position of the buffered value ready to
-                                    // be outputed
+            //cerr << "writing CSV row " << rowIndex << endl;
 
-        auto outputLineBuffer = [&] () {
-            // inline function to make sure the index is set to "" after each
-            // use
-            csv << lineBuffer[lineBufferIndex];
-            lineBuffer[lineBufferIndex] = "";
+        Utf8String rowOut;
+        rowOut.reserve(1024);
+        
+        auto it = columnNamesBegin;
+
+        auto onAtom = [&] (Path & columnName,
+                           CellValue & val,
+                           Date ts)
+        {
+            auto itBefore = it;
+
+            ExcAssert(it != columnNamesEnd);
+
+            //cerr << "looking for " << columnName << " currently at " << *it << endl;
+
+            for (int i = 0; it != columnNamesEnd;  ++it, ++i) {
+                //cerr << "testing " << *it << endl;
+                if (*it == columnName)
+                    break;
+                if (i == 4) {
+                    //cerr << "lower bound at " << *it << endl;
+                    it = std::lower_bound(it, columnNamesEnd, columnName);
+                    //if (it != columnNamesEnd)
+                    //    cerr << "got " << *it << endl;
+                    break;
+                }
+            }
+            
+            if (it == columnNamesEnd || *it != columnName) {
+                throw HttpReturnException(400, "Unknown column name");
+            }
+            
+            size_t pos = it - columnNamesBegin;
+            size_t beforePos = itBefore - columnNamesBegin;
+
+            for (size_t i = beforePos;  i <= pos;  ++i) {
+                if (i != 0) {
+                    rowOut += ',';
+                }
+            }
+            
+            rowOut += val.toUtf8String();
+
+            ++it;
+            
+            return true;
         };
+               
+        row.forEachAtomDestructive(onAtom);
+
+        size_t beforePos = it - columnNamesBegin;
+
+        for (size_t i = beforePos;  i < columnNames.size();  ++i)
+            rowOut += ',';
+        
+        out << rowOut << endl;
+        
+#if 0
+        for (const auto & col: row.columns) {
+
+            const auto & seekColumn = std::get<0>(col); // the column to seek in
+                                                        // the csv ordering
+            auto it = columnNameIndex.find(seekColumn);
+            if (it == columnNameIndex.end()) {
+                throw HttpReturnException
+                    (400, "CSV export does not work over "
+                     "cells having multiple values, at row '"
+                     + row.rowName.toUtf8String() +
+                     "' for column '"
+                     + seekColumn.toUtf8String() + "'");
+            }
+        }
 
         for (const auto & col: row.columns) {
             const auto & seekColumn = std::get<0>(col); // the column to seek in
@@ -147,9 +235,6 @@ run(const ProcedureRunConfig & run,
                         if(runProcConf.skipDuplicateCells)
                             return false;
 
-                        throw MLDB::Exception(Utf8String("CSV export does not work over "
-                                "cells having multiple values, at row '" + row.rowName.toUtf8String() +
-                                "' for column '" + seekColumn.toUtf8String() + "'").utf8String());
                     }
                 }
                 columnIndex = columnNamesIt - columnNamesBegin;
@@ -199,10 +284,12 @@ run(const ProcedureRunConfig & run,
         }
 
         // output until the end of the buffer
-        for (; lineBufferIndex < lineSize; ++ lineBufferIndex) {
+        for (; lineBufferIndex < lineSize; ++lineBufferIndex) {
             outputLineBuffer();
         }
         csv.endl();
+#endif
+
         return true;
     };
 
@@ -212,10 +299,11 @@ run(const ProcedureRunConfig & run,
         }
         csv.endl();
     }
-    bsq.execute({outputCsvLine, false/*processInParallel*/},
-                runProcConf.exportData.stm->offset,
-                runProcConf.exportData.stm->limit,
-                onProgress);
+
+    bsq.executeExpr({outputCsvLine, false/*processInParallel*/},
+                    runProcConf.exportData.stm->offset,
+                    runProcConf.exportData.stm->limit,
+                    onProgress);
     RunOutput output;
     return output;
 }
