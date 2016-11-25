@@ -5,7 +5,6 @@
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
-#include <boost/algorithm/string.hpp>
 #include "python_plugin_context.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/jml/utils/string_functions.h"

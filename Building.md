@@ -461,10 +461,12 @@ deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse univ
 deb http://ports.ubuntu.com/ubuntu-ports/ trusty-updates restricted multiverse main universe
 ```
 
-Fourthly, we need to make the build tools for the host architecture
+Fourthly, we need to make the build tools for the host architecture.  Unfortunately this
+takes quite a lot of time as a lot of Tensorflow is required in order to build itself.
+NOTE that this has *no* `ARCH=arm` argument.
 
 ```
-make build_tools
+make -j8 -k build_tools
 ```
 
 Finally, we can build the port itself:
@@ -473,5 +475,5 @@ Finally, we can build the port itself:
 make -j8 -k compile ARCH=arm
 ```
 
-The version of MLDB will be placed in build/arm/bin and build/arm/lib
+The version of MLDB will be placed in `build/arm/bin` and `build/arm/lib`
 
