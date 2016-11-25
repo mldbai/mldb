@@ -29,7 +29,7 @@ They can be obtained on the NVIDIA website at the URL mentioned below:
 
   - `cuda-repo-ubuntu1404-8-0-local_8.0.44-1_amd64.deb`: https://developer.nvidia.com/compute/cuda/8.0/prod/local_installers/cuda-repo-ubuntu1404-8-0-local_8.0.44-1_amd64-deb
   - `libcudnn5_5.1.5-1+cuda8.0_amd64.deb`: https://developer.nvidia.com/compute/machine-learning/cudnn/secure/v5.1/prod/8.0/libcudnn5_5.1.5-1+cuda8.0_amd64-deb
-  - `libcudnn5-dev_5.1.5-1+cuda8.0_amd64.deb`: )://developer.nvidia.com/compute/machine-learning/cudnn/secure/v5.1/prod/8.0/libcudnn5-dev_5.1.5-1+cuda8.0_amd64-deb 
+  - `libcudnn5-dev_5.1.5-1+cuda8.0_amd64.deb`: https://developer.nvidia.com/compute/machine-learning/cudnn/secure/v5.1/prod/8.0/libcudnn5-dev_5.1.5-1+cuda8.0_amd64-deb 
 
 *The cuDNN downloads require a free NVIDIA Developper subscription.*
 
