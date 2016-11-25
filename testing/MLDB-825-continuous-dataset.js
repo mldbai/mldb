@@ -1,6 +1,5 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-
 function createDataset()
 {
     var uri = "hello";
@@ -9,23 +8,56 @@ function createDataset()
 
 mldb.log(createDataset.toString());
 
-var createDatasetSource = '\
-var uri = "file://tmp/MLDB-825-data/" + new Date().toISOString() + ".beh"; \
-var config = { type: "beh.binary.mutable", params: { dataFileUrl: uri } }; \
-var dataset = mldb.createDataset(config); \
-mldb.log(config); \
-mldb.log(dataset); \
-var output = { config: dataset.config() }; \
-output; \
-';
+function createDatasetProcedure()
+{
+    var config = { type: "tabular", params: { unknownColumns: "add" } };
+    var dataset = mldb.createDataset(config);
+    var output = { config: dataset.config() };
+    return output;
+}
 
-var saveDatasetSource = '\
-var uri = "file://tmp/MLDB-825-data/" + new Date().toISOString() + ".beh"; \
-var addr = "/v1/datasets/" + args.datasetId; \
-var res = mldb.post(addr + "/routes/saves", { dataFileUrl: uri });  \
-mldb.log(res);  \
-res = { metadata: mldb.get(addr).json.status, config: res.json }; \
-res;'
+var exporterConfig = {
+    id: 'exporter',
+    type: "export.csv",
+    params: {
+        dataFileUrl: "file://$uri",
+        exportData: "SELECT * FROM datasetId"
+    }
+};
+mldb.createProcedure(exporterConfig);
+
+function saveDatasetProcedure()
+{
+    var uri = "file://tmp/MLDB-825-data/" + new Date().toISOString() + ".csv.gz";
+    var config = {
+        params: {
+            dataFileUrl: uri,
+            exportData: "SELECT * FROM " + mldb.sqlEscapeVar(args.datasetId)
+        }
+    };
+    var res = mldb.post('/v1/procedures/exporter/runs', config);
+    if (res.responseCode != 201) {
+        mldb.log(res);
+        throw "Error saving dataset";
+    }
+    return {
+        metadata: res.json,
+        config: config
+    };
+}
+
+function wrap(fn)
+{
+    return {
+        type: 'script.run',
+        params: {
+            language: 'javascript',
+            scriptConfig: {
+                source: fn + "" + fn.name + "();"
+            }
+        }
+    }
+}
 
 var datasetConfig = {
     id: 'recorder',
@@ -33,46 +65,20 @@ var datasetConfig = {
     params: {
         commitInterval: "1s",
         metadataDataset: {
-            type: 'sqliteSparse',
+            type: 'tabular',
             id: 'metadata-db',
             params: {
-                dataFileUrl: 'file://tmp/MLDB-825-metadata.sqlite'
+                unknownColumns: 'add'
             }
         },
-        createStorageDataset: {
-            type: 'script.run',
-            params: {
-                language: 'javascript',
-                scriptConfig: {
-                    source: createDatasetSource
-                }
-            }
-        },
-        /*
-        createStorageDataset: {
-            type: 'createEntity',
-            params: {
-                kind: 'dataset',
-                type: 'beh.binary.mutable'
-                dataFileUrl: '{ "file://" + args.when + ".beh" }'
-            }
-        },
-*/
-        saveStorageDataset: {
-            type: 'script.run',
-            params: {
-                language: 'javascript',
-                scriptConfig: {
-                    source: saveDatasetSource
-                }
-            }
-        }
+        createStorageDataset: wrap(createDatasetProcedure),
+        saveStorageDataset: wrap(saveDatasetProcedure)
     }
 };
 
+mldb.log(datasetConfig);
+
 var numLines = 1000000;
-//numLines = 200000;
-//numLines = 10000;
 
 var dataset = mldb.createDataset(datasetConfig);  
 
@@ -104,6 +110,7 @@ while (!stream.eof() && lineNum < numLines) {
     }
 
     rows.push([fields[0], tuples]);
+    //rows.push([lineNum, [["hello", lineNum, new Date()]]]);
 
     if (rows.length == 1000) {
         dataset.recordRows(rows);
@@ -114,8 +121,8 @@ while (!stream.eof() && lineNum < numLines) {
         plugin.log("loaded", lineNum, "lines");
         plugin.log(dataset.status());
 
-        plugin.log(mldb.get('/v1/query', { q: 'select count(*) from recorder',
-                                           format: 'table' }));
+        //plugin.log(mldb.get('/v1/query', { q: 'select count(*) from recorder',
+        //                                   format: 'table' }));
     }
 }
 
@@ -123,6 +130,8 @@ dataset.recordRows(rows);
 
 plugin.log("Committing dataset")
 dataset.commit()
+
+mldb.log("Done committing dataset");
 
 var end = new Date();
 
