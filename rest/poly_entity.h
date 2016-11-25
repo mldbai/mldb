@@ -167,6 +167,13 @@ struct PolyConfigT: public PolyConfig {
         this->type = type;
         return *this;
     }
+
+    static PolyConfigT<Entity> defaultType(Utf8String type)
+    {
+        PolyConfigT<Entity> result;
+        result.withType(std::move(type));
+        return result;
+    }
 };
 
 template<typename Entity>
