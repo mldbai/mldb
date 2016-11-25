@@ -1721,9 +1721,11 @@ MutableSparseMatrixDatasetConfigDescription()
 struct MutableSparseMatrixDataset::Itl
     : public SparseMatrixDataset::Itl {
 
-    Itl(double timeQuantumSeconds,
+    Itl(MldbServer * server,
+        double timeQuantumSeconds,
         WriteTransactionLevel consistencyLevel,
         TransactionFavor favor) 
+        : server(server)
     {
         CommitMode mode;
         if (consistencyLevel == WT_READ_AFTER_COMMIT)
@@ -1739,12 +1741,15 @@ struct MutableSparseMatrixDataset::Itl
              std::make_shared<MutableBaseMatrix>(mode));
     }
 
+    MldbServer * server;
+
     /** This is a recorder that is designed to have each thread record
         chunks in a deterministic manner.
     */
     struct ChunkRecorder: public Recorder {
         ChunkRecorder(Itl * itl, shared_ptr<spdlog::logger> logger)
-            : itl(itl),
+            : Recorder(itl->server),
+              itl(itl),
               readTransaction(itl->getReadTransaction()),
               trans(*readTransaction),
               logger(logger)
@@ -1832,7 +1837,7 @@ MutableSparseMatrixDataset(MldbServer * owner,
     : SparseMatrixDataset(owner)
 {
     auto params = config.params.convert<MutableSparseMatrixDatasetConfig>();
-    itl.reset(new Itl(params.timeQuantumSeconds, params.consistencyLevel, params.favor));
+    itl.reset(new Itl(owner, params.timeQuantumSeconds, params.consistencyLevel, params.favor));
 }
 
 Dataset::MultiChunkRecorder
