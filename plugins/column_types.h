@@ -9,6 +9,7 @@
 #pragma once
 
 #include <memory>
+#include <limits>
 #include "mldb/types/value_description_fwd.h"
 
 
@@ -36,14 +37,14 @@ struct ColumnTypes {
     std::shared_ptr<ExpressionValueInfo>
     getExpressionValueInfo() const;
 
-    uint64_t numNulls;
-    uint64_t numZeros;
+    uint64_t numNulls = 0;
+    uint64_t numZeros = 0;
     
-    uint64_t numIntegers;
-    int64_t minNegativeInteger;
-    int64_t maxNegativeInteger;
-    uint64_t minPositiveInteger;
-    uint64_t maxPositiveInteger;
+    uint64_t numIntegers = 0;
+    int64_t minNegativeInteger = std::numeric_limits<int64_t>::max();
+    int64_t maxNegativeInteger = 0;
+    uint64_t minPositiveInteger = std::numeric_limits<uint64_t>::max();
+    uint64_t maxPositiveInteger = 0;
 
     bool hasPositiveIntegers() const
     {
@@ -62,13 +63,15 @@ struct ColumnTypes {
 
     bool onlyIntegersAndNulls() const
     {
-        return numReals == 0 && numStrings == 0 && numBlobs == 0 && numOther == 0;
+        return numReals == 0 && numStrings == 0 && numBlobs == 0
+            && numPaths == 0 && numOther == 0;
     }
 
-    uint64_t numReals;
-    uint64_t numStrings;
-    uint64_t numBlobs;
-    uint64_t numOther;  // timestamps, intervals
+    uint64_t numReals = 0;
+    uint64_t numStrings = 0;
+    uint64_t numBlobs = 0;
+    uint64_t numPaths = 0;
+    uint64_t numOther = 0;  // timestamps, intervals
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ColumnTypes);

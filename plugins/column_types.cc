@@ -46,6 +46,8 @@ ColumnTypesDescription()
              "Number of string values in the column");
     addField("numBlobs", &ColumnTypes::numBlobs,
              "Number of blob values in the column");
+    addField("numPaths", &ColumnTypes::numPaths,
+             "Number of path values in the column");
     addField("numOther", &ColumnTypes::numOther,
              "Number of other typed values in the column");
 }
@@ -57,13 +59,6 @@ ColumnTypesDescription()
 
 ColumnTypes::   
 ColumnTypes()
-    : numNulls(0), numZeros(0), numIntegers(0),
-      minNegativeInteger(std::numeric_limits<int64_t>::max()),
-      maxNegativeInteger(0),
-      minPositiveInteger(std::numeric_limits<uint64_t>::max()),
-      maxPositiveInteger(0),
-      numReals(0), numStrings(0), numBlobs(0),
-      numOther(0)
 {
 }
 
@@ -98,6 +93,8 @@ update(const CellValue & val)
         numStrings += 1;  break;
     case CellValue::BLOB:
         numBlobs += 1;  break;
+    case CellValue::PATH:
+        numPaths += 1;  break;
     default:
         numOther += 1;  break;
     }
@@ -116,6 +113,7 @@ update(const ColumnTypes & other)
     numReals = numReals + other.numReals;
     numStrings = numStrings + other.numStrings;
     numBlobs = numBlobs + other.numBlobs;
+    numPaths = numPaths + other.numPaths;
     numOther = numOther + other.numOther;
 }
 
@@ -123,7 +121,8 @@ std::shared_ptr<ExpressionValueInfo>
 ColumnTypes::   
 getExpressionValueInfo() const
 {
-    if (!numNulls && !numReals && !numStrings && !numBlobs && !numOther) {
+    if (!numNulls && !numReals && !numStrings
+        && !numBlobs && !numPaths && !numOther) {
         // Integers only
         if (minNegativeInteger == 0) {
             // All positive
@@ -139,7 +138,7 @@ getExpressionValueInfo() const
             return std::make_shared<AtomValueInfo>();
         }
     }
-    else if (!numNulls && !numStrings && !numBlobs && !numOther) {
+    else if (!numNulls && !numStrings && !numBlobs && !numPaths && !numOther) {
         // Reals and integers.  If all integers are representable as
         // doubles, in other words a maximum of 53 bits, then we're all
         // doubles.
@@ -150,7 +149,8 @@ getExpressionValueInfo() const
         // Doubles would lose precision.  It's an atom.
         return std::make_shared<AtomValueInfo>();
     }
-    else if (!numNulls && !numIntegers && !numReals && !numBlobs && !numOther) {
+    else if (!numNulls && !numIntegers && !numReals
+             && !numBlobs && !numPaths && !numOther) {
         return std::make_shared<Utf8StringValueInfo>();
     }
     else {
