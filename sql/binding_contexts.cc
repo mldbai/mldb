@@ -354,18 +354,31 @@ ColumnGetter
 SqlExpressionEvalScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    size_t argNum = jsonDecodeStr<size_t>(paramName);
+    size_t argNum = -1;
+    if (argNames.empty()) {
+        argNum = jsonDecodeStr<size_t>(paramName);
 
-    if (argNum == 0) {
-        throw HttpReturnException
-            (400, "Arguments start at 1, not 0, in SQL evaluate expression");
+        if (argNum == 0) {
+            throw HttpReturnException
+                (400, "Arguments start at 1, not 0, in SQL evaluate expression");
+        }
+        if (argNum > argInfo.size()) {
+            throw HttpReturnException
+                (400, "Attempt to obtain more arguments than exist when binding "
+                 "SQL evaluate expression");
+        }
+        argNum -= 1;
     }
-    if (argNum > argInfo.size()) {
-        throw HttpReturnException
-            (400, "Attempt to obtain more arguments than exist when binding "
-             "SQL evaluate expression");
+    else {
+        auto it = std::find(argNames.begin(), argNames.end(), paramName);
+        if (it == argNames.end()) {
+            throw HttpReturnException(400, "Unknown parameter '$" + paramName
+                                      + "' passed to SQL expression; known are "
+                                      + jsonEncodeStr(argNames));
+        }
+        argNum = it - argNames.begin();
     }
-        
+    
     return {[=] (const SqlRowScope & scope,
                  ExpressionValue & storage,
                  const VariableFilter & filter)
@@ -375,7 +388,7 @@ doGetBoundParameter(const Utf8String & paramName)
                 ExcAssertLessEqual(argNum, row.numArgs);
                 return storage = row.args[argNum - 1];
             },
-            argInfo[argNum - 1]};
+            argInfo[argNum]};
 }
 
 
