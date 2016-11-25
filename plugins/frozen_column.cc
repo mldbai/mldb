@@ -239,7 +239,7 @@ allocateWritable(uint64_t bytesRequired,
     }
 
     std::shared_ptr<void> handle(mem, [] (void * mem) { ::free(mem); });
-    return {std::move(handle), (char *)mem, bytesRequired, this };
+    return {std::move(handle), (char *)mem, (size_t)bytesRequired, this };
 }
 
 FrozenMemoryRegion
@@ -384,7 +384,7 @@ allocateWritable(uint64_t bytesRequired,
                  size_t alignment)
 {
     auto handle = itl->allocateWritable(bytesRequired, alignment);
-    return {std::move(handle), (char *)handle.get(), bytesRequired, this };
+    return {std::move(handle), (char *)handle.get(), (size_t)bytesRequired, this };
 }
 
 FrozenMemoryRegion
