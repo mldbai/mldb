@@ -8,10 +8,12 @@
 */
 
 #include "continuous_dataset.h"
+#include <condition_variable>
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/jml/utils/lightweight_hash.h"
@@ -59,7 +61,6 @@ struct ContinuousDataset::Itl {
     Itl(MldbServer * server, const ContinuousDatasetConfig & config)
         : server(server),
           current(gcLock),
-          lastCommit(Date::now().secondsSinceEpoch()),
           logger(MLDB::getMldbLog<ContinuousWindowDataset>())
     {
         initRoutes();
@@ -94,23 +95,32 @@ struct ContinuousDataset::Itl {
         
         // Perform a first rotation, so that everything is properly set
         // up for the rotation.
-        rotate(Date::positiveInfinity());
+        rotate();
 
         ExcAssert(current.val);
-
+        ExcAssertEqual(current()->epoch, 0);
+        
         // Set up an interval for the commit operation
         if (config.commitInterval.number > 0) {
-            timer = server->getTimer(Date::now().plusSeconds(config.commitInterval.number),
-                                     config.commitInterval.number,
-                                     [=] (Date date)
-                                     {
-                                         rotate(date);
-                                     });
+            timer = server->getTimer
+                (Date::now().plusSeconds(config.commitInterval.number),
+                 config.commitInterval.number,
+                 [=] (Date date)
+                 {
+                     // Rotate in another thread so that new timeouts can set
+                     // up parallel work.
+                     workerThreads.add([=] () { this->rotate(); });
+                 });
         }
     }
 
     ~Itl()
     {
+        // Stop the events flowing
+        timer = WatchT<Date>();
+
+        // Commit will cause anything that's still there to be stopped
+        commit();
     }
 
     MldbServer * server;
@@ -163,40 +173,39 @@ struct ContinuousDataset::Itl {
     struct Current {
         std::shared_ptr<Dataset> dataset;  ///< Dataset itself
         std::atomic<bool> hasData;         ///< Is there any data in it?
+        uint64_t epoch = -1;               ///< Epoch number for this rotation
+        Date startDate;                    ///< Date at which it was started
     };
 
     GcLock gcLock;
     RcuProtected<Current> current;
 
     /// Mutex for phase 1 of the rotate, which is to swap out the datasets.
+    /// This mutex is also used to control access to the internal
+    /// data structures.
     std::mutex rotateMutex;
 
-    /// Mutex for phase 2 of the rotate, which is to save the dataset.  The
-    /// mutex for phase 1 is released once this mutex is acquired.
-    std::mutex saveMutex;
+    /// Condition variable for when we are awaiting the end of rotations
+    std::condition_variable rotateCondition;
+
+    /// What is currently rotating?
+    std::map<uint64_t, Current *> rotating;
 
     /// Used live datasets to know about datasets that are created and
     /// rotated.
     WatchesT<std::shared_ptr<Dataset> > datasetWatches;
 
-    /// Date of the last commit
-    std::atomic<double> lastCommit;
-
     shared_ptr<spdlog::logger> logger;
 
-    /** Rotate the dataset, atomically, and add it to the metadata store. */
-    void rotate(Date commitStarted)
+    /// Work gets done here, so we know when it's all done
+    ThreadPool workerThreads;
+
+    /** Rotate the dataset, atomically, and add it to the metadata store.
+        Returns the epoch number of the new dataset; all previous
+        rotations will have a lower number.
+    */
+    uint64_t rotate()
     {
-        if (lastCommit.load() > commitStarted.secondsSinceEpoch())
-            return;
-
-        std::unique_lock<std::mutex> rotateGuard(rotateMutex);
-
-        // If we already commited after the time rotate() was called, then
-        // nothing to do.
-        if (lastCommit.load() > commitStarted.secondsSinceEpoch())
-            return;
-
         // First, create a new storage dataset to hold anything that comes
         // along while we're rotating the old
 
@@ -205,29 +214,29 @@ struct ContinuousDataset::Itl {
         auto storageOutput
             = createStorageDataset->run(runConfig, nullptr /* progress */);
 
-        INFO_MSG(logger) << "output of storage is " << jsonEncode(storageOutput);
-
         std::unique_ptr<Current> newCurrent(new Current());
         newCurrent->dataset
             = obtainDataset(server,
                             storageOutput.results.getField("config")
                             .convert<PolyConfig>(), nullptr);
+
+        std::unique_lock<std::mutex> rotateGuard(rotateMutex);
+
+        uint64_t newEpoch = current()->epoch + 1;
+        newCurrent->epoch = newEpoch;
         
         // Now, swap it in...
         auto old = current.replaceCustomCleanup(newCurrent.release());
 
         // In initialization, we don't have an old dataset so we get out
         // here.
-        if (!old || !old->dataset)
-            return;
+        ExcAssert(!!old);
+        if (!old->dataset)
+            return newEpoch;
 
-        std::unique_lock<std::mutex> saveGuard(saveMutex);
+        // Put us in the list of currently rotating datasets
+        rotating[old->epoch] = old.get();
 
-        // If we already commited after the time rotate() was called, then
-        // nothing to do.
-        if (lastCommit.load() > commitStarted.secondsSinceEpoch())
-            return;
-        
         // Release the rotate mutex
         rotateGuard.unlock();
         
@@ -242,9 +251,15 @@ struct ContinuousDataset::Itl {
 
         // If there is no data in the dataset, then don't save anything
         if (!old->hasData) {
-            lastCommit = commitStarted.secondsSinceEpoch();
-            return;
+            rotateGuard.lock();
+            rotating.erase(old->epoch);
+            rotateCondition.notify_all();
+            return newEpoch;
         }
+
+        // Commit the dataset so that everything recorded to it becomes.  This may
+        // require significant processing power for datasets that defer this work.
+        savedDataset->commit();
         
         // Now we can run our procedure to save the dataset, and get back
         // its metadata
@@ -259,7 +274,7 @@ struct ContinuousDataset::Itl {
         // Take the metadata and put it in the metadata database
         
         Json::Value resultsJson = jsonEncode(saveOutput.results);
-        INFO_MSG(logger) << "metadata is " << jsonEncode(saveOutput);
+        //INFO_MSG(logger) << "metadata is " << jsonEncode(saveOutput);
 
         RowPath rowName(savedDataset->config_->id);
 
@@ -281,16 +296,28 @@ struct ContinuousDataset::Itl {
 
         datasetWatches.trigger(savedDataset);
 
-        // We now know that everything is committed up to lastCommit.
-        lastCommit = commitStarted.secondsSinceEpoch();
+        rotateGuard.lock();
+        rotating.erase(old->epoch);
+        rotateCondition.notify_all();
+
+        return newEpoch;
     }
 
+    /** This is a barrier that all rotations that were started up to now
+        are finished.
+    */
     virtual void commit()
     {
         // Force a write-out of the dataset.  We only exit once it's
         // done.  This allows a call to commit() to be used to guarantee
         // that what was written up to now is actually in the database.
-        rotate(Date::now());
+        uint64_t newEpoch = rotate();
+
+        // Wait for any previous rotations to finish before we return
+        std::unique_lock<std::mutex> rotateGuard(rotateMutex);
+        while (!rotating.empty() && rotating.begin()->first < newEpoch) {
+            rotateCondition.wait(rotateGuard);
+        }
     }
 
     virtual RestRequestMatchResult
@@ -503,6 +530,8 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
         + "AND earliest <= CAST ('" + CellValue(to).toString() + "' AS TIMESTAMP) "
         + "AND latest >= CAST ('" + CellValue(from).toString() + "' AS TIMESTAMP)";
     
+    //DEBUG_MSG(logger) << "where is " << where;
+
     // Query our metadata dataset for the datasets to load up
     auto datasets
         = metadataDataset
