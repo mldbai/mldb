@@ -417,7 +417,8 @@ $(eval $(call mldb_unit_test,MLDB-1843-select-disappearing-values.js))
 $(eval $(call mldb_unit_test,MLDB-1933-subselect-flatten.py))
 $(eval $(call mldb_unit_test,MLDB-1947-reshape-builtin.py))
 $(eval $(call mldb_unit_test,MLDB-1891-case-in-import.py))
-$(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,,manual)) #require tensorflow plugin
+$(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,tensorflow))
+$(eval $(call mldb_unit_test,MLDB-825-continuous-dataset.js))
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))
