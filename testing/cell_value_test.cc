@@ -424,8 +424,50 @@ BOOST_AUTO_TEST_CASE (test_sorting_absolute_order)
 
     std::sort(vals.begin(), vals.end());
 
+    auto fmtWithLength = CellValue::serializationFormat(true);
+    auto fmtWithoutLength = CellValue::serializationFormat(false);
+    
     for (auto & v: vals) {
         cerr << jsonEncodeStr(v) << endl;
+
+        size_t bytesRequiredWithLength = v.serializedBytes(true);
+        size_t bytesRequiredWithoutLength = v.serializedBytes(false);
+
+        std::string buf;
+        buf.resize(std::max(bytesRequiredWithLength,
+                            bytesRequiredWithoutLength));
+
+        char * pos = v.serialize(&buf[0], bytesRequiredWithLength, true);
+
+        BOOST_CHECK_EQUAL((const void *)pos,
+                          (const void *)(buf.data() + bytesRequiredWithLength));
+
+        ssize_t bytes;
+        CellValue output;
+
+        std::tie(output, bytes)
+            = CellValue::reconstitute(buf.data(), bytesRequiredWithLength,
+                                      fmtWithLength,
+                                      true /* exact available */);
+        BOOST_CHECK_EQUAL(v, output);
+        BOOST_CHECK_EQUAL(jsonEncodeStr(v), jsonEncodeStr(output));
+        BOOST_CHECK_EQUAL(bytes, bytesRequiredWithLength);
+
+        output = CellValue();
+        pos = v.serialize(&buf[0], buf.length(), false);
+
+        BOOST_CHECK_EQUAL((const void *)pos,
+                          (const void *)
+                          (buf.data() + bytesRequiredWithoutLength));
+        
+        std::tie(output, bytes)
+            = CellValue::reconstitute(buf.data(), buf.length() * 123 /* fake */,
+                                      fmtWithoutLength,
+                                      false /* exact available */);
+
+        BOOST_CHECK_EQUAL(v, output);
+        BOOST_CHECK_EQUAL(jsonEncodeStr(v), jsonEncodeStr(output));
+        BOOST_CHECK_EQUAL(bytes, bytesRequiredWithoutLength);
     }
 
     for (size_t i = 0;  i < vals.size();  ++i) {
