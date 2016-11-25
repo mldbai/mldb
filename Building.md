@@ -236,6 +236,7 @@ If the mldb_base layer does a lot of packages upgrade during its creation, it wo
 To do so, run the following commands from the top of the mldb repo:
 
 ```
+docker pull ubuntu:14.04
 make baseimage
 docker tag quay.io/datacratic/baseimage:0.9.17 quay.io/datacratic/baseimage:latest
 docker push quay.io/datacratic/baseimage:latest
