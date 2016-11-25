@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* rest_entity.h                                                   -*- C++ -*-
    Jeremy Barnes, 8 June 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Basic definitions for entities accessible via REST.
 */
