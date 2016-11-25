@@ -341,11 +341,24 @@ struct RowStream {
 /* DATASET RECORDER                                                          */
 /*****************************************************************************/
 
+struct DatasetRecorderConfig {
+    DatasetRecorderConfig();
+
+    /// Dataset we record into
+    PolyConfigT<Dataset> dataset;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(DatasetRecorderConfig);
+
 /** This is a recorder that forwards directly its records to a dataset. */
 
 struct DatasetRecorder: public Recorder {
     
     DatasetRecorder(Dataset * dataset);
+
+    DatasetRecorder(MldbServer * server,
+                    PolyConfig config,
+                    std::function<bool (Json::Value)> onProgress);
 
     virtual ~DatasetRecorder();
 

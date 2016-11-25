@@ -474,14 +474,45 @@ getColumnBuckets(const ColumnPath & column,
 /* DATASET RECORDER                                                          */
 /*****************************************************************************/
 
+DatasetRecorderConfig::
+DatasetRecorderConfig()
+{
+    dataset.withType("tabular");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(DatasetRecorderConfig);
+
+DatasetRecorderConfigDescription::
+DatasetRecorderConfigDescription()
+{
+    addField("dataset", &DatasetRecorderConfig::dataset,
+             "Dataset into which rows will be recorded");
+}
+
 // This is here to allow future extension without breaking the ABI
 struct DatasetRecorder::Itl {
+    std::shared_ptr<Dataset> ownedDataset;
 };
 
 DatasetRecorder::
 DatasetRecorder(Dataset * dataset)
-    : dataset(dataset)
+    : Recorder(dataset->server),
+      dataset(dataset)
 {
+}
+
+DatasetRecorder::
+DatasetRecorder(MldbServer * server,
+                PolyConfig config,
+                std::function<bool (Json::Value)> onProgress)
+    : Recorder(server),
+      itl(new Itl())
+{
+    DatasetRecorderConfig recorderConfig
+        = config.params.convert<DatasetRecorderConfig>();
+    itl->ownedDataset = createDataset(server, recorderConfig.dataset,
+                                      onProgress, false /* overwrite */);
+    this->dataset = itl->ownedDataset.get();
 }
 
 DatasetRecorder::
@@ -518,6 +549,12 @@ recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows)
 {
     dataset->recordRowsExpr(rows);
 }
+
+static RegisterRecorderType<DatasetRecorder, DatasetRecorderConfig>
+regLogger(builtinPackage(),
+          "dataset",
+          "Recorder that will insert rows into a dataset",
+          "recorders/Dataset.md.html");
 
 
 /*****************************************************************************/

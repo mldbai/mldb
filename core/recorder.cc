@@ -4,6 +4,8 @@
 */
 
 #include "recorder.h"
+#include "mldb/rest/poly_collection.h"
+#include "mldb/rest/poly_collection_impl.h"
 
 
 namespace MLDB {
@@ -13,6 +15,18 @@ namespace MLDB {
 /* RECORDER                                                                  */
 /*****************************************************************************/
 
+Recorder::
+Recorder(MldbServer * server)
+{
+}
+
+Any
+Recorder::
+getStatus() const
+{
+    return Any();
+}
+    
 void
 Recorder::
 recordRowExprDestructive(RowPath rowName,
@@ -87,6 +101,50 @@ recordTabularImpl(RowPath rowName,
     }
 
     recordRowDestructive(std::move(rowName), std::move(result));
+}
+
+
+/*****************************************************************************/
+/* REGISTRATION FUNCTIONS                                                    */
+/*****************************************************************************/
+
+std::shared_ptr<Recorder>
+createRecorder(MldbServer * server,
+               const PolyConfig & config,
+               const std::function<bool (const Json::Value & progress)> & onProgress)
+{
+    return PolyCollection<Recorder>::doConstruct(MldbEntity::getPeer(server),
+                                                 config, onProgress);
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_NAMED(RecorderPolyConfigDescription,
+                                   PolyConfigT<Recorder>);
+
+RecorderPolyConfigDescription::
+RecorderPolyConfigDescription()
+{
+    addParent<PolyConfig>();
+    setTypeName("Recorder");
+    documentationUri = "/doc/builtin/recorders/RecorderConfig.md";
+}
+
+std::shared_ptr<RecorderType>
+registerRecorderType(const Package & package,
+                    const Utf8String & name,
+                    const Utf8String & description,
+                    std::function<Recorder * (RestDirectory *,
+                                             PolyConfig,
+                                             const std::function<bool (const Json::Value)> &)>
+                        createEntity,
+                    TypeCustomRouteHandler docRoute,
+                    TypeCustomRouteHandler customRoute,
+                    std::shared_ptr<const ValueDescription> config,
+                    std::set<std::string> registryFlags)
+{
+    return PolyCollection<Recorder>
+        ::registerType(package, name, description, createEntity,
+                       docRoute, customRoute,
+                       config, registryFlags);
 }
 
 } // namespace MLDB

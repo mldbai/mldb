@@ -13,6 +13,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/sql/expression_value.h"
+#include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -24,17 +25,31 @@
 namespace MLDB {
 
 
+struct Recorder;
+
+typedef EntityType<Recorder> RecorderType;
+
+
 /*****************************************************************************/
 /* RECORDER                                                                  */
 /*****************************************************************************/
 
 /** A recorder is used to record data into a dataset or another abstraction. */
 
-struct Recorder {
+struct Recorder: public MldbEntity {
+    Recorder(MldbServer * server);
+
     virtual ~Recorder()
     {
     }
 
+    virtual std::string getKind() const
+    {
+        return "recorder";
+    }
+
+    virtual Any getStatus() const;
+    
     /** Record an expression value as a row.  This will be flattened by
         datasets that require flattening.
     */
@@ -122,6 +137,75 @@ struct Recorder {
     virtual void finishedChunk();
 };
 
+
+/*****************************************************************************/
+/* FUNCTIONS                                                                 */
+/*****************************************************************************/
+
+std::shared_ptr<Recorder>
+createRecorder(MldbServer * server,
+               const PolyConfig & config,
+               const std::function<bool (const Json::Value & progress)> & onProgress);
+
+DECLARE_STRUCTURE_DESCRIPTION_NAMED(RecorderPolyConfigDescription, PolyConfigT<Recorder>);
+
+std::shared_ptr<RecorderType>
+registerRecorderType(const Package & package,
+                    const Utf8String & name,
+                    const Utf8String & description,
+                    std::function<Recorder * (RestDirectory *,
+                                              PolyConfig,
+                                              const std::function<bool (const Json::Value)> &)>
+                        createEntity,
+                    TypeCustomRouteHandler docRoute,
+                    TypeCustomRouteHandler customRoute,
+                    std::shared_ptr<const ValueDescription> config,
+                    std::set<std::string> registryFlags);
+
+/** Register a new recorder kind.  This takes care of registering everything behind
+    the scenes.
+*/
+template<typename RecorderT, typename Config>
+std::shared_ptr<RecorderType>
+registerRecorderType(const Package & package,
+                    const Utf8String & name,
+                    const Utf8String & description,
+                    const Utf8String & docRoute,
+                    TypeCustomRouteHandler customRoute = nullptr,
+                    std::set<std::string> registryFlags = {})
+{
+    return registerRecorderType
+        (package, name, description,
+         [] (RestDirectory * server,
+             PolyConfig config,
+             const std::function<bool (const Json::Value)> & onProgress)
+         {
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<RecorderT>();
+             auto recorder = new RecorderT(RecorderT::getOwner(server), config, onProgress);
+             recorder->logger = std::move(logger); // noexcept
+             return recorder;
+         },
+         makeInternalDocRedirect(package, docRoute),
+         customRoute,
+         getDefaultDescriptionSharedT<Config>(),
+         registryFlags);
+}
+
+template<typename RecorderT, typename Config>
+struct RegisterRecorderType {
+    RegisterRecorderType(const Package & package,
+                         const Utf8String & name,
+                         const Utf8String & description,
+                         const Utf8String & docRoute,
+                         TypeCustomRouteHandler customRoute = nullptr,
+                         std::set<std::string> registryFlags = {})
+    {
+        handle = registerRecorderType<RecorderT, Config>
+            (package, name, description, docRoute, customRoute, registryFlags);
+    }
+
+    std::shared_ptr<RecorderType> handle;
+};
 
 } // namespace MLDB
 
