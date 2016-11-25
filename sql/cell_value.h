@@ -398,6 +398,51 @@ struct CellValue {
 
     size_t memusage() const;
 
+    /** Serialization and reconstitution */
+
+    /** Return the number of bytes that this CellValue would serialize
+        into when serialized.
+    */
+    uint64_t serializedBytes() const;
+
+    /** Serialize the CellValue into the given memory buffer.  This will
+        return the new value of start once done, which will be
+        start + serializedBytes().  If there aren't enough bytes
+        available, then nullptr will be returned and nothing will be
+        written.  In that case, the caller should make sure that the
+        passed buffer contains at least serializedBytes() bytes and
+        call again.
+
+        If the exactBytesAvailable flag is true, then the routine
+        guarantees that bytesAvailable == serializedBytes() and that
+        the reconstitution will be done using reconstituteWithSize()
+        rather than reconstitute().  In that case, no value will be
+        saved potentially saving space.
+    */
+    char * serialize(char * start, size_t bytesAvailable,
+                     bool exactBytesAvailable);
+    
+    /** Return a number that will indicate what serialization format is
+        being used in this file.  That number should be stored once in
+        the metadata of the written file, and needs to be passed back
+        in to the reconstitution functions.
+
+        The exactBytesAvailable parameter is the same one that should
+        be passed in to the serialize() function.
+    */
+    static uint8_t serializationFormat(bool exactBytesAvailable);
+
+    /** Reconstitute the CellValue from the given buffer.  If more
+        bytes are required than are available, then a null
+        CellValue will be returned and the number of required bytes
+        returned in the second value of the return value.
+    */
+    static std::pair<CellValue, ssize_t>
+    reconstitute(const char * buf,
+                 size_t bytesAvailable,
+                 uint8_t serializationFormat,
+                 bool exactBytesAvailable);
+
 private:
     double toDoubleImpl() const;
     

@@ -14,6 +14,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/itoa.h"
+#include "mldb/arch/bitops.h"
 #include "cell_value_impl.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/compiler/compiler.h"
@@ -21,12 +22,15 @@
 #include "path.h"
 #include "mldb/ext/s2/s2.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/jml/db/compact_size_types.h"
 
 using namespace std;
 
 
 
 namespace MLDB {
+
+using ML::highest_bit;
 
 /*****************************************************************************/
 /* CELL VALUE                                                                */
@@ -1396,6 +1400,85 @@ memusage() const
         return sizeof(*this) + sizeof(StringRepr) + strLength;
     }
     throw HttpReturnException(400, "unknown CellValue type");
+}
+
+struct SerizilationCode {
+    uint8_t type:4;  // Matches the CellType
+    uint8_t len:4;   // Extra information that can be used to improve compression
+};
+
+uint64_t
+CellValue::
+serializedBytes() const
+{
+    switch (type) {
+    case ST_EMPTY:
+        return 1;
+    case ST_TIMESTAMP:
+        return 9;  // TODO: detect integers, make them smaller
+    case ST_TIMEINTERVAL:
+        return 13;
+    case ST_INTEGER:
+        return 2 + highest_bit(-intVal, -1) / 8;
+    case ST_UNSIGNED:
+        // 0 to 7 are encoded directly
+        // 8-15 is the number of bytes (1-8) followed by that number
+        if (uintVal < 7) {
+            return 1;
+        }
+        else {
+            size_t numBytes = highest_bit(uintVal) / 8 + 1;
+            return numBytes += 1;
+        }
+    case ST_FLOAT:
+        // TODO: detect when we don't need all of the bits
+        return 9;
+    // The rest of them are string-like
+    // Strings of size less than 15 have their length encoded in the
+    // first byte.  Others have a length followed by the contents.
+    case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
+    case ST_UTF8_SHORT_STRING:
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH: {
+        size_t len = toStringLength();
+        if (len < 15) {
+            return len + 1;
+        } else {
+            return 1 + ML::DB::compact_encode_length(len) + len;
+        }
+    }
+    }
+
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
+char *
+CellValue::
+serialize(char * start, size_t bytesAvailable,
+          bool exactBytesAvailable)
+{
+    throw HttpReturnException(600, "CellValue::serialize()");
+}
+
+uint8_t
+CellValue::
+serializationFormat(bool exactBytesAvailable)
+{
+    return 1;
+}
+
+std::pair<CellValue, ssize_t>
+CellValue::
+reconstitute(const char * buf,
+                 size_t bytesAvailable,
+                 uint8_t serializationFormat,
+                 bool exactBytesAvailable)
+{
+    throw HttpReturnException(600, "CellValue::reconstitute()");
 }
 
 struct CellValueDescription: public ValueDescriptionT<CellValue> {
