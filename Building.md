@@ -237,6 +237,7 @@ To do so, run the following commands from the top of the mldb repo:
 
 ```
 make baseimage
+docker tag quay.io/datacratic/baseimage:0.9.17 quay.io/datacratic/baseimage:latest
 docker push quay.io/datacratic/baseimage:latest
 ```
 
