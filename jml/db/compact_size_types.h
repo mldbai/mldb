@@ -1,19 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* compact_size_types.h                                            -*- C++ -*-
    Jeremy Barnes, 13 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
    Compact serialization of integers.
 */
 
-#ifndef __db__compact_size_types_h__
-#define __db__compact_size_types_h__
-
+#pragma once
 
 #include "persistent_fwd.h"
 #include <iostream>
@@ -37,6 +32,10 @@ int compact_decode_length(char firstChar);
 
 unsigned long long decode_compact(Store_Reader & store);
 unsigned long long decode_compact(const char * & first, const char * last);
+
+/** Return the number of characters necessary to save the given
+    size value, given its actual value. */
+int compact_encode_length_signed(unsigned long long val);
 
 void encode_signed_compact(Store_Reader & store, signed long long val);
 
@@ -95,5 +94,3 @@ IMPL_SERIALIZE_RECONSTITUTE(compact_int_t);
 
 } // namespace DB
 } // namespace ML
-
-#endif /* __db__compact_size_types_h__ */
