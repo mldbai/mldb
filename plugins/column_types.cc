@@ -48,6 +48,8 @@ ColumnTypesDescription()
              "Number of blob values in the column");
     addField("numTimestamps", &ColumnTypes::numTimestamps,
              "Number of timestamp values in the column");
+    addField("numPaths", &ColumnTypes::numPaths,
+             "Number of path values in the column");
     addField("numOther", &ColumnTypes::numOther,
              "Number of other typed values in the column");
 }
@@ -95,6 +97,8 @@ update(const CellValue & val)
         numBlobs += 1;  break;
     case CellValue::TIMESTAMP:
         numTimestamps += 1;  break;
+    case CellValue::PATH:
+        numPaths += 1;  break;
     default:
         numOther += 1;  break;
     }
@@ -114,6 +118,7 @@ update(const ColumnTypes & other)
     numStrings = numStrings + other.numStrings;
     numBlobs = numBlobs + other.numBlobs;
     numTimestamps = numTimestamps + other.numTimestamps;
+    numPaths = numPaths + other.numPaths;
     numOther = numOther + other.numOther;
 }
 
@@ -121,7 +126,8 @@ std::shared_ptr<ExpressionValueInfo>
 ColumnTypes::   
 getExpressionValueInfo() const
 {
-    if (!numNulls && !numReals && !numStrings && !numBlobs && !numTimestamps && !numOther) {
+    if (!numNulls && !numReals && !numStrings
+        && !numBlobs && !numTimestamps && !numPaths && !numOther) {
         // Integers only
         if (minNegativeInteger == 0) {
             // All positive
@@ -137,7 +143,8 @@ getExpressionValueInfo() const
             return std::make_shared<AtomValueInfo>();
         }
     }
-    else if (!numNulls && !numStrings && !numBlobs && !numTimestamps && !numOther) {
+    else if (!numNulls && !numStrings && !numBlobs
+             && !numTimestamps && !numPaths && !numOther) {
         // Reals and integers.  If all integers are representable as
         // doubles, in other words a maximum of 53 bits, then we're all
         // doubles.
@@ -148,7 +155,8 @@ getExpressionValueInfo() const
         // Doubles would lose precision.  It's an atom.
         return std::make_shared<AtomValueInfo>();
     }
-    else if (!numNulls && !numIntegers && !numReals && !numBlobs && !numTimestamps && !numOther) {
+    else if (!numNulls && !numIntegers && !numReals
+             && !numBlobs && !numTimestamps && !numPaths && !numOther) {
         return std::make_shared<Utf8StringValueInfo>();
     }
     else {

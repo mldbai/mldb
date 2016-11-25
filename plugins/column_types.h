@@ -9,6 +9,7 @@
 #pragma once
 
 #include <memory>
+#include <limits>
 #include "mldb/types/value_description_fwd.h"
 #include <limits>
 
@@ -67,7 +68,7 @@ struct ColumnTypes {
     bool onlyIntegersAndNulls() const
     {
         return numReals == 0 && numStrings == 0 && numBlobs == 0
-            && numTimestamps == 0 && numOther == 0;
+            && numTimestamps == 0 && numPaths == 0 && numOther == 0;
     }
 
     bool onlyDoubles() const
@@ -77,7 +78,8 @@ struct ColumnTypes {
 
     bool onlyDoublesAndNulls() const
     {
-        return numStrings == 0 && numBlobs == 0 && numTimestamps == 0 && numOther == 0
+        return numStrings == 0 && numBlobs == 0
+            && numTimestamps == 0 && numPaths == 0 && numOther == 0
             && (numIntegers == 0
                 || (minNegativeInteger >= LOWEST_INT_IN_DOUBLE
                     && maxPositiveInteger <= HIGHEST_INT_IN_DOUBLE));
@@ -91,13 +93,15 @@ struct ColumnTypes {
     bool onlyTimestampsAndNulls() const
     {
         return numReals == 0 && numIntegers == 0 && numZeros == 0
-            && numStrings == 0 && numBlobs == 0 && numOther == 0;
+            && numStrings == 0 && numPaths == 0
+            && numBlobs == 0 && numOther == 0;
     }
 
     uint64_t numReals = 0;
     uint64_t numStrings = 0;
     uint64_t numBlobs = 0;
     uint64_t numTimestamps = 0;
+    uint64_t numPaths = 0;
     uint64_t numOther = 0;  // intervals
 
     static constexpr int64_t HIGHEST_INT_IN_DOUBLE = 1ULL << 53;
