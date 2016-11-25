@@ -1172,6 +1172,21 @@ struct MldbJS::Methods {
             args.GetReturnValue().Set(args.This());
         } HANDLE_JS_EXCEPTIONS(args);
     }
+
+    static void
+    sleep(const v8::FunctionCallbackInfo<v8::Value> & args)
+    {
+        using namespace v8;
+        try {
+            double duration = JS::getArg<double>(args, 0, "duration");
+            {
+                v8::Unlocker unlocker(args.GetIsolate());
+                std::this_thread::sleep_for
+                    (std::chrono::microseconds((uint64_t)(duration * 1000000.0)));
+            }
+            args.GetReturnValue().Set(args.This());
+        } HANDLE_JS_EXCEPTIONS(args);
+    }
 };
 
 MldbServer *
@@ -1259,6 +1274,8 @@ registerMe()
 
     result->Set(String::NewFromUtf8(isolate, "requirePlugin"),
                 FunctionTemplate::New(isolate, Methods::requirePlugin));
+    result->Set(String::NewFromUtf8(isolate, "sleep"),
+                FunctionTemplate::New(isolate, Methods::sleep));
 
     return scope.Escape(result);
 }
