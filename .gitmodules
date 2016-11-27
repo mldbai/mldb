@@ -61,3 +61,6 @@
 [submodule "ext/JSONTestSuite"]
 	path = ext/JSONTestSuite
 	url = https://github.com/mldbai/JSONTestSuite.git
+[submodule "ext/zstd"]
+	path = ext/zstd
+	url = https://github.com/mldbai/zstd.git
