@@ -1,10 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* filter_streams_test.cc
    Jeremy Barnes, 29 June 2011
    Copyright (c) 2011 Datacratic.
    Copyright (c) 2011 Jeremy Barnes.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #define BOOST_TEST_MAIN
@@ -12,7 +11,6 @@
 
 #include <string.h>
 
-#include "mldb/jml/utils/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams_registry.h"
@@ -161,30 +159,37 @@ void test_compress_decompress(const std::string & input_file,
     assert_files_identical(input_file, dec4);
 }
 
-#if 0
+#if 1
 BOOST_AUTO_TEST_CASE( test_compress_decompress_gz )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     test_compress_decompress(input_file, "gz", "gzip", "gzip -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_bzip2 )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     test_compress_decompress(input_file, "bz2", "bzip2", "bzip2 -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_xz )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     test_compress_decompress(input_file, "xz", "xz", "xz -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     string lz4_cmd = "./build/x86_64/bin/lz4cli";
     test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
+}
+
+BOOST_AUTO_TEST_CASE( test_compress_decompress_zstandard )
+{
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
+    string zstd_cmd = "./build/x86_64/bin/zstd";
+    test_compress_decompress(input_file, "zst", zstd_cmd, zstd_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_open_failure )
@@ -200,6 +205,7 @@ BOOST_AUTO_TEST_CASE( test_open_failure )
 
 BOOST_AUTO_TEST_CASE( test_write_failure )
 {
+    MLDB_TRACE_EXCEPTIONS(false);
     int fd = open("/dev/null", O_RDWR, 0);
 
     cerr << "fd = " << fd << endl;
@@ -208,7 +214,10 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
 
     stream << "hello" << std::endl;
 
-    close(fd);
+    {
+        MLDB_TRACE_EXCEPTIONS(false);
+        close(fd);
+    }
 
     cerr <<" done close" << endl;
 
@@ -216,6 +225,7 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
         MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream << "hello again" << std::endl, std::exception);
     }
+
 }
 
 /* ensures that empty gz/bzip2/xz streams have a valid header */
@@ -224,9 +234,16 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
     fs::create_directories("build/x86_64/tmp");
 
     string fileprefix("build/x86_64/tmp/empty.");
-    vector<string> exts = { "gz", "bz2", "xz", "lz4" };
+    vector<string> exts = { "gz", "bz2", "xz", "lz4", "zst" };
+    map<string, string> compressions = {
+        { "gz", "gzip" },
+        { "bz2", "bzip2" },
+        { "xz", "lzma" },
+        { "lz4", "lz4" },
+        { "zst", "zstd" } };
 
     for (const auto & ext: exts) {
+        cerr << "testing extension " << ext << endl;
         string filename = fileprefix + ext;
 
         /* stream from filename */
@@ -237,7 +254,7 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
                 filter_ostream filestream(filename);
             }
 
-            BOOST_CHECK(get_file_size(filename) > 2);
+            BOOST_CHECK(getUriSize(filename) > 2);
             {
                 filter_istream filestream(filename);
                 string line;
@@ -253,11 +270,11 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
             int fd = open(filename.c_str(), O_RDWR| O_CREAT, S_IRWXU);
             {
                 filter_ostream filestream;
-                filestream.open(fd, ios::out, ext);
+                filestream.open(fd, ios::out, compressions[ext]);
             }
             close(fd);
 
-            BOOST_CHECK(get_file_size(filename) > 2);
+            BOOST_CHECK(getUriSize(filename) > 2);
             {
                 filter_istream filestream(filename);
                 string line;
