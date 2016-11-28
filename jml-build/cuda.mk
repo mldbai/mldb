@@ -12,4 +12,4 @@ NVCC       := $(CUDA_INSTALL_PATH)/bin/nvcc -D_FORTIFY_SOURCE=0 -shared -Xcompil
 
 CXXFLAGS += -DJML_USE_CUDA=1 -I$(CUDA_INCLUDE_PATH)
 CXXLIBRARYFLAGS += -L$(CUDA_LIBRARY_PATH) -Wl,--rpath,$(CUDA_LIBRARY_PATH) -L/usr/local/lib
-CXXEXEPOSTFLAGS += -lOcelotIr -lOcelotParser -lOcelotExecutive -lOcelotTrace -lOcelotAnalysis -lhydrazine
+#CXXEXEPOSTFLAGS += -lOcelotIr -lOcelotParser -lOcelotExecutive -lOcelotTrace -lOcelotAnalysis -lhydrazine
