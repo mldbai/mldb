@@ -235,9 +235,8 @@ TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable
 # some of our own
 $(eval $(call set_compile_option,$(TENSORFLOW_CUDA_NVCC_BUILD),$(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_INCLUDE_FLAGS) $(TENSORFLOW_NVCC_CUDA_FLAGS)))
 
-# Libraries we need to link with.  Note that no CUDA libraries are required
-# since they are all dynamically loaded
-TENSORFLOW_CUDA_LINK:=  #cudart cublas curand cufft
+# Libraries we need to link with.
+TENSORFLOW_CUDA_LINK:=  cudart cublas curand cufft
 
 # Library path for CUDA
 CUDA_LIB_PATH?=$(CUDA_BASE_DIR)/lib64
