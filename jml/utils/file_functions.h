@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* file_functions.h                                                -*- C++ -*-
    Jeremy Barnes, 30 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
@@ -11,8 +9,7 @@
    Functions to deal with files.
 */
 
-#ifndef __utils__file_functions_h__
-#define __utils__file_functions_h__
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -104,6 +101,3 @@ public:
 };
 
 } // namespace ML
-
-
-#endif /* __utils__file_functions_h__ */
