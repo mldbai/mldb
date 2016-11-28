@@ -1,6 +1,6 @@
 # External programs and libraries used by MLDB
 
-EXT_SUBDIRS ?= tinyxml2 googleurl cityhash lz4 lzma sqlite judy svm libstemmer svdlibc jsoncpp xxhash
+EXT_SUBDIRS ?= tinyxml2 googleurl cityhash xxhash lz4 lzma sqlite judy svm libstemmer svdlibc jsoncpp
 
 $(eval $(call include_sub_makes,$(EXT_SUBDIRS)))
 
