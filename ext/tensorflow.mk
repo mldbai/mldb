@@ -186,8 +186,12 @@ TENSORFLOW_CUDA_INCLUDE_FLAGS:=-Isystem$(CUDA_SYSTEM_HEADER_DIR) -I$(CUDA_SYSTEM
 # nvcc compiler.  These are anything that end in .cu.cc
 TENSORFLOW_CUDA_NVCC_FILES:=$(shell (find $(CWD)/tensorflow -name "*.cu.cc") | grep -v how_tos | grep -v contrib/)
 
+# They depend on protobuf
+$(TENSORFLOW_CUDA_NVCC_FILES): | $(DEPENDS_ON_PROTOBUF_INCLUDES)
+
 # Turn them into the symbolic source names we need for the build system
 TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
+
 
 # Here are the common flags to compile tensorflow with CUDA support.
 # The whole of Tensorflow, not just the CUDA kernels, need to have these
