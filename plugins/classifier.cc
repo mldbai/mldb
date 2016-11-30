@@ -535,26 +535,30 @@ run(const ProcedureRunConfig & run,
 
     int nx = numRows;
 
-    if (nx == 0 && boundDataset.dataset->getMatrixView()->getRowHashes(0, 1).empty()) {
-        throw HttpReturnException(400, "Error training classifier: "
-                                  "No feature vectors were produced as dataset was empty",
-                                  "datasetConfig", boundDataset.dataset->config_,
-                                  "datasetName", boundDataset.dataset->config_->id,
-                                  "datasetStatus", boundDataset.dataset->getStatus());
-    }
-
     if (nx == 0) {
+        if (boundDataset.dataset->config_) {
+            if (boundDataset.dataset->getMatrixView()->getRowHashes(0, 1).empty()) {
+                throw HttpReturnException(400, "Error training classifier: "
+                                        "No feature vectors were produced as dataset was empty",
+                                        "datasetConfig", boundDataset.dataset->config_,
+                                        "datasetName", boundDataset.dataset->config_->id,
+                                        "datasetStatus", boundDataset.dataset->getStatus());
+            }
+
+            throw HttpReturnException(400, "Error training classifier: "
+                                    "No feature vectors were produced as all rows were filtered by "
+                                        "WHEN, WHERE, OFFSET or LIMIT, or all labels were NULL (or "
+                                        "label column doesn't exist)",
+                                    "datasetConfig", boundDataset.dataset->config_,
+                                    "datasetName", boundDataset.dataset->config_->id,
+                                    "datasetStatus", boundDataset.dataset->getStatus(),
+                                    "whenClause", runProcConf.trainingData.stm->when,
+                                    "whereClause", runProcConf.trainingData.stm->where,
+                                    "offsetClause", runProcConf.trainingData.stm->offset,
+                                    "limitClause", runProcConf.trainingData.stm->limit);
+            }
         throw HttpReturnException(400, "Error training classifier: "
-                                  "No feature vectors were produced as all rows were filtered by "
-                                    "WHEN, WHERE, OFFSET or LIMIT, or all labels were NULL (or "
-                                    "label column doesn't exist)",
-                                  "datasetConfig", boundDataset.dataset->config_,
-                                  "datasetName", boundDataset.dataset->config_->id,
-                                  "datasetStatus", boundDataset.dataset->getStatus(),
-                                  "whenClause", runProcConf.trainingData.stm->when,
-                                  "whereClause", runProcConf.trainingData.stm->where,
-                                  "offsetClause", runProcConf.trainingData.stm->offset,
-                                  "limitClause", runProcConf.trainingData.stm->limit);
+                                    "No feature vectors were produced");
     }
 
     timer.restart();
