@@ -39,7 +39,6 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row4]-[]", 2, 2]
         ])
 
-    @unittest.expectedFailure
     def test_left_join_rsh(self):
         ds = mldb.create_dataset({'id' : 'rhs', 'type' : 'sparse.mutable'})
         ds.record_row('row1', [['one', 1, 0], ['two', 1, 0]])
@@ -57,7 +56,6 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row4]-[]", 2, 2, None, None]
         ])
 
-    @unittest.expectedFailure
     def test_left_join_rsh_multi_match(self):
         ds = mldb.create_dataset({
             'id' : 'rhs_multi_match',
@@ -74,7 +72,7 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
                 ON a.one = rhs_multi_match.one AND a.two = rhs_multi_match.two
             ORDER BY rowName()""")
         self.assertTableResultEquals(res, [
-            ["_rowName", "a.one", "a.two", "rhs.one", "rhs.two"],
+            ["_rowName", "a.one", "a.two", "rhs_multi_match.one", "rhs_multi_match.two"],
             ["[row1]-[row11]", 1, 1, 1, 1],
             ["[row1]-[row1]", 1, 1, 1, 1],
             ["[row2]-[row22]", 1, 2, 1, 2],
@@ -105,7 +103,7 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
         ds.commit()
         res = mldb.query("""
             SELECT * FROM a
-            RIGTH JOIN rj_rhs ON a.one = rj_rhs.one AND a.two = rj_rhs.two
+            RIGHT JOIN rj_rhs ON a.one = rj_rhs.one AND a.two = rj_rhs.two
             ORDER BY rowName()""")
         self.assertTableResultEquals(res, [
             ["_rowName", "a.one", "a.two", "rhs.one", "rhs.two"],
@@ -126,7 +124,7 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
         ds.commit()
         res = mldb.query("""
             SELECT * FROM a
-            RIGTH JOIN rj_rhs_multi_match
+            RIGHT JOIN rj_rhs_multi_match
                 ON a.one = rj_rhs_multi_match.one
                 AND a.two = rj_rhs_multi_match.two
             ORDER BY rowName()""")

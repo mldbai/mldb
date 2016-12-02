@@ -1045,11 +1045,12 @@ EquiJoinExecutor(const Bound * parent,
       root(std::move(root)),
       left(std::move(left)),
       right(std::move(right)),
-      alreadySeenLeftRow(false),
+   //   alreadySeenLeftRow(false),
+      cachedNumR(0),
       logger(getMldbLog<EquiJoinExecutor>())
 {
     auto lresult = this->left->take();
-    bufferedLeftValues.push_back(lresult);
+    bufferedLeftValues.push_back({lresult, 0});
     l = bufferedLeftValues.begin();
     firstDuplicate = l;
     r = this->right->take();
@@ -1068,6 +1069,8 @@ std::shared_ptr<PipelineResults>
 JoinElement::EquiJoinExecutor::
 take()
 {
+    cerr << "Equi Join Take" << endl;
+
     bool outerLeft = parent->joinQualification_ == JOIN_LEFT
         || parent->joinQualification_ == JOIN_FULL;
     bool outerRight = parent->joinQualification_ == JOIN_RIGHT
@@ -1078,10 +1081,12 @@ take()
         if (l != bufferedLeftValues.end()) {
             ++l;
             if (l == bufferedLeftValues.end()) {
+                cerr << "take from left" << endl;                
                 auto lresult = this->left->take();
                 if (lresult) {
+                   // cerr << (*l)->values[0].coerceToPath() << endl;
                     // buffer the next element and return a pointer to it
-                    bufferedLeftValues.push_back(lresult);
+                    bufferedLeftValues.push_back({lresult, 0});
                     l = --bufferedLeftValues.end();
                     return l;
                 }
@@ -1099,14 +1104,40 @@ take()
         }
     };
 
+    //first check if we can pop something from the cached left list
+    while (bufferedLeftValues.size() > 0 && firstDuplicate != bufferedLeftValues.begin()) {
+        if (outerLeft) {
+            auto leftiter = bufferedLeftValues.begin();
+            if (leftiter->second == 0) {
+                auto result = leftiter->first;
+                // Pop the selected join conditions from left
+                result->values.pop_back();
+               // for (auto i = 0; i < cachedNumR; i++)
+               //     result->values.pop_back();
+                for (auto i = 0; i < cachedNumR; i++)
+                    result->values.push_back(ExpressionValue());
+
+                cerr << "returning outer left before kicking out of cached list" << endl;
+                bufferedLeftValues.pop_front();
+                return result;
+            }
+            else {
+                cerr << "already seen buffered value" << endl;
+            }
+        }
+
+        bufferedLeftValues.pop_front();
+    }
+
     while (l != bufferedLeftValues.end() && r) {
-        ExpressionValue & lEmbedding = (*l)->values.back();
+
+        ExpressionValue & lEmbedding = (*l).first->values.back();
         ExpressionValue & rEmbedding = r->values.back();
 
         ExpressionValue lField = lEmbedding.getColumn(0, GET_ALL);
         ExpressionValue rField = rEmbedding.getColumn(0, GET_ALL);
         DEBUG_MSG(logger) << "++++++";
-        DEBUG_MSG(logger) << "comparing left row [" << (*l)->values[0].coerceToPath() << 
+        DEBUG_MSG(logger) << "comparing left row [" << (*l).first->values[0].coerceToPath() << 
             "] with right row [" << r->values[0].coerceToPath() << "]";
 
         //in case of outer join
@@ -1135,12 +1166,13 @@ take()
             DEBUG_MSG(logger) << "left and right rows are matching on value " << lField.toString();
          
             // return a copy since we are buffering the original left value
-            auto result = make_shared<PipelineResults>(**l);
+            auto result = make_shared<PipelineResults>(*(*l).first);
             // Pop the selected join conditions from left
             result->values.pop_back();
 
             auto numL = result->values.size();
             auto numR = r->values.size() - 1;
+            cachedNumR = numR;
 
             for (auto i = 0; i < numR; ++i)
                 result->values.push_back(r->values[i]);
@@ -1150,50 +1182,52 @@ take()
                 && lEmbedding.getColumn(1, GET_ALL).isTrue()
                 && rEmbedding.getColumn(1, GET_ALL).isTrue();
 
-            if (!whereCondition && outerLeft) {
+            cerr << "where condition is" << whereCondition << endl;
+
+            /*if (!whereCondition && outerLeft && l->second == 0) {                
                 for (auto i = 0; i < numR; i++)
                     result->values.pop_back();
                 for (auto i = 0; i < numR; i++)
                     result->values.push_back(ExpressionValue());
             }
-            else if (!whereCondition && outerRight) {
+            else*/ if (!whereCondition && outerRight) {
                 for (auto i = 0; i < numL; i++)
                     result->values[i] = ExpressionValue();
             }
-            else if (!whereCondition && !outerRight && !outerLeft) {
+            else if (!whereCondition /*&& !outerRight && !outerLeft*/) {
                 l = takeFromBuffer(l);
                 DEBUG_MSG(logger) << "skipping row - the where condition is false";
                 if (l == bufferedLeftValues.end()) {
                     DEBUG_MSG(logger) << "reached the left-side end - rewinding";
                     r = right->take();
                     l = firstDuplicate;
-                    alreadySeenLeftRow = true;
+                  //  alreadySeenLeftRow = true;
                 }
                 continue;
             }
 
             if (lastLeftValue != lField) {
                 firstDuplicate = l;
-                alreadySeenLeftRow = false;
+             //   alreadySeenLeftRow = false;
             }
-
+            l->second = 1; //we outputed that row, dont "outer" it
             l = takeFromBuffer(l);
 
-            bool setAlreadySeen = false;
+           // bool setAlreadySeen = false;
             if (l == bufferedLeftValues.end() && firstDuplicate != --bufferedLeftValues.end()) {
                 DEBUG_MSG(logger) << "reached the left-side end - rewinding";
                 r = right->take();
                 l = firstDuplicate;
-                setAlreadySeen = true;
+              //  setAlreadySeen = true;
             }
 
-            if (outerLeft && !whereCondition && alreadySeenLeftRow) {
+            /*if (outerLeft && !whereCondition && alreadySeenLeftRow) {
                 DEBUG_MSG(logger) << "skipping row - this row was already outputed";
                 continue;
-            }
+            }*/
 
-            if (setAlreadySeen)
-                alreadySeenLeftRow = true;
+            //if (setAlreadySeen)
+              //  alreadySeenLeftRow = true;
 
             DEBUG_MSG(logger) << "returning the row";
             return result;
@@ -1202,25 +1236,26 @@ take()
             // loop until left field value is equal to the right field value
             // returning nulls if left outer
             do {
-                auto result = make_shared<PipelineResults>(**l);
+                auto result = make_shared<PipelineResults>(*(*l).first);
                 DEBUG_MSG(logger) << "++++++";
                 DEBUG_MSG(logger) << "comparing left row [" << result->values[0].coerceToPath() 
                                   << "] with right row [" << r->values[0].coerceToPath() << "]";
-                if (outerLeft && checkOuterWhere(result, left, lField, rEmbedding)) {
+                /*if (outerLeft && l->second == 0 && checkOuterWhere(result, left, lField, rEmbedding)) {
+                    l->second = 1;
                     l = takeFromBuffer(l);
                     DEBUG_MSG(logger) << "returning left outer row [" 
                                       << result->values[0].coerceToPath()
                                       << "]";
                     return result;
-                } else {
+                } else*/ {
                     DEBUG_MSG(logger) << "skipping left row [" 
                                       << result->values[0].coerceToPath()
                                       << "]";
                     l = takeFromBuffer(l);
                 }     
-            } while (l != bufferedLeftValues.end()  && (*l)->values.back().getColumn(0, GET_ALL) < rField);
-            if (l == bufferedLeftValues.end())
-                return nullptr;
+            } while (l != bufferedLeftValues.end()  && (*l).first->values.back().getColumn(0, GET_ALL) < rField);
+            //if (l == bufferedLeftValues.end())
+            //    return nullptr;
         }
         else {  
             ExcAssert(lField > rField);
@@ -1229,7 +1264,7 @@ take()
                 if (r->values.back().getColumn(0, GET_ALL) == lastLeftValue) {
                     DEBUG_MSG(logger) << "newly fetched row from the right matches the last left value - rewinding";
                     l = firstDuplicate;
-                    alreadySeenLeftRow = true;
+                  //  alreadySeenLeftRow = true;
                     continue;
                 }
                 else {
@@ -1237,7 +1272,7 @@ take()
                     // returning nulls if right outer
                     while (r && r->values.back().getColumn(0, GET_ALL) < lField) {
                         DEBUG_MSG(logger) << "++++++";
-                        DEBUG_MSG(logger) << "comparing left row [" << (*l)->values[0].coerceToPath() 
+                        DEBUG_MSG(logger) << "comparing left row [" << (*l).first->values[0].coerceToPath() 
                                           << "] with right row [" << r->values[0].coerceToPath() << "]";
                         if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
                             auto result = std::move(r);
@@ -1258,20 +1293,91 @@ take()
         }
     }
 
+    //////////
+   /*  while (bufferedLeftValues.size() > 0 && l != bufferedLeftValues.begin()) {
+        if (outerLeft) {
+            auto leftiter = bufferedLeftValues.begin();
+            if (leftiter->second == 0) {
+                auto result = leftiter->first;
+                // Pop the selected join conditions from left
+                result->values.pop_back();
+                for (auto i = 0; i < cachedNumR; i++)
+                    result->values.pop_back();
+                for (auto i = 0; i < cachedNumR; i++)
+                    result->values.push_back(ExpressionValue());
+
+                cerr << "returning outer left before kicking out of cached list" << endl;
+                bufferedLeftValues.pop_front();
+                return result;
+            }
+        }
+
+        bufferedLeftValues.pop_front();
+    }*/
+
+    ///////
+
     //Return unmatched rows if we have a LEFT/RIGHT/OUTER join
+
+    firstDuplicate = bufferedLeftValues.end();
+
     //Fill unmatched with empty values
-    if (outerLeft && l != bufferedLeftValues.end() && !alreadySeenLeftRow)
+    cerr << "is outer left" << outerLeft << endl;
+    cerr << "" << (l != bufferedLeftValues.end()) << endl;
+   // cerr << "" << alreadySeenLeftRow << endl;
+    if (outerLeft && l != bufferedLeftValues.end() /*&& !alreadySeenLeftRow*/)
     {
-        auto result = shared_ptr<PipelineResults>(new PipelineResults(**l));
-        result->values.pop_back();
-        result->values.emplace_back(ExpressionValue::null(Date::notADate()));
-        result->values.emplace_back(ExpressionValue::null(Date::notADate()));
-        l = takeFromBuffer(l);
-        DEBUG_MSG(logger) << "++++++";
-        DEBUG_MSG(logger) << "returning left outer row [" 
-                          << result->values[0].coerceToPath()
-                          << "]";
-        return result;
+        while (l != bufferedLeftValues.end() && !bufferedLeftValues.empty()) {
+
+            if (l->second > 0) {
+                cerr << "already seen buffered value2" << endl;
+                l = takeFromBuffer(l);
+                continue;
+            }
+
+            auto result = shared_ptr<PipelineResults>(new PipelineResults(*(*l).first));
+            result->values.pop_back();
+            result->values.emplace_back(ExpressionValue::null(Date::notADate()));
+            result->values.emplace_back(ExpressionValue::null(Date::notADate()));
+            l->second = 1;
+            l = takeFromBuffer(l);
+            DEBUG_MSG(logger) << "++++++";
+            DEBUG_MSG(logger) << "returning left outer row [" 
+                              << result->values[0].coerceToPath()
+                              << "]";
+            return result;
+        }
+    }
+
+    l = bufferedLeftValues.end();
+
+    cerr << bufferedLeftValues.size() << "values remaining in buffer" << endl;
+    while (bufferedLeftValues.size() > 0 ) {
+        if (outerLeft) {
+            auto leftiter = bufferedLeftValues.begin();
+            if (leftiter->second == 0) {
+                auto result = leftiter->first;
+
+                cerr << "TEST RESULT: " << jsonEncode(result) << endl;
+
+                // Pop the selected join conditions from left
+                result->values.pop_back();
+                //for (auto i = 0; i < cachedNumR; i++)
+                  //  result->values.pop_back();
+                for (auto i = 0; i < cachedNumR; i++)
+                    result->values.push_back(ExpressionValue());
+
+                cerr << "returning outer left before kicking out of cached list 2" << endl;
+                bufferedLeftValues.pop_front();
+                return result;
+            }
+
+            bufferedLeftValues.pop_front();
+        }
+        else {
+            bufferedLeftValues.clear();
+            l = bufferedLeftValues.end();
+        }
     }
 
     if (outerRight && r)
@@ -1301,7 +1407,7 @@ restart()
     right->restart();
     bufferedLeftValues.resize(0);
     auto lresult = this->left->take();
-    bufferedLeftValues.push_back(lresult);
+    bufferedLeftValues.push_back({lresult, 0});
     l = bufferedLeftValues.begin();
     firstDuplicate = l;
     r = right->take();

@@ -371,7 +371,7 @@ struct JoinElement: public PipelineElement {
         std::shared_ptr<ElementExecutor> root, left, right;
         
         std::shared_ptr<PipelineResults> r;
-        typedef std::list<std::shared_ptr<PipelineResults> > bufferType;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, int > > bufferType;
         bufferType bufferedLeftValues;
         /** Note that the left-side values are buffered so that we can
             backtrack when we need to form the cross product on matching 
@@ -381,7 +381,9 @@ struct JoinElement: public PipelineElement {
         /** True if we have already seen this left row, ie, if we have rewinded 
             the left side. */
         ExpressionValue lastLeftValue;
-        bool alreadySeenLeftRow;
+        //bool alreadySeenLeftRow;
+
+        size_t cachedNumR;
 
         std::shared_ptr<spdlog::logger> logger;
     
