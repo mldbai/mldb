@@ -13,7 +13,7 @@ class MLDB2063SparseMutableEncodeVal(MldbUnitTest):  # noqa
         pass
 
     def test_it(self):
-        print mldb.post('/v1/procedures', {
+        mldb.post('/v1/procedures', {
                 'type': 'transform',
                 'params': {
                     'inputData': """
@@ -28,9 +28,8 @@ class MLDB2063SparseMutableEncodeVal(MldbUnitTest):  # noqa
                 }
             })
 
-
         self.assertTableResultEquals(
-            mldb.query("select x from keywords"),
+            mldb.query("select * from keywords"),
             [
                 ["_rowName", "title"],
                 [       "0",  "My Value" ]
