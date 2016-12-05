@@ -999,7 +999,7 @@ take()
                     }
 
                     std::shared_ptr<PipelineResults> result = l;
-
+                    wasOutput = false;
                     l = this->left->take();
 
                     cerr << "cross outer left returning " << jsonEncode(result) << endl;
@@ -1007,7 +1007,7 @@ take()
                     return result;
              //   }
             }
-
+	    wasOutput = false;
             l = this->left->take();
         }
 

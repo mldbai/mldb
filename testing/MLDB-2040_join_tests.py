@@ -223,7 +223,6 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row4]-[row1]", 2, 2, 1]
         ])
 
-    @unittest.expectedFailure
     def test_left_join_lt_with_op(self):
         res = mldb.query("""
             SELECT * FROM a LEFT JOIN b ON a.one > b.one AND a.two - 1 <  b.one
@@ -232,9 +231,9 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
         self.assertTableResultEquals(res, [
             ["_rowName", "a.one", "a.two", "b.one"],
             ["[row1]-[]", 1, 1, None],
-            ["[row2]-[row0]", 1, 2, 0],
-            ["[row3]-[]", 2, 1, None],
-            ["[row4]-[row0]", 2, 2, 0]
+            ["[row2]-[]", 1, 2, None],
+            ["[row3]-[row1]", 2, 1, 1],
+            ["[row4]-[]", 2, 2, None]
         ])
 
     def test_left_join_gte_dual(self):
