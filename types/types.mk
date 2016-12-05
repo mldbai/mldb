@@ -42,7 +42,7 @@ $(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
 ifneq ($(PREMAKE),1)
 $(LIB)/libtypes.so: $(LIB)/date_timezone_spec.csv
 
-$(LIB)/date_timezone_spec.csv: $(CWD)/date_timezone_spec.csv
+$(LIB)/date_timezone_spec.csv: $(CWD)/date_timezone_spec.csv $(LIB)/.dir_exists
 	@echo "           $(COLOR_CYAN)[COPY]$(COLOR_RESET) $< -> $@"
 	@/bin/cp -f $< $@
 endif
