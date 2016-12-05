@@ -254,7 +254,6 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row4]-[row2]", 2, 2, 2]
         ])
 
-    @unittest.expectedFailure
     def test_left_join_mix_dual(self):
         res = mldb.query("""
             SELECT * FROM a LEFT JOIN b ON a.one >= b.one AND a.two <= b.one
@@ -265,6 +264,7 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row1]-[row1]", 1, 1, 1],
             ["[row2]-[]", 1, 2, None],
             ["[row3]-[row1]", 2, 1, 1],
+            ["[row3]-[row2]", 2, 1, 2],
             ["[row4]-[row2]", 2, 2, 2]
         ])
 
