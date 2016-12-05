@@ -343,6 +343,8 @@ struct JoinElement: public PipelineElement {
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
+
+        bool wasOutput;
         
         std::shared_ptr<PipelineResults> l,r;
             
@@ -384,6 +386,7 @@ struct JoinElement: public PipelineElement {
         //bool alreadySeenLeftRow;
 
         size_t cachedNumR;
+	bool wasOutput;
 
         std::shared_ptr<spdlog::logger> logger;
     

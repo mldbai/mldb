@@ -911,7 +911,8 @@ CrossJoinExecutor(const Bound * parent,
     : parent(parent),
       root(std::move(root)),
       left(std::move(left)),
-      right(std::move(right))
+      right(std::move(right)),
+      wasOutput(false)
 {
     ExcAssert(parent && this->root && this->left && this->right);
     l = this->left->take();
@@ -927,27 +928,129 @@ take()
     bool outerRight = parent->joinQualification_ == JOIN_RIGHT
         || parent->joinQualification_ == JOIN_FULL;
 
+    //optimization: if we have a LEFT Join (but not full join)
+    //we switch the left-right
+    bool scanLeftFirst = outerLeft && !outerRight;
+
+    cerr << "scanLeftFirst: " << scanLeftFirst << endl;
+
     for (;;) {
 
-        if (!l) {
+        if (!l && !scanLeftFirst) { 
+
             this->left->restart();
             l = this->left->take();
+
+            if (!wasOutput && outerRight) {
+
+                auto result = std::make_shared<PipelineResults>(*l);
+
+                size_t numL = result->values.size();
+
+                //empty values for left without the selected join condition
+                result->values.clear();
+                for (int i = 0; i < numL-1; ++i) {
+                    result->values.emplace_back(ExpressionValue());
+                }
+
+                // Add r
+                for (auto & v: r->values)
+                    result->values.emplace_back(v);
+
+                // Pop the selected join condition from r
+                result->values.pop_back();
+
+                //auto result = result;
+
+                //l = this->left->take();
+
+                cerr << "cross outer right returning " << jsonEncode(result) << endl;
+
+                r = this->right->take();
+
+                return result;
+            }
+
             r = this->right->take();
         }
+        else if (!r && scanLeftFirst) {
+            this->right->restart();
+            r = this->right->take();
+            ExcAssert(outerLeft);
+
+            if (!wasOutput){
+               // ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
+               // if (!crossCondition || !(lEmbedding.getColumn(1, GET_ALL)).asBool()) {
+
+                    //take left
+                    // Pop the selected join condition from left
+                    l->values.pop_back();
+
+                    //empty values for right without the selected join condition
+                    size_t numR = r->values.size();
+		    cerr << "l before clearing: " << jsonEncode(l) << endl;
+                    cerr << "numR" << numR << endl;
+                    cerr << "initial values: " << l->values.size() << endl;
+                   // for (int i = 0; i < numR-1; ++i) {
+                  //      l->values.pop_back();
+                  //  }
+                    for (int i = 0; i < numR-1; ++i) {
+                        l->values.emplace_back(ExpressionValue());
+                    }
+
+                    std::shared_ptr<PipelineResults> result = l;
+
+                    l = this->left->take();
+
+                    cerr << "cross outer left returning " << jsonEncode(result) << endl;
+
+                    return result;
+             //   }
+            }
+
+            l = this->left->take();
+        }
+
         if (!l || !r)
             return nullptr;
 
         // Got a row!
-        //cerr << "Cross join got a row" << endl;
-        //cerr << "l = " << jsonEncode(l) << endl;
-        //cerr << "r = " << jsonEncode(r) << endl;
+        cerr << "Cross join got a row" << endl;
+        cerr << "l = " << jsonEncode(l) << endl;
+        cerr << "r = " << jsonEncode(r) << endl;
 
-        ExpressionValue & lEmbedding = l->values.back();
-        ExpressionValue & rEmbedding = r->values.back();
+        ExpressionValue lEmbedding = l->values.back();
+        ExpressionValue rEmbedding = r->values.back();
 
-        if (outerLeft){
+	auto result = l;
+	if (scanLeftFirst)
+            result = make_shared<PipelineResults>(*l);	
+
+        // Pop the selected join condition from l
+        result->values.pop_back();
+
+        for (auto & v: r->values)
+            result->values.emplace_back(v);
+
+        // Pop the selected join condition from r
+        result->values.pop_back();
+
+        //auto result = l;
+        ExpressionValue storage;
+
+        cerr << "CC: " << parent->crossWhere_(*result, storage, GET_LATEST).isTrue() << endl;
+        cerr << "CCLeft: " << (lEmbedding.getColumn(1, GET_ALL).asBool() || !outerLeft)  << endl;
+        cerr << "CCRight: " << (rEmbedding.getColumn(1, GET_ALL).asBool() || !outerRight)  << endl;
+
+        bool crossCondition = parent->crossWhere_(*result, storage, GET_LATEST).isTrue() 
+                                && (lEmbedding.getColumn(1, GET_ALL).asBool() || !outerLeft)
+                                && (rEmbedding.getColumn(1, GET_ALL).asBool() || !outerRight);
+
+        cerr << "Cross condition is: " << crossCondition << endl;
+
+       /* if (outerLeft){
             ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
-            if (!where.asBool()) {
+            if (!crossCondition || !(lEmbedding.getColumn(1, GET_ALL)).asBool()) {
 
                 //take left
                 // Pop the selected join condition from left
@@ -956,6 +1059,9 @@ take()
                 //empty values for right without the selected join condition
                 size_t numR = r->values.size();
                 for (int i = 0; i < numR - 1; ++i) {
+                    l->values.pop_back();
+                }
+                for (int i = 0; i < numR - 1; ++i) {
                     l->values.emplace_back(ExpressionValue());
                 }
 
@@ -963,15 +1069,14 @@ take()
 
                 l = this->left->take();
 
-                //cerr << "cross outer left returning " << jsonEncode(result) << endl;
+                cerr << "cross outer left returning " << jsonEncode(result) << endl;
 
                 return result;
             }
         }
 
         if (outerRight){
-            ExpressionValue where = rEmbedding.getColumn(1, GET_ALL);
-            if (!where.asBool()) {
+            if (!crossCondition || !(rEmbedding.getColumn(1, GET_ALL)).asBool()) {
 
                 size_t numL = l->values.size();
 
@@ -992,30 +1097,28 @@ take()
 
                 l = this->left->take();
 
-                //cerr << "cross outer right returning " << jsonEncode(result) << endl;
+                cerr << "cross outer right returning " << jsonEncode(result) << endl;
 
                 return result;
             }
+        }*/
+
+        
+
+        if (scanLeftFirst) {
+            r = this->right->take();
         }
-
-        // Pop the selected join condition from l
-        l->values.pop_back();
-
-        for (auto & v: r->values)
-            l->values.emplace_back(v);
-
-        // Pop the selected join condition from r
-        l->values.pop_back();
-
-        //cerr << "cross returning " << jsonEncode(l) << endl;
-
-        auto result = l;
-
-        l = this->left->take();
-
-        ExpressionValue storage;
-        if (!parent->crossWhere_(*result, storage, GET_LATEST).isTrue())
+        else {
+            l = this->left->take();
+        }
+        
+       
+        if (!crossCondition)
             continue;
+
+        wasOutput = true;
+
+        cerr << "cross returning " << jsonEncode(result) << endl;
 
         return result;
     }
@@ -1029,6 +1132,7 @@ restart()
     right->restart();
     l = left->take();
     r = right->take();
+    wasOutput = false;
 }
 
 
@@ -1047,6 +1151,7 @@ EquiJoinExecutor(const Bound * parent,
       right(std::move(right)),
    //   alreadySeenLeftRow(false),
       cachedNumR(0),
+      wasOutput(false),
       logger(getMldbLog<EquiJoinExecutor>())
 {
     auto lresult = this->left->take();
@@ -1136,9 +1241,9 @@ take()
 
         ExpressionValue lField = lEmbedding.getColumn(0, GET_ALL);
         ExpressionValue rField = rEmbedding.getColumn(0, GET_ALL);
-        DEBUG_MSG(logger) << "++++++";
-        DEBUG_MSG(logger) << "comparing left row [" << (*l).first->values[0].coerceToPath() << 
-            "] with right row [" << r->values[0].coerceToPath() << "]";
+        cerr  /*DEBUG_MSG(logger)*/ << "++++++";
+        cerr  /*DEBUG_MSG(logger)*/ << "comparing left row [" << (*l).first->values[0].coerceToPath() << 
+                                       "] with right row [" << r->values[0].coerceToPath() << "]" << endl;
 
         //in case of outer join
         //check the where condition that we took out and put in the embedding instead
@@ -1163,14 +1268,17 @@ take()
         if (lField == rField) {
             auto setLastLeftValue = ScopeSuccess([&]() noexcept {lastLeftValue = lField;});
             // Got a row!
-            DEBUG_MSG(logger) << "left and right rows are matching on value " << lField.toString();
+	    if (lField.empty())
+	       cerr /*DEBUG_MSG(logger)*/ << "left and right rows are matching on value NULL" << endl;
+            else
+               cerr /*DEBUG_MSG(logger)*/ << "left and right rows are matching on value " << lField.toString() << endl;
          
             // return a copy since we are buffering the original left value
             auto result = make_shared<PipelineResults>(*(*l).first);
             // Pop the selected join conditions from left
             result->values.pop_back();
 
-            auto numL = result->values.size();
+            //auto numL = result->values.size();
             auto numR = r->values.size() - 1;
             cachedNumR = numR;
 
@@ -1190,15 +1298,16 @@ take()
                 for (auto i = 0; i < numR; i++)
                     result->values.push_back(ExpressionValue());
             }
-            else*/ if (!whereCondition && outerRight) {
+            else if (!whereCondition && outerRight) {
                 for (auto i = 0; i < numL; i++)
                     result->values[i] = ExpressionValue();
             }
-            else if (!whereCondition /*&& !outerRight && !outerLeft*/) {
+            else*/ if (!whereCondition /*&& !outerRight && !outerLeft*/) {
                 l = takeFromBuffer(l);
                 DEBUG_MSG(logger) << "skipping row - the where condition is false";
                 if (l == bufferedLeftValues.end()) {
                     DEBUG_MSG(logger) << "reached the left-side end - rewinding";
+                    wasOutput = false;
                     r = right->take();
                     l = firstDuplicate;
                   //  alreadySeenLeftRow = true;
@@ -1216,6 +1325,9 @@ take()
            // bool setAlreadySeen = false;
             if (l == bufferedLeftValues.end() && firstDuplicate != --bufferedLeftValues.end()) {
                 DEBUG_MSG(logger) << "reached the left-side end - rewinding";
+               //TODO: check for outer right?
+		cerr << "TAKING RIGHT" << endl;
+                wasOutput = false;
                 r = right->take();
                 l = firstDuplicate;
               //  setAlreadySeen = true;
@@ -1230,6 +1342,7 @@ take()
               //  alreadySeenLeftRow = true;
 
             DEBUG_MSG(logger) << "returning the row";
+            wasOutput = true;
             return result;
         }
         else if (lField < rField) {
@@ -1259,6 +1372,39 @@ take()
         }
         else {  
             ExcAssert(lField > rField);
+
+            //===========================
+
+             if (outerRight && !wasOutput /*&& checkOuterWhere(r, right, rField, lEmbedding)*/) {
+                              
+
+                            // return a copy since we are buffering the original left value
+                            auto result = make_shared<PipelineResults>(*(*l).first);
+                            // Pop the selected join conditions from left
+                            result->values.pop_back();
+
+                            auto numL = result->values.size();
+	
+			    result->values.clear();
+                            for (int i = 0; i < numL; ++i)
+				result->values.emplace_back(ExpressionValue::null(Date::notADate()));
+			    			
+			    for (int i = 0; i < r->values.size() -1;++i)
+				result->values.push_back(r->values[i]);
+                           // auto result = std::move(r);
+                           // s->values.emplace_back(ExpressionValue::null(Date::notADate()));
+                           // s->values.emplace_back(ExpressionValue::null(Date::notADate()));
+                            r = right->take();
+                            cerr /*DEBUG_MSG(logger)*/ << "returning right outer row ["
+                                              << result->values[0].coerceToPath()
+                                              << "]";
+                            return result;
+                        }
+
+            //==========================
+
+
+            wasOutput = false;
             r = right->take();
             if (r) {
                 if (r->values.back().getColumn(0, GET_ALL) == lastLeftValue) {
@@ -1277,7 +1423,7 @@ take()
                         if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
                             auto result = std::move(r);
                             r = right->take();
-                            DEBUG_MSG(logger) << "returning right outer row [" 
+                            cerr /*DEBUG_MSG(logger)*/ << "returning right outer row [" 
                                               << result->values[0].coerceToPath()
                                               << "]";
                             return result;
@@ -1387,8 +1533,8 @@ take()
         r->values.insert(r->values.begin(), ExpressionValue::null(Date::notADate()));
         auto result = std::move(r);
         r = right->take();
-        DEBUG_MSG(logger) << "++++++";
-        DEBUG_MSG(logger) << "returning right outer row [" 
+        cerr /*DEBUG_MSG(logger)*/ << "++++++";
+        cerr /*DEBUG_MSG(logger)*/ << "returning right outer row [" 
                           << result->values[0].coerceToPath()
                           << "]";
         return result;
