@@ -370,7 +370,7 @@ struct JoinElement: public PipelineElement {
         virtual std::shared_ptr<PipelineResults> take();
 
         std::shared_ptr<PipelineResults> r;
-        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, int > > bufferType;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, bool > > bufferType;
         bufferType bufferedLeftValues;
         bufferType::iterator l;
         bool firstSpin;
@@ -402,7 +402,7 @@ struct JoinElement: public PipelineElement {
         std::shared_ptr<ElementExecutor> root, left, right;
         
         std::shared_ptr<PipelineResults> r;
-        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, int > > bufferType;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, bool > > bufferType;
         bufferType bufferedLeftValues;
         /** Note that the left-side values are buffered so that we can
             backtrack when we need to form the cross product on matching 

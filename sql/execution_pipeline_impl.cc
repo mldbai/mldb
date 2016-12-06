@@ -1070,7 +1070,7 @@ FullCrossJoinExecutor(const Bound * parent,
 {
     ExcAssert(parent && this->root && this->left && this->right);
     auto lResult = this->left->take();
-    bufferedLeftValues.push_back({lResult, 0});
+    bufferedLeftValues.push_back({lResult, false});
     l = bufferedLeftValues.begin();
     r = this->right->take();
 }
@@ -1140,12 +1140,12 @@ take()
                                 && (rEmbedding.getColumn(1, GET_ALL).asBool());
      
         if (crossCondition)
-            l->second = 1;
+            l->second = true;
 
         if (firstSpin) {
             auto lResult = this->left->take();
             if (lResult)
-                bufferedLeftValues.push_back({lResult, 0});
+                bufferedLeftValues.push_back({lResult, false});
         }
 
         ++l;
@@ -1161,7 +1161,7 @@ take()
     //Return the left rows that were never matched
     while (l != bufferedLeftValues.end()) {
 
-        if (l->second != 0) {
+        if (l->second) {
             ++l;
             continue;
         }
@@ -1253,7 +1253,7 @@ take()
                 auto lresult = this->left->take();
                 if (lresult) {
                     // buffer the next element and return a pointer to it
-                    bufferedLeftValues.push_back({lresult, 0});
+                    bufferedLeftValues.push_back({lresult, false});
                     l = --bufferedLeftValues.end();
                     return l;
                 }
@@ -1275,7 +1275,7 @@ take()
     while (bufferedLeftValues.size() > 0 && firstDuplicate != bufferedLeftValues.begin()) {
         if (outerLeft) {
             auto leftiter = bufferedLeftValues.begin();
-            if (leftiter->second == 0) {
+            if (!leftiter->second) {
                 auto result = leftiter->first;
                 // Pop the selected join conditions from left
                 result->values.pop_back();
@@ -1339,7 +1339,7 @@ take()
             if (lastLeftValue != lField)
                 firstDuplicate = l;
 
-            l->second = 1; //we outputed that row, dont "outer" it
+            l->second = true; //we outputed that row, dont "outer" it
             l = takeFromBuffer(l);
 
             if (l == bufferedLeftValues.end() && firstDuplicate != --bufferedLeftValues.end()) {
@@ -1444,7 +1444,7 @@ take()
     {
         while (l != bufferedLeftValues.end() && !bufferedLeftValues.empty()) {
 
-            if (l->second > 0) {
+            if (l->second) {
                 l = takeFromBuffer(l);
                 continue;
             }
@@ -1453,7 +1453,7 @@ take()
             result->values.pop_back();
             result->values.emplace_back(ExpressionValue::null(Date::notADate()));
             result->values.emplace_back(ExpressionValue::null(Date::notADate()));
-            l->second = 1;
+            l->second = true;
             l = takeFromBuffer(l);
             DEBUG_MSG(logger) << "++++++";
             DEBUG_MSG(logger) << "returning left outer row [" 
@@ -1468,7 +1468,7 @@ take()
     while (bufferedLeftValues.size() > 0 ) {
         if (outerLeft) {
             auto leftiter = bufferedLeftValues.begin();
-            if (leftiter->second == 0) {
+            if (!leftiter->second) {
                 auto result = leftiter->first;
 
                 // Pop the selected join conditions from left
