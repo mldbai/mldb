@@ -923,14 +923,15 @@ std::shared_ptr<PipelineResults>
 JoinElement::CrossJoinExecutor::
 take()
 {
-    bool outerLeft = parent->joinQualification_ == JOIN_LEFT
-        || parent->joinQualification_ == JOIN_FULL;
-    bool outerRight = parent->joinQualification_ == JOIN_RIGHT
-        || parent->joinQualification_ == JOIN_FULL;
+    //Full cross joins should be handled by the FullCrossJoinExecutor
+    ExcAssert(parent->joinQualification_ != JOIN_FULL);
+
+    bool outerLeft = parent->joinQualification_ == JOIN_LEFT;
+    bool outerRight = parent->joinQualification_ == JOIN_RIGHT;
 
     //optimization: if we have a LEFT Join (but not full join)
     //we switch the left-right
-    bool scanLeftFirst = outerLeft && !outerRight;
+    bool scanLeftFirst = outerLeft;
 
     cerr << "scanLeftFirst: " << scanLeftFirst << endl;
 
@@ -988,7 +989,7 @@ take()
 
                     //empty values for right without the selected join condition
                     size_t numR = r->values.size();
-		    cerr << "l before clearing: " << jsonEncode(l) << endl;
+                    cerr << "l before clearing: " << jsonEncode(l) << endl;
                     cerr << "numR" << numR << endl;
                     cerr << "initial values: " << l->values.size() << endl;
                    // for (int i = 0; i < numR-1; ++i) {
@@ -1022,8 +1023,8 @@ take()
         ExpressionValue lEmbedding = l->values.back();
         ExpressionValue rEmbedding = r->values.back();
 
-	auto result = l;
-	if (scanLeftFirst)
+	   auto result = l;
+	   if (scanLeftFirst)
             result = make_shared<PipelineResults>(*l);	
 
         // Pop the selected join condition from l
@@ -1046,64 +1047,7 @@ take()
                                 && (lEmbedding.getColumn(1, GET_ALL).asBool() || !outerLeft)
                                 && (rEmbedding.getColumn(1, GET_ALL).asBool() || !outerRight);
 
-        cerr << "Cross condition is: " << crossCondition << endl;
-
-       /* if (outerLeft){
-            ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
-            if (!crossCondition || !(lEmbedding.getColumn(1, GET_ALL)).asBool()) {
-
-                //take left
-                // Pop the selected join condition from left
-                l->values.pop_back();
-
-                //empty values for right without the selected join condition
-                size_t numR = r->values.size();
-                for (int i = 0; i < numR - 1; ++i) {
-                    l->values.pop_back();
-                }
-                for (int i = 0; i < numR - 1; ++i) {
-                    l->values.emplace_back(ExpressionValue());
-                }
-
-                auto result = l;
-
-                l = this->left->take();
-
-                cerr << "cross outer left returning " << jsonEncode(result) << endl;
-
-                return result;
-            }
-        }
-
-        if (outerRight){
-            if (!crossCondition || !(rEmbedding.getColumn(1, GET_ALL)).asBool()) {
-
-                size_t numL = l->values.size();
-
-                //empty values for left without the selected join condition
-                l->values.clear();
-                for (int i = 0; i < numL - 1; ++i) {
-                    l->values.emplace_back(ExpressionValue());
-                }
-
-                // Add r
-                for (auto & v: r->values)
-                    l->values.emplace_back(v);
-
-                // Pop the selected join condition from r
-                l->values.pop_back();
-
-                auto result = l;
-
-                l = this->left->take();
-
-                cerr << "cross outer right returning " << jsonEncode(result) << endl;
-
-                return result;
-            }
-        }*/
-
-        
+        cerr << "Cross condition is: " << crossCondition << endl;        
 
         if (scanLeftFirst) {
             r = this->right->take();
@@ -1111,7 +1055,6 @@ take()
         else {
             l = this->left->take();
         }
-        
        
         if (!crossCondition)
             continue;
@@ -1132,6 +1075,170 @@ restart()
     right->restart();
     l = left->take();
     r = right->take();
+    wasOutput = false;
+}
+
+/*****************************************************************************/
+/* CROSS JOIN EXECUTOR                                                       */
+/*****************************************************************************/
+    
+JoinElement::FullCrossJoinExecutor::
+FullCrossJoinExecutor(const Bound * parent,
+                  std::shared_ptr<ElementExecutor> root,
+                  std::shared_ptr<ElementExecutor> left,
+                  std::shared_ptr<ElementExecutor> right)
+    : parent(parent),
+      root(std::move(root)),
+      left(std::move(left)),
+      right(std::move(right)),
+      firstSpin(true),
+      wasOutput(false),
+      rSize(0)
+{
+    ExcAssert(parent && this->root && this->left && this->right);
+    auto lResult = this->left->take();
+    bufferedLeftValues.push_back({lResult, 0});
+    l = bufferedLeftValues.begin();
+    r = this->right->take();
+    rSize = r->values.size();
+}
+
+std::shared_ptr<PipelineResults>
+JoinElement::FullCrossJoinExecutor::
+take()
+{
+    while (r) {
+        if (l == bufferedLeftValues.end()) {
+            firstSpin = false;
+            wasOutput = false;
+
+            l = bufferedLeftValues.begin();
+
+            //outer right
+            if (!wasOutput) {
+
+                auto result = std::make_shared<PipelineResults>(*(l->first));
+
+                size_t numL = result->values.size();
+
+                //empty values for left without the selected join condition
+                result->values.clear();
+                for (int i = 0; i < numL-1; ++i) {
+                    result->values.emplace_back(ExpressionValue());
+                }
+
+                // Add r
+                for (auto & v: r->values)
+                    result->values.emplace_back(v);
+
+                // Pop the selected join condition from r
+                result->values.pop_back();
+
+                cerr << "full cross outer right returning " << jsonEncode(result) << endl;
+
+                r = this->right->take();
+
+                return result;
+            }
+
+            r = this->right->take();
+        }
+
+        if (!r)
+            break;
+
+        // Got a row!
+        cerr << "Cross join got a row" << endl;
+        cerr << "l = " << jsonEncode(l->first) << endl;
+        cerr << "r = " << jsonEncode(r) << endl;
+
+        ExpressionValue lEmbedding = l->first->values.back();
+        ExpressionValue rEmbedding = r->values.back();        
+
+        auto result = std::make_shared<PipelineResults>(*(l->first));
+
+        // Pop the selected join condition from l
+        result->values.pop_back();
+
+        for (auto & v: r->values)
+            result->values.emplace_back(v);
+
+        // Pop the selected join condition from r
+        result->values.pop_back();
+
+        //auto result = l;
+        ExpressionValue storage;
+
+        cerr << "CC: " << parent->crossWhere_(*result, storage, GET_LATEST).isTrue() << endl;
+        cerr << "CCLeft: " << (lEmbedding.getColumn(1, GET_ALL).asBool())  << endl;
+        cerr << "CCRight: " << (rEmbedding.getColumn(1, GET_ALL).asBool())  << endl;
+
+        bool crossCondition = parent->crossWhere_(*result, storage, GET_LATEST).isTrue() 
+                                && (lEmbedding.getColumn(1, GET_ALL).asBool())
+                                && (rEmbedding.getColumn(1, GET_ALL).asBool());
+
+        cerr << "Cross condition is: " << crossCondition << endl;
+       
+        if (crossCondition)
+            l->second = 1;
+
+        if (firstSpin) {
+            auto lResult = this->left->take();
+            if (lResult)
+                bufferedLeftValues.push_back({lResult, 0});
+        }
+
+        ++l;
+
+        if (!crossCondition)
+            continue;       
+
+        wasOutput = true;
+
+        cerr << "cross returning " << jsonEncode(result) << endl;
+
+        return result;
+    }
+
+    while (l != bufferedLeftValues.end()) {
+
+        if (l->second != 0) {
+            ++l;
+            continue;
+        }
+
+        //outer left
+
+        // Pop the selected join condition from left
+        l->first->values.pop_back();
+
+        for (int i = 0; i < rSize-1; ++i) {
+            l->first->values.emplace_back(ExpressionValue());
+        }
+
+        std::shared_ptr<PipelineResults> result = l->first;
+        
+        ++l;
+
+        cerr << "cross outer left returning " << jsonEncode(result) << endl;
+
+        return result;
+    }
+
+    return nullptr;
+}
+
+void
+JoinElement::FullCrossJoinExecutor::
+restart()
+{
+    left->restart();
+    right->restart();
+    auto lResult = left->take();
+    bufferedLeftValues.clear();
+    l = bufferedLeftValues.begin();
+    r = right->take();
+    firstSpin = true;
     wasOutput = false;
 }
 
@@ -1439,30 +1546,6 @@ take()
         }
     }
 
-    //////////
-   /*  while (bufferedLeftValues.size() > 0 && l != bufferedLeftValues.begin()) {
-        if (outerLeft) {
-            auto leftiter = bufferedLeftValues.begin();
-            if (leftiter->second == 0) {
-                auto result = leftiter->first;
-                // Pop the selected join conditions from left
-                result->values.pop_back();
-                for (auto i = 0; i < cachedNumR; i++)
-                    result->values.pop_back();
-                for (auto i = 0; i < cachedNumR; i++)
-                    result->values.push_back(ExpressionValue());
-
-                cerr << "returning outer left before kicking out of cached list" << endl;
-                bufferedLeftValues.pop_front();
-                return result;
-            }
-        }
-
-        bufferedLeftValues.pop_front();
-    }*/
-
-    ///////
-
     //Return unmatched rows if we have a LEFT/RIGHT/OUTER join
 
     firstDuplicate = bufferedLeftValues.end();
@@ -1618,12 +1701,23 @@ start(const BoundParameters & getParam) const
 {
     switch (condition_.style) {
 
-    case AnnotatedJoinCondition::CROSS_JOIN:
-        return std::make_shared<CrossJoinExecutor>
+    case AnnotatedJoinCondition::CROSS_JOIN: 
+    {
+        if (joinQualification_ == JOIN_FULL) {
+            return std::make_shared<FullCrossJoinExecutor>
             (this,
              root_->start(getParam),
              left_->start(getParam),
              right_->start(getParam));
+        }
+        else {
+            return std::make_shared<CrossJoinExecutor>
+            (this,
+             root_->start(getParam),
+             left_->start(getParam),
+             right_->start(getParam));
+        }        
+    }
 
     case AnnotatedJoinCondition::EQUIJOIN:
         return std::make_shared<EquiJoinExecutor>

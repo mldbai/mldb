@@ -346,13 +346,33 @@ struct JoinElement: public PipelineElement {
 
         bool wasOutput;
         
-        std::shared_ptr<PipelineResults> l,r;
+        std::shared_ptr<PipelineResults> l,r;        
             
         virtual std::shared_ptr<PipelineResults> take();
 
         void restart();
     };
 
+    struct FullCrossJoinExecutor: public ElementExecutor {
+        FullCrossJoinExecutor(const Bound * parent,
+                          std::shared_ptr<ElementExecutor> root,
+                          std::shared_ptr<ElementExecutor> left,
+                          std::shared_ptr<ElementExecutor> right);
+
+        const Bound * parent;
+        std::shared_ptr<ElementExecutor> root, left, right;
+        virtual std::shared_ptr<PipelineResults> take();
+
+        std::shared_ptr<PipelineResults> r;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, int > > bufferType;
+        bufferType bufferedLeftValues;
+        bufferType::iterator l;
+        bool firstSpin;
+        bool wasOutput;
+        int rSize;
+
+        void restart();
+    };
 
     /** Execution runs on left rows and right rows together.  This requires to
         sort the value that will be compared (ie. the pivot).  The worse case
@@ -386,7 +406,7 @@ struct JoinElement: public PipelineElement {
         //bool alreadySeenLeftRow;
 
         size_t cachedNumR;
-	bool wasOutput;
+        bool wasOutput;
 
         std::shared_ptr<spdlog::logger> logger;
     

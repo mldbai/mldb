@@ -295,6 +295,28 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ["[row4]-[row2]", 2, 2, 2]
         ])
 
+    def test_cross_full_nothing(self):
+
+        ds = mldb.create_dataset({'id' : 'cross_rhs', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['one', 1, 0], ['two', 9, 0]])
+        ds.record_row('row2', [['one', 1, 0], ['two', 9, 0]])
+        ds.commit()
+
+        res = mldb.query("""
+            SELECT * FROM b FULL JOIN cross_rhs ON b.one < cross_rhs.one AND cross_rhs.two < b.one
+            ORDER BY rowName()
+        """)
+
+        mldb.log(res)
+
+        self.assertTableResultEquals(res, 
+            [["_rowName", "cross_rhs.one", "cross_rhs.two", "b.one"],
+             ["[]-[row1]", 1, 9, None],
+             ["[]-[row2]", 1, 9, None],
+             ["[row0]-[]", None, None, 0],
+             ["[row1]-[]", None, None, 1],
+             ["[row2]-[]", None, None, 2]
+        ])
 
 
 
