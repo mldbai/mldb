@@ -78,7 +78,8 @@ BaseEntryDescription()
     - 25, 26: timeinterval
     - 16-20: small ASCII string
     - 24: longer ASCII string and UTF8 strings
-    - 30: path
+    - 30: paths that cannot be interpreted as index
+    - 31: paths that are indices
 */
 
 
@@ -398,6 +399,8 @@ struct SparseMatrixDataset::Itl
                                           "hash", val);
             return result;
         }
+        case 31:
+            return CellValue(Path(PathElement(val)));
         default:
             throw HttpReturnException(500, "Unknown value tag", "tag", tag);
         }            
@@ -489,8 +492,7 @@ struct SparseMatrixDataset::Itl
             }
             // fall through for non-inlined version
         }
-        case CellValue::UTF8_STRING: 
-        case CellValue::PATH: {
+        case CellValue::UTF8_STRING: {
             CellValueHash hash = val.hash();
             if (!trans.values->knownRow(hash)) {
                 BaseEntry entry;
@@ -502,7 +504,28 @@ struct SparseMatrixDataset::Itl
                 entry.metadata.push_back(std::string(strChars, strChars + strNumChars));
                 trans.values->recordRow(hash, &entry, 1);
             }
-            return { hash, val.cellType() == CellValue::PATH ? 30 : 24 };
+            return { hash, 24 };
+        }
+        case CellValue::PATH: {
+            CellValueHash hash = val.hash();
+            Path path = val.coerceToPath();
+            if (path.isIndex()) {
+                return {path.toIndex(), 31};
+            } 
+            else {
+                if (!trans.values->knownRow(hash)) {
+                    BaseEntry entry;
+                    entry.rowcol = 0;
+                    entry.timestamp = 0;
+                    entry.val = 0;
+
+                    uint32_t strNumChars = val.toStringLength();
+                    const unsigned char * strChars = (const unsigned char *)val.stringChars();
+                    entry.metadata.push_back(std::string(strChars, strChars + strNumChars));
+                    trans.values->recordRow(hash, &entry, 1);
+                }
+            }
+            return {hash, 30 };
         }
         default:
             throw HttpReturnException(500,

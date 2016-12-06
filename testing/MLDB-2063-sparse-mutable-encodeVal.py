@@ -49,12 +49,39 @@ class MLDB2063SparseMutableEncodeVal(MldbUnitTest):  # noqa
         })
 
         self.assertTableResultEquals(
-            mldb.query("SELECT * FROM sparse"),
+            mldb.query("""
+                SELECT path_element(name, 0) AS a,
+                       path_element(name, 1) AS b, 
+                       path_element(name, 2) AS c,
+                       path_length(name) AS length
+                FROM sparse
+            """),
             [
-                ["_rowName", "name"],
-                ["result",  "1.2.3" ]
+                ["_rowName", "a", "b", "c", "length"],
+                ["result",  "1", "2", "3", 3 ]
             ]
         )
+
+    def test_index_path(self):
+        mldb.post('/v1/procedures', {
+            'type': 'transform',
+            'params': {
+                'inputData': "SELECT CAST ('1123' AS path) AS name",
+                'outputDataset': {
+                'id': 'sparse',
+                    'type': 'sparse.mutable'
+                }
+            }
+        })
+
+        self.assertTableResultEquals(
+            mldb.query("SELECT path_element(name, 0) AS col FROM sparse"),
+            [
+                ["_rowName", "col"],
+                ["result",  "1123" ]
+            ]
+        )
+
 
 if __name__ == '__main__':
     mldb.run_tests()
