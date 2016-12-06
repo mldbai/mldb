@@ -161,13 +161,12 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbScope context(server);
-
-    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
-                                        context,
+    auto embeddingOutput = getEmbedding(server->getScope(),
+                                        SqlRowScope(),
+                                        *runProcConf.trainingData.stm,
                                         runProcConf.numInputDimensions,
                                         onProgress2);
-
+    
     std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;

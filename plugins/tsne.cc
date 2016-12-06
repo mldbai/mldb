@@ -247,12 +247,9 @@ run(const ProcedureRunConfig & run,
     DEBUG_MSG(logger) << "learningRate = " << itl->params.eta;
     DEBUG_MSG(logger) << "doing t-SNE";
 
-
-    SqlExpressionMldbScope context(server);
-
-
-    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
-                                        context,
+    auto embeddingOutput = getEmbedding(server->getScope(),
+                                        SqlRowScope(),
+                                        *runProcConf.trainingData.stm,
                                         runProcConf.numInputDimensions,
                                         onProgress2);
 

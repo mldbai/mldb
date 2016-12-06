@@ -113,6 +113,39 @@ getStatus() const
     return result;
 }
 
+/** Scope that only binds parameters, ie entities referenced as $xxx which
+    are translated to a column reference.
+*/
+
+struct SqlQueryFunctionScope: public SqlBindingScope {
+
+    SqlQueryFunctionScope(SqlBindingScope & outer,
+                          std::shared_ptr<RowValueInfo> info)
+        : outer(outer), info(info)
+    {
+    }
+
+    SqlBindingScope & outer;
+    std::shared_ptr<RowValueInfo> info;
+
+    struct RowScope: SqlRowScope {
+        RowScope(const ExpressionValue & column)
+            : column(column)
+        {
+        }
+
+        const ExpressionValue & column;
+    };
+    
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
+
+    static RowScope getRowScope(const ExpressionValue & column)
+    {
+        return RowScope(column);
+    }
+};
+
+
 /** Structure that does all the work of the SQL expression function. */
 struct SqlQueryFunctionApplier: public FunctionApplier {
     SqlQueryFunctionApplier(const SqlQueryFunction * function,
@@ -128,7 +161,8 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return std::make_shared<AnyValueInfo>();
             };
 
-        pipeline = getMldbRoot(function->server)->statement(*config.query.stm, getParamInfo);
+        pipeline = PipelineElement::scope(*scope)
+            ->statement(*config.query.stm);
 
         // Bind the pipeline; this populates the input parameters
         boundPipeline = pipeline->bind();
@@ -169,6 +203,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
 
     ExpressionValue apply(const ExpressionValue & context) const
     {
+        SqlRowScope 
         // 1.  Run our generator, finding all rows
         BoundParameters params
             = [&] (const Utf8String & name) -> ExpressionValue
@@ -281,6 +316,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
     std::shared_ptr<Dataset> from;
     std::shared_ptr<PipelineElement> pipeline;
     std::shared_ptr<BoundPipelineElement> boundPipeline;
+    std::unique_ptr<SqlQueryFunctionScope> scope;
 };
 
 std::unique_ptr<FunctionApplier>
@@ -697,7 +733,9 @@ run(const ProcedureRunConfig & run,
     if (!runProcConf.inputData.stm->from) {
         DEBUG_MSG(logger) << "performing transform without a dataset";
         // query without dataset
-        std::vector<MatrixNamedRow> rows = queryWithoutDataset(*runProcConf.inputData.stm, context);
+        std::vector<MatrixNamedRow> rows
+            = queryWithoutDataset(server->getScope(), SqlRowScope(),
+                                  *runProcConf.inputData.stm);
         std::for_each(rows.begin(), rows.end(), recordRowInOutputDataset);
         output->commit();
         return output->getStatus();

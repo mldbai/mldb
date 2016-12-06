@@ -331,7 +331,9 @@ run(const ProcedureRunConfig & run,
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         extra.push_back(lbl.second);
 
-    iterateDataset(runProcConf.trainingData.stm->select,
+    iterateDataset(server->getScope(),
+                   SqlRowScope(),
+                   runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
@@ -717,7 +719,9 @@ run(const ProcedureRunConfig & run,
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         extra.push_back(lbl.second);
 
-    iterateDataset(runProcConf.trainingData.stm->select,
+    iterateDataset(server->getScope(),
+                   SqlRowScope(),
+                   runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,

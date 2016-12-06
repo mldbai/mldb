@@ -508,7 +508,9 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
     // Query our metadata dataset for the datasets to load up
     auto datasets
         = metadataDataset
-        ->queryStructured(SelectExpression::STAR,
+        ->queryStructured(server->getScope(),
+                          SqlRowScope(),
+                          SelectExpression::STAR,
                           WhenExpression::TRUE /* when */,
                           *SqlExpression::parse(where) /* where */,
                           OrderByExpression::parse("rowPath() ASC"),

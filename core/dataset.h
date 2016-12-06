@@ -30,6 +30,7 @@ struct MldbServer;
 struct SqlExpression;
 struct SqlRowExpression;
 struct SqlBindingScope;
+struct SqlRowScope;
 struct GenerateRowsWhereFunction;
 struct BasicRowGenerator;
 struct OrderByExpression;
@@ -519,7 +520,9 @@ struct Dataset: public MldbEntity {
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>
-    queryStructured(const SelectExpression & select,
+    queryStructured(SqlBindingScope & outerScope,
+                    const SqlRowScope & outerRowScope,
+                    const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,
                     const OrderByExpression & orderBy,
@@ -531,20 +534,24 @@ struct Dataset: public MldbEntity {
                     Utf8String alias = "") const;
 
     std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
-    queryStructuredExpr(const SelectExpression & select,
-                    const WhenExpression & when,
-                    const SqlExpression & where,
-                    const OrderByExpression & orderBy,
-                    const TupleExpression & groupBy,
-                    const std::shared_ptr<SqlExpression> having,
-                    const std::shared_ptr<SqlExpression> rowName,
-                    ssize_t offset,
-                    ssize_t limit,
-                    Utf8String alias = "") const;
+    queryStructuredExpr(SqlBindingScope & outerScope,
+                        const SqlRowScope & outerRowScope,
+                        const SelectExpression & select,
+                        const WhenExpression & when,
+                        const SqlExpression & where,
+                        const OrderByExpression & orderBy,
+                        const TupleExpression & groupBy,
+                        const std::shared_ptr<SqlExpression> having,
+                        const std::shared_ptr<SqlExpression> rowName,
+                        ssize_t offset,
+                        ssize_t limit,
+                        Utf8String alias = "") const;
 
     /** Select from the database. */
     virtual bool
     queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                               SqlBindingScope & outerScope,
+                               const SqlRowScope & outerRowScope,
                                const SelectExpression & select,
                                const WhenExpression & when,
                                const SqlExpression & where,
@@ -631,6 +638,17 @@ struct Dataset: public MldbEntity {
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const;
+
+    typedef std::function<BasicRowGenerator (const SqlRowScope & rowScope,
+                                             ssize_t offset,
+                                             ssize_t limit)> BasicExecutor;
+
+    /** Bind a basic query. */
+    virtual BasicExecutor bindBasic(SqlBindingScope & outerScope,
+                                    const SelectExpression & select,
+                                    const WhenExpression & when,
+                                    const SqlExpression & where,
+                                    const OrderByExpression & orderBy) const;
 
     /** Perform the guts of a select statement.  This will perform a single-
         table SELECT, with the given WHERE clause, ORDER BY, offset and limit.

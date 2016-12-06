@@ -569,7 +569,8 @@ queryStructured(const Dataset * dataset,
     auto runQuery = [&] ()
         {
             return dataset->queryStructured
-                (selectParsed, whenParsed, *whereParsed, orderByParsed,
+                (MldbEntity::getOwner(server)->getScope(), SqlRowScope(),
+                 selectParsed, whenParsed, *whereParsed, orderByParsed,
                  groupByParsed,havingParsed, rowNameParsed, offset, limit);
         };
 

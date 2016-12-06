@@ -334,29 +334,24 @@ Bound(const GenerateRowsElement * parent,
     : parent(std::dynamic_pointer_cast<const GenerateRowsElement>
              (parent->shared_from_this())),
       source_(std::move(source)),
-      inputScope_(source_->outputScope()),
-      outputScope_(/* Add a table to the outer scope */
-                   inputScope_->tableScope
-                   (std::make_shared<TableLexicalScope>
-                    (parent->from.getRowInfo(), parent->as)))
+      inputScope_(source_->outputScope())
 {
+    std::tie(executor, rowInfo)
+        = parent->from.bindQuery(inputScope_, parent->select, parent->when,
+                                 parent->where, parent->orderBy);
+    /* Add a table to the outer scope */
+    outputScope_
+        = inputScope_->tableScope
+            (std::make_shared<TableLexicalScope>(rowInfo, parent->as));
 }
 
 std::shared_ptr<ElementExecutor>
 GenerateRowsElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
     auto result = std::make_shared<GenerateRowsExecutor>();
-    result->source = source_->start(getParam);
-    result->generator
-        = parent->from.runQuery(*outputScope_,
-                                parent->select,
-                                parent->when,
-                                *parent->where,
-                                parent->orderBy,
-                                0 /* offset */, -1 /* limit */);
-    result->params = getParam;
-    ExcAssert(result->params);
+    result->source = source_->start(outerRow);
+    result->generator = executor(outerRow, 0 /* offset */, -1 /* limit */);
     return result;
 }
 
@@ -523,7 +518,7 @@ Bound(const SubSelectElement * parent,
 
 std::shared_ptr<ElementExecutor>
 SubSelectElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
     auto result = std::make_shared<SubSelectExecutor>(boundSelect, getParam);
     return result;
@@ -1362,23 +1357,23 @@ createOutputScope()
         
 std::shared_ptr<ElementExecutor>
 JoinElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
     switch (condition_.style) {
 
     case AnnotatedJoinCondition::CROSS_JOIN:
         return std::make_shared<CrossJoinExecutor>
             (this,
-             root_->start(getParam),
-             left_->start(getParam),
-             right_->start(getParam));
+             root_->start(outerRow),
+             left_->start(outerRow),
+             right_->start(outerRow));
 
     case AnnotatedJoinCondition::EQUIJOIN:
         return std::make_shared<EquiJoinExecutor>
             (this,
-             root_->start(getParam),
-             left_->start(getParam),
-             right_->start(getParam));
+             root_->start(outerRow),
+             left_->start(outerRow),
+             right_->start(outerRow));
 
     default:
         throw HttpReturnException(400, "Can't execute that kind of join",
@@ -1448,7 +1443,7 @@ Bound(std::shared_ptr<SqlBindingScope> outer)
 
 std::shared_ptr<ElementExecutor>
 RootElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
     return std::make_shared<Executor>();
 }
@@ -1479,8 +1474,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             WhenExpression when_,
             SelectExpression select_,
             std::shared_ptr<SqlExpression> where_,
-            OrderByExpression orderBy_,
-            GetParamInfo params_)
+            OrderByExpression orderBy_)
     : root(std::move(root_)), 
       from(std::move(from_)),
       boundFrom(std::move(boundFrom_)),
@@ -1520,10 +1514,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                 throw HttpReturnException(500, "No query parameter " + paramName);
             };
 
-        if (params_)
-            getParamInfo = params_;
-
-        impl.reset(new SubSelectElement(root, subSelect->statement, orderBy, getParamInfo, from->getAs()));
+        impl.reset(new SubSelectElement(root, subSelect->statement, orderBy, from->getAs()));
     }
     else {
 #if 0
@@ -1565,9 +1556,8 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                 {
 
                     auto generateRows = [=] (ssize_t numToGenerate,
-                                            SqlRowScope & rowScope,
-                                            const BoundParameters & params)
-                    ->std::vector<NamedRowValue>
+                                             SqlRowScope & rowScope)
+                    -> std::vector<NamedRowValue>
                     {
                         std::vector<NamedRowValue> result;
 
@@ -1704,11 +1694,11 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 FilterWhereElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
     auto result = std::make_shared<Executor>();
     result->parent_ = this;
-    result->source_ = source_->start(getParam);
+    result->source_ = source_->start(outerRow);
     return result;
 }
 
@@ -1802,11 +1792,11 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 SelectElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
     auto result = std::make_shared<Executor>();
     result->parent = this;
-    result->source = source_->start(getParam);
+    result->source = source_->start(outerRow);
     return result;
 }
 
@@ -1927,10 +1917,10 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 OrderByElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
-    return std::make_shared<Executor>(this,
-                                      source_->start(getParam));
+    return std::make_shared<Executor>
+        (this, source_->start(outerRow));
 }
 
 std::shared_ptr<BoundPipelineElement>
@@ -2201,10 +2191,10 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 PartitionElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
     return std::make_shared<Executor>
-        (this, source_->start(getParam),
+        (this, source_->start(outerRow),
          source_->numOutputFields() - numValues_,
          source_->numOutputFields());
 }
@@ -2287,9 +2277,9 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
         
 std::shared_ptr<ElementExecutor>
 ParamsElement::Bound::
-start(const BoundParameters & getParam) const
+start(const SqlRowScope & outerRow) const
 {
-    return std::make_shared<Executor>(source_->start(getParam),
+    return std::make_shared<Executor>(source_->start(outerRow),
                                       getParam);
 }
 

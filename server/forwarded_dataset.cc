@@ -123,7 +123,9 @@ commit()
 
 std::vector<MatrixNamedRow>
 ForwardedDataset::
-queryStructured(const SelectExpression & select,
+queryStructured(SqlBindingScope & outerScope,
+                const SqlRowScope & outerRowScope,
+                const SelectExpression & select,
                 const WhenExpression & when,
                 const SqlExpression & where,
                 const OrderByExpression & orderBy,
@@ -135,8 +137,9 @@ queryStructured(const SelectExpression & select,
                 Utf8String alias) const
 {
     ExcAssert(underlying);
-    return underlying->queryStructured(select, when, where, orderBy,
-            groupBy, having, rowName, offset, limit, alias);
+    return underlying->queryStructured(outerScope, outerRowScope,
+                                       select, when, where, orderBy,
+                                       groupBy, having, rowName, offset, limit, alias);
 }
 
 std::vector<MatrixNamedRow>

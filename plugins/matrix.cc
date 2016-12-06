@@ -25,7 +25,9 @@ namespace MLDB {
 
 namespace {
    std::unordered_map<ColumnPath, ColumnStats>
-   getColumnStats(const SelectExpression & select,
+   getColumnStats(SqlBindingScope & outerScope,
+                  const SqlRowScope & outerRowScope,
+                  const SelectExpression & select,
                   const Dataset & from,
                   const WhenExpression & when,
                   const SqlExpression & where,
@@ -57,9 +59,9 @@ namespace {
            return true;
        };
 
-       if (!iterateDataset(select, from, "", when, where, 
+       if (!iterateDataset(outerScope, outerRowScope, select, from, "", when, where, 
                           {onRow, false /*processInParallel*/}, 
-                          orderBy, offset, limit, onProgress).first) {
+                           orderBy, offset, limit, onProgress).first) {
            throw CancellationException("getColumnStats was cancelled");
        }
        return stats;
@@ -92,7 +94,9 @@ ColumnSpecDescription()
 }
 
 ClassifiedColumns
-classifyColumns(const SelectExpression & select_,
+classifyColumns(SqlBindingScope & outerScope,
+                SqlRowScope & outerRowScope,
+                const SelectExpression & select_,
                 const Dataset & dataset,
                 const WhenExpression & when,
                 const SqlExpression & where,
@@ -129,7 +133,9 @@ classifyColumns(const SelectExpression & select_,
     std::vector<SparseColumnInfo> sparseColumns;
 
     std::unordered_map<ColumnPath, ColumnStats> stats = 
-        getColumnStats(select, dataset, when, where, orderBy, offset, limit, onProgress);
+        getColumnStats(outerScope, outerRowScope,
+                       select, dataset, when, where, orderBy,
+                       offset, limit, onProgress);
  
     DEBUG_MSG(logger) << "stats size " << stats.size();
 
@@ -211,7 +217,9 @@ classifyColumns(const SelectExpression & select_,
 }
 
 FeatureBuckets 
-extractFeaturesFromRows(const SelectExpression & select,
+extractFeaturesFromRows(SqlBindingScope & outerScope,
+                        const SqlRowScope & outerRowScope,
+                        const SelectExpression & select,
                         const Dataset & dataset,
                         const WhenExpression & when,
                         std::shared_ptr<SqlExpression> where,
@@ -273,9 +281,10 @@ extractFeaturesFromRows(const SelectExpression & select,
 
             return true;
         };
-    iterateDataset(select, dataset, "", when, *where, 
+    iterateDataset(outerScope, outerRowScope,
+                   select, dataset, "", when, *where, 
                    {onRow, true /*processInParallel*/}, orderBy, offset, limit, onProgress);
-
+    
     DEBUG_MSG(logger) << "done extracting values in " << timer.elapsed();
 
     timer.restart();

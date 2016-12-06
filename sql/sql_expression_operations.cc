@@ -2852,16 +2852,6 @@ bind(SqlBindingScope & scope) const
             ssize_t offset = 0;
             ssize_t limit = -1;
 
-            BasicRowGenerator generator
-                = boundTable.table.runQuery(scope, SelectExpression::STAR,
-                                            WhenExpression::TRUE,
-                                            *SqlExpression::TRUE,
-                                            orderBy,
-                                            offset, limit);
-            
-            // This is a set of all values we can search for in our expression
-            auto valsPtr = std::make_shared<std::unordered_set<ExpressionValue> >();
-
             // NOTE: this is where we REQUIRE that the subquery is non-
             // correlated.  We can only pass a naked SqlRowScope like this
             // to those that are non-correlated... if there are crashes in
@@ -2871,6 +2861,16 @@ bind(SqlBindingScope & scope) const
             // fix detection of non-correlated subqueries above.
             SqlRowScope fakeRowScopeForConstantSubqueryGeneration;
 
+
+            BasicRowGenerator generator
+                = boundTable.table.bindQuery(scope, SelectExpression::STAR,
+                                             WhenExpression::TRUE,
+                                             *SqlExpression::TRUE,
+                                             orderBy)
+                .first(fakeRowScopeForConstantSubqueryGeneration, offset, limit);
+            
+            // This is a set of all values we can search for in our expression
+            auto valsPtr = std::make_shared<std::unordered_set<ExpressionValue> >();
 
             // Generate all outputs of the query
             std::vector<NamedRowValue> rowOutputs

@@ -69,7 +69,6 @@ struct GenerateRowsExecutor: public ElementExecutor {
 
     std::shared_ptr<Dataset> dataset;
     BasicRowGenerator generator;
-    BoundParameters params;
 
     std::vector<NamedRowValue> current;
     size_t currentDone;
@@ -110,13 +109,15 @@ struct GenerateRowsElement: public PipelineElement {
         std::shared_ptr<const GenerateRowsElement> parent;
         std::shared_ptr<BoundPipelineElement> source_;
         std::shared_ptr<PipelineExpressionScope> inputScope_;
+        TableOperations::Executor executor;
+        std::shared_ptr<RowValueInfo> rowInfo;
         std::shared_ptr<PipelineExpressionScope> outputScope_;
 
         Bound(const GenerateRowsElement * parent,
               std::shared_ptr<BoundPipelineElement> source);
 
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -177,7 +178,6 @@ struct SubSelectExecutor: public ElementExecutor {
                       const BoundParameters & getParam);
 
     std::shared_ptr<ElementExecutor> source;
-    BoundParameters params;
     std::shared_ptr<ElementExecutor> pipeline;
 
     virtual std::shared_ptr<PipelineResults> take();
@@ -214,7 +214,7 @@ struct SubSelectElement: public PipelineElement {
               std::shared_ptr<BoundPipelineElement> source);
 
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -418,7 +418,7 @@ struct JoinElement: public PipelineElement {
         createOutputScope();
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -459,7 +459,7 @@ struct RootElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> scope_;
 
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -494,8 +494,7 @@ struct FromElement: public PipelineElement {
                 WhenExpression when_,
                 SelectExpression select_ = SelectExpression::parse("*"),
                 std::shared_ptr<SqlExpression> where_ = SqlExpression::TRUE,
-                OrderByExpression orderBy_ = OrderByExpression(),
-                GetParamInfo params_ = nullptr);
+                OrderByExpression orderBy_ = OrderByExpression());
     
     std::shared_ptr<PipelineElement> root;
     std::shared_ptr<TableExpression> from;
@@ -550,7 +549,7 @@ struct FilterWhereElement: public PipelineElement {
         BoundSqlExpression where_;
 
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -602,7 +601,7 @@ struct SelectElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -658,7 +657,7 @@ struct OrderByElement: public PipelineElement {
         BoundOrderByExpression orderBy_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -758,7 +757,7 @@ struct PartitionElement: public PipelineElement {
         int numValues_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
         
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -809,7 +808,7 @@ struct ParamsElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam) const;
+        start(const SqlRowScope & outerRow) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;

@@ -186,7 +186,9 @@ run(const ProcedureRunConfig & run,
             return true;
         };
 
-    iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName,
+    iterateDataset(server->getScope(),
+                   SqlRowScope(),
+                   SelectExpression(), *boundDataset.dataset, boundDataset.asName,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    extra, {processor,true/*processInParallel*/},

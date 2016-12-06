@@ -193,9 +193,7 @@ run(const ProcedureRunConfig & run,
                          "modelFileUrl");
     }
 
-    SqlExpressionMldbScope context(server);
-
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(server->getScope());
 
     //This will cummulate the number of documents each word is in
     std::unordered_map<Utf8String, uint64_t> dfs;
@@ -213,7 +211,10 @@ run(const ProcedureRunConfig & run,
             return true;
         };
 
-    iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName,
+    iterateDataset(server->getScope(),
+                   SqlRowScope(),
+                   runProcConf.trainingData.stm->select,
+                   *boundDataset.dataset, boundDataset.asName,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    {processor,false/*processInParallel*/},

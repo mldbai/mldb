@@ -431,8 +431,7 @@ from(std::shared_ptr<TableExpression> from,
      WhenExpression when,
      SelectExpression select,
      std::shared_ptr<SqlExpression> where,
-     OrderByExpression orderBy,
-     GetParamInfo getParamInfo)
+     OrderByExpression orderBy)
 {
     //The FromElement needs the GetParamInfo in case it is a sub select (e.g., "select * from (select $param)")
     //In which case the GetParamInfo is needed to create the sub-pipeline.
@@ -440,7 +439,7 @@ from(std::shared_ptr<TableExpression> from,
     return std::make_shared<FromElement>(shared_from_this(), from, 
                                          BoundTableExpression(),
                                          when,
-                                         select, where, orderBy, getParamInfo);
+                                         select, where, orderBy);
 }
 
 std::shared_ptr<PipelineElement>

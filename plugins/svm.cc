@@ -247,10 +247,9 @@ run(const ProcedureRunConfig & run,
     checkWritability(runProcConf.modelFileUrl.toDecodedString(),
                      "modelFileUrl");
 
-    SqlExpressionMldbScope context(server);
-
     auto embeddingOutput
-        = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
+        = getEmbedding(server->getScope(), SqlRowScope(),
+                       *runProcConf.trainingData.stm, -1, onProgress2);
 
     std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows

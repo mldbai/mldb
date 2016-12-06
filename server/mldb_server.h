@@ -35,6 +35,8 @@ struct Dataset;
 struct Procedure;
 struct Function;
 struct CredentialRule;
+struct SqlBindingScope;
+struct SqlExpressionMldbScope;
 
 struct MatrixNamedRow;
 
@@ -164,6 +166,12 @@ struct MldbServer: public ServicePeer, public EventRecorder {
         const RestParams & params = RestParams(),
         const Json::Value payload = Json::Value()) const;
 
+    /** Return the outer scope in which SQL constructs bind.  Note
+        that this is an SqlExpressionMldbScope, and is not
+        really mutable (it has no data members).
+    */
+    SqlBindingScope & getScope() const;
+
 private:
     void preInit();
     bool initRoutes();
@@ -174,6 +182,7 @@ private:
     RestRequestRouter * versionNode;
     std::string cacheDirectory_;
     std::shared_ptr<spdlog::logger> logger;
+    std::unique_ptr<SqlExpressionMldbScope> scope;
 };
 
 } // namespace MLDB

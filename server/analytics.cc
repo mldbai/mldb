@@ -37,17 +37,19 @@ namespace MLDB {
     row is passed to the aggregator.
 */
 std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
-iterateDataset(const SelectExpression & select,
-                    const Dataset & from,
-                    const Utf8String & alias,
-                    const WhenExpression & when,
-                    const SqlExpression & where,
-                    std::vector<std::shared_ptr<SqlExpression> > calc,
-                    RowProcessorEx processor,
-                    const OrderByExpression & orderBy,
-                    ssize_t offset,
-                    ssize_t limit,
-                    std::function<bool (const Json::Value &)> onProgress)
+iterateDataset(SqlBindingScope & outerScope,
+               const SqlRowScope & outerRowScope,
+               const SelectExpression & select,
+               const Dataset & from,
+               const Utf8String & alias,
+               const WhenExpression & when,
+               const SqlExpression & where,
+               std::vector<std::shared_ptr<SqlExpression> > calc,
+               RowProcessorEx processor,
+               const OrderByExpression & orderBy,
+               ssize_t offset,
+               ssize_t limit,
+               std::function<bool (const Json::Value &)> onProgress)
 {
     BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
 
@@ -58,17 +60,19 @@ iterateDataset(const SelectExpression & select,
 }
 
 std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
-iterateDatasetExpr(const SelectExpression & select,
-                        const Dataset & from,
-                        const Utf8String & alias,
-                        const WhenExpression & when,
-                        const SqlExpression & where,
-                        std::vector<std::shared_ptr<SqlExpression> > calc,
-                        RowProcessorExpr processor,
-                        const OrderByExpression & orderBy,
-                        ssize_t offset,
-                        ssize_t limit,
-                        std::function<bool (const Json::Value &)> onProgress)
+iterateDatasetExpr(SqlBindingScope & outerScope,
+                   const SqlRowScope & outerRowScope,
+                   const SelectExpression & select,
+                   const Dataset & from,
+                   const Utf8String & alias,
+                   const WhenExpression & when,
+                   const SqlExpression & where,
+                   std::vector<std::shared_ptr<SqlExpression> > calc,
+                   RowProcessorExpr processor,
+                   const OrderByExpression & orderBy,
+                   ssize_t offset,
+                   ssize_t limit,
+                   std::function<bool (const Json::Value &)> onProgress)
 {
     BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
 
@@ -79,20 +83,22 @@ iterateDatasetExpr(const SelectExpression & select,
 
 /** Full select function, with grouping. */
 std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
-iterateDatasetGrouped(const SelectExpression & select,
-                           const Dataset & from,
-                           const Utf8String & alias,
-                           const WhenExpression & when,
-                           const SqlExpression & where,
-                           const TupleExpression & groupBy,
-                           const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
-                           const SqlExpression & having,
-                           const SqlExpression & rowName,
-                           RowProcessor processor,
-                           const OrderByExpression & orderBy,
-                           ssize_t offset,
-                           ssize_t limit,
-                           std::function<bool (const Json::Value &)> onProgress)
+iterateDatasetGrouped(SqlBindingScope & outerScope,
+                      const SqlRowScope & outerRowScope,
+                      const SelectExpression & select,
+                      const Dataset & from,
+                      const Utf8String & alias,
+                      const WhenExpression & when,
+                      const SqlExpression & where,
+                      const TupleExpression & groupBy,
+                      const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
+                      const SqlExpression & having,
+                      const SqlExpression & rowName,
+                      RowProcessor processor,
+                      const OrderByExpression & orderBy,
+                      ssize_t offset,
+                      ssize_t limit,
+                      std::function<bool (const Json::Value &)> onProgress)
 {
     BoundGroupByQuery query(select, from, alias, when, where, groupBy,
                              aggregators, having, rowName, orderBy);
@@ -102,16 +108,18 @@ iterateDatasetGrouped(const SelectExpression & select,
 }
 
 std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
-iterateDataset(const SelectExpression & select,
-                    const Dataset & from,
-                    const Utf8String & alias,
-                    const WhenExpression & when,
-                    const SqlExpression & where,
-                    RowProcessor processor,
-                    const OrderByExpression & orderBy,
-                    ssize_t offset,
-                    ssize_t limit,
-                    std::function<bool (const Json::Value &)> onProgress)
+iterateDataset(SqlBindingScope & outerScope,
+               const SqlRowScope & outerRowScope,
+               const SelectExpression & select,
+               const Dataset & from,
+               const Utf8String & alias,
+               const WhenExpression & when,
+               const SqlExpression & where,
+               RowProcessor processor,
+               const OrderByExpression & orderBy,
+               ssize_t offset,
+               ssize_t limit,
+               std::function<bool (const Json::Value &)> onProgress)
 {
     std::function<bool (NamedRowValue & output,
                         const std::vector<ExpressionValue> & calcd)>
@@ -121,11 +129,16 @@ iterateDataset(const SelectExpression & select,
             return processor(output);
         };
 
-    return iterateDataset(select, from, std::move(alias), when, where, {}, {processor2, processor.processInParallel}, orderBy, offset, limit, onProgress);
+    return iterateDataset(outerScope, outerRowScope,
+                          select, from, std::move(alias), when, where, {},
+                          {processor2, processor.processInParallel},
+                          orderBy, offset, limit, onProgress);
 }
 
 /** Iterates over the dataset, extracting a dense feature vector from each row. */
-void iterateDense(const SelectExpression & select,
+void iterateDense(SqlBindingScope & outerScope,
+                  const SqlRowScope & outerRowScope,
+                  const SelectExpression & select,
                   const Dataset & from,
                   const Utf8String& alias,
                   const WhenExpression & when,
@@ -215,7 +228,9 @@ void iterateDense(const SelectExpression & select,
 
 std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
-getEmbedding(const SelectExpression & select,
+getEmbedding(SqlBindingScope & outerScope,
+             const SqlRowScope & outerRowScope,
+             const SelectExpression & select,
              const Dataset & dataset,
              const Utf8String& alias,
              const WhenExpression & when,
@@ -287,7 +302,8 @@ getEmbedding(const SelectExpression & select,
     if (limit != -1 || offset != 0) { //TODO - MLDB-1127 - orderBy condition here
         
         //getEmbedding is expected to have a consistent row order
-        iterateDataset(select, dataset, std::move(alias), when, where, calc,
+        iterateDataset(outerScope, outerRowScope,
+                       select, dataset, std::move(alias), when, where, calc,
                        {sparseProcessor, false /*processInParallel*/},
                        orderBy, offset, limit, onProgress);
     }
@@ -295,7 +311,8 @@ getEmbedding(const SelectExpression & select,
         // this has opportunity for more optimization since there are no
         // offset or limit
         
-        iterateDense(select, dataset, alias, when, where, calc,
+        iterateDense(outerScope, outerRowScope,
+                     select, dataset, alias, when, where, calc,
                      processor, nullptr);
         
         // because the results come in parallel
@@ -309,17 +326,19 @@ getEmbedding(const SelectExpression & select,
 std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                                  std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
-getEmbedding(const SelectStatement & stm,
-             SqlExpressionMldbScope & context,
+getEmbedding(SqlBindingScope & outerScope,
+             const SqlRowScope & outerRowScope,
+             const SelectStatement & stm,
              int maxDimensions,
              const std::function<bool (const Json::Value &)> & onProgress)
 {
-    auto boundDataset = stm.from->bind(context);
+    auto boundDataset = stm.from->bind(outerScope);
     if (!boundDataset.dataset)
         throw HttpReturnException
             (400, "You can't train this algorithm from a sub-select or "
              "table expression; it must be FROM <dataset name>");
-    return getEmbedding(stm.select, 
+    return getEmbedding(outerScope, outerRowScope,
+                        stm.select, 
                         *boundDataset.dataset, 
                         boundDataset.asName, 
                         stm.when, *stm.where, {},
@@ -344,18 +363,23 @@ validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 }
 
 std::vector<MatrixNamedRow>
-queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
+queryWithoutDataset(SqlBindingScope & outerScope,
+                    const SqlRowScope & outerRowScope,
+                    const SelectStatement& stm, SqlBindingScope& scope)
 {
     std::vector<MatrixNamedRow> output;
-    auto rows = queryWithoutDatasetExpr(stm, scope);
+    auto rows = queryWithoutDatasetExpr(outerScope, outerRowScope, stm);
+    output.reserve(std::get<0>(rows).size());
     for (auto& r : std::get<0>(rows)) {
-        output.push_back(r.flattenDestructive());
+        output.emplace_back(r.flattenDestructive());
     }
     return output;
 }
 
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
-queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
+queryWithoutDatasetExpr(SqlBindingScope & outerScope,
+                        const SqlRowScope & outerRowScope,
+                        const SelectStatement& stm)
 {
     for (const auto & c: stm.select.clauses) {
         if (c->isWildcard()) {
@@ -363,10 +387,10 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
                 400, "Wildcard usage requires a FROM statement");
         }
     }
-    auto boundSelect = stm.select.bind(scope);
+    auto boundSelect = stm.select.bind(outerScope);
     auto rowInfo = boundSelect.info;
 
-    validateQueryWithoutDataset(stm, scope);
+    validateQueryWithoutDataset(stm, outerScope);
 
     if (stm.offset < 1 && stm.limit != 0) {
         // Fast path when there is no possibility of result since
@@ -375,7 +399,7 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
         NamedRowValue row;
         SqlRowScope context;
         ExpressionValue val = boundSelect(context, GET_ALL);
-        auto boundRowName = stm.rowName->bind(scope);
+        auto boundRowName = stm.rowName->bind(outerScope);
 
         row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
         row.rowHash = row.rowName;
@@ -390,12 +414,12 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
 }
 
 std::vector<MatrixNamedRow>
-queryFromStatement(const SelectStatement & stm,
-                   SqlBindingScope & scope,
-                   BoundParameters params)
+queryFromStatement(SqlBindingScope & outerScope,
+                   const SqlRowScope & outerRowScope,
+                   const SelectStatement & stm)
 {
     std::vector<MatrixNamedRow> output;
-    auto rows = queryFromStatementExpr(stm, scope, params);
+    auto rows = queryFromStatementExpr(outerScope, outerRowScope, stm);
     for (auto& r : std::get<0>(rows)) {
         output.push_back(r.flattenDestructive());
     }
@@ -403,37 +427,31 @@ queryFromStatement(const SelectStatement & stm,
 }
 
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
-queryFromStatementExpr(const SelectStatement & stm,
-                   SqlBindingScope & scope,
-                   BoundParameters params)
+queryFromStatementExpr(SqlBindingScope & outerScope,
+                       const SqlRowScope & outerRowScope,
+                       const SelectStatement & stm)
 {
-    BoundTableExpression table = stm.from->bind(scope);
+    BoundTableExpression table = stm.from->bind(outerScope);
     
     if (table.dataset) {
-        return table.dataset->queryStructuredExpr(stm.select, stm.when,
-                                              *stm.where,
-                                              stm.orderBy, stm.groupBy,
-                                              stm.having,
-                                              stm.rowName,
-                                              stm.offset, stm.limit, 
-                                              table.asName);
+        return table.dataset->queryStructuredExpr(outerScope,
+                                                  outerRowScope,
+                                                  stm.select, stm.when,
+                                                  *stm.where,
+                                                  stm.orderBy, stm.groupBy,
+                                                  stm.having,
+                                                  stm.rowName,
+                                                  stm.offset, stm.limit, 
+                                                  table.asName);
     }
-    else if (table.table.runQuery && stm.from) {
+    else if (table.table.bindQuery && stm.from) {
 
-        auto getParamInfo = [&] (const Utf8String & paramName)
-            -> std::shared_ptr<ExpressionValueInfo>
-            {
-                throw HttpReturnException(500, "No query parameter " + paramName);
-            };
-        
-        if (!params)
-            params = [] (const Utf8String & param) -> ExpressionValue { throw HttpReturnException(500, "No query parameter " + param); };
-
-        std::shared_ptr<PipelineElement> pipeline = PipelineElement::root(scope)->statement(stm, getParamInfo);
+        std::shared_ptr<PipelineElement> pipeline
+            = PipelineElement::root(outerScope)->statement(stm);
 
         auto boundPipeline = pipeline->bind();
 
-        auto executor = boundPipeline->start(params);
+        auto executor = boundPipeline->start();
         
         std::vector<NamedRowValue> rows;
 
@@ -485,15 +503,16 @@ queryFromStatementExpr(const SelectStatement & stm,
 */
 bool
 queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
-                   const SelectStatement & stm,
-                   SqlBindingScope & scope,
-                   BoundParameters params)
+                   SqlBindingScope & outerScope,
+                   const SqlRowScope & outerRowScope,
+                   const SelectStatement & stm)
 {
-    BoundTableExpression table = stm.from->bind(scope);
+    BoundTableExpression table = stm.from->bind(outerScope);
     
     if (table.dataset) {
         return table.dataset->queryStructuredIncremental
-            (onRow, stm.select, stm.when,
+            (onRow, outerScope, outerRowScope, 
+             stm.select, stm.when,
              *stm.where,
              stm.orderBy, stm.groupBy,
              stm.having,
@@ -502,25 +521,12 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
              table.asName);
     }
     else if (table.table.runQuery && stm.from) {
-
-        auto getParamInfo = [&] (const Utf8String & paramName)
-            -> std::shared_ptr<ExpressionValueInfo>
-            {
-                throw HttpReturnException(500, "No query parameter " + paramName);
-            };
-        
-        if (!params)
-            params = [] (const Utf8String & param) -> ExpressionValue
-                {
-                    throw HttpReturnException(500, "No query parameter " + param);
-                };
-        
         std::shared_ptr<PipelineElement> pipeline
-            = PipelineElement::root(scope)->statement(stm, getParamInfo);
+            = PipelineElement::root(outerScope)->statement(stm);
 
         auto boundPipeline = pipeline->bind();
 
-        auto executor = boundPipeline->start(params);
+        auto executor = boundPipeline->start();
         
         std::vector<MatrixNamedRow> rows;
 

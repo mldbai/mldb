@@ -20,6 +20,7 @@ struct ServicePeer;
 namespace MLDB {
 
 struct MldbServer;
+struct SqlBindingScope;
 
 
 /** This is the builtin package, which comes linked in to MLDB.  All
@@ -63,6 +64,9 @@ struct MldbEntity: public PolyEntity {
         // TODO: go through proper downcast
         return (RestDirectory *)server;
     }
+
+    static SqlBindingScope & getMldbScope(MldbServer * server);
+    static SqlBindingScope & getMldbScope(RestDirectory * server);
 
     static constexpr const char * INTERNAL_ENTITY  = "INTERNAL_ENTITY";
     std::shared_ptr<spdlog::logger> logger;

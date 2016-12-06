@@ -58,7 +58,9 @@ struct ForwardedDataset: public Dataset {
     virtual void commit();
 
     virtual std::vector<MatrixNamedRow>
-    queryStructured(const SelectExpression & select,
+    queryStructured(SqlBindingScope & outerScope,
+                    const SqlRowScope & outerRowScope,
+                    const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,
                     const OrderByExpression & orderBy,

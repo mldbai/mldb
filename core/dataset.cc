@@ -581,7 +581,9 @@ getTimestampRange() const
         = SelectExpression::parseList("min(earliest_timestamp({*})) as earliest, max(latest_timestamp({*})) as latest");
 
     std::vector<MatrixNamedRow> res
-        = queryStructured(select,
+        = queryStructured(getMldbScope(server),
+                          SqlRowScope(),
+                          select,
                           WhenExpression::TRUE,
                           *SqlExpression::TRUE /* where */,
                           OrderByExpression(),
@@ -786,7 +788,9 @@ getRowExpr(const RowPath & row) const
 
 std::vector<MatrixNamedRow>
 Dataset::
-queryStructured(const SelectExpression & select,
+queryStructured(SqlBindingScope & outerScope,
+                const SqlRowScope & outerRowScope,
+                const SelectExpression & select,
                 const WhenExpression & when,
                 const SqlExpression & where,
                 const OrderByExpression & orderBy,
@@ -799,7 +803,9 @@ queryStructured(const SelectExpression & select,
 {
     std::vector<MatrixNamedRow> output;
 
-    auto rows = queryStructuredExpr(select,
+    auto rows = queryStructuredExpr(outerScope,
+                                    outerRowScope,
+                                    select,
                                     when,
                                     where,
                                     orderBy,
@@ -819,16 +825,18 @@ queryStructured(const SelectExpression & select,
 
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
 Dataset::
-queryStructuredExpr(const SelectExpression & select,
-                const WhenExpression & when,
-                const SqlExpression & where,
-                const OrderByExpression & orderBy,
-                const TupleExpression & groupBy,
-                const std::shared_ptr<SqlExpression> having,
-                const std::shared_ptr<SqlExpression> rowName,
-                ssize_t offset,
-                ssize_t limit,
-                Utf8String alias) const
+queryStructuredExpr(SqlBindingScope & outerScope,
+                    const SqlRowScope & outerRowScope,
+                    const SelectExpression & select,
+                    const WhenExpression & when,
+                    const SqlExpression & where,
+                    const OrderByExpression & orderBy,
+                    const TupleExpression & groupBy,
+                    const std::shared_ptr<SqlExpression> having,
+                    const std::shared_ptr<SqlExpression> rowName,
+                    ssize_t offset,
+                    ssize_t limit,
+                    Utf8String alias) const
 {
     ExcAssert(having);
     ExcAssert(rowName);
@@ -864,9 +872,13 @@ queryStructuredExpr(const SelectExpression & select,
         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
-        structureInfo = iterateDataset(select, *this, alias, when, where,
-                       { rowName->shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                       nullptr).second;
+        structureInfo
+            = iterateDataset
+                (outerScope, outerRowScope,
+                 select, *this, alias, when, where,
+                 { rowName->shallowCopy() }, {processor, false/*processInParallel*/},
+                 orderBy, offset, limit,
+                 nullptr).second;
     }
     else {
 
@@ -882,10 +894,12 @@ queryStructuredExpr(const SelectExpression & select,
             };
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
-        structureInfo = iterateDatasetGrouped(select, *this, alias, when, where,
-                              groupBy, aggregators, *having, *rowName,
-                              {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                              nullptr).second;
+        structureInfo
+            = iterateDatasetGrouped
+                (outerScope, outerRowScope, select, *this, alias, when, where,
+                 groupBy, aggregators, *having, *rowName,
+                 {processor, false/*processInParallel*/}, orderBy, offset, limit,
+                 nullptr).second;
     }
 
     return make_tuple<std::vector<NamedRowValue>, 
@@ -895,6 +909,8 @@ queryStructuredExpr(const SelectExpression & select,
 bool
 Dataset::
 queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                           SqlBindingScope & outerScope,
+                           const SqlRowScope & outerRowScope,
                            const SelectExpression & select,
                            const WhenExpression & when,
                            const SqlExpression & where,
@@ -929,11 +945,11 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                 return onRow(path, row);
             };
 
-        iterateDatasetExpr(select, *this, alias, when, where,
-                                  { rowName->shallowCopy() },
-                                  { processor, true /*processInParallel*/ },
-                                  orderBy, offset, limit,
-                                  nullptr);
+        iterateDatasetExpr(outerScope, outerRowScope, select, *this, alias, when, where,
+                           { rowName->shallowCopy() },
+                           { processor, true /*processInParallel*/ },
+                           orderBy, offset, limit,
+                           nullptr);
         return true;
     }
     else {
@@ -953,12 +969,13 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
             };
 
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
-        iterateDatasetGrouped(select, *this, alias, when, where,
-                                     groupBy, aggregators, *having, *rowName,
-                                     {processor, true/*processInParallel*/},
-                                     orderBy, offset, limit,
-                                     nullptr);
-
+        iterateDatasetGrouped(outerScope, outerRowScope,
+                              select, *this, alias, when, where,
+                              groupBy, aggregators, *having, *rowName,
+                              {processor, true/*processInParallel*/},
+                              orderBy, offset, limit,
+                              nullptr);
+        
         return true;
     }
 }
@@ -2203,15 +2220,16 @@ queryString(const Utf8String & query) const
     ExcCheck(!stm.from, "FROM clauses are not allowed on dataset queries");
     ExcAssert(stm.where && stm.having && stm.rowName);
 
-    return queryStructured(
-            stm.select,
-            stm.when,
-            *stm.where,
-            stm.orderBy,
-            stm.groupBy,
-            stm.having,
-            stm.rowName,
-            stm.offset, stm.limit);
+    return queryStructured(getMldbScope(server),
+                           SqlRowScope(),
+                           stm.select,
+                           stm.when,
+                           *stm.where,
+                           stm.orderBy,
+                           stm.groupBy,
+                           stm.having,
+                           stm.rowName,
+                           stm.offset, stm.limit);
 }
 
 Json::Value

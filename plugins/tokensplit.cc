@@ -70,7 +70,6 @@ TokenSplit(MldbServer * owner,
     : Function(owner)
 {
     functionConfig = config.params.convert<TokenSplitConfig>();
-    SqlExpressionMldbScope context(owner);
  
     //get all values from the dataset and add them to our dictionary of tokens
     auto processor = [&] (const MatrixNamedRow & row) {
@@ -90,10 +89,12 @@ TokenSplit(MldbServer * owner,
 
     BoundTableExpression boundDataset;
     if (functionConfig.tokens.stm->from)
-        boundDataset = functionConfig.tokens.stm->from->bind(context);
+        boundDataset = functionConfig.tokens.stm->from->bind(server->getScope());
 
     if (boundDataset.dataset)
-        iterateDataset(functionConfig.tokens.stm->select,
+        iterateDataset(server->getScope(),
+                       SqlRowScope(),
+                       functionConfig.tokens.stm->select,
                        *boundDataset.dataset, boundDataset.asName, 
                        functionConfig.tokens.stm->when,
                        *functionConfig.tokens.stm->where,
@@ -103,7 +104,10 @@ TokenSplit(MldbServer * owner,
                        functionConfig.tokens.stm->limit,
                        onProgress);
     else { // query containing only a select (e.g. select "token1", "token2", "token3")
-        std::vector<MatrixNamedRow> rows  = queryWithoutDataset(*functionConfig.tokens.stm, context);
+        std::vector<MatrixNamedRow> rows
+            = queryWithoutDataset(server->getScope(),
+                                  SqlRowScope(),
+                                  *functionConfig.tokens.stm);
         std::for_each(rows.begin(), rows.end(), processor);
     }
     

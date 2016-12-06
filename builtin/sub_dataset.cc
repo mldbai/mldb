@@ -9,6 +9,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/analytics.h"
+#include "mldb/server/mldb_server.h"
 #include "sub_dataset.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/jml/utils/lightweight_hash.h"
@@ -56,11 +57,9 @@ struct SubDataset::Itl
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
-        SqlExpressionMldbScope mldbContext(owner);
-
-        std::vector<NamedRowValue> rows;
-        auto pair = queryFromStatementExpr(statement, mldbContext);
-
+        auto pair = queryFromStatementExpr(owner->getScope(), SqlRowScope(),
+                                           statement);
+        
         columnInfo = std::move(std::get<1>(pair));
 
         init(std::move(std::get<0>(pair)));
@@ -429,15 +428,17 @@ regSub(builtinPackage(),
        nullptr,
        {MldbEntity::INTERNAL_ENTITY});
 
-extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
+extern std::shared_ptr<Dataset> (*createSubDatasetFn) (SqlBindingScope &, const SubDatasetConfig &);
 
-std::shared_ptr<Dataset> createSubDataset(MldbServer * server, const SubDatasetConfig & config)
+std::shared_ptr<Dataset>
+createSubDataset(SqlBindingScope & scope, const SubDatasetConfig & config)
 {
-    return std::make_shared<SubDataset>(server, config);
+    return std::make_shared<SubDataset>(scope.getMldbServer(), config);
 }
 
 std::vector<NamedRowValue>
-querySubDataset(MldbServer * server,
+querySubDataset(SqlBindingScope & scope,
+                const SqlRowScope & rowScope,
                 std::vector<NamedRowValue> rows,
                 const SelectExpression & select,
                 const WhenExpression & when,
@@ -452,11 +453,11 @@ querySubDataset(MldbServer * server,
                 bool allowMultiThreading)
 {
     auto dataset = std::make_shared<SubDataset>
-        (server, std::move(rows));
+        (scope.getMldbServer(), std::move(rows));
                 
     std::vector<MatrixNamedRow> output
         = dataset
-        ->queryStructured(select, when, where, orderBy, groupBy,
+        ->queryStructured(scope, rowScope, select, when, where, orderBy, groupBy,
                           having, named, offset, limit, "" /* alias */);
     
     std::vector<NamedRowValue> result;
@@ -479,7 +480,8 @@ querySubDataset(MldbServer * server,
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 extern std::vector<NamedRowValue>
-(*querySubDatasetFn) (MldbServer * server,
+(*querySubDatasetFn) (SqlBindingScope & scope,
+                      const SqlRowScope & rowScope,
                       std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,

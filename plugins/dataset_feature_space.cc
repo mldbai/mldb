@@ -318,10 +318,26 @@ getHash(ML::Feature feature)
     return result;
 }
 
+#if 0
 ML::Feature
 DatasetFeatureSpace::
 getFeature(ColumnHash hash)
 {
+    uint32_t high = hash >> 32;
+    uint32_t low  = hash;
+
+    ML::Feature result(1, high, low);
+    ExcAssertEqual(getHash(result), hash);
+
+    return result;
+}
+#endif
+
+ML::Feature
+DatasetFeatureSpace::
+getFeature(const Path & column)
+{
+    uint64_t hash = column.hash()
     uint32_t high = hash >> 32;
     uint32_t low  = hash;
 

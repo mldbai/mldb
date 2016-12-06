@@ -85,7 +85,8 @@ MldbServer(const std::string & serviceName,
     : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
       httpBaseUrl(httpBaseUrl), versionNode(nullptr),
-      logger(getMldbLog<MldbServer>())
+      logger(getMldbLog<MldbServer>()),
+      scope(new SqlExpressionMldbScope(this))
 {
     // Don't allow URIs without a scheme
     setGlobalAcceptUrisWithoutScheme(false);
@@ -254,7 +255,7 @@ runHttpQuery(const Utf8String& query,
 
     auto runQuery = [&] ()
         {
-            return queryFromStatement(stm, mldbContext);
+            return queryFromStatement(getScope(), SqlRowScope(), stm);
         };
 
     MLDB::runHttpQuery(runQuery,
@@ -267,9 +268,7 @@ MldbServer::
 query(const Utf8String& query) const
 {
     auto stm = SelectStatement::parse(query.rawString());
-    SqlExpressionMldbScope mldbContext(this);
-
-    return queryFromStatement(stm, mldbContext);
+    return queryFromStatement(getScope(), SqlRowScope(), stm);
 }
 
 Json::Value

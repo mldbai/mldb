@@ -25,9 +25,6 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
     result.dataset = dataset;
     result.asName = asName;
 
-    // Allow us to query row information from the dataset
-    result.table.getRowInfo = [=] () { return dataset->getRowInfo(); };
-
     // Allow the dataset to override functions
     result.table.getFunction = [=] (SqlBindingScope & context,
                                     const Utf8String & tableName,
@@ -38,18 +35,26 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
             return dataset->overrideFunction(tableName, functionName, context);
         };
 
-    // Allow the dataset to run queries
-    result.table.runQuery = [=] (const SqlBindingScope & context,
-                                 const SelectExpression & select,
-                                 const WhenExpression & when,
-                                 const SqlExpression & where,
-                                 const OrderByExpression & orderBy,
-                                 ssize_t offset,
-                                 ssize_t limit)
-        -> BasicRowGenerator
+
+    result.table.bindQuery = [=] (SqlBindingScope & scope,
+                                  const SelectExpression & select,
+                                  const WhenExpression & when,
+                                  const SqlExpression & where,
+                                  const OrderByExpression & orderBy)
+        -> std::pair<TableOperations::Executor, std::shared_ptr<RowValueInfo> >
         {
-            return dataset->queryBasic(context, select, when, where, orderBy,
-                                       offset, limit);
+            Dataset::BasicExecutor executor
+                = dataset->bindBasic(scope, select, when, where, orderBy);
+
+            TableOperations::Executor execute
+                = [=] (const SqlRowScope & outerRow,
+                       ssize_t offset, ssize_t limit)
+                -> BasicRowGenerator
+            {
+                return executor.second(outerRow, offset, limit);
+            };
+
+            return std::make_pair(std::move(execute), dataset->getRowInfo());
         };
 
     result.table.getChildAliases = [=] ()
@@ -404,15 +409,15 @@ SelectSubtableExpression::
 
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
-std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
+std::shared_ptr<Dataset> (*createSubDatasetFn) (SqlBindingScope &, const SubDatasetConfig &) = nullptr;
 
 BoundTableExpression
 SelectSubtableExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     SubDatasetConfig config;
     config.statement = statement;
-    auto ds = createSubDatasetFn(context.getMldbServer(), config);
+    auto ds = createSubDatasetFn(scope, config);
 
     return bindDataset(ds, asName);
 }
@@ -621,7 +626,8 @@ RowTableExpression::
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 std::vector<NamedRowValue>
-(*querySubDatasetFn) (MldbServer * server,
+(*querySubDatasetFn) (SqlBindingScope & scope,
+                      const SqlRowScope & rowScope,
                       std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
@@ -635,16 +641,34 @@ std::vector<NamedRowValue>
                       const Utf8String & tableAlias,
                       bool allowMultiThreading) = nullptr;
 
+
+std::function<std::vector<NamedRowValue> (SqlRowScope & outerRowScope)>
+bindTableExpression(SqlBindingScope & outerScope,
+                    const SelectExpression & select,
+                    const WhenExpression & when,
+                    const SqlExpression & where,
+                    const OrderByExpression & orderBy,
+                    const TupleExpression & groupBy,
+                    const std::shared_ptr<SqlExpression> having,
+                    const std::shared_ptr<SqlExpression> named);
+                    
+#if 0
+SqlBindingScope & scope,
+                      const SqlRowScope & rowScope,
+                      std::vector<NamedRowValue> rows,
+#endif
+
+
 BoundTableExpression
 RowTableExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     ExcAssert(querySubDatasetFn);
 
-    MldbServer * server = context.getMldbServer();
+    MldbServer * server = scope.getMldbServer();
     ExcAssert(server);
 
-    auto boundExpr = expr->bind(context);
+    auto boundExpr = expr->bind(scope);
 
     // infer value expression from row, especially if there is only
     // one column available and thus its value type is simple
@@ -706,7 +730,7 @@ bind(SqlBindingScope & context) const
     result.table.getRowInfo = [=] () { return info; };
     
     // Allow the dataset to override functions
-    result.table.getFunction = [=] (SqlBindingScope & context,
+    result.table.getFunction = [=] (SqlBindingScope & scope,
                                     const Utf8String & tableName,
                                     const Utf8String & functionName,
                                     const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)
@@ -718,8 +742,25 @@ bind(SqlBindingScope & context) const
     static const PathElement valueName("value");
     static const PathElement columnNameName("column");
 
+    auto boundExecutor = bindSubTableExpression(scope, select, when, where, orderBy, groupBy,
+                                                having, named);
+
+
+                                                rows
+SqlBindingScope & scope,
+                      const SqlRowScope & rowScope,
+                      std::vector<NamedRowValue> rows,
+                      const SelectExpression & select,
+                      const WhenExpression & when,
+                      const SqlExpression & where,
+                      const OrderByExpression & orderBy,
+                      const TupleExpression & groupBy,
+                      const std::shared_ptr<SqlExpression> having,
+                      const std::shared_ptr<SqlExpression> named
+
+
     // Allow the dataset to run queries
-    result.table.runQuery = [=] (const SqlBindingScope & context,
+    result.table.runQuery = [=] (const SqlBindingScope & scope,
                                  const SelectExpression & select,
                                  const WhenExpression & when,
                                  const SqlExpression & where_,
@@ -791,7 +832,7 @@ bind(SqlBindingScope & context) const
                     row.forEachColumnDestructive(onExpression);
                 }
 
-                return querySubDatasetFn(server, std::move(rows),
+                return querySubDatasetFn(scope, server, std::move(rows),
                                          select, when, *where, orderBy,
                                          TupleExpression(),
                                          SqlExpression::TRUE,

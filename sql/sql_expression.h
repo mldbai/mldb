@@ -210,9 +210,6 @@ DECLARE_STRUCTURE_DESCRIPTION(BoundSqlExpression);
 
 struct TableOperations {
 
-    /// Get a description of a row of the table, including all known columns
-    std::function<std::shared_ptr<RowValueInfo> ()> getRowInfo;
-
     /// Get a function bound to the given dataset
     std::function<BoundFunction (SqlBindingScope & scope,
                                  const Utf8String & tableName,
@@ -220,15 +217,19 @@ struct TableOperations {
                                  const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)>
     getFunction;
 
-    /// Run a basic query on the table
-    std::function<BasicRowGenerator (const SqlBindingScope & context,
-                                     const SelectExpression & select,
-                                     const WhenExpression & when,
-                                     const SqlExpression & where,
-                                     const OrderByExpression & orderBy,
-                                     ssize_t offset,
-                                     ssize_t limit)>
-    runQuery;
+    /// Function used to executte a query
+    typedef std::function<BasicRowGenerator (const SqlRowScope & outerRow,
+                                             ssize_t offset, ssize_t limit)>
+    Executor;
+    
+    /// Bind a basic query generator into a table
+    std::function<std::pair<Executor, std::shared_ptr<RowValueInfo> >
+                  (SqlBindingScope & scope,
+                   const SelectExpression & select,
+                   const WhenExpression & when,
+                   const SqlExpression & where,
+                   const OrderByExpression & orderBy)>
+    bindQuery;
 
     /// What aliases (sub-dataset names) does this dataset contain?
     /// Normally used in a join
@@ -236,8 +237,7 @@ struct TableOperations {
 
     bool operator ! () const
     {
-        return !getRowInfo && !getFunction && !runQuery
-            && !getChildAliases;
+        return !getFunction && !bindQuery && !getChildAliases;
     }
 };
 
@@ -251,10 +251,17 @@ struct TableOperations {
 
 struct BoundTableExpression {
     std::shared_ptr<Dataset> dataset;  // deprecated -- use table ops instead
+    //MldbServer * server;
     TableOperations table;
     Utf8String asName;
 
-    bool operator ! () const {return !dataset && !table;}
+    bool operator ! () const {return !table;}
+
+    /** Construct a dataset for use in functionality that requires one.
+        This is deprecated and will eventually disappear; the table
+        operations are more efficient.
+    */
+    //std::shared_ptr<Dataset> getDataset() const;
 };
 
 
@@ -1433,6 +1440,8 @@ struct TupleExpression {  // TODO: should be a row expression
     static TupleExpression parse(const std::string & expression);
     static TupleExpression parse(const char * expression);
     static TupleExpression parse(const Utf8String & expression);
+
+    std::vector<BoundSqlExpression> bind(SqlBindingScope & scope) const;
 
     Utf8String print() const;
 

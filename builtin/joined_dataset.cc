@@ -138,6 +138,7 @@ struct JoinedDataset::Itl
     std::vector<Utf8String> tableNames; //sub tables from both side + direct childs left and right
 
     Itl(SqlBindingScope & scope,
+        const SqlRowScope & rowScope,
         std::shared_ptr<TableExpression> leftExpr,
         BoundTableExpression left,
         std::shared_ptr<TableExpression> rightExpr,
@@ -252,18 +253,12 @@ struct JoinedDataset::Itl
                 return true;
             };
             
-            auto getParam = [&] (const Utf8String & paramName)
-                -> ExpressionValue
-                {
-                    throw HttpReturnException(400, "No parameters bound in");
-                };
-
             PipelineElement::root(scope)
                 ->join(leftExpr, left, rightExpr, right, on, qualification)
                 ->select(SqlExpression::parse("leftRowPath()"))
                 ->select(SqlExpression::parse("rightRowPath()"))
                 ->bind()
-                ->start(getParam)
+                ->start(rowScope)
                 ->takeAll(gotElement);
         }
 
@@ -924,17 +919,17 @@ JoinedDataset(MldbServer * owner,
 {
     auto joinConfig = config.params.convert<JoinedDatasetConfig>();
 
-    SqlExpressionMldbScope scope(owner);
-
     // Create a scope to get our datasets from
     SqlExpressionMldbScope mldbScope(server);
+
+    // We have nothing in scope
+    SqlRowScope rowScope;
 
     // Obtain our datasets
     BoundTableExpression left = joinConfig.left->bind(mldbScope);
     BoundTableExpression right = joinConfig.right->bind(mldbScope);
     
-    
-    itl.reset(new Itl(scope,
+    itl.reset(new Itl(scope, rowScope,
                       joinConfig.left, std::move(left),
                       joinConfig.right, std::move(right),
                       joinConfig.on, joinConfig.qualification));
