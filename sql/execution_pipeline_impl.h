@@ -403,7 +403,6 @@ struct JoinElement: public PipelineElement {
         /** True if we have already seen this left row, ie, if we have rewinded 
             the left side. */
         ExpressionValue lastLeftValue;
-        //bool alreadySeenLeftRow;
 
         size_t cachedNumR;
         bool wasOutput;
