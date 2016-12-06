@@ -36,6 +36,25 @@ class MLDB2063SparseMutableEncodeVal(MldbUnitTest):  # noqa
             ]
         )
  
+    def test_complex_path(self):
+        mldb.post('/v1/procedures', {
+            'type': 'transform',
+            'params': {
+                'inputData': "SELECT CAST ('1.2.3' AS path) AS name",
+                'outputDataset': {
+                'id': 'sparse',
+                    'type': 'sparse.mutable'
+                }
+            }
+        })
+
+        self.assertTableResultEquals(
+            mldb.query("SELECT * FROM sparse"),
+            [
+                ["_rowName", "name"],
+                ["result",  "1.2.3" ]
+            ]
+        )
 
 if __name__ == '__main__':
     mldb.run_tests()
