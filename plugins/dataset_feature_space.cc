@@ -21,6 +21,7 @@ namespace MLDB {
 
 
 const ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
+const int VERSION = 3;
 
 
 /*****************************************************************************/
@@ -494,7 +495,7 @@ reconstitute(ML::DB::Store_Reader & store)
 {
     char version;
     store >> version;
-    if (version > 2)
+    if (version > 3)
         throw MLDB::Exception("unexpected version of DatasetFeatureSpace");
     ML::DB::compact_size_t numFeatures(store);
 
@@ -508,8 +509,9 @@ reconstitute(ML::DB::Store_Reader & store)
         string s, s2;
         store >> s >> s2;
         ColumnInfo info;
-        ColumnHash hash = jsonDecodeStr<ColumnHash>(s);
         info.columnName = ColumnPath(s2);
+        ColumnHash hash =
+            version < 3 ? ColumnHash(info.columnName) : jsonDecodeStr<ColumnHash>(s);
         info.index = i;
         store >> info.info;
 
@@ -523,7 +525,7 @@ void
 DatasetFeatureSpace::
 serialize(ML::DB::Store_Writer & store) const
 {
-    store << (char)2 // version
+    store << (char)VERSION // version
           << ML::DB::compact_size_t(columnInfo.size());
 
     store << labelInfo;
