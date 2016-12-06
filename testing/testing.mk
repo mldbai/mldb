@@ -448,5 +448,6 @@ $(eval $(call mldb_unit_test,union_dataset_test.py))
 $(eval $(call mldb_unit_test,deepteach_test.py,tensorflow,manual))
 $(eval $(call mldb_unit_test,post_run_and_track_procedure_test.py))
 $(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))
-
 $(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))
+$(eval $(call mldb_unit_test,MLDB-2040_join_tests.py))
+
