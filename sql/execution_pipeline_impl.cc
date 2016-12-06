@@ -907,12 +907,16 @@ JoinElement::CrossJoinExecutor::
 CrossJoinExecutor(const Bound * parent,
                   std::shared_ptr<ElementExecutor> root,
                   std::shared_ptr<ElementExecutor> left,
-                  std::shared_ptr<ElementExecutor> right)
+                  std::shared_ptr<ElementExecutor> right,
+                  size_t leftAdded,
+                size_t rightAdded)
     : parent(parent),
       root(std::move(root)),
       left(std::move(left)),
       right(std::move(right)),
-      wasOutput(false)
+      wasOutput(false),
+      leftAdded(leftAdded),
+      rightAdded(rightAdded)
 {
     ExcAssert(parent && this->root && this->left && this->right);
     l = this->left->take();
@@ -946,11 +950,9 @@ take()
 
                 auto result = std::make_shared<PipelineResults>(*l);
 
-                size_t numL = result->values.size();
-
                 //empty values for left without the selected join condition
                 result->values.clear();
-                for (int i = 0; i < numL-1; ++i) {
+                for (int i = 0; i < leftAdded; ++i) {
                     result->values.emplace_back(ExpressionValue());
                 }
 
@@ -980,9 +982,8 @@ take()
                 l->values.pop_back();
 
                 //empty values for right without the selected join condition
-                size_t numR = r->values.size();
-           
-                for (int i = 0; i < numR-1; ++i) {
+          
+                for (int i = 0; i < rightAdded; ++i) {
                     l->values.emplace_back(ExpressionValue());
                 }
 
@@ -1055,21 +1056,23 @@ JoinElement::FullCrossJoinExecutor::
 FullCrossJoinExecutor(const Bound * parent,
                   std::shared_ptr<ElementExecutor> root,
                   std::shared_ptr<ElementExecutor> left,
-                  std::shared_ptr<ElementExecutor> right)
+                  std::shared_ptr<ElementExecutor> right,
+                  size_t leftAdded,
+                  size_t rightAdded)
     : parent(parent),
       root(std::move(root)),
       left(std::move(left)),
       right(std::move(right)),
       firstSpin(true),
       wasOutput(false),
-      rSize(0)
+      leftAdded(leftAdded),
+      rightAdded(rightAdded)
 {
     ExcAssert(parent && this->root && this->left && this->right);
     auto lResult = this->left->take();
     bufferedLeftValues.push_back({lResult, 0});
     l = bufferedLeftValues.begin();
     r = this->right->take();
-    rSize = r->values.size();
 }
 
 std::shared_ptr<PipelineResults>
@@ -1089,11 +1092,9 @@ take()
 
                 auto result = std::make_shared<PipelineResults>(*(l->first));
 
-                size_t numL = result->values.size();
-
                 //empty values for left without the selected join condition
                 result->values.clear();
-                for (int i = 0; i < numL-1; ++i) {
+                for (int i = 0; i < leftAdded; ++i) {
                     result->values.emplace_back(ExpressionValue());
                 }
 
@@ -1170,7 +1171,7 @@ take()
         // Pop the selected join condition from left
         l->first->values.pop_back();
 
-        for (int i = 0; i < rSize-1; ++i) {
+        for (int i = 0; i < rightAdded; ++i) {
             l->first->values.emplace_back(ExpressionValue());
         }
 
@@ -1207,14 +1208,17 @@ JoinElement::EquiJoinExecutor::
 EquiJoinExecutor(const Bound * parent,
                  std::shared_ptr<ElementExecutor> root,
                  std::shared_ptr<ElementExecutor> left,
-                 std::shared_ptr<ElementExecutor> right)
+                 std::shared_ptr<ElementExecutor> right,
+                 size_t leftAdded,
+                 size_t rightAdded)
     : parent(parent),
       root(std::move(root)),
       left(std::move(left)),
       right(std::move(right)),
-      cachedNumR(0),
       wasOutput(false),
-      logger(getMldbLog<EquiJoinExecutor>())
+      logger(getMldbLog<EquiJoinExecutor>()),
+      leftAdded(leftAdded),
+      rightAdded(rightAdded)
 {
     auto lresult = this->left->take();
     bufferedLeftValues.push_back({lresult, 0});
@@ -1276,7 +1280,7 @@ take()
                 // Pop the selected join conditions from left
                 result->values.pop_back();
 
-                for (auto i = 0; i < cachedNumR; i++)
+                for (auto i = 0; i < rightAdded; i++)
                     result->values.push_back(ExpressionValue());
 
                 bufferedLeftValues.pop_front();
@@ -1298,26 +1302,6 @@ take()
         DEBUG_MSG(logger) << "comparing left row [" << (*l).first->values[0].coerceToPath() << 
                              "] with right row [" << r->values[0].coerceToPath() << "]";
 
-        //in case of outer join
-        //check the where condition that we took out and put in the embedding instead
-        auto checkOuterWhere = [] ( std::shared_ptr<PipelineResults>& s,
-                                    std::shared_ptr<ElementExecutor>& executor,
-                                    ExpressionValue& field,
-                                    ExpressionValue & embedding) -> bool
-        {
-            ExpressionValue where = embedding.getColumn(1, GET_ALL);
-            //if the condition would have failed, or the select value is null, return the row.
-            if (field.empty() || !where.asBool())
-            {
-                s->values.pop_back();
-                s->values.emplace_back(ExpressionValue::null(Date::notADate()));
-                s->values.emplace_back(ExpressionValue::null(Date::notADate()));
-                return true;
-            }
-
-            return false;
-        };    
-
         if (lField == rField) {
             auto setLastLeftValue = ScopeSuccess([&]() noexcept {lastLeftValue = lField;});
             
@@ -1332,11 +1316,7 @@ take()
             // Pop the selected join conditions from left
             result->values.pop_back();
 
-            //auto numL = result->values.size();
-            auto numR = r->values.size() - 1;
-            cachedNumR = numR;
-
-            for (auto i = 0; i < numR; ++i)
+            for (auto i = 0; i < rightAdded; ++i)
                 result->values.push_back(r->values[i]);
 
             ExpressionValue storage;
@@ -1399,17 +1379,12 @@ take()
 
                 // return a copy since we are buffering the original left value
                 auto result = make_shared<PipelineResults>(*(*l).first);
-                // Pop the selected join conditions from left
-                result->values.pop_back();
-
-                auto numL = result->values.size();
-
 			    result->values.clear();
-                            for (int i = 0; i < numL; ++i)
-				result->values.emplace_back(ExpressionValue::null(Date::notADate()));
+                for (int i = 0; i < leftAdded; ++i)
+				    result->values.emplace_back(ExpressionValue::null(Date::notADate()));
 			    			
-			    for (int i = 0; i < r->values.size() -1;++i)
-				result->values.push_back(r->values[i]);
+			    for (int i = 0; i < rightAdded;++i)
+				    result->values.push_back(r->values[i]);
                           
                 r = right->take();
                 DEBUG_MSG(logger) << "returning right outer row ["
@@ -1433,19 +1408,27 @@ take()
                         DEBUG_MSG(logger) << "++++++";
                         DEBUG_MSG(logger) << "comparing left row [" << (*l).first->values[0].coerceToPath() 
                                           << "] with right row [" << r->values[0].coerceToPath() << "]";
-                        if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
-                            auto result = std::move(r);
-                            r = right->take();
-                            DEBUG_MSG(logger) << "returning right outer row [" 
+                        if (outerRight) {
+
+                           auto result = make_shared<PipelineResults>(*(*l).first);
+                           result->values.clear();
+                           for (int i = 0; i < leftAdded; ++i)
+                               result->values.emplace_back(ExpressionValue::null(Date::notADate()));
+                                        
+                           for (int i = 0; i < rightAdded;++i)
+                               result->values.push_back(r->values[i]);
+                                      
+                           r = right->take();
+                           DEBUG_MSG(logger) << "returning right outer row ["
                                               << result->values[0].coerceToPath()
                                               << "]";
-                            return result;
-                        } else {
-                            DEBUG_MSG(logger) << "skipping right row [" 
-                                              << r->values[0].coerceToPath()
-                                              << "]";
-                            r = right->take();
+                           return result;
                         }
+                        
+                        DEBUG_MSG(logger) << "skipping right row [" 
+                                          << r->values[0].coerceToPath()
+                                          << "]";
+                        r = right->take();                        
                     }
                 }
             }
@@ -1490,7 +1473,7 @@ take()
 
                 // Pop the selected join conditions from left
                 result->values.pop_back();
-                for (auto i = 0; i < cachedNumR; i++)
+                for (auto i = 0; i < rightAdded; i++)
                     result->values.push_back(ExpressionValue());
 
                 bufferedLeftValues.pop_front();
@@ -1595,6 +1578,9 @@ std::shared_ptr<ElementExecutor>
 JoinElement::Bound::
 start(const BoundParameters & getParam) const
 {
+    size_t leftAdded = left_->outputScope()->defaultScope()->outputAdded().size();
+    size_t rightAdded = right_->outputScope()->defaultScope()->outputAdded().size();
+
     switch (condition_.style) {
 
     case AnnotatedJoinCondition::CROSS_JOIN: 
@@ -1604,14 +1590,18 @@ start(const BoundParameters & getParam) const
             (this,
              root_->start(getParam),
              left_->start(getParam),
-             right_->start(getParam));
+             right_->start(getParam),
+             leftAdded,
+             rightAdded);
         }
         else {
             return std::make_shared<CrossJoinExecutor>
             (this,
              root_->start(getParam),
              left_->start(getParam),
-             right_->start(getParam));
+             right_->start(getParam),
+             leftAdded,
+             rightAdded);
         }        
     }
 
@@ -1620,7 +1610,9 @@ start(const BoundParameters & getParam) const
             (this,
              root_->start(getParam),
              left_->start(getParam),
-             right_->start(getParam));
+             right_->start(getParam),
+             leftAdded,
+             rightAdded);
 
     default:
         throw HttpReturnException(400, "Can't execute that kind of join",

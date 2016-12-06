@@ -339,14 +339,18 @@ struct JoinElement: public PipelineElement {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
                           std::shared_ptr<ElementExecutor> left,
-                          std::shared_ptr<ElementExecutor> right);
+                          std::shared_ptr<ElementExecutor> right,
+                          size_t leftAdded,
+                          size_t rightAdded);
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
 
         bool wasOutput;
         
-        std::shared_ptr<PipelineResults> l,r;        
+        std::shared_ptr<PipelineResults> l,r;     
+
+        const size_t leftAdded, rightAdded;   
             
         virtual std::shared_ptr<PipelineResults> take();
 
@@ -357,7 +361,9 @@ struct JoinElement: public PipelineElement {
         FullCrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
                           std::shared_ptr<ElementExecutor> left,
-                          std::shared_ptr<ElementExecutor> right);
+                          std::shared_ptr<ElementExecutor> right,
+                          size_t leftAdded,
+                          size_t rightAdded);
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
@@ -369,7 +375,8 @@ struct JoinElement: public PipelineElement {
         bufferType::iterator l;
         bool firstSpin;
         bool wasOutput;
-        int rSize;
+       
+        const size_t leftAdded, rightAdded;
 
         void restart();
     };
@@ -387,7 +394,9 @@ struct JoinElement: public PipelineElement {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
                          std::shared_ptr<ElementExecutor> left,
-                         std::shared_ptr<ElementExecutor> right);
+                         std::shared_ptr<ElementExecutor> right,
+                         size_t leftAdded,
+                         size_t rightAdded);
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
@@ -404,10 +413,11 @@ struct JoinElement: public PipelineElement {
             the left side. */
         ExpressionValue lastLeftValue;
 
-        size_t cachedNumR;
         bool wasOutput;
 
         std::shared_ptr<spdlog::logger> logger;
+
+        const size_t leftAdded, rightAdded;
     
         virtual std::shared_ptr<PipelineResults> take();
 
