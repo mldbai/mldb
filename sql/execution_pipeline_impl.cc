@@ -1108,9 +1108,7 @@ JoinElement::FullCrossJoinExecutor::
 take()
 {
     while (r) {
-        if (l == bufferedLeftValues.end()) {
-            firstSpin = false;
-            wasOutput = false;
+        if (l == bufferedLeftValues.end()) {            
 
             l = bufferedLeftValues.begin();
 
@@ -1140,7 +1138,9 @@ take()
 
                 return result;
             }
-
+            
+            firstSpin = false;
+            wasOutput = false;
             r = this->right->take();
         }
 

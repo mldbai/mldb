@@ -307,8 +307,6 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
             ORDER BY rowName()
         """)
 
-        mldb.log(res)
-
         self.assertTableResultEquals(res, 
             [["_rowName", "cross_rhs.one", "cross_rhs.two", "b.one"],
              ["[]-[row1]", 1, 9, None],
@@ -318,7 +316,25 @@ class Mldb2040JoinTests(MldbUnitTest):  # noqa
              ["[row2]-[]", None, None, 2]
         ])
 
+    def test_cross_full_something(self):
 
+        ds = mldb.create_dataset({'id' : 'cross_rhs_2', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['one', 1, 0], ['two', 0, 0]])
+        ds.record_row('row2', [['one', 1, 0], ['two', 1, 0]])
+        ds.commit()
+
+        res = mldb.query("""
+            SELECT * FROM b FULL JOIN cross_rhs_2 ON b.one > cross_rhs_2.one AND b.one > cross_rhs_2.two
+            ORDER BY rowName()
+        """)
+
+        self.assertTableResultEquals(res, 
+            [["_rowName", "b.one", "cross_rhs_2.one", "cross_rhs_2.two"],
+             ["[row0]-[]", 0, None, None],
+             ["[row1]-[]", 1, None, None],
+             ["[row2]-[row1]", 2, 1, 0],
+             ["[row2]-[row2]", 2, 1, 1]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()
