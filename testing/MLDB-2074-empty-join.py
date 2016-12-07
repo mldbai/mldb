@@ -178,5 +178,33 @@ class Mldb2074JoinTests(MldbUnitTest):  # noqa
             ["[]-[row4]", 2, 2]
         ])
 
+    def test_full_join_cross_pipeline(self):
+        res = mldb.query("""
+            SELECT * FROM a
+            FULL JOIN empty ON a.one <= empty.one AND a.two <= empty.one
+            ORDER BY rowName()""")
+
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two"],
+            ["[row1]-[]", 1, 1],
+            ["[row2]-[]", 1, 2],
+            ["[row3]-[]", 2, 1],
+            ["[row4]-[]", 2, 2]
+        ])
+
+    def test_full_join_cross_pipeline_reverse(self):
+        res = mldb.query("""
+            SELECT * FROM empty
+            FULL JOIN a ON a.one <= empty.one AND a.two <= empty.one
+            ORDER BY rowName()""")
+
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two"],
+            ["[]-[row1]", 1, 1],
+            ["[]-[row2]", 1, 2],
+            ["[]-[row3]", 2, 1],
+            ["[]-[row4]", 2, 2]
+        ])
+
 if __name__ == '__main__':
     mldb.run_tests()

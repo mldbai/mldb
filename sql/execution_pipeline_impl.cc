@@ -1072,8 +1072,13 @@ FullCrossJoinExecutor(const Bound * parent,
 {
     ExcAssert(parent && this->root && this->left && this->right);
     auto lResult = this->left->take();
-    bufferedLeftValues.push_back({lResult, false});
-    l = bufferedLeftValues.begin();
+    if (lResult) {
+        bufferedLeftValues.push_back({lResult, false});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     r = this->right->take();
 }
 
@@ -1092,7 +1097,7 @@ take()
             //outer right
             if (!wasOutput) {
 
-                auto result = std::make_shared<PipelineResults>(*(l->first));
+                auto result = std::make_shared<PipelineResults>(*r);
 
                 //empty values for left without the selected join condition
                 result->values.clear();
@@ -1184,6 +1189,21 @@ take()
         return result;
     }
 
+    if (firstSpin) {
+        //right dataset was empty. Take from left until done.
+        auto lResult = this->left->take();
+        if (lResult) {
+            // Pop the selected join condition from left
+            lResult->values.pop_back();
+
+            for (int i = 0; i < rightAdded; ++i) {
+                lResult->values.emplace_back(ExpressionValue());
+            }
+
+            return lResult;
+        }
+    }
+
     return nullptr;
 }
 
@@ -1195,7 +1215,13 @@ restart()
     right->restart();
     auto lResult = left->take();
     bufferedLeftValues.clear();
-    l = bufferedLeftValues.begin();
+    if (lResult) {
+        bufferedLeftValues.push_back({lResult, false});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     r = right->take();
     firstSpin = true;
     wasOutput = false;
