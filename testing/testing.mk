@@ -453,3 +453,4 @@ $(eval $(call mldb_unit_test,MLDB-2074-empty-join.py))
 $(eval $(call mldb_unit_test,MLDB-2077-merge-single.py))
 $(eval $(call mldb_unit_test,MLDB-2040_join_tests.py))
 
+$(eval $(call mldb_unit_test,MLDB-2077_merge_single_ds.py))
