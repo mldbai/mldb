@@ -374,7 +374,7 @@ struct JoinElement: public PipelineElement {
         bufferType bufferedLeftValues;
         bufferType::iterator l;
         bool firstSpin;
-        bool wasOutput;
+        bool rightRowWasOutputted;
        
         const size_t leftAdded, rightAdded;
 

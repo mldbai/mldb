@@ -901,6 +901,12 @@ bind() const
 
 /*****************************************************************************/
 /* CROSS JOIN EXECUTOR                                                       */
+/* We cannot output a row as an outer row until its been tested against      */
+/* every single other row it could match with.                               */
+/* For left or right cross joins, we choose the proper side to loop          */
+/* on first to be efficient                                                  */
+/* (for example if its a right join, we loop on right first).                */
+/* This way we avoid having to cache all rows.                               */
 /*****************************************************************************/
     
 JoinElement::CrossJoinExecutor::
@@ -993,7 +999,7 @@ take()
 
                 return result;
             }
-	        wasOutput = false;
+            wasOutput = false;
             l = this->left->take();
         }
 
@@ -1004,8 +1010,8 @@ take()
         ExpressionValue lEmbedding = l->values.back();
         ExpressionValue rEmbedding = r->values.back();
 
-	    auto result = l;
-	    if (scanLeftFirst)
+        auto result = l;
+        if (scanLeftFirst)
             result = make_shared<PipelineResults>(*l);	
 
         // Pop the selected join condition from l
@@ -1050,6 +1056,8 @@ restart()
 
 /*****************************************************************************/
 /* CROSS JOIN EXECUTOR                                                       */
+/* For a full cross join, we dont have a choice but                          */
+/* to cache all rows on one side and remember if they've ever been output.   */
 /*****************************************************************************/
     
 JoinElement::FullCrossJoinExecutor::
@@ -1064,7 +1072,7 @@ FullCrossJoinExecutor(const Bound * parent,
       left(std::move(left)),
       right(std::move(right)),
       firstSpin(true),
-      wasOutput(false),
+      rightRowWasOutputted(false),
       leftAdded(leftAdded),
       rightAdded(rightAdded)
 {
@@ -1088,7 +1096,7 @@ take()
             l = bufferedLeftValues.begin();
 
             //outer right
-            if (!wasOutput) {
+            if (!rightRowWasOutputted) {
 
                 auto result = std::make_shared<PipelineResults>(*(l->first));
 
@@ -1111,7 +1119,7 @@ take()
             }
 
             firstSpin = false;
-            wasOutput = false;
+            rightRowWasOutputted = false;
             r = this->right->take();
         }
 
@@ -1153,7 +1161,7 @@ take()
         if (!crossCondition)
             continue;       
 
-        wasOutput = true;
+        rightRowWasOutputted = true;
 
         return result;
     }
@@ -1196,12 +1204,15 @@ restart()
     l = bufferedLeftValues.begin();
     r = right->take();
     firstSpin = true;
-    wasOutput = false;
+    rightRowWasOutputted = false;
 }
 
 
 /*****************************************************************************/
 /* EQUI JOIN EXECUTOR                                                        */
+/* For equi joins, we have a sliding window row cache for the left side,     */
+/* so we now also keep track of whether each row was ever matched,           */
+/* and selectively output an outer row then it gets removed from the cache.  */
 /*****************************************************************************/
 
 JoinElement::EquiJoinExecutor::
@@ -1379,12 +1390,12 @@ take()
 
                 // return a copy since we are buffering the original left value
                 auto result = make_shared<PipelineResults>(*(*l).first);
-			    result->values.clear();
+                result->values.clear();
                 for (int i = 0; i < leftAdded; ++i)
-				    result->values.emplace_back(ExpressionValue::null(Date::notADate()));
-			    			
-			    for (int i = 0; i < rightAdded;++i)
-				    result->values.push_back(r->values[i]);
+                result->values.emplace_back(ExpressionValue::null(Date::notADate()));
+
+                for (int i = 0; i < rightAdded;++i)
+                    result->values.push_back(r->values[i]);
                           
                 r = right->take();
                 DEBUG_MSG(logger) << "returning right outer row ["
