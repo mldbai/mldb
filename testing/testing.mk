@@ -451,3 +451,6 @@ $(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))
 $(eval $(call mldb_unit_test,MLDB-2075_ds_feature_sparse_v2_backward_compat_test.py))
 
 $(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))
+$(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))
+$(eval $(call mldb_unit_test,MLDB-2074-empty-join.py))
+$(eval $(call mldb_unit_test,MLDB-2040_join_tests.py))
