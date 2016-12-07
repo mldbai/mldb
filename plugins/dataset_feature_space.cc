@@ -545,7 +545,7 @@ reconstitute(ML::DB::Store_Reader & store)
         store >> s >> s2;
         ColumnInfo info;
         ColumnHash featureHash = jsonDecodeStr<ColumnHash>(s);
-        info.columnName = ColumnPath(s2);
+        info.columnName = ColumnPath::parse(s2);
         ColumnHash hash(info.columnName);
         info.index = i;
         store >> info.info;
@@ -561,6 +561,9 @@ reconstitute(ML::DB::Store_Reader & store)
             //     << " feature " << feature << endl;
         }
         else {
+            if (hash != featureHash) {
+                cerr << "feature " << info.columnName << endl;
+            }
             ExcAssertEqual(hash, featureHash);
         }
         
