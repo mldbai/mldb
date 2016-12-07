@@ -1221,8 +1221,13 @@ EquiJoinExecutor(const Bound * parent,
       rightAdded(rightAdded)
 {
     auto lresult = this->left->take();
-    bufferedLeftValues.push_back({lresult, 0});
-    l = bufferedLeftValues.begin();
+    if (lresult) {
+        bufferedLeftValues.push_back({lresult, 0});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     firstDuplicate = l;
     r = this->right->take();
 }
@@ -1515,8 +1520,13 @@ restart()
     right->restart();
     bufferedLeftValues.resize(0);
     auto lresult = this->left->take();
-    bufferedLeftValues.push_back({lresult, 0});
-    l = bufferedLeftValues.begin();
+    if (lresult) {
+        bufferedLeftValues.push_back({lresult, 0});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     firstDuplicate = l;
     r = right->take();
 }

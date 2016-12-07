@@ -49,5 +49,17 @@ class Mldb2074JoinTests(MldbUnitTest):  # noqa
             ["[row4]-[]", 2, 2]
         ])
 
+    def test_left_join_equi_pipeline_reverse(self):
+        res = mldb.query("""
+            SELECT * FROM empty
+            LEFT JOIN a ON a.one = empty.one AND a.two = empty.one
+            ORDER BY rowName()""")
+
+        self.assertTableResultEquals(res, [
+            [
+                "_rowName"
+            ]
+        ])
+
 if __name__ == '__main__':
     mldb.run_tests()
