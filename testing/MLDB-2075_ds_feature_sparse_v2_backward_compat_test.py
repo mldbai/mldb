@@ -10,12 +10,11 @@ class Mldb2075DsFeatureSparseV2BackwardCompatTest(MldbUnitTest):  # noqa
 
     @classmethod
     def setUpClass(cls):
-        mldb.put("/v1/plugins/mlpaint", {
-            "type": "python",
-            "params": {
-                "address": "git://github.com/mldbai/mlpaint"
-            }
-        })
+        mldb.post("/v1/functions", {
+            "id":"explain",
+            "type":"classifier.explain",
+            "params":{
+                "modelFileUrl":"file://mldb/testing/fixtures/mnist_glz_categorical.cls"}})
 
     def test_it(self):
         pwet = """[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -34,34 +33,10 @@ class Mldb2075DsFeatureSparseV2BackwardCompatTest(MldbUnitTest):  # noqa
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]"""
 
-        mldb.query("""
-           -- SELECT
-           --         probabilizer_mnist_bbdt_d5_categorical_0({score: scores."0"})[prob] as prob_0,
-           --         explain*
-           --     FROM (
-
-
+        mldb.log(mldb.query("""
                     SELECT
-                        explain_mnist_bbdt_d5_categorical({features: %s, label: 0})
-
-         --)
-
-         """ % pwet)
-
-
-
-        mldb.query("""
-           SELECT
-                   probabilizer_mnist_bbdt_d5_categorical_0({score: scores."0"})[prob] as prob_0,
-                   explain*
-               FROM (
-
-
-                    SELECT
-                        explain_mnist_bbdt_d5_categorical({features: %s, label: 0})
-
-         )
-         """ % pwet)
+                        explain({features: %s, label: 0}) as *
+         """ % pwet))
 
 if __name__ == '__main__':
     mldb.run_tests()
