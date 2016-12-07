@@ -305,7 +305,7 @@ info(const ML::Feature & feature) const
 
 ColumnHash
 DatasetFeatureSpace::
-getHash(ML::Feature feature)
+getHashRaw(ML::Feature feature)
 {
     if (feature == ML::MISSING_FEATURE)
         return ColumnHash();
@@ -318,17 +318,51 @@ getHash(ML::Feature feature)
     return result;
 }
 
+ColumnHash
+DatasetFeatureSpace::
+getHash(ML::Feature feature) const
+{
+    if (feature == ML::MISSING_FEATURE)
+        return ColumnHash();
+    ExcAssertEqual(feature.type(), 1);
+
+    if (versionTwoMapping.empty())
+        return getHashRaw(feature);
+    else {
+        auto it = versionTwoMapping.find(feature);
+        if (it == versionTwoMapping.end()) {
+            throw HttpReturnException(400, "feature was not found");
+        }
+        return it->second;
+    }
+}
+
 ML::Feature
 DatasetFeatureSpace::
-getFeature(ColumnHash hash)
+getFeatureRaw(ColumnHash hash)
 {
     uint32_t high = hash >> 32;
     uint32_t low  = hash;
 
     ML::Feature result(1, high, low);
-    ExcAssertEqual(getHash(result), hash);
+    ExcAssertEqual(getHashRaw(result), hash);
 
     return result;
+}
+
+ML::Feature
+DatasetFeatureSpace::
+getFeature(ColumnHash hash) const
+{
+    if (versionTwoReverseMapping.empty()) {
+        return getFeatureRaw(hash);
+    }
+
+    auto it = versionTwoReverseMapping.find(hash);
+    if (it == versionTwoReverseMapping.end()) {
+        throw HttpReturnException(400, "hash was not found");
+    }
+    return it->second;
 }
 
 static CellValue getValueFromInfo(const ML::Feature_Info & info,
@@ -494,7 +528,7 @@ reconstitute(ML::DB::Store_Reader & store)
 {
     char version;
     store >> version;
-    if (version > 2)
+    if (version > 3)
         throw MLDB::Exception("unexpected version of DatasetFeatureSpace");
     ML::DB::compact_size_t numFeatures(store);
 
@@ -503,27 +537,49 @@ reconstitute(ML::DB::Store_Reader & store)
     else labelInfo = ML::BOOLEAN;
     
     decltype(columnInfo) newColumnInfo;
+    decltype(versionTwoMapping) newVersionTwoMapping;
+    decltype(versionTwoReverseMapping) newVersionTwoReverseMapping;
 
     for (unsigned i = 0;  i < numFeatures;  ++i) {
         string s, s2;
         store >> s >> s2;
         ColumnInfo info;
-        ColumnHash hash = jsonDecodeStr<ColumnHash>(s);
-        info.columnName = ColumnPath(s2);
+        ColumnHash featureHash = jsonDecodeStr<ColumnHash>(s);
+        info.columnName = ColumnPath::parse(s2);
+        ColumnHash hash(info.columnName);
         info.index = i;
         store >> info.info;
 
+        if (version < 3) {
+            // Version 2 used a different hash, so our feature names
+            // operate on that
+            ML::Feature feature = getFeatureRaw(featureHash);
+            newVersionTwoMapping[feature] = hash;
+            newVersionTwoReverseMapping[hash] = feature;
+
+            //cerr << "v2 feature " << s2 << " hash " << hash << " featureHash " << featureHash
+            //     << " feature " << feature << endl;
+        }
+        else {
+            if (hash != featureHash) {
+                cerr << "feature " << info.columnName << endl;
+            }
+            ExcAssertEqual(hash, featureHash);
+        }
+        
         newColumnInfo[hash] = std::move(info);
     }
 
     columnInfo.swap(newColumnInfo);
+    versionTwoMapping.swap(newVersionTwoMapping);
+    versionTwoReverseMapping.swap(newVersionTwoReverseMapping);
 }
 
 void
 DatasetFeatureSpace::
 serialize(ML::DB::Store_Writer & store) const
 {
-    store << (char)2 // version
+    store << (char)3 // version
           << ML::DB::compact_size_t(columnInfo.size());
 
     store << labelInfo;

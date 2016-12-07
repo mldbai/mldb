@@ -73,6 +73,14 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     std::unordered_map<ColumnHash, ColumnInfo> columnInfo;
 
+    /// Mapping from the first two 32 bit values of a feature to
+    /// a column hash, for classifiers serialized with the old
+    /// column hashing scheme (version 2).  This allows the old
+    /// feature<->columnHash mapping to be maintained.  For new
+    /// files (version 3 and above), these two are empty.
+    std::map<ML::Feature, ColumnHash> versionTwoMapping;
+    std::unordered_map<ColumnHash, ML::Feature> versionTwoReverseMapping;
+
     ML::Feature_Info labelInfo;
 
     /** Encode the given column value into a feature, adding to the given
@@ -99,10 +107,6 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
                       const ColumnPath & columnName,
                       const ML::Feature_Info & info) const;
 
-/*    float encodeValue(const CellValue & value,
-                      const ColumnPath & columnName,
-                      const ColumnInfo & columnInfo) const;*/
-
     virtual ML::Feature_Info info(const ML::Feature & feature) const override;
 
 
@@ -127,13 +131,16 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         - the third 32 bit integer, arg2(), to the low 32 bits of the column.
     */
 
-    static ColumnHash getHash(ML::Feature feature);
+    static ColumnHash getHashRaw(ML::Feature feature);
+
+    ColumnHash getHash(ML::Feature feature) const;
 
     /** Undo the mapping from getHash.  This is the inverse of the getHash
         function.
     */
+    ML::Feature getFeature(ColumnHash hash) const;
 
-    static ML::Feature getFeature(ColumnHash hash);
+    static ML::Feature getFeatureRaw(ColumnHash hash);
 
     CellValue getValue(const ML::Feature & feature, float value) const;
 

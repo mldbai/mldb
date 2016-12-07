@@ -402,7 +402,7 @@ Then we need to modify the system's apt sources.list to add the `ubuntu-ports` r
 sudo apt-add-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse universe'
 sudo apt-add-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ trusty-updates main restricted multiverse universe'
 sudo apt-get update
-` ``
+```
 
 Thirdly, we need to download the cross development environment for the
 target platform.  This will be installed under `build/aarch64/osdeps`
