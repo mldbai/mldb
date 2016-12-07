@@ -18,7 +18,7 @@ elif [ $ARCH "=" "arm" ]; then
     ARCH="armhf"
 fi
 
-DEPS=`apt-cache depends $1:$ARCH | grep 'Depends:' | grep -v '<' | sed 's/[^:]*://' | sed "s/:$ARCH//" | sort | uniq`
+DEPS=`apt-cache -o APT::Architecture=$ARCH depends $1 | grep 'Depends:' | grep -v '<' | sed 's/[^:]*://' | sed "s/:$ARCH//" | sort | uniq`
 
 echo PACKAGE_DEPS_$1:='$('filter-out '$('PORT_BLACKOUT_PACKAGES')',$DEPS')'
 echo PORT_ALL_DEPS_COMPUTED+=' $('PACKAGE_DEPS_$1')'
