@@ -939,7 +939,7 @@ take()
     //or "for each left {for each right}"
     bool scanLeftFirst = outerLeft;
 
-    for (;;) {
+    while ((l && scanLeftFirst) || (r && !scanLeftFirst)) {
 
         if (!l && !scanLeftFirst) { 
 
@@ -948,7 +948,7 @@ take()
 
             if (!wasOutput && outerRight) {
 
-                auto result = std::make_shared<PipelineResults>(*l);
+                auto result = std::make_shared<PipelineResults>(*r);
 
                 //empty values for left without the selected join condition
                 result->values.clear();
@@ -1035,6 +1035,8 @@ take()
 
         return result;
     }
+
+    return nullptr;
 }
 
 void

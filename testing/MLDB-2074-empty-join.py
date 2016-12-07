@@ -127,5 +127,56 @@ class Mldb2074JoinTests(MldbUnitTest):  # noqa
             ["[]-[row4]", 2, 2]
         ])
 
+    def test_left_join_cross_pipeline(self):
+        res = mldb.query("""
+            SELECT * FROM a
+            LEFT JOIN empty ON a.one <= empty.one AND a.two <= empty.one
+            ORDER BY rowName()""")
+
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two"],
+            ["[row1]-[]", 1, 1],
+            ["[row2]-[]", 1, 2],
+            ["[row3]-[]", 2, 1],
+            ["[row4]-[]", 2, 2]
+        ])
+
+    def test_left_join_cross_pipeline_reverse(self):
+        res = mldb.query("""
+            SELECT * FROM empty
+            LEFT JOIN a ON a.one <= empty.one AND a.two <= empty.one
+            ORDER BY rowName()""")
+
+        self.assertTableResultEquals(res, [
+            [
+                "_rowName"
+            ]
+        ])
+
+    def test_right_join_cross_pipeline(self):
+        res = mldb.query("""
+            SELECT * FROM a
+            RIGHT JOIN empty ON a.one <= empty.one AND a.two <= empty.one
+            ORDER BY rowName()""")
+
+        self.assertTableResultEquals(res, [
+            [
+                "_rowName"
+            ]
+        ])
+    def test_right_join_cross_pipeline_reverse(self):
+        res = mldb.query("""
+            SELECT * FROM empty
+            RIGHT JOIN a ON a.one <= empty.one AND a.two <= empty.one
+            ORDER BY rowName()""")
+
+        self.assertTableResultEquals(res, [
+            ["_rowName", "a.one", "a.two"],
+            ["[]-[row1]", 1, 1],
+            ["[]-[row2]", 1, 2],
+            ["[]-[row3]", 2, 1],
+            ["[]-[row4]", 2, 2]
+        ])
+
 if __name__ == '__main__':
     mldb.run_tests()
