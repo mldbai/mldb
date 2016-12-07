@@ -388,40 +388,39 @@ make ... WITH_CUDA=1
 First, the machine needs to be set up with cross compilers:
 
 ```
-sudo apt-get install libc6-arm64-cross libc6-dev-arm64-cross linux-libc-dev-arm64-cross g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+sudo apt-get install \
+    g++-aarch64-linux-gnu \
+    gcc-aarch64-linux-gnu \
+    libc6-arm64-cross \
+    libc6-dev-arm64-cross \
+    linux-libc-dev-arm64-cross
 ```
 
-Then we need to add arm64 to Debian's multiarch support so that it can find the packages for an arm64 target system:
+Then we need to modify the system's apt sources.list to add the `ubuntu-ports` repository for the `arm64` architecture:
 
 ```
-sudo dpkg --add-architecture arm64
-sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted'
+sudo apt-add-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse universe'
+sudo apt-add-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ trusty-updates main restricted multiverse universe'
 sudo apt-get update
-```
-
-This will print some warning messages, which can be safely ignored:
-
-```
-E: Some index files failed to download. They have been ignored, or old ones used instead.
-```
+` ``
 
 Thirdly, we need to download the cross development environment for the
-target platform.  This will be installed under build/aarch64/osdeps
+target platform.  This will be installed under `build/aarch64/osdeps`
 
 ```
-make port_deps ARCH=aarch64
+make -j$(nproc) port_deps ARCH=aarch64
 ```
 
 Fourthly, we need to make the build tools for the host architecture
 
 ```
-make build_tools
+make -j$(nproc) build_tools
 ```
 
 Finally, we can build the port itself:
 
 ```
-make -j8 -k compile ARCH=aarch64
+make -j$(nproc) compile ARCH=aarch64
 ```
 
 Note that currently no version of the v8 javascript engine is available
@@ -433,46 +432,44 @@ from Debian for arch64.  We are working on a solution.
 First, the machine needs to be set up with cross compilers:
 
 ```
-sudo apt-get install libc6-armhf-cross libc6-dev-armhf-cross linux-libc-dev-armhf-cross g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf g++-4.8-multilib-arm-linux-gnueabihf gcc-4.8-multilib-arm-linux-gnueabihf g++-4.8-arm-linux-gnueabihf gcc-4.8-arm-linux-gnueabihf
+sudo apt-get install \
+    g++-4.8-arm-linux-gnueabihf \
+    g++-4.8-multilib-arm-linux-gnueabihf \
+    g++-arm-linux-gnueabihf \
+    gcc-4.8-arm-linux-gnueabihf \
+    gcc-4.8-multilib-arm-linux-gnueabihf \
+    gcc-arm-linux-gnueabihf \
+    libc6-armhf-cross \
+    libc6-dev-armhf-cross \
+    linux-libc-dev-armhf-cross
 ```
 
-Then we need to add armhf to Debian's multiarch support so that it can find the packages for an armhf target system:
+Then we need to modify the system's apt sources.list to add the `ubuntu-ports` repository for the `armhf` architecture:
 
 ```
-sudo dpkg --add-architecture armhf
-sudo apt-add-repository 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted'
+sudo apt-add-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse universe'
+sudo apt-add-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ trusty-updates main restricted multiverse universe'
 sudo apt-get update
 ```
 
 Thirdly, we need to download the cross development environment for the
-target platform.  This will be installed under build/aarch64/osdeps
+target platform.  This will be installed under `build/arm/osdeps`
 
 ```
-make port_deps ARCH=arm
-```
-
-If there are errors with missing package, it's because the
-universe and multiverse packages weren't installed.  In that
-case, make sure that the `ubuntu-ports` lines in `/etc/apt/sources.list`
-look like this:
-
-```
-deb http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse universe
-deb http://ports.ubuntu.com/ubuntu-ports/ trusty-updates restricted multiverse main universe
+make -j$(nproc) port_deps ARCH=arm
 ```
 
 Fourthly, we need to make the build tools for the host architecture.  Unfortunately this
 takes quite a lot of time as a lot of Tensorflow is required in order to build itself.
-NOTE that this has *no* `ARCH=arm` argument.
 
 ```
-make -j8 -k build_tools
+make -j$(nproc) build_tools  ###  NOTE: do _not_ specify `ARCH=arm` here.  ###
 ```
 
 Finally, we can build the port itself:
 
 ```
-make -j8 -k compile ARCH=arm
+make -j$(nproc) compile ARCH=arm
 ```
 
 The version of MLDB will be placed in `build/arm/bin` and `build/arm/lib`
