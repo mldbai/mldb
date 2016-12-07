@@ -1272,7 +1272,7 @@ take()
     };
 
     //first check if we can pop something from the cached left list
-    while (bufferedLeftValues.size() > 0 && firstDuplicate != bufferedLeftValues.begin()) {
+    while (bufferedLeftValues.size() > 0 && firstDuplicate != bufferedLeftValues.begin() && l != bufferedLeftValues.begin()) {
         if (outerLeft) {
             auto leftiter = bufferedLeftValues.begin();
             if (!leftiter->second) {
