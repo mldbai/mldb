@@ -945,7 +945,7 @@ take()
     //or "for each left {for each right}"
     bool scanLeftFirst = outerLeft;
 
-    for (;;) {
+    while ((l && scanLeftFirst) || (r && !scanLeftFirst)) {
 
         if (!l && !scanLeftFirst) { 
 
@@ -954,7 +954,7 @@ take()
 
             if (!wasOutput && outerRight) {
 
-                auto result = std::make_shared<PipelineResults>(*l);
+                auto result = std::make_shared<PipelineResults>(*r);
 
                 //empty values for left without the selected join condition
                 result->values.clear();
@@ -1041,6 +1041,8 @@ take()
 
         return result;
     }
+
+    return nullptr;
 }
 
 void
@@ -1078,8 +1080,13 @@ FullCrossJoinExecutor(const Bound * parent,
 {
     ExcAssert(parent && this->root && this->left && this->right);
     auto lResult = this->left->take();
-    bufferedLeftValues.push_back({lResult, false});
-    l = bufferedLeftValues.begin();
+    if (lResult) {
+        bufferedLeftValues.push_back({lResult, false});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     r = this->right->take();
 }
 
@@ -1098,7 +1105,7 @@ take()
             //outer right
             if (!rightRowWasOutputted) {
 
-                auto result = std::make_shared<PipelineResults>(*(l->first));
+                auto result = std::make_shared<PipelineResults>(*r);
 
                 //empty values for left without the selected join condition
                 result->values.clear();
@@ -1190,6 +1197,21 @@ take()
         return result;
     }
 
+    if (firstSpin) {
+        //right dataset was empty. Take from left until done.
+        auto lResult = this->left->take();
+        if (lResult) {
+            // Pop the selected join condition from left
+            lResult->values.pop_back();
+
+            for (int i = 0; i < rightAdded; ++i) {
+                lResult->values.emplace_back(ExpressionValue());
+            }
+
+            return lResult;
+        }
+    }
+
     return nullptr;
 }
 
@@ -1201,7 +1223,13 @@ restart()
     right->restart();
     auto lResult = left->take();
     bufferedLeftValues.clear();
-    l = bufferedLeftValues.begin();
+    if (lResult) {
+        bufferedLeftValues.push_back({lResult, false});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     r = right->take();
     firstSpin = true;
     rightRowWasOutputted = false;
@@ -1232,8 +1260,13 @@ EquiJoinExecutor(const Bound * parent,
       rightAdded(rightAdded)
 {
     auto lresult = this->left->take();
-    bufferedLeftValues.push_back({lresult, 0});
-    l = bufferedLeftValues.begin();
+    if (lresult) {
+        bufferedLeftValues.push_back({lresult, 0});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     firstDuplicate = l;
     r = this->right->take();
 }
@@ -1283,7 +1316,7 @@ take()
     };
 
     //first check if we can pop something from the cached left list
-    while (bufferedLeftValues.size() > 0 && firstDuplicate != bufferedLeftValues.begin()) {
+    while (bufferedLeftValues.size() > 0 && firstDuplicate != bufferedLeftValues.begin() && l != bufferedLeftValues.begin()) {
         if (outerLeft) {
             auto leftiter = bufferedLeftValues.begin();
             if (!leftiter->second) {
@@ -1526,8 +1559,13 @@ restart()
     right->restart();
     bufferedLeftValues.resize(0);
     auto lresult = this->left->take();
-    bufferedLeftValues.push_back({lresult, 0});
-    l = bufferedLeftValues.begin();
+    if (lresult) {
+        bufferedLeftValues.push_back({lresult, 0});
+        l = bufferedLeftValues.begin();
+    }
+    else {
+        l = bufferedLeftValues.end();
+    }
     firstDuplicate = l;
     r = right->take();
 }
