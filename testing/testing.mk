@@ -450,5 +450,6 @@ $(eval $(call mldb_unit_test,post_run_and_track_procedure_test.py))
 $(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))
 $(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))
 $(eval $(call mldb_unit_test,MLDB-2074-empty-join.py))
+$(eval $(call mldb_unit_test,MLDB-2077-merge-single.py))
 $(eval $(call mldb_unit_test,MLDB-2040_join_tests.py))
 
