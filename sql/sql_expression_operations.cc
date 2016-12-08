@@ -806,7 +806,8 @@ struct BinaryOpHelper {
     static BoundSqlExpression
     bindAll(LhsContext lhsContext,
             RhsContext rhsContext,
-            const SqlExpression * expr)
+            const SqlExpression * expr,
+            bool isConstant)
     {
         BoundSqlExpression result;
         result.info = lhsContext.getInfoLhs(rhsContext);
@@ -817,6 +818,7 @@ struct BinaryOpHelper {
                                 std::placeholders::_2,
                                 GET_LATEST);
         result.expr = expr->shared_from_this();
+        result.metadata.isConstant = isConstant;
 
         return result;
     }
@@ -825,7 +827,8 @@ struct BinaryOpHelper {
     static BoundSqlExpression
     bindRhs(LhsContext lhsContext,
             const SqlExpression * expr,
-            const BoundSqlExpression & boundRhs)
+            const BoundSqlExpression & boundRhs,
+            bool isConstant)
     {
         int scalar = boundRhs.info->isScalar();
         int embedding = boundRhs.info->isEmbedding();
@@ -835,19 +838,19 @@ struct BinaryOpHelper {
 
         if (total == 1 && scalar) {
             ScalarContext rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
         else if (embedding && !scalar) {
             EmbeddingContext rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
         else if (row && !scalar) {
             RowScope rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
         else {
             UnknownContext rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
     }
 
@@ -861,22 +864,23 @@ struct BinaryOpHelper {
         int row = boundLhs.info->isRow();
 
         int total = scalar + embedding + row;
+        bool constant = boundLhs.metadata.isConstant && boundRhs.metadata.isConstant;
 
         if (total == 1 && scalar) {
             ScalarContext lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
         else if (embedding && !scalar) {
             EmbeddingContext lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
         else if (row && !scalar) {
             RowScope lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
         else {
             UnknownContext lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
     }
 };
@@ -903,7 +907,8 @@ doBinaryArithmetic(const SqlExpression * expr,
                                                     r.getAtom()), ts);
             },
             expr,
-            std::make_shared<ReturnInfo>()};
+            std::make_shared<ReturnInfo>(),
+            (boundLhs.metadata.isConstant && boundRhs.metadata.isConstant)};
 }
 
 template<typename ReturnInfo, typename Op>
@@ -926,7 +931,8 @@ doUnaryArithmetic(const SqlExpression * expr,
                                       r.getEffectiveTimestamp());
             },
             expr,
-            std::make_shared<ReturnInfo>()};
+            std::make_shared<ReturnInfo>(),
+            (boundRhs.metadata.isConstant)};
 }
 
 static CellValue
@@ -1376,7 +1382,8 @@ doBinaryBitwise(const SqlExpression * expr,
                 return storage = ExpressionValue(op(l.toInt(), r.toInt()), ts);
             },
             expr,
-            std::make_shared<IntegerValueInfo>()};
+            std::make_shared<IntegerValueInfo>(),
+            (boundLhs.metadata.isConstant && boundRhs.metadata.isConstant)};
 }
 
 template<typename Op>
@@ -1397,7 +1404,8 @@ doUnaryBitwise(const SqlExpression * expr,
                 return storage = ExpressionValue(std::move(op(r.toInt())), r.getEffectiveTimestamp());
             },
             expr,
-            std::make_shared<IntegerValueInfo>()};
+            std::make_shared<IntegerValueInfo>(),
+            boundRhs.metadata.isConstant};
 }
 
 static CellValue doBitwiseAnd(int64_t v1, int64_t v2)
@@ -1930,6 +1938,13 @@ bind(SqlBindingScope & scope) const
     auto boundRhs = rhs->bind(scope);
 
     if (op == "AND" && lhs) {
+
+        bool constant = (boundLhs.metadata.isConstant && boundRhs.metadata.isConstant) 
+                        || (boundLhs.metadata.isConstant && boundLhs.constantValue().empty())
+                        || (boundRhs.metadata.isConstant && boundRhs.constantValue().empty())
+                        || (boundLhs.metadata.isConstant && boundLhs.constantValue().isFalse())
+                        || (boundRhs.metadata.isConstant && boundRhs.constantValue().isFalse());
+
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
@@ -1962,9 +1977,17 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue(true, ts);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                constant};
     }
     else if (op == "OR" && lhs) {
+
+        bool constant = (boundLhs.metadata.isConstant && boundRhs.metadata.isConstant) 
+                        || (boundLhs.metadata.isConstant && boundLhs.constantValue().empty())
+                        || (boundRhs.metadata.isConstant && boundRhs.constantValue().empty())
+                        || (boundLhs.metadata.isConstant && boundLhs.constantValue().isTrue())
+                        || (boundRhs.metadata.isConstant && boundRhs.constantValue().isTrue());
+
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
@@ -2000,9 +2023,11 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue(false, ts);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                constant};
     }
     else if (op == "NOT" && !lhs) {
+
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
@@ -2015,7 +2040,8 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue(!r.isTrue(), r.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                (boundRhs.metadata.isConstant)};
     }
     else throw HttpReturnException(400, "Unknown boolean op " + op
                              + (lhs ? " binary" : " unary"));
