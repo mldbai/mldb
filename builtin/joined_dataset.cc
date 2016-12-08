@@ -923,6 +923,9 @@ JoinedDataset(MldbServer * owner,
     : Dataset(owner)
 {
     auto joinConfig = config.params.convert<JoinedDatasetConfig>();
+    config_ = make_shared<PolyConfig>();
+    config_->type = "joined";
+    config_->params = joinConfig;
 
     SqlExpressionMldbScope scope(owner);
 
@@ -950,6 +953,16 @@ JoinedDataset(SqlBindingScope & scope,
               JoinQualification qualification)
     : Dataset(scope.getMldbServer())
 {
+    JoinedDatasetConfig config;
+    config.left = leftExpr;
+    config.right = rightExpr;
+    config.on = on;
+    config.qualification = qualification;
+
+    config_ = make_shared<PolyConfig>();
+    config_->type = "joined";
+    config_->params = config;
+
     itl.reset(new Itl(scope,
                       leftExpr, std::move(left),
                       rightExpr, std::move(right),
