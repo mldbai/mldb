@@ -11,7 +11,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/any_impl.h"
-
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -88,7 +88,7 @@ apply(const FunctionApplier & applier,
     Json::Value val = jsonEncode(args);
     copiedSR.args = val;
 
-    //cerr << "script args = " << jsonEncode(copiedSR.args) << endl;
+    DEBUG_MSG(logger) << "script args = " << jsonEncode(copiedSR.args);
 
     RestRequest request("POST", resource, RestParams(),
                         

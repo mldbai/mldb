@@ -28,7 +28,8 @@ const ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
 /*****************************************************************************/
 
 DatasetFeatureSpace::
-DatasetFeatureSpace()
+DatasetFeatureSpace() 
+    : logger(MLDB::getMldbLog<DatasetFeatureSpace>())
 {
 }
 
@@ -37,7 +38,8 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                     ML::Feature_Info labelInfo,
                     const std::set<ColumnPath> & knownInputColumns,
                     bool bucketize)
-    : labelInfo(labelInfo)
+    : labelInfo(labelInfo),
+      logger(MLDB::getMldbLog<DatasetFeatureSpace>())
 {
     auto columns = dataset->getColumnPaths();
     std::vector<ColumnPath> filteredColumns;
@@ -75,10 +77,8 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
 {
     ColumnInfo result;
     result.columnName = columnName;
-    auto logger = MLDB::getMldbLog<DatasetFeatureSpace>();
 
     if (!bucketize) {
-        DEBUG_MSG(logger) << "doing column " << columnName;
         ColumnStats statsStorage;
         auto & stats = dataset->getColumnIndex()
             ->getColumnStats(columnName, statsStorage);
@@ -107,9 +107,6 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
                 else
                     allValues.push_back(v.first.toUtf8String().rawString());
             }
-
-            //cerr << "feature " << columnName << " has types " << jsonEncodeStr(types)
-            //     << endl;
 
             if (types.count(CellValue::ASCII_STRING) || 
                 types.count(CellValue::UTF8_STRING)) {
@@ -557,12 +554,12 @@ reconstitute(ML::DB::Store_Reader & store)
             newVersionTwoMapping[feature] = hash;
             newVersionTwoReverseMapping[hash] = feature;
 
-            //cerr << "v2 feature " << s2 << " hash " << hash << " featureHash " << featureHash
-            //     << " feature " << feature << endl;
+            TRACE_MSG(logger) << "v2 feature " << s2 << " hash " << hash << " featureHash " << featureHash
+                              << " feature " << feature;
         }
         else {
             if (hash != featureHash) {
-                cerr << "feature " << info.columnName << endl;
+                  TRACE_MSG(logger) << "feature " << info.columnName;
             }
             ExcAssertEqual(hash, featureHash);
         }

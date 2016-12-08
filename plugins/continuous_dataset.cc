@@ -503,8 +503,6 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
         + "AND earliest <= CAST ('" + CellValue(to).toString() + "' AS TIMESTAMP) "
         + "AND latest >= CAST ('" + CellValue(from).toString() + "' AS TIMESTAMP)";
     
-    DEBUG_MSG(logger) << "where is " << where;
-
     // Query our metadata dataset for the datasets to load up
     auto datasets
         = metadataDataset

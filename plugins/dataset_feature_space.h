@@ -15,6 +15,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/server/bucket.h"
 #include "mldb/ml/jml/label.h"
+#include "mldb/utils/log_fwd.h"
 
 
 namespace MLDB {
@@ -82,6 +83,8 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     std::unordered_map<ColumnHash, ML::Feature> versionTwoReverseMapping;
 
     ML::Feature_Info labelInfo;
+    std::shared_ptr<spdlog::logger> logger;
+    
 
     /** Encode the given column value into a feature, adding to the given
         feature set.

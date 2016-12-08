@@ -779,7 +779,7 @@ run(const ProcedureRunConfig & run,
 
     ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures, logger, onProgress2);
 
-    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors);
+    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors, logger);
     SvdBasis svd = SvdTrainer::calcSvdBasis(correlations,
                                             runProcConf.numSingularValues,
                                             logger);

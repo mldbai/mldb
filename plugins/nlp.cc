@@ -157,7 +157,7 @@ call(Words input) const
                        Date ts)
         {
             string str = columnName.toSimpleName().stealRawString();
-            // cerr << "got: " << str << endl;
+
             const sb_symbol * stemmed = sb_stemmer_stem(stemmer.get(),
                     (const unsigned char*)str.c_str(), str.size());
 
