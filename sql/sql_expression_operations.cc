@@ -2161,7 +2161,8 @@ bind(SqlBindingScope & scope) const
                                                  v.getEffectiveTimestamp());
             },
             this,
-            std::make_shared<BooleanValueInfo>()};
+            std::make_shared<BooleanValueInfo>(),
+            boundExpr.metadata.isConstant};
 }
 
 Utf8String
@@ -2538,11 +2539,13 @@ CaseExpression::
 bind(SqlBindingScope & scope) const
 {
     std::shared_ptr<ExpressionValueInfo> info;
+    bool isConst = true;
 
     BoundSqlExpression boundElse;
     if (elseExpr) {
         boundElse = elseExpr->bind(scope);
         info = boundElse.info;
+        isConst = isConst && boundElse.metadata.isConstant;
     }
 
     std::vector<std::pair<BoundSqlExpression, BoundSqlExpression> > boundWhen;
@@ -2553,12 +2556,16 @@ bind(SqlBindingScope & scope) const
             info = VariantExpressionValueInfo::createVariantValueInfo(info, boundWhen.back().second.info);
         else
             info = boundWhen.back().second.info;
+
+        isConst = isConst && boundWhen.back().first.metadata.isConstant;
+        isConst = isConst && boundWhen.back().second.metadata.isConstant;
     }
 
     if (expr) {
         // Simple CASE expression
 
         auto boundExpr = expr->bind(scope);
+        isConst = isConst && boundExpr.metadata.isConstant;
 
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
@@ -2593,7 +2600,8 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue();
                 },
                 this,
-                info};
+                info,
+                isConst};
     }
     else {
         // Searched CASE expression
@@ -2614,7 +2622,8 @@ bind(SqlBindingScope & scope) const
                     else return storage = ExpressionValue();
                 },
                 this,
-                info};
+                info,
+                isConst};
     }
 }
 
@@ -3680,7 +3689,7 @@ bind(SqlBindingScope & scope) const
                 return val;
             };
 
-        BoundSqlExpression result(exec, this, info);
+        BoundSqlExpression result(exec, this, info, exprBound.metadata.isConstant);
         return result;
     }
     else {
@@ -3724,7 +3733,7 @@ bind(SqlBindingScope & scope) const
         auto info = std::make_shared<RowValueInfo>
             (knownColumns, SCHEMA_CLOSED);
 
-        return BoundSqlExpression(exec, this, info);
+        return BoundSqlExpression(exec, this, info, exprBound.metadata.isConstant);
     }
 }
 

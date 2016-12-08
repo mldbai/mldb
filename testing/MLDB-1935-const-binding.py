@@ -225,7 +225,49 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['_rowName', 'isconst',],
             ['row1', True],
         ])
-     
 
+    def test_const_istype_var(self):
+        res = mldb.query("SELECT __isconst(a IS NUMBER) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_istype_const(self):
+        res = mldb.query("SELECT __isconst(5 IS NUMBER) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    # TODO: function calls, extract
+    def test_const_selectwithin_var(self):
+        res = mldb.query("SELECT __isconst({a,2,a}) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_selectwithin_const(self):
+        res = mldb.query("SELECT __isconst({1,2,3}) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    def test_const_case_var(self):
+        res = mldb.query("SELECT __isconst(CASE a WHEN 'patate' THEN 0 ELSE 1 END) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_case_const(self):
+        res = mldb.query("SELECT __isconst(CASE 1 WHEN 'patate' THEN 0 ELSE 1 END) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+     
 if __name__ == '__main__':
     mldb.run_tests()
