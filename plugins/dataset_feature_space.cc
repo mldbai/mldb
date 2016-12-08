@@ -28,7 +28,8 @@ const ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
 /*****************************************************************************/
 
 DatasetFeatureSpace::
-DatasetFeatureSpace()
+DatasetFeatureSpace() 
+    : logger(MLDB::getMldbLog<DatasetFeatureSpace>())
 {
 }
 
