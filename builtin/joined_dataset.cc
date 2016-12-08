@@ -950,6 +950,7 @@ JoinedDataset(SqlBindingScope & scope,
               JoinQualification qualification)
     : Dataset(scope.getMldbServer())
 {
+    config_ = make_shared<PolyConfig>();
     itl.reset(new Itl(scope,
                       leftExpr, std::move(left),
                       rightExpr, std::move(right),
