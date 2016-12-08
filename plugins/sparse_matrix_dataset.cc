@@ -52,20 +52,34 @@ BaseEntryDescription()
 /*****************************************************************************/
 
 /** Encoding works as follows:
-    - Values are either stored inline or as a pointer to an external table
-    - Inline values 
+    Values are either stored inline or as a pointer to an external table.
+    Values are stored with a tag describing the encoding type used.
+
+    Inline encoding are used for these cell value types:
+    - EMPTY,
+    - numericals, 
+    - timestamps, 
+    - timeintervals that fit 64-bits and 
+    - short ASCII strings (<= 4 chars).
+
+    An external table is used for:
+    - timeintervals that do not fit 64-bits,
+    - ASCII strings greater than 4 chars,
+    - UTF8 strings,
+    - paths. 
 
     Encoding types
-    - Null
-    - 7 bit nonnegative integer
-
-    - 14 bit nonnegative integer
-
-    - Null is encoded as 0
-    - Zero is encoded as 1
-    - Small positive integers
-    - 
-    - ...
+    -  0: Null
+    -  1: unsigned int
+    -  2: -INF
+    -  3: negative int (as positive int)
+    -  8: float
+    -  9: timestamp
+    - 25, 26: timeinterval
+    - 16-20: small ASCII string
+    - 24: longer ASCII string and UTF8 strings
+    - 30: paths that cannot be interpreted as index
+    - 31: paths that are indices
 */
 
 
@@ -367,12 +381,16 @@ struct SparseMatrixDataset::Itl
 
             return CellValue(Utf8String(string(c, c + len)));
         }
-        case 24: {
+        case 24:
+        case 30: {
             CellValue result;
 
             auto onRow = [&] (const BaseEntry & entry)
                 {
-                    result = CellValue(Utf8String(entry.metadata.at(0)));
+                    if (tag == 30) // PATH
+                        result = CellValue(Path::parse(entry.metadata.at(0)));
+                    else // UTF8 strings and long ASCII
+                        result = CellValue(Utf8String(entry.metadata.at(0)));
                     return false;
                 };
             
@@ -381,6 +399,8 @@ struct SparseMatrixDataset::Itl
                                           "hash", val);
             return result;
         }
+        case 31:
+            return CellValue(Path(PathElement(val)));
         default:
             throw HttpReturnException(500, "Unknown value tag", "tag", tag);
         }            
@@ -473,18 +493,39 @@ struct SparseMatrixDataset::Itl
             // fall through for non-inlined version
         }
         case CellValue::UTF8_STRING: {
-            uint32_t strNumChars = val.toStringLength();
-            const unsigned char * strChars = (const unsigned char *)val.stringChars();
             CellValueHash hash = val.hash();
             if (!trans.values->knownRow(hash)) {
                 BaseEntry entry;
                 entry.rowcol = 0;
                 entry.timestamp = 0;
                 entry.val = 0;
+                uint32_t strNumChars = val.toStringLength();
+                const unsigned char * strChars = (const unsigned char *)val.stringChars();
                 entry.metadata.push_back(std::string(strChars, strChars + strNumChars));
                 trans.values->recordRow(hash, &entry, 1);
             }
             return { hash, 24 };
+        }
+        case CellValue::PATH: {
+            CellValueHash hash = val.hash();
+            Path path = val.coerceToPath();
+            if (path.isIndex()) {
+                return {path.toIndex(), 31};
+            } 
+            else {
+                if (!trans.values->knownRow(hash)) {
+                    BaseEntry entry;
+                    entry.rowcol = 0;
+                    entry.timestamp = 0;
+                    entry.val = 0;
+
+                    uint32_t strNumChars = val.toStringLength();
+                    const unsigned char * strChars = (const unsigned char *)val.stringChars();
+                    entry.metadata.push_back(std::string(strChars, strChars + strNumChars));
+                    trans.values->recordRow(hash, &entry, 1);
+                }
+            }
+            return {hash, 30 };
         }
         default:
             throw HttpReturnException(500,
