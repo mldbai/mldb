@@ -74,7 +74,8 @@ doComparison(const SqlExpression * expr,
                 return storage = ExpressionValue((l .* op)(r), ts);
             },
             expr,
-            std::make_shared<BooleanValueInfo>()};
+            std::make_shared<BooleanValueInfo>(),
+            (boundLhs.metadata.isConstant && boundRhs.metadata.isConstant)};
 }
 
 BoundSqlExpression
