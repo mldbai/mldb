@@ -230,14 +230,18 @@ run(const ProcedureRunConfig & run,
     INFO_MSG(logger) << "feature space construction took " << timer.elapsed();
     timer.restart();
 
-#if 0
-    for (auto& c : knownInputColumns) {
-        cerr << c << " feature " << featureSpace->getFeature(c)
-             << " had " << featureSpace->columnInfo[c].buckets.numBuckets
-             << " buckets"
-             << " type is " << featureSpace->columnInfo[c].info << endl;
-    }
-#endif
+    auto outputFeature = [&]() {
+        stringstream str;
+        for (auto& c : knownInputColumns) {
+            str << c << " feature " << featureSpace->getFeature(c)
+                << " had " << featureSpace->columnInfo[c].buckets.numBuckets
+                << " buckets"
+                << " type is " << featureSpace->columnInfo[c].info << endl;
+        }
+        return str.str();
+    };
+    
+    TRACE_MSG(logger) << outputFeature();
 
     // Get the feature buckets per row
 

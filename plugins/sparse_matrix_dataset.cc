@@ -1470,11 +1470,6 @@ struct MutableBaseData {
         // Put them back in order of size
         std::reverse(newRows.begin(), newRows.end());
 
-        //for (unsigned i = 0;  i < newRows.size();  ++i) {
-        //    cerr << "Rows entry " << i << " has " << newRows[i]->size()
-        //         << endl;
-        //}
-
         auto newRepr = std::make_shared<Repr>(std::move(newRows),
                                               oldRows.cachedRowCount.load());
         repr.store(std::move(newRepr));
