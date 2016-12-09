@@ -137,6 +137,14 @@ struct RegisterBuiltin {
                         }
                     };
 
+                    //Builtins are assumed to be deterministic
+                    bool constantArgs = true;
+                    for (auto& arg : args) {
+                        constantArgs = constantArgs && arg.metadata.isConstant;
+                    }
+
+                    result.resultMetadata.isConstant = constantArgs;
+
                     return result;
                 } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "

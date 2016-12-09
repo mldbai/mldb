@@ -348,6 +348,20 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['row1', False],
         ])
 
+    def test_const_builtin_var(self):
+        res = mldb.query("SELECT __isconst(reshape([1,a,3,4], [2,2])) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_builtin_const(self):
+        res = mldb.query("SELECT __isconst(reshape([1,2,3,4], [2,2])) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
     # TODO: function calls, extract, LIKE, Bound Parameters?
     
 if __name__ == '__main__':
