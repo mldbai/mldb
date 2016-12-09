@@ -34,7 +34,7 @@ docker_mldb: \
 
 ifdef VERSION_NAME
   # Release related flags and options
-	MLDB_EXTRA_FLAGS+= --hide-internal-entities --config-path=$(ETC)/service/mldb_runner/run/mldb.conf
+	MLDB_EXTRA_FLAGS+= --hide-internal-entities --config-path=$(ETC)/mldb.conf
   DOCKER_POST_INSTALL_ARGS="-s"
 else
 	MLDB_EXTRA_FLAGS+= --config-path=mldb/container_files/mldb.conf
