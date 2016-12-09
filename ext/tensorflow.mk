@@ -127,9 +127,22 @@ $(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto |
 CUDA_VERSION?=8.0
 CUDNN_VERSION?=5
 
+# Which CUDA capabilities do we want to pre-build for?
+# https://developer.nvidia.com/cuda-gpus
+#   Compute/shader model   Cards
+#   6.1			   P4, P40, Titan X
+#   6.0                    P100
+#   5.2                    M40
+#   3.7                    K80
+#   3.5                    K40, K20
+#   3.0                    K10, Grid K520 (AWS G2)
+#   Other Nvidia shader models should work, but they will require extra startup
+#   time as the code is pre-optimized for them.
+CUDA_MODELS=30 35 37 52 60 61
+
 # Which CUDA compute capabilities do we support?  3.0 is needed for the
-# AWS g2 instances.
-TF_CUDA_CAPABILITIES:=5.3
+# AWS g2 instances; this is the lowest common denominator
+TF_CUDA_CAPABILITIES=3.0
 
 # This part deals with CUDA support.  It's only enabled if WITH_CUDA is
 # equal to 1.
@@ -209,7 +222,7 @@ TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
 # - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
 #   Eigen disables needed std::initializer_list constructors in its arrays
 #   because it doesn't properly detect that this feature is available
-TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -DEIGEN_HAS_VARIADIC_TEMPLATES=1 -I$(INC)/third_party/gpus
+TENSORFLOW_COMMON_CUDA_FLAGS=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -DEIGEN_HAS_VARIADIC_TEMPLATES=1 -I$(INC)/third_party/gpus
 
 # Here are the flags we need to pass to NVCC to compile TensorFlow's CUDA
 # files.
@@ -218,10 +231,8 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 #   Tensorflow and Eigen
 # - disable-warnings turns off warning messages, which are somewhat
 #   spurious.
-# - arch=compute_30 targets the compute model 3.0 with pre-optimized
-#   binaries (ie, the grid K520 which is on the Amazon GPU instances).  Other
-#   Nvidia compute models will work, but they will require extra startup
-#   time as the code is pre-optimized for them.
+# - -gencode=... targets the following compute models with pre-optimized
+#   binaries:
 # - Xcompiler -fPIC,-g,-O3 to control the flags passed to the host compiler
 #   to make things properly integrate.
 # - --compiler-bindir: set up the proper backend compiler for our
@@ -233,11 +244,11 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 #   is so that it gets it right
 #   See here: http://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#cross-platform
 
-TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_30 -code=sm_30 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) $(TENSORFLOW_ARCH_CUDA_FLAGS) -DEIGEN_HAS_VARIARDIC_TEMPLATES=1
+TENSORFLOW_NVCC_CUDA_FLAGS=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings $(foreach model,$(CUDA_MODELS),-gencode arch=compute_$(model)$(comma)code=sm_$(model)) -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) $(TENSORFLOW_ARCH_CUDA_FLAGS) -DEIGEN_HAS_VARIARDIC_TEMPLATES=1
 
 # When compiling the cuda kernels we need to use the include flags and
 # some of our own
-$(eval $(call set_compile_option,$(TENSORFLOW_CUDA_NVCC_BUILD),$(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_INCLUDE_FLAGS) $(TENSORFLOW_NVCC_CUDA_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CUDA_NVCC_BUILD),$$(TENSORFLOW_BASE_INCLUDE_FLAGS) $$(TENSORFLOW_CUDA_INCLUDE_FLAGS) $$(TENSORFLOW_NVCC_CUDA_FLAGS)))
 
 # Libraries we need to link with.
 TENSORFLOW_CUDA_LINK:=  cudart cublas curand cufft
@@ -300,7 +311,7 @@ TENSORFLOW_CC_BUILD:=$(sort $(TENSORFLOW_CC_FILES:$(CWD)/%=%))
 
 # We need to set up include paths and turn off a bunch of warnings.  Most of
 # them are triggered by the (3rd party) Eigen library.
-$(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$$(TENSORFLOW_COMPILE_FLAGS)))
 
 # Libraries that the core of TensorFlow relies on.  We need the CUDA
 # libraries, if support is included, since the core includes the
@@ -321,7 +332,7 @@ TENSORFLOW_CC_OP_GEN_FILES := \
 
 $(TENSORFLOW_CC_OP_GEN_FILES:%=$(CWD)/%):	$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(DEPENDS_ON_PROTOBUF_INCLUDES) 
 
-$(eval $(call set_compile_option,$(TENSORFLOW_CC_OP_GEN_FILES),$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_OP_GEN_FILES),$$(TENSORFLOW_COMPILE_FLAGS)))
 
 $(eval $(call program,cc_op_gen,tensorflow-core,$(TENSORFLOW_CC_OP_GEN_FILES)))
 
@@ -344,7 +355,7 @@ $(TENSORFLOW_OPS_SOURCES): $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSO
 # Create a library for each of the ops.  We also have to adjust the compilation
 # flags so that it actually compiles
 $(foreach op,$(TENSORFLOW_OPS), \
-	$(eval $(call set_compile_option,tensorflow/core/ops/$(op)_ops.cc,$(TENSORFLOW_COMPILE_FLAGS))) \
+	$(eval $(call set_compile_option,tensorflow/core/ops/$(op)_ops.cc,$$(TENSORFLOW_COMPILE_FLAGS))) \
 	$(eval $(call library,tensorflow_$(op)_ops,tensorflow/core/ops/$(op)_ops.cc)) \
 )
 
@@ -352,7 +363,7 @@ $(foreach op,$(TENSORFLOW_OPS), \
 # has to be here, and not in the core library, as otherwise the interface is
 # generated for each of the ops and we have multiple definitions.
 $(CWD)/tensorflow/core/ops/no_op.cc: | $(DEPENDS_ON_PROTOBUF_INCLUDES) $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
-$(eval $(call set_compile_option,tensorflow/core/ops/no_op.cc,$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,tensorflow/core/ops/no_op.cc,$$(TENSORFLOW_COMPILE_FLAGS)))
 $(eval $(call library,tensorflow_no_op,tensorflow/core/ops/no_op.cc))
 
 $(eval $(call library,tensorflow-ops,,$(foreach op,$(TENSORFLOW_OPS),tensorflow_$(op)_ops) tensorflow_no_op tensorflow-core,,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
@@ -481,7 +492,7 @@ $(TENSORFLOW_CC_INTERFACE_FILES): $(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_
 TENSORFLOW_CC_INTERFACE_BUILD:=$(TENSORFLOW_CC_INTERFACE_FILES:$(CWD)/%=%)
 
 # Create the interface library
-$(eval $(call set_compile_option,$(TENSORFLOW_CC_INTERFACE_BUILD),$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_INTERFACE_BUILD),$$(TENSORFLOW_COMPILE_FLAGS)))
 $(eval $(call library,tensorflow-cpp-interface,$(TENSORFLOW_CC_INTERFACE_BUILD),tensorflow))
 
 # This variable can be used by something that includes tensorflow to say that

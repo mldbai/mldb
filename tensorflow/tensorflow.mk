@@ -4,9 +4,7 @@
 LIBMLDB_TENSORFLOW_PLUGIN_SOURCES:= \
 	tensorflow_plugin.cc \
 
-#	test.cu.cc
-
-$(eval $(call set_compile_option,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),$(TENSORFLOW_COMPILE_FLAGS) -Imldb/ext/tensorflow))
+$(eval $(call set_compile_option,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),$$(TENSORFLOW_COMPILE_FLAGS) -Imldb/ext/tensorflow))
 
 # Make these depend upon Tensorflow's version of the protobuf compiler
 # since the headers that they need are installed with it.
