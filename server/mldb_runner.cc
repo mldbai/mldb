@@ -23,6 +23,7 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/exception/diagnostic_information.hpp> 
 #include <signal.h>
 
 
@@ -205,11 +206,17 @@ int main(int argc, char ** argv)
 
     variables_map vm;
     // command line has precendence over config
-    store(command_line_parser(argc, argv)
-          .options(all_opt)
-          //.positional(p)
-          .run(),
-          vm);
+    try {
+        store(command_line_parser(argc, argv)
+              .options(all_opt)
+              //.positional(p)
+              .run(),
+              vm);
+    }
+    catch (const boost::exception & exc) {
+        cerr << boost::diagnostic_information(exc) << endl;
+        return 1;
+    }
 
     notify(vm);
 
