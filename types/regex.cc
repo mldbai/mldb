@@ -344,6 +344,30 @@ surface() const
     return impl->surface();
 }
 
+bool
+Regex::
+operator == (const Regex & other) const
+{
+    return surface() == other.surface()
+        && flags() == other.flags();
+}
+
+bool
+Regex::
+operator != (const Regex & other) const
+{
+    return ! operator == (other);
+}
+
+bool
+Regex::
+operator < (const Regex & other) const
+{
+    return surface() < other.surface()
+       || (surface() == other.surface()
+           && flags() < other.flags());
+}
+
 
 /*****************************************************************************/
 /* REGEX ALGORITHMS                                                          */
