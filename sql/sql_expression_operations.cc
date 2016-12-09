@@ -2725,6 +2725,7 @@ bind(SqlBindingScope & scope) const
     BoundSqlExpression boundExpr  = expr->bind(scope);
     BoundSqlExpression boundLower = lower->bind(scope);
     BoundSqlExpression boundUpper = upper->bind(scope);
+    bool isConstant = boundExpr.metadata.isConstant && boundLower.metadata.isConstant && boundUpper.metadata.isConstant;
 
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
@@ -2759,7 +2760,8 @@ bind(SqlBindingScope & scope) const
                                                           l.getEffectiveTimestamp()));
             },
             this,
-            std::make_shared<BooleanValueInfo>()};
+            std::make_shared<BooleanValueInfo>(),
+            isConstant};
 }
 
 Utf8String
@@ -2854,6 +2856,7 @@ InExpression::
 bind(SqlBindingScope & scope) const
 {
     BoundSqlExpression boundExpr  = expr->bind(scope);
+    bool isConstant = boundExpr.metadata.isConstant;
 
     //cerr << "boundExpr: " << expr->print() << " has subtable " << subtable
     //     << endl;
@@ -2861,6 +2864,8 @@ bind(SqlBindingScope & scope) const
     switch (kind) {
     case SUBTABLE: {
         BoundTableExpression boundTable = subtable->bind(scope);
+
+        isConstant = false; //TODO
 
         // TODO: we need to detect a correlated subquery.  This means that
         // the query depends upon variables from the surrounding scope.
@@ -2952,6 +2957,7 @@ bind(SqlBindingScope & scope) const
 
         for (auto & tupleItem: tuple->clauses) {
             tupleExpressions.emplace_back(tupleItem->bind(scope));
+            isConstant = isConstant && tupleExpressions.back().metadata.isConstant;
         }
 
         return {[=] (const SqlRowScope & rowScope,
@@ -2985,10 +2991,13 @@ bind(SqlBindingScope & scope) const
             return storage = ExpressionValue(isNegative, v.getEffectiveTimestamp());
         },
         this,
-        std::make_shared<BooleanValueInfo>()};
+        std::make_shared<BooleanValueInfo>(),
+        isConstant};
     }
     case KEYS: {
         BoundSqlExpression boundSet = setExpr->bind(scope);
+
+        isConstant = false; //TODO
 
         return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -3015,10 +3024,13 @@ bind(SqlBindingScope & scope) const
         
         },
         this,
-        std::make_shared<BooleanValueInfo>()};
+        std::make_shared<BooleanValueInfo>(),
+        isConstant};
     }
     case VALUES: {
         BoundSqlExpression boundSet = setExpr->bind(scope);
+
+        isConstant = isConstant && boundSet.metadata.isConstant;
 
         return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -3044,7 +3056,8 @@ bind(SqlBindingScope & scope) const
             return storage = ExpressionValue(isNegative, v.getEffectiveTimestamp());
         },
         this,
-        std::make_shared<BooleanValueInfo>()};
+        std::make_shared<BooleanValueInfo>(),
+        isConstant};
     }
     }
     throw HttpReturnException(500, "Unknown IN expression type");
@@ -3280,7 +3293,8 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<StringValueInfo>()};
+                std::make_shared<StringValueInfo>(),
+                boundExpr.metadata.isConstant};
     }
     else if (type == "integer") {
         return {[=] (const SqlRowScope & row,
@@ -3293,7 +3307,8 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<IntegerValueInfo>()};
+                std::make_shared<IntegerValueInfo>(),
+                boundExpr.metadata.isConstant};
     }
     else if (type == "number") {
         return {[=] (const SqlRowScope & row,
@@ -3306,7 +3321,8 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<Float64ValueInfo>()};
+                std::make_shared<Float64ValueInfo>(),
+                boundExpr.metadata.isConstant};
     }
     else if (type == "timestamp") {
         return {[=] (const SqlRowScope & row,
@@ -3319,7 +3335,8 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<IntegerValueInfo>()};
+                std::make_shared<IntegerValueInfo>(),
+                boundExpr.metadata.isConstant};
     }
     else if (type == "boolean") {
         return {[=] (const SqlRowScope & row,
@@ -3332,7 +3349,8 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                boundExpr.metadata.isConstant};
     }
     else if (type == "blob") {
         return {[=] (const SqlRowScope & row,
@@ -3345,7 +3363,8 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                    std::make_shared<BlobValueInfo>()};
+                std::make_shared<BlobValueInfo>(),
+                boundExpr.metadata.isConstant};
     }
     else if (type == "path") {
         return {[=] (const SqlRowScope & row,
@@ -3358,7 +3377,8 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<PathValueInfo>()};
+                std::make_shared<PathValueInfo>(),
+                boundExpr.metadata.isConstant};
     }
     else throw HttpReturnException(400, "Unknown type '" + type
                                    + "' for CAST (" + expr->surface
