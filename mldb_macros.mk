@@ -5,9 +5,13 @@
 #      - manual: run the test manually
 #      - virtualenv: set up the Python virtualenv even for a non-python test
 #      - valgrind: run the test within valgrind
+# $(4) TODO: used but undocumented
+# $(5) Passed to --script-args if defined
+#
 
 define mldb_unit_test
 ifneq ($(PREMAKE),1)
+$$(if $(trace),$$(warning called mldb_unit_test "$(1)" "$(2)" "$(3)" "$(4)" "$(5)"))
 
 #TEST_$(1)_COMMAND:=$$(BIN)/mldb_runner -h localhost -p '11700-12700' --run-script $(CWD)/$(1)
 
@@ -30,7 +34,7 @@ $(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $(TESTS)/$(1).timing`$(COLOR_RESET)	$(COLOR_GREEN)$(1) passed $(COLOR_RESET)")
 
 # If ARGS
-TEST_$(1)_ARGS := $$(if $$(findstring $(ARGS), $(ARGS)), $(ARGS), )
+TEST_$(1)_ARGS := $$(if $$(findstring $(ARGS), $(ARGS)), $(ARGS),$(if $(5),--script-args '$(5)'))
 TEST_$(1)_DEPS := $(2)
 
 $(1):	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$(MLDB_PLUGIN_FILES_$$(plugin)))
