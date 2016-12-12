@@ -142,7 +142,7 @@ CUDA_MODELS=30 35 37 52 60 61
 
 # Which CUDA compute capabilities do we support?  3.0 is needed for the
 # AWS g2 instances; this is the lowest common denominator
-TF_CUDA_CAPABILITIES=3.0
+TF_CUDA_CAPABILITIES?=6.0
 
 # This part deals with CUDA support.  It's only enabled if WITH_CUDA is
 # equal to 1.
