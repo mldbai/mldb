@@ -76,6 +76,10 @@ struct FunctionInfo {
     */
     void checkInputCompatibility
     (const std::vector<std::shared_ptr<ExpressionValueInfo> > & inputs) const;
+
+    /**  Will the function always return the same output given the same input
+    */
+    bool deterministic;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);
@@ -135,6 +139,7 @@ struct FunctionApplier {
 
 struct Function: public MldbEntity {
     Function(MldbServer * server);
+    Function(MldbServer * server, const PolyConfig& config);
 
     virtual ~Function();
 

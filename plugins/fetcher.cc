@@ -82,7 +82,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     FetcherFunction(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
-        : BaseT(owner)
+        : BaseT(owner, config)
     {
         functionConfig = config.params.convert<FetcherFunctionConfig>();
     }

@@ -54,6 +54,9 @@ FunctionPolyConfigDescription()
     addField("persistent", &PolyConfig::persistent,
              "If true, then this function will have its configuration stored "
              "and will be reloaded on startup", false);
+    addField("deterministic", &PolyConfig::deterministic,
+             "If false, then the result of the function will be re-computed for each row of the query,"
+             " even if the arguments are not row-dependent.", false);
 
     setTypeName("FunctionConfig");
     documentationUri = "/doc/builtin/functions/FunctionConfig.md";
@@ -105,6 +108,14 @@ Function::
 Function(MldbServer * server)
     : server(server)
 {
+
+}
+
+Function::
+Function(MldbServer * server, const PolyConfig& config)
+    : server(server)
+{
+    config_ = make_shared<PolyConfig>(config);
 }
 
 Function::
@@ -135,6 +146,10 @@ bind(SqlBindingScope & outerContext,
     result->function = this;
     result->info = getFunctionInfo();
     result->info.checkInputCompatibility(input);
+    if (config_)
+        result->info.deterministic = config_->deterministic;
+    else
+        result->info.deterministic = false;
     return result;
 }
 

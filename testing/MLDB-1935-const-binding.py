@@ -355,8 +355,37 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['row1', False],
         ])
 
+        res = mldb.query("SELECT __isconst(now()) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
     def test_const_builtin_const(self):
         res = mldb.query("SELECT __isconst(reshape([1,2,3,4], [2,2])) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    def test_const_userfunction_var(self):
+        mldb.put('/v1/functions/fetch', { 'type': 'fetcher' })
+        res = mldb.query("SELECT __isconst(fetch({url: a})) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+        mldb.put('/v1/functions/fetch2', { 'type': 'fetcher', 'deterministic':False })
+        res = mldb.query("SELECT __isconst(fetch2({url: 'itdoesntreallymatter'})) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_userfunction_const(self):
+        mldb.put('/v1/functions/fetch', { 'type': 'fetcher' })
+        res = mldb.query("SELECT __isconst(fetch({url: 'itdoesntreallymatter'})) as isconst FROM ds1 ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'isconst',],
             ['row1', True],
