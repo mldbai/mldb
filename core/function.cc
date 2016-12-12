@@ -105,13 +105,6 @@ apply(const ExpressionValue & input) const
 /*****************************************************************************/
 
 Function::
-Function(MldbServer * server)
-    : server(server)
-{
-
-}
-
-Function::
 Function(MldbServer * server, const PolyConfig& config)
     : server(server)
 {

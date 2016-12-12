@@ -27,7 +27,7 @@ TestFunction::
 TestFunction(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     ++TestFunction::cnt;
 }

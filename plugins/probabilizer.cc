@@ -318,7 +318,7 @@ ProbabilizeFunction::
 ProbabilizeFunction(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<ProbabilizeFunctionConfig>();
     itl.reset(new Itl());
@@ -328,16 +328,6 @@ ProbabilizeFunction(MldbServer * owner,
     itl->probabilizer.params.resize(1);
     itl->probabilizer.params[0] = repr.params;
 }
-
-ProbabilizeFunction::
-ProbabilizeFunction(MldbServer * owner,
-                 const ML::GLZ_Probabilizer & in)
-    : Function(owner)
-{
-    itl.reset(new Itl());
-    itl->probabilizer = in;
-}
-
 
 ProbabilizeFunction::
 ~ProbabilizeFunction()

@@ -138,7 +138,7 @@ struct FunctionApplier {
 */
 
 struct Function: public MldbEntity {
-    Function(MldbServer * server);
+
     Function(MldbServer * server, const PolyConfig& config);
 
     virtual ~Function();

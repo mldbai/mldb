@@ -313,8 +313,8 @@ const Package & tensorflowPackage()
 
 struct TensorflowGraphBase: public Function {
 
-    TensorflowGraphBase(MldbServer * owner)
-        : Function(owner)
+    TensorflowGraphBase(MldbServer * owner, PolyConfig config)
+        : Function(owner, config)
     {
     }
 
@@ -1490,7 +1490,7 @@ struct TensorflowOp: public TensorflowGraphBase {
     TensorflowOp(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-        : TensorflowGraphBase(owner)
+        : TensorflowGraphBase(owner, config)
     {
         functionConfig = config.params.convert<TensorflowOpConfig>();   
         tensorflow::Status status;
@@ -1604,7 +1604,7 @@ struct TensorflowGraph: public TensorflowGraphBase {
     TensorflowGraph(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
-        : TensorflowGraphBase(owner)
+        : TensorflowGraphBase(owner, config)
     {
         functionConfig = config.params.convert<TensorflowGraphConfig>();   
 

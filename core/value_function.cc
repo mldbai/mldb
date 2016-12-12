@@ -25,20 +25,6 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc);
 
 ValueFunction::
 ValueFunction(MldbServer * server,
-              std::shared_ptr<const ValueDescription> inputDescription,
-              std::shared_ptr<const ValueDescription> outputDescription)
-    : Function(server),
-      inputDescription(std::move(inputDescription)),
-      outputDescription(std::move(outputDescription))
-{
-    std::tie(inputInfo, fromInput, std::ignore)
-        = toValueInfo(this->inputDescription);
-    std::tie(outputInfo, std::ignore, toOutput)
-        = toValueInfo(this->outputDescription);
-}
-
-ValueFunction::
-ValueFunction(MldbServer * server,
               const PolyConfig& config,
               std::shared_ptr<const ValueDescription> inputDescription,
               std::shared_ptr<const ValueDescription> outputDescription)

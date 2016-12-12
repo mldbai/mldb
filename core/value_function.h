@@ -37,10 +37,6 @@ struct ValueFunctionT;
 struct ValueFunction: public Function {
 
     ValueFunction(MldbServer * server,
-                  std::shared_ptr<const ValueDescription> inputDescription,
-                  std::shared_ptr<const ValueDescription> outputDescription);
-
-    ValueFunction(MldbServer * server,
                   const PolyConfig& config,
                   std::shared_ptr<const ValueDescription> inputDescription,
                   std::shared_ptr<const ValueDescription> outputDescription);
@@ -118,15 +114,6 @@ struct ValueFunctionT: public ValueFunction {
 
     typedef Applier ApplierT;
     typedef ValueFunctionT<Input, Output> BaseT;
-
-    ValueFunctionT(MldbServer * server,
-                   std::shared_ptr<const ValueDescription> inputDesc
-                       = getDefaultDescriptionSharedT<Input>(),
-                   std::shared_ptr<const ValueDescription> outputDesc
-                       = getDefaultDescriptionSharedT<Output>())
-        : ValueFunction(server, std::move(inputDesc), std::move(outputDesc))
-    {
-    }
 
     ValueFunctionT(MldbServer * server,
                    const PolyConfig& config,
