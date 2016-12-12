@@ -7,6 +7,13 @@ var inceptionUrl = 'https://public.mldb.ai/testing/tensorflow/inception_dec_2015
 var imgUrl = "http://public.mldb.ai/testing/tensorflow/Calle_E_Monroe_St,_Chicago,_Illinois,_Estados_Unidos,_2012-10-20,_DD_04.jpg";
 var imgUrlSql = mldb.sqlEscape(imgUrl);
 
+// GPU testing
+var devices = [ "/cpu:.*" ];
+if (args && args.GPUS && args.GPUS >= 1) {
+    devices.push("/gpu:.*");
+}
+mldb.log("Devices: " + devices);
+
 var res = mldb.query("SELECT tf_Cos(1.23, {T: { type: 'DT_DOUBLE'}}) AS res");
 mldb.log(res);
 
@@ -71,39 +78,45 @@ var lookuplbls = mldb.createFunction(lookupLabelsConfig);
 //
 // The image itself is fed into the DecodeJpeg/contents node, and the
 // output is read from softmax node of the graph.
-var fnConfig = {
-    id: 'incept',
-    type: 'tensorflow.graph',
-    params: {
-        modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
-        inputs: 'fetch({url})[content] AS "DecodeJpeg/contents"',
-        outputs: "lookupLabels({scores: flatten(softmax)}) AS *"
-    }
-};
-var fn = mldb.createFunction(fnConfig);
-//mldb.log(mldb.get('/v1/functions/incept/details'));
-
-var constant = mldb.query("select tf_extract_constant('incept', ['mixed','conv', 'batchnorm', 'beta'])");
-mldb.log(constant);
-
-constant = mldb.query("select tf_extract_constant('incept', parse_path('mixed.conv.batchnorm.gamma'))");
-mldb.log(constant);
-
-
-mldb.log("classifying", imgUrl);
-var res = mldb.query('SELECT incept({url: ' + imgUrlSql + '})[output] AS *');
-mldb.log(res);
-
-mldb.put('/v1/functions/inception', {
-    "type": 'tensorflow.graph',
-    "params": {
-        "modelFileUrl": 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
-        "inputs": 'fetch({url})[content] AS "DecodeJpeg/contents"',
-        "outputs": "softmax"
-    }
-});
-
-mldb.log(mldb.query("SELECT inception({url: " + imgUrlSql + "}) as *"));
-mldb.log(mldb.query("SELECT flatten(inception({url: " + imgUrlSql + "})[softmax]) as *"));
+//
+// Depending on the GPUS argument, this is done first on the CPUs, then on the GPUs
+for (device of devices) {
+    mldb.log("Running on device: " + device);
+    var fnConfig = {
+        id: 'incept',
+        type: 'tensorflow.graph',
+        params: {
+            modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
+            inputs: 'fetch({url})[content] AS "DecodeJpeg/contents"',
+            outputs: "lookupLabels({scores: flatten(softmax)}) AS *",
+            devices: device
+        }
+    };
+    var fn = mldb.createFunction(fnConfig);
+    //mldb.log(mldb.get('/v1/functions/incept/details'));
+    
+    var constant = mldb.query("select tf_extract_constant('incept', ['mixed','conv', 'batchnorm', 'beta'])");
+    mldb.log(constant);
+    
+    constant = mldb.query("select tf_extract_constant('incept', parse_path('mixed.conv.batchnorm.gamma'))");
+    mldb.log(constant);
+    
+    
+    mldb.log("classifying", imgUrl);
+    var res = mldb.query('SELECT incept({url: ' + imgUrlSql + '})[output] AS *');
+    mldb.log(res);
+    
+    mldb.put('/v1/functions/inception', {
+        "type": 'tensorflow.graph',
+        "params": {
+            "modelFileUrl": 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
+            "inputs": 'fetch({url})[content] AS "DecodeJpeg/contents"',
+            "outputs": "softmax"
+        }
+    });
+    
+    mldb.log(mldb.query("SELECT inception({url: " + imgUrlSql + "}) as *"));
+    mldb.log(mldb.query("SELECT flatten(inception({url: " + imgUrlSql + "})[softmax]) as *"));
+}
 
 "success"
