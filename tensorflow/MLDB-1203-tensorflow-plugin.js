@@ -3,7 +3,7 @@
 // https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip
 // Hosted on public.mldb.ai for caching.
 //var inceptionUrl = 'file://inception_dec_2015.zip';  // Use this to test with a local copy
-var inceptionUrl = 'https://public.mldb.ai/testing/tensorflow/inception_dec_2015.zip';
+var inceptionUrl = 'https://public.mldb.ai/models/inception_dec_2015.zip';
 var imgUrl = "http://public.mldb.ai/testing/tensorflow/Calle_E_Monroe_St,_Chicago,_Illinois,_Estados_Unidos,_2012-10-20,_DD_04.jpg";
 var imgUrlSql = mldb.sqlEscape(imgUrl);
 
