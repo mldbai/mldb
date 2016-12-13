@@ -1520,8 +1520,6 @@ BoundSqlExpression
 ReadColumnExpression::
 bind(SqlBindingScope & scope) const
 {
-    cerr << "ReadColumnExpression " << columnName << endl;
-
     auto getVariable = scope.doGetColumn("" /*tableName*/, columnName);
 
     if (!getVariable.info) {
@@ -2438,7 +2436,7 @@ bind(SqlBindingScope & outerScope) const
 
     //We know for sure the extract is const if it access no function, tables or wildcards *and*
     //all the variables are in the (const) lhs
-    //This exclude many legit const cases.
+    //This excludes many legit const cases.
     if (isConst) {
         auto columnNames = fromBound.info->allColumnNames();
         auto unbounds = extract->getUnbound();

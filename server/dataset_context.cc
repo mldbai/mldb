@@ -62,7 +62,6 @@ doGetFunction(const Utf8String & tableName,
             }
             
             applier.reset(fn->bind(argScope, argInfo).release());
-            constantArgs = constantArgs && applier->info.deterministic;
 
             auto exec = [=] (const std::vector<ExpressionValue> & args,
                              const SqlRowScope & scope)
@@ -77,7 +76,7 @@ doGetFunction(const Utf8String & tableName,
                 };
 
             BoundFunction boundFunction(exec, applier->info.output);
-            boundFunction.resultMetadata.isConstant = constantArgs;
+            boundFunction.resultMetadata.isConstant = constantArgs && applier->info.deterministic;
 
             return boundFunction;
         }

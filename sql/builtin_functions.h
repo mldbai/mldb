@@ -150,12 +150,12 @@ struct RegisterBuiltin {
                         }
                     };
 
-                    bool constantArgs = determinism == DETERMINISTIC;
+                    bool constantArgs = true;
                     for (auto& arg : args) {
                         constantArgs = constantArgs && arg.metadata.isConstant;
                     }
 
-                    result.resultMetadata.isConstant = constantArgs;
+                    result.resultMetadata.isConstant = constantArgs && determinism == DETERMINISTIC;
 
                     return result;
                 } MLDB_CATCH_ALL {

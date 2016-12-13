@@ -56,7 +56,9 @@ FunctionPolyConfigDescription()
              "and will be reloaded on startup", false);
     addField("deterministic", &PolyConfig::deterministic,
              "If false, then the result of the function will be re-computed for each row of the query,"
-             " even if the arguments are not row-dependent.", false);
+             " even if the arguments are not row-dependent. If true, then it is assumed for optimization purposes "
+             " that calling the function with the same input will always return the same value for a single SQL query"
+             , false);
 
     setTypeName("FunctionConfig");
     documentationUri = "/doc/builtin/functions/FunctionConfig.md";
