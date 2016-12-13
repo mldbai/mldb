@@ -385,8 +385,10 @@ StatsTableFunction::
 StatsTableFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
+    //this function has hidden state and is never deterministic, says F. Maillet.
+    config_->deterministic = false;
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
@@ -829,7 +831,7 @@ StatsTablePosNegFunction::
 StatsTablePosNegFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<StatsTablePosNegFunctionConfig>();
 

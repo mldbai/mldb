@@ -57,7 +57,7 @@ ApplyStopWordsFunction::
 ApplyStopWordsFunction(MldbServer * owner,
                        PolyConfig config,
                        const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     //functionConfig = config.params.convert<ApplyStopWordsFunctionConfig>();
 
@@ -127,7 +127,7 @@ StemmerFunction::
 StemmerFunction(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
@@ -216,7 +216,7 @@ StemmerOnDocumentFunction::
 StemmerOnDocumentFunction(MldbServer * owner,
                           PolyConfig config,
                           const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 

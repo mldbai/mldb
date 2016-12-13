@@ -101,10 +101,23 @@ unpackJson(RowValue & row,
 typedef BoundFunction (*BuiltinFunction) (const std::vector<BoundSqlExpression> &);
 
 struct RegisterBuiltin {
+
+    enum Determinism {
+        NON_DETERMINISTIC = 0,
+        DETERMINISTIC = 1,
+        DETERMINISTIC_MAX
+    };
+
     template<typename... Names>
     RegisterBuiltin(const BuiltinFunction & function, Names&&... names)
     {
-        doRegister(function, std::forward<Names>(names)...);
+        doRegister(DETERMINISTIC, function, std::forward<Names>(names)...);
+    }
+
+    template<typename... Names>
+    RegisterBuiltin(Determinism determinism, const BuiltinFunction & function, Names&&... names)
+    {
+        doRegister(determinism, function, std::forward<Names>(names)...);
     }
 
     void doRegister(const BuiltinFunction & function)
@@ -112,7 +125,7 @@ struct RegisterBuiltin {
     }
 
     template<typename... Names>
-    void doRegister(const BuiltinFunction & function, std::string name,
+    void doRegister(Determinism determinism, const BuiltinFunction & function, std::string name,
                     Names&&... names)
     {
         auto fn = [=] (const Utf8String & str,
@@ -137,6 +150,13 @@ struct RegisterBuiltin {
                         }
                     };
 
+                    bool constantArgs = true;
+                    for (auto& arg : args) {
+                        constantArgs = constantArgs && arg.metadata.isConstant;
+                    }
+
+                    result.resultMetadata.isConstant = constantArgs && determinism == DETERMINISTIC;
+
                     return result;
                 } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
@@ -150,6 +170,7 @@ struct RegisterBuiltin {
     }
 
     std::vector<std::shared_ptr<void> > handles;
+    
 };
 
 
@@ -176,7 +197,6 @@ struct RegisterBuiltinConstant: public RegisterFunction {
                               SqlBindingScope & context,
                               const CellValue & value);
 };
-
 
 /*****************************************************************************/
 /* SQL BUILTIN                                                               */

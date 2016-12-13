@@ -45,7 +45,7 @@ ScriptFunction::
 ScriptFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<ScriptFunctionConfig>();
 

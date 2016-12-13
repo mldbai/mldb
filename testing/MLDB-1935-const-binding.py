@@ -12,6 +12,7 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
         ds.record_row('row1', [['a', 1, 0]])
+        ds.record_row('row1', [['b', 'blah', 0]])
         ds.commit()
 
     def test_var(self):
@@ -313,14 +314,14 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['row1', False],
         ])
 
-    @unittest.expectedFailure
     def test_const_in_const(self):
         res = mldb.query("SELECT __isconst(1 IN (1,2,3)) as isconst FROM ds1 ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'isconst',],
             ['row1', True],
         ])
-
+    @unittest.expectedFailure
+    def test_const_in_const_complex(self):
         res = mldb.query("SELECT __isconst(1 IN (SELECT 1,2,3 FROM ds1)) as isconst FROM ds1 ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'isconst',],
@@ -348,7 +349,84 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['row1', False],
         ])
 
-    # TODO: function calls, extract, LIKE, Bound Parameters?
+    def test_const_builtin_var(self):
+        res = mldb.query("SELECT __isconst(reshape([1,a,3,4], [2,2])) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+        res = mldb.query("SELECT __isconst(now()) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_builtin_const(self):
+        res = mldb.query("SELECT __isconst(reshape([1,2,3,4], [2,2])) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    def test_const_userfunction_var(self):
+        mldb.put('/v1/functions/fetch', { 'type': 'fetcher' })
+        res = mldb.query("SELECT __isconst(fetch({url: a})) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+        mldb.put('/v1/functions/fetch2', { 'type': 'fetcher', 'deterministic':False })
+        res = mldb.query("SELECT __isconst(fetch2({url: 'itdoesntreallymatter'})) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_userfunction_const(self):
+        mldb.put('/v1/functions/fetch', { 'type': 'fetcher' })
+        res = mldb.query("SELECT __isconst(fetch({url: 'itdoesntreallymatter'})) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    def test_const_extract_const(self):
+        res = mldb.query("SELECT __isconst(({2 as x})[x]) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    @unittest.expectedFailure
+    def test_const_extract_const_complex(self):
+        res = mldb.query("SELECT __isconst(({2 as x, a})[x]) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    def test_const_like_var(self):
+     
+        res = mldb.query("SELECT __isconst(b LIKE '%') as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+        res = mldb.query("SELECT __isconst('blah' LIKE a) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_like_const(self):
+     
+        res = mldb.query("SELECT __isconst('blah' LIKE '%') as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
     
 if __name__ == '__main__':
     mldb.run_tests()

@@ -1121,7 +1121,7 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
             std::make_shared<TimestampValueInfo>()};
 }
 
-static RegisterBuiltin registerNow(now, "now");
+static RegisterBuiltin registerNow(RegisterBuiltin::NON_DETERMINISTIC, now, "now");
 
 BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
@@ -3270,7 +3270,6 @@ bind(const Utf8String &,
 
     return result;
 }
-
 
 /*****************************************************************************/
 /* SQL BUILTINS                                                              */

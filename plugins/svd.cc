@@ -1114,7 +1114,7 @@ SvdEmbedRow::
 SvdEmbedRow(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
     svd = jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString());
