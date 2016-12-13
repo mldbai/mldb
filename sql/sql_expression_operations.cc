@@ -1520,6 +1520,8 @@ BoundSqlExpression
 ReadColumnExpression::
 bind(SqlBindingScope & scope) const
 {
+    cerr << "ReadColumnExpression " << columnName << endl;
+
     auto getVariable = scope.doGetColumn("" /*tableName*/, columnName);
 
     if (!getVariable.info) {
@@ -2427,12 +2429,28 @@ ExtractExpression::
 bind(SqlBindingScope & outerScope) const
 {
     BoundSqlExpression fromBound = from->bind(outerScope);
-    
+
     SqlExpressionExtractScope extractScope(outerScope, fromBound.info);
 
     BoundSqlExpression extractBound = extract->bind(extractScope);
 
-    return {[=] (const SqlRowScope & row,		
+    bool isConst = fromBound.metadata.isConstant;
+
+    //We know for sure the extract is const if it access no function, tables or wildcards *and*
+    //all the variables are in the (const) lhs
+    //This exclude many legit const cases.
+    if (isConst) {
+        auto columnNames = fromBound.info->allColumnNames();
+        auto unbounds = extract->getUnbound();
+        isConst = isConst && unbounds.tables.empty() && unbounds.wildcards.empty() && unbounds.funcs.empty();
+
+        for (const auto& var : unbounds.vars) {
+            const auto& varPath = var.first;
+            isConst = std::find(columnNames.begin(), columnNames.end(), varPath) != columnNames.end();
+        }
+    }
+
+    return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {		
@@ -2445,7 +2463,8 @@ bind(SqlBindingScope & outerScope) const
                 return extractBound(extractRowScope, storage, filter);
             },
             this,		
-            extractBound.info};
+            extractBound.info,
+            isConst};
 }
 
 Utf8String

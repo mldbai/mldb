@@ -313,14 +313,14 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['row1', False],
         ])
 
-    @unittest.expectedFailure
     def test_const_in_const(self):
         res = mldb.query("SELECT __isconst(1 IN (1,2,3)) as isconst FROM ds1 ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'isconst',],
             ['row1', True],
         ])
-
+    @unittest.expectedFailure
+    def test_const_in_const_complex(self):
         res = mldb.query("SELECT __isconst(1 IN (SELECT 1,2,3 FROM ds1)) as isconst FROM ds1 ORDER BY rowName()")
         self.assertTableResultEquals(res, [
             ['_rowName', 'isconst',],
@@ -391,7 +391,22 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['row1', True],
         ])
 
-    # TODO: function calls, extract, LIKE, Bound Parameters?
+    def test_const_extract_const(self):
+        res = mldb.query("SELECT __isconst(({2 as x})[x]) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    @unittest.expectedFailure
+    def test_const_extract_const_complex(self):
+        res = mldb.query("SELECT __isconst(({2 as x, a})[x]) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
+
+    # TODO:  LIKE, Bound Parameters?
     
 if __name__ == '__main__':
     mldb.run_tests()
