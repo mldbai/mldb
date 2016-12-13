@@ -12,6 +12,7 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
         ds.record_row('row1', [['a', 1, 0]])
+        ds.record_row('row1', [['b', 'blah', 0]])
         ds.commit()
 
     def test_var(self):
@@ -406,7 +407,26 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['row1', True],
         ])
 
-    # TODO:  LIKE, Bound Parameters?
+    def test_const_like_var(self):
+     
+        res = mldb.query("SELECT __isconst(b LIKE '%') as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+        res = mldb.query("SELECT __isconst('blah' LIKE a) as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', False],
+        ])
+
+    def test_const_like_const(self):
+     
+        res = mldb.query("SELECT __isconst('blah' LIKE '%') as isconst FROM ds1 ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'isconst',],
+            ['row1', True],
+        ])
     
 if __name__ == '__main__':
     mldb.run_tests()

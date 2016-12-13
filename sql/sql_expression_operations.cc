@@ -3198,6 +3198,7 @@ bind(SqlBindingScope & scope) const
     BoundSqlExpression boundRight  = right->bind(scope);
 
     auto applier = std::make_shared<ApplyLike>(boundRight, isNegative);
+    bool isConst = boundLeft.metadata.isConstant && boundRight.metadata.isConstant;
 
     if (applier->isPrecompiled) {
     
@@ -3212,7 +3213,8 @@ bind(SqlBindingScope & scope) const
                                                 rowScope);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                isConst};
     }
     else {
         return {[=] (const SqlRowScope & rowScope,
@@ -3227,7 +3229,8 @@ bind(SqlBindingScope & scope) const
                     return storage = (*applier)({value, likeFilter}, rowScope);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                isConst};
     }
 }
 
