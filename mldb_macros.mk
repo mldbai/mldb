@@ -6,7 +6,7 @@
 #      - virtualenv: set up the Python virtualenv even for a non-python test
 #      - valgrind: run the test within valgrind
 # $(4) TODO: used but undocumented
-# $(5) Passed to --script-args if defined
+# $(5) Passed to mldb_runner as --script-args $(5) if defined
 #
 
 define mldb_unit_test
