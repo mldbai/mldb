@@ -89,21 +89,6 @@ GenerateRowsWhereFunctionDescription()
              "Describe how values are ordered");
 }
 
-
-/*****************************************************************************/
-/* BOUND EXPRESSION METADATA                                                 */
-/*****************************************************************************/
-
-DEFINE_STRUCTURE_DESCRIPTION(BoundExpressionMetadata);
-
-BoundExpressionMetadataDescription::
-BoundExpressionMetadataDescription()
-{
-    addField("isConstant", &BoundExpressionMetadata::isConstant,
-             "Is the result of this expression always a constant?");
-}
-
-
 /*****************************************************************************/
 /* BOUND ROW EXPRESSION                                                      */
 /*****************************************************************************/
@@ -120,12 +105,10 @@ getExpressionFromPtr(const SqlExpression * expr)
 BoundSqlExpression::
 BoundSqlExpression(ExecFunction exec,
                    const SqlExpression * expr,
-                   std::shared_ptr<ExpressionValueInfo> info,
-                   BoundExpressionMetadata metadata)
+                   std::shared_ptr<ExpressionValueInfo> info)
     : exec(std::move(exec)),
       expr(getExpressionFromPtr(expr)),
-      info(std::move(info)),
-      metadata(std::move(metadata))
+      info(std::move(info))
 {
 }
 
@@ -133,22 +116,7 @@ ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
-    return expr->constantValue();
-
-    if (!metadata.isConstant) {
-        throw HttpReturnException
-            (400, "Attempt to extract constant from non-constant expression.  "
-             "One of the elements of the expression requires a constant "
-             "value, for example the text of a regular expression, but was "
-             "actually a non-constant expression: '" + expr->surface + "'",
-             "surface", expr->surface,
-             "ast", expr->print());
-    }
-
-    // This is only OK to do here because by setting isConstant in its metadata,
-    // the expression is guaranteeing it will never access its context.
-    SqlRowScope context;
-    return operator () (context, GET_LATEST);
+    return expr->constantValue();    
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(BoundSqlExpression);
@@ -160,8 +128,6 @@ BoundSqlExpressionDescription()
              "Information on the result returned from the expression");
     addField("expr", &BoundSqlExpression::expr,
              "Expression that was bound");
-    addField("metadata", &BoundSqlExpression::metadata,
-             "Metadata for expression");
 }
 
 
@@ -3138,7 +3104,8 @@ bind(SqlBindingScope & context) const
     bool isConstant = true;
     for (auto & c: boundClauses) {
         ExcAssert(c.info);
-        if (c.info->getSchemaCompleteness() == SCHEMA_OPEN) {
+        isConstant = isConstant && c.info->isConst();
+        if (c.info->getSchemaCompleteness() == SCHEMA_OPEN) {            
             hasUnknownColumns = true;
         }
 
@@ -3147,14 +3114,14 @@ bind(SqlBindingScope & context) const
         outputColumns.insert(outputColumns.end(),
                              knownColumns.begin(),
                              knownColumns.end());
-
-        if (!c.metadata.isConstant)
-            isConstant = false;
     }
+
+    isConstant = isConstant && !hasUnknownColumns;
     
     auto outputInfo = std::make_shared<RowValueInfo>
         (std::move(outputColumns),
-         hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED);
+         hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED,
+         isConstant);
 
     auto exec = [=] (const SqlRowScope & context,
                      ExpressionValue & storage,
@@ -3173,7 +3140,7 @@ bind(SqlBindingScope & context) const
             return storage = ExpressionValue(std::move(result));
         };
 
-    return BoundSqlExpression(exec, this, outputInfo, isConstant);
+    return BoundSqlExpression(exec, this, outputInfo);
 }
 
 Utf8String

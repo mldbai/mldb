@@ -1436,7 +1436,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_part expected a string as third argument, got " +
@@ -1498,7 +1498,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_trunc expected a string as third argument, got " +
@@ -2521,7 +2521,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
                 throw HttpReturnException
                     (400,"Null embedding needs third argument to reshape()");
             auto shape = args[1].info->getEmbeddingShape();
-            auto st = args[2].metadata.isConstant
+            auto st = args[2].info->isConst()
                 ? valueStorageType(args[2].constantValue().getAtom())
                 : ST_ATOM;
             auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
@@ -2564,7 +2564,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
     if (!args[1].info->isEmbedding())
         throw HttpReturnException(400, "requires an embedding as second argument");
 
-    if (args[1].metadata.isConstant) {
+    if (args[1].info->isConst()) {
         //Dont know the type without evaluating second arg;
         auto embeddingFormat = args[1].constantValue();
 
@@ -3265,9 +3265,7 @@ bind(const Utf8String &,
         };
 
     BoundFunction result(exec,
-                         resultVal.getSpecializedValueInfo());
-    result.resultMetadata.isConstant = true;
-
+                         resultVal.getSpecializedValueInfo(true /*isConstant*/));
     return result;
 }
 
@@ -3302,8 +3300,10 @@ bind(const std::vector<BoundSqlExpression> & args,
                  + " parameters instead of " + std::to_string(arity)
                  + " expected parameters");
         }
+        bool isConstant = true;
         std::vector<std::shared_ptr<ExpressionValueInfo> > info;
         for (auto & a: args) {
+            isConstant = isConstant && a.info->isConst();
             info.emplace_back(a.info);
         }
 
@@ -3329,7 +3329,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                 }
             };
 
-        result.resultInfo = std::move(bound.info);
+        result.resultInfo = bound.info->getConst(isConstant && bound.info->isConst());
         
         return result;
     } MLDB_CATCH_ALL {
@@ -3397,10 +3397,10 @@ BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
 
-    bool isConst = args[0].metadata.isConstant;
+    bool isConst = args[0].info->isConst();
 
     auto outputInfo
-        = std::make_shared<BooleanValueInfo>();
+        = std::make_shared<BooleanValueInfo>(true);
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
