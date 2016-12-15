@@ -613,6 +613,11 @@ The following functions provide digital signal processing capabilities:
   time-shifted by `e` steps, ie zeros everywhere apart from the `e`th element
   which is one.
 
+### <a name="blobfunctions"></a>Blob functions
+
+The following functions are specific to blob data:
+
+- `blob_length(x)` returns the length (in bytes) of the blob `x`
 
 ### <a name="httpfunctions"></a>Web data functions
 
