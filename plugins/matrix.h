@@ -511,7 +511,8 @@ invertFeatures(const ClassifiedColumns & columns,
     
 ColumnCorrelations
 calculateCorrelations(const ColumnIndexEntries & columnIndex,
-                      int numBasisVectors);
+                      int numBasisVectors,
+                      std::shared_ptr<spdlog::logger> logger);
 
 
 } // namespace MLDB

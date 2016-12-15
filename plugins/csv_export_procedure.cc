@@ -45,10 +45,10 @@ CsvExportProcedureConfigDescription()
     addField("headers", &CsvExportProcedureConfig::headers,
              "Whether to print headers", true);
     addField("delimiter", &CsvExportProcedureConfig::delimiter,
-             "The delimiter to place between each value", string("\""));
+             "The delimiter to place between each value", string(","));
     addField("quoteChar", &CsvExportProcedureConfig::quoteChar,
              "The character to enclose the values within when they contain "
-             "either a delimiter or a quoteChar", string(","));
+             "either a delimiter or a quoteChar", string("\""));
     addField("skipDuplicateCells", &CsvExportProcedureConfig::skipDuplicateCells,
              "The CSV format cannot represent many values per cell the way MLDB datasets can "
              "by using the time dimension. When this parameter is set to `false`, an exception "

@@ -1,6 +1,6 @@
 # External programs and libraries used by MLDB
 
-EXT_SUBDIRS ?= tinyxml2 googleurl cityhash lz4 lzma sqlite judy svm libstemmer svdlibc jsoncpp xxhash
+EXT_SUBDIRS ?= tinyxml2 googleurl cityhash xxhash lz4 lzma sqlite judy svm libstemmer svdlibc jsoncpp
 
 $(eval $(call include_sub_makes,$(EXT_SUBDIRS)))
 
@@ -13,6 +13,7 @@ $(eval $(call include_sub_make,highwayhash,highwayhash,../highwayhash.mk))
 $(eval $(call include_sub_make,giflib,giflib,../giflib.mk))
 $(eval $(call include_sub_make,tensorflow,tensorflow,../tensorflow.mk))
 $(eval $(call include_sub_make,edlib,edlib,../edlib.mk))
+$(eval $(call include_sub_make,zstd,zstd,../zstd.mk))
 
 $(eval $(call include_sub_make,pffft,pffft,../pffft.mk))
 $(eval $(call test,pffft_vectorization_test,pffft,boost))

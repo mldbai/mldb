@@ -394,7 +394,7 @@ SVMFunction::
 SVMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     auto functionConfig = config.params.convert<SVMFunctionConfig>();
 

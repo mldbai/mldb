@@ -15,6 +15,7 @@
 #include "mldb/server/function_collection.h"
 #include "types/structure_description.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -41,13 +42,14 @@ TokenSplitConfigDescription()
     onUnknownField = [] (TokenSplitConfig * options,
                          JsonParsingContext & context)
     {
+        auto logger = MLDB::getMldbLog<TokenSplit>();
         if(context.fieldName() == "splitcharToInsert") {
             options->splitcharToInsert = context.expectStringUtf8();
-            cerr << "The 'splitcharToInsert' argument has been renamed to 'splitCharToInsert'" << endl;
+            INFO_MSG(logger) << "The 'splitcharToInsert' argument has been renamed to 'splitCharToInsert'";
         }
         else if(context.fieldName() == "splitchars") {
             options->splitchars = context.expectStringUtf8();
-            cerr << "The 'splitchars' argument has been renamed to 'splitChars'" << endl;
+            INFO_MSG(logger) << "The 'splitchars' argument has been renamed to 'splitChars'";
         }
         else {
             context.exception("Unknown field '" + context.fieldName()
@@ -65,7 +67,7 @@ TokenSplit::
 TokenSplit(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<TokenSplitConfig>();
     SqlExpressionMldbScope context(owner);

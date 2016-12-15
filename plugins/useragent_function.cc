@@ -69,7 +69,7 @@ ParseUserAgentFunction::
 ParseUserAgentFunction(MldbServer * owner,
                        PolyConfig config,
                        const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<ParseUserAgentFunctionConfig>();
 

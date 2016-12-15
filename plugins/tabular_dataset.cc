@@ -24,6 +24,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/jml/utils/floating_point.h"
+#include "mldb/utils/log.h"
 #include <mutex>
 
 using namespace std;
@@ -60,9 +61,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return rowsPerChunk;
     }
 
-    TabularDataStore(TabularDatasetConfig config)
+    TabularDataStore(TabularDatasetConfig config,
+                     shared_ptr<spdlog::logger> logger)
         : rowCount(0), config(std::move(config)),
-          backgroundJobsActive(0)
+          backgroundJobsActive(0), logger(logger)
     {
     }
 
@@ -129,8 +131,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
             ExcAssertEqual(startAt, rowStreamTotalRows);
 
-            //cerr << "returned " << streams.size() << " streams with offsets "
-            //     << jsonEncode(*streamOffsets) << endl;
+            DEBUG_MSG(store->logger) << "returned " << streams.size() << " streams with offsets "
+                                     << jsonEncode(*streamOffsets);
 
             return streams;
         }
@@ -466,7 +468,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         
         parallelMap(0, chunks.size(), onChunk);
 
-        //cerr << chunks.size() << " chunks and " << totalRows << " rows" << endl;
+        DEBUG_MSG(logger) << chunks.size() << " chunks and " << totalRows << " rows";
 
         auto sortedNumerics = parallelMergeSortUnique(numerics, ML::safe_less<double>());
         auto sortedStrings = parallelMergeSortUnique(strings);
@@ -550,18 +552,15 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             types.update(c.second->getColumnTypes());
         }
 
-#if 0
-        using namespace std;
-        cerr << "knownColumnInfo for " << columnName << " is "
-             << jsonEncodeStr(types.getExpressionValueInfo()) << endl;
-        cerr << "hasNulls = " << types.hasNulls << endl;
-        cerr << "hasIntegers = " << types.hasIntegers << endl;
-        cerr << "minNegativeInteger = " << types.minNegativeInteger;
-        cerr << "maxPositiveInteger = " << types.maxPositiveInteger;
-        cerr << "hasReals = " << types.hasReals << endl;
-        cerr << "hasStrings = " << types.hasStrings << endl;
-        cerr << "hasOther = " << types.hasOther << endl;
-#endif
+        DEBUG_MSG(logger) << "knownColumnInfo for " << columnName << " is "
+             << jsonEncodeStr(types.getExpressionValueInfo());
+        //DEBUG_MSG(logger) << "hasNulls = " << types.hasNulls << endl;
+        //DEBUG_MSG(logger) << "hasIntegers = " << types.hasIntegers << endl;
+        DEBUG_MSG(logger) << "minNegativeInteger = " << types.minNegativeInteger;
+        DEBUG_MSG(logger) << "maxPositiveInteger = " << types.maxPositiveInteger;
+        //DEBUG_MSG(logger) << "hasReals = " << types.hasReals << endl;
+        //DEBUG_MSG(logger) << "hasStrings = " << types.hasStrings << endl;
+        //DEBUG_MSG(logger) << "hasOther = " << types.hasOther << endl;
 
         return KnownColumn(columnName, types.getExpressionValueInfo(),
                            COLUMN_IS_DENSE);
@@ -853,9 +852,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         parallelMap(0, chunks.size(), indexChunk);
         
 #if 0
-        //cerr << "creating row index" << endl;
         rowIndex.reserve(4 * totalRows / 3);
-        //cerr << "rowIndex capacity is " << rowIndex.capacity() << endl;
         for (unsigned i = 0;  i < chunks.size();  ++i) {
             for (unsigned j = 0;  j < chunks[i].rowCount();  ++j) {
                 RowPath rowNameStorage;
@@ -867,8 +864,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             }
         }
 #endif
-        //cerr << "done creating row index" << endl;
-        cerr << "row index took " << rowIndexTimer.elapsed() << endl;
+        INFO_MSG(logger) << "row index took " << rowIndexTimer.elapsed();
 
     }
 
@@ -1090,7 +1086,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         {
             if (!chunk || chunk->rowCount() == 0)
                 return;
-            auto frozen = chunk->freeze();
+            ColumnFreezeParameters params;
+            auto frozen = chunk->freeze(params);
             store->addFrozenChunk(std::move(frozen));
         }
 
@@ -1204,21 +1201,22 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             for (auto & chunk: c.chunks) {
                 bytesUsed += chunk.second->memusage();
             }
-            cerr << "column " << c.columnName << " used "
+            TRACE_MSG(logger) << "column " << c.columnName << " used "
                  << bytesUsed << " bytes at "
-                 << 1.0 * bytesUsed / totalRows << " per row" << endl;
+                 << 1.0 * bytesUsed / totalRows << " per row";
             columnMem += bytesUsed;
         }
 
-        cerr << "total mem usage is " << mem << " bytes" << " for "
+        INFO_MSG(logger) << "total mem usage is " << mem << " bytes" << " for "
              << totalRows << " rows and " << columns.size() << " columns for "
-             << 1.0 * mem / rowCount << " bytes/row" << endl;
-        cerr << "column memory is " << columnMem << endl;
+             << 1.0 * mem / rowCount << " bytes/row";
+        INFO_MSG(logger) << "column memory is " << columnMem;
 
     }
 
     /// The number of background jobs that we're currently waiting for
     std::atomic<size_t> backgroundJobsActive;
+    shared_ptr<spdlog::logger> logger;
 
     // freezes a new chunk in the background, and adds it to frozenChunks.
     // Updates the number of background jobs atomically so that we can know
@@ -1228,10 +1226,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (chunk->rowCount() == 0)
             return;
 
+        ColumnFreezeParameters params;
         auto job = [=] ()
             {
                 Scope_Exit(--this->backgroundJobsActive);
-                auto frozen = chunk->freeze();
+                auto frozen = chunk->freeze(params);
                 addFrozenChunk(std::move(frozen));
             };
         
@@ -1408,7 +1407,9 @@ TabularDataset(MldbServer * owner,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Dataset(owner)
 {
-    itl = make_shared<TabularDataStore>(config.params.convert<TabularDatasetConfig>());
+    itl = make_shared<TabularDataStore>(
+            config.params.convert<TabularDatasetConfig>(),
+            MLDB::getMldbLog<TabularDataset>());
 }
 
 TabularDataset::

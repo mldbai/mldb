@@ -23,8 +23,8 @@ $(eval $(call test,cpuid_test,arch,boost))
 endif
 
 ifeq ($(WITH_CUDA),1)
-$(eval $(call set_compile_option,cuda_device_query_test.cc,-I$(INC)))
+#$(eval $(call set_compile_option,cuda_device_query_test.cc,-I$(INC)))
 
-$(eval $(call test,cuda_device_query_test,cudart,plain))
-$(eval $(call test,cuda_init_test,arch_cuda,plain))
+#$(eval $(call test,cuda_device_query_test,cudart,plain))
+#$(eval $(call test,cuda_init_test,arch_cuda,plain))
 endif

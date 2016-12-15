@@ -344,6 +344,30 @@ surface() const
     return impl->surface();
 }
 
+bool
+Regex::
+operator == (const Regex & other) const
+{
+    return surface() == other.surface()
+        && flags() == other.flags();
+}
+
+bool
+Regex::
+operator != (const Regex & other) const
+{
+    return ! operator == (other);
+}
+
+bool
+Regex::
+operator < (const Regex & other) const
+{
+    return surface() < other.surface()
+       || (surface() == other.surface()
+           && flags() < other.flags());
+}
+
 
 /*****************************************************************************/
 /* REGEX ALGORITHMS                                                          */
@@ -352,7 +376,17 @@ surface() const
 Utf8String regex_replace(const Utf8String & str,
                          const Regex & regex,
                          const Utf8String & format,
-                         std::regex_constants::match_flag_type flags);
+                         std::regex_constants::match_flag_type flags)
+{
+    ExcAssert(regex.impl);
+    std::basic_string<int32_t> matchStr(str.begin(), str.end());
+    std::basic_string<int32_t> replacementStr(format.begin(), format.end());
+
+    auto result = boost::u32regex_replace(matchStr, regex.impl->utf8,
+                                          replacementStr);
+    
+    return Utf8String(std::basic_string<char32_t>(result.begin(), result.end()));
+}
 
 bool regex_search(const Utf8String & str,
                   const Regex & regex,

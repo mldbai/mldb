@@ -25,9 +25,10 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc);
 
 ValueFunction::
 ValueFunction(MldbServer * server,
+              const PolyConfig& config,
               std::shared_ptr<const ValueDescription> inputDescription,
               std::shared_ptr<const ValueDescription> outputDescription)
-    : Function(server),
+    : Function(server, config),
       inputDescription(std::move(inputDescription)),
       outputDescription(std::move(outputDescription))
 {

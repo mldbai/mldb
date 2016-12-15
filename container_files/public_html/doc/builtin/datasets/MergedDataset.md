@@ -6,7 +6,8 @@ combined together.
 
 The merge is done on the fly (only an index is created of rows and columns
 in the merged dataset), which means it is relatively rapid to merge even
-large datasets together.
+large datasets together. However, this means the underlying datasets that
+are being merged cannot be deleted.
 
 Creating a merged dataset is equivalent to the following SQL:
 

@@ -76,6 +76,10 @@ struct FunctionInfo {
     */
     void checkInputCompatibility
     (const std::vector<std::shared_ptr<ExpressionValueInfo> > & inputs) const;
+
+    /**  Will the function always return the same output given the same input
+    */
+    bool deterministic;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);
@@ -134,7 +138,8 @@ struct FunctionApplier {
 */
 
 struct Function: public MldbEntity {
-    Function(MldbServer * server);
+
+    Function(MldbServer * server, const PolyConfig& config);
 
     virtual ~Function();
 
@@ -254,8 +259,9 @@ registerFunctionType(const Package & package,
                                     PolyConfig config,
                                     const std::function<bool (const Json::Value)> & onProgress)
                                 {
+                                    std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<FunctionT>();
                                     auto function = new FunctionT(FunctionT::getOwner(server), config, onProgress);
-                                    function->logger = MLDB::getMldbLog<FunctionT>();
+                                    function->logger = std::move(logger); // noexcept
                                     return function;
                                 },
                                 makeInternalDocRedirect(package, docRoute),

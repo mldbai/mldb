@@ -1,19 +1,24 @@
-// The URI from which we load the Inception model.  We're assuming
-// that you've already downloaded it from Google at the following
-// URL; you can also load it directly from Google if you have
-// access to a lot of bandwidth by replacing the file:// URL below
-// with the following:
+// The URI from which we load the Inception model.
+// Taken from:
 // https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip
+// Hosted on public.mldb.ai for caching.
+//var inceptionUrl = 'file://inception_dec_2015.zip';  // Use this to test with a local copy
+var inceptionUrl = 'https://public.mldb.ai/models/inception_dec_2015.zip';
+var imgUrl = "http://public.mldb.ai/testing/tensorflow/Calle_E_Monroe_St,_Chicago,_Illinois,_Estados_Unidos,_2012-10-20,_DD_04.jpg";
+var imgUrlSql = mldb.sqlEscape(imgUrl);
+
+// GPU testing
+var devices = [ "/cpu:.*" ];
+if (args && args.GPUS && args.GPUS >= 1) {
+    devices.push("/gpu:.*");
+}
+mldb.log("Devices: " + devices);
 
 var res = mldb.query("SELECT tf_Cos(1.23, {T: { type: 'DT_DOUBLE'}}) AS res");
-
 mldb.log(res);
 
 var res = mldb.query("SELECT tf_MatrixInverse([[1,2,3],[4,-5,6],[-7,8,9]], { T: { type: 'DT_DOUBLE' } }) AS res");
-
 mldb.log(res);
-
-var inceptionUrl = 'file://inception_dec_2015.zip';
 
 // This sets up a fetcher function, which will download a given URL
 // and return it as a blob.
@@ -24,10 +29,10 @@ var fetcherConfig = {
     }
 };
 var fetcher = mldb.createFunction(fetcherConfig);
+mldb.query("SELECT tf_DecodeJpeg(fetch({url: "
+           + imgUrlSql
+           + "})[content], {ratio: 8}) as px");
 
-//var res = mldb.query("SELECT tf_DecodeJpeg(fetch({url: 'file://mldb/ext/tensorflow/tensorflow/examples/label_image/data/grace_hopper.jpg'})[content], {ratio: 8}) as px");
-
-mldb.log(res);
 // The labels for the Inception classifier live within the zip file
 // downloaded above.  We read them into a dataset so that we can
 // join against them later on.
@@ -73,155 +78,45 @@ var lookuplbls = mldb.createFunction(lookupLabelsConfig);
 //
 // The image itself is fed into the DecodeJpeg/contents node, and the
 // output is read from softmax node of the graph.
-var fnConfig = {
-    id: 'incept',
-    type: 'tensorflow.graph',
-    params: {
-        modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
-        inputs: 'fetch({url})[content] AS "DecodeJpeg/contents"',
-        outputs: "lookupLabels({scores: flatten(softmax)}) AS *"
-    }
-};
-
-var fn = mldb.createFunction(fnConfig);
-
-var constant = mldb.query("select tf_extract_constant('incept', ['mixed','conv', 'batchnorm', 'beta'])");
-
-mldb.log(constant);
-
-constant = mldb.query("select tf_extract_constant('incept', parse_path('mixed.conv.batchnorm.gamma'))");
-
-mldb.log(constant);
-
-
-var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
-var filename = "file://./560px-Calle_E_Monroe_St,_Chicago,_Illinois,_Estados_Unidos,_2012-10-20,_DD_04.jpg";
-
-mldb.log("classifying", filename);
-
-//mldb.log(mldb.get('/v1/functions/incept/details'));
-
-var res = mldb.query('SELECT incept({url: ' + mldb.sqlEscape(filename) + '})[output] AS *');
-
-mldb.log(res);
-
-
-//var filename = "https://avatars0.githubusercontent.com/u/112556?v=3&s=460";
-var filename = "ext/tensorflow/tensorflow/examples/label_image/data/grace_hopper.jpg";
-var filename = "https://upload.wikimedia.org/wikipedia/commons/6/6f/Soyuz_TMA-19M_spacecraft_approaches_the_ISS.jpg";
-var filename = "https://upload.wikimedia.org/wikipedia/commons/1/18/Cardiff_City_Hall_cropped.jpg";
-var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Maureen_O%27Hara_1947_2.jpg/198px-Maureen_O%27Hara_1947_2.jpg";
-var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
-var filename = "file://./560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
-
-mldb.log("classifying", filename);
-
-var res = mldb.query('SELECT incept({url: ' + mldb.sqlEscape(filename) + '})[output] AS *');
-
-mldb.log(res);
-
-
-mldb.put('/v1/functions/inception', {
-    "type": 'tensorflow.graph',
-    "params": {
-        "modelFileUrl": 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
-        "inputs": 'fetch({url})[content] AS "DecodeJpeg/contents"',
-        "outputs": "softmax"
-    }
-});
-
-mldb.log(mldb.query("SELECT inception({url: " + mldb.sqlEscape(filename) + "}) as *"));
-
-mldb.log(mldb.query("SELECT flatten(inception({url: " + mldb.sqlEscape(filename) + "})[softmax]) as *"));
-
-
-
-if (false) {
-
-    var blob = mldb.openStream(filename).readBlob();
-
-    var result = fn.call({ jpeg: blob});
-
-
-    //mldb.log("result is ", result);
-
-    var vals = result.values.output[0];
-    var maxVal = 0;
-    var maxIdx = 0;
-
-    mldb.log("categories for image", filename);
-
-    for (var i = 0;  i < vals.length;  ++i) {
-        if (vals[i] > 0.01) {
-            mldb.log(labels[i], vals[i]);
+//
+// Depending on the GPUS argument, this is done first on the CPUs, then on the GPUs
+for (device of devices) {
+    mldb.log("Running on device: " + device);
+    var fnConfig = {
+        id: 'incept',
+        type: 'tensorflow.graph',
+        params: {
+            modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
+            inputs: 'fetch({url})[content] AS "DecodeJpeg/contents"',
+            outputs: "lookupLabels({scores: flatten(softmax)}) AS *",
+            devices: device
         }
-        if (vals[i] > maxVal) {
-            maxVal = vals[i];
-            maxIdx = i;
+    };
+    var fn = mldb.createFunction(fnConfig);
+    //mldb.log(mldb.get('/v1/functions/incept/details'));
+    
+    var constant = mldb.query("select tf_extract_constant('incept', ['mixed','conv', 'batchnorm', 'beta'])");
+    mldb.log(constant);
+    
+    constant = mldb.query("select tf_extract_constant('incept', parse_path('mixed.conv.batchnorm.gamma'))");
+    mldb.log(constant);
+    
+    
+    mldb.log("classifying", imgUrl);
+    var res = mldb.query('SELECT incept({url: ' + imgUrlSql + '})[output] AS *');
+    mldb.log(res);
+    
+    mldb.put('/v1/functions/inception', {
+        "type": 'tensorflow.graph',
+        "params": {
+            "modelFileUrl": 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
+            "inputs": 'fetch({url})[content] AS "DecodeJpeg/contents"',
+            "outputs": "softmax"
         }
-    }
-
-    mldb.log("max val is", maxVal, "at index", maxIdx, labels[maxIdx]);
+    });
+    
+    mldb.log(mldb.query("SELECT inception({url: " + imgUrlSql + "}) as *"));
+    mldb.log(mldb.query("SELECT flatten(inception({url: " + imgUrlSql + "})[softmax]) as *"));
 }
-
-//mldb.log("details = ", fn.details());
-
-var preprocessConfig = {
-    id: 'preprocess',
-    type: 'sql.expression',
-    params: {
-    }
-};        
-        
-var preprocessConfig = {
-    id: 'preprocess',
-    type: 'tensorflow.graph',
-    params: {
-        expr: "(tf.ResizeBilinear "
-            + "  (CAST "
-            + "    (CASE WHEN regex_match($filename, '\.png') "
-            + "       THEN tf.DecodePng(tf.ReadFile($filename)) "
-            + "       ELSE tf.DecodeJpeg(tf.ReadFile($filename)) "
-            + "     DONE) AS TENSOR OF FLOAT, "
-            + "   299, 299)"
-            + "- 128.0) / 128.0"
-/*        
-        graph: [
-            {
-                name: 'read',
-                op: 'ReadFile',
-                input: [ "filename.jpg" ]
-            },
-            {
-                name: 'decode',
-                op: 'DecodePng'
-                input: [ "filename.jpg" ]
-            },
-            {
-                name: 'size',
-                op: 'ResizeBilinear'
-            },
-            {
-                name: 'cast'
-                op: 'Cast'
-            },
-            {
-                name: 'sub',
-                op: 'Sub'
-            },
-            {
-                name: 'div',
-                op: 'Div'
-            }
-        ]
-*/
-    }
-};
-
-//var fn = mldb.createFunction(preprocessConfig);
-
-//var query = mldb.sql("select @incept({ image: @preprocess({image: load_image('image.png')})})");
-
-
 
 "success"

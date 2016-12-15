@@ -14,7 +14,7 @@ With `PackageElementSources` defined as:
 If the `address` parameter is used, it may contain:
 
 * `file:///mldb_data/<directory_within_mldb_data>`: a directory within the Docker container's mapped directory (the directory you specified with your `docker run` command) will be copied and its `main.py` file will be run, and `routes.py` will be run to handle REST requests.
-* `git://` or `gist://`: the repo will be cloned and its `main.py` file will be run to initialize the plugin, and `routes.py` will be run to handle REST requests. To checkout a specific commit, add the following at the end of the address: `#hash`.
+* `git://` or `gist://`: the repo will be cloned and its `main.py` file will be run to initialize the plugin, and `routes.py` will be run to handle REST requests. To checkout a specific commit or tag, add the following at the end of the address: `#hash`.
 * `file:///mldb_data/<file_within_mldb_data>`: a Python file will be run from the Docker container's mapped directory.
 * `http://<url>` or `https://<url>`: a Python file will be downloaded via HTTP(S) and executed.
 
