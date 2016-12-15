@@ -125,7 +125,7 @@
         "type": "glz",
         "link_function": "linear",
         "verbosity": 3,
-        "normalize ": "true",
+        "normalize": "true",
         "regularization": "l2"
     },
 
@@ -134,7 +134,7 @@
 
         "type": "glz",
         "verbosity": 3,
-        "normalize ": " true",
+        "normalize": "true",
         "regularization": "l2"
     },
 
