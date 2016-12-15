@@ -168,7 +168,8 @@ function trainClassifier(algorithm)
             modelFileUrl: modelFileUrl,
             equalizationFactor: 0.0,
             mode: "boolean",
-            functionName: "classifier"
+            functionName: "classifier",
+            runOnCreation: false
         }
     };
 
