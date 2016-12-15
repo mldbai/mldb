@@ -35,7 +35,7 @@ A procedure may return results as follows:
   may contain a more detailed set of information about what was done including elements like
   logs of messages and errors.
 
-## Getting progress of a procedure
+## Getting the progress of a procedure
 
 Once created, a procedure returns its progress via a `GET` at `/v1/procedures/<id>`.
 This uri can be obtained from the `location` header that is part of the creation response.
@@ -62,7 +62,8 @@ Here is an example of a progress response for the `bucketize` procedure
     "id": "2016-12-15T19:43:52.938291Z-463496b56263af05"
 }
 ```
-Other procedures will have similar responses.
+Other procedures will have similar responses. Note that this is currently implemented for procedures
+of type `transform`, `import.text` and `bucketize`.
 
 ## Cancelling a procedure
 
