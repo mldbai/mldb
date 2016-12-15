@@ -581,7 +581,7 @@ calculate things to do with locations on Earth:
   accurate to within 0.3% anywhere on earth, apart from near the North or South
   Poles.
 
-### <a name="geofunctions"></a>Signal processing functions
+### <a name="signalprocfunctions"></a>Signal processing functions
 
 The following functions provide digital signal processing capabilities:
 
@@ -599,9 +599,9 @@ The following functions provide digital signal processing capabilities:
    This needs to be maintained for the `reverse` direction to work, but will
    need to be handled in any analysis that is performed in the frequency
    domain.
-- `phase(data)` returns takes a `n` by 2 embedding, with real and complex
+- `phase(data)` takes a `n` by 2 embedding, with real and complex
   parts, and returns an `n` element embedding with the phase angle.
-- `amplitude(data)` returns takes a `n` by 2 embedding, with real and complex
+- `amplitude(data)` takes a `n` by 2 embedding, with real and complex
   parts, and returns an `n` element embedding with the amplitude.
 - `real(data)` takes an `n` by 2 embedding, and returns the a `n` element
   embedding with the real parts.
@@ -609,7 +609,7 @@ The following functions provide digital signal processing capabilities:
   embedding with the real parts.
 - `impulse(n)` returns an `n` element real embedding with the impulse function,
   with the first element 1 and the rest zero.
-- `shifted_impulse(n, e)` returns an impulse function of length `n
+- `shifted_impulse(n, e)` returns an impulse function of length `n`
   time-shifted by `e` steps, ie zeros everywhere apart from the `e`th element
   which is one.
 
