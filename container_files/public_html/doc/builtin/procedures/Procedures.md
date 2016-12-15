@@ -40,28 +40,28 @@ A procedure may return results as follows:
 Once created, a procedure returns its progress via a `GET` at `/v1/procedures/<id>`.
 This uri can be obtained from the `location` header that is part of the creation response.
 Here is an example of a progress response for the `bucketize` procedure
-```
-"progress": {
-        "steps": [
-            {
-                "started": "2016-12-15T19:43:52.9386692Z",
-                "ended": "2016-12-15T19:43:52.9768956Z",
-                "type": "percentile",
-                "name": "iterating",
-                "value": 1.0
-            },
-            {
-                "started": "2016-12-15T19:43:52.9768965Z",
-                "type": "percentile",
-                "name": "bucketizing",
-                "value": 0.8191999793052673
-            }
-        ]
-    },
-    "state": "executing",
-    "id": "2016-12-15T19:43:52.938291Z-463496b56263af05"
-}
-```
+    
+    "progress": {
+            "steps": [
+                {
+                    "started": "2016-12-15T19:43:52.9386692Z",
+                    "ended": "2016-12-15T19:43:52.9768956Z",
+                    "type": "percentile",
+                    "name": "iterating",
+                    "value": 1.0
+                },
+                {
+                    "started": "2016-12-15T19:43:52.9768965Z",
+                    "type": "percentile",
+                    "name": "bucketizing",
+                    "value": 0.8191999793052673
+                }
+            ]
+        },
+        "state": "executing",
+        "id": "2016-12-15T19:43:52.938291Z-463496b56263af05"
+    }
+
 Other procedures will have similar responses. Note that this is currently implemented for procedures
 of type `transform`, `import.text` and `bucketize`.
 
