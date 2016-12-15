@@ -35,6 +35,48 @@ A procedure may return results as follows:
   may contain a more detailed set of information about what was done including elements like
   logs of messages and errors.
 
+## Getting progress of a procedure
+
+Once created, a procedure returns its progress via a `GET` at `/v1/procedures/<id>`.
+This uri can be obtained from the `location` header that is part of the creation response.
+Here is an example of a progress response for the `bucketize` procedure
+```
+"progress": {
+        "steps": [
+            {
+                "started": "2016-12-15T19:43:52.9386692Z",
+                "ended": "2016-12-15T19:43:52.9768956Z",
+                "type": "percentile",
+                "name": "iterating",
+                "value": 1.0
+            },
+            {
+                "started": "2016-12-15T19:43:52.9768965Z",
+                "type": "percentile",
+                "name": "bucketizing",
+                "value": 0.8191999793052673
+            }
+        ]
+    },
+    "state": "executing",
+    "id": "2016-12-15T19:43:52.938291Z-463496b56263af05"
+}
+```
+Other procedures will have similar responses.
+
+## Cancelling a procedure
+
+Procedures can take a long time to execute. It is possible to interrupt a running procedure using a
+`PUT` at `/v1/procedures/<idp>/runs/<idr>/state` where `idp` is the procedure id and `idr` is the 
+run id with the following payload
+```
+{
+        "state": "cancelled"
+}
+```
+Note that some processing is not cancellable.  As a result, the procedure may continue running for
+some time before it is finally interrupted.
+
 ## Available Procedure Types
 
 Procedures are created via a [REST API call](ProcedureConfig.md) with one of the following types:
