@@ -9,7 +9,7 @@ HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
 
-$(eval $(call include_sub_make,cookbook))
+$(eval $(call include_sub_makes,cookbook mldb_sample_plugin))
 
 #$(warning HAS_S3_CREDENTIALS=$(HAS_S3_CREDENTIALS))
 #$(warning MANUAL_IF_NO_S3=$(MANUAL_IF_NO_S3))
