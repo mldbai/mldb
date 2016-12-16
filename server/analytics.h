@@ -20,8 +20,6 @@
 
 
 
-struct Id;
-
 namespace MLDB {
 
 struct Dataset;
@@ -138,7 +136,7 @@ iterateDatasetGrouped(const SelectExpression & select,
     (tuples of row name, embedding, and extra parameters) and the
     list of variable info for the variables in the embedding.
 */
-std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectExpression & select,
              const Dataset & from,
@@ -152,7 +150,7 @@ getEmbedding(const SelectExpression & select,
              int limit = -1,
              const std::function<bool (const Json::Value &)> & onProgress = nullptr);
 
-std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectStatement & stm,
              SqlExpressionMldbScope & context,
@@ -205,10 +203,10 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
                    SqlBindingScope & scope,
                    BoundParameters params = nullptr);
 
-/** Build a RowName from an expression value and throw if
+/** Build a RowPath from an expression value and throw if
     it is not valid (row, empty, etc)
 */
-RowName getValidatedRowName(const ExpressionValue& rowNameEV);
+RowPath getValidatedRowName(const ExpressionValue& rowNameEV);
 
 } // namespace MLDB
 

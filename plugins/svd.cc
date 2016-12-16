@@ -33,6 +33,8 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/progress.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -66,9 +68,7 @@ SvdConfigDescription()
              "Specification of the data for input to the SVD Procedure.  This should be "
              "organized as an embedding, with each selected row containing the same "
              "set of columns with numeric values to be used as coordinates.  The select statement "
-             "does not support groupby and having clauses. "
-             "Only plain column names may be used; it is not possible to select on "
-             "an expression (like x + 1)");
+             "does not support groupby and having clauses.");
     addField("columnOutputDataset", &SvdConfig::columnOutput,
              "Output dataset for embedding (column singular vectors go here)",
              optionalOutputDataset);
@@ -104,7 +104,6 @@ SvdConfigDescription()
 
     onPostValidate = chain(validateQuery(&SvdConfig::trainingData,
                                          NoGroupByHaving(),
-                                         PlainColumnSelect(),
                                          MustContainFrom()),
                            validateFunction<SvdConfig>());
 }
@@ -131,13 +130,13 @@ SvdColumnIndexEntryDescription()
 }
 
 /** Given the other column, project it onto the basis. */
-ML::distribution<float>
+distribution<float>
 SvdBasis::
 rightSingularVector(const ColumnIndexEntries & basisColumns,
                     const ColumnIndexEntry & column) const
 {
     // For each basis vector, calculate the overlap
-    ML::distribution<float> result(singularValues.size());
+    distribution<float> result(singularValues.size());
 
     for (unsigned i = 0;  i < columns.size();  ++i) {
         double overlap = column.correlation(basisColumns.at(i));
@@ -163,7 +162,7 @@ rightSingularVector(const ColumnIndexEntries & basisColumns,
     return result;
 }
 
-ML::distribution<float>
+distribution<float>
 SvdBasis::
 rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                              int maxValues,
@@ -176,7 +175,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
     auto it = columnIndex.find(col);
     if (it == columnIndex.end()) {
         //cerr << "column not found in " << columnIndex.size() << " entries" << endl;
-        return ML::distribution<float>();
+        return distribution<float>();
     }
 
     // 2.  Look up the value of the cell
@@ -199,7 +198,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                     continue;
                 int columnNum = e.second;
                 auto & col = columns[columnNum];
-                ML::distribution<float> result = col.singularVector;
+                distribution<float> result = col.singularVector;
                 result.resize(maxValues);
 
                 //double oldd = d;
@@ -222,7 +221,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
 
                 auto & col = columns[columnEntry.values.begin()->second];
 
-                ML::distribution<float> result = col.singularVector;
+                distribution<float> result = col.singularVector;
                 result.resize(maxValues);
 
                 //double oldd = d;
@@ -240,7 +239,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
             // It's a value we haven't seen.  We can't really do anything but return
             // an empty vector
             if (acceptUnknownValues)
-                return ML::distribution<float>();
+                return distribution<float>();
 
             throw HttpReturnException(400);
 
@@ -251,12 +250,12 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                 cerr << "known value " << e.first << endl;
             }
 
-            throw ML::Exception("Numeric value not found");
+            throw MLDB::Exception("Numeric value not found");
 #endif
         }
 
         if (acceptUnknownValues)
-            return ML::distribution<float>();
+            return distribution<float>();
 
         Json::Value details;
         details["columnName"] = jsonEncode(it->second.columnName);
@@ -309,21 +308,21 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
         throw HttpReturnException(400, message, details);
     }
 
-    ML::distribution<float> result = columns[it2->second].singularVector;
+    distribution<float> result = columns[it2->second].singularVector;
     result.resize(maxValues);
     return result;
 }
 
-std::pair<ML::distribution<float>, Date>
+std::pair<distribution<float>, Date>
 SvdBasis::
-leftSingularVector(const std::vector<std::tuple<ColumnName, CellValue, Date> > & row,
+leftSingularVector(const std::vector<std::tuple<ColumnPath, CellValue, Date> > & row,
                    int maxValues,
                    bool acceptUnknownValues) const
 {
     return doLeftSingularVector(row, maxValues, acceptUnknownValues);
 }
 
-std::pair<ML::distribution<float>, Date>
+std::pair<distribution<float>, Date>
 SvdBasis::
 leftSingularVector(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & row,
                    int maxValues,
@@ -333,7 +332,7 @@ leftSingularVector(const std::vector<std::tuple<ColumnHash, CellValue, Date> > &
 }
 
 template<typename Tuple>
-std::pair<ML::distribution<float>, Date>
+std::pair<distribution<float>, Date>
 SvdBasis::
 doLeftSingularVector(const std::vector<Tuple> & row,
                      int maxValues,
@@ -343,7 +342,7 @@ doLeftSingularVector(const std::vector<Tuple> & row,
         maxValues = singularValues.size();
 
     Date ts = modelTs;
-    ML::distribution<float> result(maxValues);
+    distribution<float> result(maxValues);
 
     for (auto & v: row) {
         ColumnHash column;
@@ -352,7 +351,7 @@ doLeftSingularVector(const std::vector<Tuple> & row,
 
         std::tie(column, value, columnTs) = v;
 
-        const ML::distribution<float> & rsv
+        const distribution<float> & rsv
             = rightSingularVectorForColumn(column, value, maxValues, acceptUnknownValues);
 
         // If it was excluded, it will have an empty vector calculated
@@ -397,23 +396,26 @@ SvdBasisDescription()
 
 struct SvdTrainer {
     static SvdBasis calcSvdBasis(const ColumnCorrelations & correlations,
-                                 int numSingularValues);
+                                 int numSingularValues,
+                                 shared_ptr<spdlog::logger> logger);
 
     static SvdBasis calcRightSingular(const ClassifiedColumns & columns,
                                       const ColumnIndexEntries & columnIndex,
-                                      const SvdBasis & svd);
+                                      const SvdBasis & svd,
+                                      shared_ptr<spdlog::logger> logger);
 };
 
 SvdBasis
 SvdTrainer::
 calcSvdBasis(const ColumnCorrelations & correlations,
-             int numSingularValues)
+             int numSingularValues,
+             shared_ptr<spdlog::logger> logger)
 {
 #if 0
     static int n = 0;
     {
         cerr << "saving correlations " << n << endl;
-        filter_ostream stream(ML::format("correlations-%d.json", n++));
+        filter_ostream stream(MLDB::format("correlations-%d.json", n++));
         stream << jsonEncode(correlations.columns);
         for (unsigned i = 0;  i < correlations.correlations.shape()[0];  ++i) {
             for (unsigned j = 0;  j < correlations.correlations.shape()[1];  ++j) {
@@ -427,7 +429,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
 
     int ndims = correlations.columnCount();
 
-    ML::Timer timer;
+    Timer timer;
 
     //for (unsigned i = 0;  i < ndims;  ++i) {
     //    cerr << "correlation between " << 0 << " and "
@@ -460,7 +462,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     svdrec * svdResult = svdLAS2A(numSingularValues, params);
     ML::Call_Guard cleanUp( [&](){ svdFreeSVDRec(svdResult); });
 
-    cerr << "done SVD " << timer.elapsed() << endl;
+    INFO_MSG(logger) << "done SVD " << timer.elapsed();
 
     // It doesn't clean up the ones that didn't converge properly... do it ourselves
     // We go until we get a NaN or one with too small a ratio.
@@ -473,12 +475,12 @@ calcSvdBasis(const ColumnCorrelations & correlations,
            && svdResult->S[realD] / svdResult->S[0] > 1e-9)
         ++realD;
 
-    cerr << "skipped " << svdResult->d - realD << " bad singular values" << endl;
+    INFO_MSG(logger) << "skipped " << svdResult->d - realD << " bad singular values";
     ExcAssertLessEqual(realD, svdResult->d);
     ExcAssertLessEqual(realD, numSingularValues);
     svdResult->d = realD;
 
-    cerr << "got " << svdResult->d << " singular values" << endl;
+     INFO_MSG(logger) << "got " << svdResult->d << " singular values";
 
     numSingularValues = svdResult->d;
 
@@ -494,7 +496,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     std::copy(svdResult->S, svdResult->S + numSingularValues,
               result.singularValues.begin());
 
-    cerr << "svalues = " << result.singularValues << endl;
+    INFO_MSG(logger) << "svalues = " << result.singularValues;
 
     //cerr << "svdResult->Vt->value = " << svdResult->Vt->value << endl;
 
@@ -507,12 +509,12 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     for (unsigned i = 0;  i < ndims;  ++i) {
         //cerr << "i = " << i << "svdResult->Vt->value[i] = "
         //     << svdResult->Vt->value[i] << endl;
-        ML::distribution<float> & d = result.columns[i].singularVector;
+        distribution<float> & d = result.columns[i].singularVector;
         d.resize(numSingularValues);
         for (unsigned j = 0;  j < numSingularValues;  ++j)
             d[j] = svdResult->Vt->value[j][i];
 
-        ColumnName columnName = result.columns[i].columnName;
+        ColumnPath columnName = result.columns[i].columnName;
         CellValue cellValue = result.columns[i].cellValue;
 
         result.columnIndex[columnName].values[cellValue] = i;
@@ -529,7 +531,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     //cerr << "ndims = " << ndims << endl;
 
     for (auto & i: result.columnIndex)
-        ExcAssertNotEqual(i.second.columnName, ColumnName());
+        ExcAssertNotEqual(i.second.columnName, ColumnPath());
 
 #if 0
     // Test the orthonormal-ness of the singular vectors
@@ -553,14 +555,16 @@ SvdBasis
 SvdTrainer::
 calcRightSingular(const ClassifiedColumns & columns,
                   const ColumnIndexEntries & columnIndex,
-                  const SvdBasis & svd)
+                  const SvdBasis & svd,
+                  shared_ptr<spdlog::logger> logger)
+
 {
     //cerr << "project extra " << columns.continuousColumns.size() - svd.columns.size()
     //     << " continuous columns onto basis" << endl;
     //cerr << "projecting " << columns.sparseColumns.size()
     //     << " discrete columns onto basis" << endl;
 
-    ML::Timer timer;
+    Timer timer;
 
     std::atomic<int> numDone(0);
     std::mutex doneMutex;
@@ -580,7 +584,7 @@ calcRightSingular(const ClassifiedColumns & columns,
         vec0.resize(10);
         svec.resize(10);
 
-        cerr << "vec0 = " << vec0 << " svec = " << svec << endl;
+        INFO_MSG(logger) << "vec0 = " << vec0 << " svec = " << svec;
     }
 
     auto calcRightSingular = [&] (int i)
@@ -602,10 +606,10 @@ calcRightSingular(const ClassifiedColumns & columns,
             if (done % 1000 == 0) {
                 std::unique_lock<std::mutex> guard(doneMutex);
                 double seconds = timer.elapsed_wall();
-                cerr << "done " << done << " of " << totalColumns
-                     << " in " << timer.elapsed() << endl;
-                cerr << "Average " << done / seconds << " per second; inst "
-                     << 1000 / (seconds - lastSeconds) << " per second" << endl;
+                INFO_MSG(logger) << "done " << done << " of " << totalColumns
+                     << " in " << timer.elapsed();
+                INFO_MSG(logger) << "Average " << done / seconds << " per second; inst "
+                     << 1000 / (seconds - lastSeconds) << " per second";
                 lastSeconds = seconds;
             }
         };
@@ -613,7 +617,7 @@ calcRightSingular(const ClassifiedColumns & columns,
     parallelMap(0, totalColumns, calcRightSingular);
 
     for (unsigned i = 0;  i < totalColumns;  ++i) {
-        ColumnName columnName = result.columns[i].columnName;
+        ColumnPath columnName = result.columns[i].columnName;
         CellValue cellValue = result.columns[i].cellValue;
         if (result.columns[i].op == COL_VALUE)
             ExcAssertEqual(cellValue, CellValue());
@@ -627,7 +631,7 @@ calcRightSingular(const ClassifiedColumns & columns,
     }
 
     for (auto & i: result.columnIndex) {
-        ExcAssertNotEqual(i.second.columnName, ColumnName());
+        ExcAssertNotEqual(i.second.columnName, ColumnPath());
         for (auto & v: i.second.values) {
             auto col = result.columns.at(v.second);
             auto val = v.first;
@@ -643,7 +647,7 @@ calcRightSingular(const ClassifiedColumns & columns,
     ExcAssertLessEqual(result.columnIndex.size(), result.columns.size());
 
     for (auto & c: result.columns) {
-        ExcAssertNotEqual(c.columnName, ColumnName());
+        ExcAssertNotEqual(c.columnName, ColumnPath());
     }
 
     return result;
@@ -684,13 +688,6 @@ run(const ProcedureRunConfig & run,
              "config", runProcConf);
     }
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-        {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-        };
-
     if (!runProcConf.modelFileUrl.empty()) {
         checkWritability(runProcConf.modelFileUrl.toDecodedString(), "modelFileUrl");
     }
@@ -701,7 +698,36 @@ run(const ProcedureRunConfig & run,
 
     auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
 
-    ClassifiedColumns columns = classifyColumns(*dataset, runProcConf.trainingData.stm->select);
+    Progress svdProgress;
+    std::shared_ptr<Step> classificationStep = svdProgress.steps({
+            make_pair("classifying columns", "percentile"), 
+            make_pair("extracting features", "percentile"),
+            make_pair("inverting features", "percentile"),
+            make_pair("calculating correlations", "percentile")
+            });
+
+
+    mutex progressMutex;
+
+    std::function<bool (const Json::Value &)> onProgress2;
+    onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        lock_guard<mutex> lock(progressMutex);
+        if (classificationStep->value > itProgress.percent) {
+            classificationStep->value = itProgress.percent;
+        }
+        return onProgress(jsonEncode(svdProgress));
+    };
+
+    ClassifiedColumns columns = classifyColumns(runProcConf.trainingData.stm->select,
+                                                *dataset,
+                                                runProcConf.trainingData.stm->when,
+                                                *runProcConf.trainingData.stm->where,
+                                                runProcConf.trainingData.stm->orderBy,
+                                                runProcConf.trainingData.stm->offset,
+                                                runProcConf.trainingData.stm->limit,
+                                                logger,
+                                                onProgress2);
 
 #if 0
     cerr << "columns: " << columns.continuousColumns.size()
@@ -718,17 +744,45 @@ run(const ProcedureRunConfig & run,
     }
 #endif
 
-    FeatureBuckets extractedFeatures = extractFeaturesFromRows(*dataset,
+    auto extractionStep = classificationStep->nextStep(1);
+
+    onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        lock_guard<mutex> lock(progressMutex);
+        if (extractionStep->value > itProgress.percent) {
+            extractionStep->value = itProgress.percent;
+        }
+        return onProgress(jsonEncode(svdProgress));
+    };
+
+    FeatureBuckets extractedFeatures = extractFeaturesFromRows(runProcConf.trainingData.stm->select,
+                                                               *dataset,
                                                                runProcConf.trainingData.stm->when,
                                                                runProcConf.trainingData.stm->where,
                                                                runProcConf.trainingData.stm->orderBy,
                                                                runProcConf.trainingData.stm->offset,
                                                                runProcConf.trainingData.stm->limit,
-                                                               columns);
-    ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures);
-    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors);
+                                                               columns,
+                                                               logger,
+                                                               onProgress2);
+
+    auto inversionStep = extractionStep->nextStep(1);
+
+    onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        lock_guard<mutex> lock(progressMutex);
+        if (inversionStep->value > itProgress.percent) {
+            inversionStep->value = itProgress.percent;
+        }
+        return onProgress(jsonEncode(svdProgress));
+    };
+
+    ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures, logger, onProgress2);
+
+    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors, logger);
     SvdBasis svd = SvdTrainer::calcSvdBasis(correlations,
-                                            runProcConf.numSingularValues);
+                                            runProcConf.numSingularValues,
+                                            logger);
 
 #if 0
     cerr << "----------- SVD columns" << endl;
@@ -737,7 +791,7 @@ run(const ProcedureRunConfig & run,
     }
 #endif
 
-    SvdBasis allSvd = SvdTrainer::calcRightSingular(columns, columnIndex, svd);
+    SvdBasis allSvd = SvdTrainer::calcRightSingular(columns, columnIndex, svd, logger);
 
 #if 0
     cerr << "----------- ALL SVD columns" << endl;
@@ -761,6 +815,12 @@ run(const ProcedureRunConfig & run,
         if (columnOutput.type.empty())
             columnOutput.type = SvdConfig::defaultOutputDatasetType;
 
+        auto onProgress2 = [&] (const Json::Value & progress) {
+            Json::Value value;
+            value["dataset"] = progress;
+            return onProgress(value);
+        };
+
         auto output = createDataset(server, columnOutput, onProgress2, true /*overwrite*/);
 
         auto doColumn = [&] (size_t i)
@@ -768,10 +828,9 @@ run(const ProcedureRunConfig & run,
                 auto & col = allSvd.columns[i];
 
                 if (i % 10000 == 0)
-                    cerr << "saving column " << i << " of " << allSvd.columns.size()
-                         << endl;
+                    INFO_MSG(logger) << "saving column " << i << " of " << allSvd.columns.size();
 
-                ColumnName outputName = col.columnName;
+                ColumnPath outputName = col.columnName;
 
                 if (col.op == COL_EQUAL) {
                     if (col.cellValue.empty()) {
@@ -837,8 +896,8 @@ run(const ProcedureRunConfig & run,
 
         auto output = createDataset(server, rowOutput, onProgress2, true /*overwrite*/);
 
-        // getRowNames can return row names in an arbitrary order as long as it is deterministic.
-        auto rows = dataset->getMatrixView()->getRowNames(0, -1);
+        // getRowPaths can return row names in an arbitrary order as long as it is deterministic.
+        auto rows = dataset->getMatrixView()->getRowPaths(0, -1);
 
         //cerr << "writing embeddings for " << rows.size() << " rows to dataset "
         //     << runProcConf.rowOutput.id << endl;
@@ -848,12 +907,11 @@ run(const ProcedureRunConfig & run,
         auto doRow = [&] (int rowNum)
             {
                 if (rowNum % 10000 == 0)
-                    cerr << "saving row " << rowNum << " of " << rows.size()
-                         << endl;
+                    INFO_MSG(logger) << "saving row " << rowNum << " of " << rows.size();
 
                 auto row = dataset->getMatrixView()->getRow(rows[rowNum]);
 
-                ML::distribution<float> embedding;
+                distribution<float> embedding;
                 Date ts;
 
                 std::tie(embedding, ts)
@@ -920,7 +978,7 @@ run(const ProcedureRunConfig & run,
 
 
             // In goes the values
-            ML::distribution<double> accum(numSingularValues);
+            distribution<double> accum(numSingularValues);
 
             for (unsigned i = 0;  i < entry.values.size();  ++i) {
                 float v = (entry.values[i] - means[i]) / stddevs[i];
@@ -933,7 +991,7 @@ run(const ProcedureRunConfig & run,
     for (auto & s: features) {
         for (const ExtractedRow & entry: s.second) {
             // In goes the values
-            ML::distribution<double> accum(numSingularValues);
+            distribution<double> accum(numSingularValues);
 
             for (unsigned i = 0;  i < entry.values.size();  ++i) {
                 float v = (entry.values[i] - means[i]) / stddevs[i];
@@ -945,7 +1003,7 @@ run(const ProcedureRunConfig & run,
                 //cerr << "dense " << behs.getBehaviourId(beh) << endl;
                 auto it = discreteIndex.find(beh);
                 if (it == discreteIndex.end())
-                    throw ML::Exception("couldn't find dense beh index");
+                    throw MLDB::Exception("couldn't find dense beh index");
                 accum += singularVectors[featureNum + it->second];
             }
 
@@ -959,7 +1017,7 @@ run(const ProcedureRunConfig & run,
             // We now have an approximation to V in accum.  Take it back to
             // a feature vector
 
-            ML::distribution<double> reconst(featureNum);
+            distribution<double> reconst(featureNum);
 
             for (unsigned i = 0;  i < featureNum;  ++i) {
                 for (unsigned j = 0;  j < numSingularValues;  ++j) {
@@ -972,7 +1030,7 @@ run(const ProcedureRunConfig & run,
             cerr << "input: " << entry.values << endl;
             cerr << "reconst: " << reconst << endl;
 
-            ML::distribution<double> reconstDense(numDenseColumns);
+            distribution<double> reconstDense(numDenseColumns);
 
             for (unsigned i = 0;  i < numDenseColumns;  ++i) {
                 for (unsigned j = 0;  j < numSingularValues;  ++j) {
@@ -1056,7 +1114,7 @@ SvdEmbedRow::
 SvdEmbedRow(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
     svd = jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString());
@@ -1084,7 +1142,7 @@ call(SvdInput input) const
     RowValue row;
     input.row.mergeToRowDestructive(row);
     
-    ML::distribution<float> embedding;
+    distribution<float> embedding;
     Date ts;
 
     std::tie(embedding, ts)

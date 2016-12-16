@@ -150,7 +150,7 @@ public:
                            const Optimization_Info & info,
                            PredictionContext * context = 0) const;
 
-#ifndef JML_TESTING_GLZ_CLASSIFIER
+#ifndef MLDB_TESTING_GLZ_CLASSIFIER
 protected:
 #endif
     // These actually do the prediction.  They will dereference the features

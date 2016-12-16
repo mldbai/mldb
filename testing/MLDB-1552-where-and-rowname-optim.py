@@ -19,7 +19,6 @@ res = mldb.get('/v1/query', q="SELECT * FROM dataset1 WHERE (x IS NOT null) AND 
 expected = [
     {
         "rowName": "row_2",
-        "rowHash": "0ea93be3f94d4404",
         "columns": [
             [
                 "x",
@@ -30,7 +29,6 @@ expected = [
     },
     {
         "rowName": "row_0",
-        "rowHash": "d1844a27a4cb3025",
         "columns": [
             [
                 "x",

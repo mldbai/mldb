@@ -17,6 +17,7 @@
 #include <iostream>
 #include "mldb/jml/db/persistent.h"
 #include "mldb/jml/utils/enum_info.h"
+#include "matrix_ops.h"
 
 namespace ML {
 

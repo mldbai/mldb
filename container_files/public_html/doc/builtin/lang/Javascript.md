@@ -302,8 +302,14 @@ A function object is created similarly to procedure and dataset objects.
 
 It has the following methods defined:
 
+- `function.callJson(args)` calls the function, with the given single
+  JSON argument, waits for it to finish, and returns the JSON output of
+  the function.
 - `function.call(args)` calls the function, with the given arguments,
   waits for it to finish, and returns the output of the function.
+  The input and output are JSON-encoded ExpressionValue objects, which
+  are hard to work with.  It is recommended that the callJson object
+  be used instead.
 - `function.id()` returns the id of the function
 - `function.type()` returns the type of the function
 - `function.config()` returns the configuration of the function

@@ -24,9 +24,9 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
-Env_Option<bool> TRACE_EXCEPTIONS("JML_TRACE_EXCEPTIONS", true);
+EnvOption<bool> TRACE_EXCEPTIONS("MLDB_TRACE_EXCEPTIONS", true);
 
 __thread bool trace_exceptions = false;
 __thread bool trace_exceptions_initialized = false;
@@ -111,7 +111,7 @@ void default_exception_tracer(void * object, const std::type_info * tinfo)
     const std::exception * exc = to_std_exception(object, tinfo);
 
     // We don't want these exceptions to be printed out.
-    if (dynamic_cast<const ML::SilentException *>(exc)) return;
+    if (dynamic_cast<const MLDB::SilentException *>(exc)) return;
 
     /* avoid allocations when std::bad_alloc is thrown */
     bool noAlloc = dynamic_cast<const std::bad_alloc *>(exc);
@@ -194,7 +194,7 @@ end:
 
     char const * reports = getenv("ENABLE_EXCEPTION_REPORTS");
     if (!noAlloc && reports) {
-        std::string path = ML::format("%s/exception-report-%s-%d-%d.log",
+        std::string path = MLDB::format("%s/exception-report-%s-%d-%d.log",
                                       reports, datetime, pid, tid);
 
         std::ofstream file(path, std::ios_base::app);
@@ -206,4 +206,4 @@ end:
     }
 }
 
-} // namespace ML
+} // namespace MLDB

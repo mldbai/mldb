@@ -70,7 +70,7 @@ struct RWLock {
     void check_err(int res)
     {
         if (res == -1)
-            throw ML::Exception("couldn't perform rwlock operation");
+            throw MLDB::Exception("couldn't perform rwlock operation");
     }
 
     pthread_rwlock_t rwlock;

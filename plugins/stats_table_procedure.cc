@@ -28,6 +28,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/optional_description.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -38,15 +39,15 @@ namespace MLDB {
 ML::DB::Store_Writer &
 operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
-    return store << Id(coord.toUtf8String());
+    return store << coord.toUtf8String();
 }
 
 ML::DB::Store_Reader &
 operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
-    Id id;
+    Utf8String id;
     store >> id;
-    coord = id.toUtf8String();
+    coord = std::move(id);
     return store;
 }
 
@@ -137,7 +138,7 @@ reconstitute(ML::DB::Store_Reader & store)
                                   "table model");
     }
     if(version!=REQUIRED_V) {
-        throw HttpReturnException(400, ML::format(
+        throw HttpReturnException(400, MLDB::format(
                     "invalid StatsTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -245,7 +246,7 @@ run(const ProcedureRunConfig & run,
     Date start = Date::now();
 
     // columns cache
-    map<ColumnName, vector<ColumnName>> colCache;
+    map<ColumnPath, vector<ColumnPath>> colCache;
 
     auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
@@ -253,11 +254,11 @@ run(const ProcedureRunConfig & run,
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;
                 progress["message"] = message;
                 onProgress(progress);
-                cerr << message << endl;
+                INFO_MSG(logger) << message;
             }
 
             vector<uint> encodedLabels;
@@ -266,12 +267,12 @@ run(const ProcedureRunConfig & run,
                 encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );
             }
 
-            map<ColumnName, size_t> column_idx;
+            map<ColumnPath, size_t> column_idx;
             for(int i=0; i<row.columns.size(); i++) {
                 column_idx.insert(make_pair(get<0>(row.columns[i]), i));
             }
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > output_cols;
             for(auto it = statsTables.begin(); it != statsTables.end(); it++) {
                 // is this col present for row?
                 auto col_ptr = column_idx.find(it->first);
@@ -280,13 +281,13 @@ run(const ProcedureRunConfig & run,
                     //output_cols.emplace_back(get<0>(col), count, get<2>(col));
                 }
                 else {
-                    const tuple<ColumnName, CellValue, Date> & col = row.columns[col_ptr->second];
+                    const tuple<ColumnPath, CellValue, Date> & col = row.columns[col_ptr->second];
                     const StatsTable::BucketCounts & counts = it->second.increment(get<1>(col), encodedLabels);
 
                     // *******
                     // column name caching
                     auto colIt = colCache.find(get<0>(col));
-                    vector<ColumnName> * colNames;
+                    vector<ColumnPath> * colNames;
                     if(colIt != colCache.end()) {
                         colNames = &(colIt->second);
                     }
@@ -294,7 +295,7 @@ run(const ProcedureRunConfig & run,
                         // if we didn't compute the column names yet, do that now
                         const Path & key = std::get<0>(col);
 
-                        vector<ColumnName> names;
+                        vector<ColumnPath> names;
                         names.emplace_back(PathElement("trial") + key);
                         for(int lbl_idx=0; lbl_idx<encodedLabels.size(); lbl_idx++) {
                             names.emplace_back(PathElement(outcome_names[lbl_idx]) + key);
@@ -318,7 +319,7 @@ run(const ProcedureRunConfig & run,
                 }
             }
 
-            output->recordRow(ColumnName(row.rowName), output_cols);
+            output->recordRow(ColumnPath(row.rowName), output_cols);
 
             return true;
         };
@@ -350,7 +351,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
-        cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
+        INFO_MSG(logger) << "Saving stats tables to " << runProcConf.modelFileUrl.toString();
         PolyConfig clsFuncPC;
         clsFuncPC.type = "statsTable.getCounts";
         clsFuncPC.id = runProcConf.functionName;
@@ -384,8 +385,10 @@ StatsTableFunction::
 StatsTableFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
+    //this function has hidden state and is never deterministic, says F. Maillet.
+    config_->deterministic = false;
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
@@ -427,8 +430,8 @@ apply(const FunctionApplier & applier,
         RowValue rtnRow;
 
         // TODO should we cache column names as we did in the procedure?
-        auto onAtom = [&] (const ColumnName & columnName,
-                           const ColumnName & prefix,
+        auto onAtom = [&] (const ColumnPath & columnName,
+                           const ColumnPath & prefix,
                            const CellValue & val,
                            Date ts)
             {
@@ -473,7 +476,7 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("counts"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
 
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
 
     return result;
@@ -661,7 +664,7 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     if(!runProcConf.functionName.empty() && runProcConf.functionOutcomeToUse.empty()) {
-        throw ML::Exception("The 'functionOutcomeToUse' parameter must be set when the "
+        throw MLDB::Exception("The 'functionOutcomeToUse' parameter must be set when the "
                 "'functionName' parameter is set.");
     }
 
@@ -672,7 +675,7 @@ run(const ProcedureRunConfig & run,
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         outcome_names.push_back(lbl.first);
 
-    StatsTable statsTable(ColumnName("words"), outcome_names);
+    StatsTable statsTable(ColumnPath("words"), outcome_names);
 
     auto onProgress2 = [&] (const Json::Value & progress)
         {
@@ -690,11 +693,11 @@ run(const ProcedureRunConfig & run,
             MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 10000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
-                string message = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;
                 progress["message"] = message;
                 onProgress2(progress);
-                cerr << message << endl;
+                INFO_MSG(logger) << message;
             }
 
             vector<uint> encodedLabels;
@@ -703,7 +706,7 @@ run(const ProcedureRunConfig & run,
                 encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );
             }
 
-            for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
+            for(const std::tuple<ColumnPath, CellValue, Date> & col : row.columns) {
                 statsTable.increment(CellValue(get<0>(col).toUtf8String()), encodedLabels);
             }
 
@@ -738,17 +741,17 @@ run(const ProcedureRunConfig & run,
 
         uint64_t load_factor = std::ceil(statsTable.counts.load_factor());
 
-        vector<ColumnName> outcome_col_names;
+        vector<ColumnPath> outcome_col_names;
         outcome_col_names.reserve(statsTable.outcome_names.size());
         for (int i=0; i < statsTable.outcome_names.size(); ++i)
             outcome_col_names
                 .emplace_back(PathElement("outcome") + statsTable.outcome_names[i]);
 
-        typedef std::vector<std::tuple<ColumnName, CellValue, Date>> Columns;
+        typedef std::vector<std::tuple<ColumnPath, CellValue, Date>> Columns;
 
         auto onBucketChunk = [&] (size_t i0, size_t i1)
         {
-            std::vector<std::pair<RowName, Columns>> rows;
+            std::vector<std::pair<RowPath, Columns>> rows;
             rows.reserve((i1 - i0)*load_factor);
             // for each bucket of the unordered_map in our chunk
             for (size_t i = i0; i < i1; ++i) {
@@ -828,7 +831,7 @@ StatsTablePosNegFunction::
 StatsTablePosNegFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<StatsTablePosNegFunctionConfig>();
 
@@ -919,8 +922,8 @@ apply(const FunctionApplier & applier,
         RowValue rtnRow;
 
         // TODO should we cache column names as we did in the procedure?
-        auto onAtom = [&] (const ColumnName & columnName,
-                           const ColumnName & prefix,
+        auto onAtom = [&] (const ColumnPath & columnName,
+                           const ColumnPath & prefix,
                            const CellValue & val,
                            Date ts)
             {
@@ -960,7 +963,7 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("probs"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
 
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
 
     return result;

@@ -123,8 +123,8 @@ public:
         into a tuple.
 
         In the case that the tuple can't be parsed, it should return \p false.
-        In this case, the Parse_Context object should remain unmodified.  The
-        Parse_Context::Token helper class is very useful for this.  It is not
+        In this case, the ParseContext object should remain unmodified.  The
+        ParseContext::Token helper class is very useful for this.  It is not
         necessary to keep the feature parameter unmodified, however.
 
         \param context       the parse context pointing to the feature to be
@@ -143,7 +143,7 @@ public:
         values:
 
         \code
-        Parse_Context cxt(...);
+        ParseContext cxt(...);
         std::shared_ptr<Feature_Space> fs(...);
 
         vector<Feature> features(1);
@@ -154,7 +154,7 @@ public:
         The default implementation is capable of parsing the same
         representation as the default implementation of the print() method.
     */
-    virtual bool parse(Parse_Context & context, Feature & feature) const;
+    virtual bool parse(ParseContext & context, Feature & feature) const;
 
     /** Parse the name of a feature. */
     virtual void parse(const std::string & name, Feature & feature) const;
@@ -180,7 +180,7 @@ public:
         \endcode
         
     */
-    virtual void expect(Parse_Context & context, Feature & feature) const;
+    virtual void expect(ParseContext & context, Feature & feature) const;
 
     /** Serialize a feature.  This method is called to write a feature to a
         binary store.

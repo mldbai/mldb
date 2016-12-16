@@ -28,25 +28,25 @@ namespace MLDB {
 /****************************************************************************/
 
 void DatasetPy::
-recordRow(const RowName & rowName, const std::vector<RowCellTuple> & columns) {
+recordRow(const RowPath & rowName, const std::vector<RowCellTuple> & columns) {
     dataset->recordRow(rowName, columns);
 }
 
 void DatasetPy::
-recordRows(const std::vector<std::pair<RowName, std::vector<RowCellTuple> > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<RowCellTuple> > > & rows)
 {
     dataset->recordRows(rows);
 }
     
 void  DatasetPy::
-recordColumn(const ColumnName & columnName,
+recordColumn(const ColumnPath & columnName,
              const std::vector<ColumnCellTuple> & columns)
 {
     dataset->recordColumn(columnName, columns);
 }
 
 void  DatasetPy::
-recordColumns(const std::vector<std::pair<ColumnName, std::vector<ColumnCellTuple> > > & columns)
+recordColumns(const std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > & columns)
 {
     dataset->recordColumns(columns);
 }
@@ -125,7 +125,7 @@ createPythonProcedure(MldbPythonContext * c,
 //                             LOG(itl->loader) << jsonEncode(pyexc) << endl;
                         }
 
-                        JML_TRACE_EXCEPTIONS(false);
+                        MLDB_TRACE_EXCEPTIONS(false);
                         throw HttpReturnException(400, "Exception creating procedure", 
                                                   pyexc);
                     }
@@ -149,7 +149,7 @@ PythonFunction::
 PythonFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.asJson();
 }

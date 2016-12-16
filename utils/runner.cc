@@ -51,7 +51,7 @@ CreateStdPipe(bool forWriting)
     int fds[2];
     int rc = pipe(fds);
     if (rc == -1) {
-        throw ML::Exception(errno, "CreateStdPipe pipe2");
+        throw MLDB::Exception(errno, "CreateStdPipe pipe2");
     }
 
     if (forWriting) {
@@ -110,7 +110,7 @@ handleChildStatus(const struct epoll_event & event)
                        condition). */
                     break;
                 }
-                throw ML::Exception(errno, "Runner::handleChildStatus read");
+                throw MLDB::Exception(errno, "Runner::handleChildStatus read");
             }
             else if (s == 0) {
                 break;
@@ -163,9 +163,9 @@ handleChildStatus(const struct epoll_event & event)
                 attemptTaskTermination();
                 break;
             case ProcessState::DONE:
-                throw ML::Exception("unexpected status DONE");
+                throw MLDB::Exception("unexpected status DONE");
             case ProcessState::UNKNOWN:
-                throw ML::Exception("unexpected status UNKNOWN");
+                throw MLDB::Exception("unexpected status UNKNOWN");
             }
 
             if (status.launchErrno
@@ -230,7 +230,7 @@ handleOutputStatus(const struct epoll_event & event,
                     break;
                 }
                 else {
-                    throw ML::Exception(errno,
+                    throw MLDB::Exception(errno,
                                         "Runner::handleOutputStatus read");
                 }
             }
@@ -346,7 +346,7 @@ Runner::
 getStdInSink()
 {
     if (stdInSink_) {
-        throw ML::Exception("stdin sink already set");
+        throw MLDB::Exception("stdin sink already set");
     }
     ExcAssertEqual(childStdinFd_, -1);
 
@@ -384,10 +384,10 @@ run(const vector<string> & command,
 {
     if (parent_ == nullptr) {
         LOG(warnings)
-            << ML::format("Runner %p is not connected to any MessageLoop\n", this);
+            << MLDB::format("Runner %p is not connected to any MessageLoop\n", this);
     }
     if (!onTerminate) {
-        throw ML::Exception("'onTerminate' parameter is mandatory");
+        throw MLDB::Exception("'onTerminate' parameter is mandatory");
     }
     ExcAssert(runRequests_ < std::numeric_limits<int>::max());
     runRequests_++;
@@ -398,7 +398,7 @@ run(const vector<string> & command,
        the subprocess to exit to due to PR_SET_DEATHSIG being set .*/
     auto toRun = [=] () {
         try {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
         }
         catch (const std::exception & exc) {
@@ -476,7 +476,7 @@ doRunImpl(const vector<string> & command,
     activeRequest_++;
     ML::futex_wake(activeRequest_);
     if (oldRunning) {
-        throw ML::Exception("already running");
+        throw MLDB::Exception("already running");
     }
     startDate_ = Date::now();
     endDate_ = Date::negativeInfinity();
@@ -511,7 +511,7 @@ doRunImpl(const vector<string> & command,
     ::funlockfile(stderr);
     ::funlockfile(stdout);
     if (task_.wrapperPid == -1) {
-        throw ML::Exception(savedErrno, "Runner::run fork");
+        throw MLDB::Exception(savedErrno, "Runner::run fork");
     }
     else if (task_.wrapperPid == 0) {
         try {
@@ -559,7 +559,7 @@ kill(int signum, bool mustSucceed) const
 {
     if (childPid_ <= 0) {
         if (mustSucceed)
-            throw ML::Exception("subprocess not available");
+            throw MLDB::Exception("subprocess not available");
         else return false;
     }
 
@@ -574,7 +574,7 @@ signal(int signum, bool mustSucceed)
 {
     if (childPid_ <= 0) {
         if (mustSucceed)
-            throw ML::Exception("subprocess not available");
+            throw MLDB::Exception("subprocess not available");
         else return false;
     }
     
@@ -709,10 +709,10 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
 
     int res = execve(argv[0], argv, envp);
     if (res == -1) {
-        throw ML::Exception(errno, "launching runner helper");
+        throw MLDB::Exception(errno, "launching runner helper");
     }
 
-    throw ML::Exception("You are the King of Time!");
+    throw MLDB::Exception("You are the King of Time!");
 }
 
 string
@@ -743,7 +743,7 @@ findRunnerHelper()
             struct stat sb;
             int res = ::stat(staticHelper.c_str(), &sb);
             if (res != 0) {
-                throw ML::Exception(errno, "checking static helper");
+                throw MLDB::Exception(errno, "checking static helper");
             }
         }
         runnerHelper = staticHelper;
@@ -759,7 +759,7 @@ Runner::Task::
 postTerminate(Runner & runner)
 {
     if (wrapperPid <= 0) {
-        throw ML::Exception("wrapperPid <= 0, has postTerminate been executed before?");
+        throw MLDB::Exception("wrapperPid <= 0, has postTerminate been executed before?");
     }
 
     int wrapperPidStatus;
@@ -770,11 +770,11 @@ postTerminate(Runner & runner)
         }
         else if (res == -1) {
             if (errno != EINTR) {
-                throw ML::Exception(errno, "waitpid");
+                throw MLDB::Exception(errno, "waitpid");
             }
         }
         else {
-            throw ML::Exception("waitpid has not returned the wrappedPid");
+            throw MLDB::Exception("waitpid has not returned the wrappedPid");
         }
     }
     wrapperPid = -1;
@@ -787,11 +787,11 @@ postTerminate(Runner & runner)
 
     auto unregisterFd = [&] (int & fd) {
         if (fd > -1) {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             try {
                 runner.removeFd(fd, true);
             }
-            catch (const ML::Exception & exc) {
+            catch (const MLDB::Exception & exc) {
             }
             ::close(fd);
             fd = -1;
@@ -853,7 +853,7 @@ processStatus()
         }
     }
     else
-        throw ML::Exception("unhandled state");
+        throw MLDB::Exception("unhandled state");
 
     return status;
 }
@@ -896,7 +896,7 @@ to_string(const RunResult::State & state)
     case RunResult::PARENT_EXITED: return "PARENT_EXITED";
     }
 
-    return ML::format("RunResult::State(%d)", state);
+    return MLDB::format("RunResult::State(%d)", state);
 }
 
 std::ostream &

@@ -15,13 +15,13 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 static const string literalDoubleQuote("\"\"");
 } // file scope
 
-std::string expect_csv_field(Parse_Context & context, bool & another,
+std::string expect_csv_field(ParseContext & context, bool & another,
                              char separator)
 {
     bool quoted = false;
@@ -88,7 +88,7 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
 }
 
 std::vector<std::string>
-expect_csv_row(Parse_Context & context, int length, char separator)
+expect_csv_row(ParseContext & context, int length, char separator)
 {
     //    cerr << "*** parsing" << endl;
 
@@ -139,4 +139,4 @@ std::string csv_escape(const std::string & s)
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

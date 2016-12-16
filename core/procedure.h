@@ -49,6 +49,12 @@ struct ProcedureRunConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunConfig);
 
+struct ProcedureRunState {
+    Utf8String state;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunState);
+
 struct ProcedureRunStatus: public PolyStatus {
     Date runStarted;   ///< Timestamp at which run of the procedure started
     Date runFinished;  ///< Timestamp at which run of the procedure finished
@@ -350,8 +356,9 @@ registerProcedureType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<ProcedureT>();
              auto procedure = new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
-             procedure->logger = MLDB::getMldbLog<ProcedureT>();
+             procedure->logger = std::move(logger); // noexcept
              return procedure;
          },
          makeInternalDocRedirect(package, docRoute),

@@ -44,8 +44,7 @@ PROTO_SRCS := $(shell cat $(TF_MAKEFILE_DIR)/tf_proto_files.txt)
 TENSORFLOW_EIGEN_INCLUDES:=-Imldb/ext/eigen -I$(CWD)/third_party/eigen3
 
 # Include flags for all of Tensorflow
-TENSORFLOW_BASE_INCLUDE_FLAGS := -I$(CWD) -I$(INC) -Imldb/ext/re2 $(TENSORFLOW_EIGEN_INCLUDES) -I$(INC)/external/eigen_archive -I$(INC)/external -Imldb/ext
-
+TENSORFLOW_BASE_INCLUDE_FLAGS := -I$(CWD) -Imldb/ext/re2 -I$(BUILD)/$(ARCH)/tmp/tensorflow-includes $(TENSORFLOW_EIGEN_INCLUDES) -Imldb/ext -DPLATFORM_POSIX=1 -I$(PROTOBUF_INCLUDE_DIR) -Imldb/ext/highwayhash
 
 # There is a lightweight Protobuf format that is created by this program
 # which is distributed with Tensorflow
@@ -56,7 +55,7 @@ PROTO_TEXT_CC_FILES := $(shell cat $(TF_MAKEFILE_DIR)/proto_text_cc_files.txt)
 
 TENSORFLOW_PROTO_TEXT_FILES := $(PROTO_TEXT_CC_FILES)
 
-$(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so  $(INC)/google/protobuf $(CWD)/tensorflow/core/lib/core/error_codes.pb.h $(CWD)/tensorflow/core/framework/summary.pb.h
+$(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(DEPENDS_ON_PROTOBUF_INCLUDES) $(CWD)/tensorflow/core/lib/core/error_codes.pb.h $(CWD)/tensorflow/core/framework/summary.pb.h
 
 $(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field -Wno-unused-const-variable))
 
@@ -78,68 +77,79 @@ TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(C
 # Tensorflow comes bundled with scripts that download various external things
 # that we already have as a system dependency, and hardcodes the include
 # path.  We create include directories that forward to /usr/include to point
-# to the system versions.
-TENSORFLOW_INCLUDES:= \
-	$(INC)/external/libpng-1.2.53
+# to the system versions, or include them as submodules and create a fake
+# include directory for tensorflow to find them under.
+TENSORFLOW_FAKE_INCLUDE_DIR:=$(BUILD)/$(ARCH)/tmp/tensorflow-includes
 
-# How to actually make an include directory pointing to /usr/include
-$(TENSORFLOW_INCLUDES):
-	@mkdir -p $(dir $(@)) && ln -s /usr/include $(@)
-
-# We need the 9a release of libjpeg, which is incldued in ext.  Here we set
-# up the include path so it can be found.
-$(INC)/external/jpeg-9a: $(JPEG_INCLUDE_FILES)
-	@mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/jpeg $(@)
-
-# It also needs re2, which we have locally in ext.  We create the necessary
-# include directories.
-$(INC)/external/re2:
-	@mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/re2 $(@)
-
-# It also needs re2, which we have locally in ext.  We create the necessary
-# include directories.
-$(INC)/external/highwayhash:
-	@mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/highwayhash/highwayhash $(@)
-
-# And farmhash, which is local
+# What version of farmhash do we need?
 TENSORFLOW_FARMHASH_HASH:=$(shell grep 'prefix_dir' mldb/ext/tensorflow/farmhash.BUILD | head -n1 | sed 's/.*"farmhash-\(.*\)".*/\1/')
 $(if $(TENSORFLOW_FARMHASH_HASH),,$(error Couldnt find farmhash hash))
-$(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH):
+
+$(TENSORFLOW_FAKE_INCLUDE_DIR)/farmhash-$(TENSORFLOW_FARMHASH_HASH):
 	@mkdir -p $(dir $(@)) && ln -sf $(PWD)/mldb/ext/farmhash $(@)
 
 # Finally, we need eigen3.  It includes it with the specific Mercurial
 # hash needed, which we list here.  This is also included in ext.
+
+# What version of eigen do we need?
 TENSORFLOW_EIGEN_MERCURIAL_HASH:=$(shell grep 'eigen_version' mldb/ext/tensorflow/tensorflow/workspace.bzl | head -n1 | sed 's/.*eigen_version = "\(.*\)".*/\1/')
 $(if $(TENSORFLOW_EIGEN_MERCURIAL_HASH),,$(error Couldnt find Eigen hash.  You may need to run `git submodule update --init --recursive` to get all the required submodules.))
-$(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH):
+
+$(TENSORFLOW_FAKE_INCLUDE_DIR)/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH):
 	@mkdir -p $(dir $(@)) && ln -sf $(PWD)/mldb/ext/eigen $(@)
+
+# We take the system libpng, and just put it where tensorflow can include it
+$(TENSORFLOW_FAKE_INCLUDE_DIR)/libpng-1.2.53:
+	@mkdir -p $(dir $(@)) && ln -s /usr/include $(@)
+
+
+
+# This is a list of all of them, which acts as a dependency target
+TENSORFLOW_INCLUDES:= \
+	$(TENSORFLOW_FAKE_INCLUDE_DIR)/libpng-1.2.53 \
+	$(TENSORFLOW_FAKE_INCLUDE_DIR)/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) \
+	$(TENSORFLOW_FAKE_INCLUDE_DIR)/farmhash-$(TENSORFLOW_FARMHASH_HASH) \
+
 
 # To create a protobuf file, we compile the input file.  Same for the .h
 # file.
-$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(HOSTBIN)/protoc $(INC)/google/protobuf
+$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto | $(DEPENDS_ON_PROTOC) $(DEPENDS_ON_PROTOBUF_INCLUDES)
 	@echo "         $(COLOR_CYAN)[PROTO]$(COLOR_RESET)			$(basename $<)"
-	@$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
+	@$(PROTOC) $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
 # Same for pb_text files
-$(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto | $(BIN)/proto_text
+$(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto | $(HOSTBIN)/proto_text $(DEPENDS_ON_PROTOBUF_INCLUDES)
 	@echo "      $(COLOR_CYAN)[PROTOTXT]$(COLOR_RESET)			$(basename $<)"
-	@$(BIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
+	@$(HOSTBIN)/proto_text mldb/ext/tensorflow/tensorflow/core tensorflow/core mldb/ext/tensorflow/tensorflow/tools/proto_text/placeholder.txt $<
 
-#	(cd mldb/ext/tensorflow && $(PWD)/$(BIN)/proto_text tensorflow/core tensorflow/core tensorflow/tools/proto_text/placeholder.txt $(removeprefix mldb/ext/tensorflow/,$<))
-
-#@$(BIN)/proto_text mldb/ext/tensorflow/core mldb/ext/tensorflow/core mldb/ext/tensorflow/tools/proto_text/placeholder.txt $<
 
 # CUDA base defines, used even with no CUDA support
 CUDA_VERSION?=8.0
 CUDNN_VERSION?=5
 
+# Which CUDA capabilities do we want to pre-build for?
+# https://developer.nvidia.com/cuda-gpus
+#   Compute/shader model   Cards
+#   6.1			   P4, P40, Titan X
+#   6.0                    P100
+#   5.2                    M40
+#   3.7                    K80
+#   3.5                    K40, K20
+#   3.0                    K10, Grid K520 (AWS G2)
+#   Other Nvidia shader models should work, but they will require extra startup
+#   time as the code is pre-optimized for them.
+CUDA_MODELS=30 35 37 52 60 61
+
 # Which CUDA compute capabilities do we support?  3.0 is needed for the
-# AWS g2 instances.
-TF_CUDA_CAPABILITIES:=5.3
+# AWS g2 instances; this is the lowest common denominator
+TF_CUDA_CAPABILITIES?=3.0
 
 # This part deals with CUDA support.  It's only enabled if WITH_CUDA is
 # equal to 1.
 ifeq ($(WITH_CUDA),1)
+
+# Which version of CUDA do we use?
+CUDA_VERSION?=8.0
 
 # This is the directory that the whole CUDA development kit is installed
 # inside.
@@ -189,8 +199,12 @@ TENSORFLOW_CUDA_INCLUDE_FLAGS:=-Isystem$(CUDA_SYSTEM_HEADER_DIR) -I$(CUDA_SYSTEM
 # nvcc compiler.  These are anything that end in .cu.cc
 TENSORFLOW_CUDA_NVCC_FILES:=$(shell (find $(CWD)/tensorflow -name "*.cu.cc") | grep -v how_tos | grep -v contrib/)
 
+# They depend on protobuf
+$(TENSORFLOW_CUDA_NVCC_FILES): | $(DEPENDS_ON_PROTOBUF_INCLUDES)
+
 # Turn them into the symbolic source names we need for the build system
 TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
+
 
 # Here are the common flags to compile tensorflow with CUDA support.
 # The whole of Tensorflow, not just the CUDA kernels, need to have these
@@ -205,7 +219,10 @@ TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
 #   between the CUDA and non-CUDA kernels; otherwise there will be linker
 #   errors.  If you get something like "undefined symbol tensorflow::functor::XXXFunctor<Eigen::GpuDevice>::Reduce<..., std::array*, >(...)" then this is
 #   the problem.
-TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -I$(INC)/third_party/gpus
+# - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
+#   Eigen disables needed std::initializer_list constructors in its arrays
+#   because it doesn't properly detect that this feature is available
+TENSORFLOW_COMMON_CUDA_FLAGS=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -DEIGEN_HAS_VARIADIC_TEMPLATES=1 -I$(INC)/third_party/gpus
 
 # Here are the flags we need to pass to NVCC to compile TensorFlow's CUDA
 # files.
@@ -214,10 +231,8 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 #   Tensorflow and Eigen
 # - disable-warnings turns off warning messages, which are somewhat
 #   spurious.
-# - arch=compute_30 targets the compute model 3.0 with pre-optimized
-#   binaries (ie, the grid K520 which is on the Amazon GPU instances).  Other
-#   Nvidia compute models will work, but they will require extra startup
-#   time as the code is pre-optimized for them.
+# - -gencode=... targets the following compute models with pre-optimized
+#   binaries:
 # - Xcompiler -fPIC,-g,-O3 to control the flags passed to the host compiler
 #   to make things properly integrate.
 # - --compiler-bindir: set up the proper backend compiler for our
@@ -225,14 +240,18 @@ TENSORFLOW_COMMON_CUDA_FLAGS:=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN
 # - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
 #   Eigen disables needed std::initializer_list constructors in its arrays
 #   because it doesn't properly detect that this feature is available
-TENSORFLOW_NVCC_CUDA_FLAGS:=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings -arch=compute_53 -code=sm_53 -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) -DEIGEN_HAS_VARIADIC_TEMPLATES=1
+# - For cross-compilation, we tell it exactly what the underlying compiler
+#   is so that it gets it right
+#   See here: http://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#cross-platform
+
+TENSORFLOW_NVCC_CUDA_FLAGS=$(TENSORFLOW_COMMON_CUDA_FLAGS) -std=c++11 --disable-warnings $(foreach model,$(CUDA_MODELS),-gencode arch=compute_$(model)$(comma)code=sm_$(model)) -g -O3 -Xcompiler -fPIC --compiler-bindir=$(lastword $(CXX)) $(TENSORFLOW_ARCH_CUDA_FLAGS) -DEIGEN_HAS_VARIARDIC_TEMPLATES=1
 
 # When compiling the cuda kernels we need to use the include flags and
 # some of our own
-$(eval $(call set_compile_option,$(TENSORFLOW_CUDA_NVCC_BUILD),$(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_INCLUDE_FLAGS) $(TENSORFLOW_NVCC_CUDA_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CUDA_NVCC_BUILD),$$(TENSORFLOW_BASE_INCLUDE_FLAGS) $$(TENSORFLOW_CUDA_INCLUDE_FLAGS) $$(TENSORFLOW_NVCC_CUDA_FLAGS)))
 
-# Libraries we need to link with
-TENSORFLOW_CUDA_LINK:=cudart #cublas curand cufft
+# Libraries we need to link with.
+TENSORFLOW_CUDA_LINK:=  cudart cublas curand cufft
 
 # Library path for CUDA
 CUDA_LIB_PATH?=$(CUDA_BASE_DIR)/lib64
@@ -280,7 +299,7 @@ TENSORFLOW_INCLUDE_FLAGS := $(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_I
 TENSORFLOW_COMPILE_FLAGS := $(TENSORFLOW_WARNING_FLAGS) $(TENSORFLOW_INCLUDE_FLAGS) $(TENSORFLOW_COMMON_CUDA_FLAGS) -DEIGEN_AVOID_STL_ARRAY=1
 
 # Here is the list of files we need to compile for tensorflow to be incorporated
-$(TENSORFLOW_CC_FILES):	| $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/highwayhash
+$(TENSORFLOW_CC_FILES):	| $(TENSORFLOW_INCLUDES) $(DEPENDS_ON_PROTOBUF_INCLUDES)
 
 # Those which are not required to build the proto-text compiler also
 # depend on protobuf files
@@ -292,7 +311,7 @@ TENSORFLOW_CC_BUILD:=$(sort $(TENSORFLOW_CC_FILES:$(CWD)/%=%))
 
 # We need to set up include paths and turn off a bunch of warnings.  Most of
 # them are triggered by the (3rd party) Eigen library.
-$(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$$(TENSORFLOW_COMPILE_FLAGS)))
 
 # Libraries that the core of TensorFlow relies on.  We need the CUDA
 # libraries, if support is included, since the core includes the
@@ -311,9 +330,9 @@ TENSORFLOW_CC_OP_GEN_FILES := \
 	tensorflow/cc/framework/cc_op_gen.cc \
 	tensorflow/cc/framework/cc_op_gen_main.cc
 
-$(TENSORFLOW_CC_OP_GEN_FILES:%=$(CWD)/%):	$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so  $(INC)/google/protobuf 
+$(TENSORFLOW_CC_OP_GEN_FILES:%=$(CWD)/%):	$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(DEPENDS_ON_PROTOBUF_INCLUDES) 
 
-$(eval $(call set_compile_option,$(TENSORFLOW_CC_OP_GEN_FILES),$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_OP_GEN_FILES),$$(TENSORFLOW_COMPILE_FLAGS)))
 
 $(eval $(call program,cc_op_gen,tensorflow-core,$(TENSORFLOW_CC_OP_GEN_FILES)))
 
@@ -331,20 +350,20 @@ TENSORFLOW_OPS := $(filter-out attention summary,$(TENSORFLOW_OPS_SOURCES:$(CWD)
 
 # Each op file may include protobuf files or other headers, so these are also
 # dependent on those.
-$(TENSORFLOW_OPS_SOURCES): $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc
+$(TENSORFLOW_OPS_SOURCES): $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES)
 
 # Create a library for each of the ops.  We also have to adjust the compilation
 # flags so that it actually compiles
 $(foreach op,$(TENSORFLOW_OPS), \
-	$(eval $(call set_compile_option,tensorflow/core/ops/$(op)_ops.cc,$(TENSORFLOW_COMPILE_FLAGS))) \
+	$(eval $(call set_compile_option,tensorflow/core/ops/$(op)_ops.cc,$$(TENSORFLOW_COMPILE_FLAGS))) \
 	$(eval $(call library,tensorflow_$(op)_ops,tensorflow/core/ops/$(op)_ops.cc)) \
 )
 
 # Put them all into one convenient library, along with the no_op.  The no_op
 # has to be here, and not in the core library, as otherwise the interface is
 # generated for each of the ops and we have multiple definitions.
-$(CWD)/tensorflow/core/ops/no_op.cc: | $(INC)/google/protobuf $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
-$(eval $(call set_compile_option,tensorflow/core/ops/no_op.cc,$(TENSORFLOW_COMPILE_FLAGS)))
+$(CWD)/tensorflow/core/ops/no_op.cc: | $(DEPENDS_ON_PROTOBUF_INCLUDES) $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
+$(eval $(call set_compile_option,tensorflow/core/ops/no_op.cc,$$(TENSORFLOW_COMPILE_FLAGS)))
 $(eval $(call library,tensorflow_no_op,tensorflow/core/ops/no_op.cc))
 
 $(eval $(call library,tensorflow-ops,,$(foreach op,$(TENSORFLOW_OPS),tensorflow_$(op)_ops) tensorflow_no_op tensorflow-core,,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
@@ -357,7 +376,7 @@ TENSORFLOW_KERNEL_CC_BUILD:=$(sort $(TENSORFLOW_KERNEL_CC_FILES:$(CWD)/%=%))
 
 # Dependencies for the kernel files... basically everything else needs to
 # be built first
-$(TENSORFLOW_KERNEL_CC_FILES):	$(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc  $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/libpng-1.2.53 $(INC)/third_party/gpus/cuda/cuda_config.h
+$(TENSORFLOW_KERNEL_CC_FILES):	$(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(DEPENDS_ON_PROTOBUF_INCLUDES) $(INC)/third_party/gpus/cuda/cuda_config.h
 
 # This is a list of variants for each architecture
 # Note that this can cause long compile times as a big chunk of
@@ -378,7 +397,7 @@ TF_KERNEL_VARIANT_x86_64_avx2:=-mavx2 -mfma
 # ARM variants don't currently detect their CPU capabilities at
 # runtime, so only a generic variant is compiled
 TF_KERNEL_VARIANT_aarch64_generic:=-funsafe-math-optimizations -ftree-vectorize -Os
-TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize
+TF_KERNEL_VARIANT_arm_generic:=-funsafe-math-optimizations -ftree-vectorize -Os
 
 # By default, we compile all kernel variants for our architecture
 # This can be overridden to speed up compile times
@@ -406,12 +425,12 @@ define tf_kernel_variant
 mldb/ext/tensorflow/../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%:	$(CWD)/%
 	@mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
 
-TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$(TENSORFLOW_KERNEL_CC_BUILD:%=../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/%)
+TENSORFLOW_KERNEL_BUILD_VARIANT_$(1):=$$(addprefix ../../$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants/$(1)/,$$(TENSORFLOW_KERNEL_CC_BUILD))
 
 $$(eval $$(call set_compile_option,$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)),$$(TENSORFLOW_COMPILE_FLAGS) $$(TF_KERNEL_VARIANT_$(ARCH)_$(1))))
 $$(eval $$(call library,tensorflow-kernels-$(1),$$(TENSORFLOW_KERNEL_BUILD_VARIANT_$(1)) $$(TENSORFLOW_CUDA_NVCC_BUILD),tensorflow-ops $$(TENSORFLOW_CUDA_LINK),,,,,$$(TENSORFLOW_CUDA_LINKER_FLAGS),$(BUILD)/$(ARCH)/tmp/tensorflow-kernel-variants))
 
-# Tensorflow depends upon having a variant
+# Tensorflow depends upon having this variant available
 $(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so
 
 #$(w arning $(LIB)/libtensorflow.so: $(LIB)/libtensorflow-kernels-$(1).so)
@@ -438,22 +457,28 @@ tensorflow_lib: $(LIB)/libtensorflow.so
 
 define generate_tensorflow_op
 
-$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so | $(INC)/google/protobuf 
+$(CWD)/tensorflow/cc/ops/$(1)_ops.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so | $(DEPENDS_ON_PROTOBUF_INCLUDES)
 	@LD_PRELOAD=$(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so $(HOSTBIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(1)_ops.cc 0
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
 
 $(CWD)/tensorflow/cc/ops/$(1)_ops.h: | $(CWD)/tensorflow/cc/ops/$(1)_ops.cc
- 
+
+# We need these libraries to be available for the build to run, so make them part
+# of build_tools
+build_tools:	$(BUILD)/$(HOSTARCH)/lib/libtensorflow_$(1)_ops.so
+
 endef
 
 $(foreach op,$(TENSORFLOW_OPS),$(eval $(call generate_tensorflow_op,$(op))))
 
 # Generate the no-op
-$(CWD)/tensorflow/cc/ops/no_op.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_no_op.so | $(INC)/google/protobuf 
+$(CWD)/tensorflow/cc/ops/no_op.cc:	$(HOSTBIN)/cc_op_gen $(BUILD)/$(HOSTARCH)/lib/libtensorflow_no_op.so | $(DEPENDS_ON_PROTOBUF_INCLUDES)
 	@LD_PRELOAD=$(BUILD)/$(HOSTARCH)/lib/libtensorflow_no_op.so $(HOSTBIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/no_op.h $(TF_CWD)/tensorflow/cc/ops/no_op.cc 0
 	@touch $(TF_CWD)/tensorflow/cc/ops/user_op.h
 
 $(CWD)/tensorflow/cc/ops/no_op.h: | $(CWD)/tensorflow/cc/ops/no_op.cc
+
+build_tools: $(BUILD)/$(HOSTARCH)/lib/libtensorflow_no_op.so
 
 # Find the source files needed for the C++ interface.  Some are pre-packaged and
 # others were generated above.
@@ -461,17 +486,23 @@ TENSORFLOW_CC_INTERFACE_FILES:=$(sort $(shell (find $(CWD)/tensorflow/cc -name "
 
 # Each of these may include protobuf files or other headers, so these are also
 # dependent on those.
-$(TENSORFLOW_CC_INTERFACE_FILES): $(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(HOSTBIN)/protoc  $(INC)/google/protobuf
+$(TENSORFLOW_CC_INTERFACE_FILES): $(TENSORFLOW_PROTOBUF_HEADERS) | $(TENSORFLOW_INCLUDES) $(DEPENDS_ON_PROTOBUF_INCLUDES)
 
 # Turn them into arguments for the library macro by stripping the CWD
 TENSORFLOW_CC_INTERFACE_BUILD:=$(TENSORFLOW_CC_INTERFACE_FILES:$(CWD)/%=%)
 
 # Create the interface library
-$(eval $(call set_compile_option,$(TENSORFLOW_CC_INTERFACE_BUILD),$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_INTERFACE_BUILD),$$(TENSORFLOW_COMPILE_FLAGS)))
 $(eval $(call library,tensorflow-cpp-interface,$(TENSORFLOW_CC_INTERFACE_BUILD),tensorflow))
 
 # This variable can be used by something that includes tensorflow to say that
 # it depends on the tensorflow include files.
 DEPENDS_ON_TENSORFLOW_HEADERS:=$(TENSORFLOW_PROTOBUF_HEADERS) $(foreach op,$(TENSORFLOW_OPS),$(CWD)/tensorflow/cc/ops/$(op)_ops.h) $(CWD)/tensorflow/cc/ops/no_op.h
+
+# Finally, we need some host build tools to make everything work.  Those are defined here.
+
+build_tools:   $(HOSTBIN)/cc_op_gen $(HOSTBIN)/proto_text
+
+
 
 endif

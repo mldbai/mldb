@@ -70,7 +70,7 @@ struct MongoQueryFunction: Function {
         MldbServer * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress)
-            : Function(owner)
+            : Function(owner, config)
     {
         queryConfig = config.params.convert<MongoQueryConfig>();
         mongoUri = mongocxx::uri(queryConfig.uriConnectionScheme);
@@ -164,7 +164,7 @@ struct MongoQueryFunction: Function {
                 return std::move(row);
             }
             else {
-                throw ML::Exception("Unknown outputType");
+                throw MLDB::Exception("Unknown outputType");
             }
         }
 
@@ -182,7 +182,7 @@ struct MongoQueryFunction: Function {
             PathElement("query"), std::make_shared<AtomValueInfo>(),
             COLUMN_IS_DENSE, 0);
 
-        result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+        result.input.emplace_back(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
         result.output.reset(new RowValueInfo(outputColumns, SCHEMA_OPEN));
 
         return result;

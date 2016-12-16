@@ -23,14 +23,14 @@
 #include <cmath>
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     BOOST_CHECK(cpuid_flags() != 0);
 #endif
 }
@@ -303,13 +303,13 @@ void vec_dotprod_test_case(int nvals)
     if (error >= eps) {
         cerr << "r = " << r << " r2 = " << r2 << endl;
         cerr << "error = " << error << " eps = " << eps << endl;
-        cerr << "type " << ML::type_name<T>() << endl;
+        cerr << "type " << MLDB::type_name<T>() << endl;
     }
     BOOST_CHECK(error < eps);
 }
 
-#if JML_INTEL_ISA
-namespace ML {
+#if MLDB_INTEL_ISA
+namespace MLDB {
 namespace SIMD {
 namespace Generic {
 double vec_dotprod_sse2(const float * x, const float * y, size_t n);
@@ -322,7 +322,7 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_dotprod(const double * x, const double * y, size_t n);
 } // namespace Avx
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB
 
 template<typename T>
 void vec_dotprod_dp_test_case(int nvals)
@@ -338,7 +338,7 @@ void vec_dotprod_dp_test_case(int nvals)
     
     double r2 = SIMD::vec_dotprod_dp_sse2(x, y, nvals);
     // this will be trivially true if the CPU does not support AVX
-    double r2a = ML::has_avx() ? SIMD::Avx::vec_dotprod_dp(x, y, nvals) :
+    double r2a = MLDB::has_avx() ? SIMD::Avx::vec_dotprod_dp(x, y, nvals) :
         SIMD::vec_dotprod_dp_sse2(x, y, nvals);
 
     if (r2 != r2a)
@@ -347,7 +347,7 @@ void vec_dotprod_dp_test_case(int nvals)
     BOOST_CHECK_EQUAL(r2, r2a);
 
     // this will be trivially true if the CPU does not support AVX
-    double r3 = ML::has_avx() ? SIMD::Avx::vec_dotprod(x, y, nvals) :
+    double r3 = MLDB::has_avx() ? SIMD::Avx::vec_dotprod(x, y, nvals) :
          SIMD::vec_dotprod_sse2(x, y, nvals);
     double r4 = SIMD::vec_dotprod_sse2(x, y, nvals);
 

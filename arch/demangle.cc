@@ -21,7 +21,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 char * char_demangle(const char * name)
 {
@@ -55,5 +55,5 @@ std::string demangle(const std::type_info & type)
     return demangle(type.name());
 }
 
-} // namespace ML
+} // namespace MLDB
 

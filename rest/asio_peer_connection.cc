@@ -316,7 +316,7 @@ onReadLengthDone(boost::system::error_code err, size_t bytesDone,
     if (bytesDone != 8) {
         // This is a logic error; it should never happen.  It's OK to
         // crash the world.
-        throw ML::Exception("wrong number of length bytes read in packet");
+        throw MLDB::Exception("wrong number of length bytes read in packet");
     }
 
     //cerr << "itl->currentPacketLength = " << itl->currentPacketLength << endl;

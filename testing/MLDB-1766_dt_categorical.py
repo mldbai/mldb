@@ -95,7 +95,7 @@ class MLDB1766DtCategoricalIris(MldbUnitTest):  # noqa
 
         runResults = rez.json()["status"]["firstRun"]["status"]
 
-        self.assertLess(runResults["labelStatistics"]["Iris-virginica"]["recall"], 0.95)
+        self.assertLess(runResults["labelStatistics"]["Iris-virginica"]["recall"], 0.98)
 
     
     def test_boolean_unbalanced(self):

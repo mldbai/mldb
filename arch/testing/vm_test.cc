@@ -14,6 +14,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
+#include "mldb/base/scope.h"
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>
@@ -24,7 +25,7 @@
 
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -37,7 +38,7 @@ size_t num_open_files()
         throw Exception("num_open_files(): opendir(): "
                         + string(strerror(errno)));
 
-    Call_Guard closedir_dfd(std::bind(closedir, dfd));
+    Scope_Exit(closedir(dfd));
 
     size_t result = 0;
     
@@ -102,10 +103,10 @@ BOOST_AUTO_TEST_CASE( test_pagemap_reader )
         BOOST_CHECK_EQUAL(reader[9].present, false);
         
         {
-            JML_TRACE_EXCEPTIONS(false);
-            BOOST_CHECK_THROW(reader[10], ML::Exception);
-            BOOST_CHECK_THROW(reader[memory - 1], ML::Exception);
-            BOOST_CHECK_THROW(reader[memory + npages * page_size], ML::Exception);
+            MLDB_TRACE_EXCEPTIONS(false);
+            BOOST_CHECK_THROW(reader[10], MLDB::Exception);
+            BOOST_CHECK_THROW(reader[memory - 1], MLDB::Exception);
+            BOOST_CHECK_THROW(reader[memory + npages * page_size], MLDB::Exception);
         }
         
         BOOST_CHECK_EQUAL(reader[memory].present, false);

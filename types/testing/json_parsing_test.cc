@@ -17,13 +17,12 @@
 #include <math.h>
 
 using namespace MLDB;
-using namespace ML;
 
 using boost::unit_test::test_suite;
 
 void testUnsigned(const std::string & str, unsigned long long expected)
 {
-    Parse_Context context(str, str.c_str(), str.c_str() + str.size());
+    ParseContext context(str, str.c_str(), str.c_str() + str.size());
     auto val = expectJsonNumber(context);
     context.expect_eof();
     BOOST_CHECK_EQUAL(val.uns, expected);
@@ -32,7 +31,7 @@ void testUnsigned(const std::string & str, unsigned long long expected)
 
 void testSigned(const std::string & str, long long expected)
 {
-    Parse_Context context(str, str.c_str(), str.c_str() + str.size());
+    ParseContext context(str, str.c_str(), str.c_str() + str.size());
     auto val = expectJsonNumber(context);
     context.expect_eof();
     BOOST_CHECK_EQUAL(val.uns, expected);
@@ -41,7 +40,7 @@ void testSigned(const std::string & str, long long expected)
 
 void testFp(const std::string & str, double expected)
 {
-    Parse_Context context(str, str.c_str(), str.c_str() + str.size());
+    ParseContext context(str, str.c_str(), str.c_str() + str.size());
     auto val = expectJsonNumber(context);
     context.expect_eof();
     BOOST_CHECK_EQUAL(val.fp, expected);
@@ -50,7 +49,7 @@ void testFp(const std::string & str, double expected)
 
 void testHex4(const std::string & str, long long expected)
 {
-    Parse_Context context(str, str.c_str(), str.c_str() + str.size());
+    ParseContext context(str, str.c_str(), str.c_str() + str.size());
     auto val = context.expect_hex4();
     context.expect_eof();
     BOOST_CHECK_EQUAL(val, expected);
@@ -77,7 +76,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     testHex4("0026", 38);
     testHex4("001A", 26);
     
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_THROW(testFp(".", 0.1), std::exception);
     BOOST_CHECK_THROW(testFp("", 0.1), std::exception);
     BOOST_CHECK_THROW(testFp("e3", 0.1), std::exception);
@@ -89,7 +88,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     BOOST_CHECK_THROW(testHex4("002.", 2), std::exception);
 }
 
-void testExpectStringUtf8(ML::Parse_Context * context)
+void testExpectStringUtf8(ParseContext * context)
 {
     skipJsonWhitespace((*context));
     context->expect_literal('"');
@@ -163,6 +162,6 @@ void testExpectStringUtf8(ML::Parse_Context * context)
 BOOST_AUTO_TEST_CASE(test_utf8_bad_string)
 {
     std::string s = "\"http\\u00253A\\u00252F\\u";
-    Parse_Context context(s, s.c_str(), s.c_str() + s.length());
-    BOOST_CHECK_THROW(testExpectStringUtf8(&context), ML::Parse_Context::Exception);
+    ParseContext context(s, s.c_str(), s.c_str() + s.length());
+    BOOST_CHECK_THROW(testExpectStringUtf8(&context), ParseContext::Exception);
 }

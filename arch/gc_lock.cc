@@ -137,11 +137,11 @@ struct GcLockBase::DeferredList {
     ~DeferredList()
     {
         //if (lock.locked())
-        //    throw ML::Exception("deleting deferred in locked condition");
+        //    throw MLDB::Exception("deleting deferred in locked condition");
         if (size() != 0) {
             cerr << "deleting non-empty deferred with " << size()
                  << " entries" << endl;
-            //throw ML::Exception("deleting non-empty deferred");
+            //throw MLDB::Exception("deleting non-empty deferred");
         }
     }
 
@@ -150,8 +150,8 @@ struct GcLockBase::DeferredList {
         //ExcAssertEqual(lock.locked(), 0);
         //ExcAssertEqual(other.lock.locked(), 0);
 
-        //std::lock_guard<ML::Spinlock> guard(lock);
-        //std::lock_guard<ML::Spinlock> guard2(other.lock);
+        //std::lock_guard<Spinlock> guard(lock);
+        //std::lock_guard<Spinlock> guard2(other.lock);
 
         deferred1.swap(other.deferred1);
         deferred2.swap(other.deferred2);
@@ -161,11 +161,11 @@ struct GcLockBase::DeferredList {
     std::vector<DeferredEntry1> deferred1;
     std::vector<DeferredEntry2> deferred2;
     std::vector<DeferredEntry3> deferred3;
-    //mutable ML::Spinlock lock;
+    //mutable Spinlock lock;
 
     bool addDeferred(int forEpoch, void (fn) (void *), void * data)
     {
-        //std::lock_guard<ML::Spinlock> guard(lock);
+        //std::lock_guard<Spinlock> guard(lock);
         deferred1.push_back(DeferredEntry1(fn, data));
         return true;
     }
@@ -173,7 +173,7 @@ struct GcLockBase::DeferredList {
     bool addDeferred(int forEpoch, void (fn) (void *, void *),
                      void * data1, void * data2)
     {
-        //std::lock_guard<ML::Spinlock> guard(lock);
+        //std::lock_guard<Spinlock> guard(lock);
         deferred2.push_back(DeferredEntry2(fn, data1, data2));
         return true;
     }
@@ -181,21 +181,21 @@ struct GcLockBase::DeferredList {
     bool addDeferred(int forEpoch, void (fn) (void *, void *, void *),
                      void * data1, void * data2, void * data3)
     {
-        //std::lock_guard<ML::Spinlock> guard(lock);
+        //std::lock_guard<Spinlock> guard(lock);
         deferred3.push_back(DeferredEntry3(fn, data1, data2, data3));
         return true;
     }
         
     size_t size() const
     {
-        //std::lock_guard<ML::Spinlock> guard(lock);
+        //std::lock_guard<Spinlock> guard(lock);
         return deferred1.size() + deferred2.size() + deferred3.size();
     }
 
     void runAll()
     {
         // Spinlock should be unnecessary...
-        //std::lock_guard<ML::Spinlock> guard(lock);
+        //std::lock_guard<Spinlock> guard(lock);
 
         for (unsigned i = 0;  i < deferred1.size();  ++i) {
             try {
@@ -227,13 +227,13 @@ struct GcLockBase::DeferredList {
 };
 
 struct GcLockBase::Deferred {
-    mutable ML::Spinlock lock;
+    mutable Spinlock lock;
     std::map<int32_t, DeferredList *> entries;
     std::vector<DeferredList *> spares;
 
     bool empty() const
     {
-        std::lock_guard<ML::Spinlock> guard(lock);
+        std::lock_guard<Spinlock> guard(lock);
         return entries.empty();
     }
 };
@@ -242,7 +242,7 @@ std::string
 GcLockBase::ThreadGcInfoEntry::
 print() const
 {
-    return ML::format("inEpoch: %d, readLocked: %d, writeLocked: %d",
+    return MLDB::format("inEpoch: %d, readLocked: %d, writeLocked: %d",
                       inEpoch, readLocked, writeLocked);
 }
 
@@ -427,7 +427,7 @@ std::string
 GcLockBase::Atomic::
 print() const
 {
-    return ML::format("epoch: %d, in: %d, in-1: %d, visible: %d, exclusive: %d",
+    return MLDB::format("epoch: %d, in: %d, in-1: %d, visible: %d, exclusive: %d",
                       epoch, anyInCurrent(), anyInOld(), visibleEpoch(),
                       (int)exclusive());
 }
@@ -509,7 +509,7 @@ runDefers()
 {
     std::vector<DeferredList *> toRun;
     {
-        std::lock_guard<ML::Spinlock> guard(deferred->lock);
+        std::lock_guard<Spinlock> guard(deferred->lock);
         toRun = checkDefers();
     }
 
@@ -593,7 +593,7 @@ GcLockBase::
 exitCS(ThreadGcInfoEntry * entry, RunDefer runDefer /* = true */)
 {
     if (entry->inEpoch == -1)
-        throw ML::Exception("not in a CS");
+        throw MLDB::Exception("not in a CS");
 
     ExcCheck(entry->inEpoch == 0 || entry->inEpoch == 1,
             "Invalid inEpoch");
@@ -721,7 +721,7 @@ visibleBarrier()
     ThreadGcInfoEntry & entry = getEntry();
 
     if (entry.inEpoch != -1)
-        throw ML::Exception("visibleBarrier called in critical section will "
+        throw MLDB::Exception("visibleBarrier called in critical section will "
                             "deadlock");
 
     Atomic current = data->atomic;
@@ -751,7 +751,7 @@ visibleBarrier()
             long res = futex_wait(data->visibleFutex, current.visibleEpoch());
             if (res == -1) {
                 if (errno == EAGAIN || errno == EINTR) continue;
-                throw ML::Exception(errno, "futex_wait");
+                throw MLDB::Exception(errno, "futex_wait");
             }
         }
     }
@@ -857,7 +857,7 @@ doDefer(void (fn) (Args...), Args... args)
 
     for (int i = 0; i == 0; ++i) {
         // Lock the deferred structure
-        std::lock_guard<ML::Spinlock> guard(deferred->lock);
+        std::lock_guard<Spinlock> guard(deferred->lock);
 
 #if 1
         // Get back to current again
@@ -937,7 +937,7 @@ dump()
          << " excl " << current.exclusive() << endl;
     cerr << "deferred: ";
     {
-        std::lock_guard<ML::Spinlock> guard(deferred->lock);
+        std::lock_guard<Spinlock> guard(deferred->lock);
         cerr << deferred->entries.size() << " epochs: ";
         
         for (auto it = deferred->entries.begin(), end = deferred->entries.end();

@@ -163,7 +163,6 @@ var expected5 = [
          [ "y", 3, "2015-01-01T00:00:00Z" ],
          [ "z", null, "-Inf" ]
       ],
-      "rowHash" : "397de880d5f0376e",
       "rowName" : "ex1"
    },
    {
@@ -172,7 +171,6 @@ var expected5 = [
          [ "y", 2, "2015-01-01T00:00:00Z" ],
          [ "z", "yes", "2015-01-01T00:00:00Z" ]
       ],
-      "rowHash" : "ed64a202cef7ccf1",
       "rowName" : "ex2"
    },
    {
@@ -181,7 +179,6 @@ var expected5 = [
          [ "y", 1, "2015-01-01T00:00:00Z" ],
          [ "z", null, "-Inf" ]
       ],
-      "rowHash" : "418b8ce19e0de7a3",
       "rowName" : "ex3"
    },
    {
@@ -190,7 +187,6 @@ var expected5 = [
          [ "y", 0, "2015-01-01T00:00:00Z" ],
          [ "z", "no", "2015-01-01T00:00:00Z" ]
       ],
-      "rowHash" : "213ca5902e95224e",
       "rowName" : "ex4"
    }
 ];

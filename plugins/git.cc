@@ -18,6 +18,7 @@
 #include "mldb/base/parallel.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 
 #include <git2.h>
 #include <git2/revwalk.h>
@@ -301,7 +302,7 @@ struct GitImporter: public Procedure {
     };
 
     // Process an individual commit
-    std::vector<std::tuple<ColumnName, CellValue, Date> >
+    std::vector<std::tuple<ColumnPath, CellValue, Date> >
     processCommit(git_repository * repo, const git_oid & oid) const
     {
         string sha = encodeOid(oid);
@@ -403,16 +404,16 @@ struct GitImporter: public Procedure {
         Utf8String authorName(author->name);
         Utf8String authorEmail(author->email);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > row;
-        row.emplace_back(ColumnName("committer"), committerName, timestamp);
-        row.emplace_back(ColumnName("committerEmail"), committerEmail, timestamp);
-        row.emplace_back(ColumnName("author"), authorName, timestamp);
-        row.emplace_back(ColumnName("authorEmail"), authorEmail, timestamp);
-        row.emplace_back(ColumnName("message"), message, timestamp);
-        row.emplace_back(ColumnName("parentCount"), parentCount, timestamp);
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > row;
+        row.emplace_back(ColumnPath("committer"), committerName, timestamp);
+        row.emplace_back(ColumnPath("committerEmail"), committerEmail, timestamp);
+        row.emplace_back(ColumnPath("author"), authorName, timestamp);
+        row.emplace_back(ColumnPath("authorEmail"), authorEmail, timestamp);
+        row.emplace_back(ColumnPath("message"), message, timestamp);
+        row.emplace_back(ColumnPath("parentCount"), parentCount, timestamp);
 
         for (auto & p: parents)
-            row.emplace_back(ColumnName("parent"), p, timestamp);
+            row.emplace_back(ColumnPath("parent"), p, timestamp);
 
         int filesChanged = 0;
         int insertions = 0;
@@ -425,30 +426,31 @@ struct GitImporter: public Procedure {
             insertions = stats.insertions;
             deletions = stats.deletions;
 
-            row.emplace_back(ColumnName("insertions"), insertions, timestamp);
-            row.emplace_back(ColumnName("deletions"), deletions, timestamp);
-            row.emplace_back(ColumnName("filesChanged"), filesChanged, timestamp);
+            row.emplace_back(ColumnPath("insertions"), insertions, timestamp);
+            row.emplace_back(ColumnPath("deletions"), deletions, timestamp);
+            row.emplace_back(ColumnPath("filesChanged"), filesChanged, timestamp);
 
             for (auto & f: stats.files) {
                 if (!config.importTree) break;
 
-                row.emplace_back(ColumnName("file"), f.first, timestamp);
+                row.emplace_back(ColumnPath("file"), f.first, timestamp);
 
                 if (f.second.insertions > 0)
-                    row.emplace_back(ColumnName("file." + f.first + ".insertions"),
+                    row.emplace_back(ColumnPath("file." + f.first + ".insertions"),
                                      f.second.insertions, timestamp);
                 if (f.second.deletions > 0)
-                    row.emplace_back(ColumnName("file." + f.first + ".deletions"),
+                    row.emplace_back(ColumnPath("file." + f.first + ".deletions"),
                                      f.second.deletions, timestamp);
                 if (!f.second.op.empty())
-                    row.emplace_back(ColumnName("file." + f.first + ".op"),
+                    row.emplace_back(ColumnPath("file." + f.first + ".op"),
                                      f.second.op, timestamp);
             }
         }
 
-        //cerr << "id " << sha << " had " << filesChanged << " changes, "
-        //     << insertions << " insertions and " << deletions << " deletions "
-        //     << message << " parents " << parentCount << endl;
+        DEBUG_MSG(logger)
+            << "id " << sha << " had " << filesChanged << " changes, "
+            << insertions << " insertions and " << deletions << " deletions "
+            << message << " parents " << parentCount;
 
         return row;
     }
@@ -527,23 +529,24 @@ struct GitImporter: public Procedure {
                 git_repository_free(repo);
             }
 
-            std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+            std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows;
 
             git_repository * repo;
         };
 
         PerThreadAccumulator<Accum> accum([&] () { return new Accum(repoName); });
 
-        cerr << "processing " << oids.size() << " commits" << endl;
+        INFO_MSG(logger) << "processing " << oids.size() << " commits";
 
         auto doProcessCommit = [&] (int i)
             {
                 if (i && i % 100 == 0)
-                    cerr << "imported commit " << i << " of " << oids.size() << endl;
+                    INFO_MSG(logger)
+                        << "imported commit " << i << " of " << oids.size();
 
                 Accum & threadAccum = accum.get();
                 auto row = processCommit(repo, oids[i]);
-                threadAccum.rows.emplace_back(RowName(encodeOid(oids[i])),
+                threadAccum.rows.emplace_back(RowPath(encodeOid(oids[i])),
                                               std::move(row));
 
                 if (threadAccum.rows.size() == 1000) {

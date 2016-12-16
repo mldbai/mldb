@@ -8,7 +8,6 @@
 #include "mldb/arch/exception.h"
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE(time_period_test)
@@ -27,7 +26,7 @@ BOOST_AUTO_TEST_CASE(time_period_test)
 
     bool threw = false;
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         tp.parse("1m25s");
     }
     catch (...) {
@@ -48,13 +47,13 @@ BOOST_AUTO_TEST_CASE(time_period_test)
 #if 1
 BOOST_AUTO_TEST_CASE(time_period_granularity_multiplier)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
 
     /* different families */
-    BOOST_CHECK_THROW(granularityMultiplier(YEARS, MINUTES), ML::Exception);
+    BOOST_CHECK_THROW(granularityMultiplier(YEARS, MINUTES), MLDB::Exception);
 
     /* seconds cannot be translated to minutes */
-    BOOST_CHECK_THROW(granularityMultiplier(SECONDS, MINUTES), ML::Exception);
+    BOOST_CHECK_THROW(granularityMultiplier(SECONDS, MINUTES), MLDB::Exception);
 
     int mult = granularityMultiplier(MILLISECONDS, MILLISECONDS);
     BOOST_CHECK_EQUAL(mult, 1);
@@ -138,8 +137,8 @@ BOOST_AUTO_TEST_CASE(time_period_op_plus_equal)
         yearly.interval = -1; // years do not have a fixed set of seconds
         TimePeriod minutely("2m");
 
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(yearly + minutely, ML::Exception);
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(yearly + minutely, MLDB::Exception);
     }
 
     {

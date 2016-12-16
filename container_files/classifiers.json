@@ -125,8 +125,8 @@
         "type": "glz",
         "link_function": "linear",
         "verbosity": 3,
-        "normalize ": "true",
-        "ridge_regression ": "true"
+        "normalize": "true",
+        "regularization": "l2"
     },
 
     "glz": {
@@ -134,8 +134,8 @@
 
         "type": "glz",
         "verbosity": 3,
-        "normalize ": " true",
-        "ridge_regression ": " true"
+        "normalize": "true",
+        "regularization": "l2"
     },
 
     "glz2": {

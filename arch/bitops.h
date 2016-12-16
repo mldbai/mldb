@@ -39,22 +39,22 @@ constexpr int num_bits_set(T arg)
     return __builtin_popcount(arg);
 }
 
-constexpr JML_ALWAYS_INLINE int num_bits_set(unsigned long arg)
+constexpr MLDB_ALWAYS_INLINE int num_bits_set(unsigned long arg)
 {
     return __builtin_popcountl(arg);
 }
 
-constexpr JML_ALWAYS_INLINE int num_bits_set(signed long arg)
+constexpr MLDB_ALWAYS_INLINE int num_bits_set(signed long arg)
 {
     return __builtin_popcountl(arg);
 }
 
-constexpr JML_ALWAYS_INLINE int num_bits_set(unsigned long long arg)
+constexpr MLDB_ALWAYS_INLINE int num_bits_set(unsigned long long arg)
 {
     return __builtin_popcountll(arg);
 }
 
-constexpr JML_ALWAYS_INLINE int num_bits_set(signed long long arg)
+constexpr MLDB_ALWAYS_INLINE int num_bits_set(signed long long arg)
 {
     return __builtin_popcountll(arg);
 }

@@ -10,13 +10,14 @@
 #include "spinlock.h"
 #include <thread>
 
-namespace ML {
+namespace MLDB {
 
 void
 Spinlock::
 yield()
 {
+    // This is here so we don't need to #include <thread> in the .h file
     std::this_thread::yield();
 }
 
-} // namespace ML
+} // namespace MLDB

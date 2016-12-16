@@ -55,13 +55,13 @@ struct SimpleSvdColumnEntry: public ColumnSpec {
         return *this;
     }
 
-    ML::distribution<float> singularVector;
+    distribution<float> singularVector;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SimpleSvdColumnEntry);
 
 struct SvdColumnIndexEntry {
-    ColumnName columnName;
+    ColumnPath columnName;
     std::map<CellValue, int> values;
 };
 
@@ -69,38 +69,38 @@ DECLARE_STRUCTURE_DESCRIPTION(SvdColumnIndexEntry);
 
 struct SvdBasis {
     std::vector<SimpleSvdColumnEntry> columns;
-    ML::distribution<float> singularValues;
+    distribution<float> singularValues;
     std::map<ColumnHash, SvdColumnIndexEntry> columnIndex;
     Date modelTs;   ///< Timestamp up to which model incorporates data from
 
     size_t numSingularValues() const { return singularValues.size(); }
 
     /** Given the other column, project it onto the basis. */
-    ML::distribution<float>
+    distribution<float>
     rightSingularVector(const ColumnIndexEntries & basisColumns,
                         const ColumnIndexEntry & column) const;
 
     /** Given a particular column and its value, calculate the right
         singular value for that column.
     */
-    ML::distribution<float>
+    distribution<float>
     rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                                  int maxValues,
                                  bool acceptUnknownValues) const;
 
     /** Given the row, calculate its embedding. */
-    std::pair<ML::distribution<float>, Date>
+    std::pair<distribution<float>, Date>
     leftSingularVector(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & row,
                        int maxValues,
                        bool acceptUnknownValues) const;
 
-    std::pair<ML::distribution<float>, Date>
-    leftSingularVector(const std::vector<std::tuple<ColumnName, CellValue, Date> > & row,
+    std::pair<distribution<float>, Date>
+    leftSingularVector(const std::vector<std::tuple<ColumnPath, CellValue, Date> > & row,
                        int maxValues,
                        bool acceptUnknownValues) const;
 
     template<typename Tuple>
-    std::pair<ML::distribution<float>, Date>
+    std::pair<distribution<float>, Date>
     doLeftSingularVector(const std::vector<Tuple> & row,
                          int maxValues,
                          bool acceptUnknownValues) const;

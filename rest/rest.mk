@@ -13,7 +13,7 @@ LIBREST_SOURCES := \
 	rest_service_endpoint.cc \
 	http_rest_endpoint.cc \
 	http_rest_service.cc \
-
+	cancellation_exception.cc \
 
 LIBLINK_SOURCES := \
 	call_me_back.cc \

@@ -92,7 +92,7 @@ read(const std::string & prefix)
 
 GaugeAggregator::
 GaugeAggregator(Verbosity verbosity, const std::vector<int>& extra)
-    : verbosity(verbosity), values(new ML::distribution<float>())
+    : verbosity(verbosity), values(new distribution<float>())
     , extra(extra)
 {
     if (verbosity == Outcome)
@@ -113,7 +113,7 @@ void
 GaugeAggregator::
 record(float value)
 {
-    ML::distribution<float> * current;
+    distribution<float> * current;
     while ((current = values) == 0
            || !values.compare_exchange_weak(current, nullptr));
     
@@ -123,12 +123,12 @@ record(float value)
     values = current;
 }
 
-std::pair<ML::distribution<float> *, Date>
+std::pair<distribution<float> *, Date>
 GaugeAggregator::
 reset()
 {
-    ML::distribution<float> * current;
-    ML::distribution<float> * new_current = new ML::distribution<float>();
+    distribution<float> * current;
+    distribution<float> * new_current = new distribution<float>();
     new_current->reserve(100);
 
     while ((current = values) == 0
@@ -144,12 +144,12 @@ std::vector<StatReading>
 GaugeAggregator::
 read(const std::string & prefix)
 {
-    ML::distribution<float> * values;
+    distribution<float> * values;
     Date oldStart;
 
     std::tie(values, oldStart) = reset();
 
-    std::auto_ptr<ML::distribution<float> > vptr(values);
+    std::auto_ptr<distribution<float> > vptr(values);
 
     if (values->empty())
         return vector<StatReading>();
@@ -185,7 +185,7 @@ read(const std::string & prefix)
         if (verbosity == Outcome) {
             addMetric("count", values->size());
             for (int pct: extra) {
-                addMetric(ML::format("upper_%d", pct).c_str(), percentile(pct));
+                addMetric(MLDB::format("upper_%d", pct).c_str(), percentile(pct));
             }
         }
     }

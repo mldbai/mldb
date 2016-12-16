@@ -112,7 +112,7 @@ void encode_compact(char * & first, char * last, unsigned long long val)
     int len = idx + 1;
 
     if (first + len > last)
-        throw ML::Exception("not enough space to encode compact_size_t");
+        throw MLDB::Exception("not enough space to encode compact_size_t");
 
     /* Pack it into the back bytes. */
     for (int i = len-1;  i >= 0;  --i) {

@@ -24,12 +24,12 @@ namespace MLDB {
 struct DistributionPooler {
 public:
     DistributionPooler() { init = false;};
-    ML::distribution<float> pool();
-    void add(std::shared_ptr<ML::distribution<float>> d);
+    distribution<float> pool();
+    void add(std::shared_ptr<distribution<float>> d);
 
 private:
     bool init;
-    std::vector<ML::distribution<float>> feature_vectors;
+    std::vector<distribution<float>> feature_vectors;
 };
 
 }

@@ -21,13 +21,8 @@
 // should be added, especially value_description.h.  Only
 // value_expression_fwd.h is OK.
 
-
-namespace ML {
-struct Parse_Context;
-} // namespace ML
-
-
 namespace MLDB {
+struct ParseContext;
 
 /** SQL expressions
     
@@ -128,6 +123,8 @@ struct BoundExpressionMetadata {
     /// argument at all.
     bool isConstant;
 };
+
+DECLARE_STRUCTURE_DESCRIPTION(BoundExpressionMetadata);
 
 
 /*****************************************************************************/
@@ -352,8 +349,11 @@ struct BoundFunction {
     std::shared_ptr<ExpressionValueInfo> resultInfo;
     VariableFilter filter; // allows function to filter variable as they need
 
-    // If defined, overrides the default bindFunction call.
+    /// If defined, overrides the default bindFunction call.
     BindFunction bindFunction;
+
+    /// Extra metadata about the result
+    BoundExpressionMetadata resultMetadata;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
@@ -503,7 +503,7 @@ struct GetAllColumnsOutput {
 */
 
 struct ColumnFilter {
-    typedef std::function<ColumnName (const ColumnName &)> Exec;
+    typedef std::function<ColumnPath (const ColumnPath &)> Exec;
     bool init;
    
     ColumnFilter() : init(false)
@@ -526,7 +526,7 @@ struct ColumnFilter {
 
     Exec exec;
 
-    ColumnName operator () (const ColumnName & columnName) const
+    ColumnPath operator () (const ColumnPath & columnName) const
     {
         ExcAssert(init); //check that we dont unintentionally use an uninitialized filter.
         if (exec)
@@ -544,7 +544,7 @@ struct ColumnFilter {
 /** Function which operates in a column context.  It takes a column name and
     a set of parameters, and returns the value of the function.
 */
-typedef std::function<ExpressionValue (const ColumnName & columnName,
+typedef std::function<ExpressionValue (const ColumnPath & columnName,
                                        const std::vector<ExpressionValue> & args)>
 ColumnFunction;
 
@@ -626,7 +626,7 @@ struct SqlBindingScope {
         be overridden too.
     */
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName);
+                                     const ColumnPath & columnName);
 
     /** Used to resolve a wildcard expression.  This function returns
         another function that can be used to return a row containing just a
@@ -706,8 +706,8 @@ struct SqlBindingScope {
         of those functions is overridden, this function should 
         be overridden too.
     */
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullVariableName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullVariableName,
                        Utf8String & tableName) const;
 
     /** Return the MLDB server behind this context.  Default returns a null
@@ -742,14 +742,14 @@ TransformArgs;
 
 struct ScopedName {
     ScopedName(Utf8String scope = Utf8String(),
-               ColumnName name = ColumnName()) noexcept
+               ColumnPath name = ColumnPath()) noexcept
         : scope(std::move(scope)),
           name (std::move(name))
     {
     }
 
     Utf8String scope;
-    ColumnName name;
+    ColumnPath name;
 
     bool operator == (const ScopedName & other) const;
     bool operator != (const ScopedName & other) const;
@@ -771,7 +771,7 @@ struct UnboundVariable {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundVariable);
 
 struct UnboundWildcard {
-    ColumnName prefix;
+    ColumnPath prefix;
     void merge(UnboundWildcard wildcard);
 };
 
@@ -805,11 +805,11 @@ struct UnboundEntities {
 
     /// List of variables that are unbound.  Only those with no table name are
     /// included here.
-    std::map<ColumnName, UnboundVariable> vars;
+    std::map<ColumnPath, UnboundVariable> vars;
 
     /// List of wildcards which are unbound.  Only those with no table name are
     /// included here.
-    std::map<ColumnName, UnboundWildcard> wildcards;
+    std::map<ColumnPath, UnboundWildcard> wildcards;
 
     /// List of functions that are unbound.  Only those with no table name are
     /// included here.
@@ -886,7 +886,7 @@ struct SqlRowScope {
     template<typename T>
     T & as()
     {
-        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
+        if (MLDB_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<T &>(*this);
 
         auto * cast = dynamic_cast<T *>(this);
@@ -902,7 +902,7 @@ struct SqlRowScope {
     template<typename T>
     const T & as() const
     {
-        if (JML_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
+        if (MLDB_LIKELY(!checkRowScopeTypes) || typeid(*this) == typeid(T))
             return static_cast<const T &>(*this);
 
         auto * cast = dynamic_cast<const T *>(this);
@@ -952,7 +952,7 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         http://www.sqlite.org/syntax/expr.html
     */
     static std::shared_ptr<SqlExpression>
-    parse(ML::Parse_Context & context, int precendence, bool allowUtf8);
+    parse(ParseContext & context, int precendence, bool allowUtf8);
 
     static std::shared_ptr<SqlExpression>
     parse(const std::string & expression, const std::string & filename = "",
@@ -1175,7 +1175,7 @@ struct SqlRowExpression: public SqlExpression {
 
     /** Parses a single result variable expression. */
     static std::shared_ptr<SqlRowExpression>
-    parse(ML::Parse_Context & context, bool allowUtf8);
+    parse(ParseContext & context, bool allowUtf8);
 
     static std::shared_ptr<SqlRowExpression>
     parse(const std::string & expr,
@@ -1191,7 +1191,7 @@ struct SqlRowExpression: public SqlExpression {
 
     /** Parses a comma separated list of result variable expressions. */
     static std::vector<std::shared_ptr<SqlRowExpression> >
-    parseList(ML::Parse_Context & context, bool allowUtf8);
+    parseList(ParseContext & context, bool allowUtf8);
 
     static std::vector<std::shared_ptr<SqlRowExpression> >
     parseList(const std::string & expr,
@@ -1245,7 +1245,7 @@ struct SelectExpression: public SqlRowExpression {
     static const SelectExpression STAR;
     
     static SelectExpression
-    parse(ML::Parse_Context & context, bool allowUtf8);
+    parse(ParseContext & context, bool allowUtf8);
 
     static SelectExpression
     parse(const std::string & expr,
@@ -1361,7 +1361,7 @@ struct OrderByExpression {
 
     std::vector<std::pair<std::shared_ptr<SqlExpression>, OrderByDirection> > clauses;
 
-    static OrderByExpression parse(ML::Parse_Context & context, bool allowUtf8);
+    static OrderByExpression parse(ParseContext & context, bool allowUtf8);
     static OrderByExpression parse(const std::string & expression);
     static OrderByExpression parse(const char * expression);
     static OrderByExpression parse(const Utf8String & expression);
@@ -1429,7 +1429,7 @@ struct TupleExpression {  // TODO: should be a row expression
         return clauses.size();
     }
 
-    static TupleExpression parse(ML::Parse_Context & context, bool allowUtf8);
+    static TupleExpression parse(ParseContext & context, bool allowUtf8);
     static TupleExpression parse(const std::string & expression);
     static TupleExpression parse(const char * expression);
     static TupleExpression parse(const Utf8String & expression);
@@ -1475,9 +1475,10 @@ struct GenerateRowsWhereFunction {
 
     };
 
-    typedef std::function<std::pair<std::vector<RowName>, Any>
+    typedef std::function<std::pair<std::vector<RowPath>, Any>
                           (ssize_t numToGenerate, Any token,
-                           const BoundParameters & params)> Exec;
+                           const BoundParameters & params,
+                           std::function<bool (const Json::Value &)> onProgress)> Exec;
 
     GenerateRowsWhereFunction(Exec exec = nullptr,
                               Utf8String explain = "",
@@ -1491,11 +1492,12 @@ struct GenerateRowsWhereFunction {
     {
     }
 
-    std::pair<std::vector<RowName>, Any>
+    std::pair<std::vector<RowPath>, Any>
     operator () (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params = BoundParameters()) const
+                 const BoundParameters & params = BoundParameters(),
+                 std::function<bool (const Json::Value &)> onProgress = nullptr) const
     {
-        return exec(numToGenerate, token, params);
+        return exec(numToGenerate, token, params, onProgress);
     }
 
     Exec exec;
@@ -1579,7 +1581,7 @@ struct TableExpression: public std::enable_shared_from_this<TableExpression> {
     virtual Utf8String print() const = 0;
 
     static std::shared_ptr<TableExpression>
-    parse(ML::Parse_Context & context, int precendence, bool allowUtf8);
+    parse(ParseContext & context, int precendence, bool allowUtf8);
 
     static std::shared_ptr<TableExpression>
     parse(const Utf8String & expression, const std::string & filename = "",
@@ -1686,7 +1688,7 @@ struct WhenExpression {
     parse(const Utf8String & str);
 
     static WhenExpression
-    parse(ML::Parse_Context & context, bool allowUtf8);
+    parse(ParseContext & context, bool allowUtf8);
 
     BoundWhenExpression
     bind(SqlBindingScope & context) const;
@@ -1748,7 +1750,7 @@ struct SelectStatement
     static SelectStatement parse(const std::string& body);
     static SelectStatement parse(const char * body);
     static SelectStatement parse(const Utf8String& body);
-    static SelectStatement parse(ML::Parse_Context& context, bool allowUtf8);
+    static SelectStatement parse(ParseContext& context, bool allowUtf8);
 
     UnboundEntities getUnbound() const;
 

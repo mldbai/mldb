@@ -30,7 +30,8 @@ bool operator==(const PolyConfig & lhs, const PolyConfig & rhs)
     return  lhs.id == rhs.id &&
         lhs.type == rhs.type &&
         lhs.persistent == rhs.persistent &&
-        lhs.params == rhs.params;
+        lhs.params == rhs.params &&
+        lhs.deterministic == rhs.deterministic;
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(PolyConfig);
@@ -51,6 +52,8 @@ PolyConfigDescription()
     addField("persistent", &PolyConfig::persistent,
              "If true, then this element will have its configuration stored "
              "and will be reloaded on startup", false);
+    addField("deterministic", &PolyConfig::deterministic,
+             "If true, the entity has no hidden state ", true);
 }
 
 
@@ -133,12 +136,12 @@ getKey(PolyConfig & config)
     // 1.  Newly seeded random number based on current time
     // 2.  Thread ID
     Utf8String disambig
-        = ML::format("%d-%d", random())
+        = MLDB::format("%d-%d", random())
         + Date::now().print(9)
         + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()));
     
     // Create an auto hash that is cleary identified as one
-    return config.id = ML::format("auto-%016llx-%016llx",
+    return config.id = MLDB::format("auto-%016llx-%016llx",
                                   (unsigned long long)jsonHash(jsonEncode(config)),
                                   (unsigned long long)jsonHash(disambig));
 }

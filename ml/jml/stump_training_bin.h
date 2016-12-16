@@ -31,7 +31,7 @@ namespace ML {
 
 extern double non_missing_ticks;
 extern size_t non_missing_calls;
-
+using namespace MLDB;
 
 /*****************************************************************************/
 /* W_BINSYM                                                                  */
@@ -57,20 +57,20 @@ struct W_binsymT {
                 data[cat][corr] = 0.0;
     }
     
-    JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
     Float operator () (int l, int cat, bool corr) const
     {
         return data[cat][corr ^ (l != 0)];
     }
     
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     Float & operator () (int l, int cat, bool corr)
     {
         //if (l != 0) throw Exception("expected l == 0");
         return data[cat][corr];
     }
     
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
     std::string print() const
     {
         std::string result;
@@ -92,7 +92,7 @@ struct W_binsymT {
     }
 #endif
     
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     size_t nl() const { return 2; }
     
     /** Add weight to a bucket over all labels.
@@ -102,14 +102,14 @@ struct W_binsymT {
                             sample weights.
     */
     template<class Iterator>
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     void add(int correct_label, int bucket, Iterator it, int advance)
     {
         data[bucket][!correct_label] += *it;
     }
 
     template<class Iterator>
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     void atomic_add(int correct_label, int bucket, Iterator it, int advance);
     
     /** Add weight to a bucket over all labels, weighted.
@@ -120,7 +120,7 @@ struct W_binsymT {
                             sample weights.
     */
     template<class Iterator>
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     void add(int correct_label, int bucket, float weight, Iterator it,
              int advance)
     {
@@ -128,7 +128,7 @@ struct W_binsymT {
     }
 
     template<class Iterator>
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     void atomic_add(int correct_label, int bucket, float weight, Iterator it,
                     int advance);
 
@@ -142,7 +142,7 @@ struct W_binsymT {
                             sample weights.
     */
     template<class Iterator>
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     void transfer(int label, int from, int to, float weight, Iterator it,
                   int advance)
     {
@@ -151,7 +151,7 @@ struct W_binsymT {
         data[to  ][!label] += amount;
     }
 
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     void transfer(int from, int to, const W_binsymT & weights)
     {
         double amount_true = weights.data[true][true];
@@ -165,20 +165,20 @@ struct W_binsymT {
     /** This function ensures that the values in the MISSING bucket are all
         greater than zero.  They can get less than zero due to rounding errors
         when accumulating. */
-    JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
     void clip(int bucket)
     {
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
         using std::max;
 #endif
         data[bucket][true]  = max<Float>(0.0, data[bucket][true]);
         data[bucket][false] = max<Float>(0.0, data[bucket][false]);
     }
     
-    JML_ALWAYS_INLINE  JML_COMPUTE_METHOD
+    MLDB_ALWAYS_INLINE  MLDB_COMPUTE_METHOD
     void swap_buckets(int b1, int b2)
     {
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
         using std::swap;
 #endif
         swap(data[b1][true],  data[b2][true]);
@@ -199,7 +199,7 @@ struct Z_binsym {
     static constexpr double perfect = 0.0;  // best possible Z value
 
     template<class W>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     double operator () (const W & w, bool optional = false) const
     {
         return non_missing(w, missing(w, optional));
@@ -207,7 +207,7 @@ struct Z_binsym {
 
     /* Return the constant missing part. */
     template<class W>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     double missing(const W & w, bool optional = false) const
     {
         if (optional) return 2.0 * (w(0, MISSING, false) + w(0, MISSING, true));
@@ -216,12 +216,12 @@ struct Z_binsym {
     
     /* Return the non-missing part. */
     template<class W>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     double non_missing(const W & w, double missing) const
     {
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
         double before = ticks();
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 
         double result = 0.0;
         result += sqrt(w(0, false, false) * w(0, false, true));
@@ -229,17 +229,17 @@ struct Z_binsym {
 
         result = result * 4.0 + missing;
 
-#ifndef JML_COMPILER_NVCC
+#ifndef MLDB_COMPILER_NVCC
         non_missing_ticks += ticks() - before - ticks_overhead;
         non_missing_calls += 1;
-#endif // JML_COMPILER_NVCC
+#endif // MLDB_COMPILER_NVCC
 
         return result;
     }
     
     /* Return the non-missing part. */
     template<class W>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     double non_missing_presence(const W & w, double missing) const
     {
         double result = 0.0;
@@ -250,7 +250,7 @@ struct Z_binsym {
     /** Return true if it is possible for us to beat the Z score already
         given. */
     template<class W>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     bool can_beat(const W & w, double missing, double z_best) const
     {
         return (missing <= (z_best * 1.00001));

@@ -103,7 +103,7 @@ struct HttpStreamingDownloadSource {
                 if (o.first == "http-set-cookie")
                     proxy.setCookie(o.second);
                 else if (o.first.find("http-") == 0)
-                    throw ML::Exception("Unknown HTTP stream parameter " + o.first + " = " + o.second);
+                    throw MLDB::Exception("Unknown HTTP stream parameter " + o.first + " = " + o.second);
             }
 
             reset();
@@ -265,9 +265,12 @@ struct HttpStreamingDownloadSource {
                     return;
 
                 if (resp.code() != 200) {
-                    throw ML::Exception("HTTP code %d reading %s\n\n%s",
-                                        resp.code(), urlStr.c_str(),
-                                        string(errorBody, 0, 1024).c_str());
+                    cerr << "resp.errorCode_ = " << resp.errorCode() << endl;
+                    cerr << "resp.errorMessage = " << resp.errorMessage() << endl;
+                    throw MLDB::Exception("HTTP code %d reading %s\n\n%s",
+                                          resp.code(),
+                                          urlStr.c_str(),
+                                          resp.errorMessage().c_str());
                 }
                 
                 dataQueue.push("");
@@ -320,7 +323,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
     {
         auto info = tryGetInfo(url);
         if (!info)
-            throw ML::Exception("Couldn't get URI info for " + url.toString());
+            throw MLDB::Exception("Couldn't get URI info for " + url.toString());
         return info;
     }
 
@@ -380,7 +383,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
                  << " from HEAD" << endl;
         }
 
-        throw ML::Exception("Couldn't reach server to determine HEAD of '"
+        throw MLDB::Exception("Couldn't reach server to determine HEAD of '"
                             + url.toString() + "': HTTP code "
                             + (didGetHeader ? to_string(header.responseCode()) : string("(unknown)"))
                             + " " + resp.errorMessage());
@@ -410,7 +413,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
 
     virtual bool erase(const Url & url, bool throwException) const
     {
-        throw ML::Exception("Http URIs don't support DELETE");
+        throw MLDB::Exception("Http URIs don't support DELETE");
     }
 
     /** For each object under the given prefix (object or subdirectory),
@@ -422,7 +425,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
                          const std::string & delimiter,
                          const std::string & startAt) const
     {
-        throw ML::Exception("Http URIs don't support listing");
+        throw MLDB::Exception("Http URIs don't support listing");
     }
 };
 
@@ -439,7 +442,7 @@ struct RegisterHttpHandler {
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
-            throw ML::Exception("unable to find http bucket name in resource "
+            throw MLDB::Exception("unable to find http bucket name in resource "
                                 + resource);
         string bucket(resource, 0, pos);
 
@@ -450,9 +453,9 @@ struct RegisterHttpHandler {
             return UriHandler(buf.get(), buf, sb_info.second);
         }
         else if (mode == ios::out) {
-            throw ML::Exception("Can't currently upload files via HTTP/HTTPs");
+            throw MLDB::Exception("Can't currently upload files via HTTP/HTTPs");
         }
-        else throw ML::Exception("no way to create http handler for non in/out");
+        else throw MLDB::Exception("no way to create http handler for non in/out");
     }
     
     RegisterHttpHandler()

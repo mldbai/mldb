@@ -28,7 +28,7 @@ xdiv(F1 x, F2 y)
 
 /* Divide, but round up */
 template<class X, class Y>
-JML_COMPUTE_METHOD
+MLDB_COMPUTE_METHOD
 X rudiv(X val, Y by)
 {
     X result = (val / by);

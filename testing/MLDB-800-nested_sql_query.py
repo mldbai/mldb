@@ -52,13 +52,13 @@ mldb.log(res.json())
 #assert res.statusCode == 200
 
 expected = {
-    "input": {
+    "input": [ {
         "hasUnknownColumns": True, 
         "hasUnknownColumnsRecursive": True, 
         "type": "MLDB::RowValueInfo", 
         "kind": "row", 
         "knownColumns": []
-    }, 
+    } ], 
     "output": {
         "hasUnknownColumns": False, 
         "hasUnknownColumnsRecursive": True, 

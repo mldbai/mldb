@@ -4,7 +4,6 @@
 
 # Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 # @Author:             Alexis Tremblay
-# @Email:              atremblay@datacratic.com
 # @Date:               2015-02-26 13:47:09
 # @Last Modified by:   Alexis Tremblay
 # @Last Modified time: 2015-03-13 15:57:56

@@ -13,6 +13,7 @@
 #include "mldb/types/any_impl.h"
 #include "jml/utils/string_functions.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -83,7 +84,7 @@ forEachPermutation(
                 flatten(js[key], newPath);
             }
             else {
-               throw ML::Exception("unsupported type!");
+               throw MLDB::Exception("unsupported type!");
             }
         }
     };
@@ -131,7 +132,7 @@ forEachPermutation(
             }
         }
         else {
-            throw ML::Exception("Invalid data type for permutation");
+            throw MLDB::Exception("Invalid data type for permutation");
         }
     };
 
@@ -161,12 +162,12 @@ run(const ProcedureRunConfig & run,
         // to string to do a replace_all to catch all the $permutation to replace
         // and then parsing that back to json...
         string strConf = permutedConfTmp.toString();
-        ML::replace_all(strConf, "$permutation", ML::format("permutation_%d", permutation_num));
+        ML::replace_all(strConf, "$permutation", MLDB::format("permutation_%d", permutation_num));
 
         Json::Value permutedConf;
         Json::Reader reader;
         if(!reader.parse(strConf, permutedConf))
-            throw ML::Exception("unable to reparse!");
+            throw MLDB::Exception("unable to reparse!");
 
 
 
@@ -175,7 +176,7 @@ run(const ProcedureRunConfig & run,
             PolyConfig procPC = runProcConf.procedure;
             procPC.params = permutedConf;
 
-            cerr << " >>>>> Creating procedure" << endl;
+            INFO_MSG(logger) << " >>>>> Creating procedure";
             procedure = obtainProcedure(server, procPC, onProgress);
         }
 

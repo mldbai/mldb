@@ -12,7 +12,7 @@
 #include <string>
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 #if defined __i686__ || defined __amd64__ || defined __i586__ || defined __i386__
 
@@ -164,9 +164,9 @@ void get_cpu_info(CPU_Info & info);
 
 extern CPU_Info * static_cpu_info;
 
-JML_ALWAYS_INLINE const CPU_Info & cpu_info()
+MLDB_ALWAYS_INLINE const CPU_Info & cpu_info()
 {
-    if (JML_UNLIKELY(!static_cpu_info))
+    if (MLDB_UNLIKELY(!static_cpu_info))
         static_cpu_info = new CPU_Info;
     return *static_cpu_info;
 }
@@ -183,4 +183,4 @@ Regs cpuid(uint32_t request, uint32_t ecx = 0);
 
 #endif // __i686__
 
-} // namespace ML
+} // namespace MLDB

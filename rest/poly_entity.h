@@ -73,13 +73,15 @@ struct RestDirectory;
 
 struct PolyConfig {
     PolyConfig()
-        : persistent(false)
+        : persistent(false),
+          deterministic(true)
     {
     }
 
     Utf8String id;        ///< Id (name) of the entity.  Must be unique
     Utf8String type;      ///< Type of the entity.
     bool persistent;      ///< Save this object's configuration for loading
+    bool deterministic;   ///< The entity has no hidden state
     Any params;           ///< Creation parameters, per type
 };
 
@@ -127,21 +129,21 @@ struct PolyEntity {
     const PolyConfig & getConfig() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return *config_;
     }
 
     const Utf8String & getId() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->id;
     }
 
     const Utf8String & getType() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->type;
     }
 

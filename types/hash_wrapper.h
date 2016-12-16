@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* hash_wrapper.h                                                  -*- C++ -*-
    Jeremy Barnes, 5 September 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -10,9 +9,9 @@
 
 #include <iostream>
 #include "mldb/ext/jsoncpp/json.h"
-#include "mldb/types/id.h"
 #include "mldb/arch/format.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/arch/exception.h"
 
 namespace MLDB {
 
@@ -28,7 +27,7 @@ struct IntWrapper {
     Int i;
 
     operator Int () const { return i; }
-} JML_PACKED;
+} MLDB_PACKED;
 
 template<typename Int, int D>
 std::ostream & operator << (std::ostream & stream, const IntWrapper<Int, D> & h)
@@ -43,10 +42,12 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
     {
     }
     
+#if 0
     HashWrapper(const Id & id)
         : IntWrapper<uint64_t, Domain>(id.hash())
     {
     }
+#endif
 
     static HashWrapper max() { return HashWrapper(-1); }
 
@@ -56,12 +57,12 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
 
     std::string toString() const
     {
-        return ML::format("%016llx", (unsigned long long)this->index());
+        return MLDB::format("%016llx", (unsigned long long)this->index());
     }
 
     std::string toTaggedString() const
     {
-        return ML::format("%016llx:%d", (unsigned long long)this->index(), Domain);
+        return MLDB::format("%016llx:%d", (unsigned long long)this->index(), Domain);
     }
 
     static HashWrapper fromString(const std::string & str)
@@ -69,7 +70,7 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
         unsigned long long val = 0;
         int res = sscanf(str.c_str(), "%llx", &val);
         if (res != 1)
-            throw ML::Exception("didn't finish parsing hash '%s': returned %d",
+            throw MLDB::Exception("didn't finish parsing hash '%s': returned %d",
                                 str.c_str(), res);
         return HashWrapper(val);
     }
@@ -80,10 +81,10 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
         int dom = 0;
         int res = sscanf(str.c_str(), "%llx:%d", &val, &dom);
         if (res != 2)
-            throw ML::Exception("didn't finish parsing hash '%s': returned %d",
+            throw MLDB::Exception("didn't finish parsing hash '%s': returned %d",
                                 str.c_str(), res);
         if (dom != Domain)
-            throw ML::Exception("wrong domain for HashWrapper");
+            throw MLDB::Exception("wrong domain for HashWrapper");
         return HashWrapper(val);
     }
 
@@ -97,7 +98,7 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
         return HashWrapper(val);
     }
 
-} JML_PACKED;
+} MLDB_PACKED;
 
 template<int Domain>
 inline

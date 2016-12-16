@@ -14,7 +14,6 @@
 #pragma once
 
 #include <boost/python.hpp>
-#include "mldb/types/id.h"
 #include "mldb/types/date.h"
 #include <vector>
 #include <memory>
@@ -282,18 +281,6 @@ struct IntToPyLong
 
 
 /******************************************************************************/
-/* ID TO INT                                                                  */
-/******************************************************************************/
-
-// Converts Ids to boost::python::str objects
-struct IdToPython
-{
-    static PyObject* convert(const Id& id);
-};
-
-
-
-/******************************************************************************/
 /* DATE TO DOUBLE                                                             */
 /******************************************************************************/
 
@@ -325,6 +312,7 @@ struct StrConstructableIdFromPython
 
     static void construct(PyObject* obj_ptr, void* storage)
     {
+        using std::to_string;
         std::string id;
         if (PyInt_Check(obj_ptr)) {
             id = to_string(boost::python::extract<int>(obj_ptr)());
@@ -340,7 +328,7 @@ struct StrConstructableIdFromPython
             }
             id = boost::python::extract<std::string>(obj_ptr)();
         } else {
-            throw ML::Exception("StrConstructableIdFromPython: "
+            throw MLDB::Exception("StrConstructableIdFromPython: "
                                 "Failed to convert value to id");
         }
 

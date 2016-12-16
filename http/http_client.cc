@@ -51,7 +51,7 @@ HttpClient::
 setHttpClientImplVersion(int version)
 {
     if (version != 1) {
-        throw ML::Exception("invalid value for 'version': "
+        throw MLDB::Exception("invalid value for 'version': "
                             + to_string(version));
     }
     httpClientImplVersion = version;
@@ -66,10 +66,10 @@ HttpClient(LegacyEventLoop & eventLoop,
     bool isHttps(baseUrl.compare(0, 8, "https://") == 0);
 
     if (baseUrl.compare(0, 7, "http://") != 0 && !isHttps) {
-        throw ML::Exception("'url' has an invalid value: " + baseUrl);
+        throw MLDB::Exception("'url' has an invalid value: " + baseUrl);
     }
     if (numParallel < 1) {
-        throw ML::Exception("'numParallel' must at least be equal to 1");
+        throw MLDB::Exception("'numParallel' must at least be equal to 1");
     }
 
     if (implVersion == 0) {
@@ -80,7 +80,7 @@ HttpClient(LegacyEventLoop & eventLoop,
         impl_.reset(new HttpClientImplV1(baseUrl, numParallel, queueSize));
     }
     else {
-        throw ML::Exception("invalid httpclient impl version");
+        throw MLDB::Exception("invalid httpclient impl version");
     }
 
     auto & msgLoop = eventLoop_.loop();
@@ -151,7 +151,7 @@ HttpClient::
 sendExpect100Continue(bool value)
 {
     if (value) {
-        throw ML::Exception("HttpClient has no support for"
+        throw MLDB::Exception("HttpClient has no support for"
                             " 'Expect: 100 Continue' requests");
     }
 }

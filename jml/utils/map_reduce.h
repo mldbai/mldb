@@ -148,7 +148,7 @@ parallelMapInOrderReduceInEqualWorkChunks
     }
     
     if (totalWork == 0)
-        throw ML::Exception("total work must not be zero");
+        throw MLDB::Exception("total work must not be zero");
     
     // Now group them into contiguous chunks (ranges of iterators to process)
     // such that each chunk gets a roughly even amount of work.

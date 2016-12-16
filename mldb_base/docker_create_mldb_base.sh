@@ -70,7 +70,6 @@ apt-get install -y \
     libboost-serialization1.54.0 \
     libboost-program-options1.54.0 \
     libboost-system1.54.0 \
-    libboost-thread1.54.0 \
     libboost-regex1.54.0 \
     libboost-locale1.54.0 \
     libboost-date-time1.54.0 \
@@ -96,6 +95,7 @@ apt-get install -y \
     unzip \
     unrar-free \
     libstdc++6 \
+    libpq5 \
     libyaml-cpp0.5
 
 #######################

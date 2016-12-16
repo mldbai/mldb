@@ -27,7 +27,7 @@ TestFunction::
 TestFunction(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     ++TestFunction::cnt;
 }
@@ -66,7 +66,7 @@ getFunctionInfo() const
     FunctionInfo result;
     result.output = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
     cols.clear();
-    result.input = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
+    result.input.emplace_back(new RowValueInfo(cols, SCHEMA_CLOSED));
     return result;
 }
 

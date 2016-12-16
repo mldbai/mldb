@@ -4,6 +4,8 @@
 
 */
 
+#include <thread>
+
 #include "mldb/core/mldb_entity.h"
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
@@ -22,6 +24,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/server/static_content_macro.h"
+#include "mldb/sql/builtin_functions.h"
 
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
@@ -310,8 +313,8 @@ const Package & tensorflowPackage()
 
 struct TensorflowGraphBase: public Function {
 
-    TensorflowGraphBase(MldbServer * owner)
-        : Function(owner)
+    TensorflowGraphBase(MldbServer * owner, PolyConfig config)
+        : Function(owner, config)
     {
     }
 
@@ -320,7 +323,8 @@ struct TensorflowGraphBase: public Function {
 
     void init(std::unique_ptr<tensorflow::GraphDef> graphIn,
               SelectExpression inputs_,
-              SelectExpression outputs_)
+              SelectExpression outputs_,
+              const Regex & deviceFilter)
     {
         using namespace tensorflow;
 
@@ -336,7 +340,6 @@ struct TensorflowGraphBase: public Function {
 
         // These nodes have constants which we shouldn't need to spend
         // time running one after the other
-        std::map<std::string, Tensor> constants;
 
         size_t constantTotalBytes = 0;
 
@@ -406,14 +409,20 @@ struct TensorflowGraphBase: public Function {
         // can't use GPUs or need large amounts of data to be
         // transferred back and forth and so don't make sense.
         set<string> hardcodedCpu = {
-            "ExpandDims", "ResizeBilinear" /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
+            /*"ExpandDims", "ResizeBilinear"*/ /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
+
+        int numMatchedDevices = 0;
 
         for (const auto & d: devices) {
             std::string deviceName = d->name();
-            bool isCpuDevice = deviceName.find("/cpu:") != std::string::npos;
 
-            //if (isCpuDevice)
-            //    continue;
+            if (!regex_match(deviceName, deviceFilter)) {
+                continue;
+            }
+
+            ++numMatchedDevices;
+
+            bool isCpuDevice = deviceName.find("/cpu:") != std::string::npos;
 
             // Set the device for all nodes where it's not hardcoded
             for (auto & node: *graph->mutable_node()) {
@@ -439,7 +448,7 @@ struct TensorflowGraphBase: public Function {
 
             if (isCpuDevice) {
                 // Use the thread pool for CPU threads
-                options.config.set_use_per_session_threads(true);
+                //options.config.set_use_per_session_threads(true);
                 //options.config.set_inter_op_parallelism_threads(2);
             }
             else {
@@ -449,13 +458,13 @@ struct TensorflowGraphBase: public Function {
                 // GPU.
                 options.config.set_allow_soft_placement(true);
                 //options.config.set_use_per_session_threads(true);
-                //options.config.set_inter_op_parallelism_threads(4);
+                options.config.set_inter_op_parallelism_threads(4);
             }
 
             // NOTE: eventually, this will work... but until it does, we
             // need to go through the above.  Currently Tensorflow just
             // ignores the device_filters fields.
-            //options.config.add_device_filters(d->name());
+            options.config.add_device_filters(d->name());
 
             for (unsigned i = 0;  i < sessionsPerDevice;  ++i) {
                 std::unique_ptr<tensorflow::Session> session;
@@ -473,6 +482,21 @@ struct TensorflowGraphBase: public Function {
             }
         }
 
+        if (numMatchedDevices == 0) {
+            std::vector<std::string> deviceNames;
+            std::string deviceNamesStr;
+            for (const auto & d: devices) {
+                deviceNames.push_back(d->name());
+                if (!deviceNamesStr.empty())
+                    deviceNamesStr += ", ";
+                deviceNamesStr += d->name();
+            }
+
+            throw HttpReturnException
+                (400, "Device name regex '" + jsonEncodeStr(deviceFilter)
+                 + "' didn't match any of the system devices "
+                 + deviceNamesStr + ".  The graph cannot be executed");
+        }
         //std::this_thread::sleep_for(std::chrono::seconds(120));
     }
 
@@ -480,7 +504,7 @@ struct TensorflowGraphBase: public Function {
     std::unique_ptr<tensorflow::GraphDef> graph;
 
     /// Timestamp at which the model was created
-    Date modelTs;
+    Date modelTs = Date::notADate();
 
     struct DeviceSession {
         DeviceSession(std::string device,
@@ -499,7 +523,7 @@ struct TensorflowGraphBase: public Function {
         int numQueued;
     };
 
-    std::vector<std::pair<std::string, tensorflow::Tensor> > constants;
+    std::map<std::string, tensorflow::Tensor> constants;  // const once constructed
 
     mutable std::vector<DeviceSession> sessions;  // mutable for numQueued
 
@@ -557,11 +581,11 @@ struct TensorflowGraphBase: public Function {
         };
 
         std::map<Utf8String, const tensorflow::NodeDef *> graphNodes;
-        std::map<ColumnName, int> nodesRead;  // index into outputLayers
+        std::map<ColumnPath, int> nodesRead;  // index into outputLayers
         std::vector<Utf8String> outputLayers;
 
         ColumnGetter doGetColumn(const Utf8String & tableName,
-                                 const ColumnName & columnName)
+                                 const ColumnPath & columnName)
         {
             if (!tableName.empty())
                 return ReadThroughBindingScope
@@ -618,7 +642,7 @@ struct TensorflowGraphBase: public Function {
             std::vector<std::pair<PathElement, int> > indexes;
 
             for (const auto & n: graphNodes) {
-                ColumnName kept = keep(PathElement(n.first));
+                ColumnPath kept = keep(PathElement(n.first));
                 if (kept.empty())
                     continue;
                 if (kept.size() != 1)
@@ -664,7 +688,7 @@ struct TensorflowGraphBase: public Function {
     struct Applier: public FunctionApplier {
         Applier(const TensorflowGraphBase * owner,
                 SqlBindingScope & outerScope,
-                const std::shared_ptr<RowValueInfo> & input)
+                const std::shared_ptr<ExpressionValueInfo> & input)
             : FunctionApplier(owner),
               owner(owner),
               mldbScope(owner->server),
@@ -678,12 +702,16 @@ struct TensorflowGraphBase: public Function {
             //     infer what is read from the graph to make it work.
             boundOutputs = owner->outputs.bind(graphScope);
 
-            info.input = input;
+            info.input = { input };
             info.output = ExpressionValueInfo::toRow(boundOutputs.info);
             
             // Check that all values on the passed input are compatible with the
             // required inputs.
             info.checkInputCompatibility(*input);
+        }
+
+        virtual ~Applier()
+        {
         }
 
         const TensorflowGraphBase * owner;
@@ -704,7 +732,8 @@ struct TensorflowGraphBase: public Function {
             auto rowScope = functionScope.getRowScope(inputData);
 
             ExpressionValue inStorage;
-            const ExpressionValue & in = boundInputs(rowScope, inStorage, GET_LATEST);
+            const ExpressionValue & in
+                = boundInputs(rowScope, inStorage, GET_LATEST);
 
             Date outputTs = owner->modelTs;
 
@@ -746,8 +775,8 @@ struct TensorflowGraphBase: public Function {
             for (auto & t: threads)
                 t.join();
 
-
-            //ML::run_in_parallel(0, 100, doRun);
+#elif 0
+            parallelMap(0, 100, doRun);
 #else
             doRun(0);
 #endif
@@ -762,9 +791,16 @@ struct TensorflowGraphBase: public Function {
 
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerScope,
-         const std::shared_ptr<RowValueInfo> & input) const
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override
     {
-        std::unique_ptr<FunctionApplier> result(new Applier(this, outerScope, input));
+        if (input.size() != 1 || !input[0] || !input[0]->couldBeRow())
+            throw HttpReturnException
+                (400, "Tensorflow functions must be called with exactly "
+                 "one row as input",
+                 "inputs", input);
+        std::unique_ptr<FunctionApplier> result
+            (new Applier(this, outerScope, ExpressionValueInfo::toRow(input[0])));
         return result;
     }
 
@@ -917,9 +953,13 @@ struct TensorflowGraphBase: public Function {
                 break;
             }
         }
+        else if (val.isArray()) {
+            return castToTypedTensor(val.coerceToEmbedding(), type);
+        }
 
         //cerr << "val = " << jsonEncode(val) << endl;
         //cerr << "type = " << type << endl;
+        //cerr << "value type " << val.getTypeAsString() << endl;
         throw HttpReturnException(500, "Unable to cast value to typed tensor");
     }
     
@@ -992,8 +1032,8 @@ struct TensorflowGraphBase: public Function {
             return castToTypedTensor(val, storageToDatatype(storageType));
         }
 
-        cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
-        throw HttpReturnException(500, "Unable to cast value to tensor");
+        //cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
+        throw HttpReturnException(500, "Unable to cast value of type " + val.getTypeAsString() + " to tensor");
     }
     
     tensorflow::Tensor
@@ -1024,6 +1064,10 @@ struct TensorflowGraphBase: public Function {
 
                     // It has a datatype, but no value (and hence size).
                     // Attempt to match the data type only.
+
+                    //cerr << "casting type-no-size: " << layer << endl;
+                    //cerr << "value: " << jsonEncode(val) << endl;
+
                     return castToTypedTensor(val, it->second.type());
                 }
 
@@ -1087,7 +1131,7 @@ struct TensorflowGraphBase: public Function {
             // Scalar
             auto flattened = tensor.flat<std::string>();
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 CellValue cell(flattened(0));
                 return ExpressionValue(std::move(cell), ts);
             } catch (const std::exception & exc) {
@@ -1106,7 +1150,7 @@ struct TensorflowGraphBase: public Function {
         vector<CellValue> cells(n);
         for (size_t i = 0;  i < n;  ++i) {
             try {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 cells[i] = flattened(i);
             } catch (const std::exception & exc) {
                 cells[i] = CellValue::blob(flattened(i).data(),
@@ -1230,6 +1274,7 @@ struct TensorflowGraphBase: public Function {
     {
         std::unique_lock<std::mutex> guard(queueLock);
         while (true) {
+            cerr << "spin on session " << &guard << endl;
             int bestSession = -1;
             double bestSessionScore = INFINITY;
             for (unsigned i = 0;  i < sessions.size();  ++i) {
@@ -1242,17 +1287,22 @@ struct TensorflowGraphBase: public Function {
                 }
             }
 
+            cerr << "bestSession = " << bestSession << endl;
+
             if (bestSession != -1) {
                 ++sessions[bestSession].numQueued;
                 auto onDel = [bestSession, this] (tensorflow::Session *)
                     {
-                        std::unique_lock<std::mutex> guard(queueLock);
-                        --sessions[bestSession].numQueued;
-                        queueCond.notify_one();
+                        cerr << "before release session" << endl;
+                        std::unique_lock<std::mutex> guard(this->queueLock);
+                        cerr << "after release session" << endl;
+                        --this->sessions[bestSession].numQueued;
+                        this->queueCond.notify_one();
                     };
 
                 return { std::shared_ptr<tensorflow::Session>(sessions[bestSession].session.get(), onDel), sessions[bestSession].device };
             }
+
 
             queueCond.wait(guard);
         }
@@ -1369,8 +1419,8 @@ struct TensorflowGraphBase: public Function {
         for (const auto & st: sortedStats) {
             if (i++ % 50 == 0)
                 cerr << "device    \tkernel                                            \tsched\twait\tpre\trun\tpost" << endl;
-                    cerr << ML::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
-                 << "\t" << ML::format("%-50s", st.first.second.c_str()) << "\t"
+                    cerr << MLDB::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
+                 << "\t" << MLDB::format("%-50s", st.first.second.c_str()) << "\t"
                  << st.second.sched << "\t" << st.second.wait << "\t"
                  << st.second.pre << "\t" << st.second.run << "\t"
                  << st.second.post << endl;
@@ -1386,14 +1436,16 @@ struct TensorflowGraphBase: public Function {
 
     virtual ExpressionValue
     apply(const FunctionApplier & applier,
-          const ExpressionValue & context) const
+          const ExpressionValue & context) const override
     {
+        //cerr << "applying tensor flow function, context: " << jsonEncode(context) << endl;
+
         return static_cast<const Applier &>(applier)
             .apply(context);
     }
 
-    FunctionInfo
-    getFunctionInfo() const
+    virtual FunctionInfo
+    getFunctionInfo() const override
     {
         // Create a function binding context that can infer the
         // required inputs
@@ -1411,7 +1463,7 @@ struct TensorflowGraphBase: public Function {
         functionScope.inferInput();
         
         FunctionInfo result;
-        result.input = std::move(functionScope.inputInfo);
+        result.input = { functionScope.inputInfo };
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;
@@ -1429,6 +1481,7 @@ struct TensorflowOpConfig {
     std::map<Utf8String, tensorflow::AttrValue> attr;
     SelectExpression inputs;
     SelectExpression outputs;
+    Regex devices = ".*";
     tensorflow::DataType inputType = tensorflow::DT_INVALID;
 };
 
@@ -1449,6 +1502,11 @@ TensorflowOpConfigDescription()
              "Input type for graph nodes.  Default ('DT_INVALID') means "
              "infer it from the types on the operation.",
              tensorflow::DT_INVALID);
+    addAuto("devices", &TensorflowOpConfig::devices,
+            "Regular expression that matches the devices on which the "
+            "operation is allowed to run.  For example, `.*` means all devices "
+            "(CPU and GPU), `/cpu:.*` means CPU only, `/gpu:.*` means GPU "
+            "only, `/gpu:[01]` means on the first two GPUs.");
 }
 
 struct TensorflowOp: public TensorflowGraphBase {
@@ -1458,7 +1516,7 @@ struct TensorflowOp: public TensorflowGraphBase {
     TensorflowOp(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-        : TensorflowGraphBase(owner)
+        : TensorflowGraphBase(owner, config)
     {
         functionConfig = config.params.convert<TensorflowOpConfig>();   
         tensorflow::Status status;
@@ -1502,7 +1560,8 @@ struct TensorflowOp: public TensorflowGraphBase {
             node->add_input(input.name());
         }
         
-        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs);
+        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs,
+                   functionConfig.devices);
 
         //cerr << SummarizeGraphDef(*this->graph);
     }
@@ -1545,6 +1604,7 @@ struct TensorflowGraphConfig {
     Url modelFileUrl;
     SelectExpression inputs;
     SelectExpression outputs;
+    Regex devices = ".*";
 };
 
 
@@ -1563,6 +1623,11 @@ TensorflowGraphConfigDescription()
     addField("outputs", &TensorflowGraphConfig::outputs,
              "Outputs of the graph that are returned as the result of "
              "the function");
+    addAuto("devices", &TensorflowGraphConfig::devices,
+            "Regular expression that matches the devices on which the "
+            "graph is allowed to run.  For example, `.*` means all devices "
+            "(CPU and GPU), `/cpu:.*` means CPU only, `/gpu:.*` means GPU "
+            "only, `/gpu:[01]` means on the first two GPUs.");
 }
 
 struct TensorflowGraph: public TensorflowGraphBase {
@@ -1572,7 +1637,7 @@ struct TensorflowGraph: public TensorflowGraphBase {
     TensorflowGraph(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
-        : TensorflowGraphBase(owner)
+        : TensorflowGraphBase(owner, config)
     {
         functionConfig = config.params.convert<TensorflowGraphConfig>();   
 
@@ -1597,7 +1662,8 @@ struct TensorflowGraph: public TensorflowGraphBase {
                 (500, "Couldn't load tensorflow graph model: parse error");
         }
 
-        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs);
+        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs,
+                   functionConfig.devices);
 
         //cerr << SummarizeGraphDef(*this->graph);
     }
@@ -1937,8 +2003,12 @@ struct TensorflowPlugin: public Plugin {
                              + op + "' which takes more than one input"); 
                     }
                 }
-                else {
+                else if (args[0].info->isRow()) {
                     inputInfo = ExpressionValueInfo::toRow(args[0].info);
+                }
+                else {
+                    //we dont know the type of input
+                    inputInfo.reset(new UnknownRowValueInfo());
                 }
 
                 for (size_t i = 0;  i < opDef->input_arg_size();  ++i) {
@@ -1975,7 +2045,7 @@ struct TensorflowPlugin: public Plugin {
                     (server, pconfig, nullptr /* progress */);
 
                 std::shared_ptr<FunctionApplier> applier
-                    (fn->bind(context, inputInfo)
+                    (fn->bind(context, {inputInfo})
                      .release());
                 
                 BoundFunction result;
@@ -1997,7 +2067,6 @@ struct TensorflowPlugin: public Plugin {
                     };
 
                 result.resultInfo = applier->info.output;
-
                 return result;
             };
     }
@@ -2076,7 +2145,73 @@ struct TensorflowPlugin: public Plugin {
     std::shared_ptr<void> tfOperationMacroHandle;
 };
 
+// tf_node function
 
+BoundFunction
+tf_extract_constant (const Utf8String &functionName,
+                     const std::vector<BoundSqlExpression> & args,
+                     SqlBindingScope & context)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 2);
+
+    MldbServer * server = context.getMldbServer();
+
+    auto exec = [=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+        -> ExpressionValue
+        {
+            checkArgsSize(args.size(), 2);
+            Utf8String graphName = args[0].toUtf8String();
+            PolyConfig pconfig;
+            pconfig.id = graphName;
+            auto graph = std::dynamic_pointer_cast<TensorflowGraphBase>
+                (obtainFunction(server, pconfig));
+
+            if (!graph) {
+                throw HttpReturnException
+                    (404, "No TensorFlow graph with name found");
+            }
+
+            Path path = args[1].coerceToPath();
+
+            std::string key;
+            for (PathElement p: path) {
+                if (!key.empty())
+                    key += '/';
+                key += p.toUtf8String().extractAscii();
+            }
+
+            auto it = graph->constants.find(key);
+
+            if (it == graph->constants.end()) {
+                std::vector<Utf8String> constantExamples;
+                size_t n = 0;
+                for (auto & c: graph->constants) {
+                    constantExamples.emplace_back(c.first);
+                    if (n++ > 100)
+                        break;
+                }
+
+                throw HttpReturnException
+                    (500, "Constant " + path.toUtf8String()
+                     + " not found (path is " + key + ")",
+                     "examples", constantExamples);
+            }
+
+            auto result = TensorflowGraphBase::tensorToValue
+                (it->second, graph->modelTs);
+
+            return result;
+        };
+
+    return {
+        exec,
+        std::make_shared<EmbeddingValueInfo>()
+    };
+}
+
+static RegisterFunction registerTfExtractConstant("tf_extract_constant", tf_extract_constant);
 
 } // namespace MLDB
 

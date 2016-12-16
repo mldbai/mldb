@@ -56,7 +56,7 @@ errorMessage(HttpClientError errorCode)
     case HttpClientError::RecvError:
         return recvError;
     default:
-        throw ML::Exception("invalid error code");
+        throw MLDB::Exception("invalid error code");
     };
 }
 

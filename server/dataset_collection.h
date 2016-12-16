@@ -49,7 +49,7 @@ struct DatasetCollection: public PolyCollection<Dataset> {
 
     std::vector<std::pair<CellValue, int64_t> >
     getColumnValueCounts(const Dataset * dataset,
-                         const ColumnName & columnName,
+                         const ColumnPath & columnName,
                          ssize_t offset,
                          ssize_t limit) const;
 

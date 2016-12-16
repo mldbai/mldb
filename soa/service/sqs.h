@@ -147,7 +147,7 @@ struct SqsApi : public AwsBasicApi {
         */
         SnsMessageBody snsBody() const;
 
-        JML_IMPLEMENT_OPERATOR_BOOL(!isNull());
+        MLDB_IMPLEMENT_OPERATOR_BOOL(!isNull());
     };
 
     Message receiveMessage(const std::string & queueUri,

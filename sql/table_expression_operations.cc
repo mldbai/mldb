@@ -368,7 +368,7 @@ getUnbound() const
     result.merge(rightUnbound);
     result.mergeFiltered(onUnbound, tables);
 
-    std::vector<ColumnName> toRemove;
+    std::vector<ColumnPath> toRemove;
     for (auto & v: result.vars) {
         for (auto & t: tables) {
             if (v.first.startsWith(t)) {
@@ -606,8 +606,9 @@ getUnbound() const
 
 RowTableExpression::
 RowTableExpression(std::shared_ptr<SqlExpression> expr,
-                   Utf8String asName)
-    : expr(std::move(expr)), asName(std::move(asName))
+                   Utf8String asName,
+                   Style style)
+    : expr(std::move(expr)), asName(std::move(asName)), style(style)
 {
     ExcAssert(this->expr);
 }
@@ -645,15 +646,55 @@ bind(SqlBindingScope & context) const
 
     auto boundExpr = expr->bind(context);
 
-    // TODO: infer value expression from row, especially if there is only
+    // infer value expression from row, especially if there is only
     // one column available and thus its value type is simple
+    auto inputInfo = ExpressionValueInfo::toRow(boundExpr.info);
 
+    std::shared_ptr<ExpressionValueInfo> valueInfo;
+    
+    switch (style) {
+    case COLUMNS:
+        if (inputInfo->getSchemaCompleteness() == SCHEMA_CLOSED) {
+            // Try to infer a type for the column column.  This is done by
+            // getting a type that covers (can represent) the types of all
+            // of the columns in the dataset.
+            auto knownColumns = inputInfo->getKnownColumns();
+            if (!knownColumns.empty()) {
+                valueInfo = knownColumns[0].valueInfo;
+                for (size_t i = 1;  i < knownColumns.size();  ++i) {
+                    valueInfo = ExpressionValueInfo
+                        ::getCovering(valueInfo, knownColumns[i].valueInfo);
+                }
+            }
+        }
+        if (!valueInfo)
+            valueInfo.reset(new AnyValueInfo());
+        break;
+    case ATOMS:
+        if (inputInfo->getSchemaCompleteness() == SCHEMA_CLOSED) {
+            // Try to infer a type for the column column
+            auto knownAtoms = inputInfo->getKnownAtoms();
+            if (!knownAtoms.empty()) {
+                valueInfo = knownAtoms[0].valueInfo;
+                for (size_t i = 1;  i < knownAtoms.size();  ++i) {
+                    valueInfo = ExpressionValueInfo
+                        ::getCovering(valueInfo, knownAtoms[i].valueInfo);
+                }
+            }
+        }
+        if (!valueInfo)
+            valueInfo.reset(new AtomValueInfo());
+        break;
+    default:
+        throw HttpReturnException(500, "Invalid row_dataset style");
+    }
+    
     std::vector<KnownColumn> knownColumns;
-    knownColumns.emplace_back(ColumnName("value"),
-                              std::make_shared<AnyValueInfo>(),
+    knownColumns.emplace_back(ColumnPath("value"),
+                              valueInfo,
                               COLUMN_IS_DENSE);
-    knownColumns.emplace_back(ColumnName("column"),
-                              std::make_shared<AnyValueInfo>(),
+    knownColumns.emplace_back(ColumnPath("column"),
+                              std::make_shared<PathValueInfo>(),
                               COLUMN_IS_DENSE);
     auto info = std::make_shared<RowValueInfo>(knownColumns);
 
@@ -697,30 +738,58 @@ bind(SqlBindingScope & context) const
             {
                 // 1.  Get the row
                 ExpressionValue row = boundExpr(rowScope, GET_LATEST);
-                
+
+                if (!row.isRow()) {
+                    throw HttpReturnException
+                        (400, "Argument to row_dataset must be a row, not a "
+                         "scalar or NULL (got " + jsonEncodeStr(row) + ")");
+                }
+
                 // 2.  Put it in a sub dataset
                 std::vector<NamedRowValue> rows;
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onAtom = [&] (const Path & columnName,
-                                   const Path & prefix,
-                                   const CellValue & val,
-                                   Date ts)
-                {
-                    NamedRowValue row;
-                    row.rowHash = row.rowName = ColumnName(to_string(n++));
+                if (style == ATOMS) {
+                    auto onAtom = [&] (Path & columnName,
+                                       CellValue & val,
+                                       Date ts)
+                        {
+                            NamedRowValue row;
+                            row.rowHash = row.rowName = ColumnPath(to_string(n++));
 
-                    row.columns.emplace_back(columnNameName,
-                                             ExpressionValue((prefix+columnName).toUtf8String(), ts));
-                    row.columns.emplace_back(valueName, ExpressionValue(val, ts));
+                            row.columns.emplace_back(columnNameName,
+                                                     ExpressionValue(CellValue(std::move(columnName)), ts));
+                            row.columns.emplace_back(valueName, ExpressionValue(std::move(val), ts));
 
-                    rows.emplace_back(std::move(row));
+                            rows.emplace_back(std::move(row));
 
-                    return true;
-                };
+                            return true;
+                        };
 
-                row.forEachAtom(onAtom);
+                    row.forEachAtomDestructive(onAtom);
+                }
+                else { // style == ROWS
+                    auto onExpression = [&] (PathElement & columnName,
+                                             ExpressionValue & val)
+                    {
+                        NamedRowValue row;
+                        row.rowHash = row.rowName = ColumnPath(to_string(n++));
+
+                        row.columns.emplace_back
+                            (columnNameName,
+                             ExpressionValue(CellValue(std::move(columnName)),
+                                             val.getEffectiveTimestamp()));
+                        
+                        row.columns.emplace_back(valueName, std::move(val));
+
+                        rows.emplace_back(std::move(row));
+
+                        return true;
+                    };
+
+                    row.forEachColumnDestructive(onExpression);
+                }
 
                 return querySubDatasetFn(server, std::move(rows),
                                          select, when, *where, orderBy,
@@ -729,7 +798,7 @@ bind(SqlBindingScope & context) const
                                          SqlExpression::parse("rowPath()"),
                                          offset, limit, "" /* dataset alias */,
                                          false /* allow multithreading */);
-            };
+                };
 
             BasicRowGenerator result(exec, "row table expression generator");
             return result;

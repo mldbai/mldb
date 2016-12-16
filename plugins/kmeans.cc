@@ -110,7 +110,7 @@ ML::KMeansMetric * makeMetric(MetricSpace metric)
         return new ML::KMeansCosineMetric();
         break;
     default:
-        throw ML::Exception("Unknown kmeans metric type");
+        throw MLDB::Exception("Unknown kmeans metric type");
     }
 }
 
@@ -168,20 +168,20 @@ run(const ProcedureRunConfig & run,
                                         runProcConf.numInputDimensions,
                                         onProgress2);
 
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+    std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;
 
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
     for (auto & v: vars) {
         columnNames.push_back(v.columnName);
     }
 
-    std::vector<ML::distribution<float> > vecs;
+    std::vector<distribution<float> > vecs;
 
     for (unsigned i = 0;  i < rows.size();  ++i) {
-        vecs.emplace_back(ML::distribution<float>(std::get<2>(rows[i]).begin(),
+        vecs.emplace_back(distribution<float>(std::get<2>(rows[i]).begin(),
                                                   std::get<2>(rows[i]).end()));
     }
 
@@ -233,8 +233,8 @@ run(const ProcedureRunConfig & run,
         Date applyDate = Date::now();
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-            cols.emplace_back(ColumnName("cluster"), inCluster[i], applyDate);
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
+            cols.emplace_back(ColumnPath("cluster"), inCluster[i], applyDate);
             output->recordRow(std::get<1>(rows[i]), cols);
         }
 
@@ -254,13 +254,13 @@ run(const ProcedureRunConfig & run,
         for (unsigned i = 0;  i < kmeans.clusters.size();  ++i) {
             auto & cluster = kmeans.clusters[i];
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
 
             for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
             }
 
-            centroids->recordRow(RowName(ML::format("%i", i)), cols);
+            centroids->recordRow(RowPath(MLDB::format("%i", i)), cols);
         }
 
         centroids->commit();
@@ -301,7 +301,7 @@ KmeansFunctionConfigDescription()
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
+            throw MLDB::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -336,7 +336,7 @@ KmeansExpressionValueDescription::KmeansExpressionValueDescription()
 
 struct KmeansFunction::Impl {
     ML::KMeans kmeans;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     Impl(const Url & modelFileUrl)
     {
@@ -350,7 +350,7 @@ struct KmeansFunction::Impl {
         if (md["version"].asInt() != 1) {
             throw HttpReturnException(400, "k-Means model version is wrong");
         }
-        columnNames = jsonDecode<std::vector<ColumnName> >(md["columnNames"]);
+        columnNames = jsonDecode<std::vector<ColumnPath> >(md["columnNames"]);
         
         ML::DB::Store_Reader store(stream);
         kmeans.reconstitute(store);
@@ -361,7 +361,7 @@ KmeansFunction::
 KmeansFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<KmeansFunctionConfig>();
 

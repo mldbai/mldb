@@ -141,13 +141,13 @@ struct PostgresqlDataset: public Dataset {
         return string("ok");
     }
 
-    virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+    virtual void recordRowItl(const RowPath & rowName,
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
     {
         throw HttpReturnException(400, "PostgreSQL dataset is read-only");
     }
@@ -212,7 +212,7 @@ struct PostgresqlDataset: public Dataset {
         
         POSTGRESQL_VERBOSE(cerr << "keys fetched from " << config_.tableName << " sucessfully!" << endl;)
 
-        std::vector<RowName> rowsToKeep;
+        std::vector<RowPath> rowsToKeep;
 
         int nfields = PQnfields(res);
         int ntuples = PQntuples(res);
@@ -229,7 +229,8 @@ struct PostgresqlDataset: public Dataset {
         PQfinish(conn);
 
         return {[=] (ssize_t numToGenerate, Any token,
-             const BoundParameters & params)
+                     const BoundParameters & params,
+                     std::function<bool (const Json::Value &)> onProgress)
         {
             ssize_t start = 0;
             ssize_t limit = numToGenerate;
@@ -254,7 +255,7 @@ struct PostgresqlDataset: public Dataset {
     /** Return a row as an expression value.  Default forwards to the matrix
     view's getRow() function.
     */
-    virtual ExpressionValue getRowExpr(const RowName & row) const override
+    virtual ExpressionValue getRowExpr(const RowPath & row) const override
     {
         auto conn = startConnection();
         string selectString = "SELECT * FROM ";
@@ -283,11 +284,11 @@ struct PostgresqlDataset: public Dataset {
 
         POSTGRESQL_VERBOSE(cerr << ntuples << "," << nfields << endl;)
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > rowValues;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > rowValues;
         if (ntuples > 0) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
             for(int j = 0; j < nfields; j++) {
-                rowValues.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
+                rowValues.emplace_back(ColumnPath(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
                 POSTGRESQL_VERBOSE(printf("[%d,%d] %s %s\n", 0, j, PQgetvalue(res, 0, j), PQfname(res, j));)
             }       
         }
@@ -344,7 +345,7 @@ PostgresqlRecorderDatasetConfigDescription()
 struct PostgresqlRecorderDataset: public Dataset {
 
     PostgresqlRecorderDatasetConfig config_;
-    std::unordered_set<ColumnName> insertedColumns;
+    std::unordered_set<ColumnPath> insertedColumns;
 
     pg_conn* startConnection() 
     {
@@ -428,10 +429,10 @@ struct PostgresqlRecorderDataset: public Dataset {
         }
     }
 
-    void alterColumns(pg_conn* conn, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    void alterColumns(pg_conn* conn, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         for (auto& p : vals) {
-            ColumnName column = std::get<0>(p);
+            ColumnPath column = std::get<0>(p);
             if (insertedColumns.count(column) == 0){
                 insertedColumns.insert(column);
                 string alterString = "ALTER TABLE " +
@@ -456,7 +457,7 @@ struct PostgresqlRecorderDataset: public Dataset {
         }
     }
 
-    void insertRowPostgresql(pg_conn* conn, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) 
+    void insertRowPostgresql(pg_conn* conn, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) 
     {
         alterColumns(conn, vals);
 
@@ -501,8 +502,8 @@ struct PostgresqlRecorderDataset: public Dataset {
         PQclear(res);
     }
 
-    virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+    virtual void recordRowItl(const RowPath & rowName,
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
     {
         auto conn = startConnection();
 
@@ -511,7 +512,7 @@ struct PostgresqlRecorderDataset: public Dataset {
         PQfinish(conn);
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
     {
         auto conn = startConnection();
 
@@ -652,11 +653,11 @@ struct PostgresqlImportProcedure: public Procedure {
         int nfields = PQnfields(res);
         int ntuples = PQntuples(res);
 
-        std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+        std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows;
         for(int i = 0; i < ntuples; i++) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
             for(int j = 0; j < nfields; j++) {
-                cols.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, i, j), Date::Date::notADate());
+                cols.emplace_back(ColumnPath(PQfname(res, j)), getCellValueFromPostgres(res, i, j), Date::Date::notADate());
             }
             rows.emplace_back(Path(string("row_" + std::to_string(i))), std::move(cols));            
         }
@@ -716,7 +717,7 @@ struct PostgresqlQueryFunction : public Function
     PostgresqlQueryFunction(MldbServer * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress)
-        : Function(owner)
+        : Function(owner, config)
     {
         functionConfig = config.params.convert<PostgresqlQueryFunctionConfig>();
     }
@@ -736,12 +737,12 @@ struct PostgresqlQueryFunction : public Function
         PostgresqlQueryFunctionConfig config;
 
         PostgresqlQueryFunctionApplier(const PostgresqlQueryFunction * function,
-                                const PostgresqlQueryFunctionConfig & config)
+                                       const PostgresqlQueryFunctionConfig & config)
             : FunctionApplier(function), function(function), config(config)
         {
            std::vector<KnownColumn> noColumns;
 
-           this->info.input = std::make_shared<RowValueInfo>(noColumns, SCHEMA_CLOSED);
+           this->info.input = { std::make_shared<RowValueInfo>(noColumns, SCHEMA_CLOSED) };
            
            this->info.output.reset(new RowValueInfo(std::move(noColumns),
                                                     SCHEMA_OPEN));
@@ -774,11 +775,11 @@ struct PostgresqlQueryFunction : public Function
             int nfields = PQnfields(res);
             int ntuples = PQntuples(res);
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > row;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > row;
             if (ntuples > 0) {
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
                 for(int j = 0; j < nfields; j++) {
-                    row.emplace_back(ColumnName(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
+                    row.emplace_back(ColumnPath(PQfname(res, j)), getCellValueFromPostgres(res, 0, j), Date::Date::notADate());
                 }       
             }
 
@@ -790,12 +791,12 @@ struct PostgresqlQueryFunction : public Function
 
     std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
     {
         std::unique_ptr<PostgresqlQueryFunctionApplier> result
             (new PostgresqlQueryFunctionApplier(this, functionConfig));
 
-        result->info.checkInputCompatibility(*input);
+        result->info.checkInputCompatibility(input);
 
         return std::move(result);
     }

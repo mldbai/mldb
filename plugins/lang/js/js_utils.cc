@@ -21,13 +21,10 @@ using namespace std;
 using namespace v8;
 using namespace ML;
 
-namespace ML {
-
-__thread BacktraceInfo * current_backtrace = nullptr;
-
-} // namespace ML
 
 namespace MLDB {
+
+__thread BacktraceInfo * current_backtrace = nullptr;
 
 namespace JS {
 
@@ -56,12 +53,12 @@ injectBacktrace(v8::Handle<v8::Value> value)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     if (value.IsEmpty())
-        throw ML::Exception("no object passed for backtrace injection");
+        throw MLDB::Exception("no object passed for backtrace injection");
 
     auto obj = value.As<v8::Object>();
 
     if (obj.IsEmpty())
-        throw ML::Exception("can't inject backtrace");
+        throw MLDB::Exception("can't inject backtrace");
 
     v8::Handle<v8::Value> jsStack
         = obj->Get(v8::String::NewFromUtf8(isolate, "stack"));
@@ -71,18 +68,18 @@ injectBacktrace(v8::Handle<v8::Value> value)
     // Frames to skip:
     // at [C++] ML::backtrace(int)
     // at [C++] MLDB::JS::injectBacktrace(v8::Handle<v8::Value>)
-    // at [C++] MLDB::JS::mapException(ML::Exception const&)
+    // at [C++] MLDB::JS::mapException(MLDB::Exception const&)
     // at [C++] MLDB::JS::translateCurrentException()
     int num_frames_to_skip = 4;
 
-    vector<ML::BacktraceFrame> backtrace;
+    vector<BacktraceFrame> backtrace;
     if (current_backtrace && abi::__cxa_current_exception_type()) {
         // Skip:
-        backtrace = ML::backtrace(*current_backtrace, num_frames_to_skip);
+        backtrace = MLDB::backtrace(*current_backtrace, num_frames_to_skip);
         delete current_backtrace;
         current_backtrace = 0;
     }
-    else backtrace = ML::backtrace(num_frames_to_skip);
+    else backtrace = MLDB::backtrace(num_frames_to_skip);
 
     v8::Handle<v8::Array> nativeStack
         (v8::Array::New(isolate, backtrace.size() + jsStackElements.size()));
@@ -113,10 +110,10 @@ mapException(const std::exception & exc)
 }
 
 v8::Handle<Value>
-mapException(const ML::Exception & exc)
+mapException(const MLDB::Exception & exc)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    //cerr << "mapping ML::Exception " << exc.what() << endl;
+    //cerr << "mapping MLDB::Exception " << exc.what() << endl;
 
     return isolate->ThrowException
         (injectBacktrace
@@ -133,7 +130,7 @@ mapException(const HttpReturnException & exc)
     auto obj = error.As<v8::Object>();
 
     if (obj.IsEmpty())
-        throw ML::Exception("can't inject backtrace");
+        throw MLDB::Exception("can't inject backtrace");
     
     obj->Set(v8::String::NewFromUtf8(isolate, "httpCode"),
              v8::Integer::New(isolate, exc.httpCode));
@@ -151,7 +148,7 @@ translateCurrentException()
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
 
     if (!std::current_exception()) {
-        throw ML::Exception("no exception");
+        throw MLDB::Exception("no exception");
     }
 
     try {
@@ -163,13 +160,13 @@ translateCurrentException()
     catch (const HttpReturnException & ex) {
         return mapException(ex);
     }
-    catch(const ML::Exception& ex) {
+    catch(const MLDB::Exception& ex) {
         return mapException(ex);
     }
     catch(const std::exception& ex) {
         return mapException(ex);
     }
-    JML_CATCH_ALL {
+    MLDB_CATCH_ALL {
         std::string msg = "unknown exception type";
         auto error = v8::Exception::Error(v8::String::NewFromUtf8(isolate, msg.c_str()));
         return isolate->ThrowException(injectBacktrace(error));
@@ -182,14 +179,14 @@ ValuePromise getArg(const JSArgs & args, int argnum,
                     const std::string & name)
 {
     if (args.Length() <= argnum)
-        throw ML::Exception("argument %d (%s) must be present",
+        throw MLDB::Exception("argument %d (%s) must be present",
                             argnum, name.c_str());
 
     ValuePromise arg;
     arg.value  = args[argnum];
 
     if (arg.value->IsUndefined() || arg.value->IsNull())
-        throw ML::Exception("argument %d (%s) was %s",
+        throw MLDB::Exception("argument %d (%s) was %s",
                             argnum, name.c_str(), cstr(arg.value).c_str());
 
     arg.argnum = argnum;
@@ -217,7 +214,7 @@ from_js(const JSValue & val, v8::Persistent<v8::Function> *)
         //cerr << "fn = " << cstr(fn) << endl;
         //cerr << "fn.IsEmpty() = " << fn.IsEmpty() << endl;
         //cerr << "val->IsFunction() = " << val->IsFunction() << endl;
-        throw ML::Exception("expected a function; instead we got " + cstr(val));
+        throw MLDB::Exception("expected a function; instead we got " + cstr(val));
     }
     
     return v8::Persistent<v8::Function>(isolate, fn);
@@ -232,7 +229,7 @@ from_js(const JSValue & val, v8::Local<v8::Function> *)
         //cerr << "fn = " << cstr(fn) << endl;
         //cerr << "fn.IsEmpty() = " << fn.IsEmpty() << endl;
         //cerr << "val->IsFunction() = " << val->IsFunction() << endl;
-        throw ML::Exception("expected a function; instead we got " + cstr(val));
+        throw MLDB::Exception("expected a function; instead we got " + cstr(val));
     }
 
     return fn;
@@ -243,7 +240,7 @@ from_js(const JSValue & val, v8::Handle<v8::Array> *)
 {
     auto arr = val.As<v8::Array>();
     if (arr.IsEmpty() || !arr->IsArray())
-        throw ML::Exception("expected an array; instead we got " + cstr(val));
+        throw MLDB::Exception("expected an array; instead we got " + cstr(val));
 
     return arr;
 }
@@ -262,21 +259,21 @@ getFunction(const std::string & script_source)
     Handle<Script> script = Script::Compile(source);
 
     if (script.IsEmpty() && tc.HasCaught())
-        throw ML::Exception("got exception compiling: "
+        throw MLDB::Exception("got exception compiling: "
                             + JS::cstr(tc.Exception()));
     if (script.IsEmpty())
-        throw ML::Exception("compilation returned nothing");
+        throw MLDB::Exception("compilation returned nothing");
     
     // Run the script to get the result (which should be a function)
     Handle<Value> result = script->Run();
 
     if (result.IsEmpty() && tc.HasCaught())
-        throw ML::Exception("got exception compiling: "
+        throw MLDB::Exception("got exception compiling: "
                             + JS::cstr(tc.Exception()));
     if (result.IsEmpty())
-        throw ML::Exception("compilation returned nothing");
+        throw MLDB::Exception("compilation returned nothing");
     if (!result->IsFunction())
-        throw ML::Exception("result of script isn't a function");
+        throw MLDB::Exception("result of script isn't a function");
     
     auto fnresult = result.As<v8::Function>();
 

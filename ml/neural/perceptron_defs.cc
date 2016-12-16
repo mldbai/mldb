@@ -13,6 +13,7 @@
 #include "mldb/jml/db/persistent.h"
 
 using namespace std;
+using namespace MLDB;
 
 namespace ML {
 

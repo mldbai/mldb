@@ -97,14 +97,14 @@ struct RcuLocked {
     T * operator -> () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return ptr;
     }
 
     T & operator * () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return *ptr;
     }
 };
@@ -151,7 +151,7 @@ struct RcuProtected {
         val = 0;
     }
 
-    JML_IMPLEMENT_OPERATOR_BOOL(val);
+    MLDB_IMPLEMENT_OPERATOR_BOOL(val);
 
     RcuLocked<T> operator () ()
     {

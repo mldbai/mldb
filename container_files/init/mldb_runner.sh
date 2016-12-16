@@ -20,5 +20,6 @@ exec /sbin/setuser _mldb \
         --plugin-directory {{MLDB_GLOBAL_PLUGINS_PATH}} \
         --plugin-directory {{MLDB_LOCAL_PLUGINS_PATH}} \
         --http-base-url "${HTTP_BASE_URL}" \
+        --config-path=/etc/mldb.conf \
         {{MLDB_EXTRA_FLAGS}} \
         $MLDB_RUNNER_ARGS

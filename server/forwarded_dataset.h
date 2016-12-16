@@ -41,17 +41,17 @@ struct ForwardedDataset: public Dataset {
     
     virtual Any getStatus() const;
 
-    virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    virtual void recordRowItl(const RowPath & rowName,
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
-    virtual void recordColumn(const ColumnName & columnName,
-                              const std::vector<std::tuple<RowName, CellValue, Date> > & vals);
+    virtual void recordColumn(const ColumnPath & columnName,
+                              const std::vector<std::tuple<RowPath, CellValue, Date> > & vals);
     
-    virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & rows);
+    virtual void recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & rows);
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
 
     virtual std::shared_ptr<RowValueInfo> getRowInfo() const;
 
@@ -76,8 +76,8 @@ struct ForwardedDataset: public Dataset {
     selectExplainString(const Utf8String & select,
                         const Utf8String & where) const;
 
-    virtual std::vector<ColumnName>
-    getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset = 0, ssize_t limit = -1) const;
 
     virtual BoundFunction
     overrideFunction(const Utf8String & tableName, 

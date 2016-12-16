@@ -43,7 +43,7 @@ void parallelMap(size_t first, size_t last,
                     return;
                 try {
                     doWork(myindex);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     if (hasException.fetch_add(1) == 0) {
                         ExcAssert(!exc);
                         exc = std::current_exception();
@@ -99,7 +99,7 @@ bool parallelMapHaltable(size_t first, size_t last,
                         stop = true;
                         return;
                     }
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     if (hasException.fetch_add(1) == 0) {
                         ExcAssert(!exc);
                         exc = std::current_exception();
@@ -156,7 +156,7 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
                 size_t indexEnd = std::min(last, myindex + chunkSize);
                 try {
                     doWork(myindex, indexEnd);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     if (hasException.fetch_add(1) == 0) {
                         ExcAssert(!exc);
                         exc = std::current_exception();

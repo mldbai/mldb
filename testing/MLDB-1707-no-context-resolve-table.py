@@ -24,7 +24,6 @@ class Mldb1707Test(MldbUnitTest):  # noqa
         expected = [
         {
             "rowName": "result",
-            "rowHash": "d54892b736cac3ab",
             "columns": [
                 [
                     "input.xx",

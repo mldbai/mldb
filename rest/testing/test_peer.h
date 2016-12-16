@@ -123,11 +123,11 @@ struct TestPeer: public ServicePeer {
         }
         else if (msg.type == 3) {
             // Throws an exception
-            throw ML::Exception("exception handling message");
+            throw MLDB::Exception("exception handling message");
         }
         else if (msg.type == 4) {
             // Send back a typed object
-            throw ML::Exception("sendPeerResponseObject");
+            throw MLDB::Exception("sendPeerResponseObject");
 
             //sendPeerResponseObject(returnAddress,
             //                       header,
@@ -147,7 +147,7 @@ struct TestPeer: public ServicePeer {
     getWatchBoundType(const ResourceSpec & spec)
     {
         if (spec.empty())
-            throw ML::Exception("no type for empty spec");
+            throw MLDB::Exception("no type for empty spec");
 
         if (spec.size() == 1 && spec[0].channel == "pulse")
             return make_pair(&typeid(tuple<int>), nullptr);
@@ -181,7 +181,7 @@ struct TestPeer: public ServicePeer {
                                            linkParams);
         }
         if (linkType != "subscription")
-            throw ML::Exception("unknown link type '%s'", linkType.c_str());
+            throw MLDB::Exception("unknown link type '%s'", linkType.c_str());
 
         cerr << "sourcePath = " << jsonEncode(sourcePath)
              << " targetPath = " << jsonEncode(targetPath) << endl;
@@ -212,14 +212,14 @@ struct ForkedTestPeer {
         int startPipe[2];
         int res = ::pipe(startPipe);
         if (res == -1)
-            throw ML::Exception(errno, "pipe()");
+            throw MLDB::Exception(errno, "pipe()");
 
         childPid = fork();
 
         cerr << "afterForkedTestPeer childPid = " << childPid << endl;
 
         if (childPid == -1)
-            throw ML::Exception(errno, "fork()");
+            throw MLDB::Exception(errno, "fork()");
 
         //cerr << "pipe: read fd " << startPipe[0] << " write fd " << startPipe[1] << endl;
 
@@ -237,9 +237,9 @@ struct ForkedTestPeer {
             cerr << "write res is " << res << endl;
 
             if (res == -1)
-                throw ML::Exception(errno, "write of boundAddress");
+                throw MLDB::Exception(errno, "write of boundAddress");
             if (res != boundAddress.length() + 1)
-                throw ML::Exception("didn't write whole address");
+                throw MLDB::Exception("didn't write whole address");
             
             cerr << "*** PEER READY" << endl;
             ::close(startPipe[1]);
@@ -258,7 +258,7 @@ struct ForkedTestPeer {
         ::close(startPipe[0]);
         cerr << "read res is " << res << endl;
         if (res == -1)
-            throw ML::Exception(errno, "read() of bound address");
+            throw MLDB::Exception(errno, "read() of bound address");
         cerr << "res = " << res << endl;
 
         cerr << "http address is " << buf << endl;
@@ -338,13 +338,13 @@ struct ForkedTestPeer: public Runner {
 
         bool wasStarted = waitStart();
         if (!wasStarted)
-            throw ML::Exception("didn't start");
+            throw MLDB::Exception("didn't start");
 
         started.lock();
         started.unlock();
 
         if (httpAddr.empty())
-            throw ML::Exception("peer didn't return its HTTP address");
+            throw MLDB::Exception("peer didn't return its HTTP address");
 
     }
 

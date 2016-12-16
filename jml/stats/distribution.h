@@ -23,12 +23,12 @@
 
 #include <type_traits>
 
-namespace ML {
+namespace MLDB {
 
 inline void wrong_sizes_exception(const char * op, int size1, int size2)
 {
-    throw Exception(format("distribution: operation %s between different sized "
-                           "distributions %d and %d", op, size1, size2));
+    throw MLDB::Exception("distribution: operation %s between different sized "
+                          "distributions %d and %d", op, size1, size2);
 }
 
 
@@ -497,4 +497,4 @@ bool equal_impl(const distribution<T, U> & d1,
     return (d1 == d2).all();
 }
 
-} // namespace ML
+} // namespace MLDB

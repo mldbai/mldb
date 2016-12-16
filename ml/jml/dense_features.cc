@@ -417,7 +417,7 @@ parse(const std::string & name, Feature & feature) const
 
 bool
 Dense_Feature_Space::
-parse(Parse_Context & context, ML::Feature & feature) const
+parse(ParseContext & context, ML::Feature & feature) const
 {
     /* Todo: quoting, etc. */
     vector<pair<string, size_t> > names_and_lengths;
@@ -441,7 +441,7 @@ parse(Parse_Context & context, ML::Feature & feature) const
 
 void
 Dense_Feature_Space::
-expect(Parse_Context & context, ML::Feature & feature) const
+expect(ParseContext & context, ML::Feature & feature) const
 {
     if (!parse(context, feature))
         throw Exception("Expected name of feature");
@@ -752,7 +752,7 @@ struct Buffer {
 };
 
 std::tuple<size_t, size_t, string>
-get_sizes(Parse_Context & context,
+get_sizes(ParseContext & context,
           vector<unsigned> & row_start_ofs)
 {
     row_start_ofs.clear();
@@ -813,7 +813,7 @@ std::tuple<size_t, size_t, string>
 get_sizes(const std::string & filename,
           vector<unsigned> & row_start_ofs)
 {
-    Parse_Context context(filename);
+    ParseContext context(filename);
 
     return get_sizes(context, row_start_ofs);
 }
@@ -883,13 +883,13 @@ struct Dense_Training_Data::Data_Source {
     const char * data_end;
     mutable std::shared_ptr<MLDB::filter_istream> stream;
 
-    Parse_Context get_context() const
+    ParseContext get_context() const
     {
         if (data)
-            return Parse_Context(filename, data, data_end);
+            return ParseContext(filename, data, data_end);
         else {
             stream.reset(new MLDB::filter_istream(filename));
-            return Parse_Context(filename, *stream);
+            return ParseContext(filename, *stream);
         }
     }
 };
@@ -939,7 +939,7 @@ init(const std::vector<Data_Source> & data_sources,
         size_t my_row_count, my_var_count;
         string my_header;
 
-        Parse_Context context = data_sources[i].get_context();
+        ParseContext context = data_sources[i].get_context();
 
         std::tie(my_row_count, my_var_count, my_header)
             = get_sizes(context, row_start_ofs[i]);
@@ -990,7 +990,7 @@ init(const std::vector<Data_Source> & data_sources,
 
         //cerr << "parsing header " << header << endl;
 
-        Parse_Context context(data_sources[0].filename, header.c_str(),
+        ParseContext context(data_sources[0].filename, header.c_str(),
                               header.c_str() + header.size());
 
         while (context) {
@@ -1065,7 +1065,7 @@ init(const std::vector<Data_Source> & data_sources,
         //cerr << "trying to read..." << endl;
         for (unsigned i = first_nonempty;  i < data_sources.size();  ++i) {
 
-            Parse_Context context = data_sources[i].get_context();
+            ParseContext context = data_sources[i].get_context();
             
             /* Skip over the header */
             context.skip_line();

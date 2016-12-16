@@ -20,7 +20,7 @@
 #include <iostream>
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE (exception_backtrace)
 {
     cerr << "\n\nan exception with a backtrace:\n";
     try {
-        throw ML::Exception("this exception produces a backtrace");
+        throw MLDB::Exception("this exception produces a backtrace");
     }
     catch (...) {
     }

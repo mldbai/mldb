@@ -79,14 +79,14 @@ rez = mldb.get("/v1/query", q="select c({input: -1})")
 js_rez = rez.json()
 assert js_rez[0]['columns'][0][1] == 1
 
-mldb.put("/v1/functions/recurse", {
-    "type": "sql.expression",
-    "params": {"expression": "recurse({input})[output] as output"}
-})
-
 # MLDB-1251
 mldb.log("MLDB-1251")
 try:
+    mldb.put("/v1/functions/recurse", {
+        "type": "sql.expression",
+        "params": {"expression": "recurse({input})[output] as output"}
+    })
+
     mldb.get("/v1/query", q="select recurse({input: -1})")
 except mldb_wrapper.ResponseException as exc:
     pass

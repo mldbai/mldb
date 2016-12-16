@@ -421,11 +421,11 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
             // extract the column names and the distribution from the first,
             // then get the same values for the second, and return enough to
             // reconstitute the same structure again.
-            std::vector<ColumnName> columnNames;
-            ML::distribution<double> d1;
+            std::vector<ColumnPath> columnNames;
+            distribution<double> d1;
 
-            auto onAtom = [&] (const ColumnName & name,
-                               const ColumnName & prefix,
+            auto onAtom = [&] (const ColumnPath & name,
+                               const ColumnPath & prefix,
                                const CellValue & val,
                                Date ts)
             {
@@ -439,7 +439,7 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
             DoubleDist d2
                 = val2.getEmbedding(columnNames.data(), columnNames.size());
 
-            auto token = std::make_shared<std::vector<ColumnName> >
+            auto token = std::make_shared<std::vector<ColumnPath> >
                 (std::move(columnNames));
             Date ts = std::min(val1.getEffectiveTimestamp(),
                                val2.getEffectiveTimestamp());
@@ -456,7 +456,7 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
             ExcAssert(token);
             // Get our column names back out
             auto columnNames
-                = std::static_pointer_cast<const std::vector<ColumnName> >
+                = std::static_pointer_cast<const std::vector<ColumnPath> >
                   (token);
 
             return ExpressionValue(std::move(vals), std::move(columnNames),
@@ -474,58 +474,58 @@ void
 convertEmbeddingImpl(void * to,
                      const void * from,
                      size_t len,
-                     StorageType bufType,
-                     StorageType storageType)
+                     StorageType toType,
+                     StorageType fromType)
 {
-    switch (bufType) {
+    switch (toType) {
     case ST_FLOAT32:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (float *)to, len);
         return;
     case ST_FLOAT64:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (double *)to, len);
         return;
     case ST_INT8:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (int8_t *)to, len);
         return;
     case ST_UINT8:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (uint8_t *)to, len);
         return;
     case ST_INT16:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (int16_t *)to, len);
         return;
     case ST_UINT16:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (uint16_t *)to, len);
         return;
     case ST_INT32:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (int32_t *)to, len);
         return;
     case ST_UINT32:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (uint32_t *)to, len);
         return;
     case ST_INT64:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (int64_t *)to, len);
         return;
     case ST_UINT64:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (uint64_t *)to, len);
         return;
     case ST_BLOB:
@@ -533,34 +533,570 @@ convertEmbeddingImpl(void * to,
         throw HttpReturnException(600, "Not done: blob conversions");
 #if 0
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (std::vector<uint8_t> *)to, len);
 #endif
         return;
     case ST_STRING:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (std::string *)to, len);
         return;
     case ST_UTF8STRING:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (Utf8String *)to, len);
         return;
     case ST_ATOM:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (CellValue *)to, len);
         return;
     case ST_BOOL:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (bool *)to, len);
         return;
     case ST_TIMESTAMP:
         getNumbers(from,
-                   storageType,
+                   fromType,
                    (Date *)to, len);
+        return;
+    case ST_TIMEINTERVAL:
+        throw HttpReturnException(500, "Can't store time intervals");
+    }
+    throw HttpReturnException(500, "convertEmbedding unknown time");
+}
+
+// TODO: generalize
+std::shared_ptr<ExpressionValueInfo>
+getValueInfoForStorage(StorageType type)
+{
+    switch (type) {
+    case ST_FLOAT32:
+        return std::make_shared<Float32ValueInfo>();
+    case ST_FLOAT64:
+        return std::make_shared<Float64ValueInfo>();
+    case ST_INT8:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT8:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_INT16:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT16:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_INT32:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT32:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_INT64:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT64:
+        return std::make_shared<Uint64ValueInfo>();
+    case ST_BLOB:
+        return std::make_shared<BlobValueInfo>();
+    case ST_STRING:
+        return std::make_shared<StringValueInfo>();
+    case ST_UTF8STRING:
+        return std::make_shared<Utf8StringValueInfo>();
+    case ST_ATOM:
+        return std::make_shared<AtomValueInfo>();
+    case ST_BOOL:
+        return std::make_shared<BooleanValueInfo>();
+    case ST_TIMESTAMP:
+        return std::make_shared<TimestampValueInfo>();
+    case ST_TIMEINTERVAL:
+        return std::make_shared<AtomValueInfo>();
+    }
+
+    throw HttpReturnException(500, "Unknown embedding storage type",
+                              "type", type);
+}
+
+StorageType valueStorageType(const CellValue & value)
+{
+    switch (value.cellType()) {
+    case CellValue::EMPTY:
+        return ST_ATOM;
+    case CellValue::INTEGER:
+        if (value.isPositiveNumber()) {
+            uint64_t uval = value.toUInt();
+            if (uval <= 256)
+                return ST_UINT8;
+            else if (uval < 65536)
+                return ST_UINT16;
+            else if (uval <= (1ULL << 32))
+                return ST_UINT32;
+            else return ST_UINT64;
+        }
+        else {
+            int64_t uval = value.toInt();
+            if (uval <= 256)
+                return ST_UINT8;
+            else if (uval < 65536)
+                return ST_UINT16;
+            else if (uval <= (1ULL << 32))
+                return ST_UINT32;
+            else return ST_UINT64;
+        }
+
+    case CellValue::FLOAT:
+        return ST_FLOAT32;
+    case CellValue::ASCII_STRING:
+        return ST_STRING;
+    case CellValue::UTF8_STRING:
+        return ST_UTF8STRING;
+    case CellValue::TIMESTAMP:
+        return ST_TIMESTAMP;
+    case CellValue::TIMEINTERVAL:
+        return ST_TIMEINTERVAL;
+    case CellValue::BLOB:
+        return ST_BLOB;
+    case CellValue::PATH:
+        return ST_ATOM;
+    case CellValue::NUM_CELL_TYPES:
+        break;
+    }
+
+    throw HttpReturnException(500, "Unknown CellValue type for "
+                              + jsonEncodeStr(value));
+}
+
+StorageType coveringStorageType(StorageType type1, StorageType type2)
+{
+    if (type2 < type1)
+        return coveringStorageType(type2, type1);
+    
+    if (type1 == type2)
+        return type1;
+    if (type1 == ST_ATOM || type2 == ST_ATOM)
+        return ST_ATOM;
+
+    switch (type1) {
+
+    case ST_FLOAT32:
+        switch (type2) {
+        case ST_FLOAT64:
+            return ST_FLOAT64;
+        case ST_INT8:
+        case ST_UINT8:
+        case ST_INT16:
+        case ST_UINT16:  // up to 16 bit integers exactly representable in float32
+        case ST_BOOL:
+            return ST_FLOAT32;
+        case ST_INT32:
+        case ST_UINT32:
+            return ST_FLOAT64;
+        default:
+            return ST_ATOM;
+        }
+
+    case ST_FLOAT64:
+        switch (type2) {
+        case ST_INT8:
+        case ST_UINT8:
+        case ST_INT16:
+        case ST_UINT16:
+        case ST_INT32:
+        case ST_UINT32:
+        case ST_BOOL:
+            return ST_FLOAT64;
+        default:
+            return ST_ATOM;
+        }
+        
+
+    case ST_INT8:
+        switch (type2) {
+        case ST_BOOL:
+            return ST_INT8;
+        case ST_UINT8:
+        case ST_INT16:
+            return ST_INT16;
+        case ST_UINT16:
+        case ST_INT32:
+            return ST_INT32;
+        case ST_UINT32:
+        case ST_INT64:
+            return ST_INT64;
+        default:
+            return ST_ATOM;
+        }
+
+    case ST_UINT8:
+        switch (type2) {
+        case ST_BOOL:
+            return ST_UINT8;
+        case ST_INT16:
+        case ST_UINT16:
+        case ST_INT32:
+        case ST_UINT32:
+        case ST_INT64:
+        case ST_UINT64:
+            return type2;
+        default:
+            return ST_ATOM;
+        }
+
+    case ST_INT16:
+        switch (type2) {
+        case ST_BOOL:
+            return ST_INT16;
+        case ST_UINT16:
+        case ST_INT32:
+            return ST_INT32;
+        case ST_UINT32:
+        case ST_INT64:
+            return ST_INT64;
+        default:
+            return ST_ATOM;
+        }
+        
+    case ST_UINT16:
+        switch (type2) {
+        case ST_BOOL:
+            return ST_UINT16;
+        case ST_INT32:
+        case ST_UINT32:
+        case ST_INT64:
+        case ST_UINT64:
+            return type2;
+        default:
+            return ST_ATOM;
+        }
+
+    case ST_INT32:
+        switch (type2) {
+        case ST_BOOL:
+            return ST_INT32;
+        case ST_UINT32:
+        case ST_INT64:
+            return ST_INT64;
+        default:
+            return ST_ATOM;
+        }
+
+    case ST_UINT32:
+        switch (type2) {
+        case ST_BOOL:
+            return ST_UINT32;
+        case ST_INT64:
+        case ST_UINT64:
+            return type2;
+        default:
+            return ST_ATOM;
+        }
+        
+    case ST_INT64:
+    case ST_UINT64:
+        if (type2 == ST_BOOL)
+            return type1;
+        return ST_ATOM;
+    case ST_BLOB:
+        return ST_ATOM;
+    case ST_STRING:
+        if (type2 == ST_UTF8STRING)
+            return ST_UTF8STRING;
+        return ST_ATOM;
+    case ST_UTF8STRING:
+    case ST_ATOM:
+        return ST_ATOM;
+    case ST_BOOL:
+        return ST_ATOM;
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+        return ST_ATOM;
+    }
+    return ST_ATOM;
+}
+
+StorageType coveringStorageType(StorageType type1, const CellValue & val2)
+{
+    // TODO: we can be more specific than this
+    // eg, if we have UINT8 and we call with -1, we will get INT16 not
+    // int8 even if values are only < 127
+    return coveringStorageType(type1, valueStorageType(val2));
+}
+
+StorageType coveringStorageType(StorageType type1, const ExpressionValue & val2)
+{
+    return coveringStorageType(type1, val2.getAtom());
+}
+
+/** How many bytes is a single instance of the given storage type? */
+size_t sizeofStorageType(StorageType type)
+{
+    return getCellSizeInBytes(type);
+}
+
+std::shared_ptr<void>
+allocateStorageBuffer(size_t size, StorageType storage)
+{
+    void * ptr;
+    int res = posix_memalign(&ptr, 32, storageBufferBytes(size, storage));
+    if (res != 0) {
+        throw std::bad_alloc();
+    }
+    std::shared_ptr<void> mem(ptr, free);
+    initializeStorageBuffer(ptr, storage, size);
+    return mem;
+}
+
+std::shared_ptr<void>
+allocateStorageBuffer(const DimsVector & size, StorageType storage)
+{
+    size_t sz = 1;
+    for (auto & s: size)
+        sz *= s;
+    return allocateStorageBuffer(sz, storage);
+}
+
+
+/** Return the size of a storage buffer of the given type.  Includes only
+    direct (no indirect) storage.
+*/
+uint64_t storageBufferBytes(size_t size, StorageType storage)
+{
+    return size * getCellSizeInBytes(storage);
+}
+
+uint64_t storageBufferBytes(const DimsVector & size, StorageType storage)
+{
+    size_t sz = 1;
+    for (auto & s: size)
+        sz *= s;
+    return storageBufferBytes(sz, storage);
+}
+
+void * addOfs(void * p, ssize_t n)
+{
+    return reinterpret_cast<char *>(p) + n;
+}
+
+const void * addOfs(const void * p, ssize_t n)
+{
+    return reinterpret_cast<const char *>(p) + n;
+}
+
+void copyStorageBuffer(const void * from, size_t fromOffset, StorageType fromType,
+                       void * to, size_t toOffset, StorageType toType,
+                       size_t numElements)
+{
+    from = addOfs(from, storageBufferBytes(fromOffset, fromType));
+    to = addOfs(to, storageBufferBytes(toOffset, toType));
+    convertEmbeddingImpl(to, from, numElements, toType, fromType);
+    
+}
+
+void moveStorageBuffer(void * from, size_t fromOffset, StorageType fromType,
+                       void * to, size_t toOffset, StorageType toType,
+                       size_t numElements)
+{
+    // TODO: move not copy (later)
+    copyStorageBuffer(from, fromOffset, fromType,
+                      to, toOffset, toType,
+                      numElements);
+}
+
+template<typename T>
+void fillBuffer(T * buf, size_t numElements, const CellValue & val)
+{
+    std::fill(buf, buf + numElements, coerceTo(val, (T *)0));
+}
+
+void fillStorageBuffer(void * buffer, size_t offset, StorageType storageType,
+                       size_t numElements, const CellValue & val)
+{
+    buffer = addOfs(buffer, storageBufferBytes(offset, storageType));
+    
+    switch (storageType) {
+    case ST_FLOAT32:
+        fillBuffer((float *)buffer, numElements, val);
+        return;
+    case ST_FLOAT64:
+        fillBuffer((double *)buffer, numElements, val);
+        return;
+    case ST_INT8:
+        fillBuffer((int8_t *)buffer, numElements, val);
+        return;
+    case ST_UINT8:
+        fillBuffer((uint8_t *)buffer, numElements, val);
+        return;
+    case ST_INT16:
+        fillBuffer((int16_t *)buffer, numElements, val);
+        return;
+    case ST_UINT16:
+        fillBuffer((uint16_t *)buffer, numElements, val);
+        return;
+    case ST_INT32:
+        fillBuffer((int32_t *)buffer, numElements, val);
+        return;
+    case ST_UINT32:
+        fillBuffer((uint32_t *)buffer, numElements, val);
+        return;
+    case ST_INT64:
+        fillBuffer((int64_t *)buffer, numElements, val);
+        return;
+    case ST_UINT64:
+        fillBuffer((uint64_t *)buffer, numElements, val);
+        return;
+    case ST_BLOB:
+        // Unfortunately, gcc6.1.1 ICEs when enabling this
+        throw HttpReturnException(600, "Not done: blob conversions");
+#if 0
+        fillBuffer((std::vector<uint8_t> *)buffer, numElements, val);
+#endif
+        return;
+    case ST_STRING:
+        fillBuffer((std::string *)buffer, numElements, val);
+        return;
+    case ST_UTF8STRING:
+        fillBuffer((Utf8String *)buffer, numElements, val);
+        return;
+    case ST_ATOM:
+        fillBuffer((CellValue *)buffer, numElements, val);
+        return;
+    case ST_BOOL:
+        fillBuffer((bool *)buffer, numElements, val);
+        return;
+    case ST_TIMESTAMP:
+        fillBuffer((Date *)buffer, numElements, val);
+        return;
+    case ST_TIMEINTERVAL:
+        throw HttpReturnException(500, "Can't store time intervals");
+    }
+    throw HttpReturnException(500, "convertEmbedding unknown time");
+}
+
+template<typename T>
+void initializeBuffer(T * buf, size_t numElements, const CellValue & val)
+{
+    std::uninitialized_fill(buf, buf + numElements, coerceTo(val, (T *)0));
+}
+
+void initializeStorageBuffer(void * buffer, StorageType storageType,
+                             size_t numElements, const CellValue & val)
+{
+    switch (storageType) {
+    case ST_FLOAT32:
+        initializeBuffer((float *)buffer, numElements, val);
+        return;
+    case ST_FLOAT64:
+        initializeBuffer((double *)buffer, numElements, val);
+        return;
+    case ST_INT8:
+        initializeBuffer((int8_t *)buffer, numElements, val);
+        return;
+    case ST_UINT8:
+        initializeBuffer((uint8_t *)buffer, numElements, val);
+        return;
+    case ST_INT16:
+        initializeBuffer((int16_t *)buffer, numElements, val);
+        return;
+    case ST_UINT16:
+        initializeBuffer((uint16_t *)buffer, numElements, val);
+        return;
+    case ST_INT32:
+        initializeBuffer((int32_t *)buffer, numElements, val);
+        return;
+    case ST_UINT32:
+        initializeBuffer((uint32_t *)buffer, numElements, val);
+        return;
+    case ST_INT64:
+        initializeBuffer((int64_t *)buffer, numElements, val);
+        return;
+    case ST_UINT64:
+        initializeBuffer((uint64_t *)buffer, numElements, val);
+        return;
+    case ST_BLOB:
+        // Unfortunately, gcc6.1.1 ICEs when enabling this
+        throw HttpReturnException(600, "Not done: blob conversions");
+#if 0
+        initializeBuffer((std::vector<uint8_t> *)buffer, numElements, val);
+#endif
+        return;
+    case ST_STRING:
+        initializeBuffer((std::string *)buffer, numElements, val);
+        return;
+    case ST_UTF8STRING:
+        initializeBuffer((Utf8String *)buffer, numElements, val);
+        return;
+    case ST_ATOM:
+        initializeBuffer((CellValue *)buffer, numElements, val);
+        return;
+    case ST_BOOL:
+        initializeBuffer((bool *)buffer, numElements, val);
+        return;
+    case ST_TIMESTAMP:
+        initializeBuffer((Date *)buffer, numElements, val);
+        return;
+    case ST_TIMEINTERVAL:
+        throw HttpReturnException(500, "Can't store time intervals");
+    }
+    throw HttpReturnException(500, "convertEmbedding unknown time");
+}
+
+template<typename T>
+void defaultConstructBuffer(T * buf, size_t numElements)
+{
+    std::uninitialized_fill(buf, buf + numElements, T());
+}
+
+void initializeStorageBuffer(void * buffer, StorageType storageType,
+                             size_t numElements)
+{
+    switch (storageType) {
+    case ST_FLOAT32:
+        defaultConstructBuffer((float *)buffer, numElements);
+        return;
+    case ST_FLOAT64:
+        defaultConstructBuffer((double *)buffer, numElements);
+        return;
+    case ST_INT8:
+        defaultConstructBuffer((int8_t *)buffer, numElements);
+        return;
+    case ST_UINT8:
+        defaultConstructBuffer((uint8_t *)buffer, numElements);
+        return;
+    case ST_INT16:
+        defaultConstructBuffer((int16_t *)buffer, numElements);
+        return;
+    case ST_UINT16:
+        defaultConstructBuffer((uint16_t *)buffer, numElements);
+        return;
+    case ST_INT32:
+        defaultConstructBuffer((int32_t *)buffer, numElements);
+        return;
+    case ST_UINT32:
+        defaultConstructBuffer((uint32_t *)buffer, numElements);
+        return;
+    case ST_INT64:
+        defaultConstructBuffer((int64_t *)buffer, numElements);
+        return;
+    case ST_UINT64:
+        defaultConstructBuffer((uint64_t *)buffer, numElements);
+        return;
+    case ST_BLOB:
+        // Unfortunately, gcc6.1.1 ICEs when enabling this
+        throw HttpReturnException(600, "Not done: blob conversions");
+#if 0
+        defaultConstructBuffer((std::vector<uint8_t> *)buffer, numElements);
+#endif
+        return;
+    case ST_STRING:
+        defaultConstructBuffer((std::string *)buffer, numElements);
+        return;
+    case ST_UTF8STRING:
+        defaultConstructBuffer((Utf8String *)buffer, numElements);
+        return;
+    case ST_ATOM:
+        defaultConstructBuffer((CellValue *)buffer, numElements);
+        return;
+    case ST_BOOL:
+        defaultConstructBuffer((bool *)buffer, numElements);
+        return;
+    case ST_TIMESTAMP:
+        defaultConstructBuffer((Date *)buffer, numElements);
         return;
     case ST_TIMEINTERVAL:
         throw HttpReturnException(500, "Can't store time intervals");

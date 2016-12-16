@@ -34,7 +34,7 @@ ColumnScope(MldbServer * server, std::shared_ptr<Dataset> dataset)
 ColumnGetter
 ColumnScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     if (!requiredColumnIndexes.count(columnName)) {
         size_t index = requiredColumns.size();
@@ -116,7 +116,7 @@ static const OptimizedPath optimizeRunIncremental
 ("mldb.ColumnScope.runIncremental");
 
 static void extractVals(size_t blockRows,
-                        const std::vector<ColumnName> & columnNames,
+                        const std::vector<ColumnPath> & columnNames,
                         double * values, RowStream & stream)
 {
     stream.extractNumbers(blockRows, columnNames,
@@ -129,7 +129,7 @@ static double extractVal(const CellValue & val, double *)
 }
 
 static void extractVals(size_t blockRows,
-                        const std::vector<ColumnName> & columnNames,
+                        const std::vector<ColumnPath> & columnNames,
                         CellValue * values, RowStream & stream)
 {
     stream.extractColumns(blockRows, columnNames,
@@ -180,7 +180,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
         }
     }
 
-    //ML::Timer timer;
+    //Timer timer;
     //cerr << "doing rows" << endl;
     auto rowGen = dataset->generateRowsWhere(*this, "" /* alias */,
                                              *SqlExpression::TRUE,
@@ -247,7 +247,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                                                             (Val *)0);
                                 }
                                 else {
-                                    results[j] = extractVal(storage.getAtom(),
+                                    results[j] = extractVal(result.getAtom(),
                                                             (Val *)0);
                                 }
                             }
@@ -295,7 +295,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                 RowScope scope(i, inputs);
                 for (unsigned j = 0;  j < exprs.size();  ++j) {
                     if (columnNumbers[j] != -1) {
-                        results[j] = extractVal(std::move(inputs[j][i]), (Val *)0);
+                        results[j] = extractVal(std::move(inputs[columnNumbers[j]][i]), (Val *)0);
                     }
                     else {
                         ExpressionValue storage;
@@ -305,7 +305,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                             results[j] = extractVal(storage.stealAtom(), (Val *)0);
                         }
                         else {
-                            results[j] = extractVal(storage.getAtom(), (Val *)0);
+                            results[j] = extractVal(result.getAtom(), (Val *)0);
                         }
                     }
                 }

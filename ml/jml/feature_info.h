@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* feature_info.h                                                  -*- C++ -*-
    Jeremy Barnes, 16 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Functions to deal with information on a feature.
 */
@@ -15,6 +14,10 @@
 #include "mldb/jml/db/persistent.h"
 #include "feature_set.h"
 #include "mldb/arch/threads.h"
+
+namespace MLDB {
+struct ParseContext;
+} // namespace MLDB
 
 namespace ML {
 
@@ -264,7 +267,7 @@ struct Mutable_Feature_Info : public Feature_Info {
     void set_grouping(bool grouping);
 
     /** Parse from a text file. */
-    void parse(Parse_Context & context);
+    void parse(ParseContext & context);
 
     /** Stop it from growing. */
     void freeze();

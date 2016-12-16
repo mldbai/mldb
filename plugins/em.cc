@@ -28,6 +28,7 @@
 #include "jml/utils/smart_ptr_utils.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -152,10 +153,10 @@ run(const ProcedureRunConfig & run,
     auto rows = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;
 
-    std::vector<ML::distribution<double> > vecs;
+    std::vector<distribution<double> > vecs;
 
     for (unsigned i = 0;  i < rows.size();  ++i) {
-        vecs.emplace_back(ML::distribution<double>(std::get<2>(rows[i]).begin(),
+        vecs.emplace_back(distribution<double>(std::get<2>(rows[i]).begin(),
                                                    std::get<2>(rows[i]).end()));
     }
 
@@ -170,12 +171,12 @@ run(const ProcedureRunConfig & run,
     int numClusters = emConfig.numClusters;
     int numIterations = emConfig.maxIterations;
 
-    //cerr << "EM training start" << endl;
+    DEBUG_MSG(logger) << "EM training start";
     em.train(vecs, inCluster, numClusters, numIterations, 0);
-    //cerr << "EM training end" << endl;
+    DEBUG_MSG(logger) << "EM training end";
 
     // Let the model know about its column names
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
     for (auto & v: vars) {
         columnNames.push_back(v.columnName);
         em.columnNames.push_back(v.columnName.toUtf8String());
@@ -209,8 +210,8 @@ run(const ProcedureRunConfig & run,
         Date applyDate = Date::now();
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-            cols.emplace_back(ColumnName("cluster"), inCluster[i], applyDate);
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
+            cols.emplace_back(ColumnPath("cluster"), inCluster[i], applyDate);
             output->recordRow(std::get<1>(rows[i]), cols);
         }
 
@@ -226,7 +227,7 @@ run(const ProcedureRunConfig & run,
         for (unsigned i = 0;  i < em.clusters.size();  ++i) {
             auto & cluster = em.clusters[i];
 
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
 
             for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
@@ -235,10 +236,10 @@ run(const ProcedureRunConfig & run,
             auto flatmatrix = tovector(cluster.covarianceMatrix);
 
             for (unsigned j = 0;  j < flatmatrix.size();  ++j) {
-                cols.emplace_back(ColumnName(ML::format("c%02d", j)), flatmatrix[j], applyDate);
+                cols.emplace_back(ColumnPath(MLDB::format("c%02d", j)), flatmatrix[j], applyDate);
             }
 
-            centroids->recordRow(RowName(ML::format("%i", i)), cols);
+            centroids->recordRow(RowPath(MLDB::format("%i", i)), cols);
         }
 
         centroids->commit();
@@ -278,7 +279,7 @@ EMFunctionConfigDescription()
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
+            throw MLDB::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -308,7 +309,7 @@ EMOutputDescription::EMOutputDescription()
 
 struct EMFunction::Impl {
     ML::EstimationMaximisation em;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     Impl(const Url & modelFileUrl) {
         em.load(modelFileUrl.toDecodedString());
@@ -321,7 +322,7 @@ EMFunction::
 EMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {  
 
     functionConfig = config.params.convert<EMFunctionConfig>();
@@ -330,14 +331,15 @@ EMFunction(MldbServer * owner,
 
     dimension = impl->em.clusters[0].centroid.size();
 
-    //cerr << "got " << impl->em.clusters.size()
-    //     << " clusters with " << dimension
-    //     << "values" << endl;
+    auto logger = MLDB::getMldbLog<EMFunction>();
+    DEBUG_MSG(logger) << "got " << impl->em.clusters.size()
+         << " clusters with " << dimension
+         << "values";
 }
 
 struct EMFunctionApplier: public FunctionApplierT<EMInput, EMOutput> {
     EMFunctionApplier(const EMFunction * owner,
-                      const std::shared_ptr<RowValueInfo> & input)
+                      const std::shared_ptr<ExpressionValueInfo> & input)
         : FunctionApplierT<EMInput, EMOutput>(owner)
     {
         info = owner->getFunctionInfo();
@@ -349,10 +351,13 @@ struct EMFunctionApplier: public FunctionApplierT<EMInput, EMOutput> {
 
 std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
 EMFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
+    if (input.size() != 1)
+        throw HttpReturnException(400, "EM function requires a single input");
     return std::unique_ptr<EMFunctionApplier>
-        (new EMFunctionApplier(this, input));
+        (new EMFunctionApplier(this, input.at(0)));
 }
 
 EMOutput 
@@ -365,7 +370,7 @@ applyT(const ApplierT & applier_, EMInput input_) const
     const auto * downcast
             = dynamic_cast<const EMFunctionApplier *>(&applier_);
 
-    ML::distribution<double> input = downcast->extract(input_.embedding);
+    distribution<double> input = downcast->extract(input_.embedding);
     Date ts = input_.embedding.getEffectiveTimestamp();
 
     int bestCluster = impl->em.assign(input);

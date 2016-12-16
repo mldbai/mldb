@@ -45,10 +45,10 @@ CsvExportProcedureConfigDescription()
     addField("headers", &CsvExportProcedureConfig::headers,
              "Whether to print headers", true);
     addField("delimiter", &CsvExportProcedureConfig::delimiter,
-             "The delimiter to place between each value", string("\""));
+             "The delimiter to place between each value", string(","));
     addField("quoteChar", &CsvExportProcedureConfig::quoteChar,
              "The character to enclose the values within when they contain "
-             "either a delimiter or a quoteChar", string(","));
+             "either a delimiter or a quoteChar", string("\""));
     addField("skipDuplicateCells", &CsvExportProcedureConfig::skipDuplicateCells,
              "The CSV format cannot represent many values per cell the way MLDB datasets can "
              "by using the time dimension. When this parameter is set to `false`, an exception "
@@ -68,10 +68,10 @@ CsvExportProcedureConfigDescription()
                           JsonParsingContext & context)
     {
         if (cfg->delimiter.size() != 1) {
-            throw ML::Exception("delimiter must be 1 char long.");
+            throw MLDB::Exception("delimiter must be 1 char long.");
         }
         if (cfg->quoteChar.size() != 1) {
-            throw ML::Exception("Quotechar must be 1 char long.");
+            throw MLDB::Exception("Quotechar must be 1 char long.");
         }
         MustContainFrom()(cfg->exportData, CsvExportProcedureConfig::name);
     };
@@ -147,7 +147,7 @@ run(const ProcedureRunConfig & run,
                         if(runProcConf.skipDuplicateCells)
                             return false;
 
-                        throw ML::Exception(Utf8String("CSV export does not work over "
+                        throw MLDB::Exception(Utf8String("CSV export does not work over "
                                 "cells having multiple values, at row '" + row.rowName.toUtf8String() +
                                 "' for column '" + seekColumn.toUtf8String() + "'").utf8String());
                     }

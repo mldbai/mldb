@@ -3,7 +3,7 @@
 	url = git@github.com:datacratic/baseimage-docker.git
 [submodule "ext/tensorflow"]
 	path = ext/tensorflow
-	url = https://github.com/mldbai/tensorflow
+	url = git@github.com:mldbai/tensorflow
 [submodule "ext/re2"]
 	path = ext/re2
 	url = https://github.com/mldbai/re2.git
@@ -55,3 +55,15 @@
 [submodule "ext/giflib"]
 	path = ext/giflib
 	url = https://github.com/mldbai/giflib.git
+[submodule "ext/pffft"]
+	path = ext/pffft
+	url = https://github.com/mldbai/pffft.git
+[submodule "ext/JSONTestSuite"]
+	path = ext/JSONTestSuite
+	url = https://github.com/mldbai/JSONTestSuite.git
+[submodule "ext/zstd"]
+	path = ext/zstd
+	url = https://github.com/mldbai/zstd.git
+[submodule "testing/mldb_sample_plugin"]
+	path = testing/mldb_sample_plugin
+	url = git@github.com:mldbai/mldb_sample_plugin.git

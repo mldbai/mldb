@@ -52,15 +52,15 @@ Prediction_Accumulator(const string& loadFrom) :
 
         int c       = boost::lexical_cast<int>(tokens[0]);
         float score = boost::lexical_cast<float>(tokens[1]);
-        Id uid      = boost::lexical_cast<Id>(tokens[2]);
-
+        Utf8String uid = std::move(tokens[2]);
+        
         addPrediction(c==1, score, uid);
     }
     cout << "  > Added " << i << " scores" << endl;
 }
 
 void Prediction_Accumulator::
-addPrediction(bool click, float pred, Id uid, const string & groupId)
+addPrediction(bool click, float pred, Utf8String uid, const string & groupId)
 {
     // if we previously calibrated groups, the calibration is now
     // invalid
@@ -162,7 +162,7 @@ Prediction_Accumulator::assertValidBucketConfig(
     }
 
     // If we have given invalid options
-    throw ML::Exception(ML::format("Invalid bucket_config size. Should be 3; %d.",
+    throw MLDB::Exception(MLDB::format("Invalid bucket_config size. Should be 3; %d.",
             (int)bC_vec.size()));
 }
 
@@ -171,7 +171,7 @@ computeGroupCalibration(const string & calibrateToGroup,
         const std::pair<int, int> & calibrateCountsRef)
 {
     if(calibrateToGroup == "")
-        throw ML::Exception("Need to provide a group to calibrate to");
+        throw MLDB::Exception("Need to provide a group to calibrate to");
 
     // find uid weighted total for each group
     map<string, pair<unsigned, float>> groupCounts;
@@ -203,13 +203,13 @@ computeGroupCalibration(const string & calibrateToGroup,
     }
 
     float normaliseToCxR = target_group_CxR;
-    cerr << ML::format(" target group weight:%0.1f  CxR:%0.4f%% (%s)",
+    cerr << MLDB::format(" target group weight:%0.1f  CxR:%0.4f%% (%s)",
             target_group_weight, target_group_CxR*100, calibrateToGroup) << endl;
     if(target_group_weight < 100) {
         // prefer using the calibrateCountsRef CxR over the weighted average
         // of all other groups if possible
         if(calibrateCountsRef.first >= 50000 && calibrateCountsRef.second >= 2) {
-            cerr << ML::format(" > Using provided CxR to average to. Counts: %d/%d",
+            cerr << MLDB::format(" > Using provided CxR to average to. Counts: %d/%d",
                     calibrateCountsRef.second, calibrateCountsRef.first) << endl;
             float refCxR = calibrateCountsRef.second / (float) calibrateCountsRef.first;
 
@@ -229,7 +229,7 @@ computeGroupCalibration(const string & calibrateToGroup,
             float impsAccum = 0;
             for(auto itt = groupCounts.begin(); itt != groupCounts.end(); itt++) {
                 float cxr = itt->second.second / float(itt->second.first);
-                cerr << ML::format("   %s: base CxR: %0.4f%%.  imps:%d",
+                cerr << MLDB::format("   %s: base CxR: %0.4f%%.  imps:%d",
                         itt->first, cxr * 100, itt->second.first) << endl;
                 if(itt->first == calibrateToGroup) continue;
                 CxRaccum += cxr * itt->second.first;
@@ -242,7 +242,7 @@ computeGroupCalibration(const string & calibrateToGroup,
         }
     }
     cerr << "           normaliseToCxR: " <<
-        ML::format("%0.4f%%", normaliseToCxR*100) << endl;
+        MLDB::format("%0.4f%%", normaliseToCxR*100) << endl;
 
     // calculate the calibration ratio for each group
     cerr << "  -- Calibration for each group -- " << endl;
@@ -254,7 +254,7 @@ computeGroupCalibration(const string & calibrateToGroup,
             float groupCxR = git->second.second / float(git->second.first);
             groupCalibration[git->first] = groupCxR / normaliseToCxR;
 
-            cerr << ML::format("%s : GrpCxR:%0.4f%%    NormRatio:%0.4f",
+            cerr << MLDB::format("%s : GrpCxR:%0.4f%%    NormRatio:%0.4f",
                     git->first, groupCxR*100, groupCxR / normaliseToCxR) << endl;
         }
     }
@@ -270,7 +270,7 @@ getGroupCalibration() const
 }
 
 float Prediction_Accumulator::
-getUidWeight(const Id & uid, const string & groupId) const
+getUidWeight(const Utf8String & uid, const string & groupId) const
 {
     float groupCalib = 1;
     if(groupsCalibrated && groupId != "") {
@@ -285,7 +285,7 @@ getUidWeight(const Id & uid, const string & groupId) const
 
     auto uid_it = uid_counts.find(uid);
     if(uid_it == uid_counts.end()) {
-        throw ML::Exception("unknown uid should not be possible!");
+        throw MLDB::Exception("unknown uid should not be possible!");
     }
 
     return 1.0 / uid_it->second / groupCalib;
@@ -317,13 +317,13 @@ getSortedPreds(const string & calibrateToGroup,
         float weighted_act_rate = num_weighted_pos / (pos.size() + neg.size());
         float unweighted_act_rate = (float)pos.size() / (pos.size() + neg.size());
 
-        cerr << ML::format("Weighted action rate:   %0.4f%%",
+        cerr << MLDB::format("Weighted action rate:   %0.4f%%",
                 weighted_act_rate * 100) << endl;
-        cerr << ML::format("Unweighted action rate: %0.4f%%",
+        cerr << MLDB::format("Unweighted action rate: %0.4f%%",
                 unweighted_act_rate * 100) << endl;
-        cerr << ML::format("Num unweighted pos:     %d", pos.size()) << endl;
-        cerr << ML::format("Num sum weighted pos:   %0.4f", num_weighted_pos) << endl;
-        cerr << ML::format("Num elements:           %d", pos.size() + neg.size()) << endl;
+        cerr << MLDB::format("Num unweighted pos:     %d", pos.size()) << endl;
+        cerr << MLDB::format("Num sum weighted pos:   %0.4f", num_weighted_pos) << endl;
+        cerr << MLDB::format("Num elements:           %d", pos.size() + neg.size()) << endl;
         cerr << endl;
     }
 
@@ -360,7 +360,7 @@ dumpClassHistogram(const string& out_path,
 
     // Figure out filename of histogram
     //boost::filesystem::path dir(outfolder);
-    //string modelfn = ML::format("chist-%s.js", modelname.c_str());
+    //string modelfn = MLDB::format("chist-%s.js", modelname.c_str());
     //boost::filesystem::path file(modelfn);
     //boost::filesystem::path full_path = dir / file;
     cout << "  Writing histogram to: " << out_path << endl;
@@ -404,7 +404,7 @@ getBucketsForClass(const vector<pair<float, float>> & preds,
     int idx = 0;
 
     if (bC.initial_bucket == bC.max_bucket)
-        throw ML::Exception("The first and last buckets are equal.");
+        throw MLDB::Exception("The first and last buckets are equal.");
 
     float lowerBound = bC.initial_bucket - bC.bucket_increment;
     if(preds[idx].first < lowerBound) {
@@ -443,7 +443,7 @@ ScoredStats Prediction_Accumulator::
 getScoredStats(bool weightByClass) const
 {
     if (predictionsAccum.size()==0)
-        throw ML::Exception("Cannot get ScoredStats with empty PredAccum.");
+        throw MLDB::Exception("Cannot get ScoredStats with empty PredAccum.");
 
     double weights[2];
     if(weightByClass) {
@@ -470,7 +470,7 @@ Prediction_Accumulator::getCTRBuckets(size_t num_buckets,
         std::pair<int, int> calibrateCountsRef)
 {
     if (predictionsAccum.size()==0)
-        throw ML::Exception("Cannot compute CTR buckets with empty PredAccum.");
+        throw MLDB::Exception("Cannot compute CTR buckets with empty PredAccum.");
 
     // Get bucket freqs
     vector<float> values(predictionsAccum.size());
@@ -539,7 +539,7 @@ Prediction_Accumulator::getCTRBuckets(size_t num_buckets,
         }
 
         if(unique) {
-            cerr << ML::format(" WARNING!!!! When calling getCTRBuckets, "
+            cerr << MLDB::format(" WARNING!!!! When calling getCTRBuckets, "
                     "prediction accumulator contains %d times the unique "
                     "value of %0.6f", predictionsAccum.size(), val) << endl;
         }

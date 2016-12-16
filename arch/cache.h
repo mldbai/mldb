@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* cache.h                                                         -*- C++ -*-
    Jeremy Barnes, 21 January 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Cache control functions.
 */
@@ -11,16 +10,18 @@
 
 #include "arch.h"
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 #include "sse2.h"
 #endif
 #include "mldb/compiler/compiler.h"
 
 namespace ML {
 
+using namespace MLDB;
+
 static const size_t l1_cache_size = 32 * 1024;
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
 inline void store_non_temporal(float & addr, float val)
 {
     // TODO: use intel compiler intrinsics?
@@ -36,7 +37,7 @@ inline void store_non_temporal(double & addr, double val)
              : [mem] "=m" (addr)
              : [val] "r" (val));
 }
-#else // JML_INTEL_ISA
+#else // MLDB_INTEL_ISA
 inline void store_non_temporal(float & addr, float val)
 {
     addr = val;
@@ -46,7 +47,7 @@ inline void store_non_temporal(double & addr, double val)
 {
     addr = val;
 }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
 
 inline bool aligned(void * ptr, int bits)
 {
@@ -59,7 +60,7 @@ inline void streaming_copy_from_strided(float * output, const float * input,
 {
     unsigned i = 0;
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     for (; i < n && !aligned(output + i, 4);  ++i)
         store_non_temporal(*(output + i), input[i * stride]);
 
@@ -78,7 +79,7 @@ inline void streaming_copy_from_strided(float * output, const float * input,
 
         __builtin_ia32_movntps(output + i, v);
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
     
 
     for (; i < n;  ++i)
@@ -90,7 +91,7 @@ inline void streaming_copy_from_strided(double * output, const double * input,
 {
     unsigned i = 0;
 
-#if JML_INTEL_ISA
+#if MLDB_INTEL_ISA
     for (; i < n && !aligned(output + i, 4);  ++i)
         store_non_temporal(*(output + i), input[i * stride]);
     
@@ -101,7 +102,7 @@ inline void streaming_copy_from_strided(double * output, const double * input,
 
         __builtin_ia32_movntpd(output + i, v);
     }
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
     
     for (; i < n;  ++i)
         store_non_temporal(*(output + i), input[i * stride]);

@@ -80,7 +80,7 @@ struct StructureDescriptionBase {
 
     std::vector<Fields::const_iterator> orderedFields;
 
-    struct Exception: public ML::Exception {
+    struct Exception: public MLDB::Exception {
         Exception(JsonParsingContext & context,
                   const std::string & message);
         virtual ~Exception() throw ();
@@ -178,7 +178,7 @@ struct StructureDescription
         ExcAssert(description);
 
         if (fields.count(name.c_str()))
-            throw ML::Exception("field '" + name + "' added twice");
+            throw MLDB::Exception("field '" + name + "' added twice");
 
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
@@ -210,7 +210,7 @@ struct StructureDescription
                       = getDefaultDescriptionSharedT<V>())
     {
         if (fields.count(name.c_str()))
-            throw ML::Exception("field '" + name + "' added twice");
+            throw MLDB::Exception("field '" + name + "' added twice");
 
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
@@ -280,7 +280,7 @@ struct StructureDescription
         auto it = fields.find(field.c_str());
         if (it != fields.end())
             return it->second;
-        throw ML::Exception("structure has no field " + field);
+        throw MLDB::Exception("structure has no field " + field);
     }
 
     virtual void parseJson(void * val, JsonParsingContext & context) const
@@ -348,7 +348,7 @@ addParent(ValueDescriptionT<V> * description_)
         = dynamic_cast<StructureDescription<V> *>(description_);
     if (!desc2) {
         delete description_;
-        throw ML::Exception("parent description is not a structure");
+        throw MLDB::Exception("parent description is not a structure");
     }
 
     std::shared_ptr<StructureDescription<V> > description(desc2);

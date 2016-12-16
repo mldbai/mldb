@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* irls.h                                                          -*- C++ -*-
    Jeremy Barnes, 19 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Iteratively Reweighted Least Squares.
 */
 
-#ifndef __boosting__irls_h__
-#define __boosting__irls_h__
+#pragma once
 
 #include <vector>
 #include <boost/multi_array.hpp>
@@ -17,6 +15,8 @@
 #include "mldb/jml/utils/enum_info.h"
 
 namespace ML {
+
+using namespace MLDB;
 
 /*****************************************************************************/
 /* Regularization                                                            */
@@ -369,6 +369,4 @@ perform_irls(const distribution<double> & correct,
 
 DECLARE_ENUM_INFO(ML::Link_Function, 5);
 DECLARE_ENUM_INFO(ML::Regularization, 3);
-
-#endif /* __boosting__irls_h__ */
 

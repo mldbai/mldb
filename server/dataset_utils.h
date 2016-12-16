@@ -25,18 +25,18 @@ struct MergedMatrixView : public MatrixView
 {
     MergedMatrixView(std::vector< std::shared_ptr<MatrixView> > views);
 
-    std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const;
+    std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const;
 
     std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const;
 
     size_t getRowCount() const;
-    bool knownRow(const RowName & row) const;
-    MatrixNamedRow getRow(const RowName & row) const;
+    bool knownRow(const RowPath & row) const;
+    MatrixNamedRow getRow(const RowPath & row) const;
 
-    bool knownColumn(const ColumnName & column) const;
-    std::vector<ColumnName> getColumnNames() const;
+    bool knownColumn(const ColumnPath & column) const;
+    std::vector<ColumnPath> getColumnPaths() const;
     size_t getColumnCount() const;
 
 private:
@@ -57,9 +57,9 @@ struct MergedColumnIndex : public ColumnIndex
 {
     MergedColumnIndex(std::vector< std::shared_ptr<ColumnIndex> > indexes);
 
-    MatrixColumn getColumn(const ColumnName & column) const;
-    bool knownColumn(const ColumnName & column) const;
-    std::vector<ColumnName> getColumnNames() const;
+    MatrixColumn getColumn(const ColumnPath & column) const;
+    bool knownColumn(const ColumnPath & column) const;
+    std::vector<ColumnPath> getColumnPaths() const;
 
 private:
     std::vector< std::shared_ptr<ColumnIndex> > indexes;

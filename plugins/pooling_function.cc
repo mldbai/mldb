@@ -63,7 +63,7 @@ PoolingFunction::
 PoolingFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<PoolingFunctionConfig>();
 
@@ -79,12 +79,12 @@ PoolingFunction(MldbServer * owner,
     string select_expr;
     for(auto agg : functionConfig.aggregators) {
         if(validAggs.find(agg) == validAggs.end())
-            throw ML::Exception("Unknown aggregator: " + agg.rawString());
+            throw MLDB::Exception("Unknown aggregator: " + agg.rawString());
 
         if(select_expr.size() > 0)
             select_expr += ",";
 
-        select_expr += ML::format("%s({*}) as %s", agg.rawData(), agg.rawData());
+        select_expr += MLDB::format("%s({*}) as %s", agg.rawData(), agg.rawData());
     }
     fnConfig.query.stm->select = SelectExpression::parseList(select_expr);
     fnConfig.query.stm->from = functionConfig.embeddingDataset;
@@ -105,7 +105,7 @@ PoolingFunction(MldbServer * owner,
 struct PoolingFunctionApplier: public FunctionApplierT<PoolingInput, PoolingOutput> {
     PoolingFunctionApplier(const PoolingFunction * owner,
                            SqlBindingScope & outerContext,
-                           const std::shared_ptr<RowValueInfo> & input)
+                           const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
         : FunctionApplierT<PoolingInput, PoolingOutput>(owner)
     {
         queryApplier = owner->queryFunction->bind(outerContext, input);
@@ -148,7 +148,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
                                           "aggregator", agg);
             }
 
-            ML::distribution<double> dist
+            distribution<double> dist
                 = val.getEmbedding(columnNames.data(), columnNames.size());
             outputEmbedding.insert(outputEmbedding.end(),
                                    dist.begin(), dist.end());
@@ -165,7 +165,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
 std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
 PoolingFunction::
 bindT(SqlBindingScope & outerContext,
-      const std::shared_ptr<RowValueInfo> & input) const
+      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<PoolingFunctionApplier> result
         (new PoolingFunctionApplier(this, outerContext, input));
@@ -173,7 +173,7 @@ bindT(SqlBindingScope & outerContext,
 
     // Check that all values on the passed input are compatible with the required
     // inputs.
-    result->info.checkInputCompatibility(*input);
+    result->info.checkInputCompatibility(input);
 
     return std::move(result);
 }

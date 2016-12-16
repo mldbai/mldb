@@ -301,7 +301,7 @@ struct Watch {
 
     // Throw the given exception with the given message
     void throwException(WatchErrorKind kind,
-                        const char * message, ...) const JML_NORETURN;
+                        const char * message, ...) const MLDB_NORETURN;
 
 protected:
     void release(WatchData * data);
@@ -345,8 +345,8 @@ struct Watches {
             throwException(WATCH_ERR_TYPE,
                            "attempt to trigger watch bound to type '%s' "
                            "with parameters of type '%s'",
-                           ML::demangle(*boundType()).c_str(),
-                           ML::type_name<std::tuple<T...> >().c_str());
+                           demangle(*boundType()).c_str(),
+                           MLDB::type_name<std::tuple<T...> >().c_str());
         }
 
         return this->triggerGeneric(Any(std::move(tupl)));
@@ -430,7 +430,7 @@ struct Watches {
 
     // Throw the given exception with the given message
     void throwException(WatchErrorKind kind,
-                        const char * message, ...) const JML_NORETURN;
+                        const char * message, ...) const MLDB_NORETURN;
 
 protected:
     /// Mutex.  We handle recursion in via triggerThread, so this is a straight
@@ -939,8 +939,8 @@ struct UnpackToTuple {
         } catch (const std::exception & exc) {
             using namespace std;
             cerr << "trying to unpack element " << start << " of tuple "
-                 << "with type " << ML::demangle(vec[start].type())
-                 << " to type " << ML::type_name<elType>()
+                 << "with type " << demangle(vec[start].type())
+                 << " to type " << MLDB::type_name<elType>()
                  << endl;
             throw;
         }
@@ -956,8 +956,8 @@ struct UnpackToTuple {
         } catch (const std::exception & exc) {
             using namespace std;
             cerr << "trying to unpack element " << start << " of tuple "
-                 << "with type " << ML::demangle(vec[start].type())
-                 << " to type " << ML::type_name<elType>()
+                 << "with type " << demangle(vec[start].type())
+                 << " to type " << MLDB::type_name<elType>()
                  << endl;
             throw;
         }
@@ -1014,8 +1014,8 @@ tryWaitTuple(double timeToWait)
     if (boundType() && boundType() != &typeid(std::tuple<T...>))
         throwException(WATCH_ERR_TYPE,
                        "waiting for %s but got %s",
-                       ML::demangle(*boundType()).c_str(),
-                       ML::type_name<std::tuple<T...> >().c_str());
+                       demangle(*boundType()).c_str(),
+                       MLDB::type_name<std::tuple<T...> >().c_str());
 
     
 

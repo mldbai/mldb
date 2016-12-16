@@ -158,7 +158,7 @@ struct JsPluginJS {
     {
         try {
             if (args.Length() < 1)
-                throw ML::Exception("Need a handler");
+                throw MLDB::Exception("Need a handler");
 
             JsPluginContext * itl = getShared(args.This());
 
@@ -198,7 +198,7 @@ struct JsPluginJS {
                             LOG(itl->loader) << jsonEncode(exc) << endl;
                         }
 
-                        JML_TRACE_EXCEPTIONS(false);
+                        MLDB_TRACE_EXCEPTIONS(false);
                         throw HttpReturnException(400, "Exception in JS status function", exc);
                     }
 
@@ -221,7 +221,7 @@ struct JsPluginJS {
     {
         try {
             if (args.Length() < 1)
-                throw ML::Exception("Need a handler");
+                throw MLDB::Exception("Need a handler");
 
             JsPluginContext * itl = getShared(args.This());
 
@@ -230,7 +230,7 @@ struct JsPluginJS {
 
             fs::path fullDir(fs::path(itl->pluginResource->getPluginDir().string()) / fs::path(dir));
             if(!fs::exists(fullDir)) {
-                throw ML::Exception("Cannot serve static folder for path that does "
+                throw MLDB::Exception("Cannot serve static folder for path that does "
                         "not exist: " + fullDir.string());
             }
 
@@ -248,7 +248,7 @@ struct JsPluginJS {
     {
         try {
             if (args.Length() < 1)
-                throw ML::Exception("Need a handler");
+                throw MLDB::Exception("Need a handler");
 
             JsPluginContext * itl = getShared(args.This());
 
@@ -277,7 +277,7 @@ struct JsPluginJS {
     {
         try {
             if (args.Length() < 1)
-                throw ML::Exception("Need a handler");
+                throw MLDB::Exception("Need a handler");
 
             JsPluginContext * itl = getShared(args.This());
 
@@ -468,7 +468,7 @@ JavascriptPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(rep) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception compiling plugin script", rep);
     }
 
@@ -485,7 +485,7 @@ JavascriptPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(rep) << endl;
         }
         
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(400, "Exception running plugin script", rep);
     }
     

@@ -44,7 +44,6 @@ class SampleTest(MldbUnitTest):
         expected = [
              {
                  "rowName": "[a]-[row_a]-[]", 
-                 "rowHash": "2da3149200523a02", 
                  "columns": [
                      [
                          "sub1.warp", 
@@ -65,7 +64,6 @@ class SampleTest(MldbUnitTest):
              }, 
              {
                  "rowName": "[b]-[]-[row_b]", 
-                 "rowHash": "ed3e1bbb01a92ba6", 
                  "columns": [
                      [
                          "sub1.warp", 
@@ -109,7 +107,6 @@ class SampleTest(MldbUnitTest):
         expected = [
             {
                 "rowName": "[a]-[row_a]-[]",
-                "rowHash": "2da3149200523a02",
                 "columns": [
                     [
                         "tbl1.warp",
@@ -130,7 +127,6 @@ class SampleTest(MldbUnitTest):
             },
             {
                 "rowName": "[b]-[]-[row_b]",
-                "rowHash": "ed3e1bbb01a92ba6",
                 "columns": [
                     [
                         "tbl1.warp",

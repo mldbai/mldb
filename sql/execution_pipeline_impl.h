@@ -38,7 +38,7 @@ struct TableLexicalScope: public LexicalScope {
     static constexpr int ROW_CONTENTS = 1;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -149,7 +149,7 @@ struct SubSelectLexicalScope: public TableLexicalScope {
     std::shared_ptr<ExpressionValueInfo> selectInfo;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
@@ -265,7 +265,7 @@ struct JoinLexicalScope: public LexicalScope {
 
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     /** For a join, we can select over the columns for either one or the
         other.
@@ -339,18 +339,47 @@ struct JoinElement: public PipelineElement {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
                           std::shared_ptr<ElementExecutor> left,
-                          std::shared_ptr<ElementExecutor> right);
+                          std::shared_ptr<ElementExecutor> right,
+                          size_t leftAdded,
+                          size_t rightAdded);
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
+
+        bool wasOutput;
         
-        std::shared_ptr<PipelineResults> l,r;
+        std::shared_ptr<PipelineResults> l,r;     
+
+        const size_t leftAdded, rightAdded;   
             
         virtual std::shared_ptr<PipelineResults> take();
 
         void restart();
     };
 
+    struct FullCrossJoinExecutor: public ElementExecutor {
+        FullCrossJoinExecutor(const Bound * parent,
+                          std::shared_ptr<ElementExecutor> root,
+                          std::shared_ptr<ElementExecutor> left,
+                          std::shared_ptr<ElementExecutor> right,
+                          size_t leftAdded,
+                          size_t rightAdded);
+
+        const Bound * parent;
+        std::shared_ptr<ElementExecutor> root, left, right;
+        virtual std::shared_ptr<PipelineResults> take();
+
+        std::shared_ptr<PipelineResults> r;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, bool > > bufferType;
+        bufferType bufferedLeftValues;
+        bufferType::iterator l;
+        bool firstSpin;
+        bool rightRowWasOutputted;
+       
+        const size_t leftAdded, rightAdded;
+
+        void restart();
+    };
 
     /** Execution runs on left rows and right rows together.  This requires to
         sort the value that will be compared (ie. the pivot).  The worse case
@@ -365,13 +394,15 @@ struct JoinElement: public PipelineElement {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
                          std::shared_ptr<ElementExecutor> left,
-                         std::shared_ptr<ElementExecutor> right);
+                         std::shared_ptr<ElementExecutor> right,
+                         size_t leftAdded,
+                         size_t rightAdded);
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
         
         std::shared_ptr<PipelineResults> r;
-        typedef std::list<std::shared_ptr<PipelineResults> > bufferType;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, bool > > bufferType;
         bufferType bufferedLeftValues;
         /** Note that the left-side values are buffered so that we can
             backtrack when we need to form the cross product on matching 
@@ -381,9 +412,12 @@ struct JoinElement: public PipelineElement {
         /** True if we have already seen this left row, ie, if we have rewinded 
             the left side. */
         ExpressionValue lastLeftValue;
-        bool alreadySeenLeftRow;
+
+        bool wasOutput;
 
         std::shared_ptr<spdlog::logger> logger;
+
+        const size_t leftAdded, rightAdded;
     
         virtual std::shared_ptr<PipelineResults> take();
 
@@ -691,7 +725,7 @@ struct AggregateLexicalScope: public LexicalScope {
     int numValues_;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,

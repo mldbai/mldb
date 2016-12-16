@@ -19,16 +19,17 @@ namespace MLDB {
 const tinyxml2::XMLNode * extractNode(const tinyxml2::XMLNode * element,
                                       const std::string & path);
 
+bool pathExists(const tinyxml2::XMLNode * element, const std::string & path);
+
 template<typename T>
 T extract(const tinyxml2::XMLNode * element, const std::string & path)
 {
     using namespace std;
 
     if (!element)
-        throw ML::Exception("can't extract from missing element");
+        throw MLDB::Exception("can't extract from missing element");
     //tinyxml2::XMLHandle handle(element);
 
-    vector<string> splitPath = ML::split(path, '/');
     const auto p = extractNode(element, path);
     auto text = tinyxml2::XMLHandle(const_cast<tinyxml2::XMLNode *>(p)).FirstChild().ToText();
 

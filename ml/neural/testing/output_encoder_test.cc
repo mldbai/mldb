@@ -9,7 +9,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
-#define JML_TESTING_PERCEPTRON
+#define MLDB_TESTING_PERCEPTRON
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>

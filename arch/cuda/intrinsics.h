@@ -12,7 +12,7 @@
 
 #include "mldb/compiler/compiler.h"
 
-#if (! defined(JML_COMPILER_NVCC) ) || (! JML_COMPILER_NVCC)
+#if (! defined(MLDB_COMPILER_NVCC) ) || (! MLDB_COMPILER_NVCC)
 # error "This file should only be included for CUDA"
 #endif
 
@@ -22,61 +22,61 @@
 
 namespace ML {
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 bool isnanf(float f)
 {
     return isnan(f);
 }
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 float min(float f1, float f2)
 {
     return fmin(f1, f2);
 }
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 float max(float f1, float f2)
 {
     return fmax(f1, f2);
 }
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 double min(double f1, double f2)
 {
     return fmin(f1, f2);
 }
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 double max(double f1, double f2)
 {
     return fmax(f1, f2);
 }
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 float min(uint32_t f1, uint32_t f2)
 {
     return ::min(f1, f2);
 }
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 float max(uint32_t f1, uint32_t f2)
 {
     return ::max(f1, f2);
 }
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 float min(int32_t f1, int32_t f2)
 {
     return ::min(f1, f2);
 }
 
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 float max(int32_t f1, int32_t f2)
 {
     return ::max(f1, f2);
 }
 
 template<typename T>
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 static void swap(T & val1, T & val2)
 {
     T tmp = val1;

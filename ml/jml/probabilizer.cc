@@ -36,7 +36,7 @@ using std::sqrt;
 namespace ML {
 
 namespace {
-Env_Option<bool> debug("DEBUG_PROBABILIZER", false);
+EnvOption<bool> debug("DEBUG_PROBABILIZER", false);
 }
 
 

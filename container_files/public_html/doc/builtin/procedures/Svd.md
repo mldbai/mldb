@@ -84,23 +84,23 @@ The SVD algorithm produces three outputs:
   values onto expanded columns, a `columns` array with the singular vector
   and scaling information for each column, and a `singularValues` array giving
   the singular values of each columns.
-* A dataset (if the `rowOutput` section is filled in) containing the singular
+* A dataset (if the `rowOutputDataset` section is filled in) containing the singular
   vectors for each row in the input dataset.  This will be a dense matrix
   with the same number of
   rows as the input dataset, and columns with names prefixed with the
   `outputColumn` and a 4 digit number for each of the singular values.
-* A dataset (if the `output` section is filled in) containing the singular
+* A dataset (if the `columnOutputDataset` section is filled in) containing the singular
   vectors for each column in the input dataset.  This will be a dense matrix
   with a row for each of the virtual columns created as part of the preprocessing,
-  and the same columns as the `rowOutput` dataset.  Note that this dataset is
+  and the same columns as the `rowOutputDataset` dataset.  Note that this dataset is
   transposed with respect to the input dataset.
   
   The names of the columns in the output depend upon the type of the virtual
   columns:
   - A virtual column for the numeric value of a column has a row name the
-    same as the column name;
+    same as the column name with the suffix `.numericValue`;
   - A virtual column for a string column has a row name that is the column
-    name plus a `|` plus the string value.
+    name with the suffix `.equalString.` followed by the string value.
 
 
 ## Configuration

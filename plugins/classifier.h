@@ -114,11 +114,6 @@ struct ClassifyFunction: public Function {
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
-    // Construct programatically from a ML::Classifier_Impl
-    ClassifyFunction(MldbServer * owner,
-                  std::shared_ptr<ML::Classifier_Impl> classifier,
-                  const std::string & labelFeatureName);
-
     ~ClassifyFunction();
 
     virtual Any getStatus() const;
@@ -129,8 +124,8 @@ struct ClassifyFunction: public Function {
     // can be produced.
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const;
-
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const;
+    
     virtual ExpressionValue apply(const FunctionApplier & applier,
                               const ExpressionValue & context) const;
 

@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* layer_stack.h                                                   -*- C++ -*-
    Jeremy Barnes, 4 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Stack of neural network layers where each one feeds its output as in input
    into the next.
 */
 
-#ifndef __jml__neural__layer_stack_h__
-#define __jml__neural__layer_stack_h__
+#pragma once
 
 #include "layer.h"
 #include <boost/type_traits/is_base_of.hpp>
@@ -17,6 +15,8 @@
 
 
 namespace ML {
+
+using namespace MLDB;
 
 /// Tag structure to force a deep copy
 struct Deep_Copy_Tag {
@@ -305,10 +305,7 @@ protected:
 
 extern template class Layer_Stack<Layer>;
 
-JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(class LayerT, Layer_Stack<LayerT>);
+MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(class LayerT, Layer_Stack<LayerT>);
 
 
 } // namespace ML
-
-
-#endif /* __jml__neural__layer_stack_h__ */

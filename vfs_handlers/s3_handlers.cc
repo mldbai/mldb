@@ -85,7 +85,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
                 OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
                 {
                     if (!options.empty())
-                        throw ML::Exception("Options not accepted by S3");
+                        throw MLDB::Exception("Options not accepted by S3");
 
                     std::shared_ptr<std::istream> result(new filter_istream(filename));
                     auto into = getInfo(Url(filename));
@@ -152,7 +152,7 @@ struct S3Downloader {
     {
         fileInfo = api->getObjectInfo(bucket, resource.substr(1));
         if (!fileInfo) {
-            throw ML::Exception("missing object: " + resource);
+            throw MLDB::Exception("missing object: " + resource);
         }
 
         if (endOffset == -1 || endOffset > fileInfo.size) {
@@ -195,7 +195,7 @@ struct S3Downloader {
     std::streamsize read(char * s, std::streamsize n)
     {
         if (closed) {
-            throw ML::Exception("invoking read() on a closed download");
+            throw MLDB::Exception("invoking read() on a closed download");
         }
 
         if (endOfDownload()) {
@@ -392,7 +392,7 @@ private:
             }
 
             if (response.code_ != 200 && response.code_ != 206) {
-                throw ML::Exception("http error "
+                throw MLDB::Exception("http error "
                                     + to_string(response.code_)
                                     + " while getting chunk "
                                     + response.bodyXmlStr());
@@ -403,7 +403,7 @@ private:
                and throw an appropriate exception. */
             string chunkEtag = response.getHeader("etag");
             if (chunkEtag != fileInfo.etag) {
-                throw ML::Exception("chunk etag '%s' differs from original"
+                throw MLDB::Exception("chunk etag '%s' differs from original"
                                     " etag '%s' of file '%s'",
                                     chunkEtag.c_str(), fileInfo.etag.c_str(),
                                     resource.c_str());
@@ -574,7 +574,7 @@ struct S3Uploader {
                                            S3Api::UR_EXCLUSIVE);
             uploadId = upload.id;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             if (onException) {
                 onException();
             }
@@ -646,7 +646,7 @@ struct S3Uploader {
 
         activeRqs++;
         api->putAsync(onResponse, bucket, resource,
-                      ML::format("partNumber=%d&uploadId=%s",
+                      MLDB::format("partNumber=%d&uploadId=%s",
                                  partNumber, uploadId),
                       {}, {}, current);
 
@@ -668,7 +668,7 @@ struct S3Uploader {
 
             if (response.code_ != 200) {
                 cerr << response.bodyXmlStr() << endl;
-                throw ML::Exception("put didn't work: %d", (int)response.code_);
+                throw MLDB::Exception("put didn't work: %d", (int)response.code_);
             }
 
             string etag = response.getHeader("etag");
@@ -705,7 +705,7 @@ struct S3Uploader {
             finalEtag = api->finishMultiPartUpload(bucket, resource,
                                                    uploadId, etags);
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             if (onException) {
                 onException();
             }
@@ -807,7 +807,7 @@ struct RegisterS3Handler {
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
-            throw ML::Exception("unable to find s3 bucket name in resource "
+            throw MLDB::Exception("unable to find s3 bucket name in resource "
                                 + resource);
         string bucket(resource, 0, pos);
 
@@ -831,7 +831,7 @@ struct RegisterS3Handler {
                         md.redundancy = S3Api::REDUNDANCY_STANDARD;
                     else if (value == "REDUCED")
                         md.redundancy = S3Api::REDUNDANCY_REDUCED;
-                    else throw ML::Exception("unknown redundancy value " + value
+                    else throw MLDB::Exception("unknown redundancy value " + value
                                              + " writing S3 object " + resource);
                 }
                 else if (name == "contentType" || name == "aws-contentType") {
@@ -848,7 +848,7 @@ struct RegisterS3Handler {
                     // do nothing
                 }
                 else if (name.find("aws-") == 0) {
-                    throw ML::Exception("unknown aws option " + name + "=" + value
+                    throw MLDB::Exception("unknown aws option " + name + "=" + value
                                         + " opening S3 object " + resource);
                 }
                 else if(name == "num-threads")
@@ -871,7 +871,7 @@ struct RegisterS3Handler {
                 (makeStreamingUpload("s3://" + resource, onException, md).release());
             return UriHandler(buf.get(), buf);
         }
-        else throw ML::Exception("no way to create s3 handler for non in/out");
+        else throw MLDB::Exception("no way to create s3 handler for non in/out");
     }
 
     RegisterS3Handler()

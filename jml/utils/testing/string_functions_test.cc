@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE( test_antoi )
     BOOST_CHECK(antoi(d, d + 2) == -1);
 
     const char * p = "patate";
-    BOOST_CHECK_THROW(antoi(p, p + 6), ML::Exception);
+    BOOST_CHECK_THROW(antoi(p, p + 6), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE( test_string_replace_in_place )

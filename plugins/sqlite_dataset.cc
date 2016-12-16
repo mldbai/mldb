@@ -18,18 +18,17 @@
 #include "mldb/ext/sqlite/sqlite3ppext.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
-
+#include "mldb/utils/log.h"
 
 using namespace std;
-
-
 
 namespace MLDB {
 
 
-void dumpQuery(sqlite3pp::database & db, const std::string & queryStr)
+void dumpQuery(sqlite3pp::database & db, const string & queryStr,
+               shared_ptr<spdlog::logger> logger)
 {
-    cerr << "dumping query " << queryStr << endl;
+    INFO_MSG(logger) << "dumping query " << queryStr;
 
     sqlite3pp::query query(db, queryStr.c_str());
 
@@ -45,12 +44,13 @@ void dumpQuery(sqlite3pp::database & db, const std::string & queryStr)
         allRecords.append(record);
     }
 
-    cerr << allRecords;
+    INFO_MSG(logger) << allRecords;
 }
 
-void explainQuery(sqlite3pp::database & db, const std::string & queryStr)
+void explainQuery(sqlite3pp::database & db, const string & queryStr,
+                  shared_ptr<spdlog::logger> logger)
 {
-    dumpQuery(db, "EXPLAIN QUERY PLAN " + queryStr);
+    dumpQuery(db, "EXPLAIN QUERY PLAN " + queryStr, logger);
 }
 
 std::string sqlEscape(const std::string & val)
@@ -60,7 +60,7 @@ std::string sqlEscape(const std::string & val)
         if (c == '\'')
             ++numQuotes;
         if (c < ' ' || c >= 127)
-            throw ML::Exception("Non ASCII character in DB");
+            throw MLDB::Exception("Non ASCII character in DB");
     }
     if (numQuotes == 0)
         return val;
@@ -84,10 +84,10 @@ struct Init {
     {
         int res = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
         if (res != SQLITE_OK)
-            throw ML::Exception("Configuring multi threaded: %d", res);
+            throw MLDB::Exception("Configuring multi threaded: %d", res);
         res = sqlite3_config(SQLITE_CONFIG_MEMSTATUS, 0);
         if (res != SQLITE_OK)
-            throw ML::Exception("Configuring no memory status: %d", res);
+            throw MLDB::Exception("Configuring no memory status: %d", res);
     }
 } init;
 
@@ -139,7 +139,8 @@ struct SqliteSparseDataset::Itl
 
     };
 
-    Itl(const Url & url, const Utf8String & id)
+    Itl(const Url & url, const Utf8String & id,
+        shared_ptr<spdlog::logger> logger) : logger(logger)
     {
         initRoutes();
 
@@ -159,6 +160,7 @@ struct SqliteSparseDataset::Itl
 
     std::string filename;
     Utf8String id;
+    shared_ptr<spdlog::logger> logger;
 
     RestRequestRouter router;
 
@@ -178,7 +180,7 @@ struct SqliteSparseDataset::Itl
         ExcAssertEqual(res, SQLITE_OK);
     }
 
-    static void bindArg(sqlite3pp::statement & statement, int index, const RowName & arg)
+    static void bindArg(sqlite3pp::statement & statement, int index, const RowPath & arg)
     {
         int res = statement.bind(index, arg.toUtf8String().rawData());
         ExcAssertEqual(res, SQLITE_OK);
@@ -246,14 +248,14 @@ struct SqliteSparseDataset::Itl
                 decodeTs(rows.get<sqlite_int64>(1)) };
     }
 
-    static std::tuple<ColumnName, CellValue, Date>
+    static std::tuple<ColumnPath, CellValue, Date>
     decodeQuery(const sqlite3pp::query::rows & rows,
-                std::tuple<ColumnName, CellValue, Date> *)
+                std::tuple<ColumnPath, CellValue, Date> *)
     {
         size_t len1 = rows.column_bytes(0);
         size_t len2 = rows.column_bytes(1);
 
-        return std::make_tuple(ColumnName::parse(rows.get<const char *>(0), len1),
+        return std::make_tuple(ColumnPath::parse(rows.get<const char *>(0), len1),
                                jsonDecodeStr<CellValue>(rows.get<const char *>(1), len2),
                                decodeTs(rows.get<long long>(2)));
     }
@@ -282,7 +284,7 @@ struct SqliteSparseDataset::Itl
                 explanation.append(record);
             }
 
-            cerr << explainQuery << endl << explanation;
+            INFO_MSG(logger) << explainQuery << "\n" << explanation;
         }
 
         sqlite3pp::query query(*db, queryStr.c_str());
@@ -315,8 +317,8 @@ struct SqliteSparseDataset::Itl
         return res[0];
     }
 
-    virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    virtual std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
         string query = "SELECT rowName FROM (SELECT DISTINCT rowName, rowHash FROM rows ORDER BY rowHash";
         if (start != 0)
@@ -325,7 +327,7 @@ struct SqliteSparseDataset::Itl
             query += " LIMIT " + to_string(limit);
         query += ")";
 
-        return runQuery<RowName>(query);
+        return runQuery<RowPath>(query);
     }
 
     virtual std::vector<RowHash>
@@ -341,7 +343,7 @@ struct SqliteSparseDataset::Itl
         return runQuery<RowHash>(query);
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         return runScalarQuery<int>("SELECT EXISTS (SELECT 1 FROM rows WHERE rowHash = ? AND rowName = ?)",
                                    RowHash(rowName), rowName);
@@ -353,12 +355,12 @@ struct SqliteSparseDataset::Itl
                                    rowHash);
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         try {
             auto rowNum = runScalarQuery<int>("SELECT rowNum FROM rows WHERE rowHash = ? AND rowName = ?",
                                               RowHash(rowName), rowName);
-            auto cols = runQuery<std::tuple<ColumnName, CellValue, Date> >
+            auto cols = runQuery<std::tuple<ColumnPath, CellValue, Date> >
                 ("SELECT cols.colName, vals.val, vals.ts FROM vals JOIN cols ON vals.colNum = cols.colNum WHERE rowNum = ?", rowNum);
 
             MatrixNamedRow result;
@@ -385,35 +387,35 @@ struct SqliteSparseDataset::Itl
                 explanation.append(record);
             }
 
-            cerr << queryStr << endl << explanation;
+            INFO_MSG(logger) << queryStr << "\n" << explanation;
             abort();
 
             throw;
         }
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
-        return runScalarQuery<RowName>
+        return runScalarQuery<RowPath>
             ("SELECT rowName FROM rows WHERE rowHash = ? LIMIT 1", rowHash);
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         return runScalarQuery<int>("SELECT EXISTS (SELECT 1 FROM cols WHERE colName = ?)",
                                     column);
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
-        return runScalarQuery<ColumnName>("SELECT colName FROM cols WHERE colHash = ? LIMIT 1",
+        return runScalarQuery<ColumnPath>("SELECT colName FROM cols WHERE colHash = ? LIMIT 1",
                                           column);
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
-        return runQuery<ColumnName>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
+        return runQuery<ColumnPath>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
     }
 
     virtual size_t getRowCount() const
@@ -427,11 +429,11 @@ struct SqliteSparseDataset::Itl
     }
     
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const
     {
         //auto colNum = runQuery<int>("SELECT colNum FROM cols WHERE colHash = ?",
         //                            column);
-        auto rows = runQuery<std::tuple<RowName, CellValue, Date> >
+        auto rows = runQuery<std::tuple<RowPath, CellValue, Date> >
             ("SELECT rows.rowName, vals.val, vals.ts FROM vals JOIN  rows ON vals.rowNum = rows.rowNum AND vals.colNum = (SELECT colNum FROM cols WHERE colName=?)",
              column);
         MatrixColumn result;
@@ -440,7 +442,7 @@ struct SqliteSparseDataset::Itl
         return result;
     }
 
-    virtual int getRowNum(sqlite3pp::database & db, const RowName & rowName)
+    virtual int getRowNum(sqlite3pp::database & db, const RowPath & rowName)
     {
         RowHash rowHash(rowName);
         std::string rowNameStr = rowName.toUtf8String().rawString();
@@ -473,7 +475,7 @@ struct SqliteSparseDataset::Itl
                 explanation.append(record);
             }
 
-            cerr << explainQuery << endl << explanation;
+            INFO_MSG(logger) << explainQuery << "\n" << explanation;
         }
 
 
@@ -487,7 +489,7 @@ struct SqliteSparseDataset::Itl
         throw HttpReturnException(400, "Couldn't get a row number");
     }
 
-    virtual int getColNum(sqlite3pp::database & db, const ColumnName & colName)
+    virtual int getColNum(sqlite3pp::database & db, const ColumnPath & colName)
     {
         ColumnHash colHash(colName);
         auto it = colNumCache.find(colHash);
@@ -517,13 +519,13 @@ struct SqliteSparseDataset::Itl
     }
     
     virtual void
-    recordRowItl(const RowName & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    recordRowItl(const RowPath & rowName,
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         recordRows({{rowName, vals}});
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
     {
         std::unique_lock<std::mutex> guard(writeLock);
 
@@ -535,8 +537,8 @@ struct SqliteSparseDataset::Itl
 
         for (auto & r: rows) {
 
-            const RowName & rowName = r.first;
-            const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals = r.second;
+            const RowPath & rowName = r.first;
+            const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals = r.second;
             
             Dataset::validateNames(rowName, vals);
 
@@ -607,7 +609,7 @@ struct SqliteSparseDataset::Itl
             {
                 int res = db->execute(command.c_str());
                 if (res != SQLITE_OK) {
-                    throw ML::Exception("Error setting up database: executing %s: %s",
+                    throw MLDB::Exception("Error setting up database: executing %s: %s",
                                         command.c_str(), db->error_msg());
                 }
             };
@@ -642,8 +644,8 @@ struct SqliteSparseDataset::Itl
     }
 
     // Protected by the write lock
-    ML::Lightweight_Hash<RowHash, int> rowNumCache;
-    ML::Lightweight_Hash<ColumnHash, int> colNumCache;
+    Lightweight_Hash<RowHash, int> rowNumCache;
+    Lightweight_Hash<ColumnHash, int> colNumCache;
 
     // Unfortunately...
     mutable std::mutex writeLock;
@@ -668,7 +670,7 @@ struct SqliteSparseDataset::Itl
             {
                 int res = connection.execute(command.c_str());
                 if (res != SQLITE_OK) {
-                    throw ML::Exception("Error setting up connection: executing %s: %s",
+                    throw MLDB::Exception("Error setting up connection: executing %s: %s",
                                         command.c_str(), connection.error_msg());
                 }
             };
@@ -710,7 +712,8 @@ SqliteSparseDataset(MldbServer * owner,
 {
     if (!config.params.empty())
         datasetConfig = config.params.convert<SqliteSparseDatasetConfig>();
-    itl.reset(new Itl(datasetConfig.dataFileUrl, config.id));
+    itl.reset(new Itl(datasetConfig.dataFileUrl, config.id,
+                      MLDB::getMldbLog<SqliteSparseDataset>()));
 }
     
 SqliteSparseDataset::
@@ -727,15 +730,15 @@ getStatus() const
 
 void
 SqliteSparseDataset::
-recordRowItl(const RowName & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+recordRowItl(const RowPath & rowName,
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     return itl->recordRowItl(rowName, vals);
 }
 
 void
 SqliteSparseDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     return itl->recordRows(rows);
 }

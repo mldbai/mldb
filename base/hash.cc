@@ -72,7 +72,7 @@ std::string md5HashToHex(const char * buf, size_t nBytes)
 
     string md5;
     for (unsigned i = 0;  i < digestLen;  ++i) {
-        md5 += ML::format("%02x", digest[i]);
+        md5 += MLDB::format("%02x", digest[i]);
     }
 
     return md5;

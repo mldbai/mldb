@@ -191,7 +191,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
 };
 
 /*****************************************************************************/
-/* ROW TABLE                                                                 */
+/* ROW / ATOM DATASET                                                        */
 /*****************************************************************************/
 
 /** Used when we want to treat a row expression as a table:
@@ -202,11 +202,20 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
 
     rowName value
           x     1
+
+    There are two variants: ATOMS creates one row per atom, where as
+    COLUMNS creates one row per column.
 */
 
 struct RowTableExpression: public TableExpression {
+    enum Style {
+        ATOMS,
+        COLUMNS
+    };
+
     RowTableExpression(std::shared_ptr<SqlExpression> expr,
-                       Utf8String asName);
+                       Utf8String asName,
+                       Style style);
 
     virtual ~RowTableExpression();
 
@@ -229,6 +238,7 @@ struct RowTableExpression: public TableExpression {
 
     std::shared_ptr<SqlExpression> expr;
     Utf8String asName;
+    Style style;
 };
 
 } // namespace MLDB

@@ -320,7 +320,7 @@ RestRequestRouter::
 handleRequest(RestConnection & connection,
               const RestRequest & request) const
 {
-    //JML_TRACE_EXCEPTIONS(false);
+    //MLDB_TRACE_EXCEPTIONS(false);
 
     RestRequestParsingContext context(request);
     RestRequestMatchResult res = processRequest(connection, request, context);
@@ -343,7 +343,7 @@ static std::string getVerbsStr(const std::set<std::string> & verbs)
 
 namespace {
 
-ML::Env_Option<bool, true> TRACE_REST_REQUESTS("TRACE_REST_REQUESTS", false);
+EnvOption<bool, true> TRACE_REST_REQUESTS("TRACE_REST_REQUESTS", false);
 
 } // file scope
 

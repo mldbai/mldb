@@ -234,7 +234,7 @@ uriEncode(const std::string & str)
 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             result += c;
-        else result += ML::format("%%%02X", c);
+        else result += MLDB::format("%%%02X", c);
     }
 
     return result;
@@ -252,11 +252,11 @@ AwsApi::
 escapeResource(const std::string & resource)
 {
     if (resource.size() == 0) {
-        throw ML::Exception("empty resource name");
+        throw MLDB::Exception("empty resource name");
     }
 
     if (resource[0] != '/') {
-        throw ML::Exception("resource name must start with a '/'");
+        throw MLDB::Exception("resource name must start with a '/'");
     }
 
     return "/" + uriEncode(resource.substr(1));
@@ -588,7 +588,7 @@ perform(const BasicRequest & request,
         }
     }
 
-    throw ML::Exception("failed request after %d retries", retries);
+    throw MLDB::Exception("failed request after %d retries", retries);
 }
 
 std::string

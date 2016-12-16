@@ -1,16 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* guard.h                                                         -*- C++ -*-
    Jeremy Barnes, 13 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 
    ---
 */
 
-#ifndef __utils__guard_h__
-#define __utils__guard_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <functional>
@@ -30,7 +27,7 @@ struct Call_Guard {
     {
     }
     
-#if JML_HAS_RVALUE_REFERENCES
+#if MLDB_HAS_RVALUE_REFERENCES
     Call_Guard(Call_Guard && other)
         : fn(other.fn)
     {
@@ -62,7 +59,7 @@ private:
     void operator = (const Call_Guard & other);
 };
 
-#if JML_HAS_RVALUE_REFERENCES
+#if MLDB_HAS_RVALUE_REFERENCES
 template<typename Fn>
 Call_Guard call_guard(Fn fn, bool condition = true)
 {
@@ -71,7 +68,5 @@ Call_Guard call_guard(Fn fn, bool condition = true)
 #endif
 
 
-} // namespace ML
+} // namespace MLDB
 
-
-#endif /* __utils__guard_h__ */

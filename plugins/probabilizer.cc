@@ -25,6 +25,7 @@
 #include "mldb/types/distribution_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/utils/log.h"
 
 #include "mldb/server/analytics.h"
 
@@ -90,7 +91,7 @@ ProbabilizerConfigDescription()
 struct ProbabilizerRepr {
     std::string style;
     ML::Link_Function link;
-    ML::distribution<double> params;
+    distribution<double> params;
 };
 
 DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerRepr);
@@ -167,7 +168,7 @@ run(const ProcedureRunConfig & run,
     // ...
 
     std::mutex fvsLock;
-    std::vector<std::tuple<RowName, float, float, float> > fvs;
+    std::vector<std::tuple<RowPath, float, float, float> > fvs;
 
     std::atomic<int> numRows(0);
 
@@ -199,8 +200,8 @@ run(const ProcedureRunConfig & run,
     /* Convert to the correct data structures. */
 
     boost::multi_array<double, 2> outputs(boost::extents[2][nx]);  // value, bias
-    ML::distribution<double> correct(nx, 0.0);
-    ML::distribution<double> weights(nx, 1.0);
+    distribution<double> correct(nx, 0.0);
+    distribution<double> weights(nx, 1.0);
 
     size_t numTrue = 0;
 
@@ -208,8 +209,9 @@ run(const ProcedureRunConfig & run,
         float score, label, weight;
         std::tie(std::ignore, score, label, weight) = fvs[x];
 
-        //cerr << "x = " << x << " score = " << score << " label = " << label
-        //     << " weight = " << weight << endl;
+        DEBUG_MSG(logger) 
+            << "x = " << x << " score = " << score << " label = " << label
+            << " weight = " << weight;
 
         outputs[0][x] = score;
         outputs[1][x] = 1.0;
@@ -222,7 +224,7 @@ run(const ProcedureRunConfig & run,
     filter_ostream out("prob-in.txt");
 
     for (unsigned i = 0;  i < nx;  ++i) {
-        out << ML::format("%.15f %.16f %d\n",
+        out << MLDB::format("%.15f %.16f %d\n",
                           outputs[0][i],
                           outputs[1][i],
                           correct[i]);
@@ -237,19 +239,18 @@ run(const ProcedureRunConfig & run,
     double sampleOneRate = numTrue / numExamples;
     double sampleZeroRate = 1.0 - sampleOneRate;
 
-    cerr << "trueOneRate = " << trueOneRate
-         << " trueZeroRate = " << trueZeroRate
-         << " sampleOneRate = " << sampleOneRate
-         << " sampleZeroRate = " << sampleZeroRate
-         << endl;
+    INFO_MSG(logger) << "trueOneRate = " << trueOneRate
+                     << " trueZeroRate = " << trueZeroRate
+                     << " sampleOneRate = " << sampleOneRate
+                     << " sampleZeroRate = " << sampleZeroRate;
 
     auto link = runProcConf.link;
 
     ML::Ridge_Regressor regressor;
-    ML::distribution<double> probParams
+    distribution<double> probParams
         = ML::run_irls(correct, outputs, weights, link, regressor);
 
-    cerr << "probParams = " << probParams << endl;
+    INFO_MSG(logger) << "probParams = " << probParams;
 
     // http://gking.harvard.edu/files/0s.pdf, section 4.2
     // Logistic Regression in Rare Events Data (Gary King and Langche Zeng)
@@ -257,13 +258,12 @@ run(const ProcedureRunConfig & run,
     double correction = -log((1 - trueOneRate) / trueOneRate
                              * sampleOneRate / (1 - sampleOneRate));
 
-    //cerr << "paramBefore = " << probParams[1] << endl;
-    //cerr << "correction = " << correction
-    //<< endl;
+    DEBUG_MSG(logger) << "paramBefore = " << probParams[1];
+    DEBUG_MSG(logger) << "correction = " << correction;
 
     probParams[1] += correction;
 
-    cerr << "paramAfter = " << probParams[1] << endl;
+    INFO_MSG(logger) << "paramAfter = " << probParams[1];
 
     ProbabilizerRepr repr;
     repr.style = "glz";
@@ -318,7 +318,7 @@ ProbabilizeFunction::
 ProbabilizeFunction(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<ProbabilizeFunctionConfig>();
     itl.reset(new Itl());
@@ -331,13 +331,12 @@ ProbabilizeFunction(MldbServer * owner,
 
 ProbabilizeFunction::
 ProbabilizeFunction(MldbServer * owner,
-                 const ML::GLZ_Probabilizer & in)
-    : Function(owner)
+                   const ML::GLZ_Probabilizer & in)
+    : Function(owner, PolyConfig())
 {
     itl.reset(new Itl());
     itl->probabilizer = in;
 }
-
 
 ProbabilizeFunction::
 ~ProbabilizeFunction()
@@ -370,19 +369,19 @@ ProbabilizeFunction::
 getFunctionInfo() const
 {
     std::vector<KnownColumn> knownInputColumns;
-    knownInputColumns.emplace_back(ColumnName("score"),
+    knownInputColumns.emplace_back(ColumnPath("score"),
                                    std::make_shared<NumericValueInfo>(),
                                    COLUMN_IS_DENSE,
                                    0 /* position */);
 
     std::vector<KnownColumn> knownOutputColumns;
-    knownOutputColumns.emplace_back(ColumnName("prob"),
+    knownOutputColumns.emplace_back(ColumnPath("prob"),
                                     std::make_shared<NumericValueInfo>(),
                                     COLUMN_IS_DENSE,
                                     0 /* position */);
 
     FunctionInfo result;
-    result.input.reset(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(knownOutputColumns, SCHEMA_CLOSED));
     return result;
 }

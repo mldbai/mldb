@@ -67,10 +67,10 @@ struct NoGroupByHaving
     {
         if (query.stm) {
             if (!query.stm->groupBy.empty()) {
-                throw ML::Exception(name + " does not support groupBy clause");
+                throw MLDB::Exception(name + " does not support groupBy clause");
             }
             else if (!query.stm->having->isConstantTrue()) {
-                throw ML::Exception(name + " does not support having clause");
+                throw MLDB::Exception(name + " does not support having clause");
             }
         }
     }
@@ -91,7 +91,7 @@ struct NoWhere
     {
         if (query.stm) {
             if (!query.stm->where->isConstantTrue()) {
-                throw ML::Exception(name + " does not support where");
+                throw MLDB::Exception(name + " does not support where");
             }
         }
     }
@@ -113,7 +113,7 @@ struct NoLimit
     {
         if (query.stm) {
             if (query.stm->limit != -1) {
-                throw ML::Exception(name + " does not support limit");
+                throw MLDB::Exception(name + " does not support limit");
             }
         }
     }
@@ -135,7 +135,7 @@ struct NoOffset
     {
         if (query.stm) {
             if (query.stm->offset > 0) {
-                throw ML::Exception(name + " does not support offset");
+                throw MLDB::Exception(name + " does not support offset");
             }
         }
     }
@@ -155,7 +155,7 @@ struct MustContainFrom
     void operator()(const InputQuery & query, const std::string & name) const
     {
         if (!query.stm || !query.stm->from || query.stm->from->surface.empty())
-            throw ML::Exception(name + " must contain a FROM clause");
+            throw MLDB::Exception(name + " must contain a FROM clause");
     }
 
     void operator()(const Optional<InputQuery> & query, const std::string & name) const
@@ -292,7 +292,7 @@ struct PlainColumnSelect
                     continue;
             }
 
-            throw ML::Exception(name +
+            throw MLDB::Exception(name +
                                 " only accepts wildcard and column names at " +
                                 clause->surface.rawString());
         }
@@ -336,7 +336,7 @@ struct FeaturesLabelSelect
     {
         if (!containsNamedSubSelect(query, "features") ||
             !containsNamedSubSelect(query, "label") )
-            throw ML::Exception(name + " expects a row named 'features' and a scalar named 'label'");
+            throw MLDB::Exception(name + " expects a row named 'features' and a scalar named 'label'");
     }
 
     void operator()(const Optional<InputQuery> & query, const std::string & name) const
@@ -355,7 +355,7 @@ struct ScoreLabelSelect
     {
         if (!containsNamedSubSelect(query, "score") ||
             !containsNamedSubSelect(query, "label") )
-            throw ML::Exception(name + " expects a scalar named 'score' and a scalar named 'label'");
+            throw MLDB::Exception(name + " expects a scalar named 'score' and a scalar named 'label'");
     }
 };
 
@@ -370,7 +370,7 @@ validateFunction()
     return [](ConfigType * cfg, JsonParsingContext & context) {
         if (!cfg->functionName.empty() &&
             !cfg->modelFileUrl.valid()) {
-                throw ML::Exception(std::string(ConfigType::name) + " requires a valid "
+                throw MLDB::Exception(std::string(ConfigType::name) + " requires a valid "
                                     "modelFileUrl when specifying a functionName. "
                                     "modelFileUrl '" + cfg->modelFileUrl.toString()
                                     + "' is invalid.");

@@ -12,8 +12,6 @@ namespace MLDB {
 template<typename Int, int Domain> struct IntWrapper;
 template<int Domain> struct HashWrapper;
 
-struct Id;
-
 struct MldbServer;
 
 struct SqlExpression;
@@ -25,10 +23,10 @@ typedef HashWrapper<1> RowHash;
 struct PathElement;
 struct Path;
 
-typedef Path RowName;
+typedef Path RowPath;
 
 typedef HashWrapper<3> ColumnHash;
-typedef Path ColumnName;
+typedef Path ColumnPath;
 
 struct Dataset;
 

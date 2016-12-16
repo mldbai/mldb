@@ -16,7 +16,7 @@
 
 
 using namespace std;
-
+using namespace MLDB;
 
 
 long *svd_longArray(long size, char empty, const char *name) {
@@ -52,18 +52,18 @@ void svd_error(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
-  string message = ML::vformat(fmt, args);
+  string message = MLDB::vformat(fmt, args);
   va_end(args);
-  throw ML::Exception("SVD Error: " + message);
+  throw MLDB::Exception("SVD Error: " + message);
 }
 
 void svd_fatalError(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
-  string message = ML::vformat(fmt, args);
+  string message = vformat(fmt, args);
   va_end(args);
-  throw ML::Exception("SVD Fatal Error: " + message);
+  throw MLDB::Exception("SVD Fatal Error: " + message);
 }
 
 /************************************************************** 
@@ -369,7 +369,7 @@ double svd_pythag(double a, double b) {
       }
 
       if (iter == 1000) {
-          throw ML::Exception("svd_pythag infinite loop: %f, %f",
+          throw MLDB::Exception("svd_pythag infinite loop: %f, %f",
                           a, b);
       }
    }

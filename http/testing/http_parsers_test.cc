@@ -286,8 +286,8 @@ BOOST_AUTO_TEST_CASE( test_bad_request2 )
 {
     HttpHeader header;
     header.parse(badRequest);
-    JML_TRACE_EXCEPTIONS(false);
-    BOOST_CHECK_THROW(jsonDecodeStr<Json::Value>(header.knownData), ML::Parse_Context::Exception);
+    MLDB_TRACE_EXCEPTIONS(false);
+    BOOST_CHECK_THROW(jsonDecodeStr<Json::Value>(header.knownData), ParseContext::Exception);
     BOOST_CHECK_THROW(Json::Value val2 = Json::parse(header.knownData), Json::Exception);
 }
 
@@ -360,8 +360,8 @@ BOOST_AUTO_TEST_CASE( http_request_100_continue_test )
 
     /* we get an exception because the parser expects a valid request first
        line after the rejection of the expectation. */
-    JML_TRACE_EXCEPTIONS(false);
-    BOOST_CHECK_THROW(parser.feed(requestBody), ML::Exception);
+    MLDB_TRACE_EXCEPTIONS(false);
+    BOOST_CHECK_THROW(parser.feed(requestBody), MLDB::Exception);
 }
 #endif
 

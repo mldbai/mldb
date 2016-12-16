@@ -27,7 +27,7 @@ std::shared_ptr<spdlog::logger> getServerLog();
 template <typename Class>
 std::string
 getLoggerNameFromClass() {
-    return ML::demangle(typeid(Class));
+    return demangle(typeid(Class));
 }
 
 template <typename Class>
@@ -47,6 +47,9 @@ getMldbLog() {
 struct LogDummy {
     void operator&(const spdlog::details::line_logger & line_logger) {}
 };
+
+#define TRACE_MSG(logger)                                               \
+    !logger->should_log(spdlog::level::trace) ? (void) 0 : MLDB::LogDummy() & logger->trace()
 
 #define DEBUG_MSG(logger)                                               \
     !logger->should_log(spdlog::level::debug) ? (void) 0 : MLDB::LogDummy() & logger->debug()

@@ -15,6 +15,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/server/bucket.h"
 #include "mldb/ml/jml/label.h"
+#include "mldb/utils/log_fwd.h"
 
 
 namespace MLDB {
@@ -41,7 +42,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                         ML::Feature_Info labelInfo,
-                        const std::set<ColumnName> & includeColumns,
+                        const std::set<ColumnPath> & includeColumns,
                         bool bucketize = false);
 
     struct ColumnInfo {
@@ -50,7 +51,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         {
         }
 
-        ColumnName columnName;
+        ColumnPath columnName;
         ML::Feature_Info info;
         int index;
 
@@ -68,12 +69,22 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     };
 
     static ColumnInfo getColumnInfo(std::shared_ptr<Dataset> dataset,
-                                    const ColumnName & columnName,
+                                    const ColumnPath & columnName,
                                     bool bucketize);
 
     std::unordered_map<ColumnHash, ColumnInfo> columnInfo;
 
+    /// Mapping from the first two 32 bit values of a feature to
+    /// a column hash, for classifiers serialized with the old
+    /// column hashing scheme (version 2).  This allows the old
+    /// feature<->columnHash mapping to be maintained.  For new
+    /// files (version 3 and above), these two are empty.
+    std::map<ML::Feature, ColumnHash> versionTwoMapping;
+    std::unordered_map<ColumnHash, ML::Feature> versionTwoReverseMapping;
+
     ML::Feature_Info labelInfo;
+    std::shared_ptr<spdlog::logger> logger;
+    
 
     /** Encode the given column value into a feature, adding to the given
         feature set.
@@ -96,12 +107,8 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     ML::Label encodeLabel(const CellValue & value, bool isRegression) const;
 
     float encodeValue(const CellValue & value,
-                      const ColumnName & columnName,
+                      const ColumnPath & columnName,
                       const ML::Feature_Info & info) const;
-
-/*    float encodeValue(const CellValue & value,
-                      const ColumnName & columnName,
-                      const ColumnInfo & columnInfo) const;*/
 
     virtual ML::Feature_Info info(const ML::Feature & feature) const override;
 
@@ -127,13 +134,16 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         - the third 32 bit integer, arg2(), to the low 32 bits of the column.
     */
 
-    static ColumnHash getHash(ML::Feature feature);
+    static ColumnHash getHashRaw(ML::Feature feature);
+
+    ColumnHash getHash(ML::Feature feature) const;
 
     /** Undo the mapping from getHash.  This is the inverse of the getHash
         function.
     */
+    ML::Feature getFeature(ColumnHash hash) const;
 
-    static ML::Feature getFeature(ColumnHash hash);
+    static ML::Feature getFeatureRaw(ColumnHash hash);
 
     CellValue getValue(const ML::Feature & feature, float value) const;
 

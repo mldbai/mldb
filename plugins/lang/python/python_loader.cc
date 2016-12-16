@@ -261,7 +261,7 @@ PythonPlugin(MldbServer * server,
                                        config.id, res), routeHandlingMutex));
     }
     catch(const std::exception & exc) {
-        throw HttpReturnException(400, ML::format("Exception opening plugin: %s", exc.what()));
+        throw HttpReturnException(400, MLDB::format("Exception opening plugin: %s", exc.what()));
     }
 
     addRouteSyncJsonReturn(itl->router, "/lastoutput", {"GET"},
@@ -290,7 +290,7 @@ PythonPlugin(MldbServer * server,
     addPluginPathToEnv(pyControl);
 
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] =
             boost::python::object(boost::python::ptr(mldbPy.get()));
     } catch (const boost::python::error_already_set & exc) {
@@ -301,7 +301,7 @@ PythonPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(500, "Exception creating Python context", pyexc);
 
     }
@@ -319,7 +319,7 @@ PythonPlugin(MldbServer * server,
             LOG(itl->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
 
         string context = "Exception executing Python initialization script";
         ScriptOutput result = exceptionToScriptOutput(pyControl, pyexc, context);
@@ -353,7 +353,7 @@ addPluginPathToEnv(PythonSubinterpreter & pyControl) const
     PyList_Insert( sysPath, 0, pluginDirPy );
 
     // change working dir to script dir
-//     PyRun_SimpleString(ML::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
+//     PyRun_SimpleString(MLDB::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
 }
 
 ScriptOutput PythonPlugin::
@@ -387,7 +387,7 @@ getStatus() const
 //                 LOG(itl->loader) << jsonEncode(pyexc) << endl;
 //             }
 // 
-//             JML_TRACE_EXCEPTIONS(false);
+//             MLDB_TRACE_EXCEPTIONS(false);
 //             string context = "Exception in Python status call";
 //             ScriptOutput result = exceptionToScriptOutput(
 //                 pyControl, pyexc, context);
@@ -439,7 +439,7 @@ handleRequest(RestConnection & connection,
         try {
             RestRequestMatchResult rtn;
             {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
 
                 pyControl.releaseGil();
 
@@ -472,7 +472,7 @@ handleRequest(RestConnection & connection,
                 LOG(itl->loader) << jsonEncode(pyexc) << endl;
             }
 
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             string context = "Exception in Python request handler";
             ScriptOutput result = exceptionToScriptOutput(
                     pyControl, pyexc, context);
@@ -506,7 +506,7 @@ handleTypeRoute(RestDirectory * server,
         }
         catch(const std::exception & exc) {
             conn.sendResponse(400,
-                          jsonEncodeStr(ML::format("Exception opening script: %s", exc.what())),
+                          jsonEncodeStr(MLDB::format("Exception opening script: %s", exc.what())),
                           "application/json");
         }
 
@@ -557,7 +557,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     pyControl.acquireGil();
 
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
         injectMldbWrapper(pyControl);
 
@@ -569,7 +569,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             LOG(titl->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
 
         ScriptOutput result;
 
@@ -590,7 +590,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     // if we're simply executing the body of the script
     try {
         if(elementToRun == PackageElement::MAIN) {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             pySetArgv();
             boost::python::object obj =
                 pyExec(scriptSource,
@@ -622,7 +622,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             return result;
         }
         else {
-            throw ML::Exception("Unknown element to run!!");
+            throw MLDB::Exception("Unknown element to run!!");
         }
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "Running PyRunner script");
@@ -694,6 +694,32 @@ class mldb_wrapper(object):
 
         def __str__(self):
             return self.text
+
+    class StepsLogger(object):
+
+        def __init__(self, mldb):
+            self.done_steps = set()
+            self.log = mldb.log
+
+        def log_progress_steps(self, progress_steps):
+            from datetime import datetime
+            from dateutil.tz import tzutc
+            from dateutil.parser import parse as parse_date
+            now = datetime.now(tzutc())
+            for step in progress_steps:
+                if 'ended' in step:
+                    if step['name'] in self.done_steps:
+                        continue
+                    self.done_steps.add(step['name'])
+                    ran_in = parse_date(step['ended']) - parse_date(step['started'])
+                    self.log("{} completed in {} seconds - {} {}"
+                            .format(step['name'], ran_in.total_seconds(),
+                                    step['type'], step['value']))
+                elif 'started' in step:
+                    running_since = now - parse_date(step['started'])
+                    self.log("{} runing since {} seconds - {} {}"
+                            .format(step['name'], running_since.total_seconds(),
+                                    step['type'], step['value']))
 
     class wrap(object):
         def __init__(self, mldb):
@@ -798,6 +824,55 @@ class mldb_wrapper(object):
 
             if res.wasSuccessful():
                 self.script.set_return("success")
+
+        def post_run_and_track_procedure(self, payload, refresh_rate_sec=10):
+            import threading
+
+            if 'params' not in payload:
+                payload['params'] = {}
+            payload['params']['runOnCreation'] = False
+
+            res = self.post('/v1/procedures', payload).json()
+            proc_id = res['id']
+            event = threading.Event()
+
+            def monitor_progress():
+                # wrap everything in a try/except because exceptions are not passed to
+                # mldb.log by themselves.
+                try:
+                    # find run id
+                    run_id = None
+                    sl = mldb_wrapper.StepsLogger(self)
+                    while not event.wait(refresh_rate_sec):
+                        if run_id is None:
+                            res = self.get('/v1/procedures/{}/runs'.format(proc_id)).json()
+                            if res:
+                                run_id = res[0]
+                            else:
+                                continue
+
+                        res = self.get('/v1/procedures/{}/runs/{}'.format(proc_id, run_id)).json()
+                        if res['state'] == 'executing':
+                            sl.log_progress_steps(res['progress']['steps'])
+                        else:
+                            break
+
+                except Exception as e:
+                    self.log(str(e))
+                    import traceback
+                    self.log(traceback.format_exc())
+
+            t = threading.Thread(target=monitor_progress)
+            t.start()
+
+            try:
+                return self.post('/v1/procedures/{}/runs'.format(proc_id), {})
+            except mldb_wrapper.ResponseException as e:
+                return e.response
+            finally:
+                event.set()
+                t.join()
+
 
 
 class MldbUnitTest(unittest.TestCase):
@@ -964,33 +1039,33 @@ struct AtInit {
         from_python_converter< Utf8String,  Utf8StringPyConverter>();
         bp::to_python_converter< Utf8String, Utf8StringPyConverter>();
 
-        from_python_converter< RowName, StrConstructableIdFromPython<RowName> >();
-        from_python_converter< ColumnName, StrConstructableIdFromPython<ColumnName> >();
+        from_python_converter< RowPath, StrConstructableIdFromPython<RowPath> >();
+        from_python_converter< ColumnPath, StrConstructableIdFromPython<ColumnPath> >();
         from_python_converter< CellValue, CellValueConverter >();
 
         from_python_converter< RowCellTuple,
-                               Tuple3ElemConverter<ColumnName, CellValue, Date> >();
+                               Tuple3ElemConverter<ColumnPath, CellValue, Date> >();
 
         from_python_converter< std::vector<RowCellTuple>,
                                VectorConverter<RowCellTuple>>();
 
-        from_python_converter< std::pair<RowName, std::vector<RowCellTuple> >,
-                               PairConverter<RowName, std::vector<RowCellTuple> > >();
+        from_python_converter< std::pair<RowPath, std::vector<RowCellTuple> >,
+                               PairConverter<RowPath, std::vector<RowCellTuple> > >();
 
-        from_python_converter< std::vector<std::pair<RowName, std::vector<RowCellTuple> > >,
-                               VectorConverter<std::pair<RowName, std::vector<RowCellTuple> > > >();
+        from_python_converter< std::vector<std::pair<RowPath, std::vector<RowCellTuple> > >,
+                               VectorConverter<std::pair<RowPath, std::vector<RowCellTuple> > > >();
 
         from_python_converter< ColumnCellTuple,
-                               Tuple3ElemConverter<RowName, CellValue, Date> >();
+                               Tuple3ElemConverter<RowPath, CellValue, Date> >();
 
         from_python_converter< std::vector<ColumnCellTuple>,
                                VectorConverter<ColumnCellTuple>>();
 
-        from_python_converter< std::pair<ColumnName, std::vector<ColumnCellTuple> >,
-                               PairConverter<ColumnName, std::vector<ColumnCellTuple> > >();
+        from_python_converter< std::pair<ColumnPath, std::vector<ColumnCellTuple> >,
+                               PairConverter<ColumnPath, std::vector<ColumnCellTuple> > >();
 
-        from_python_converter< std::vector<std::pair<ColumnName, std::vector<ColumnCellTuple> > >,
-                               VectorConverter<std::pair<ColumnName, std::vector<ColumnCellTuple> > > >();
+        from_python_converter< std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > >,
+                               VectorConverter<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > >();
 
         from_python_converter<std::pair<string, string>,
                         PairConverter<string, string> >();

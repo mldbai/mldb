@@ -21,22 +21,22 @@
 #include <memory>
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
 /* PARSE_CONTEXT                                                             */
 /*****************************************************************************/
 
-struct Parse_Context {
+struct ParseContext {
     static const std::string CONSOLE;
 
-    struct Exception: ML::Exception {
+    struct Exception: MLDB::Exception {
         Exception(const char * what,
                   std::string filename,
                   int row,
                   int col) noexcept
-            : ML::Exception(what),
+            : MLDB::Exception(what),
               filename(std::move(filename)),
               row(row),
               col(col)
@@ -47,7 +47,7 @@ struct Parse_Context {
                   std::string filename,
                   int row,
                   int col) noexcept
-            : ML::Exception(what),
+            : MLDB::Exception(what),
               filename(std::move(filename)),
               row(row),
               col(col)
@@ -64,28 +64,28 @@ struct Parse_Context {
     };
     
     /** Create but don't initialize. */
-    Parse_Context();
+    ParseContext();
 
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
-    explicit Parse_Context(const std::string & filename);
+    explicit ParseContext(const std::string & filename);
     
     /** Initialize from a memory region. */
-    Parse_Context(const std::string & filename, const char * start,
+    ParseContext(const std::string & filename, const char * start,
                   const char * finish, unsigned line = 1, unsigned col = 1);
 
-    Parse_Context(const std::string & filename, const char * start,
+    ParseContext(const std::string & filename, const char * start,
                   size_t length, unsigned line = 1, unsigned col = 1);
 
     /** Default chunk size. */
     enum { DEFAULT_CHUNK_SIZE = 65500 };
 
     /** Initialize from an istream. */
-    Parse_Context(const std::string & filename, std::istream & stream,
+    ParseContext(const std::string & filename, std::istream & stream,
                   unsigned line = 1, unsigned col = 1,
                   size_t chunk_size = DEFAULT_CHUNK_SIZE);
 
-    ~Parse_Context();
+    ~ParseContext();
 
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
@@ -108,7 +108,7 @@ struct Parse_Context {
 
     /** Increment.  Note that it always sets up the buffer such that more
         characters are available. */
-    JML_ALWAYS_INLINE Parse_Context & operator ++ ()
+    MLDB_ALWAYS_INLINE ParseContext & operator ++ ()
     {
         if (eof()) exception("unexpected EOF");
 
@@ -116,13 +116,13 @@ struct Parse_Context {
         ofs_ += 1;  col_ += 1;
 
         ++cur_;
-        if (JML_UNLIKELY(cur_ == ebuf_))
+        if (MLDB_UNLIKELY(cur_ == ebuf_))
             next_buffer();
 
         return *this;
     }
 
-    Parse_Context & operator += (int steps)
+    ParseContext & operator += (int steps)
     {
         for (int i = 0; i < steps; i++) {
             operator ++();
@@ -466,11 +466,11 @@ struct Parse_Context {
     /** Return a message giving filename:line:col */
     std::string where() const;
     
-    void exception(const std::string & message) const JML_NORETURN;
+    void exception(const std::string & message) const MLDB_NORETURN;
 
-    void exception(const char * message) const JML_NORETURN;
+    void exception(const char * message) const MLDB_NORETURN;
 
-    void exception_fmt(const char * message, ...) const JML_NORETURN;
+    void exception_fmt(const char * message, ...) const MLDB_NORETURN;
     
     size_t get_offset() const { return ofs_; }
     size_t get_line() const { return line_; }
@@ -478,7 +478,7 @@ struct Parse_Context {
 
     /** Query if we are at the end of file.  This occurs when we can't find
         any more characters. */
-    JML_ALWAYS_INLINE bool eof() const
+    MLDB_ALWAYS_INLINE bool eof() const
     { 
         //using namespace std;
         //cerr << "eof: cur_ = " << (void *)cur_ << "ebuf_ = " << (void *)ebuf_
@@ -549,12 +549,12 @@ protected:
         the address of multiple tokens is always descending).  Tokens may
         not be used from more than one thread.
 
-        They are stored as a doubly linked list.  The Parse_Context
+        They are stored as a doubly linked list.  The ParseContext
         structure maintains a pointer to the earliest one.
     */
     struct Token {
     protected:
-        Token(Parse_Context & context)
+        Token(ParseContext & context)
             : context(&context),
               ofs(context.ofs_), line(context.line_), col(context.col_),
               prev(0), next(0)
@@ -581,7 +581,7 @@ protected:
         {
             //std::cerr << "deleting token " << this << std::endl;
             if (context)
-                throw ML::Exception("Parse_Context::Token::~Token(): "
+                throw MLDB::Exception("ParseContext::Token::~Token(): "
                                     "active token was destroyed");
         }
         
@@ -606,7 +606,7 @@ protected:
                 // result is.
                 if (in_destructor)
                     return;
-                throw ML::Exception("Parse_Context::Token::apply(): logic error: "
+                throw MLDB::Exception("ParseContext::Token::apply(): logic error: "
                                     "applied token was not the latest one");
             }
 
@@ -633,7 +633,7 @@ protected:
                 if (context->first_token_ != this) {
                     if (in_destructor)
                         return;
-                    throw ML::Exception("Parse_Context::Token::ignore(): "
+                    throw MLDB::Exception("ParseContext::Token::ignore(): "
                                         "logic error: no prev but not first");
                 }
                 context->first_token_ = next;
@@ -644,7 +644,7 @@ protected:
                 if (context->last_token_ != this) {
                     if (in_destructor)
                         return;
-                    throw ML::Exception("Parse_Context::Token::ignore(): "
+                    throw MLDB::Exception("ParseContext::Token::ignore(): "
                                         "logic error: no next but not last");
                 }
                 context->last_token_ = prev;
@@ -656,7 +656,7 @@ protected:
             context = 0;
         }
 
-        Parse_Context * context;   ///< The Parse_Context object that owns us
+        ParseContext * context;   ///< The ParseContext object that owns us
 
         uint64_t ofs;              ///< Offset for this token
         unsigned line;             ///< Line number for this token
@@ -666,7 +666,7 @@ protected:
         Token * prev;              ///< The previous token in the series
         Token * next;              ///< The next token in the series
 
-        friend struct Parse_Context;
+        friend struct ParseContext;
     };
     
 public:
@@ -674,7 +674,7 @@ public:
         to revert back to its position once it goes out of scope.  Used for
         speculative parsing. */
     struct Revert_Token : public Token {
-        Revert_Token(Parse_Context & context)
+        Revert_Token(ParseContext & context)
             : Token(context)
         {
         }
@@ -695,9 +695,9 @@ public:
 
     /** A token that, unless stop() is called, will cause the parse context
         to remember the text from there onwards.  Used to force the
-        Parse_Context to buffer text from a certain point onwards. */
+        ParseContext to buffer text from a certain point onwards. */
     struct Hold_Token : public Token {
-        Hold_Token(Parse_Context & context)
+        Hold_Token(ParseContext & context)
             : Token(context)
         {
         }
@@ -715,7 +715,7 @@ public:
         std::string captured() const
         {
             if (!context)
-                throw ML::Exception("hold token hasn't captured any text");
+                throw MLDB::Exception("hold token hasn't captured any text");
 
             return context->text_between(ofs, context->get_offset());
         }
@@ -776,5 +776,5 @@ private:
     std::shared_ptr<std::istream> ownedStream_;
 };
 
-} // namespace ML
+} // namespace MLDB
 
