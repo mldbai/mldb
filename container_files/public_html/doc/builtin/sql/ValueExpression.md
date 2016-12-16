@@ -420,13 +420,13 @@ and the possible values for the `arrays` field are:
 - `isnan(x)`: returns true if `x` is `NaN` in the floating point representation.
 - `isinf(x)`: return true if `x` is +/- infinity in the floating point representation.
 - `isfinite(x)`: returns true if `x` is neither infinite nor `NaN`.
-- `sin(x)`, `cos(x)` and `tan(x)` are the normal trigononic functions;
-- `asin(x)`, `acos(x)` and `atan(x)` are the normal invese trigonomic functions;
+- `sin(x)`, `cos(x)` and `tan(x)` are the normal trigonometric functions;
+- `asin(x)`, `acos(x)` and `atan(x)` are the normal inverse trigonometric functions;
 - `atan2(x, y)` returns the two-argument arctangent of `x` and `y`, in other
   words the angle (in radians) of the point through `x` and `y` from the origin
   with respect to the positive `x` axis;
 - `sinh(x)`, `cosh(x)` and `tanh(x)` are the normal hyperbolic functions;
-- `asinh(x)`, `acosh(x)` and `atanh(x)` are the normal invese hyperbolic functions.
+- `asinh(x)`, `acosh(x)` and `atanh(x)` are the normal inverse hyperbolic functions.
 - `quantize(x, y)`: returns `x` rounded to the precision of `y`.  Here are some examples:
 
 expression|result
@@ -459,7 +459,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 
 The following functions return numerical constants:
 
-- `pi()` returns the value of *pi*, the ratio of a circle's circumfrence to its
+- `pi()` returns the value of *pi*, the ratio of a circle's circumference to its
   diameter, as a double precision floating point number.
 - `e()` returns the value of *e*, the base of natural logarithms, as a double
   precision floating point number.
