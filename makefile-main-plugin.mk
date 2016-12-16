@@ -70,6 +70,10 @@ $(if $(wildcard $(JML_BUILD)/$(toolchain).mk),,$(error toolchain $(toolchain) is
 include $(JML_BUILD)/arch/$(ARCH).mk
 include $(JML_BUILD)/$(toolchain).mk
 
+ifeq ($(WITH_CUDA),1)
+include $(JML_BUILD)/cuda.mk
+endif
+
 VALGRIND ?= valgrind
 VALGRINDFLAGS := --suppressions=mldb/valgrind.supp --error-exitcode=1 --leak-check=full --soname-synonyms=somalloc=*tcmalloc*
 
