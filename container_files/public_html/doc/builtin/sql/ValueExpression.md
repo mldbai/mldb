@@ -613,6 +613,13 @@ The following functions provide digital signal processing capabilities:
   time-shifted by `e` steps, ie zeros everywhere apart from the `e`th element
   which is one.
 
+### <a name="imagefunctions"></a>Image processing functions
+
+The following functions provide image processing capabilities:
+
+- `parse_exif(blob)` takes a JPEG image blob and parses basic EXIF information from it. It should be used in combination with the `fetcher()` function. The returned values are:
+
+![](%%type MLDB::Builtins::ExifMetadata)
 
 ### <a name="httpfunctions"></a>Web data functions
 
