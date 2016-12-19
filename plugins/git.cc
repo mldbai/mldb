@@ -433,16 +433,17 @@ struct GitImporter: public Procedure {
             for (auto & f: stats.files) {
                 if (!config.importTree) break;
 
-                row.emplace_back(ColumnPath("file"), f.first, timestamp);
+                Utf8String filename(f.first);
+                row.emplace_back(ColumnPath("file"), filename, timestamp);
 
                 if (f.second.insertions > 0)
-                    row.emplace_back(ColumnPath("file." + f.first + ".insertions"),
+                    row.emplace_back(ColumnPath("file." + filename + ".insertions"),
                                      f.second.insertions, timestamp);
                 if (f.second.deletions > 0)
-                    row.emplace_back(ColumnPath("file." + f.first + ".deletions"),
+                    row.emplace_back(ColumnPath("file." + filename + ".deletions"),
                                      f.second.deletions, timestamp);
                 if (!f.second.op.empty())
-                    row.emplace_back(ColumnPath("file." + f.first + ".op"),
+                    row.emplace_back(ColumnPath("file." + filename + ".op"),
                                      f.second.op, timestamp);
             }
         }
