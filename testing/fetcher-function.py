@@ -54,8 +54,15 @@ class FetcherFunction(MldbUnitTest):  # noqa
     def test_builtin_utf8(self):
         # MLDB-2098
 
-        # used to fail with a 400
-        mldb.query("SELECT fetcher('file://utéf8.jpg')")
+        # can't put it on aws because é becomes %C3%A9
+        res = mldb.query("SELECT fetcher('file://mldb/testing/utéf8.png')")
+        self.assertGreater(len(res[1][1]['blob']), 10)
+        self.assertTrue(res[1][2] is None)
+
+        # non existing works properly too
+        res = mldb.query("SELECT fetcher('file://mldb/testing/utéf8_unexisting.jpg')")
+        self.assertTrue(res[1][1] is None)
+        self.assertTrue(type(res[1][2]) is unicode)
 
 
 if __name__ == '__main__':
