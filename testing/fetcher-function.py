@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # fetcher-function.py
 # Francois-Michel L'Heureux, 2016-09-13
@@ -49,6 +50,12 @@ class FetcherFunction(MldbUnitTest):  # noqa
         cols = res[0]['columns']
         self.assertTrue('content' in [cols[0][0], cols[1][0]])
         self.assertTrue('error' in [cols[0][0], cols[1][0]])
+
+    def test_builtin_utf8(self):
+        # MLDB-2098
+
+        # used to fail with a 400
+        mldb.query("SELECT fetcher('file://utéf8.jpg')")
 
 
 if __name__ == '__main__':

@@ -3359,7 +3359,8 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                 auto content = ExpressionValue::null(Date::notADate());
                 auto error = ExpressionValue::null(Date::notADate());
                 try {
-                    filter_istream stream(args[0].toString(),
+
+                    filter_istream stream(args[0].toUtf8String().rawString(),
                                           { { "mapped", "true" } });
 
                     FsObjectInfo info = stream.info();
