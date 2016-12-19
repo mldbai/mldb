@@ -9,7 +9,6 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/core/value_function.h"
 
-
 using namespace std;
 
 
@@ -138,28 +137,46 @@ BoundFunction extract_exif(const std::vector<BoundSqlExpression> & args)
 
                 int code = result.parseFrom(data, len);
 
+                ExifMetadata exif;
+
                 if (code) {
-                    // TODO better errors
-                    throw MLDB::Exception("Error parsing EXIF: code %d\n", code);
+                    if(code == PARSE_EXIF_ERROR_NO_JPEG)
+                        throw MLDB::Exception("EXIF parser error: No JPEG markers found in buffer, possibly invalid JPEG file");
+                    if(code == PARSE_EXIF_ERROR_NO_EXIF)
+                        return toOutput(&exif);
+                    if(code == PARSE_EXIF_ERROR_UNKNOWN_BYTEALIGN)
+                        throw MLDB::Exception("EXIF parser error: Byte alignment specified in EXIF file was unknown (not Motorola or Intel)");
+                    if(code == PARSE_EXIF_ERROR_CORRUPT)
+                        throw MLDB::Exception("EXIF parser error: EXIF header was found, but data was corrupted");
+
+                    throw MLDB::Exception("Unknown EXIF parser error. Code %d\n", code);
                 }
 
                 auto now = Date::now();
 
+                auto assignIfPresent = [&] (ExpressionValue & destination, string & source)
+                {
+                    // library will put null chars in empty strings. clean it up
+                    source.erase(std::remove(source.begin(), source.end(), 0), source.end());
+                    if(!source.empty()) {
+                        destination = ExpressionValue(std::move(source), now);
+                    }
+                };
+
                 // Dump EXIF information
-                ExifMetadata exif;
-                exif.cameraMake = ExpressionValue(std::move(result.Make), now);
-                exif.cameraModel = ExpressionValue(std::move(result.Model), now);
-                exif.software = ExpressionValue(std::move(result.Software), now);
+                assignIfPresent(exif.cameraMake, result.Make);
+                assignIfPresent(exif.cameraModel, result.Model);
+                assignIfPresent(exif.software, result.Software);
                 exif.bitsPerSample = ExpressionValue(result.BitsPerSample, now);
                 exif.imageWidth = ExpressionValue(result.ImageWidth, now);
                 exif.imageHeight = ExpressionValue(result.ImageHeight, now);
-                exif.imageDescription = ExpressionValue(std::move(result.ImageDescription), now);
+                assignIfPresent(exif.imageDescription, result.ImageDescription);
                 exif.imageOrientation = ExpressionValue(result.Orientation, now);
-                exif.imageCopyright = ExpressionValue(std::move(result.Copyright), now);
-                exif.imageDateTime = ExpressionValue(std::move(result.DateTime), now);
-                exif.originalDateTime = ExpressionValue(std::move(result.DateTimeOriginal), now);
-                exif.digitizedDateTime = ExpressionValue(std::move(result.DateTimeDigitized), now);
-                exif.subsecondTime = ExpressionValue(std::move(result.SubSecTimeOriginal), now);
+                assignIfPresent(exif.imageCopyright, result.Copyright);
+                assignIfPresent(exif.imageDateTime, result.DateTime);
+                assignIfPresent(exif.originalDateTime, result.DateTimeOriginal);
+                assignIfPresent(exif.digitizedDateTime, result.DateTimeDigitized);
+                assignIfPresent(exif.subsecondTime, result.SubSecTimeOriginal);
                 exif.exposureTime = ExpressionValue(result.ExposureTime, now);
                 exif.fStop = ExpressionValue(result.FNumber, now);
                 exif.isoSpeed = ExpressionValue(result.ISOSpeedRatings, now);
@@ -177,8 +194,8 @@ BoundFunction extract_exif(const std::vector<BoundSqlExpression> & args)
                 exif.lensMaxFocalLength = ExpressionValue(result.LensInfo.FocalLengthMax, now);
                 exif.lensFstopMin = ExpressionValue(result.LensInfo.FStopMin, now);
                 exif.lensFstopMax = ExpressionValue(result.LensInfo.FStopMax, now);
-                exif.lensMake = ExpressionValue(std::move(result.LensInfo.Make), now);
-                exif.lensModel = ExpressionValue(std::move(result.LensInfo.Model), now);
+                assignIfPresent(exif.lensMake, result.LensInfo.Make);
+                assignIfPresent(exif.lensModel, result.LensInfo.Model);
                 exif.focalPlaneXres = ExpressionValue(result.LensInfo.FocalPlaneXResolution, now);
                 exif.focalPlaneYres = ExpressionValue(result.LensInfo.FocalPlaneYResolution, now);
 
@@ -188,7 +205,7 @@ BoundFunction extract_exif(const std::vector<BoundSqlExpression> & args)
             };
 }
 
-static RegisterBuiltin registerExtractExif(extract_exif, "imageexif");
+static RegisterBuiltin registerExtractExif(extract_exif, "parse_exif");
 
 
 

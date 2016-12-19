@@ -1,6 +1,6 @@
 #
 # MLDB-2097_exif.py
-# mldb.ai, 2016
+# Francois Maillet
 # this file is part of mldb. copyright 2016 mldb.ai. all rights reserved.
 #
 import datetime, os
@@ -20,7 +20,7 @@ class Mldb2097Test(MldbUnitTest):  # noqa
             if not f.endswith(".jpg"): continue
             mldb.log(">>> File: " + f)
             rez = mldb.query("""
-                SELECT imageexif(fetcher('file://mldb/ext/easyexif/test-images/%s')[content]) as *
+                SELECT parse_exif(fetcher('file://mldb/ext/easyexif/test-images/%s')[content]) as *
             """ % f)
 
             answers_lst = [x.strip().split(":", 1) for x in open('mldb/ext/easyexif/test-images/%s.expected' % f).readlines()]
@@ -28,30 +28,32 @@ class Mldb2097Test(MldbUnitTest):  # noqa
 
             mldb.log(answers)
 
+            def validStr(answer, val):
+                if val is None:
+                    self.assertEqual(answer.strip(), '')
+                else:
+                    self.assertEqual(answer, val.strip())
+
             num_images += 1
             for col_id, col_name in enumerate(rez[0]):
                 if col_name == "_rowName": continue
-                mldb.log(col_name)
 
                 if col_name == "bitsPerSample":
                     self.assertEqual(int(answers["Bits per sample"]), rez[1][col_id])
                 elif col_name == "cameraMake":
-                    self.assertEqual(answers["Camera make"], rez[1][col_id])
+                    validStr(answers["Camera make"], rez[1][col_id])
                 elif col_name == "cameraModel":
-                    self.assertEqual(answers["Camera model"], rez[1][col_id])
+                    validStr(answers["Camera model"], rez[1][col_id])
                 elif col_name == "lensMake":
-                    self.assertEqual(answers["Lens make"], rez[1][col_id])
+                    validStr(answers["Lens make"], rez[1][col_id])
                 elif col_name == "lensModel":
-                    self.assertEqual(answers["Lens model"], rez[1][col_id])
+                    validStr(answers["Lens model"], rez[1][col_id])
                 elif col_name == "imageCopyright":
-                    self.assertEqual(answers["Image copyright"], rez[1][col_id])
+                    validStr(answers["Image copyright"], rez[1][col_id])
                 elif col_name == "imageDescription":
-                    if rez[1][col_id] is None:
-                        self.assertEqual(answers["Image description"].strip(), '')
-                    else:
-                        self.assertEqual(answers["Image description"], rez[1][col_id].strip())
+                    validStr(answers["Image description"], rez[1][col_id])
                 elif col_name == "software":
-                    self.assertEqual(answers["Software"], rez[1][col_id])
+                    validStr(answers["Software"], rez[1][col_id])
                 elif col_name == "imageHeight":
                     self.assertEqual(int(answers["Image height"]), rez[1][col_id])
                 elif col_name == "imageWidth":
@@ -76,19 +78,19 @@ class Mldb2097Test(MldbUnitTest):  # noqa
                 elif col_name == "subjectDistance":
                     self.assertEqual(float(answers["Subject distance"].split(" ")[0]), rez[1][col_id])
                 elif col_name == "subsecondTime":
-                    self.assertEqual(answers["Subsecond time"], rez[1][col_id])
+                    validStr(answers["Subsecond time"], rez[1][col_id])
                 elif col_name == "digitizedDateTime":
-                    self.assertEqual(answers["Digitize date/time"], rez[1][col_id])
+                    validStr(answers["Digitize date/time"], rez[1][col_id])
                 elif col_name == "originalDateTime":
-                    self.assertEqual(answers["Original date/time"], rez[1][col_id])
+                    validStr(answers["Original date/time"], rez[1][col_id])
                 elif col_name == "imageDateTime":
-                    self.assertEqual(answers["Image date/time"], rez[1][col_id])
+                    validStr(answers["Image date/time"], rez[1][col_id])
                 elif col_name == "exposureBias":
                     self.assertEqual(float(answers["Exposure bias"].split(" ")[0]), rez[1][col_id])
                 elif col_name == "exposureTime":
                     # "Exposure time": "1/640 s"
                     val = 1 / rez[1][col_id] if rez[1][col_id] > 0 else 0
-                    self.assertEqual(float(answers["Exposure time"].split(" ")[0].split("/")[1]), val)
+                    self.assertAlmostEqual(float(answers["Exposure time"].split(" ")[0].split("/")[1]), val, places=1)
                 elif col_name == "fStop":
                     #    "F-stop": "f/4.5",
                     self.assertEqual(answers["F-stop"], "f/%0.1f" % rez[1][col_id])
