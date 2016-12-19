@@ -3382,7 +3382,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                               info.lastModified);
                 }
                 MLDB_CATCH_ALL {
-                    error = ExpressionValue(Utf8String(getExceptionString()),
+                    error = ExpressionValue(getUtf8ExceptionString(),
                                             Date::now());
                 }
                 result.emplace_back("content", content);

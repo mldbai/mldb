@@ -59,7 +59,8 @@ class FetcherFunction(MldbUnitTest):  # noqa
         self.assertGreater(len(res[1][1]['blob']), 10)
         self.assertTrue(res[1][2] is None)
 
-        # non existing works properly too
+    def test_builtin_utf8_unexisting(self):
+        # there was an issue when an unfound file had utf-8 chars
         res = mldb.query("SELECT fetcher('file://mldb/testing/utéf8_unexisting.jpg')")
         self.assertTrue(res[1][1] is None)
         self.assertTrue(type(res[1][2]) is unicode)
