@@ -1236,7 +1236,7 @@ NearestNeighborsFunction::
 NearestNeighborsFunction(MldbServer * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<NearestNeighborsFunctionConfig>();
 }
@@ -1444,7 +1444,7 @@ ReadPixelsFunction::
 ReadPixelsFunction(MldbServer * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<ReadPixelsFunctionConfig>();
     SqlExpressionMldbScope context(owner);
@@ -1559,7 +1559,7 @@ ProximateVoxelsFunction::
 ProximateVoxelsFunction(MldbServer * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<ProximateVoxelsFunctionConfig>();
     N = functionConfig.range;

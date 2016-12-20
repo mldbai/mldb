@@ -1121,7 +1121,7 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
             std::make_shared<TimestampValueInfo>()};
 }
 
-static RegisterBuiltin registerNow(now, "now");
+static RegisterBuiltin registerNow(RegisterBuiltin::NON_DETERMINISTIC, now, "now");
 
 BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
@@ -3271,7 +3271,6 @@ bind(const Utf8String &,
     return result;
 }
 
-
 /*****************************************************************************/
 /* SQL BUILTINS                                                              */
 /*****************************************************************************/
@@ -3360,7 +3359,8 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                 auto content = ExpressionValue::null(Date::notADate());
                 auto error = ExpressionValue::null(Date::notADate());
                 try {
-                    filter_istream stream(args[0].toString(),
+
+                    filter_istream stream(args[0].toUtf8String().rawString(),
                                           { { "mapped", "true" } });
 
                     FsObjectInfo info = stream.info();
@@ -3382,7 +3382,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                               info.lastModified);
                 }
                 MLDB_CATCH_ALL {
-                    error = ExpressionValue(getExceptionString(),
+                    error = ExpressionValue(getUtf8ExceptionString(),
                                             Date::now());
                 }
                 result.emplace_back("content", content);

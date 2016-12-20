@@ -746,7 +746,7 @@ ClassifyFunction::
 ClassifyFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<ClassifyFunctionConfig>();
 
@@ -761,25 +761,6 @@ ClassifyFunction(MldbServer * owner,
     itl->labelInfo = labelInfo;
 
     isRegression = itl->classifier.label_count() == 1;
-}
-
-ClassifyFunction::
-ClassifyFunction(MldbServer * owner,
-                 std::shared_ptr<ML::Classifier_Impl> classifier,
-                 const std::string & labelFeatureName)
-    : Function(owner)
-{
-    itl.reset(new Itl());
-
-    itl->classifier = classifier;
-
-    //itl->featureSpace = itl->classifier.feature_space<DatasetFeatureSpace>();
-
-    //int index = itl->featureSpace->feature_index(labelFeatureName);
-    //
-    //ML::Feature_Info labelInfo = itl->featureSpace->info(ML::Feature(index, 0, 0));
-
-    //itl->labelInfo = labelInfo;
 }
 
 ClassifyFunction::

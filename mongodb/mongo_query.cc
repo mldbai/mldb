@@ -70,7 +70,7 @@ struct MongoQueryFunction: Function {
         MldbServer * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress)
-            : Function(owner)
+            : Function(owner, config)
     {
         queryConfig = config.params.convert<MongoQueryConfig>();
         mongoUri = mongocxx::uri(queryConfig.uriConnectionScheme);

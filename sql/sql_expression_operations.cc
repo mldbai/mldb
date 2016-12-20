@@ -2427,12 +2427,28 @@ ExtractExpression::
 bind(SqlBindingScope & outerScope) const
 {
     BoundSqlExpression fromBound = from->bind(outerScope);
-    
+
     SqlExpressionExtractScope extractScope(outerScope, fromBound.info);
 
     BoundSqlExpression extractBound = extract->bind(extractScope);
 
-    return {[=] (const SqlRowScope & row,		
+    bool isConst = fromBound.metadata.isConstant;
+
+    //We know for sure the extract is const if it access no function, tables or wildcards *and*
+    //all the variables are in the (const) lhs
+    //This excludes many legit const cases.
+    if (isConst) {
+        auto columnNames = fromBound.info->allColumnNames();
+        auto unbounds = extract->getUnbound();
+        isConst = isConst && unbounds.tables.empty() && unbounds.wildcards.empty() && unbounds.funcs.empty();
+
+        for (const auto& var : unbounds.vars) {
+            const auto& varPath = var.first;
+            isConst = std::find(columnNames.begin(), columnNames.end(), varPath) != columnNames.end();
+        }
+    }
+
+    return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {		
@@ -2445,7 +2461,8 @@ bind(SqlBindingScope & outerScope) const
                 return extractBound(extractRowScope, storage, filter);
             },
             this,		
-            extractBound.info};
+            extractBound.info,
+            isConst};
 }
 
 Utf8String
@@ -3179,6 +3196,7 @@ bind(SqlBindingScope & scope) const
     BoundSqlExpression boundRight  = right->bind(scope);
 
     auto applier = std::make_shared<ApplyLike>(boundRight, isNegative);
+    bool isConst = boundLeft.metadata.isConstant && boundRight.metadata.isConstant;
 
     if (applier->isPrecompiled) {
     
@@ -3193,7 +3211,8 @@ bind(SqlBindingScope & scope) const
                                                 rowScope);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                isConst};
     }
     else {
         return {[=] (const SqlRowScope & rowScope,
@@ -3208,7 +3227,8 @@ bind(SqlBindingScope & scope) const
                     return storage = (*applier)({value, likeFilter}, rowScope);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(),
+                isConst};
     }
 }
 
