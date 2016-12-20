@@ -88,13 +88,6 @@ predict(const Feature_Set & features,
 
 bool
 Committee::
-optimization_supported() const
-{
-    return true;
-}
-
-bool
-Committee::
 predict_is_optimized() const
 {
     return optimized_;

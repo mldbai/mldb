@@ -64,10 +64,7 @@ public:
     predict(const Feature_Set & features,
             PredictionContext * context = 0) const;
 
-    /** Is optimization supported by the classifier? */
-    virtual bool optimization_supported() const;
-
-    /** Is predict optimized?  Default returns false; those classifiers which
+     /** Is predict optimized?  Default returns false; those classifiers which
         a) support optimized predict and b) have had optimize_predict() called
         will override to return true in this case.
     */

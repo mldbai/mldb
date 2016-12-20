@@ -66,13 +66,6 @@ predict(int label, const Feature_Set & features,
 
 bool
 Decoded_Classifier::
-optimization_supported() const
-{
-    return classifier_.impl->optimization_supported();
-}
-
-bool
-Decoded_Classifier::
 predict_is_optimized() const
 {
     return classifier_.impl->predict_is_optimized();

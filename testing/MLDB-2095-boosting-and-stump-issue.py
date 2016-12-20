@@ -7,7 +7,7 @@ import datetime
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
+class MLDB2095BoostingOnStumpError(MldbUnitTest):  # noqa
 
     @classmethod
     def setUpClass(cls):
@@ -21,29 +21,24 @@ class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
         ts = datetime.datetime.now()
 
         def record_example(row, label, x, y):
-            # all variables are dummy except variable y that can perfectly
-            # separate the data based upon whether it's missing or not
-            columns = [["label", label, ts], 
-                       ["a1", 2, ts], 
-                       ["a3", 2, ts], 
-                       ["a2", 2, ts], 
-                       ["a4", 2, ts], 
-                       ["a5", 2, ts], 
-                       ["x", x, ts]]
-            
-            dataset.record_row(row, columns if y is None else columns + [["y", 1, ts ]])
+            # variable x can perfectly separate the data based upon whether 
+            # it's missing or not, variable y is dummy
+            header = [["label", label, ts]]
+                      
+            dataset.record_row(row, header + [["y", y, ts]] if x is None 
+                               else header + [["x", x, ts ]] + [["y", y, ts]])
 
-        record_example("exf1", 0, 1, None)
-        record_example("exf2", 0, 3, None)
-        record_example("exf3", 0, 5, None)
-        record_example("exf4", 0, 7, None)
-        record_example("exf5", 0, 9, None)
+        record_example("exf1", 0, None, 1)
+        record_example("exf2", 0, None, 3)
+        record_example("exf3", 0, None, 5)
+        record_example("exf4", 0, None, 7)
+        record_example("exf5", 0, None, 9)
 
-        record_example("ext1", 1, 2,   1)
-        record_example("ext2", 1, 4,   1)
-        record_example("ext3", 1, 6,   1)
-        record_example("ext4", 1, 8,   1)
-        record_example("ext5", 1, 10,  1)
+        record_example("ext1", 1, 1, 2)
+        record_example("ext2", 1, 1, 4)
+        record_example("ext3", 1, 1, 6)
+        record_example("ext4", 1, 1, 8)
+        record_example("ext5", 1, 1, 10)
 
         dataset.commit()
 
@@ -65,6 +60,12 @@ class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
                             "trace": 5,
                             "update_alg": "prob"
                         }
+                    },
+                    "decision_tree" : {
+                        "type": "decision_tree",
+                        "max_depth": 1,
+                        "verbosity": 3,
+                        "update_alg": "prob"
                     }
                 },
             "algorithm": "boosting_and_stumps",
@@ -77,43 +78,29 @@ class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
 
         res = mldb.put("/v1/procedures/cls_train", trainClassifierProcedureConfig)
 
-    @unittest.expectedFailure #MLDB-2095
-    def test_feature_ordering_odd(self):
-        self.train_classifier("{a1,a2,a3,a4,a5,x,y}")
-
+    def check_result(self):
         model = mldb.get("/v1/functions/classifier/details")
         mldb.log(model)
 
-        # Applying it with y present should return 1
+        # Applying it with x present should return 1
         result1 = mldb.get("/v1/functions/classifier/application",
-                           { "input": { "features": { 'a':0, 'y':1, 'z':0 }}}).json()
+                           { "input": { "features": { 'x':1 }}}).json()
         mldb.log(result1)
         self.assertEqual(result1['output']['score'], 1);
 
-        # Applying it with y missing should return 0
+        # Applying it with x missing should return 0
         result2 = mldb.get("/v1/functions/classifier/application",
                            { "input": { "features": { 'q':1 }}}).json()
         mldb.log(result2)
         self.assertEqual(result2['output']['score'], 0);
+
+  #  def test_feature_ordering_odd(self):
+  #      self.train_classifier("{x}")
+  #      self.check_result()
 
     def test_feature_ordering_even(self):
-        self.train_classifier("{a1,a2,a3,a4,x,y}")
-
-        model = mldb.get("/v1/functions/classifier/details")
-        mldb.log(model)
-
-        # Applying it with y present should return 1
-        result1 = mldb.get("/v1/functions/classifier/application",
-                           { "input": { "features": { 'a':0, 'y':1, 'z':0 }}}).json()
-        mldb.log(result1)
-        self.assertEqual(result1['output']['score'], 1);
-
-        # Applying it with y missing should return 0
-        result2 = mldb.get("/v1/functions/classifier/application",
-                           { "input": { "features": { 'q':1 }}}).json()
-        mldb.log(result2)
-        self.assertEqual(result2['output']['score'], 0);
-
+        self.train_classifier("{x,y}")
+        self.check_result()
    
 if __name__ == '__main__':
     mldb.run_tests()

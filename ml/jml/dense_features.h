@@ -367,12 +367,51 @@ protected:
     array.
 */
 
+
+template <typename T, typename Compare>
+std::vector<std::size_t> sort_permutation(const std::vector<T>& vec,
+                                          Compare& compare) {
+    std::vector<std::size_t> p(vec.size());
+    std::iota(p.begin(), p.end(), 0);
+    std::sort(p.begin(), p.end(),
+              [&](std::size_t i, std::size_t j){ return compare(vec[i], vec[j]); });
+    return p;
+}
+ 
+template <typename T>
+void apply_permutation_in_place(std::vector<T>& vec,
+                                const std::vector<std::size_t>& p) {
+    std::vector<bool> done(vec.size());
+    for (std::size_t i = 0; i < vec.size(); ++i) {
+        if (done[i]) {
+            continue;
+        }
+        done[i] = true;
+        std::size_t prev_j = i;
+        std::size_t j = p[i];
+        while (i != j) {
+            std::swap(vec[prev_j], vec[j]);
+            done[j] = true;
+            prev_j = j;
+            j = p[j];
+        }
+    }
+}
+
+void apply_permutation_in_place(float * vec,
+                                const std::vector<std::size_t>& p);
+ 
 class Dense_Feature_Set : public Feature_Set {
 public:
-    Dense_Feature_Set(std::shared_ptr<const std::vector<Feature> > features,
-                      const float * values)
-    : features(features), values(values)
+    Dense_Feature_Set(std::shared_ptr<const std::vector<Feature> > features_,
+                      const float * values_) :
+    is_sorted(false)
     {
+        values = new float[features_->size()]();
+        for (int i = 0; i < features_->size(); i++)
+            values[i] = *(values_ + i);
+        features = *features_;
+        sort();
     }
 
     virtual ~Dense_Feature_Set() {}
@@ -380,20 +419,32 @@ public:
     virtual std::tuple<const Feature *, const float *, int, int, size_t>
     get_data(bool need_sorted = false) const
     {
+        //if (need_sorted && !is_sorted) sort();
+
         return std::make_tuple
-            (&(*features)[0], values, sizeof(Feature), sizeof(float), 
-             features->size());
+            (&features[0], values, sizeof(Feature), sizeof(float), 
+             features.size());
     }
 
     virtual void sort()
     {
+        auto compare = [](Feature const& a, Feature const& b){
+            return a < b;
+        };
+        
+        auto perm = sort_permutation(features, compare);
+
+        apply_permutation_in_place(features, perm);
+        apply_permutation_in_place(values, perm);
+
+        is_sorted = true;
     }
 
-    std::shared_ptr<const std::vector<Feature> > features;
-    const float * values;
+    std::vector<Feature> features;
+    float *values;
+    bool is_sorted;
 
     virtual Dense_Feature_Set * make_copy() const;
 };
-
 
 } // namespace ML

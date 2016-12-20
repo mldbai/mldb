@@ -353,9 +353,6 @@ optimize(const std::vector<Feature> & features)
     result.from_features = features;
     result.to_features = all_features();
 
-    if (!optimization_supported())
-        return result;
-
     map<Feature, int> & feature_map = result.feature_to_optimized_index;
     for (unsigned i = 0;  i < result.to_features.size();  ++i) {
         feature_map[result.to_features[i]] = i;
@@ -402,6 +399,13 @@ optimize(const std::vector<Feature> & features)
 
     result.initialized = true;
 
+    // TODO - what to do here if optimize_impl returns
+    // false.  Currently, we expect the returned Optimization_Info
+    // to be initialized anyway so that we can call the optimized
+    // predict methods.  I suggest we change the signature of 
+    // optimize_impl to void so that we don't allow it to fail
+    // and we keep the predict_is_optimized call to decide if 
+    // we should default to the non-optimized predict.
     optimize_impl(result);
 
     return result;
@@ -411,8 +415,9 @@ Optimization_Info
 Classifier_Impl::
 optimize(const Feature_Set & feature_set)
 {
-    if (!optimization_supported())
-        return Optimization_Info();
+    // verificatiopn that optimization is 
+    // supported is delegated to the other
+    // optimize overload
 
     // Extract the list of features, and continue
     vector<Feature> features;
@@ -431,13 +436,6 @@ optimize(const Feature_Set & feature_set)
 
 bool
 Classifier_Impl::
-optimization_supported() const
-{
-    return false;
-}
-
-bool
-Classifier_Impl::
 predict_is_optimized() const
 {
     return false;
@@ -449,11 +447,12 @@ predict(const Feature_Set & features,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
-    if (!predict_is_optimized() || !info) return predict(features, context);
+    if (!predict_is_optimized()) return predict(features, context);
 
+    ExcAssert(info);
     float fv[info.features_out()];
     info.apply(features, fv);
-
+  
     return optimized_predict_impl(fv, info, context);
 }
 
@@ -463,6 +462,7 @@ predict(const std::vector<float> & features,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
+    ExcAssert(info);
     float fv[info.features_out()];
     info.apply(features, fv);
 
@@ -475,6 +475,7 @@ predict(const float * features,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
+    ExcAssert(info);
     float fv[info.features_out()];
     info.apply(features, fv);
 
@@ -488,8 +489,11 @@ predict(int label,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
-    if (!predict_is_optimized() || !info) return predict(label, features, context);
 
+    if (!predict_is_optimized() || !info) 
+        return predict(label, features, context);
+
+    ExcAssert(info);
     float fv[info.features_out()];
 
     info.apply(features, fv);
@@ -504,10 +508,10 @@ predict(int label,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
-    if (!predict_is_optimized() || !info) {
-
+    if (!predict_is_optimized()) {
+        ExcAssert(info);
         // Convert to standard feature set, then call classical predict
-        Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+        Dense_Feature_Set fset(make_unowned_sp(info.from_features),
                                &features[0]);
 
         return predict(label, fset);
@@ -527,10 +531,10 @@ predict(int label,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
-    if (!predict_is_optimized() || !info) {
-
+    if (!predict_is_optimized()) {
+        ExcAssert(info);
         // Convert to standard feature set, then call classical predict
-        Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+        Dense_Feature_Set fset(make_unowned_sp(info.from_features),
                                features);
 
         return predict(label, fset, context);
@@ -558,9 +562,10 @@ optimized_predict_impl(const float * features,
 {
     // If the classifier implemented optimized predict, then this would have
     // been overridden.
-    
+    ExcAssert(info);
+
     // Convert to standard feature set, then call classical predict
-    Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+    Dense_Feature_Set fset(make_unowned_sp(info.from_features),
                            features);
     
     return predict(fset, context);
@@ -574,6 +579,7 @@ optimized_predict_impl(const float * features,
                        double weight,
                        PredictionContext * context) const
 {
+    ExcAssert(info);
     Label_Dist result = optimized_predict_impl(features, info, context);
     for (unsigned i = 0;  i < result.size();  ++i) {
         accum[i] += weight * result[i];
@@ -589,9 +595,10 @@ optimized_predict_impl(int label,
 {
     // If the classifier implemented optimized predict, then this would have
     // been overridden.
-    
+    ExcAssert(info);
+
     // Convert to standard feature set, then call classical predict
-    Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+    Dense_Feature_Set fset(make_unowned_sp(info.from_features),
                            features);
 
     return predict(label, fset, context);

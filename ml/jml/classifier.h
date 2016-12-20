@@ -324,11 +324,8 @@ public:
     virtual Optimization_Info optimize(const std::vector<Feature> & features);
     virtual Optimization_Info optimize(const Feature_Set & features);
 
-    /** Is optimization supported by the classifier? */
-    virtual bool optimization_supported() const;
-
-    /** Is predict optimized?  Default returns false; those classifiers which
-        a) support optimized predict and b) have had optimize_predict() called
+     /** Is predict optimized?  Default returns false; those classifiers which
+        a) support optimized predict and b) have had optimize() called
         will override to return true in this case.
     */
     virtual bool predict_is_optimized() const;
@@ -336,7 +333,12 @@ public:
 
     /** Methods to call for the optimized predict.  Will check if
         predict_is_optimized() and if true, will call the optimized methods.
-        Otherwise, they fall back to the non-optimized versions. */
+        Otherwise, they fall back to the non-optimized versions. 
+
+        Is is safe to call these methods with the optimization info
+        returned by the optimize methods even if optimization is not
+        supported by the classifier. 
+    */
     virtual Label_Dist predict(const Feature_Set & features,
                                const Optimization_Info & info,
                                PredictionContext * context = 0) const;
