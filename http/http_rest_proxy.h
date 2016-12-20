@@ -200,7 +200,8 @@ struct HttpRestProxy {
                  bool exceptions = true,
                  OnData onData = nullptr,
                  OnHeader onHeader = nullptr,
-                 bool followRedirect = false) const;
+                 bool followRedirect = false,
+                 bool arbitraryTooSlowAbort = false) const;
 
     /** Perform a synchronous request from end to end. 
         Note that when followRedirect is set, the onHeader
@@ -217,7 +218,8 @@ struct HttpRestProxy {
                      bool exceptions = true,
                      OnData onData = nullptr,
                      OnHeader onHeader = nullptr,
-                     bool followRedirect = false) const;
+                     bool followRedirect = false,
+                     bool arbitraryTooSlowAbort = false) const;
     
 public:
     /** Get a connection. */

@@ -26,6 +26,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/http/curl_wrapper.h"
 
 #include <iterator>
 #include <thread>
@@ -3361,7 +3362,8 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                 try {
 
                     filter_istream stream(args[0].toUtf8String().rawString(),
-                                          { { "mapped", "true" } });
+                                          { { "mapped", "true" },
+                                            { "httpArbitraryTooSlowAbort", "1"} });
 
                     FsObjectInfo info = stream.info();
 
