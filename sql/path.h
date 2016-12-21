@@ -154,8 +154,7 @@ struct PathElement {
     std::string getBytes() const;
     
     /** Returns if this is an index, that is a non-negative integer
-        (possibly with leading zeros) that can be converted into an
-        array index.
+        that can be converted into an array index.
     */
     bool isIndex() const;
 
@@ -752,8 +751,7 @@ struct Path {
     Utf8String toUtf8String() const;
 
     /** Returns if this is an index, that is a non-negative integer
-        (possibly with leading zeros) that can be converted into an
-        array index.
+        that can be converted into an array index.
     */
     bool isIndex() const
     {

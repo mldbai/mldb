@@ -24,6 +24,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/rest/cancellation_exception.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -397,16 +398,16 @@ struct JSONImporter: public Procedure {
             throw MLDB::CancellationException("Procedure import.json cancelled");
         }
 
-        cerr << timer.elapsed() << endl;
+        DEBUG_MSG(logger) << timer.elapsed();
         timer.restart();
 
-        cerr << "committing dataset" << endl;
+        DEBUG_MSG(logger) << "committing dataset";
 
         recorder.commit();
 
-        cerr << timer.elapsed() << endl;
+        DEBUG_MSG(logger) << timer.elapsed();
 
-        cerr << "done" << endl;
+        DEBUG_MSG(logger) << "done";
 
         Json::Value result;
         result["rowCount"] = (int64_t)recordedLines;

@@ -211,10 +211,15 @@ class LikeTest(MldbUnitTest):  # noqa
         }])
 
     def test_like_null(self):
-        msg = ("LIKE expression expected its right hand value to be a string, "
-               "got empty")
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
-            mldb.query("SELECT 'abc' LIKE NULL AS res NAMED 'row'")
+        """
+        MLDB-1727 test like null
+        """
+        res = mldb.get('/v1/query',
+                       q="SELECT 'abc' LIKE NULL AS res NAMED 'row'")
+        self.assertFullResultEquals(res.json(), [{
+            'rowName' : "row",
+            'columns' : [['res', None, "-Inf"]]
+        }])
 
     def test_join_no_on_clause(self):
         """

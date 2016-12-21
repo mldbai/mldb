@@ -356,8 +356,9 @@ registerProcedureType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<ProcedureT>();
              auto procedure = new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
-             procedure->logger = MLDB::getMldbLog<ProcedureT>();
+             procedure->logger = std::move(logger); // noexcept
              return procedure;
          },
          makeInternalDocRedirect(package, docRoute),

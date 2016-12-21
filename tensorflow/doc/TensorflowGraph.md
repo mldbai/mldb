@@ -105,7 +105,7 @@ filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Mo
 
 mldb.log("classifying " + filename)
 
-res = mldb.query('SELECT incept({url: ' + mldb.sqlEscape(filename) + '})[output] AS *')
+res = mldb.query('SELECT imageEmbedding({url: ' + mldb.sqlEscape(filename) + '})[output] AS *')
 
 mldb.log(res)
 ```

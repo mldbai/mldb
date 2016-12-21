@@ -346,6 +346,7 @@ BOOST_AUTO_TEST_CASE( testMaskLower )
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 0), 0);
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 1), 0);
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 64), 0);
+        BOOST_CHECK_EQUAL(maskLower<uint64_t>(-1, 64), -1);
 
         BOOST_CHECK_EQUAL(maskLower<int64_t>(0, 0), 0);
         BOOST_CHECK_EQUAL(maskLower<int64_t>(0, 1), 0);
@@ -392,6 +393,9 @@ BOOST_AUTO_TEST_CASE( test_Bit_Buffer_advance )
     BOOST_CHECK_EQUAL(buffer.current_offset(data), UINT_MAX);
 
     // a positive int64_t is considered as a positive int
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Woverflow"
     buffer.advance(int64_t(UINT_MAX) + 1);
     BOOST_CHECK_EQUAL(buffer.current_offset(data), (1LL << 33) - 1);
+    #pragma GCC diagnostic pop
 }

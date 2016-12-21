@@ -24,47 +24,49 @@ using namespace std;
 namespace MLDB {
 
 namespace {
-   std::unordered_map<ColumnPath, ColumnStats>
-   getColumnStats(const SelectExpression & select,
-                  const Dataset & from,
-                  const WhenExpression & when,
-                  const SqlExpression & where,
-                  const OrderByExpression & orderBy,
-                  ssize_t offset,
-                  ssize_t limit,
-                  const std::function<bool (const Json::Value &)> & onProgress) {
 
-       std::unordered_map<ColumnPath, ColumnStats> stats;
+std::unordered_map<ColumnPath, ColumnStats>
+getColumnStats(const SelectExpression & select,
+               const Dataset & from,
+               const WhenExpression & when,
+               const SqlExpression & where,
+               const OrderByExpression & orderBy,
+               ssize_t offset,
+               ssize_t limit,
+               const std::function<bool (const Json::Value &)> & onProgress)
+{
+    std::unordered_map<ColumnPath, ColumnStats> stats;
        
-       auto onRow = [&stats] (NamedRowValue & output_) {
-           MatrixNamedRow output = output_.flattenDestructive();
-           for (auto & col : output.columns) {
-               auto columnPath = get<0>(col);
-               auto cellValue = get<1>(col);
-               auto it = stats.find(columnPath);
-               if (it == stats.end()) {
-                   auto & colStats = stats[columnPath];
-                   colStats.isNumeric_ = cellValue.isNumber();
-               }
-               auto & colStats = stats[columnPath];
-               colStats.isNumeric_ = colStats.isNumeric_ && cellValue.isNumber();
-               colStats.rowCount_ +=1;
-               // since there could be several values for a column in the same row 
-               // this is more a value count than a row count!
-               colStats.values[cellValue].rowCount_ += 1;
-           }
+    auto onRow = [&stats] (NamedRowValue & output_) {
+        MatrixNamedRow output = output_.flattenDestructive();
+        for (auto & col : output.columns) {
+            auto & columnPath = get<0>(col);
+            auto & cellValue = get<1>(col);
+            auto it = stats.find(columnPath);
+            if (it == stats.end()) {
+                it = stats.emplace(std::move(columnPath), ColumnStats()).first;
+                it->second.isNumeric_ = cellValue.isNumber();
+            }
+            auto & colStats = it->second;
+            colStats.isNumeric_ = colStats.isNumeric_ && cellValue.isNumber();
+            colStats.rowCount_ +=1;
+            // since there could be several values for a column in the same row 
+            // this is more a value count than a row count!
+            colStats.values[cellValue].rowCount_ += 1;
+        }
 
-           return true;
-       };
+        return true;
+    };
 
-       if (!iterateDataset(select, from, "", when, where, 
-                          {onRow, false /*processInParallel*/}, 
-                          orderBy, offset, limit, onProgress).first) {
+    if (!iterateDataset(select, from, "", when, where, 
+                        {onRow, false /*processInParallel*/}, 
+                        orderBy, offset, limit, onProgress).first) {
            throw CancellationException("getColumnStats was cancelled");
        }
-       return stats;
-   }
+    return stats;
 }
+
+} // file scope
 
 DEFINE_ENUM_DESCRIPTION(ColumnOperator);
 
@@ -110,11 +112,12 @@ classifyColumns(const SelectExpression & select_,
     if (select.clauses.empty())
         select = SelectExpression::parse("*");
 
-    SqlExpressionDatasetScope context(dataset, "");
+    SqlExpressionDatasetScope context(dataset, "" /* alias */);
 
     auto boundSelect = select.bind(context);
 
-    std::vector<ColumnPath> selectedColumnsVec = boundSelect.info->allColumnNames();
+    std::vector<ColumnPath> selectedColumnsVec
+        = boundSelect.info->allColumnNames();
     std::set<ColumnPath> selectedColumns(selectedColumnsVec.begin(),
                                          selectedColumnsVec.end());
     if (boundSelect.info->getSchemaCompletenessRecursive() == SCHEMA_OPEN)
@@ -162,7 +165,6 @@ classifyColumns(const SelectExpression & select_,
                                        true /* isContinuous */);
         }
         else {
-            //cerr << "sparse column" << endl;
             // Either single or dual-valued, or always empty
             // Look through the values of this feature
             for (auto & v: colStats.second.values) {
@@ -183,11 +185,13 @@ classifyColumns(const SelectExpression & select_,
                   return i1.rowCount > i2.rowCount;
               });
     
-    //size_t nColumns = std::min<size_t>(1000, sparseColumns.size());
+#if 0
+    size_t nColumns = std::min<size_t>(1000, sparseColumns.size());
 
-    //cerr << "choosing the " << nColumns << " of " << sparseColumns.size()
-    //     << " columns with at least " << sparseColumns[nColumns - 1].rowCount
-    //     << " rows" << endl;
+    DEBUG_MSG(logger) << "choosing the " << nColumns << " of " << sparseColumns.size()
+                      << " columns with at least " << sparseColumns[nColumns - 1].rowCount
+                      << " rows";
+#endif
 
     for (unsigned i = 0;  i < sparseColumns.size();  ++i) {
         auto & entry = sparseIndex[sparseColumns[i].columnName];
@@ -200,7 +204,7 @@ classifyColumns(const SelectExpression & select_,
         }
     }
 
-    //cerr << "sparseIndex.size() = " << sparseIndex.size() << endl;
+    DEBUG_MSG(logger) << "sparseIndex.size() = " << sparseIndex.size();
 
     ClassifiedColumns result;
     result.continuousColumns = std::move(continuousColumns);
@@ -317,7 +321,6 @@ extractFeaturesFromRows(const SelectExpression & select,
 #if 0
     {
         static int n = 0;
-        cerr << "saving buckets " << n << endl;
         filter_ostream stream(MLDB::format("buckets-%d.json", n++));
         stream << "numExamples = " << featureBuckets.numExamples << endl;
         for (unsigned i = 0;  i < featureBuckets.size();  ++i) {
@@ -329,7 +332,6 @@ extractFeaturesFromRows(const SelectExpression & select,
                 stream << r.continuous << " " << jsonEncode(r.sparse) << endl;
             }
         }
-        cerr << "done saving buckets " << endl;
     }
 #endif
 
@@ -373,8 +375,8 @@ invertFeatures(const ClassifiedColumns & columns,
             }
 
             for (const ExtractedRow & entry: featureBuckets[n]) {
-                //cerr << "continuous " << entry.continuous.size() << " sparse "
-                //     << entry.sparse.size() << endl;
+                TRACE_MSG(logger) << "continuous " << entry.continuous.size() << " sparse "
+                                  << entry.sparse.size();
                     
                 for (unsigned i = 0;  i < entry.continuous.size();  ++i) {
                     result[i].continuousValues[index] = entry.continuous[i];
@@ -407,8 +409,8 @@ invertFeatures(const ClassifiedColumns & columns,
 
             for (unsigned i = 0;  i < numSparseColumns;  ++i) {
                 
-                //cerr << "column " << i << " discrete " << bucketDiscreteIndexes[i].size()
-                //<< " sparse " << bucketSparseIndexes[i].size() << endl;
+                TRACE_MSG(logger) << "column " << i << " discrete " << bucketDiscreteIndexes[i].size()
+                                  << " sparse " << bucketSparseIndexes[i].size();
 
                 if (bucketDiscreteIndexes[i].size() > 0) {
                     for (auto & rowNumber: bucketDiscreteIndexes[i])
@@ -445,7 +447,8 @@ invertFeatures(const ClassifiedColumns & columns,
 
 ColumnCorrelations
 calculateCorrelations(const ColumnIndexEntries & columnIndex,
-                      int numBasisVectors)
+                      int numBasisVectors,
+                      shared_ptr<spdlog::logger> logger)
 {
     // Create a dense basis for a SVD
     // This is A^2, so has essentially cross-correlations between the most common features
@@ -460,8 +463,8 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
 
     int numColumns = std::min<int>(numBasisVectors, columnIndex.size());
 
-    cerr << "calculating dense correlation matrix between " << numColumns
-         << " basis vectors" << endl;
+    DEBUG_MSG(logger) << "calculating dense correlation matrix between " << numColumns
+                      << " basis vectors";
     
     ColumnCorrelations result(columnIndex.begin(), columnIndex.begin() + numColumns);
     result.modelTs = columnIndex.modelTs;
@@ -474,7 +477,7 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
         }
     }
 
-    cerr << "processing " << featurePairs.size() << " correlations" << endl;
+    DEBUG_MSG(logger) << "processing " << featurePairs.size() << " correlations";
 
     auto doCorrelation = [&] (int n)
         {
@@ -488,26 +491,23 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
 #if 0
             static std::mutex mutex;
             std::unique_lock<std::mutex> guard(mutex);
-            cerr << "i = " << i << " j = " << j << " n = " << n << endl;
-            cerr << "correlation of " << columnIndex[i].getName()
-            << " and " << columnIndex[j].getName()
-            << " is " << result.correlations[i][j] << endl;
+            TRACE_MSG(logger) << "i = " << i << " j = " << j << " n = " << n;
+            TRACE_MSG(logger) << "correlation of " << columnIndex[i].getName()
+                              << " and " << columnIndex[j].getName()
+                              << " is " << result.correlations[i][j];
 #endif
         };
     
     parallelMap(0, featurePairs.size(), doCorrelation);
 
-    cerr << timer.elapsed() << endl;
+    DEBUG_MSG(logger) << "correlation took " << timer.elapsed();
 
 #if 0
     for (unsigned i = 0;  i < numColumns;  ++i) {
-        cerr << "correlation between " << columnIndex[0].getName() << " and "
-             << columnIndex[i].getName() << " is " << result.correlations[0][i]
-             << endl;
+        TRACE_MSG(logger) << "correlation between " << columnIndex[0].getName() << " and "
+                          << columnIndex[i].getName() << " is " << result.correlations[0][i];
     }
 #endif
-
-    cerr << "done processing correlations" << endl;
 
     return result;
 }

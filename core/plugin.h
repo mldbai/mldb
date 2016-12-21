@@ -183,7 +183,10 @@ registerPluginType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
-             return new PluginT(PluginT::getOwner(server), config, onProgress);
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<PluginT>();
+             auto plugin = new PluginT(PluginT::getOwner(server), config, onProgress);
+             plugin->logger = std::move(logger); // noexcept
+             return plugin;
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,

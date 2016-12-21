@@ -774,7 +774,10 @@ registerDatasetType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
-             return new DatasetT(DatasetT::getOwner(server), config, onProgress);
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<DatasetT>();
+             auto dataset = new DatasetT(DatasetT::getOwner(server), config, onProgress);
+             dataset->logger = std::move(logger); // noexcept
+             return dataset;
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,

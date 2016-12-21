@@ -13,6 +13,7 @@
 #include "mldb/types/any_impl.h"
 #include "jml/utils/string_functions.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -175,7 +176,7 @@ run(const ProcedureRunConfig & run,
             PolyConfig procPC = runProcConf.procedure;
             procPC.params = permutedConf;
 
-            cerr << " >>>>> Creating procedure" << endl;
+            INFO_MSG(logger) << " >>>>> Creating procedure";
             procedure = obtainProcedure(server, procPC, onProgress);
         }
 

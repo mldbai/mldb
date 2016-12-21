@@ -9,13 +9,14 @@ HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
 
-$(eval $(call include_sub_make,cookbook))
+$(eval $(call include_sub_makes,cookbook mldb_sample_plugin))
 
 #$(warning HAS_S3_CREDENTIALS=$(HAS_S3_CREDENTIALS))
 #$(warning MANUAL_IF_NO_S3=$(MANUAL_IF_NO_S3))
 
 $(eval $(call library,mldb_test_function,test_function.cc,mldb mldb_builtin_plugins))
 
+$(eval $(call test,run_json_test_suite,types vfs,normal))
 
 $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
 
@@ -440,6 +441,7 @@ $(eval $(call mldb_unit_test,MLDB-1950-crash-in-merge.py))
 $(eval $(call mldb_unit_test,MLDB-408-task-cancellation.py))
 $(eval $(call mldb_unit_test,MLDB-1921_merge_ds_strings.py))
 $(eval $(call mldb_unit_test,MLDB-1911_horizontal_agg_no_from.py))
+$(eval $(call mldb_unit_test,MLDB-1935-const-binding.py))
 $(eval $(call mldb_unit_test,MLDB-1788_select_col_as_star_err.py))
 $(eval $(call mldb_unit_test,MLDB-1972-fft.js))
 $(eval $(call mldb_unit_test,MLDB-1984-constant-functions.js))
@@ -448,3 +450,10 @@ $(eval $(call mldb_unit_test,deepteach_test.py,tensorflow,manual))
 $(eval $(call mldb_unit_test,MLDB-2025-st_contains.py))
 $(eval $(call mldb_unit_test,post_run_and_track_procedure_test.py))
 $(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))
+$(eval $(call mldb_unit_test,MLDB-2063-sparse-mutable-encodeVal.py))
+$(eval $(call mldb_unit_test,MLDB-2075_ds_feature_sparse_v2_backward_compat_test.py))
+$(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))
+$(eval $(call mldb_unit_test,MLDB-2074-empty-join.py))
+$(eval $(call mldb_unit_test,MLDB-2040_join_tests.py))
+$(eval $(call mldb_unit_test,MLDB-2077_merge_single_ds.py))
+$(eval $(call mldb_unit_test,MLDBFB-724_classifier_exp_segfault_test.py))

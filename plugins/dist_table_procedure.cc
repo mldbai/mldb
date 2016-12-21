@@ -28,6 +28,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/base/parallel.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -380,7 +381,7 @@ run(const ProcedureRunConfig & run,
                 Json::Value progress;
                 progress["message"] = message; 
                 onProgress(progress);
-                cerr << message << endl;
+                INFO_MSG(logger) << message;
             }
 
             // we parse in advance the value for each outcome
@@ -566,7 +567,7 @@ DistTableFunction::
 DistTableFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<DistTableFunctionConfig>();
 

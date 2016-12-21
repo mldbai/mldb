@@ -18,6 +18,7 @@
 #include "mldb/base/parallel.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 
 #include <git2.h>
 #include <git2/revwalk.h>
@@ -432,23 +433,25 @@ struct GitImporter: public Procedure {
             for (auto & f: stats.files) {
                 if (!config.importTree) break;
 
-                row.emplace_back(ColumnPath("file"), f.first, timestamp);
+                Utf8String filename(f.first);
+                row.emplace_back(ColumnPath("file"), filename, timestamp);
 
                 if (f.second.insertions > 0)
-                    row.emplace_back(ColumnPath("file." + f.first + ".insertions"),
+                    row.emplace_back(ColumnPath("file." + filename + ".insertions"),
                                      f.second.insertions, timestamp);
                 if (f.second.deletions > 0)
-                    row.emplace_back(ColumnPath("file." + f.first + ".deletions"),
+                    row.emplace_back(ColumnPath("file." + filename + ".deletions"),
                                      f.second.deletions, timestamp);
                 if (!f.second.op.empty())
-                    row.emplace_back(ColumnPath("file." + f.first + ".op"),
+                    row.emplace_back(ColumnPath("file." + filename + ".op"),
                                      f.second.op, timestamp);
             }
         }
 
-        //cerr << "id " << sha << " had " << filesChanged << " changes, "
-        //     << insertions << " insertions and " << deletions << " deletions "
-        //     << message << " parents " << parentCount << endl;
+        DEBUG_MSG(logger)
+            << "id " << sha << " had " << filesChanged << " changes, "
+            << insertions << " insertions and " << deletions << " deletions "
+            << message << " parents " << parentCount;
 
         return row;
     }
@@ -534,12 +537,13 @@ struct GitImporter: public Procedure {
 
         PerThreadAccumulator<Accum> accum([&] () { return new Accum(repoName); });
 
-        cerr << "processing " << oids.size() << " commits" << endl;
+        INFO_MSG(logger) << "processing " << oids.size() << " commits";
 
         auto doProcessCommit = [&] (int i)
             {
                 if (i && i % 100 == 0)
-                    cerr << "imported commit " << i << " of " << oids.size() << endl;
+                    INFO_MSG(logger)
+                        << "imported commit " << i << " of " << oids.size();
 
                 Accum & threadAccum = accum.get();
                 auto row = processCommit(repo, oids[i]);

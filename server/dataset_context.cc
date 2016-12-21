@@ -53,10 +53,13 @@ doGetFunction(const Utf8String & tableName,
 
             std::shared_ptr<FunctionApplier> applier;
 
+            bool constantArgs = true;
             std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo;
             argInfo.reserve(args.size());
-            for (auto & a: args)
+            for (auto & a: args) {
+                constantArgs = constantArgs && a.metadata.isConstant;
                 argInfo.emplace_back(a.info);
+            }
             
             applier.reset(fn->bind(argScope, argInfo).release());
 
@@ -72,7 +75,10 @@ doGetFunction(const Utf8String & tableName,
                     }
                 };
 
-            return BoundFunction(exec, applier->info.output);
+            BoundFunction boundFunction(exec, applier->info.output);
+            boundFunction.resultMetadata.isConstant = constantArgs && applier->info.deterministic;
+
+            return boundFunction;
         }
     }
 

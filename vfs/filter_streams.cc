@@ -16,6 +16,7 @@
 
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/filter_streams_registry.h"
+#include "compressor.h"
 #include <fstream>
 #include <mutex>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -68,6 +69,154 @@ UriHandler(std::streambuf * buf,
 {
     this->info.reset(new FsObjectInfo(info));
 }
+
+
+/*****************************************************************************/
+/* BOOST COMPRESSOR                                                          */
+/*****************************************************************************/
+
+/** Adaptor to allow boost::iostreams to be served by a compressor object. */
+
+struct BoostCompressor: public boost::iostreams::multichar_output_filter {
+
+    BoostCompressor(Compressor * compressor)
+        : compressor(compressor)
+    {
+    }
+
+    template<typename Sink>
+    void writeAll(Sink& sink, const char* data, size_t size)
+    {
+        while (size > 0) {
+            size_t written = boost::iostreams::write(sink, data, size);
+            if (!written) throw Exception("unable to write data");
+            
+            data += written;
+            size -= written;
+        }
+    }
+
+    template<typename Sink>
+    std::streamsize write(Sink& sink, const char* s, std::streamsize n)
+    {
+        auto onData = [&] (const char * data, size_t len) -> size_t
+            {
+                writeAll(sink, data, len);
+                return len;
+            };
+        
+        compressor->compress(s, n, onData);
+        return n;
+    }
+
+    template<typename Sink>
+    void close(Sink& sink)
+    {
+        auto onData = [&] (const char * data, size_t len) -> size_t
+            {
+                writeAll(sink, data, len);
+                return len;
+            };
+        
+        compressor->finish(onData);
+    }
+
+    template<typename Sink>
+    void flush(Sink& sink)
+    {
+        auto onData = [&] (const char * data, size_t len) -> size_t
+            {
+                writeAll(sink, data, len);
+                return len;
+            };
+        
+        compressor->flush(Compressor::FLUSH_AVAILABLE, onData);
+    }
+
+    std::shared_ptr<Compressor> compressor;
+};
+
+
+/*****************************************************************************/
+/* BOOST DECOMPRESSOR                                                        */
+/*****************************************************************************/
+
+/** Adaptor to allow boost::iostreams to be served by a decompressor object. */
+
+struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
+
+    BoostDecompressor(Decompressor * decompressor)
+        : decompressor(decompressor)
+    {
+        inbuf.resize(4096);
+    }
+
+    template<typename Source>
+    std::streamsize read(Source& src, char* s, std::streamsize n)
+    {
+        auto sBefore = s;
+
+        size_t numWritten = 0;
+
+        // First, return any buffered characters from outbuf
+        auto numBuffered = std::min<std::streamsize>(n, outbuf.size() - outbufPos);
+        std::copy(outbuf.data() + outbufPos,
+                  outbuf.data() + outbufPos + numBuffered,
+                  s);
+        s += numBuffered;
+        n -= numBuffered;
+        numWritten += numBuffered;
+        outbufPos += numBuffered;
+
+        // Clear outbuf buffer once it's all used up
+        if (outbufPos == outbuf.size()) {
+            outbuf.resize(0);
+            outbufPos = 0;
+        }
+
+        if (n == 0)
+            return s - sBefore;
+
+        // Now, call the decompressor
+
+        auto onData = [&] (const char * data, size_t dataLength)
+            {
+                // Put as much as can fit in the output
+                auto numGenerated = std::min<std::streamsize>(dataLength, n);
+                std::copy(data, data + numGenerated, s);
+                s += numGenerated;
+                n -= numGenerated;
+                numWritten += numGenerated;
+
+                // Everything else gets buffered for next time
+                ExcAssertEqual(outbuf.size(), 0);
+                ExcAssertEqual(outbufPos, 0);
+                outbuf.append(data + numGenerated, dataLength - numGenerated);
+
+                return dataLength;  // we always consume all of the characters
+            };
+        
+        while (n > 0) {
+            ssize_t numRead = boost::iostreams::read(src, inbuf.data(), inbuf.size());
+            if (numRead <= 0) {
+                numWritten += decompressor->finish(onData);
+                break;
+            }
+            else {
+                numWritten += decompressor->decompress(inbuf.data(), numRead, onData);
+            }
+        }
+
+        return s - sBefore;
+    }
+
+    std::vector<char> inbuf;  ///< Characters read from input but not yet passed to decompressor
+    std::string outbuf; ///< Characters returned from decompressor but not yet written
+    size_t outbufPos = 0;   ///< Position in outbuf
+
+    std::shared_ptr<Decompressor> decompressor;
+};
+
 
 
 /*****************************************************************************/
@@ -209,9 +358,27 @@ void addCompression(streambuf & buf,
             && (ends_with(resource, ".lz4") || ends_with(resource, ".lz4~")))) {
         stream.push(lz4_compressor(compressionLevel));
     }
-    else if (compression != "" && compression != "none")
-        throw MLDB::Exception("unknown filter compression " + compression);
-    
+    else if (compression == "none") {
+        // nothing to do
+    }
+    else if (compression != "") {
+        Compressor * compressor
+            = Compressor::create(compression, compressionLevel);
+        if (!compressor)
+            throw MLDB::Exception("unknown filter compression " + compression);
+        stream.push(BoostCompressor(compressor));
+    }
+    else {
+        std::string compressionFromFilename
+            = Compressor::filenameToCompression(resource);
+        if (compressionFromFilename != "") {
+            Compressor * compressor
+                = Compressor::create(compressionFromFilename, compressionLevel);
+            if (!compressor)
+                throw MLDB::Exception("unknown filter compression " + compression);
+            stream.push(BoostCompressor(compressor));
+        }
+    }
 }
 
 void addCompression(streambuf & buf,
@@ -694,9 +861,17 @@ openFromStreambuf(std::streambuf * buf,
                          || ends_with(resource, ".lz4~"))));
 
     if (gzip) new_stream->push(gzip_decompressor());
-    if (bzip2) new_stream->push(bzip2_decompressor());
-    if (lzma) new_stream->push(lzma_decompressor());
-    if (lz4) new_stream->push(lz4_decompressor());
+    else if (bzip2) new_stream->push(bzip2_decompressor());
+    else if (lzma) new_stream->push(lzma_decompressor());
+    else if (lz4) new_stream->push(lz4_decompressor());
+    else if (compression == "") {
+        std::string compression = Compressor::filenameToCompression(resource);
+        if (compression != "") {
+            new_stream->push(BoostDecompressor(Decompressor::create(compression)));
+        }
+    } else {
+        new_stream->push(BoostDecompressor(Decompressor::create(compression)));
+    }
 
     if (!new_stream->empty()) {
         new_stream->push(*buf);

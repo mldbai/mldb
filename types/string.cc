@@ -14,6 +14,8 @@
 #include "mldb/base/exc_assert.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
+#include "mldb/arch/demangle.h"
+#include <cxxabi.h>
 
 using namespace std;
 
@@ -668,5 +670,10 @@ struct AtInit {
 } atInit;
 
 } // file scope
+
+Utf8String getUtf8ExceptionString()
+{
+    return getExceptionString();
+}
 
 } // namespace MLDB

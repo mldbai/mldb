@@ -48,17 +48,6 @@ $(eval $(call library,exception_hook,exception_hook.cc,arch dl))
 $(eval $(call library,node_exception_tracing,node_exception_tracing.cc,exception_hook arch dl))
 
 
-ifeq ($(WITH_CUDA),1)
-
-LIBARCH_CUDA_SOURCES 	:= cuda.cc
-LIBARCH_CUDA_LINK	:= cudart
-
-$(eval $(call set_compile_option,cuda.cc,-I$(CUDA_ARCH_INCLUDE_DIR)))
-$(eval $(call library,arch_cuda,$(LIBARCH_CUDA_SOURCES),$(LIBARCH_CUDA_LINK)))
-
-endif # CUDA enabled
-
-
 ifeq ($(CAL_ENABLED),1)
 
 LIBARCH_CAL_SOURCES 	:= cal.cc

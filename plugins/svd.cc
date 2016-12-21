@@ -34,6 +34,7 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/plugins/progress.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -395,17 +396,20 @@ SvdBasisDescription()
 
 struct SvdTrainer {
     static SvdBasis calcSvdBasis(const ColumnCorrelations & correlations,
-                                 int numSingularValues);
+                                 int numSingularValues,
+                                 shared_ptr<spdlog::logger> logger);
 
     static SvdBasis calcRightSingular(const ClassifiedColumns & columns,
                                       const ColumnIndexEntries & columnIndex,
-                                      const SvdBasis & svd);
+                                      const SvdBasis & svd,
+                                      shared_ptr<spdlog::logger> logger);
 };
 
 SvdBasis
 SvdTrainer::
 calcSvdBasis(const ColumnCorrelations & correlations,
-             int numSingularValues)
+             int numSingularValues,
+             shared_ptr<spdlog::logger> logger)
 {
 #if 0
     static int n = 0;
@@ -458,7 +462,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     svdrec * svdResult = svdLAS2A(numSingularValues, params);
     ML::Call_Guard cleanUp( [&](){ svdFreeSVDRec(svdResult); });
 
-    cerr << "done SVD " << timer.elapsed() << endl;
+    INFO_MSG(logger) << "done SVD " << timer.elapsed();
 
     // It doesn't clean up the ones that didn't converge properly... do it ourselves
     // We go until we get a NaN or one with too small a ratio.
@@ -471,12 +475,12 @@ calcSvdBasis(const ColumnCorrelations & correlations,
            && svdResult->S[realD] / svdResult->S[0] > 1e-9)
         ++realD;
 
-    cerr << "skipped " << svdResult->d - realD << " bad singular values" << endl;
+    INFO_MSG(logger) << "skipped " << svdResult->d - realD << " bad singular values";
     ExcAssertLessEqual(realD, svdResult->d);
     ExcAssertLessEqual(realD, numSingularValues);
     svdResult->d = realD;
 
-    cerr << "got " << svdResult->d << " singular values" << endl;
+     INFO_MSG(logger) << "got " << svdResult->d << " singular values";
 
     numSingularValues = svdResult->d;
 
@@ -492,7 +496,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     std::copy(svdResult->S, svdResult->S + numSingularValues,
               result.singularValues.begin());
 
-    cerr << "svalues = " << result.singularValues << endl;
+    INFO_MSG(logger) << "svalues = " << result.singularValues;
 
     //cerr << "svdResult->Vt->value = " << svdResult->Vt->value << endl;
 
@@ -551,7 +555,9 @@ SvdBasis
 SvdTrainer::
 calcRightSingular(const ClassifiedColumns & columns,
                   const ColumnIndexEntries & columnIndex,
-                  const SvdBasis & svd)
+                  const SvdBasis & svd,
+                  shared_ptr<spdlog::logger> logger)
+
 {
     //cerr << "project extra " << columns.continuousColumns.size() - svd.columns.size()
     //     << " continuous columns onto basis" << endl;
@@ -578,7 +584,7 @@ calcRightSingular(const ClassifiedColumns & columns,
         vec0.resize(10);
         svec.resize(10);
 
-        cerr << "vec0 = " << vec0 << " svec = " << svec << endl;
+        INFO_MSG(logger) << "vec0 = " << vec0 << " svec = " << svec;
     }
 
     auto calcRightSingular = [&] (int i)
@@ -600,10 +606,10 @@ calcRightSingular(const ClassifiedColumns & columns,
             if (done % 1000 == 0) {
                 std::unique_lock<std::mutex> guard(doneMutex);
                 double seconds = timer.elapsed_wall();
-                cerr << "done " << done << " of " << totalColumns
-                     << " in " << timer.elapsed() << endl;
-                cerr << "Average " << done / seconds << " per second; inst "
-                     << 1000 / (seconds - lastSeconds) << " per second" << endl;
+                INFO_MSG(logger) << "done " << done << " of " << totalColumns
+                     << " in " << timer.elapsed();
+                INFO_MSG(logger) << "Average " << done / seconds << " per second; inst "
+                     << 1000 / (seconds - lastSeconds) << " per second";
                 lastSeconds = seconds;
             }
         };
@@ -773,9 +779,10 @@ run(const ProcedureRunConfig & run,
 
     ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures, logger, onProgress2);
 
-    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors);
+    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors, logger);
     SvdBasis svd = SvdTrainer::calcSvdBasis(correlations,
-                                            runProcConf.numSingularValues);
+                                            runProcConf.numSingularValues,
+                                            logger);
 
 #if 0
     cerr << "----------- SVD columns" << endl;
@@ -784,7 +791,7 @@ run(const ProcedureRunConfig & run,
     }
 #endif
 
-    SvdBasis allSvd = SvdTrainer::calcRightSingular(columns, columnIndex, svd);
+    SvdBasis allSvd = SvdTrainer::calcRightSingular(columns, columnIndex, svd, logger);
 
 #if 0
     cerr << "----------- ALL SVD columns" << endl;
@@ -821,8 +828,7 @@ run(const ProcedureRunConfig & run,
                 auto & col = allSvd.columns[i];
 
                 if (i % 10000 == 0)
-                    cerr << "saving column " << i << " of " << allSvd.columns.size()
-                         << endl;
+                    INFO_MSG(logger) << "saving column " << i << " of " << allSvd.columns.size();
 
                 ColumnPath outputName = col.columnName;
 
@@ -901,8 +907,7 @@ run(const ProcedureRunConfig & run,
         auto doRow = [&] (int rowNum)
             {
                 if (rowNum % 10000 == 0)
-                    cerr << "saving row " << rowNum << " of " << rows.size()
-                         << endl;
+                    INFO_MSG(logger) << "saving row " << rowNum << " of " << rows.size();
 
                 auto row = dataset->getMatrixView()->getRow(rows[rowNum]);
 
@@ -1109,7 +1114,7 @@ SvdEmbedRow::
 SvdEmbedRow(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
     svd = jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString());

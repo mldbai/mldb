@@ -97,7 +97,7 @@ SqlQueryFunction::
 SqlQueryFunction(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<SqlQueryFunctionConfig>();
 }
@@ -368,7 +368,7 @@ SqlExpressionFunction::
 SqlExpressionFunction(MldbServer * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner),
+    : Function(owner, config),
       outerScope(new SqlExpressionMldbScope(owner)),
       innerScope(new SqlExpressionExtractScope(*outerScope))
 {
