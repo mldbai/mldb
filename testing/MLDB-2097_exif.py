@@ -13,8 +13,7 @@ class Mldb2097Test(MldbUnitTest):  # noqa
     def setUpClass(self):
         pass
 
-    def test_all(self):
-
+    def test_valid_images(self):
         num_images = 0
         for f in os.listdir("mldb/ext/easyexif/test-images"):
             if not f.endswith(".jpg"): continue
@@ -118,6 +117,95 @@ class Mldb2097Test(MldbUnitTest):  # noqa
                     raise Exception("unhandled key: " + col_name)
 
         self.assertEqual(num_images, 12)
+
+    def test_problematic_images(self):
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                'EXIF extraction requires that an atomic value of type BLOB'):
+            rez = mldb.query("""
+                SELECT parse_exif(fetcher('file://patate')[content]) as *
+            """)
+
+    def test_noexif(self):
+        # this uses a random jpg image in the repo that didn't ahve exif. if that image goes away, repoint the test
+        # to another jpg image without exif
+        self.assertTableResultEquals(
+            mldb.query("""
+                SELECT parse_exif(fetcher('file://mldb/container_files/public_html/doc/builtin/img/AWS_LOGO_RGB_300px.jpg')[content]) as *
+            """),
+            [[
+                "_rowName",
+                "bitsPerSample",
+                "cameraMake",
+                "cameraModel",
+                "digitizedDateTime",
+                "exposureBias",
+                "exposureTime",
+                "fStop",
+                "flashUsed",
+                "focalLength35mm",
+                "focalPlaneXres",
+                "focalPlaneYres",
+                "gpsAltitude",
+                "gpsLat",
+                "gpsLon",
+                "gpsPrecision",
+                "imageCopyright",
+                "imageDateTime",
+                "imageDescription",
+                "imageHeight",
+                "imageOrientation",
+                "imageWidth",
+                "isoSpeed",
+                "lensFocalLength",
+                "lensFstopMax",
+                "lensFstopMin",
+                "lensMake",
+                "lensMaxFocalLength",
+                "lensMinFocalLength",
+                "lensModel",
+                "meteringMode",
+                "originalDateTime",
+                "software",
+                "subjectDistance",
+                "subsecondTime"
+            ],
+            [
+                "result",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
+            ]])
 
 if __name__ == '__main__':
     mldb.run_tests()
