@@ -100,15 +100,15 @@ struct HttpStreamingDownloadSource {
              const std::map<std::string, std::string> & options)
             : proxy(urlStr), urlStr(urlStr), shutdown(false), dataQueue(100),
               eof(false), currentDone(0), headerSet(false),
-              httpArbitraryTooSlowAbort(false)
+              httpAbortOnSlowConnection(false)
         {
             for (auto & o: options) {
                 if (o.first == "http-set-cookie")
                     proxy.setCookie(o.second);
                 else if (o.first.find("http-") == 0)
                     throw MLDB::Exception("Unknown HTTP stream parameter " + o.first + " = " + o.second);
-                else if (o.first == "httpArbitraryTooSlowAbort" && o.second == "1") {
-                    httpArbitraryTooSlowAbort = true;
+                else if (o.first == "httpAbortOnSlowConnection" && o.second == "true") {
+                    httpAbortOnSlowConnection = true;
                 }
             }
 
@@ -138,7 +138,7 @@ struct HttpStreamingDownloadSource {
         std::atomic<bool> headerSet;
         std::promise<HttpHeader> headerPromise;
 
-        bool httpArbitraryTooSlowAbort;
+        bool httpAbortOnSlowConnection;
 
         /* cleanup all the variables that are used during reading, the
            "static" ones are left untouched */
@@ -268,7 +268,7 @@ struct HttpStreamingDownloadSource {
                                       false /* exceptions */,
                                       onData, onHeader,
                                       true /* follow redirect */,
-                                      httpArbitraryTooSlowAbort);
+                                      httpAbortOnSlowConnection);
                 
                 if (shutdown)
                     return;

@@ -3363,7 +3363,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
 
                     filter_istream stream(args[0].toUtf8String().rawString(),
                                           { { "mapped", "true" },
-                                            { "httpArbitraryTooSlowAbort", "1"} });
+                                            { "httpAbortOnSlowConnection", "true"} });
 
                     FsObjectInfo info = stream.info();
 
