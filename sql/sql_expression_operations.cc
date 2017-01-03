@@ -1523,6 +1523,10 @@ bind(SqlBindingScope & scope) const
                                   + "' didn't return info");
     }
 
+    //For now, read columns will never be considered const, because we wont have a row scope to 
+    //evaluate them, even if it always returns the same value.
+    auto info = getVariable.info->getConst(false);
+
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
@@ -1531,7 +1535,7 @@ bind(SqlBindingScope & scope) const
                 return getVariable(row, storage, filter);
             },
             this,
-            getVariable.info};
+            info};
 }
 
 Utf8String
@@ -1930,13 +1934,46 @@ bind(SqlBindingScope & scope) const
     auto boundLhs = lhs ? lhs->bind(scope) : BoundSqlExpression();
     auto boundRhs = rhs->bind(scope);
 
+    BoundSqlExpression constFalse = {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    return storage = ExpressionValue(false, Date::negativeInfinity());
+                },
+                this,
+                std::make_shared<BooleanValueInfo>(true)};
+
+    BoundSqlExpression constTrue = {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    return storage = ExpressionValue(true, Date::negativeInfinity());
+                },
+                this,
+                std::make_shared<BooleanValueInfo>(true)};
+
+    BoundSqlExpression constNull = {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    return storage = ExpressionValue::null(Date::negativeInfinity());
+                },
+                this,
+                std::make_shared<BooleanValueInfo>(true)};
+
     if (op == "AND" && lhs) {
 
-        bool constant = (boundLhs.info->isConst() && boundRhs.info->isConst()) 
-                        || (boundLhs.info->isConst() && boundLhs.constantValue().empty())
-                        || (boundRhs.info->isConst() && boundRhs.constantValue().empty())
-                        || (boundLhs.info->isConst() && boundLhs.constantValue().isFalse())
-                        || (boundRhs.info->isConst() && boundRhs.constantValue().isFalse());
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().isFalse())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().isFalse()) ) {
+            return constFalse;
+        }
+
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().empty())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().empty()) ) {
+            return constNull;
+        }
+
+        bool constant = (boundLhs.info->isConst() && boundRhs.info->isConst());
 
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
@@ -1974,11 +2011,18 @@ bind(SqlBindingScope & scope) const
     }
     else if (op == "OR" && lhs) {
 
-        bool constant = (boundLhs.info->isConst() && boundRhs.info->isConst()) 
-                        || (boundLhs.info->isConst() && boundLhs.constantValue().empty())
-                        || (boundRhs.info->isConst() && boundRhs.constantValue().empty())
-                        || (boundLhs.info->isConst() && boundLhs.constantValue().isTrue())
-                        || (boundRhs.info->isConst() && boundRhs.constantValue().isTrue());
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().isTrue())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().isTrue()) ) {
+            return constTrue;
+        }
+
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().empty())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().empty()) ) {
+            return constNull;
+        }
+
+
+        bool constant = (boundLhs.info->isConst() && boundRhs.info->isConst());
 
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,

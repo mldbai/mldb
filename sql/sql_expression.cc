@@ -110,13 +110,25 @@ BoundSqlExpression(ExecFunction exec,
       expr(getExpressionFromPtr(expr)),
       info(std::move(info))
 {
+    if (this->info->isConst()){
+        auto value = std::make_shared<ExpressionValue>(constantValue());
+        this->exec = [=] (const SqlRowScope & rowScope,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    storage = *value;
+                    return storage;
+                };
+    }
 }
 
 ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
-    return expr->constantValue();    
+    SqlRowScope noRow;
+    ExpressionValue storage;
+    return this->exec(noRow, storage, GET_LATEST);
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(BoundSqlExpression);

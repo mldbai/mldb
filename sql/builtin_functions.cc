@@ -2375,6 +2375,24 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerLength(length, "length");
 
+BoundFunction blob_length(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+     return {[] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+             {
+                checkArgsSize(args.size(), 1);
+
+                return ExpressionValue
+                    (args[0].getAtom().coerceToBlob().blobLength(), 
+                     args[0].getEffectiveTimestamp());
+             },
+             std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerblob_length(blob_length, "blob_length");
+
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 2);

@@ -621,6 +621,12 @@ The following functions provide image processing capabilities:
 
 ![](%%type MLDB::Builtins::ExifMetadata)
 
+### <a name="blobfunctions"></a>Blob functions
+
+The following functions are specific to blob data:
+
+- `blob_length(x)` returns the length (in bytes) of the blob `x`
+
 ### <a name="httpfunctions"></a>Web data functions
 
 The following functions are used to extract and process web data.
