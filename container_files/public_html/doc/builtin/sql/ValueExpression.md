@@ -636,8 +636,9 @@ The following functions are used to extract and process web data.
 Fetches resources from a given file or URL. It acts as the
 default version of [function fetcher](../functions/Fetcher.md.html). It returns
 two output columns:
-* content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
-* error is a string containing the error message. If the fetch succeeded, it will be null.
+
+* `content`, a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
+* `error`, a string containing the error message. If the fetch succeeded, it will be null.
 
 **Example**
 
