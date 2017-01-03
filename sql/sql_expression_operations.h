@@ -392,7 +392,6 @@ struct BoundParameterExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; }
 
     Utf8String paramName;
 };

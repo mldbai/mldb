@@ -29,7 +29,7 @@ init(BoundSqlExpression expr_, int argNumber)
     expr = std::move(expr_);
     this->argNumber = argNumber;
 
-    if (expr.metadata.isConstant) {
+    if (expr.info->isConst()) {
         isPrecompiled = true;
         precompiled = compile(expr.constantValue());
     }

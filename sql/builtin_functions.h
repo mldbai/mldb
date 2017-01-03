@@ -134,6 +134,7 @@ struct RegisterBuiltin {
             -> BoundFunction
             {
                 try {
+
                     BoundFunction result = function(args);
                     auto fn = result.exec;
                     result.exec = [=] (const std::vector<ExpressionValue> & args,
@@ -152,10 +153,10 @@ struct RegisterBuiltin {
 
                     bool constantArgs = true;
                     for (auto& arg : args) {
-                        constantArgs = constantArgs && arg.metadata.isConstant;
+                        constantArgs = constantArgs && arg.info->isConst();
                     }
 
-                    result.resultMetadata.isConstant = constantArgs && determinism == DETERMINISTIC;
+                    result.resultInfo = result.resultInfo->getConst(constantArgs && determinism == DETERMINISTIC);
 
                     return result;
                 } MLDB_CATCH_ALL {
