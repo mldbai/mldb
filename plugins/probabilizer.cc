@@ -330,6 +330,15 @@ ProbabilizeFunction(MldbServer * owner,
 }
 
 ProbabilizeFunction::
+ProbabilizeFunction(MldbServer * owner,
+                   const ML::GLZ_Probabilizer & in)
+    : Function(owner, PolyConfig())
+{
+    itl.reset(new Itl());
+    itl->probabilizer = in;
+}
+
+ProbabilizeFunction::
 ~ProbabilizeFunction()
 {
 }
