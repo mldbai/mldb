@@ -26,6 +26,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/http/curl_wrapper.h"
 
 #include <iterator>
 #include <thread>
@@ -3359,8 +3360,10 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                 auto content = ExpressionValue::null(Date::notADate());
                 auto error = ExpressionValue::null(Date::notADate());
                 try {
-                    filter_istream stream(args[0].toString(),
-                                          { { "mapped", "true" } });
+
+                    filter_istream stream(args[0].toUtf8String().rawString(),
+                                          { { "mapped", "true" },
+                                            { "httpAbortOnSlowConnection", "true"} });
 
                     FsObjectInfo info = stream.info();
 
@@ -3381,7 +3384,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                               info.lastModified);
                 }
                 MLDB_CATCH_ALL {
-                    error = ExpressionValue(getExceptionString(),
+                    error = ExpressionValue(getUtf8ExceptionString(),
                                             Date::now());
                 }
                 result.emplace_back("content", content);

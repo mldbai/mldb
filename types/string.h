@@ -493,6 +493,8 @@ std::ostream & operator << (std::ostream & stream, const Utf32String & str);
 
 typedef Utf8String UnicodeString;
 
+Utf8String getUtf8ExceptionString();
+
 } // namespace MLDB
 
 namespace std {

@@ -90,6 +90,8 @@ struct ProbabilizeFunction: public Function {
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
 
+    ProbabilizeFunction(MldbServer * owner, const ML::GLZ_Probabilizer & in);
+
     ~ProbabilizeFunction();
 
     virtual Any getStatus() const;

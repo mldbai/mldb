@@ -289,10 +289,12 @@ get(const std::string & resource,
     bool exceptions,
     OnData onData,
     OnHeader onHeader,
-    bool followRedirect) const
+    bool followRedirect,
+    bool abortOnSlowConnection) const
 {
     return perform("GET", resource, Content(), queryParams, headers,
-                   timeout, exceptions, onData, onHeader, followRedirect);
+                   timeout, exceptions, onData, onHeader, followRedirect,
+                   abortOnSlowConnection);
 }
 
 HttpRestResponse
@@ -306,7 +308,8 @@ perform(const std::string & verb,
         bool exceptions,
         OnData onData,
         OnHeader onHeader,
-        bool followRedirect) const
+        bool followRedirect,
+        bool abortOnSlowConnection) const
 {
     string responseHeaders;
     string body;
@@ -334,6 +337,12 @@ perform(const std::string & verb,
             myRequest.add_option(CURLOPT_TIMEOUT, timeout);
         else myRequest.add_option(CURLOPT_TIMEOUT, 0L);
         myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
+
+        if (abortOnSlowConnection) {
+            // abortOnSlowConnection SPECIFICATION *** /
+            myRequest.add_option(CURLOPT_LOW_SPEED_LIMIT, 1024 * 10);
+            myRequest.add_option(CURLOPT_LOW_SPEED_TIME, 5);
+        }
 
         if (itl->noSSLChecks) {
             myRequest.add_option(CURLOPT_SSL_VERIFYHOST, 0L);
