@@ -123,10 +123,8 @@ struct UnionDataset::Itl
 
     struct UnionRowStream : public RowStream {
 
-        UnionRowStream(const UnionDataset::Itl* source) : source(source)
+        UnionRowStream(const UnionDataset::Itl* source) : source(source), datasetIndex(0)
         {
-            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            //throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
         }
 
         virtual std::shared_ptr<RowStream> clone() const override
@@ -137,31 +135,49 @@ struct UnionDataset::Itl
         /* set where the stream should start*/
         virtual void initAt(size_t start) override
         {
-            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            //throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+            datasetIndex = 0;
+            size_t currentTotal = 0;
+            std::shared_ptr<Dataset> currentDataset = source->datasets[0];
+            size_t currentRowCount = currentDataset->getRowCount();
+            while (currentTotal + currentRowCount < start) {
+                currentTotal += currentRowCount;
+                ++datasetIndex;
+                currentDataset = source->datasets[datasetIndex];
+                currentRowCount = currentDataset->getRowCount();
+            }
+            currentSubRowStream = currentDataset->getRowStream();
+            subRowIndex = start - currentTotal;
+            currentSubRowStream->initAt(subRowIndex);
+            subNumRow = currentRowCount;
         }
 
         virtual RowPath next() override
         {
-            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
-            uint64_t hash = (*it).first;
-            ++it;
-
-            return source->getRowPath(RowHash(hash));
+            RowPath mynext = PathElement(datasetIndex) + currentSubRowStream->next();
+            ++subRowIndex;
+            if (subRowIndex == subNumRow) {
+                ++datasetIndex;
+                if (datasetIndex < source->datasets.size()) {
+                    currentSubRowStream = source->datasets[datasetIndex]->getRowStream();
+                    currentSubRowStream->initAt(0);
+                    subRowIndex = 0;
+                    subNumRow = source->datasets[datasetIndex]->getRowCount();
+                }
+            }
+            return mynext;
         }
 
         virtual const RowPath & rowName(RowPath & storage) const override
         {
-            cerr << "UNIMPLEMENTED " << __FILE__ << ":" << __LINE__ << endl;
-            throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
-            uint64_t hash = (*it).first;
-            return storage = source->getRowPath(RowHash(hash));
+            RowPath sub = currentSubRowStream->rowName(storage);
+            return storage = PathElement(datasetIndex) + sub;
         }
 
         const UnionDataset::Itl* source;
-        IdHashes::const_iterator it;
-
+        size_t datasetIndex;
+        size_t subRowIndex;
+        size_t subNumRow;
+        std::shared_ptr<RowStream> currentSubRowStream;
     };
 
     virtual vector<Path>

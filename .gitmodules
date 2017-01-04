@@ -58,3 +58,15 @@
 [submodule "ext/pffft"]
 	path = ext/pffft
 	url = https://github.com/mldbai/pffft.git
+[submodule "ext/JSONTestSuite"]
+	path = ext/JSONTestSuite
+	url = https://github.com/mldbai/JSONTestSuite.git
+[submodule "ext/zstd"]
+	path = ext/zstd
+	url = https://github.com/mldbai/zstd.git
+[submodule "testing/mldb_sample_plugin"]
+	path = testing/mldb_sample_plugin
+	url = git@github.com:mldbai/mldb_sample_plugin.git
+[submodule "ext/easyexif"]
+	path = ext/easyexif
+	url = https://github.com/mldbai/easyexif.git

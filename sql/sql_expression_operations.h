@@ -324,7 +324,7 @@ struct InExpression: public SqlExpression {
     std::shared_ptr<SelectSubtableExpression> subtable;
     std::shared_ptr<SqlExpression> setExpr;
 
-    bool isnegative;
+    bool isNegative;
     Kind kind;
 };
 
@@ -350,7 +350,7 @@ struct LikeExpression: public SqlExpression {
     std::shared_ptr<SqlExpression> left;
     std::shared_ptr<SqlExpression> right;
 
-    bool isnegative;
+    bool isNegative;
 };
 
 /** Represents CAST (expression AS type) */
@@ -392,7 +392,6 @@ struct BoundParameterExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; }
 
     Utf8String paramName;
 };

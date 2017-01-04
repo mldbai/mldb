@@ -19,6 +19,7 @@ SQL_EXPRESSION_SOURCES := \
 	binding_contexts.cc \
 	builtin_functions.cc \
 	builtin_geo_functions.cc \
+	builtin_image_functions.cc \
 	builtin_http_functions.cc \
 	builtin_dataset_functions.cc \
 	builtin_aggregators.cc \
@@ -27,6 +28,7 @@ SQL_EXPRESSION_SOURCES := \
 	interval.cc \
 	join_utils.cc \
 	tokenize.cc \
+	regex_helper.cc \
 	execution_pipeline.cc \
 	execution_pipeline_impl.cc \
 	sql_utils.cc \
@@ -40,7 +42,7 @@ SQL_EXPRESSION_SOURCES := \
 $(eval $(call set_compile_option,cell_value.cc builtin_geo_functions.cc,$(S2_COMPILE_OPTIONS) $(S2_WARNING_OPTIONS)))
 
 # NOTE: the SQL library should NOT depend on MLDB.  See the comment in testing/testing.mk
-$(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),sql_types utils value_description any ml json_diff highwayhash hash s2 edlib log pffft))
+$(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),sql_types utils value_description any ml json_diff highwayhash hash s2 edlib log pffft easyexif))
 
 $(eval $(call include_sub_make,sql_testing,testing,sql_testing.mk))
 

@@ -10,6 +10,7 @@
 
 #include "frozen_column.h"
 #include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/sql/cell_value.h"
 
 
 namespace MLDB {
@@ -57,8 +58,8 @@ struct TabularDatasetColumn {
     ColumnTypes columnTypes;
     bool isFrozen;
 
-
-    std::shared_ptr<FrozenColumn> freeze();
+    std::shared_ptr<FrozenColumn>
+    freeze(const ColumnFreezeParameters & params);
 
     size_t memusage() const;
 };

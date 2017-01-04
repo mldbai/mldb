@@ -50,7 +50,8 @@ evalSql(SqlBindingScope & scope,
     std::vector<std::shared_ptr<ExpressionValueInfo> > info;
     info.reserve(numArgs);
     for (size_t i = 0;  i < numArgs;  ++i) {
-        info.emplace_back(argsVec[i].getSpecializedValueInfo());
+        //We dont know the constness so we have to assume they are not
+        info.emplace_back(argsVec[i].getSpecializedValueInfo(false /*isconst*/));
     }
 
     SqlExpressionEvalScope evalScope(scope, info);

@@ -8,6 +8,7 @@
 #include "mldb/sql/builtin_functions.h"
 #include "sql_expression.h"
 #include "tokenize.h"
+#include "regex_helper.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/stats/distribution_simd.h"
@@ -25,8 +26,8 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/http/curl_wrapper.h"
 
-#include <boost/regex/icu.hpp>
 #include <iterator>
 #include <thread>
 #include <mutex>
@@ -968,102 +969,6 @@ BoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
 
-/** Helper class that takes care of regular expression application whether
-    it's a constant value or not.
-*/
-struct RegexHelper {
-    RegexHelper(BoundSqlExpression expr_)
-        : expr(std::move(expr_))
-    {
-        if (expr.metadata.isConstant) {
-            isPrecompiled = true;
-            precompiled = compile(expr.constantValue());
-        }
-        else isPrecompiled = false;
-    }
-
-    boost::u32regex compile(const ExpressionValue & val) const
-    {
-        Utf8String regexStr;
-        try {
-            regexStr = val.toUtf8String();
-        } MLDB_CATCH_ALL {
-            rethrowHttpException
-                (400, "Error when extracting regex from argument '"
-                 + expr.expr->surface + "': " + getExceptionString()
-                 + ".  Regular expressions need to be strings.",
-                 "expr", expr,
-                 "value", val);
-        }
-        try {
-            return boost::make_u32regex(regexStr.rawData());
-        } MLDB_CATCH_ALL {
-            rethrowHttpException
-                (400, "Error when compiling regex '"
-                 + regexStr + "' from expression " + expr.expr->surface + "': "
-                 + getExceptionString()
-                 + ".  Regular expressions must adhere to Perl-style "
-                 + "regular expression syntax.",
-                 "expr", expr,
-                 "value", val);
-        }
-    }
-
-    /// The expression that the regex came from, to help with error messages
-    BoundSqlExpression expr;
-
-    /// The pre-compiled version of that expression, when it's constant
-    boost::u32regex precompiled;
-
-    /// Is it actually constant (and precompiled), or computed on the fly?
-    bool isPrecompiled;
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const = 0;
-
-    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
-                                 const SqlRowScope & scope)
-    {
-        if (isPrecompiled) {
-            return apply(args, scope, precompiled);
-        }
-        else {
-            return apply(args, scope, compile(args.at(1)));
-        }
-    }
-};
-
-struct ApplyRegexReplace: public RegexHelper {
-    ApplyRegexReplace(BoundSqlExpression e)
-        : RegexHelper(std::move(e))
-    {
-    }
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const
-    {
-        checkArgsSize(args.size(), 3);
-
-        if (args[0].empty() || args[1].empty() || args[2].empty())
-            return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
-
-        std::basic_string<char32_t> matchStr = args[0].toWideString();
-        std::basic_string<char32_t> replacementStr = args[2].toWideString();
-
-        std::basic_string<int32_t>
-            matchStr2(matchStr.begin(), matchStr.end());
-        std::basic_string<int32_t>
-            replacementStr2(replacementStr.begin(), replacementStr.end());
-
-        auto result = boost::u32regex_replace(matchStr2, regex, replacementStr2);
-        std::basic_string<char32_t> result2(result.begin(), result.end());
-
-        return ExpressionValue(result2, calcTs(args[0], args[1], args[2]));
-    }
-};
-
 BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 {
     // regex_replace(string, regex, replacement)
@@ -1075,31 +980,6 @@ BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerRegexReplace(regex_replace, "regex_replace");
 
-struct ApplyRegexMatch: public RegexHelper {
-    ApplyRegexMatch(BoundSqlExpression e)
-        : RegexHelper(std::move(e))
-    {
-    }
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const
-    {
-        // TODO: should be able to pass utf-8 string directly in
-
-        checkArgsSize(args.size(), 2);
-
-        if (args[0].empty() || args[1].empty())
-            return ExpressionValue::null(calcTs(args[0], args[1]));
-
-        std::basic_string<char32_t> matchStr = args[0].toWideString();
-        
-        auto result = boost::u32regex_match(matchStr.begin(), matchStr.end(),
-                                            regex);
-        return ExpressionValue(result, calcTs(args[0], args[1]));
-    }
-};
-                     
 BoundFunction regex_match(const std::vector<BoundSqlExpression> & args)
 {
     // regex_match(string, regex)
@@ -1111,31 +991,6 @@ BoundFunction regex_match(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerRegexMatch(regex_match, "regex_match");
 
-struct ApplyRegexSearch: public RegexHelper {
-    ApplyRegexSearch(BoundSqlExpression e)
-        : RegexHelper(std::move(e))
-    {
-    }
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const
-    {
-        // TODO: should be able to pass utf-8 string directly in
-
-        checkArgsSize(args.size(), 2);
-
-        if (args[0].empty() || args[1].empty())
-            return ExpressionValue::null(calcTs(args[0], args[1]));
-
-        std::basic_string<char32_t> searchStr = args[0].toWideString();
-        
-        auto result = boost::u32regex_search(searchStr.begin(), searchStr.end(),
-                                            regex);
-        return ExpressionValue(result, calcTs(args[0], args[1]));
-    }
-};
-                     
 BoundFunction regex_search(const std::vector<BoundSqlExpression> & args)
 {
     // regex_search(string, regex)
@@ -1267,7 +1122,7 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
             std::make_shared<TimestampValueInfo>()};
 }
 
-static RegisterBuiltin registerNow(now, "now");
+static RegisterBuiltin registerNow(RegisterBuiltin::NON_DETERMINISTIC, now, "now");
 
 BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
@@ -1582,7 +1437,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_part expected a string as third argument, got " +
@@ -1644,7 +1499,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_trunc expected a string as third argument, got " +
@@ -2520,6 +2375,24 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerLength(length, "length");
 
+BoundFunction blob_length(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+     return {[] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+             {
+                checkArgsSize(args.size(), 1);
+
+                return ExpressionValue
+                    (args[0].getAtom().coerceToBlob().blobLength(), 
+                     args[0].getEffectiveTimestamp());
+             },
+             std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerblob_length(blob_length, "blob_length");
+
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 2);
@@ -2667,7 +2540,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
                 throw HttpReturnException
                     (400,"Null embedding needs third argument to reshape()");
             auto shape = args[1].info->getEmbeddingShape();
-            auto st = args[2].metadata.isConstant
+            auto st = args[2].info->isConst()
                 ? valueStorageType(args[2].constantValue().getAtom())
                 : ST_ATOM;
             auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
@@ -2710,7 +2583,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
     if (!args[1].info->isEmbedding())
         throw HttpReturnException(400, "requires an embedding as second argument");
 
-    if (args[1].metadata.isConstant) {
+    if (args[1].info->isConst()) {
         //Dont know the type without evaluating second arg;
         auto embeddingFormat = args[1].constantValue();
 
@@ -3411,12 +3284,9 @@ bind(const Utf8String &,
         };
 
     BoundFunction result(exec,
-                         resultVal.getSpecializedValueInfo());
-    result.resultMetadata.isConstant = true;
-
+                         resultVal.getSpecializedValueInfo(true /*isConstant*/));
     return result;
 }
-
 
 /*****************************************************************************/
 /* SQL BUILTINS                                                              */
@@ -3449,8 +3319,10 @@ bind(const std::vector<BoundSqlExpression> & args,
                  + " parameters instead of " + std::to_string(arity)
                  + " expected parameters");
         }
+        bool isConstant = true;
         std::vector<std::shared_ptr<ExpressionValueInfo> > info;
         for (auto & a: args) {
+            isConstant = isConstant && a.info->isConst();
             info.emplace_back(a.info);
         }
 
@@ -3476,7 +3348,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                 }
             };
 
-        result.resultInfo = std::move(bound.info);
+        result.resultInfo = bound.info->getConst(isConstant && bound.info->isConst());
         
         return result;
     } MLDB_CATCH_ALL {
@@ -3506,8 +3378,10 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                 auto content = ExpressionValue::null(Date::notADate());
                 auto error = ExpressionValue::null(Date::notADate());
                 try {
-                    filter_istream stream(args[0].toString(),
-                                          { { "mapped", "true" } });
+
+                    filter_istream stream(args[0].toUtf8String().rawString(),
+                                          { { "mapped", "true" },
+                                            { "httpAbortOnSlowConnection", "true"} });
 
                     FsObjectInfo info = stream.info();
 
@@ -3528,7 +3402,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                               info.lastModified);
                 }
                 MLDB_CATCH_ALL {
-                    error = ExpressionValue(getExceptionString(),
+                    error = ExpressionValue(getUtf8ExceptionString(),
                                             Date::now());
                 }
                 result.emplace_back("content", content);
@@ -3544,10 +3418,10 @@ BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
 
-    bool isConst = args[0].metadata.isConstant;
+    bool isConst = args[0].info->isConst();
 
     auto outputInfo
-        = std::make_shared<BooleanValueInfo>();
+        = std::make_shared<BooleanValueInfo>(true);
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {

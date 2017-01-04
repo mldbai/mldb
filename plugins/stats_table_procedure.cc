@@ -28,6 +28,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/optional_description.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -257,7 +258,7 @@ run(const ProcedureRunConfig & run,
                 Json::Value progress;
                 progress["message"] = message;
                 onProgress(progress);
-                cerr << message << endl;
+                INFO_MSG(logger) << message;
             }
 
             vector<uint> encodedLabels;
@@ -350,7 +351,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
-        cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
+        INFO_MSG(logger) << "Saving stats tables to " << runProcConf.modelFileUrl.toString();
         PolyConfig clsFuncPC;
         clsFuncPC.type = "statsTable.getCounts";
         clsFuncPC.id = runProcConf.functionName;
@@ -384,8 +385,10 @@ StatsTableFunction::
 StatsTableFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
+    //this function has hidden state and is never deterministic, says F. Maillet.
+    config_->deterministic = false;
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
@@ -694,7 +697,7 @@ run(const ProcedureRunConfig & run,
                 Json::Value progress;
                 progress["message"] = message;
                 onProgress2(progress);
-                cerr << message << endl;
+                INFO_MSG(logger) << message;
             }
 
             vector<uint> encodedLabels;
@@ -828,7 +831,7 @@ StatsTablePosNegFunction::
 StatsTablePosNegFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<StatsTablePosNegFunctionConfig>();
 

@@ -18,18 +18,17 @@
 #include "mldb/ext/sqlite/sqlite3ppext.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
-
+#include "mldb/utils/log.h"
 
 using namespace std;
-
-
 
 namespace MLDB {
 
 
-void dumpQuery(sqlite3pp::database & db, const std::string & queryStr)
+void dumpQuery(sqlite3pp::database & db, const string & queryStr,
+               shared_ptr<spdlog::logger> logger)
 {
-    cerr << "dumping query " << queryStr << endl;
+    INFO_MSG(logger) << "dumping query " << queryStr;
 
     sqlite3pp::query query(db, queryStr.c_str());
 
@@ -45,12 +44,13 @@ void dumpQuery(sqlite3pp::database & db, const std::string & queryStr)
         allRecords.append(record);
     }
 
-    cerr << allRecords;
+    INFO_MSG(logger) << allRecords;
 }
 
-void explainQuery(sqlite3pp::database & db, const std::string & queryStr)
+void explainQuery(sqlite3pp::database & db, const string & queryStr,
+                  shared_ptr<spdlog::logger> logger)
 {
-    dumpQuery(db, "EXPLAIN QUERY PLAN " + queryStr);
+    dumpQuery(db, "EXPLAIN QUERY PLAN " + queryStr, logger);
 }
 
 std::string sqlEscape(const std::string & val)
@@ -139,7 +139,8 @@ struct SqliteSparseDataset::Itl
 
     };
 
-    Itl(const Url & url, const Utf8String & id)
+    Itl(const Url & url, const Utf8String & id,
+        shared_ptr<spdlog::logger> logger) : logger(logger)
     {
         initRoutes();
 
@@ -159,6 +160,7 @@ struct SqliteSparseDataset::Itl
 
     std::string filename;
     Utf8String id;
+    shared_ptr<spdlog::logger> logger;
 
     RestRequestRouter router;
 
@@ -282,7 +284,7 @@ struct SqliteSparseDataset::Itl
                 explanation.append(record);
             }
 
-            cerr << explainQuery << endl << explanation;
+            INFO_MSG(logger) << explainQuery << "\n" << explanation;
         }
 
         sqlite3pp::query query(*db, queryStr.c_str());
@@ -385,7 +387,7 @@ struct SqliteSparseDataset::Itl
                 explanation.append(record);
             }
 
-            cerr << queryStr << endl << explanation;
+            INFO_MSG(logger) << queryStr << "\n" << explanation;
             abort();
 
             throw;
@@ -473,7 +475,7 @@ struct SqliteSparseDataset::Itl
                 explanation.append(record);
             }
 
-            cerr << explainQuery << endl << explanation;
+            INFO_MSG(logger) << explainQuery << "\n" << explanation;
         }
 
 
@@ -710,7 +712,8 @@ SqliteSparseDataset(MldbServer * owner,
 {
     if (!config.params.empty())
         datasetConfig = config.params.convert<SqliteSparseDatasetConfig>();
-    itl.reset(new Itl(datasetConfig.dataFileUrl, config.id));
+    itl.reset(new Itl(datasetConfig.dataFileUrl, config.id,
+                      MLDB::getMldbLog<SqliteSparseDataset>()));
 }
     
 SqliteSparseDataset::

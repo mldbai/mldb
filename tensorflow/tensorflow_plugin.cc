@@ -313,8 +313,8 @@ const Package & tensorflowPackage()
 
 struct TensorflowGraphBase: public Function {
 
-    TensorflowGraphBase(MldbServer * owner)
-        : Function(owner)
+    TensorflowGraphBase(MldbServer * owner, PolyConfig config)
+        : Function(owner, config)
     {
     }
 
@@ -323,7 +323,8 @@ struct TensorflowGraphBase: public Function {
 
     void init(std::unique_ptr<tensorflow::GraphDef> graphIn,
               SelectExpression inputs_,
-              SelectExpression outputs_)
+              SelectExpression outputs_,
+              const Regex & deviceFilter)
     {
         using namespace tensorflow;
 
@@ -402,7 +403,7 @@ struct TensorflowGraphBase: public Function {
         std::vector<::tensorflow::Device *> devices;
         tensorflow::DeviceFactory::AddDevices(options, "", &devices);
         
-        int sessionsPerDevice = 5;
+        int sessionsPerDevice = 1;
 
         // Operations hardcoded to the CPU.  These are those that
         // can't use GPUs or need large amounts of data to be
@@ -410,14 +411,18 @@ struct TensorflowGraphBase: public Function {
         set<string> hardcodedCpu = {
             /*"ExpandDims", "ResizeBilinear"*/ /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
 
+        int numMatchedDevices = 0;
+
         for (const auto & d: devices) {
             std::string deviceName = d->name();
-            bool isCpuDevice = deviceName.find("/cpu:") != std::string::npos;
 
-            //if (isCpuDevice)
-            //    continue;
-            if (!isCpuDevice)
+            if (!regex_match(deviceName, deviceFilter)) {
                 continue;
+            }
+
+            ++numMatchedDevices;
+
+            bool isCpuDevice = deviceName.find("/cpu:") != std::string::npos;
 
             // Set the device for all nodes where it's not hardcoded
             for (auto & node: *graph->mutable_node()) {
@@ -453,7 +458,7 @@ struct TensorflowGraphBase: public Function {
                 // GPU.
                 options.config.set_allow_soft_placement(true);
                 //options.config.set_use_per_session_threads(true);
-                //options.config.set_inter_op_parallelism_threads(4);
+                options.config.set_inter_op_parallelism_threads(4);
             }
 
             // NOTE: eventually, this will work... but until it does, we
@@ -477,6 +482,21 @@ struct TensorflowGraphBase: public Function {
             }
         }
 
+        if (numMatchedDevices == 0) {
+            std::vector<std::string> deviceNames;
+            std::string deviceNamesStr;
+            for (const auto & d: devices) {
+                deviceNames.push_back(d->name());
+                if (!deviceNamesStr.empty())
+                    deviceNamesStr += ", ";
+                deviceNamesStr += d->name();
+            }
+
+            throw HttpReturnException
+                (400, "Device name regex '" + jsonEncodeStr(deviceFilter)
+                 + "' didn't match any of the system devices "
+                 + deviceNamesStr + ".  The graph cannot be executed");
+        }
         //std::this_thread::sleep_for(std::chrono::seconds(120));
     }
 
@@ -1461,6 +1481,7 @@ struct TensorflowOpConfig {
     std::map<Utf8String, tensorflow::AttrValue> attr;
     SelectExpression inputs;
     SelectExpression outputs;
+    Regex devices = ".*";
     tensorflow::DataType inputType = tensorflow::DT_INVALID;
 };
 
@@ -1481,6 +1502,11 @@ TensorflowOpConfigDescription()
              "Input type for graph nodes.  Default ('DT_INVALID') means "
              "infer it from the types on the operation.",
              tensorflow::DT_INVALID);
+    addAuto("devices", &TensorflowOpConfig::devices,
+            "Regular expression that matches the devices on which the "
+            "operation is allowed to run.  For example, `.*` means all devices "
+            "(CPU and GPU), `/cpu:.*` means CPU only, `/gpu:.*` means GPU "
+            "only, `/gpu:[01]` means on the first two GPUs.");
 }
 
 struct TensorflowOp: public TensorflowGraphBase {
@@ -1490,7 +1516,7 @@ struct TensorflowOp: public TensorflowGraphBase {
     TensorflowOp(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-        : TensorflowGraphBase(owner)
+        : TensorflowGraphBase(owner, config)
     {
         functionConfig = config.params.convert<TensorflowOpConfig>();   
         tensorflow::Status status;
@@ -1534,7 +1560,8 @@ struct TensorflowOp: public TensorflowGraphBase {
             node->add_input(input.name());
         }
         
-        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs);
+        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs,
+                   functionConfig.devices);
 
         //cerr << SummarizeGraphDef(*this->graph);
     }
@@ -1577,6 +1604,7 @@ struct TensorflowGraphConfig {
     Url modelFileUrl;
     SelectExpression inputs;
     SelectExpression outputs;
+    Regex devices = ".*";
 };
 
 
@@ -1595,6 +1623,11 @@ TensorflowGraphConfigDescription()
     addField("outputs", &TensorflowGraphConfig::outputs,
              "Outputs of the graph that are returned as the result of "
              "the function");
+    addAuto("devices", &TensorflowGraphConfig::devices,
+            "Regular expression that matches the devices on which the "
+            "graph is allowed to run.  For example, `.*` means all devices "
+            "(CPU and GPU), `/cpu:.*` means CPU only, `/gpu:.*` means GPU "
+            "only, `/gpu:[01]` means on the first two GPUs.");
 }
 
 struct TensorflowGraph: public TensorflowGraphBase {
@@ -1604,7 +1637,7 @@ struct TensorflowGraph: public TensorflowGraphBase {
     TensorflowGraph(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
-        : TensorflowGraphBase(owner)
+        : TensorflowGraphBase(owner, config)
     {
         functionConfig = config.params.convert<TensorflowGraphConfig>();   
 
@@ -1629,7 +1662,8 @@ struct TensorflowGraph: public TensorflowGraphBase {
                 (500, "Couldn't load tensorflow graph model: parse error");
         }
 
-        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs);
+        this->init(std::move(graph), functionConfig.inputs, functionConfig.outputs,
+                   functionConfig.devices);
 
         //cerr << SummarizeGraphDef(*this->graph);
     }

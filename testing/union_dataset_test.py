@@ -23,6 +23,11 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         ds.record_row('row2', [['colA', 'A', 1], ['colC', 'C', 1]])
         ds.commit()
 
+        ds = mldb.create_dataset({'id' : 'ds4', 'type' : 'sparse.mutable'})
+        for num in range(1,1000):
+            ds.record_row('row' + str(num), [['colA', 'AA', 1]])
+        ds.commit()
+
     def test_dataset(self):
         mldb.put('/v1/datasets/union_ds', {
             'type' : 'union',
@@ -65,6 +70,20 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             ['1.row1', 'AA', 'BB', None],
             ['1.row2', 'A', None, 'C']
         ])
+
+    def test_dataset_stream(self):
+        mldb.put('/v1/datasets/union_ds', {
+            'type' : 'union',
+            'params' : {
+                'datasets' : [{'id' : 'ds1'}, {'id' : 'ds4'}]
+            }
+        })
+
+        res = mldb.query("SELECT colA, count(*) FROM union_ds GROUP BY colA")
+        self.assertTableResultEquals(res, [
+            [   "_rowName", "colA", "count(*)" ],
+            [   "\"[\"\"A\"\"]\"", "A", 1 ],
+            [   "\"[\"\"AA\"\"]\"", "AA", 999]])        
 
     @unittest.skip("Unimplemented support")
     def test_query_from_ds(self):

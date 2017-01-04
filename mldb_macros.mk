@@ -5,9 +5,13 @@
 #      - manual: run the test manually
 #      - virtualenv: set up the Python virtualenv even for a non-python test
 #      - valgrind: run the test within valgrind
+# $(4) TODO: used but undocumented
+# $(5) Passed to mldb_runner as --script-args $(5) if defined
+#
 
 define mldb_unit_test
 ifneq ($(PREMAKE),1)
+$$(if $(trace),$$(warning called mldb_unit_test "$(1)" "$(2)" "$(3)" "$(4)" "$(5)"))
 
 #TEST_$(1)_COMMAND:=$$(BIN)/mldb_runner -h localhost -p '11700-12700' --run-script $(CWD)/$(1)
 
@@ -17,7 +21,7 @@ TEST_$(1)_SETUP := $$(if $$(findstring .py,$(1))$$(findstring virtualenv,$(3)),.
 
 # Command to actually run for the test.  Constructs the call to mldb_runner and the
 # command line options to pass to it.
-TEST_$(1)_RAW_COMMAND := $(call TEST_PRE_OPTIONS,$(3)) $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(foreach plugin,$(2),--plugin-directory file://$(PLUGINS)/$$(plugin)) --run-script $(CWD)/$(1) --mute-final-output
+TEST_$(1)_RAW_COMMAND := $(call TEST_PRE_OPTIONS,$(3)) $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(foreach plugin,$(2),--plugin-directory file://$(PLUGINS)/$$(plugin)) --run-script $(CWD)/$(1) --mute-final-output --config-path mldb/container_files/mldb.conf $(MLDB_EXTRA_FLAGS)
 
 # Command that is run in the shell.  This takes care of printing the right message
 # out and capturing the output in the right place.
@@ -30,7 +34,7 @@ $(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $(TESTS)/$(1).timing`$(COLOR_RESET)	$(COLOR_GREEN)$(1) passed $(COLOR_RESET)")
 
 # If ARGS
-TEST_$(1)_ARGS := $$(if $$(findstring $(ARGS), $(ARGS)), $(ARGS), )
+TEST_$(1)_ARGS := $$(if $$(findstring $(ARGS), $(ARGS)), $(ARGS),$(if $(5),--script-args '$(5)'))
 TEST_$(1)_DEPS := $(2)
 
 $(1):	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$(MLDB_PLUGIN_FILES_$$(plugin)))

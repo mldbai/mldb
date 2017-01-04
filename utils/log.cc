@@ -20,6 +20,8 @@ namespace {
             return spdlog::level::warn;
         else if (level == "error")
             return spdlog::level::err;
+        else if (level == "trace")
+            return spdlog::level::trace;
         else
             throw MLDB::Exception("Unknown level '" + level
                                 + "' expected one of \"debug\", \"info\", \"warn\" or \"error\"");
@@ -46,7 +48,11 @@ std::shared_ptr<spdlog::logger> getMldbLog(const std::string & loggerName) {
     auto logger = spdlog::get(loggerName);
     if (!logger) {
         auto config = Config::get();
-        std::string level = config ? config->getString("logging." + loggerName + ".level", "info") : "info";
+
+        std::string level = config ? 
+            config->getString("logging." + loggerName + ".level", 
+                              config->getString("logging.level", "info"))
+            : "info";
         std::string className = loggerName.substr(loggerName.find_last_of(':') + 1);
         logger = getConfiguredLogger(loggerName, className + std::string(" [") + timestampFormat + "] %l %v");
         logger->set_level(stringToLevel(level));
