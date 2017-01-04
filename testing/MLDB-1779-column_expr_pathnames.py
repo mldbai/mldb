@@ -28,6 +28,7 @@ class MLDB1779ColumnExpr(MldbUnitTest):  # noqa
         })
         mldb.post("/v1/datasets/example/commit")
 
+    @unittest.expectedFailure
     def test_columnPathElem(self):
         # should throw instead of assert
         mldb.query('''

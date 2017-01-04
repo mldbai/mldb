@@ -4061,6 +4061,7 @@ bind(SqlBindingScope & scope) const
                     if (&result == &storage) {
                         if (storage.isAtom()) {
                             // Put directly in place
+                            ExcAssertGreater(columnNameOut->size(), 0);
                             output.emplace_back(std::move(*columnNameOut),
                                                 storage.stealAtom(),
                                                 storage.getEffectiveTimestamp());
