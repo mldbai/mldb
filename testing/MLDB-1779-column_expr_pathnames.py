@@ -28,14 +28,13 @@ class MLDB1779ColumnExpr(MldbUnitTest):  # noqa
         })
         mldb.post("/v1/datasets/example/commit")
 
-    @unittest.expectedFailure
     def test_columnPathElem(self):
-        # should throw instead of assert
-        mldb.query('''
-            select COLUMN EXPR (AS columnPathElement(1)
-                WHERE columnName() LIKE '%topics%Junk%') from example
-        ''')
-
+        msg = "Cannot have a NULL column name"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.query('''
+                select COLUMN EXPR (AS columnPathElement(1)
+                    WHERE columnName() LIKE '%topics%Junk%') from example
+            ''')
 
     def test_it(self):
         self.assertTableResultEquals(
