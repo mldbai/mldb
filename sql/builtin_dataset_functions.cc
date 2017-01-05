@@ -106,8 +106,8 @@ BoundTableExpression merge(const SqlBindingScope & context,
                            const ExpressionValue & options,
                            const Utf8String& alias)
 {
-    if (args.size() < 2)
-        throw HttpReturnException(500, "merge() needs at least 2 arguments");
+    if (args.size() < 1)
+        throw HttpReturnException(500, "merge() needs at least 1 argument");
     if(!options.empty())
         throw HttpReturnException(500, "merge() does not take any options");
 

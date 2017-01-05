@@ -9,7 +9,8 @@ export IPYTHON_NB_LISTEN_PORT = 13020
 export IPYTHON_NB_PREFIX = ipy
 export MLDB_CREDENTIALS_PATH = file://$(MLDB_DATA_DIR)/.mldb_credentials
 export MLDB_DATA_DIR = /mldb_data
-export MLDB_EXTRA_FLAGS =  # these flags will be passed as-is to the mldb_runner executable
+#extra flags that varies for release / debug build are specified in release.mk
+export MLDB_EXTRA_FLAGS = # passed as-is to the mldb_runner executable
 export MLDB_GLOBAL_PLUGINS_PATH = file:///opt/mldb/plugins
 export MLDB_LOCAL_PLUGINS_PATH = file:///mldb_data/plugins/autoload
 export MLDB_LOGFILE = /var/log/mldb_runner.log

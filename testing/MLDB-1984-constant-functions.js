@@ -14,7 +14,7 @@ function assertEqual(expr, val, msg)
 var query = "SELECT tokenize('a,b,c') AS *";
 var tokQuery = "SELECT tokenize('a,b,c') AS tok";
 
-var analysis = mldb.get("/v1/query", { q: "SELECT static_expression_info(pi())[metadata][isConstant] as isRow", format: 'table', headers: false, rowNames: false });
+var analysis = mldb.get("/v1/query", { q: "SELECT static_expression_info(pi())[\"info\"][isConstant] as isRow", format: 'table', headers: false, rowNames: false });
 
 mldb.log(analysis.json);
 

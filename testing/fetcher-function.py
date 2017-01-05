@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # fetcher-function.py
 # Francois-Michel L'Heureux, 2016-09-13
@@ -49,6 +50,20 @@ class FetcherFunction(MldbUnitTest):  # noqa
         cols = res[0]['columns']
         self.assertTrue('content' in [cols[0][0], cols[1][0]])
         self.assertTrue('error' in [cols[0][0], cols[1][0]])
+
+    def test_builtin_utf8(self):
+        # MLDB-2098
+
+        # can't put it on aws because é becomes %C3%A9
+        res = mldb.query("SELECT fetcher('file://mldb/testing/utéf8.png')")
+        self.assertGreater(len(res[1][1]['blob']), 10)
+        self.assertTrue(res[1][2] is None)
+
+    def test_builtin_utf8_unexisting(self):
+        # there was an issue when an unfound file had utf-8 chars
+        res = mldb.query("SELECT fetcher('file://mldb/testing/utéf8_unexisting.jpg')")
+        self.assertTrue(res[1][1] is None)
+        self.assertTrue(type(res[1][2]) is unicode)
 
 
 if __name__ == '__main__':

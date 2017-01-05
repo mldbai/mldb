@@ -134,10 +134,12 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
         expected = [
             [
                 "_rowName",
+                "isConstant",
                 "type"
             ],
             [
                 "row",
+                0,
                 "MLDB::VariantExpressionValueInfo"
             ]
         ]
@@ -147,8 +149,8 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
     def test_type_same(self):
         res = mldb.query("select static_type(CASE x WHEN 'patate' THEN 0 WHEN 'banane' THEN 1 END) as * FROM test");
         
-        expected = [["_rowName", "kind", "scalar", "type"],
-                    ["row", "scalar", "long", "MLDB::IntegerValueInfo"]]
+        expected = [["_rowName", "isConstant", "kind", "scalar", "type"],
+                    ["row", 0, "scalar", "long", "MLDB::IntegerValueInfo"]]
 
         self.assertTableResultEquals(res, expected)
 
@@ -160,6 +162,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "_rowName",
                 "0.columnName",
                 "0.sparsity",
+                "0.valueInfo.isConstant",
                 "0.valueInfo.kind",
                 "0.valueInfo.scalar",
                 "0.valueInfo.type"
@@ -168,6 +171,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "row",
                 "a",
                 "dense",
+                0,
                 "scalar",
                 "long",
                 "MLDB::VariantExpressionValueInfo"
@@ -184,6 +188,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "_rowName",
                 "0.columnName",
                 "0.sparsity",
+                "0.valueInfo.isConstant",
                 "0.valueInfo.kind",
                 "0.valueInfo.scalar",
                 "0.valueInfo.type"
@@ -192,6 +197,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "row",
                 "a",
                 "sparse",
+                1,
                 "scalar",
                 "long",
                 "MLDB::IntegerValueInfo"
@@ -208,6 +214,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "_rowName",
                 "0.columnName",
                 "0.sparsity",
+                "0.valueInfo.isConstant",
                 "0.valueInfo.kind",
                 "0.valueInfo.scalar",
                 "0.valueInfo.type",
@@ -221,6 +228,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "row",
                 "a",
                 "dense",
+                0,
                 "scalar",
                 "long",
                 "MLDB::VariantExpressionValueInfo",

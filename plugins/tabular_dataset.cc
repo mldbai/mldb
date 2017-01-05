@@ -131,8 +131,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
             ExcAssertEqual(startAt, rowStreamTotalRows);
 
-            //cerr << "returned " << streams.size() << " streams with offsets "
-            //     << jsonEncode(*streamOffsets) << endl;
+            DEBUG_MSG(store->logger) << "returned " << streams.size() << " streams with offsets "
+                                     << jsonEncode(*streamOffsets);
 
             return streams;
         }
@@ -852,9 +852,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         parallelMap(0, chunks.size(), indexChunk);
         
 #if 0
-        //cerr << "creating row index" << endl;
         rowIndex.reserve(4 * totalRows / 3);
-        //cerr << "rowIndex capacity is " << rowIndex.capacity() << endl;
         for (unsigned i = 0;  i < chunks.size();  ++i) {
             for (unsigned j = 0;  j < chunks[i].rowCount();  ++j) {
                 RowPath rowNameStorage;

@@ -98,35 +98,6 @@ DECLARE_ENUM_DESCRIPTION(OrderByDirection);
 
 typedef std::function<ExpressionValue (const Utf8String & paramName)> BoundParameters;
 
-
-/*****************************************************************************/
-/* BOUND EXPRESSION METADATA                                                 */
-/*****************************************************************************/
-
-/** Metadata about a bound expression.  Mostly used for static analysis. */
-
-struct BoundExpressionMetadata {
-
-    BoundExpressionMetadata()
-        : isConstant(false)
-    {
-    }
-
-    BoundExpressionMetadata(bool isConstant)
-        : isConstant(isConstant)
-    {
-    }
-
-    /// Is this expression constant, in other words it always returns the
-    /// same value that is independent of input?  If this is true, the
-    /// exec function must not access or use its SqlRowScope
-    /// argument at all.
-    bool isConstant;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(BoundExpressionMetadata);
-
-
 /*****************************************************************************/
 /* BOUND ROW EXPRESSION                                                      */
 /*****************************************************************************/
@@ -158,8 +129,7 @@ struct BoundSqlExpression {
 
     BoundSqlExpression(ExecFunction exec,
                        const SqlExpression * expr,
-                       std::shared_ptr<ExpressionValueInfo> info,
-                       BoundExpressionMetadata metadata = BoundExpressionMetadata());
+                       std::shared_ptr<ExpressionValueInfo> info);
     
     operator bool () const { return !!exec; };
 
@@ -168,9 +138,6 @@ struct BoundSqlExpression {
 
     /// What kind of value does this return?
     std::shared_ptr<ExpressionValueInfo> info;
-
-    /// Metadata for the expression
-    BoundExpressionMetadata metadata;
 
     /** Attempt to extract the value of this expression as a constant.  Only
         really makes sense when metadata.isConstant is true.
@@ -351,9 +318,6 @@ struct BoundFunction {
 
     /// If defined, overrides the default bindFunction call.
     BindFunction bindFunction;
-
-    /// Extra metadata about the result
-    BoundExpressionMetadata resultMetadata;
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const

@@ -57,7 +57,7 @@ ApplyStopWordsFunction::
 ApplyStopWordsFunction(MldbServer * owner,
                        PolyConfig config,
                        const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     //functionConfig = config.params.convert<ApplyStopWordsFunctionConfig>();
 
@@ -127,7 +127,7 @@ StemmerFunction::
 StemmerFunction(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
@@ -157,7 +157,7 @@ call(Words input) const
                        Date ts)
         {
             string str = columnName.toSimpleName().stealRawString();
-            // cerr << "got: " << str << endl;
+
             const sb_symbol * stemmed = sb_stemmer_stem(stemmer.get(),
                     (const unsigned char*)str.c_str(), str.size());
 
@@ -216,7 +216,7 @@ StemmerOnDocumentFunction::
 StemmerOnDocumentFunction(MldbServer * owner,
                           PolyConfig config,
                           const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 

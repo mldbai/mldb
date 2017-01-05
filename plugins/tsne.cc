@@ -409,7 +409,7 @@ TsneEmbed::
 TsneEmbed(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<TsneEmbedConfig>();
     itl = std::make_shared<TsneItl>(functionConfig.modelFileUrl);
