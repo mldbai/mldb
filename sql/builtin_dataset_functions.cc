@@ -86,10 +86,13 @@ BoundTableExpression transpose(const SqlBindingScope & context,
          throw HttpReturnException(500, "transpose() does not take any options");
 
     std::shared_ptr<Dataset> ds;
-    if (args[0].dataset)
+    if (args[0].dataset) {
         ds = createTransposedDatasetFn(context.getMldbServer(), args[0].dataset);
-    else
+    }
+    else {
+        ExcAssert(args[0].table);
         ds = createTransposedTableFn(context.getMldbServer(), args[0].table);
+    }
 
     return bindDataset(ds, alias); 
 }
