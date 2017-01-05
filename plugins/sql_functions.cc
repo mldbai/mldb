@@ -25,6 +25,7 @@
 #include "mldb/utils/log.h"
 #include "mldb/rest/cancellation_exception.h"
 #include <memory>
+#include "mldb/builtin/sub_dataset.h"
 
 using namespace std;
 
@@ -705,6 +706,27 @@ run(const ProcedureRunConfig & run,
 
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+
+    auto datasetInterface = boundDataset.dataset;
+    if (!datasetInterface) {
+        ExcAssert(boundDataset.table);
+        SqlBindingScope dummyScope;
+        auto generator = boundDataset.table.runQuery(dummyScope,
+                                       SelectExpression::STAR,
+                                       WhenExpression::TRUE,
+                                       *SqlExpression::TRUE,
+                                       OrderByExpression(),
+                                       0, -1);
+
+        SqlRowScope fakeRowScope;
+
+        // Generate all outputs of the query
+        std::vector<NamedRowValue> rows
+            = generator(-1, fakeRowScope);
+
+        datasetInterface = std::make_shared<SubDataset>(server, rows);
+    }
+
     if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
         Dataset::MultiChunkRecorder recorder
             = output->getChunkRecorder();
@@ -768,7 +790,7 @@ run(const ProcedureRunConfig & run,
         DEBUG_MSG(logger) << "performing dataset transform";
    
         if (!BoundSelectQuery(runProcConf.inputData.stm->select,
-                              *boundDataset.dataset,
+                              *datasetInterface,
                               boundDataset.asName,
                               runProcConf.inputData.stm->when,
                               *runProcConf.inputData.stm->where,
@@ -814,7 +836,7 @@ run(const ProcedureRunConfig & run,
         DEBUG_MSG(logger) << "performing dataset transform with group by";
 
         if(!BoundGroupByQuery(runProcConf.inputData.stm->select,
-                          *boundDataset.dataset,
+                          *datasetInterface,
                           boundDataset.asName,
                           runProcConf.inputData.stm->when,
                           *runProcConf.inputData.stm->where,
