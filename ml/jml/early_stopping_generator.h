@@ -15,6 +15,17 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* EARLY_STOPPING_GENERATOR_CONFIG                                           */
+/*****************************************************************************/
+struct Early_Stopping_Generator_Config : Classifier_Generator_Config {
+    float validate_split;
+
+    Early_Stopping_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Early_Stopping_Generator_Config);
 
 /*****************************************************************************/
 /* EARLY_STOPPING_GENERATOR                                                  */
@@ -28,13 +39,7 @@ class Early_Stopping_Generator : public Classifier_Generator {
 public:
     virtual ~Early_Stopping_Generator();
 
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys) override;
-    
     /** Return to the default configuration. */
-    virtual void defaults() override;
 
     /** Return possible configuration options. */
     virtual Config_Options options() const override;
@@ -53,8 +58,6 @@ public:
              const distribution<float> & ex_weights,
              const std::vector<Feature> & features,
              int recursion = 0) const override;
-    
-    float validate_split;
 };
 
 } // namespace ML

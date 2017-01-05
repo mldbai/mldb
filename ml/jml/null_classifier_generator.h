@@ -20,6 +20,11 @@ namespace ML {
 
 
 /*****************************************************************************/
+/* NULL_CLASSIFIER_GENERATOR_CONFIG                                          */
+/*****************************************************************************/
+typedef Classifier_Generator_Config Null_Classifier_Generator_Config;
+
+/*****************************************************************************/
 /* NULL_CLASSIFIER_GENERATOR                                                 */
 /*****************************************************************************/
 
@@ -32,17 +37,6 @@ public:
     Null_Classifier_Generator();
 
     virtual ~Null_Classifier_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys) override;
-    
-    /** Return to the default configuration. */
-    virtual void defaults() override;
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */

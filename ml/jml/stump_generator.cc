@@ -26,7 +26,10 @@
 #include "mldb/jml/utils/info.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/any_impl.h"
 #include <cassert>
+#include "mldb/server/mldb_server.h"
 
 using namespace std;
 
@@ -56,6 +59,72 @@ struct Ticks {
 }
 
 /*****************************************************************************/
+/* STUMP_GENERATOR_CONFIG                                                    */
+/*****************************************************************************/
+Stump_Generator_Config::
+Stump_Generator_Config() :
+    trace(0), ignore_highest(0.0), committee_size(1),
+    update_alg(Stump::NORMAL), feature_prop(1)
+{
+}
+
+void
+Stump_Generator_Config::
+defaults()
+{
+    Classifier_Generator_Config::defaults();
+    committee_size = 1;
+    feature_prop = 1.0;
+    trace = 0;
+    update_alg = Stump::NORMAL;
+    ignore_highest = 0.0;
+}
+
+void
+Stump_Generator_Config::
+validateFct()
+{
+    Classifier_Generator_Config::validateFct();
+    if (committee_size < 1) {
+        throw Exception("committee_size must be greater or equal to 1");
+    }
+    if (feature_prop < 0 || feature_prop > 1) {
+        throw Exception("feature_prop must be between 0 and 1");
+    
+    }
+    if (ignore_highest < 0 || ignore_highest > 1) {
+        throw Exception("ignore_highest must be between 0 and 1");
+    }
+    if (trace < 0) {
+        throw Exception("trace must be greater or equal to 0");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Stump_Generator_Config);
+
+Stump_Generator_ConfigDescription::
+Stump_Generator_ConfigDescription()
+{
+    addField("committee_size",
+             &Stump_Generator_Config::committee_size,
+             "learn a committee of size N at once", 1);
+    addField("feature_prop",
+             &Stump_Generator_Config::feature_prop,
+             "try lazy training on only this proportion of features per iter",
+             1);
+    addField("trace",
+             &Stump_Generator_Config::trace,
+             "trace training (very detailed) to given level", 0);
+    addField("update_alg",
+             &Stump_Generator_Config::update_alg,
+             "select the harshness of the update algorithm", Stump::NORMAL);
+    addField("ignore_highest",
+             &Stump_Generator_Config::ignore_highest,
+             "ignore the examples witht the highest N% of weights", 0);
+    addParent<ClassifierGeneratorConfig>();
+}
+
+/*****************************************************************************/
 /* STUMP_GENERATOR                                                           */
 /*****************************************************************************/
 
@@ -75,11 +144,6 @@ configure(const Configuration & config, vector<string> & unparsedKeys)
 {
     Classifier_Generator::configure(config, unparsedKeys);
     
-    config.findAndRemove(committee_size, "committee_size", unparsedKeys);
-    config.findAndRemove(feature_prop, "feature_prop", unparsedKeys);
-    config.findAndRemove(trace, "trace", unparsedKeys);
-    config.findAndRemove(update_alg, "update_alg", unparsedKeys);
-    config.findAndRemove(ignore_highest, "ignore_highest", unparsedKeys);
 }
 
 void
@@ -92,26 +156,6 @@ defaults()
     trace = 0;
     update_alg = Stump::NORMAL;
     ignore_highest = 0.0;
-}
-
-Config_Options
-Stump_Generator::
-options() const
-{
-    Config_Options result = Classifier_Generator::options();
-    result
-        .add("committee_size", committee_size, ">=1",
-             "learn a committee of size N at once")
-        .add("feature_prop", feature_prop, "0.0<N<=1.0",
-             "try lazy training on only this proportion of features per iter")
-        .add("update_alg", update_alg,
-             "select the harshness of the update algorithm")
-        .add("ignore_highest", ignore_highest, "0.0<=N<1.0",
-             "ignore the examples witht the highest N% of weights")
-        .add("trace", trace, "0-",
-             "trace training (very detailed) to given level");
-
-    return result;
 }
 
 void
@@ -131,6 +175,13 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features_, int) const
 {
+    auto cfg = static_cast<Stump_Generator_Config>(config);
+    const auto trace = cfg.trace;
+    const auto ignore_highest = cfg.ignore_highest;
+    const auto committee_size = cfg.committee_size;
+    const auto & update_alg = cfg.update_alg;
+    const auto feature_prop = cfg.feature_prop;
+
     vector<Feature> features = features_;
 
     boost::timer timer;

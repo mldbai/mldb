@@ -18,6 +18,25 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* BOOSTING_GENERATOR_CONFIG                                                 */
+/*****************************************************************************/
+struct Boosting_Generator_Config : Early_Stopping_Generator_Config {
+    unsigned max_iter;
+    unsigned min_iter;
+    Cost_Function cost_function;
+    float ignore_highest;
+    Stump::Update update_alg;
+    int short_circuit_window;
+    bool trace_training_acc;
+
+    std::shared_ptr<Classifier_Generator> weak_learner;
+
+    Boosting_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Boosting_Generator_Config);
 
 /*****************************************************************************/
 /* BOOSTING_GENERATOR                                                        */
@@ -32,17 +51,6 @@ public:
     Boosting_Generator();
 
     virtual ~Boosting_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys) override;
-    
-    /** Return to the default configuration. */
-    virtual void defaults() override;
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -66,16 +74,6 @@ public:
                         const Training_Data & training_data,
                         boost::multi_array<float, 2> & weights,
                         const std::vector<Feature> & features) const override;
-
-    std::shared_ptr<Classifier_Generator> weak_learner;
-
-    unsigned max_iter;
-    unsigned min_iter;
-    Cost_Function cost_function;
-    float ignore_highest;
-    Stump::Update update_alg;
-    int short_circuit_window;
-    bool trace_training_acc;
 
     std::shared_ptr<Classifier_Impl>
     train_iteration(Thread_Context & context,

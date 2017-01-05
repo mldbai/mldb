@@ -18,6 +18,21 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* STUMP_GENERATOR_CONFIG                                                    */
+/*****************************************************************************/
+struct Stump_Generator_Config : Classifier_Generator_Config {
+    int trace;
+    float ignore_highest;
+    int committee_size;
+    Stump::Update update_alg;
+    float feature_prop;
+
+    Stump_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Stump_Generator_Config);
 
 /*****************************************************************************/
 /* STUMP_GENERATOR                                                           */
@@ -32,17 +47,6 @@ public:
     Stump_Generator();
 
     virtual ~Stump_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys);
-    
-    /** Return to the default configuration. */
-    virtual void defaults();
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -69,12 +73,6 @@ public:
              const std::vector<Feature> & features,
              float & Z,
              int recursion = 0) const;
-
-    int trace;
-    float ignore_highest;
-    int committee_size;
-    Stump::Update update_alg;
-    float feature_prop;
 
     /* Once init has been called, we clone our potential models from this
        one. */

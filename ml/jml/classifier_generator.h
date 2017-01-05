@@ -15,10 +15,27 @@
 #include "mldb/jml/utils/configuration.h"
 #include "mldb/ml/jml/classifier.h"
 #include "mldb/ml/jml/thread_context.h"
+#include "mldb/types/structure_description.h"
 
 
 namespace ML {
 
+/*****************************************************************************/
+/* CLASSIFIER_GENERATOR_CONFIG                                               */
+/*****************************************************************************/
+struct Classifier_Generator_Config {
+    int verbosity;
+    bool profile;
+    bool validate;
+
+    std::vector<std::string> unparsedKeys;
+
+    Classifier_Generator_Config();
+    virtual ~Classifier_Generator_Config() {}
+    virtual void defaults();
+    virtual void validateFct(); // here to counter polymorphism limitations of variables
+};
+DECLARE_STRUCTURE_DESCRIPTION(Classifier_Generator_Config);
 
 /*****************************************************************************/
 /* CLASSIFIER_GENERATOR                                                      */
@@ -34,8 +51,7 @@ public:
 
     /** Configure the generator with its parameters. */
     virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys);
+    configure(const Classifier_Generator_Config & config);
     
     /** Return to the default configuration. */
     virtual void defaults();
@@ -107,14 +123,7 @@ public:
     /** Log a message for the given module at the given debug level. */
     std::ostream & log(const std::string & module, int level) const;
 
-    /** Current verbosity level. */
-    int verbosity;
-
-    /** Are we profiling? */
-    bool profile;
-
-    /** Do we perform validation as we go? */
-    bool validate;
+    Classifier_Generator_Config config;
 
     /** Feature space we are using. */
     std::shared_ptr<const Feature_Space> feature_space;

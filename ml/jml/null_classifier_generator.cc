@@ -34,28 +34,6 @@ Null_Classifier_Generator::~Null_Classifier_Generator()
 
 void
 Null_Classifier_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Classifier_Generator::configure(config, unparsedKeys);
-}
-
-void
-Null_Classifier_Generator::
-defaults()
-{
-    Classifier_Generator::defaults();
-}
-
-Config_Options
-Null_Classifier_Generator::
-options() const
-{
-    Config_Options result = Classifier_Generator::options();
-    return result;
-}
-
-void
-Null_Classifier_Generator::
 init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);

@@ -20,12 +20,59 @@
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/rest/service_peer.h"
 
 
 using namespace std;
 
 
 namespace ML {
+
+/*****************************************************************************/
+/* EARLY_STOPPING_GENERATOR_CONFIG                                           */
+/*****************************************************************************/
+Bagging_Generator_Config::
+Bagging_Generator_Config() : num_bags(10), validation_split(0.35)
+{
+    weak_learner.reset();
+}
+
+void
+Bagging_Generator_Config::
+defaults()
+{
+    Classifier_Generator_Config::defaults();
+    num_bags = 10;
+    validation_split = 0.35;
+    weak_learner.reset();
+}
+
+void
+Bagging_Generator_Config::
+validateFct()
+{
+    Classifier_Generator_Config::validateFct();
+    // TODO move validation here
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Bagging_Generator_Config);
+
+Bagging_Generator_ConfigDescription::
+Bagging_Generator_ConfigDescription()
+{
+    addField("num_bags",
+             &Bagging_Generator_Config::num_bags,
+             "number of bags to divide classifier into", 10);
+    addField("validate_split",
+             &Bagging_Generator_Config::validation_split,
+             "how much of training data to hold off as validation data",
+             (float)0.35);
+    // TODO
+//         .subconfig("weak_leaner", weak_learner,
+//                    "weak learner that produces each bag");
+    addParent<Classifier_Generator_Config>();
+}
 
 /*****************************************************************************/
 /* BAGGING_GENERATOR                                                         */
@@ -43,47 +90,11 @@ Bagging_Generator::~Bagging_Generator()
 
 void
 Bagging_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Classifier_Generator::configure(config, unparsedKeys);
-    config.findAndRemove(num_bags, "num_bags", unparsedKeys);
-    config.findAndRemove(validation_split, "validation_split", unparsedKeys);
-
-    weak_learner = get_trainer("weak_learner", config);
-
-}
-
-void
-Bagging_Generator::
-defaults()
-{
-    num_bags = 10;
-    validation_split = 0.35;
-    weak_learner.reset();
-}
-
-Config_Options
-Bagging_Generator::
-options() const
-{
-    Config_Options result = Classifier_Generator::options();
-    result
-        .add("num_bags", num_bags, "N>=1",
-             "number of bags to divide classifier into")
-        .add("validation_split", validation_split, "0<N<=1",
-             "how much of training data to hold off as validation data")
-        .subconfig("weak_leaner", weak_learner,
-                   "weak learner that produces each bag");
-    
-    return result;
-}
-
-void
-Bagging_Generator::
 init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
-    weak_learner->init(fs, predicted);
+    auto & cfg = static_cast<Bagging_Generator_Config&>(config);
+    cfg.weak_learner->init(fs, predicted);
 }
 
 namespace {
@@ -221,6 +232,13 @@ generate(Thread_Context & context,
          const std::vector<Feature> & features,
          int recursion) const
 {
+    const auto & cfg = static_cast<const Bagging_Generator_Config&>(config);
+    auto num_bags = cfg.num_bags;
+    auto validation_split = cfg.validation_split;
+    auto & weak_learner = cfg.weak_learner;
+    auto verbosity = cfg.verbosity;
+    auto profile = cfg.profile;
+
     boost::timer timer;
 
     cerr << "(ex_weights != 0).count() = "

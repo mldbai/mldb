@@ -18,6 +18,8 @@
 #include "stump_training_core.h"
 #include "mldb/jml/stats/distribution_ops.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/rest/service_peer.h"
 
 
 using namespace std;
@@ -25,6 +27,46 @@ using namespace std;
 
 namespace ML {
 
+/*****************************************************************************/
+/* NAIVE_BAYES_GENERATOR_CONFIG                                              */
+/*****************************************************************************/
+Naive_Bayes_Generator_Config::
+Naive_Bayes_Generator_Config() : trace(0), feature_prop(1)
+{
+}
+
+void
+Naive_Bayes_Generator_Config::
+defaults()
+{
+    Classifier_Generator_Config::defaults();
+    trace = 0;
+    feature_prop = 1;
+}
+
+void
+Naive_Bayes_Generator_Config::
+validateFct()
+{
+    Classifier_Generator_Config::validateFct();
+    if (trace < 0) {
+        throw Exception("trace must be greater or equal to 0");
+    }
+    if (feature_prop < 0 || feature_prop > 1) {
+        throw Exception("feature_prop must be between 0 and 1")
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Naive_Bayes_Generator_Config);
+
+Naive_Bayes_Generator_ConfigDescription::
+Naive_Bayes_Generator_ConfigDescription()
+{
+    addField("trace",
+             &Naive_Bayes_Generator_Config::trace,
+             "trace execution of training in a very fine-grained fashion", 0);
+    addParent<ClassifierGeneratorConfig>();
+}
 
 /*****************************************************************************/
 /* NAIVE_BAYES_GENERATOR                                                     */
@@ -42,38 +84,6 @@ Naive_Bayes_Generator::~Naive_Bayes_Generator()
 
 void
 Naive_Bayes_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Classifier_Generator::configure(config, unparsedKeys);
-    config.findAndRemove(trace, "trace", unparsedKeys);
-    config.findAndRemove(feature_prop, "feature_prop", unparsedKeys);
-}
-
-void
-Naive_Bayes_Generator::
-defaults()
-{
-    Classifier_Generator::defaults();
-    trace = 0;
-    feature_prop = 1.0;
-}
-
-Config_Options
-Naive_Bayes_Generator::
-options() const
-{
-    Config_Options result = Classifier_Generator::options();
-    result
-        .add("trace", trace, "0-",
-             "trace execution of training in a very fine-grained fashion")
-        .add("feature_prop", feature_prop, "0.0<N<=1.0",
-             "which proportion of features do we look at");
-
-    return result;
-}
-
-void
-Naive_Bayes_Generator::
 init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
@@ -87,6 +97,8 @@ generate(Thread_Context & context,
          const distribution<float> & training_ex_weights,
          const std::vector<Feature> & features, int) const
 {
+    const auto verbosity = config.verbosity;
+
     boost::timer timer;
 
     Feature predicted = model.predicted();

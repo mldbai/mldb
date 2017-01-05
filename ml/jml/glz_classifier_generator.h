@@ -18,6 +18,26 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* GLZ_CLASSIFIER_GENERATOR_CONFIG                                           */
+/*****************************************************************************/
+struct GLZ_Classifier_Generator_Config : Classifier_Generator_Config {
+    Link_Function link_function;
+    bool add_bias;          ///< Do we add and learn a bias term?
+    bool do_decode;         ///< Do we run a decoder at all?
+    bool normalize;         ///< Do we normalize the feature matrix beforehand?
+    Regularization regularization;  ///< Regularization algorithm to use if any
+    double regularization_factor; ///< regularization factor to use
+    int max_regularization_iteration; ///< Maximum number of iterations in regularization
+    double regularization_epsilon; ///< Epsilon to use when looking for convergence in regularization
+    bool condition;         ///< Do we condition the feature matrix beforehand?
+    float feature_proportion;
+
+    GLZ_Classifier_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(GLZ_Classifier_Generator_Config);
 
 /*****************************************************************************/
 /* GLZ_CLASSIFIER_GENERATOR                                                  */
@@ -32,17 +52,6 @@ public:
     GLZ_Classifier_Generator();
 
     virtual ~GLZ_Classifier_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys) override;
-    
-    /** Return to the default configuration. */
-    virtual void defaults() override;
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -59,18 +68,6 @@ public:
              const std::vector<Feature> & features,
              float & Z,
              int) const override;
-
-    bool add_bias;          ///< Do we add and learn a bias term?
-    bool do_decode;         ///< Do we run a decoder at all?
-    bool normalize;         ///< Do we normalize the feature matrix beforehand?
-    Regularization regularization;  ///< Regularization algorithm to use if any
-    double regularization_factor; ///< regularization factor to use
-    int max_regularization_iteration; ///< Maximum number of iterations in regularization
-    double regularization_epsilon; ///< Epsilon to use when looking for convergence in regularization
-    bool condition;         ///< Do we condition the feature matrix beforehand?
-
-    Link_Function link_function;
-    float feature_proportion;
 
     /* Once init has been called, we clone our potential models from this
        one. */

@@ -10,6 +10,7 @@
 #include "classifier_generator.h"
 #include "mldb/ml/jml/registry.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/types/basic_value_descriptions.h"
 
 
 using namespace std;
@@ -17,6 +18,59 @@ using namespace std;
 
 namespace ML {
 
+/*****************************************************************************/
+/* CLASSIFIER_GENERATOR_CONFIG                                               */
+/*****************************************************************************/
+Classifier_Generator_Config::
+Classifier_Generator_Config() :
+    verbosity(2), profile(false), validate(false)
+{
+}
+
+void
+Classifier_Generator_Config::
+defaults()
+{
+    verbosity = 2;
+    profile = false;
+    validate = false;
+}
+
+void
+Classifier_Generator_Config::
+validateFct()
+{
+    if (verbosity < 0 || verbosity > 5) {
+        throw Exception("Verbosity must be between 0 and 5.");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Classifier_Generator_Config);
+
+Classifier_Generator_ConfigDescription::
+Classifier_Generator_ConfigDescription()
+{
+    addField("verbosity", &Classifier_Generator_Config::verbosity,
+             "verbosity of information from training (0-5)", 2);
+    addField("profile", &Classifier_Generator_Config::profile,
+             "whether or not to profile", false);
+    addField("validate", &Classifier_Generator_Config::validate,
+             "perform expensive internal validation", false);
+
+    onUnknownField = [] (Classifier_Generator_Config * config,
+                         JsonParsingContext & context)
+    {
+        config->unparsedKeys.push_back(context.fieldName());
+    };
+
+    // If redefined in children classes, do not forget to call back the base
+    // class validate.
+    onPostValidate = [&] (Classifier_Generator_Config * cfg,
+                          JsonParsingContext & context)
+    {
+        cfg->validateFct();
+    };
+}
 
 /*****************************************************************************/
 /* CLASSIFIER_GENERATOR                                                      */
@@ -38,34 +92,16 @@ init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 
 void
 Classifier_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
+configure(const Classifier_Generator_Config & config)
 {
-    config.findAndRemove(verbosity, "verbosity", unparsedKeys);
-    config.findAndRemove(profile, "profile", unparsedKeys);
-    config.findAndRemove(validate, "validate", unparsedKeys);
+    this->config = config;
 }
 
 void
 Classifier_Generator::
 defaults()
 {
-    verbosity = 2;
-    profile = false;
-    validate = false;
-}
-
-Config_Options
-Classifier_Generator::
-options() const
-{
-    Config_Options result;
-    result
-        .add("verbosity", verbosity, "0-5",
-             "verbosity of information from training")
-        .add("profile", profile, "whether or not to profile")
-        .add("validate", validate, "perform expensive internal validation");
-
-    return result;
+    config.defaults();
 }
 
 std::shared_ptr<Classifier_Impl>
@@ -201,7 +237,7 @@ log(const std::string & module, int level) const
 
     static MLDB::filter_ostream cnull("");
 
-    if (level <= verbosity)
+    if (level <= config.verbosity)
         return cerr;
     else return cnull;
 }
@@ -247,29 +283,31 @@ get_type(const std::string & name, const Configuration & config)
 std::shared_ptr<Classifier_Generator>
 get_trainer(const std::string & name, const Configuration & config)
 {
-    std::string type, name2;
-    std::tie(type, name2) = get_type(name, config);
-    
-    if (type == "") {
-        //cerr << config << endl;
-        throw Exception("Object with name \"" + name + "\" has no type "
-                        "in configuration file with prefix "
-                        + config.prefix());
-    }
-    
+    // TODO--------
+//     std::string type, name2;
+//     std::tie(type, name2) = get_type(name, config);
+//     
+//     if (type == "") {
+//         //cerr << config << endl;
+//         throw Exception("Object with name \"" + name + "\" has no type "
+//                         "in configuration file with prefix "
+//                         + config.prefix());
+//     }
+//     
+    string type = "";
     std::shared_ptr<Classifier_Generator> result
         = Registry<Classifier_Generator>::singleton().create(type);
-
-    Configuration config2(config, name, Configuration::PREFIX_APPEND);
-    auto unparsedKeys = config2.allKeys();
-    result->configure(config2, unparsedKeys);
-
-    string typeKey = config2.prefix() + ".type";
-    string allowPrefix = config2.prefix() + "._";
-    auto allowKeyFct = [&] (const string & str) {
-        return str == typeKey || str.find(allowPrefix) == 0;
-    };
-    config2.throwOnUnknwonKeys(unparsedKeys, allowKeyFct);
+// 
+//     Configuration config2(config, name, Configuration::PREFIX_APPEND);
+//     auto unparsedKeys = config2.unparsedKeys();
+//     result->configure(config2);
+// 
+//     string typeKey = config2.prefix() + ".type";
+//     string allowPrefix = config2.prefix() + "._";
+//     auto allowKeyFct = [&] (const string & str) {
+//         return str == typeKey || str.find(allowPrefix) == 0;
+//     };
+//     config2.throwOnUnknwonKeys(unparsedKeys, allowKeyFct);
 
     return result;
 }

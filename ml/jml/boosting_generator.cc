@@ -24,6 +24,8 @@
 #include "binary_symmetric.h"
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/rest/service_peer.h"
 #include <boost/scoped_ptr.hpp>
 
 
@@ -31,6 +33,73 @@ using namespace std;
 
 
 namespace ML {
+
+/*****************************************************************************/
+/* EARLY_STOPPING_GENERATOR_CONFIG                                           */
+/*****************************************************************************/
+Boosting_Generator_Config::
+Boosting_Generator_Config() :
+    max_iter(500), min_iter(10), cost_function(CF_EXPONENTIAL),
+    short_circuit_window(0), trace_training_acc(false)
+{
+    weak_learner.reset();
+}
+
+void
+Boosting_Generator_Config::
+defaults()
+{
+    Early_Stopping_Generator_Config::defaults();
+    max_iter = 500;
+    min_iter = 10;
+    cost_function = CF_EXPONENTIAL;
+    short_circuit_window = 0;
+    weak_learner.reset();
+    trace_training_acc = false;
+}
+
+void
+Boosting_Generator_Config::
+validateFct()
+{
+    Early_Stopping_Generator_Config::validateFct();
+    if (min_iter < 1) {
+     throw Exception("min_iter must be greater or equal to 1");
+    }
+    if (max_iter < min_iter) {
+        throw Exception("max_iter must be greater or equal to min_iter");
+    }
+    if (short_circuit_window < 0) {
+        throw Exception("short_circuit_window must be greater or equal to 1");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Boosting_Generator_Config);
+
+Boosting_Generator_ConfigDescription::
+Boosting_Generator_ConfigDescription()
+{
+    addField("max_iter",
+             &Boosting_Generator_Config::max_iter,
+             "maximum number of training iterations to run", (unsigned)500);
+    addField("min_iter",
+             &Boosting_Generator_Config::max_iter,
+             "minimum number of training iterations to run", (unsigned)10);
+    addField("cost_function",
+             &Boosting_Generator_Config::cost_function,
+             "select cost function for boosting weight update",
+             CF_EXPONENTIAL);
+    addField("short_circuit_window",
+             &Boosting_Generator_Config::short_circuit_window,
+             "short circuit (stop) training if no improvement for N iter "
+             "(0 off)", 0);
+    addField("trace_training_acc",
+             &Boosting_Generator_Config::trace_training_acc,
+             "trace the accuracy of the training set as well as validation",
+             false);
+    // TODO weak_learner weak learner that produces each bag
+    addParent<Early_Stopping_Generator_Config>();
+}
 
 /*****************************************************************************/
 /* BOOSTING_GENERATOR                                                        */
@@ -48,63 +117,11 @@ Boosting_Generator::~Boosting_Generator()
 
 void
 Boosting_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Early_Stopping_Generator::configure(config, unparsedKeys);
-
-    config.findAndRemove(max_iter, "max_iter", unparsedKeys);
-    config.findAndRemove(min_iter, "min_iter", unparsedKeys);
-    config.findAndRemove(cost_function, "cost_function", unparsedKeys);
-    config.findAndRemove(short_circuit_window, "short_circuit_window", unparsedKeys);
-    config.findAndRemove(trace_training_acc, "trace_training_acc", unparsedKeys);
-
-    weak_learner = get_trainer("weak_learner", config);
-}
-
-void
-Boosting_Generator::
-defaults()
-{
-    Early_Stopping_Generator::defaults();
-    max_iter = 500;
-    min_iter = 10;
-    cost_function = CF_EXPONENTIAL;
-    short_circuit_window = 0;
-    weak_learner.reset();
-    trace_training_acc = false;
-}
-
-Config_Options
-Boosting_Generator::
-options() const
-{
-    Config_Options result = Early_Stopping_Generator::options();
-    result
-        .add("min_iter", min_iter, "1-max_iter",
-             "minimum number of training iterations to run")
-        .add("max_iter", max_iter, ">=min_iter",
-             "maximum number of training iterations to run")
-        .add("cost_function", cost_function,
-             "select cost function for boosting weight update")
-        .add("short_circuit_window", short_circuit_window, "0-",
-             "short circuit (stop) training if no improvement for N iter "
-             "(0 off)")
-        .add("trace_training_acc", trace_training_acc,
-             "trace the accuracy of the training set as well as validation")
-        .subconfig("weak_leaner", weak_learner,
-                   "weak learner that produces each bag");
-
-    if (weak_learner) result.add(weak_learner->options());
-    
-    return result;
-}
-
-void
-Boosting_Generator::
 init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
-    weak_learner->init(fs, predicted);
+    auto & cfg = static_cast<Early_Stopping_Generator_Config&>(config);
+    config.weak_learner->init(fs, predicted);
 }
 
 std::shared_ptr<Classifier_Impl>

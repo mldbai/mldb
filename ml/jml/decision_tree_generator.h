@@ -17,6 +17,20 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* DECISION_TREE_GENERATOR_CONFIG                                            */
+/*****************************************************************************/
+struct Decision_Tree_Generator_Config : Classifier_Generator_Config {
+    int max_depth;
+    int trace;
+    Stump::Update update_alg;
+    float random_feature_propn;
+
+    Decision_Tree_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Decision_Tree_Generator_Config);
 
 /*****************************************************************************/
 /* DECISION_TREE_GENERATOR                                                  */
@@ -31,17 +45,6 @@ public:
     Decision_Tree_Generator();
 
     virtual ~Decision_Tree_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys) override;
-    
-    /** Return to the default configuration. */
-    virtual void defaults() override;
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -67,11 +70,6 @@ public:
              const std::vector<Feature> & features,
              float & Z,
              int recursion) const override;
-
-    int max_depth;
-    int trace;
-    Stump::Update update_alg;
-    float random_feature_propn;
 
     /* Once init has been called, we clone our potential models from this
        one. */

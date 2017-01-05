@@ -21,6 +21,9 @@
 #include "binary_symmetric.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/any_impl.h"
+#include "mldb/rest/service_peer.h"
 
 #include <random>
 #include <mutex>
@@ -104,6 +107,61 @@ void compact_dataset(const Training_Data & data,
     new_data.initFiltered(data, in_class, predicted, features);
 }
 
+/*****************************************************************************/
+/* DECISION_TREE_GENERATOR_CONFIG                                            */
+/*****************************************************************************/
+Decision_Tree_Generator_Config::
+Decision_Tree_Generator_Config() :
+    max_depth(-1), trace(0), update_alg(Stump::PROB), random_feature_propn(1)
+{
+}
+
+void
+Decision_Tree_Generator_Config::
+defaults()
+{
+    Classifier_Generator_Config::defaults();
+    trace = 0;
+    max_depth = -1;
+    update_alg = Stump::PROB;
+    random_feature_propn = 1.0;
+}
+
+void
+Decision_Tree_Generator_Config::
+validateFct()
+{
+    Classifier_Generator_Config::validateFct();
+    if (trace < 0) {
+        throw Exception("trace must be greater or equal to 0");
+    }
+    if (max_depth < 0 && max_depth != -1) {
+        throw Exception("max_depth must be -1 or greater or equal to 0");
+    }
+    if (random_feature_propn < 0 || random_feature_propn > 1) {
+        throw Exception("random_feature_propn must be between 0 and 1");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Decision_Tree_Generator_Config);
+
+Decision_Tree_Generator_ConfigDescription::
+Decision_Tree_Generator_ConfigDescription()
+{
+    addParent<Classifier_Generator_Config>();
+    addField("trace",
+             &Decision_Tree_Generator_Config::trace,
+             "trace execution of training in a very fine-grained fashion", 0);
+    addField("max_depth",
+             &Decision_Tree_Generator_Config::max_depth,
+             "give maximum tree depth.  -1 means go until data separated", -1);
+    addField("update_alg",
+             &Decision_Tree_Generator_Config::update_alg,
+             "select the type of output that the tree gives", -1);
+    addField("random_feature_propn",
+             &Decision_Tree_Generator_Config::random_feature_propn,
+             "proportion of the features to enable (for random forests)", 1);
+}
 
 /*****************************************************************************/
 /* DECISION_TREE_GENERATOR                                                   */
@@ -117,48 +175,6 @@ Decision_Tree_Generator()
 
 Decision_Tree_Generator::~Decision_Tree_Generator()
 {
-}
-
-void
-Decision_Tree_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Classifier_Generator::configure(config, unparsedKeys);
-
-    config.findAndRemove(trace, "trace", unparsedKeys);
-    config.findAndRemove(max_depth, "max_depth", unparsedKeys);
-    config.findAndRemove(update_alg, "update_alg", unparsedKeys);
-    config.findAndRemove(random_feature_propn, "random_feature_propn", unparsedKeys);
-    config.findAndRemove(verbosity, "verbosity", unparsedKeys);
-}
-
-void
-Decision_Tree_Generator::
-defaults()
-{
-    Classifier_Generator::defaults();
-    trace = 0;
-    max_depth = -1;
-    update_alg = Stump::PROB;
-    random_feature_propn = 1.0;
-}
-
-Config_Options
-Decision_Tree_Generator::
-options() const
-{
-    Config_Options result = Classifier_Generator::options();
-    result
-        .add("trace", trace, "0-",
-             "trace execution of training in a very fine-grained fashion")
-        .add("max_depth", max_depth, "0- or -1",
-             "give maximum tree depth.  -1 means go until data separated")
-        .add("update_alg", update_alg,
-             "select the type of output that the tree gives")
-        .add("random_feature_propn", random_feature_propn, "0.0-1.0",
-             "proportion of the features to enable (for random forests)");
-    
-    return result;
 }
 
 void

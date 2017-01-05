@@ -20,6 +20,24 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* BOOSTED_STUMPS_GENERATOR_CONFIG                                           */
+/*****************************************************************************/
+struct Boosted_Stumps_Generator_Config : Early_Stopping_Generator_Config {
+    unsigned max_iter;
+    unsigned min_iter;
+    bool true_only;
+    bool fair;
+    Cost_Function cost_function;
+    Boosted_Stumps::Output output_function;
+    int short_circuit_window;
+    bool trace_training_acc;
+
+    Boosted_Stumps_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Boosted_Stumps_Generator_Config);
 
 /*****************************************************************************/
 /* BOOSTED_STUMPS_GENERATOR                                                  */
@@ -34,17 +52,6 @@ public:
     Boosted_Stumps_Generator();
 
     virtual ~Boosted_Stumps_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys) override;
-    
-    /** Return to the default configuration. */
-    virtual void defaults() override;
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -79,15 +86,6 @@ public:
                         const std::vector<Feature> & features) const override;
 
     Stump_Generator weak_learner;
-    
-    unsigned max_iter;
-    unsigned min_iter;
-    bool true_only;
-    Cost_Function cost_function;
-    Boosted_Stumps::Output output_function;
-    bool fair;
-    int short_circuit_window;
-    bool trace_training_acc;
 
     /* Once init has been called, we clone our potential models from this
        one. */

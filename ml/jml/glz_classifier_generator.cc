@@ -20,6 +20,10 @@
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/string_functions.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/value_description.h"
+#include "mldb/rest/service_peer.h"
+#include "mldb/types/any_impl.h"
 #include <cassert>
 
 using namespace std;
@@ -27,6 +31,102 @@ using namespace std;
 
 namespace ML {
 
+/*****************************************************************************/
+/* GLZ_CLASSIFIER_GENERATOR_CONFIG                                           */
+/*****************************************************************************/
+GLZ_Classifier_Generator_Config::
+GLZ_Classifier_Generator_Config() :
+    link_function(LOGIT), add_bias(true), do_decode(true), normalize(true),
+    regularization(Regularization_l2), regularization_factor(1e-5),
+    max_regularization_iteration(1000), regularization_epsilon(1e-4),
+    condition(false), feature_proportion(1)
+{
+}
+
+void
+GLZ_Classifier_Generator_Config::
+defaults()
+{
+    Classifier_Generator_Config::defaults();
+    link_function = LOGIT;
+    add_bias = true;
+    do_decode = true;
+    normalize = true;
+    condition = false;
+    regularization = Regularization_l2;
+    regularization_factor = 1e-5;
+    max_regularization_iteration = 1000;
+    regularization_epsilon = 1e-4;
+    feature_proportion = 1.0;
+}
+
+void
+GLZ_Classifier_Generator_Config::
+validateFct()
+{
+    Classifier_Generator_Config::validateFct();
+    if (regularization_factor < -1) {
+         throw Exception("regularization_factor must be greater or equal to "
+                         "-1");
+    }
+    if (max_regularization_iteration < 1) {
+        throw Exception("max_regularization_iteration must be greater "
+                        "than 1");
+    }
+    if (regularization_epsilon <= 0) {
+        throw Exception("regularization_epsilon must be greater than 0");
+    }
+    if (feature_proportion < 0 || feature_proportion > 1) {
+        throw Exception("feature_proportion must be between 0 and 1");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(GLZ_Classifier_Generator_Config);
+
+GLZ_Classifier_Generator_ConfigDescription::
+GLZ_Classifier_Generator_ConfigDescription()
+{
+    addParent<Classifier_Generator_Config>();
+    addField("add_bias",
+             &GLZ_Classifier_Generator_Config::add_bias,
+             "add a constant bias term to the classifier?", true);
+    addField("decode",
+             &GLZ_Classifier_Generator_Config::do_decode,
+             "run the decoder (link function) after classification?", true);
+    addField("link_function",
+             &GLZ_Classifier_Generator_Config::link_function,
+             "which link function to use for the output function", LOGIT);
+    addField("regularization",
+             &GLZ_Classifier_Generator_Config::regularization,
+             "type of regularization on the weights (L1 is slower due to an"
+             " iterative algorithm)", Regularization_l2);
+    addField("regularization_factor",
+             &GLZ_Classifier_Generator_Config::regularization_factor,
+             "regularization factor to use. auto-determined if negative"
+             " (slower). the bigger this value is, the more regularization on"
+             " the weights", 1e-5);
+    addField("regularization_epsilon",
+             &GLZ_Classifier_Generator_Config::regularization_epsilon,
+             "smallest weight update before assuming"
+             " convergence for the L1 iterative algorithm", 1e-4);
+    addField("max_regularization_iteration",
+             &GLZ_Classifier_Generator_Config::max_regularization_iteration,
+             "maximum number of iterations for the L1 regularization", 1000);
+    addField("normalize",
+             &GLZ_Classifier_Generator_Config::normalize,
+             "normalize features to have zero mean and unit variance for"
+             " greater numeric stability (slower training but recommended with"
+             " L1 regularization)", true);
+    addField("condition",
+             &GLZ_Classifier_Generator_Config::condition,
+             "condition features to have no correlation for greater numeric"
+             " stability (but much slower training)", false);
+    addField("feature_proportion",
+             &GLZ_Classifier_Generator_Config::feature_proportion,
+             "use only a (random) portion of available features when training"
+             " classifier", (float)1);
+
+}
 
 /*****************************************************************************/
 /* GLZ_CLASSIFIER_GENERATOR                                                  */
@@ -40,79 +140,6 @@ GLZ_Classifier_Generator()
 
 GLZ_Classifier_Generator::~GLZ_Classifier_Generator()
 {
-}
-
-void
-GLZ_Classifier_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Classifier_Generator::configure(config, unparsedKeys);
-    config.findAndRemove(add_bias, "add_bias", unparsedKeys);
-    config.findAndRemove(do_decode, "decode", unparsedKeys);
-    config.findAndRemove(link_function, "link_function", unparsedKeys);
-    config.findAndRemove(normalize, "normalize", unparsedKeys);
-    config.findAndRemove(condition, "condition", unparsedKeys);
-    config.findAndRemove(regularization, "regularization", unparsedKeys);
-    config.findAndRemove(regularization_factor, "regularization_factor", unparsedKeys);
-    config.findAndRemove(max_regularization_iteration, "max_regularization_iteration", unparsedKeys);
-    config.findAndRemove(regularization_epsilon, "regularization_epsilon", unparsedKeys);
-    config.findAndRemove(feature_proportion, "feature_proportion", unparsedKeys);
-}
-
-void
-GLZ_Classifier_Generator::
-defaults()
-{
-    Classifier_Generator::defaults();
-    link_function = LOGIT;
-    add_bias = true;
-    do_decode = true;
-    normalize = true;
-    condition = false;
-    regularization = Regularization_l2;
-    regularization_factor = 1e-5;
-    max_regularization_iteration = 1000;
-    regularization_epsilon = 1e-4;
-    feature_proportion = 1.0;
-}
-
-Config_Options
-GLZ_Classifier_Generator::
-options() const
-{
-    Config_Options result = Classifier_Generator::options();
-    result
-        .add("add_bias", add_bias,
-             "add a constant bias term to the classifier?")
-        .add("decode", do_decode,
-             "run the decoder (link function) after classification?")
-        .add("link_function", link_function,
-             "which link function to use for the output function")
-        .add("regularization", regularization,
-             "type of regularization on the weights (L1 is slower due to an"
-             " iterative algorithm)")
-        .add("regularization_factor", regularization_factor, "-1 to infinite",
-             "regularization factor to use. auto-determined if negative"
-             " (slower). the bigger this value is, the more regularization on"
-             " the weights")
-        .add("max_regularization_iteration", max_regularization_iteration,
-             "1 to infinite", "maximum number of iterations for the L1"
-             " regularization")
-        .add("regularization_epsilon", regularization_epsilon,
-             "positive number", "smallest weight update before assuming"
-             " convergence for the L1 iterative algorithm")
-        .add("normalize", normalize,
-             "normalize features to have zero mean and unit variance for"
-             " greater numeric stability (slower training but recommended with"
-             " L1 regularization)")
-        .add("condition", condition,
-             "condition features to have no correlation for greater numeric"
-             " stability (but much slower training)")
-        .add("feature_proportion", feature_proportion, "0 to 1",
-             "use only a (random) portion of available features when training"
-             " classifier");
-
-    return result;
 }
 
 void
@@ -133,6 +160,18 @@ generate(Thread_Context & thread_context,
          int) const
 {
     boost::timer timer;
+
+    const auto link_function = cfg.link_function;
+    const auto add_bias = cfg.add_bias;
+    const auto do_decode = cfg.do_decode;
+    const auto normalize = cfg.normalize;
+    const auto regularization = cfg.regularization;
+    const auto regularization_factor = cfg.regularization_factor;
+    const auto max_regularization_iteration = cfg.max_regularization_iteration;
+    const auto regularization_epsilon = cfg.regularization_epsilon;
+    const auto condition = cfg.condition;
+    const auto feature_proportion = cfg.feature_proportion;
+
 
     Feature predicted = model.predicted();
 

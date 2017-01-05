@@ -17,6 +17,19 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* BAGGING_GENERATOR_CONFIG                                                  */
+/*****************************************************************************/
+struct Bagging_Generator_Config : Classifier_Generator_Config {
+    std::shared_ptr<Classifier_Generator> weak_learner;
+    int num_bags;
+    float validation_split;
+
+    Bagging_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Bagging_Generator_Config);
 
 /*****************************************************************************/
 /* BAGGING_GENERATOR                                                         */
@@ -31,17 +44,6 @@ public:
     Bagging_Generator();
 
     virtual ~Bagging_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys);
-    
-    /** Return to the default configuration. */
-    virtual void defaults();
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -58,10 +60,6 @@ public:
              const std::vector<Feature> & features,
              int recursion) const;
 
-    std::shared_ptr<Classifier_Generator> weak_learner;
-
-    int num_bags;
-    float validation_split;
 };
 
 

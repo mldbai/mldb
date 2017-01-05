@@ -15,6 +15,18 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* NAIVE_BAYES_GENERATOR_CONFIG                                              */
+/*****************************************************************************/
+struct Naive_Bayes_Generator_Config : Classifier_Generator_Config {
+    int trace;
+    float feature_prop;
+
+    Naive_Bayes_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Naive_Bayes_Generator_Config);
 
 /*****************************************************************************/
 /* NAIVE_BAYES_GENERATOR                                                     */
@@ -30,17 +42,6 @@ public:
 
     virtual ~Naive_Bayes_Generator();
 
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unparsedKeys) override;
-    
-    /** Return to the default configuration. */
-    virtual void defaults() override;
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
-
     /** Initialize the generator, given the feature space to be used for
         generation. */
     virtual void init(std::shared_ptr<const Feature_Space> fs,
@@ -54,9 +55,6 @@ public:
              const Training_Data & training_data,
              const distribution<float> & training_weights,
              const std::vector<Feature> & features, int) const override;
-
-    int trace;
-    float feature_prop;
 
     /* Once init has been called, we clone our potential models from this
        one. */

@@ -24,6 +24,9 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include <boost/scoped_ptr.hpp>
 #include "stump_predict.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/value_description.h"
+#include "mldb/rest/service_peer.h"
 
 using namespace std;
 
@@ -52,6 +55,82 @@ struct Prof {
 
 
 /*****************************************************************************/
+/* BOOSTED_STUMPS_GENERATOR_CONFIG                                           */
+/*****************************************************************************/
+Boosted_Stumps_Generator_Config::
+Boosted_Stumps_Generator_Config() :
+    max_iter(500), min_iter(10), true_only(false), fair(false),
+    cost_function(CF_EXPONENTIAL), output_function(Boosted_Stumps::RAW),
+    short_circuit_window(0)
+{
+}
+
+void
+Boosted_Stumps_Generator_Config::
+defaults()
+{
+    Early_Stopping_Generator_Config::defaults();
+    max_iter = 500;
+    min_iter = 10;
+    true_only = false;
+    fair = false;
+    cost_function = CF_EXPONENTIAL;
+    output_function = Boosted_Stumps::RAW;
+    short_circuit_window = 0;
+}
+
+void
+Boosted_Stumps_Generator_Config::
+validateFct()
+{
+    Early_Stopping_Generator_Config::validateFct();
+    if (min_iter < 1) {
+        throw Exception("min_iter must be >= 1");
+    }
+    if (max_iter < min_iter) {
+        throw Exception("max_iter must be >= min_iter");
+    }
+    if (short_circuit_window < 0) {
+        throw Exception("short_circuit_window must be >= 0");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Boosted_Stumps_Generator_Config);
+
+Boosted_Stumps_Generator_ConfigDescription::
+Boosted_Stumps_Generator_ConfigDescription()
+{
+    addField("max_iter",
+             &Boosted_Stumps_Generator_Config::max_iter,
+             "maximum number of training iterations to run", 500);
+    addField("min_iter",
+             &Boosted_Stumps_Generator_Config::min_iter,
+             "minimum number of training iterations to run", 10);
+    addField("true_only",
+             &Boosted_Stumps_Generator_Config::true_only,
+             "don't allow missing predicates to infer labels", false);
+    addField("fair",
+             &Boosted_Stumps_Generator_Config::fair,
+             "treat multiple equivalent features in a symmetric manner", false);
+    addField("cost_function",
+             &Boosted_Stumps_Generator_Config::cost_function,
+             "select cost function for boosting weight update", CF_EXPONENTIAL);
+    addField("output_function",
+             &Boosted_Stumps_Generator_Config::output_function,
+             "select output function of classifier", Boosted_Stumps::RAW);
+    addField("short_circuit_window",
+             &Boosted_Stumps_Generator_Config::short_circuit_window,
+             "short circuit (stop) training if no improvement for N iter "
+             "(0 off)", 0);
+    addField("trace_training_acc",
+             &Boosted_Stumps_Generator_Config::trace_training_acc,
+             "trace the accuracy of the training set as well as validation");
+    addParent<Early_Stopping_Generator_Config>();
+
+    // TODO weak_learner.options add?
+}
+
+/*****************************************************************************/
 /* BOOSTED_STUMPS_GENERATOR                                                  */
 /*****************************************************************************/
 
@@ -63,64 +142,6 @@ Boosted_Stumps_Generator()
 
 Boosted_Stumps_Generator::~Boosted_Stumps_Generator()
 {
-}
-
-void
-Boosted_Stumps_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Early_Stopping_Generator::configure(config, unparsedKeys);
-    
-    config.findAndRemove(max_iter, "max_iter", unparsedKeys);
-    config.findAndRemove(min_iter, "min_iter", unparsedKeys);
-    config.findAndRemove(true_only, "true_only", unparsedKeys);
-    config.findAndRemove(fair, "fair", unparsedKeys);
-    config.findAndRemove(cost_function, "cost_function", unparsedKeys);
-    config.findAndRemove(output_function, "output_function", unparsedKeys);
-    config.findAndRemove(short_circuit_window, "short_circuit_window", unparsedKeys);
-    config.findAndRemove(trace_training_acc, "trace_training_acc", unparsedKeys);
-}
-
-void
-Boosted_Stumps_Generator::
-defaults()
-{
-    Early_Stopping_Generator::defaults();
-    max_iter = 500;
-    min_iter = 10;
-    true_only = false;
-    fair = false;
-    cost_function = CF_EXPONENTIAL;
-    output_function = Boosted_Stumps::RAW;
-    short_circuit_window = 0;
-}
-
-Config_Options
-Boosted_Stumps_Generator::
-options() const
-{
-    Config_Options result = Early_Stopping_Generator::options();
-    result
-        .add("min_iter", min_iter, "1-max_iter",
-             "minimum number of training iterations to run")
-        .add("max_iter", max_iter, ">=min_iter",
-             "maximum number of training iterations to run")
-        .add("true_only", true_only,
-             "don't allow missing predicates to infer labels")
-        .add("fair", fair,
-             "treat multiple equivalent features in a symmetric manner")
-        .add("cost_function", cost_function,
-             "select cost function for boosting weight update")
-        .add("output_function", output_function,
-             "select output function of classifier")
-        .add("short_circuit_window", short_circuit_window, "0-",
-             "short circuit (stop) training if no improvement for N iter "
-             "(0 off)")
-        .add("trace_training_acc", trace_training_acc,
-             "trace the accuracy of the training set as well as validation")
-        .add(weak_learner.options());
-
-    return result;
 }
 
 void
@@ -155,7 +176,10 @@ generate_stumps(Thread_Context & context,
                 const distribution<float> & validate_ex_weights,
                 const std::vector<Feature> & features_) const
 {
+    auto cfg = static_cast<Boosted_Stumps_Generator_Config>(config);
     const Feature_Space & fs = *training_set.feature_space();
+
+    const auto verbosity = cfg.verbosity;
 
     vector<Feature> features = features_;
 
@@ -372,6 +396,7 @@ generate_and_update(Thread_Context & context,
                     boost::multi_array<float, 2> & weights,
                     const std::vector<Feature> & features_) const
 {
+    auto cfg = static_cast<Boosted_Stumps_Generator_Config>(config);
     const Feature_Space & fs = *training_set.feature_space();
 
     vector<Feature> features = features_;
@@ -382,6 +407,16 @@ generate_and_update(Thread_Context & context,
 
     float best_acc = 0.0;
     int best_iter = 0;
+
+    const auto max_iter = cfg.max_iter;
+    const auto min_iter = cfg.min_iter;
+    const auto true_only = cfg.true_only;
+    const auto & cost_function = cfg.cost_function;
+    const auto & output_function = cfg.output_function;
+    const auto fair = cfg.fair;
+    const auto short_circuit_window = cfg.short_circuit_window;
+    const auto trace_training_acc = cfg.trace_training_acc;
+    const auto verbosity = cfg.verbosity;
 
     boost::multi_array<float, 2> training_output
         (boost::extents[training_set.example_count()][nl]);
