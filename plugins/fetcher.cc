@@ -82,7 +82,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     FetcherFunction(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
-        : BaseT(owner)
+        : BaseT(owner, config)
     {
         functionConfig = config.params.convert<FetcherFunctionConfig>();
     }
@@ -93,7 +93,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         FetcherOutput result;
         Utf8String url = args.url;
         try {
-            filter_istream stream(url.rawString(), { { "mapped", "true" } });
+                filter_istream stream(url.rawString(),
+                                      { { "mapped", "true" },
+                                        { "httpArbitraryTooSlowAbort", "1"} });
 
             FsObjectInfo info = stream.info();
             

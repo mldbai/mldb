@@ -74,7 +74,7 @@ doComparison(const SqlExpression * expr,
                 return storage = ExpressionValue((l .* op)(r), ts);
             },
             expr,
-            std::make_shared<BooleanValueInfo>()};
+            std::make_shared<BooleanValueInfo>(boundLhs.info->isConst() && boundRhs.info->isConst())};
 }
 
 BoundSqlExpression
@@ -805,7 +805,8 @@ struct BinaryOpHelper {
     static BoundSqlExpression
     bindAll(LhsContext lhsContext,
             RhsContext rhsContext,
-            const SqlExpression * expr)
+            const SqlExpression * expr,
+            bool isConstant)
     {
         BoundSqlExpression result;
         result.info = lhsContext.getInfoLhs(rhsContext);
@@ -816,6 +817,7 @@ struct BinaryOpHelper {
                                 std::placeholders::_2,
                                 GET_LATEST);
         result.expr = expr->shared_from_this();
+        result.info = result.info->getConst(isConstant);
 
         return result;
     }
@@ -824,7 +826,8 @@ struct BinaryOpHelper {
     static BoundSqlExpression
     bindRhs(LhsContext lhsContext,
             const SqlExpression * expr,
-            const BoundSqlExpression & boundRhs)
+            const BoundSqlExpression & boundRhs,
+            bool isConstant)
     {
         int scalar = boundRhs.info->isScalar();
         int embedding = boundRhs.info->isEmbedding();
@@ -834,19 +837,19 @@ struct BinaryOpHelper {
 
         if (total == 1 && scalar) {
             ScalarContext rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
         else if (embedding && !scalar) {
             EmbeddingContext rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
         else if (row && !scalar) {
             RowScope rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
         else {
             UnknownContext rhsContext(boundRhs);
-            return bindAll(lhsContext, rhsContext, expr);
+            return bindAll(lhsContext, rhsContext, expr, isConstant);
         }
     }
 
@@ -860,22 +863,23 @@ struct BinaryOpHelper {
         int row = boundLhs.info->isRow();
 
         int total = scalar + embedding + row;
+        bool constant = boundLhs.info->isConst() && boundRhs.info->isConst();
 
         if (total == 1 && scalar) {
             ScalarContext lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
         else if (embedding && !scalar) {
             EmbeddingContext lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
         else if (row && !scalar) {
             RowScope lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
         else {
             UnknownContext lhsContext(boundLhs);
-            return bindRhs(lhsContext, expr, boundRhs);
+            return bindRhs(lhsContext, expr, boundRhs, constant);
         }
     }
 };
@@ -902,7 +906,7 @@ doBinaryArithmetic(const SqlExpression * expr,
                                                     r.getAtom()), ts);
             },
             expr,
-            std::make_shared<ReturnInfo>()};
+            std::make_shared<ReturnInfo>(boundLhs.info->isConst() && boundRhs.info->isConst())};
 }
 
 template<typename ReturnInfo, typename Op>
@@ -925,7 +929,7 @@ doUnaryArithmetic(const SqlExpression * expr,
                                       r.getEffectiveTimestamp());
             },
             expr,
-            std::make_shared<ReturnInfo>()};
+            std::make_shared<ReturnInfo>(boundRhs.info->isConst())};
 }
 
 static CellValue
@@ -1375,7 +1379,7 @@ doBinaryBitwise(const SqlExpression * expr,
                 return storage = ExpressionValue(op(l.toInt(), r.toInt()), ts);
             },
             expr,
-            std::make_shared<IntegerValueInfo>()};
+            std::make_shared<IntegerValueInfo>(boundLhs.info->isConst() && boundRhs.info->isConst())};
 }
 
 template<typename Op>
@@ -1396,7 +1400,7 @@ doUnaryBitwise(const SqlExpression * expr,
                 return storage = ExpressionValue(std::move(op(r.toInt())), r.getEffectiveTimestamp());
             },
             expr,
-            std::make_shared<IntegerValueInfo>()};
+            std::make_shared<IntegerValueInfo>(boundRhs.info->isConst())};
 }
 
 static CellValue doBitwiseAnd(int64_t v1, int64_t v2)
@@ -1519,6 +1523,10 @@ bind(SqlBindingScope & scope) const
                                   + "' didn't return info");
     }
 
+    //For now, read columns will never be considered const, because we wont have a row scope to 
+    //evaluate them, even if it always returns the same value.
+    auto info = getVariable.info->getConst(false);
+
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
@@ -1527,7 +1535,7 @@ bind(SqlBindingScope & scope) const
                 return getVariable(row, storage, filter);
             },
             this,
-            getVariable.info};
+            info};
 }
 
 Utf8String
@@ -1602,8 +1610,7 @@ bind(SqlBindingScope & scope) const
                 return storage=val;
             },
             this,
-            constant.getSpecializedValueInfo(),
-            true /* is constant */};
+            constant.getSpecializedValueInfo(true /* is constant */)};
 }
 
 Utf8String
@@ -1754,8 +1761,7 @@ bind(SqlBindingScope & scope) const
                  return storage = ExpressionValue::null(Date::notADate());
              },
              this,
-             std::make_shared<EmptyValueInfo>(),
-             true /* is constant */);
+             std::make_shared<EmptyValueInfo>()); //Note: Empty value info is always constant
     }
 
     bool isConstant = true;
@@ -1767,12 +1773,12 @@ bind(SqlBindingScope & scope) const
 
     for (auto & c: clauses) {
         boundClauses.emplace_back(c->bind(scope));
-        isConstant = isConstant && boundClauses.back().metadata.isConstant;
+        isConstant = isConstant && boundClauses.back().info->isConst();
         clauseInfo.push_back(boundClauses.back().info);
     }   
 
     auto outputInfo
-        = std::make_shared<EmbeddingValueInfo>(clauseInfo);
+        = std::make_shared<EmbeddingValueInfo>(clauseInfo, isConstant);
 
     if (outputInfo->shape.at(0) != -1)
         ExcAssertEqual(outputInfo->shape.at(0), clauses.size());
@@ -1840,7 +1846,7 @@ bind(SqlBindingScope & scope) const
             }
         };
 
-    return BoundSqlExpression(exec, this, outputInfo, isConstant);
+    return BoundSqlExpression(exec, this, outputInfo);
 }
 
 Utf8String
@@ -1928,7 +1934,47 @@ bind(SqlBindingScope & scope) const
     auto boundLhs = lhs ? lhs->bind(scope) : BoundSqlExpression();
     auto boundRhs = rhs->bind(scope);
 
+    BoundSqlExpression constFalse = {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    return storage = ExpressionValue(false, Date::negativeInfinity());
+                },
+                this,
+                std::make_shared<BooleanValueInfo>(true)};
+
+    BoundSqlExpression constTrue = {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    return storage = ExpressionValue(true, Date::negativeInfinity());
+                },
+                this,
+                std::make_shared<BooleanValueInfo>(true)};
+
+    BoundSqlExpression constNull = {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    return storage = ExpressionValue::null(Date::negativeInfinity());
+                },
+                this,
+                std::make_shared<BooleanValueInfo>(true)};
+
     if (op == "AND" && lhs) {
+
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().isFalse())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().isFalse()) ) {
+            return constFalse;
+        }
+
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().empty())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().empty()) ) {
+            return constNull;
+        }
+
+        bool constant = (boundLhs.info->isConst() && boundRhs.info->isConst());
+
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
@@ -1961,9 +2007,23 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue(true, ts);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(constant)};
     }
     else if (op == "OR" && lhs) {
+
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().isTrue())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().isTrue()) ) {
+            return constTrue;
+        }
+
+        if ((boundLhs.info->isConst() && boundLhs.constantValue().empty())
+            || (boundRhs.info->isConst() && boundRhs.constantValue().empty()) ) {
+            return constNull;
+        }
+
+
+        bool constant = (boundLhs.info->isConst() && boundRhs.info->isConst());
+
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
@@ -1999,9 +2059,10 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue(false, ts);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(constant)};
     }
     else if (op == "NOT" && !lhs) {
+
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
@@ -2014,7 +2075,7 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue(!r.isTrue(), r.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(boundRhs.info->isConst())};
     }
     else throw HttpReturnException(400, "Unknown boolean op " + op
                              + (lhs ? " binary" : " unary"));
@@ -2134,7 +2195,7 @@ bind(SqlBindingScope & scope) const
                                                  v.getEffectiveTimestamp());
             },
             this,
-            std::make_shared<BooleanValueInfo>()};
+            std::make_shared<BooleanValueInfo>(boundExpr.info->isConst())};
 }
 
 Utf8String
@@ -2265,8 +2326,7 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo,
-                fn.resultMetadata};
+                fn.resultInfo};
     }
     else {
         return {[=] (const SqlRowScope & row,
@@ -2281,8 +2341,7 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo,
-                fn.resultMetadata};
+                fn.resultInfo};
     }
 }
 
@@ -2399,12 +2458,30 @@ ExtractExpression::
 bind(SqlBindingScope & outerScope) const
 {
     BoundSqlExpression fromBound = from->bind(outerScope);
-    
+
     SqlExpressionExtractScope extractScope(outerScope, fromBound.info);
 
     BoundSqlExpression extractBound = extract->bind(extractScope);
 
-    return {[=] (const SqlRowScope & row,		
+    bool isConst = fromBound.info->isConst();
+
+    //We know for sure the extract is const if it access no function, tables or wildcards *and*
+    //all the variables are in the (const) lhs
+    //This excludes many legit const cases.
+    if (isConst) {
+        auto columnNames = fromBound.info->allColumnNames();
+        auto unbounds = extract->getUnbound();
+        isConst = isConst && unbounds.tables.empty() && unbounds.wildcards.empty() && unbounds.funcs.empty();
+
+        for (const auto& var : unbounds.vars) {
+            const auto& varPath = var.first;
+            isConst = std::find(columnNames.begin(), columnNames.end(), varPath) != columnNames.end();
+        }
+    }
+
+    auto outputInfo = extractBound.info->getConst(isConst);
+
+    return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {		
@@ -2417,7 +2494,7 @@ bind(SqlBindingScope & outerScope) const
                 return extractBound(extractRowScope, storage, filter);
             },
             this,		
-            extractBound.info};
+            outputInfo};
 }
 
 Utf8String
@@ -2511,11 +2588,13 @@ CaseExpression::
 bind(SqlBindingScope & scope) const
 {
     std::shared_ptr<ExpressionValueInfo> info;
+    bool isConst = true;
 
     BoundSqlExpression boundElse;
     if (elseExpr) {
         boundElse = elseExpr->bind(scope);
         info = boundElse.info;
+        isConst = isConst && boundElse.info->isConst();
     }
 
     std::vector<std::pair<BoundSqlExpression, BoundSqlExpression> > boundWhen;
@@ -2526,12 +2605,18 @@ bind(SqlBindingScope & scope) const
             info = VariantExpressionValueInfo::createVariantValueInfo(info, boundWhen.back().second.info);
         else
             info = boundWhen.back().second.info;
+
+        isConst = isConst && boundWhen.back().first.info->isConst();
+        isConst = isConst && boundWhen.back().second.info->isConst();
     }
 
     if (expr) {
         // Simple CASE expression
 
         auto boundExpr = expr->bind(scope);
+        isConst = isConst && boundExpr.info->isConst();
+
+        auto outputInfo = info->getConst(isConst);
 
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
@@ -2566,10 +2651,13 @@ bind(SqlBindingScope & scope) const
                     return storage = ExpressionValue();
                 },
                 this,
-                info};
+                outputInfo};
     }
     else {
         // Searched CASE expression
+
+        auto outputInfo = info->getConst(isConst);
+
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
@@ -2587,7 +2675,7 @@ bind(SqlBindingScope & scope) const
                     else return storage = ExpressionValue();
                 },
                 this,
-                info};
+                outputInfo};
     }
 }
 
@@ -2689,6 +2777,7 @@ bind(SqlBindingScope & scope) const
     BoundSqlExpression boundExpr  = expr->bind(scope);
     BoundSqlExpression boundLower = lower->bind(scope);
     BoundSqlExpression boundUpper = upper->bind(scope);
+    bool isConstant = boundExpr.info->isConst() && boundLower.info->isConst() && boundUpper.info->isConst();
 
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
@@ -2723,7 +2812,7 @@ bind(SqlBindingScope & scope) const
                                                           l.getEffectiveTimestamp()));
             },
             this,
-            std::make_shared<BooleanValueInfo>()};
+            std::make_shared<BooleanValueInfo>(isConstant)};
 }
 
 Utf8String
@@ -2818,6 +2907,7 @@ InExpression::
 bind(SqlBindingScope & scope) const
 {
     BoundSqlExpression boundExpr  = expr->bind(scope);
+    bool isConstant = boundExpr.info->isConst();
 
     //cerr << "boundExpr: " << expr->print() << " has subtable " << subtable
     //     << endl;
@@ -2825,6 +2915,8 @@ bind(SqlBindingScope & scope) const
     switch (kind) {
     case SUBTABLE: {
         BoundTableExpression boundTable = subtable->bind(scope);
+
+        isConstant = false; //TODO
 
         // TODO: we need to detect a correlated subquery.  This means that
         // the query depends upon variables from the surrounding scope.
@@ -2916,6 +3008,7 @@ bind(SqlBindingScope & scope) const
 
         for (auto & tupleItem: tuple->clauses) {
             tupleExpressions.emplace_back(tupleItem->bind(scope));
+            isConstant = isConstant && tupleExpressions.back().info->isConst();
         }
 
         return {[=] (const SqlRowScope & rowScope,
@@ -2949,10 +3042,12 @@ bind(SqlBindingScope & scope) const
             return storage = ExpressionValue(isNegative, v.getEffectiveTimestamp());
         },
         this,
-        std::make_shared<BooleanValueInfo>()};
+        std::make_shared<BooleanValueInfo>(isConstant)};
     }
     case KEYS: {
         BoundSqlExpression boundSet = setExpr->bind(scope);
+
+        isConstant = false; //TODO
 
         return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -2979,10 +3074,12 @@ bind(SqlBindingScope & scope) const
         
         },
         this,
-        std::make_shared<BooleanValueInfo>()};
+        std::make_shared<BooleanValueInfo>(isConstant)};
     }
     case VALUES: {
         BoundSqlExpression boundSet = setExpr->bind(scope);
+
+        isConstant = isConstant && boundSet.info->isConst();
 
         return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -3008,7 +3105,7 @@ bind(SqlBindingScope & scope) const
             return storage = ExpressionValue(isNegative, v.getEffectiveTimestamp());
         },
         this,
-        std::make_shared<BooleanValueInfo>()};
+        std::make_shared<BooleanValueInfo>(isConstant)};
     }
     }
     throw HttpReturnException(500, "Unknown IN expression type");
@@ -3130,6 +3227,7 @@ bind(SqlBindingScope & scope) const
     BoundSqlExpression boundRight  = right->bind(scope);
 
     auto applier = std::make_shared<ApplyLike>(boundRight, isNegative);
+    bool isConst = boundLeft.info->isConst() && boundRight.info->isConst();
 
     if (applier->isPrecompiled) {
     
@@ -3144,7 +3242,7 @@ bind(SqlBindingScope & scope) const
                                                 rowScope);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(isConst)};
     }
     else {
         return {[=] (const SqlRowScope & rowScope,
@@ -3159,7 +3257,7 @@ bind(SqlBindingScope & scope) const
                     return storage = (*applier)({value, likeFilter}, rowScope);
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(isConst)};
     }
 }
 
@@ -3244,7 +3342,7 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<StringValueInfo>()};
+                std::make_shared<StringValueInfo>(boundExpr.info->isConst())};
     }
     else if (type == "integer") {
         return {[=] (const SqlRowScope & row,
@@ -3257,7 +3355,7 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<IntegerValueInfo>()};
+                std::make_shared<IntegerValueInfo>(boundExpr.info->isConst())};
     }
     else if (type == "number") {
         return {[=] (const SqlRowScope & row,
@@ -3270,7 +3368,7 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<Float64ValueInfo>()};
+                std::make_shared<Float64ValueInfo>(boundExpr.info->isConst())};
     }
     else if (type == "timestamp") {
         return {[=] (const SqlRowScope & row,
@@ -3283,7 +3381,7 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<IntegerValueInfo>()};
+                std::make_shared<IntegerValueInfo>(boundExpr.info->isConst())};
     }
     else if (type == "boolean") {
         return {[=] (const SqlRowScope & row,
@@ -3296,7 +3394,7 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<BooleanValueInfo>()};
+                std::make_shared<BooleanValueInfo>(boundExpr.info->isConst())};
     }
     else if (type == "blob") {
         return {[=] (const SqlRowScope & row,
@@ -3309,7 +3407,7 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                    std::make_shared<BlobValueInfo>()};
+                std::make_shared<BlobValueInfo>(boundExpr.info->isConst())};
     }
     else if (type == "path") {
         return {[=] (const SqlRowScope & row,
@@ -3322,7 +3420,7 @@ bind(SqlBindingScope & scope) const
                                                      val.getEffectiveTimestamp());
                 },
                 this,
-                std::make_shared<PathValueInfo>()};
+                std::make_shared<PathValueInfo>(boundExpr.info->isConst())};
     }
     else throw HttpReturnException(400, "Unknown type '" + type
                                    + "' for CAST (" + expr->surface
@@ -3395,6 +3493,8 @@ bind(SqlBindingScope & scope) const
                             + "' didn't return info");
     }
 
+    auto outputInfo = getParam.info->getConst(false);
+
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
@@ -3402,7 +3502,7 @@ bind(SqlBindingScope & scope) const
                 return getParam(row, storage, filter);
             },
             this,
-            getParam.info};
+            outputInfo};
 }
 
 Utf8String
@@ -3695,7 +3795,7 @@ bind(SqlBindingScope & scope) const
             KnownColumn(alias, exprBound.info, COLUMN_IS_DENSE) };
         
         auto info = std::make_shared<RowValueInfo>
-            (knownColumns, SCHEMA_CLOSED);
+            (knownColumns, SCHEMA_CLOSED, exprBound.info->isConst());
 
         return BoundSqlExpression(exec, this, info);
     }
@@ -3961,6 +4061,9 @@ bind(SqlBindingScope & scope) const
                     if (&result == &storage) {
                         if (storage.isAtom()) {
                             // Put directly in place
+                            if (columnNameOut->empty()) {
+                                throw HttpReturnException(400, "Cannot have a NULL column name");
+                            }
                             output.emplace_back(std::move(*columnNameOut),
                                                 storage.stealAtom(),
                                                 storage.getEffectiveTimestamp());

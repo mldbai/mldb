@@ -114,11 +114,6 @@ struct ClassifyFunction: public Function {
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
-    // Construct programatically from a ML::Classifier_Impl
-    ClassifyFunction(MldbServer * owner,
-                  std::shared_ptr<ML::Classifier_Impl> classifier,
-                  const std::string & labelFeatureName);
-
     ~ClassifyFunction();
 
     virtual Any getStatus() const;

@@ -66,7 +66,6 @@ void
 EuclideanDistanceMetric::
 addRow(int rowNum, const distribution<float> & coords)
 {
-    //cerr << "addRow " << rowNum << endl;
     ExcAssertEqual(rowNum, sum_dist.size());
     sum_dist.push_back(coords.dotprod(coords));
     ExcAssert(isfinite(sum_dist.back()));

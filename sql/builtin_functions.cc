@@ -26,6 +26,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/http/curl_wrapper.h"
 
 #include <iterator>
 #include <thread>
@@ -1121,7 +1122,7 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
             std::make_shared<TimestampValueInfo>()};
 }
 
-static RegisterBuiltin registerNow(now, "now");
+static RegisterBuiltin registerNow(RegisterBuiltin::NON_DETERMINISTIC, now, "now");
 
 BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
@@ -1436,7 +1437,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_part expected a string as third argument, got " +
@@ -1498,7 +1499,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_trunc expected a string as third argument, got " +
@@ -2374,6 +2375,24 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerLength(length, "length");
 
+BoundFunction blob_length(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+     return {[] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+             {
+                checkArgsSize(args.size(), 1);
+
+                return ExpressionValue
+                    (args[0].getAtom().coerceToBlob().blobLength(), 
+                     args[0].getEffectiveTimestamp());
+             },
+             std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerblob_length(blob_length, "blob_length");
+
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 2);
@@ -2521,7 +2540,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
                 throw HttpReturnException
                     (400,"Null embedding needs third argument to reshape()");
             auto shape = args[1].info->getEmbeddingShape();
-            auto st = args[2].metadata.isConstant
+            auto st = args[2].info->isConst()
                 ? valueStorageType(args[2].constantValue().getAtom())
                 : ST_ATOM;
             auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
@@ -2564,7 +2583,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
     if (!args[1].info->isEmbedding())
         throw HttpReturnException(400, "requires an embedding as second argument");
 
-    if (args[1].metadata.isConstant) {
+    if (args[1].info->isConst()) {
         //Dont know the type without evaluating second arg;
         auto embeddingFormat = args[1].constantValue();
 
@@ -3265,12 +3284,9 @@ bind(const Utf8String &,
         };
 
     BoundFunction result(exec,
-                         resultVal.getSpecializedValueInfo());
-    result.resultMetadata.isConstant = true;
-
+                         resultVal.getSpecializedValueInfo(true /*isConstant*/));
     return result;
 }
-
 
 /*****************************************************************************/
 /* SQL BUILTINS                                                              */
@@ -3303,8 +3319,10 @@ bind(const std::vector<BoundSqlExpression> & args,
                  + " parameters instead of " + std::to_string(arity)
                  + " expected parameters");
         }
+        bool isConstant = true;
         std::vector<std::shared_ptr<ExpressionValueInfo> > info;
         for (auto & a: args) {
+            isConstant = isConstant && a.info->isConst();
             info.emplace_back(a.info);
         }
 
@@ -3330,7 +3348,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                 }
             };
 
-        result.resultInfo = std::move(bound.info);
+        result.resultInfo = bound.info->getConst(isConstant && bound.info->isConst());
         
         return result;
     } MLDB_CATCH_ALL {
@@ -3360,8 +3378,10 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                 auto content = ExpressionValue::null(Date::notADate());
                 auto error = ExpressionValue::null(Date::notADate());
                 try {
-                    filter_istream stream(args[0].toString(),
-                                          { { "mapped", "true" } });
+
+                    filter_istream stream(args[0].toUtf8String().rawString(),
+                                          { { "mapped", "true" },
+                                            { "httpAbortOnSlowConnection", "true"} });
 
                     FsObjectInfo info = stream.info();
 
@@ -3382,7 +3402,7 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                               info.lastModified);
                 }
                 MLDB_CATCH_ALL {
-                    error = ExpressionValue(getExceptionString(),
+                    error = ExpressionValue(getUtf8ExceptionString(),
                                             Date::now());
                 }
                 result.emplace_back("content", content);
@@ -3398,10 +3418,10 @@ BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
 
-    bool isConst = args[0].metadata.isConstant;
+    bool isConst = args[0].info->isConst();
 
     auto outputInfo
-        = std::make_shared<BooleanValueInfo>();
+        = std::make_shared<BooleanValueInfo>(true);
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {

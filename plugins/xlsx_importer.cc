@@ -22,7 +22,13 @@
 
 using namespace std;
 
-
+namespace {
+    const char * printDoc(tinyxml2::XMLDocument & doc) {
+        tinyxml2::XMLPrinter printer;
+        doc.Accept( &printer );
+        return printer.CStr();
+    }
+}
 
 namespace MLDB {
 
@@ -54,7 +60,6 @@ XlsxImporterConfigDescription()
 
 struct SharedStrings {
 
-
     void load(std::streambuf * buf, shared_ptr<spdlog::logger> logger)
     {
         std::ostringstream allText;
@@ -63,7 +68,7 @@ struct SharedStrings {
         unique_ptr<tinyxml2::XMLDocument> xml(new tinyxml2::XMLDocument());
         xml->Parse(allText.str().c_str());
 
-        //xml->Print();
+        TRACE_MSG(logger) << "loaded document:\n" << printDoc(*xml);
 
         using namespace tinyxml2;
 
@@ -311,13 +316,15 @@ struct Styles {
 
 struct Workbook {
 
-    Workbook()
-        : baseDate("1899-12-30")
+    Workbook(shared_ptr<spdlog::logger> logger)
+        : baseDate("1899-12-30"),
+          logger(logger)
     {
     }
 
     Date timestamp;
     Date baseDate;
+    shared_ptr<spdlog::logger> logger;
 
     struct Sheet {
         Utf8String name;
@@ -352,9 +359,7 @@ struct Workbook {
         unique_ptr<tinyxml2::XMLDocument> xml(new tinyxml2::XMLDocument());
         xml->Parse(allText.str().c_str());
 
-        //cerr << "workbook XML contents" << endl;
-
-        //xml->Print();
+        TRACE_MSG(logger) << "workbook XML contents\n" << printDoc(*xml);
 
         using namespace tinyxml2;
 
@@ -493,9 +498,7 @@ struct Sheet {
         unique_ptr<tinyxml2::XMLDocument> xml(new tinyxml2::XMLDocument());
         xml->Parse(allText.str().c_str());
 
-        //cerr << "workbook sheet contents" << endl;
-
-        //xml->Print();
+        TRACE_MSG(logger) << "workbook sheet contents" << printDoc(*xml);
 
         using namespace tinyxml2;
 
@@ -679,7 +682,7 @@ struct XlsxImporter: public Procedure {
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         SharedStrings strings;
-        Workbook workbook;
+        Workbook workbook(logger);
         Styles styles;
         std::string savedRelationships;
         bool sheetsLoaded = false;

@@ -35,7 +35,9 @@ struct ValueFunctionT;
 */
 
 struct ValueFunction: public Function {
+
     ValueFunction(MldbServer * server,
+                  const PolyConfig& config,
                   std::shared_ptr<const ValueDescription> inputDescription,
                   std::shared_ptr<const ValueDescription> outputDescription);
     
@@ -114,11 +116,12 @@ struct ValueFunctionT: public ValueFunction {
     typedef ValueFunctionT<Input, Output> BaseT;
 
     ValueFunctionT(MldbServer * server,
+                   const PolyConfig& config,
                    std::shared_ptr<const ValueDescription> inputDesc
                        = getDefaultDescriptionSharedT<Input>(),
                    std::shared_ptr<const ValueDescription> outputDesc
                        = getDefaultDescriptionSharedT<Output>())
-        : ValueFunction(server, std::move(inputDesc), std::move(outputDesc))
+        : ValueFunction(server, config, std::move(inputDesc), std::move(outputDesc))
     {
     }
 
@@ -156,9 +159,11 @@ struct ValueFunctionT: public ValueFunction {
     bindT(SqlBindingScope & outerContext,
           const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
     {
+        ExcAssert(config_);
         std::unique_ptr<Applier> result(new Applier(this));
         result->info = getFunctionInfo();
         result->info.checkInputCompatibility(input);
+        result->info.deterministic = config_->deterministic;
         return result;
     }
 

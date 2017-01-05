@@ -135,6 +135,10 @@ struct Regex {
     /** Return the surface form that was used to build this regex. */
     const Utf8String & surface() const;
 
+    bool operator == (const Regex & other) const;
+    bool operator != (const Regex & other) const;
+    bool operator < (const Regex & other) const;
+
     /** Default match results type. */
     typedef std::match_results<Utf8String::const_iterator> match_results;
 

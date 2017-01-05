@@ -212,6 +212,9 @@ public:
         - "compression": if not set, it will detect.  If set to "none", it
           will not decompress no matter what it finds.  Otherwise, it can
           be set to a compression scheme to force that scheme to be used.
+        - httpAbortOnSlowConnection: For http files, will timeout if the
+          connexion is too slow. Refer to http_rest_proxy.cc for the
+          specification of slow. (the parameter name is abortOnSlowConnection)
     */
     filter_istream(const std::string & uri,
                    const std::map<std::string, std::string> & options);

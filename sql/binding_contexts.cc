@@ -33,7 +33,7 @@ doGetFunction(const Utf8String & tableName,
 {
     std::vector<BoundSqlExpression> outerArgs;		
     for (auto & arg: args) {		
-        if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
+        if (arg.info->isConst())  //don't rebind constant expression since they don't need to access the row
             outerArgs.emplace_back(std::move(arg));		
         else		
             outerArgs.emplace_back(rebind(arg));

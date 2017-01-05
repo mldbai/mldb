@@ -779,7 +779,7 @@ run(const ProcedureRunConfig & run,
 
     ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures, logger, onProgress2);
 
-    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors);
+    ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors, logger);
     SvdBasis svd = SvdTrainer::calcSvdBasis(correlations,
                                             runProcConf.numSingularValues,
                                             logger);
@@ -1114,7 +1114,7 @@ SvdEmbedRow::
 SvdEmbedRow(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
     svd = jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toDecodedString());

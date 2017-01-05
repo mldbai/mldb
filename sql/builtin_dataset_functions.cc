@@ -16,6 +16,7 @@ typedef std::function<BoundTableExpression (const std::vector<BoundTableExpressi
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
+std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbServer *, const TableOperations& table);
 std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> >);
 std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
                                                     std::shared_ptr<Dataset> dataset,
@@ -84,8 +85,14 @@ BoundTableExpression transpose(const SqlBindingScope & context,
      if(!options.empty())
          throw HttpReturnException(500, "transpose() does not take any options");
 
-
-    auto ds = createTransposedDatasetFn(context.getMldbServer(), args[0].dataset);
+    std::shared_ptr<Dataset> ds;
+    if (args[0].dataset) {
+        ds = createTransposedDatasetFn(context.getMldbServer(), args[0].dataset);
+    }
+    else {
+        ExcAssert(args[0].table);
+        ds = createTransposedTableFn(context.getMldbServer(), args[0].table);
+    }
 
     return bindDataset(ds, alias); 
 }
@@ -102,8 +109,8 @@ BoundTableExpression merge(const SqlBindingScope & context,
                            const ExpressionValue & options,
                            const Utf8String& alias)
 {
-    if (args.size() < 2)
-        throw HttpReturnException(500, "merge() needs at least 2 arguments");
+    if (args.size() < 1)
+        throw HttpReturnException(500, "merge() needs at least 1 argument");
     if(!options.empty())
         throw HttpReturnException(500, "merge() does not take any options");
 

@@ -57,6 +57,7 @@ expected = {
         "hasUnknownColumnsRecursive": True, 
         "type": "MLDB::RowValueInfo", 
         "kind": "row", 
+        "isConstant": False,
         "knownColumns": []
     } ], 
     "output": {
@@ -64,6 +65,7 @@ expected = {
         "hasUnknownColumnsRecursive": True, 
         "type": "MLDB::RowValueInfo", 
         "kind": "row", 
+        "isConstant": False,
         "knownColumns": [
             {
                 "columnName": "patate({*})", 
@@ -72,20 +74,23 @@ expected = {
                     "hasUnknownColumnsRecursive": True, 
                     "type": "MLDB::RowValueInfo", 
                     "kind": "row", 
+                    "isConstant": False,
                     "knownColumns": [
                         {
                             "columnName": "x", 
                             "valueInfo": {
-                                "type": "MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo",
+                                "isConstant": False
                             }, 
-                            "sparsity": "sparse"
+                            "sparsity": "sparse",
                         }, 
                         {
                             "columnName": "y", 
                             "valueInfo": {
-                                "type": "MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo",
+                                "isConstant": False
                             }, 
-                            "sparsity": "sparse"
+                            "sparsity": "sparse",
                         }
                     ]
                 }, 

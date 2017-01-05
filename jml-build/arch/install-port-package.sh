@@ -18,7 +18,7 @@ elif [ $ARCH "=" "arm" ]; then
     ARCH="armhf"
 fi
 
-BASENAME=`apt-get download --print-uris $1:$ARCH | awk '{ print $2; }' | head -n1`
+BASENAME=`apt-get -o APT::Architecture=$ARCH download --print-uris $1 | awk '{ print $2; }' | head -n1`
 echo ARCH=$ARCH
 echo BASENAME=$BASENAME
 
@@ -27,7 +27,7 @@ mkdir -p $3/tmp
 if [ -f $3/tmp/$BASENAME ]; then
     echo "skipping download as already exists"
 else
-    (cd $3/tmp && apt-get download $1:$ARCH)
+    (cd $3/tmp && apt-get -o APT::Architecture=$ARCH download $1)
 fi
 
 # Extract from the downloaded file

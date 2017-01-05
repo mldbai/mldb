@@ -78,7 +78,7 @@ HashedColumnFeatureGenerator::
 HashedColumnFeatureGenerator(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<HashedColumnFeatureGeneratorConfig>();
 
@@ -125,15 +125,15 @@ call(FeatureGeneratorInput input) const
         if (!doneHashes.insert(hash).second)
             return true;
 
-        // cerr << "got " << hash << endl;
+        TRACE_MSG(logger) << "got " << hash;
 
         int bit = 0;
         for (int i = 0;  bit <= 63;  ++i, bit += functionConfig.numBits) {
             int bucket = (hash >> bit) & ((1ULL << functionConfig.numBits) - 1);
             ExcAssert(bucket >= 0 && bucket <= numBuckets());
             int val = (i % 2 ? -1 : 1);
-            // cerr << "bit = " << bit << " bucket = " << bucket
-            //     << " val = " << val << endl;
+            TRACE_MSG(logger) << "bit = " << bit << " bucket = " << bucket
+                              << " val = " << val;
             result[bucket] += val;
         }
 
