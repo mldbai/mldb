@@ -705,7 +705,24 @@ run(const ProcedureRunConfig & run,
 
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
-    if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
+
+    if (!boundDataset.dataset) {
+        ExcAssert(boundDataset.table);
+
+        std::function<bool (Path &, ExpressionValue &)> rowAccumulator = 
+            [=] (Path & rowName, ExpressionValue &rowValue) -> bool { 
+
+             if (!skipEmptyRows || rowValue.rowLength() > 0)
+                output->recordRowExpr(rowName, rowValue);
+
+             return true;
+        };
+
+        queryFromStatement(rowAccumulator,
+                   *runProcConf.inputData.stm,
+                   context);
+    }
+    else if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
         Dataset::MultiChunkRecorder recorder
             = output->getChunkRecorder();
 
