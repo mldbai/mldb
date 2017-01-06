@@ -50,7 +50,7 @@ virtualenv/bin/docker-squash -t quay.io/datacratic/mldb_base_nvidia:TAG.squashed
 ### Building MLDB docker based on this image
 
 ```
-nice make -j $(nproc) docker_mldb WITH_CUDA=1 DOCKER_POST_INSTALL_ARGS=-s DOCKER_BASE_IMAGE=mldb_base_nvidia:TAG.squashed
+nice make -j $(nproc) docker_mldb WITH_CUDA=1 DOCKER_POST_INSTALL_ARGS=-s DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base_nvidia:TAG.squashed
 ```
 
 Running MLDB with GPUs
