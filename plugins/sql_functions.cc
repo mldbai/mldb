@@ -25,7 +25,6 @@
 #include "mldb/utils/log.h"
 #include "mldb/rest/cancellation_exception.h"
 #include <memory>
-#include "mldb/builtin/sub_dataset.h"
 
 using namespace std;
 
