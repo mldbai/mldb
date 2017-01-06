@@ -40,10 +40,10 @@ Put these 3 files in the `container_files/nvidia/files` directory.
 Run `docker build` from the `container_files/nvidia` directory as follows,  changing `TAG` for something useful:
 
 ```
-docker build -t mldb_base_nvidia:TAG -f ./Dockerfile  .
+docker build -t quay.io/datacratic/mldb_base_nvidia:TAG -f ./Dockerfile  .
 
 # To reduce the image size we can squash (flatten, merge) the docker image
-virtualenv/bin/docker-squash -t mldb_base_nvidia:TAG.squashed mldb_base_nvidia:TAG
+virtualenv/bin/docker-squash -t quay.io/datacratic/mldb_base_nvidia:TAG.squashed quay.io/datacratic/mldb_base_nvidia:TAG
 ```
 
 
