@@ -709,7 +709,8 @@ run(const ProcedureRunConfig & run,
     if (!boundDataset.dataset) {
         ExcAssert(boundDataset.table);
 
-        std::function<bool (Path &, ExpressionValue &)> rowAccumulator = [=] (Path & rowName, ExpressionValue &rowValue) -> bool { 
+        std::function<bool (Path &, ExpressionValue &)> rowAccumulator = 
+            [=] (Path & rowName, ExpressionValue &rowValue) -> bool { 
 
              if (!skipEmptyRows || rowValue.rowLength() > 0)
                 output->recordRowExpr(rowName, rowValue);
