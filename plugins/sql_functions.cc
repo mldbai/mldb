@@ -707,27 +707,22 @@ run(const ProcedureRunConfig & run,
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
-    auto datasetInterface = boundDataset.dataset;
-    if (!datasetInterface) {
+    if (!boundDataset.dataset) {
         ExcAssert(boundDataset.table);
-        SqlBindingScope dummyScope;
-        auto generator = boundDataset.table.runQuery(dummyScope,
-                                       SelectExpression::STAR,
-                                       WhenExpression::TRUE,
-                                       *SqlExpression::TRUE,
-                                       OrderByExpression(),
-                                       0, -1);
 
-        SqlRowScope fakeRowScope;
+        std::function<bool (Path &, ExpressionValue &)> rowAccumulator = [=] (Path & rowName, ExpressionValue &rowValue) -> bool { 
 
-        // Generate all outputs of the query
-        std::vector<NamedRowValue> rows
-            = generator(-1, fakeRowScope);
+             if (!skipEmptyRows || rowValue.rowLength() > 0)
+                output->recordRowExpr(rowName, rowValue);
 
-        datasetInterface = std::make_shared<SubDataset>(server, rows);
+             return true;
+        };
+
+        queryFromStatement(rowAccumulator,
+                   *runProcConf.inputData.stm,
+                   context);
     }
-
-    if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
+    else if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
         Dataset::MultiChunkRecorder recorder
             = output->getChunkRecorder();
 
@@ -790,7 +785,7 @@ run(const ProcedureRunConfig & run,
         DEBUG_MSG(logger) << "performing dataset transform";
    
         if (!BoundSelectQuery(runProcConf.inputData.stm->select,
-                              *datasetInterface,
+                              *boundDataset.dataset,
                               boundDataset.asName,
                               runProcConf.inputData.stm->when,
                               *runProcConf.inputData.stm->where,
@@ -836,7 +831,7 @@ run(const ProcedureRunConfig & run,
         DEBUG_MSG(logger) << "performing dataset transform with group by";
 
         if(!BoundGroupByQuery(runProcConf.inputData.stm->select,
-                          *datasetInterface,
+                          *boundDataset.dataset,
                           boundDataset.asName,
                           runProcConf.inputData.stm->when,
                           *runProcConf.inputData.stm->where,
