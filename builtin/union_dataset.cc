@@ -304,9 +304,11 @@ struct UnionDataset::Itl
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
             for (const auto curr: d->getColumnIndex()->getColumnValues(columnPath)) {
-                res.emplace_back(
-                    PathElement(i) + std::get<0>(curr).toUtf8String().rawString(),
-                    std::get<1>(curr));
+                if (filter(std::get<1>(curr))) {
+                    res.emplace_back(
+                        PathElement(i) + std::get<0>(curr).toUtf8String().rawString(),
+                        std::get<1>(curr));
+                }
             }
         }
         return res;
