@@ -83,7 +83,7 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         self.assertTableResultEquals(res, [
             [   "_rowName", "colA", "count(*)" ],
             [   "\"[\"\"A\"\"]\"", "A", 1 ],
-            [   "\"[\"\"AA\"\"]\"", "AA", 999]])        
+            [   "\"[\"\"AA\"\"]\"", "AA", 999]])
 
     @unittest.skip("Unimplemented support")
     def test_query_from_ds(self):
@@ -202,6 +202,17 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
             ['_rowName', '1', '2', '3'],
             ['[]', 3, 2, 1]
         ])
+
+    def test_where(self):
+        mldb.put('/v1/datasets/union_test_where', {
+            'type' : 'union',
+            'params' : {
+                'datasets' : [{'id' : 'ds1'}, {'id' : 'ds2'}]
+            }
+        })
+
+        res = mldb.query("SELECT * FROM union_test_where WHERE colA='123'")
+        self.assertEquals(len(res), 1)
 
 
 if __name__ == '__main__':
