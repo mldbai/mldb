@@ -14,6 +14,7 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "boosting_core.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/types/enum_description.h"
 
 
 using namespace std;
@@ -193,6 +194,16 @@ Enum_Info<ML::Cost_Function>::OPT[2] = {
 
 const char * Enum_Info<ML::Cost_Function>::NAME
    = "Cost_Function";
+
+DEFINE_ENUM_DESCRIPTION(Cost_Function);
+
+Cost_FunctionDescription::
+Cost_FunctionDescription()
+{
+    addValue("exponential", ML::CF_EXPONENTIAL, "");
+    addValue("logistic", ML::CF_LOGISTIC, "");
+}
+
 
 } // namespace ML
 

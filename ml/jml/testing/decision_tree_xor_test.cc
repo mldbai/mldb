@@ -43,10 +43,6 @@ LABEL X Y\n\
 1 1 1\n\
 ";
 
-static const char * config_options = "\
-trace=1\n\
-";
-
 BOOST_AUTO_TEST_CASE( test_xor_function )
 {
     /* Create the dataset */
@@ -64,12 +60,11 @@ BOOST_AUTO_TEST_CASE( test_xor_function )
     cerr << fs.features() << endl;
 
     /* Create the decision tree generator */
-    Configuration config;
-    config.parse_string(config_options, "inbuilt config file");
-
     Decision_Tree_Generator generator;
+    auto config = make_shared<Decision_Tree_Generator_Config>();
+    config->trace = 1;
     vector<string> unparsedKeys; // should be used to root out invalid keys
-    generator.configure(config, unparsedKeys);
+    generator.configure(config);
     generator.init(data.feature_space(),
                    fs.features()[0]);
 

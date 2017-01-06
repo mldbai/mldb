@@ -12,6 +12,7 @@
 #include <boost/multi_array.hpp>
 #include "training_data.h"
 #include "stump.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace ML {
 
@@ -21,6 +22,7 @@ enum Cost_Function {
     CF_EXPONENTIAL,  ///< Use an exponential cost function (AdaBoost)
     CF_LOGISTIC      ///< Use a logistic cost function (~LogitBoost)
 };
+DECLARE_ENUM_DESCRIPTION(Cost_Function);
 
 /** Update the weights which we have been maintaining for a set of data,
     using the last decision stump learned.  This can remove an O(n) from

@@ -47,17 +47,19 @@ DECLARE_STRUCTURE_DESCRIPTION(Classifier_Generator_Config);
 
 class Classifier_Generator {
 public:
+    Classifier_Generator();
+    Classifier_Generator(
+        std::shared_ptr<Classifier_Generator_Config> config);
     virtual ~Classifier_Generator();
+
 
     /** Configure the generator with its parameters. */
     virtual void
-    configure(const Classifier_Generator_Config & config);
+    configure(const std::shared_ptr<Classifier_Generator_Config> & config);
+    virtual void configure(const Json::Value & config);
     
     /** Return to the default configuration. */
     virtual void defaults();
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -123,7 +125,7 @@ public:
     /** Log a message for the given module at the given debug level. */
     std::ostream & log(const std::string & module, int level) const;
 
-    Classifier_Generator_Config config;
+    std::shared_ptr<Classifier_Generator_Config> config;
 
     /** Feature space we are using. */
     std::shared_ptr<const Feature_Space> feature_space;
@@ -142,7 +144,8 @@ public:
 
 /** Generate a trainer for the classifier with the given name. */
 std::shared_ptr<Classifier_Generator>
-get_trainer(const std::string & name, const Configuration & config);
+get_trainer(const std::string & name,
+            const Json::Value & config);
 
 template<class Base> class Factory_Base;
 template<class Base, class Derived> class Object_Factory;

@@ -157,10 +157,12 @@ Decision_Tree_Generator_ConfigDescription()
              "give maximum tree depth.  -1 means go until data separated", -1);
     addField("update_alg",
              &Decision_Tree_Generator_Config::update_alg,
-             "select the type of output that the tree gives", -1);
+             "select the type of output that the tree gives",
+             Stump::Update::PROB);
     addField("random_feature_propn",
              &Decision_Tree_Generator_Config::random_feature_propn,
-             "proportion of the features to enable (for random forests)", 1);
+             "proportion of the features to enable (for random forests)",
+             (float)1);
 }
 
 /*****************************************************************************/
@@ -169,8 +171,8 @@ Decision_Tree_Generator_ConfigDescription()
 
 Decision_Tree_Generator::
 Decision_Tree_Generator()
+    : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Decision_Tree_Generator_Config>()))
 {
-    defaults();
 }
 
 Decision_Tree_Generator::~Decision_Tree_Generator()
@@ -194,6 +196,11 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features, int) const
 {
+    const auto * cfg =
+        static_cast<const Decision_Tree_Generator_Config *>(config.get());
+    const auto max_depth = cfg->max_depth;
+    const auto verbosity = cfg->verbosity;
+
     boost::timer timer;
 
     Feature predicted = model.predicted();
@@ -219,6 +226,11 @@ generate(Thread_Context & context,
          float & Z,
          int recursion) const
 {
+    const auto * cfg =
+        static_cast<const Decision_Tree_Generator_Config *>(config.get());
+    const auto max_depth = cfg->max_depth;
+    const auto verbosity = cfg->verbosity;
+
     //boost::timer timer;
 
     //Feature predicted = model.predicted();
@@ -239,6 +251,11 @@ train_weighted(Thread_Context & context,
                const std::vector<Feature> & features,
                int max_depth) const
 {
+    const auto * cfg =
+        static_cast<const Decision_Tree_Generator_Config *>(config.get());
+    const auto update_alg = cfg->update_alg;
+    const auto random_feature_propn = cfg->random_feature_propn;
+
     Decision_Tree result = model;
 
     Feature predicted = model.predicted();
@@ -1147,6 +1164,12 @@ train_recursive(Thread_Context & context,
                 int depth, int max_depth,
                 Tree & tree) const
 {
+    const auto * cfg =
+        static_cast<const Decision_Tree_Generator_Config *>(config.get());
+    const auto trace = cfg->trace;
+    const auto update_alg = cfg->update_alg;
+    const auto validate = cfg->validate;
+
     if (advance == 0) {
         // binary symmetric, we can use an optimized version
         typedef W_binsym W;
@@ -1184,6 +1207,11 @@ train_recursive_regression(Thread_Context & context,
                            int depth, int max_depth,
                            Tree & tree) const
 {
+    const auto * cfg =
+        static_cast<const Decision_Tree_Generator_Config *>(config.get());
+    const auto validate = cfg->validate;
+    const auto trace = cfg->trace;
+
     if (depth > 100 && max_depth == -1)
         throw Exception("Decision_Tree_Generator::train_recursive_regression(): "
                         "depth of 100 reached");

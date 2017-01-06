@@ -107,8 +107,8 @@ Boosting_Generator_ConfigDescription()
 
 Boosting_Generator::
 Boosting_Generator()
+    : Weight_Updating_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Boosting_Generator_Config>()))
 {
-    defaults();
 }
 
 Boosting_Generator::~Boosting_Generator()
@@ -120,8 +120,8 @@ Boosting_Generator::
 init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
-    auto & cfg = static_cast<Early_Stopping_Generator_Config&>(config);
-    config.weak_learner->init(fs, predicted);
+    auto * cfg = static_cast<Boosting_Generator_Config*>(config.get());
+    cfg->weak_learner->init(fs, predicted);
 }
 
 std::shared_ptr<Classifier_Impl>
@@ -133,6 +133,17 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features_, int) const
 {
+    const auto * cfg =
+        static_cast<const Boosting_Generator_Config *>(config.get());
+    const auto max_iter = cfg->max_iter;
+    const auto min_iter = cfg->min_iter;
+    //const auto ignore_highest = cfg.ignore_highest; //TODO useless?
+    //const auto & update_alg = cfg.update_alg; //TODO useless?
+    //const auto short_circuit_window = cfg.short_circuit_window; //TODO useless?
+    const auto trace_training_acc = cfg->trace_training_acc;
+    const auto verbosity = cfg->verbosity;
+    const auto profile = cfg->profile;
+
     vector<Feature> features = features_;
 
     boost::timer timer;
@@ -307,6 +318,12 @@ generate_and_update(Thread_Context & context,
                     boost::multi_array<float, 2> & weights,
                     const std::vector<Feature> & features_) const
 {
+    const auto * cfg =
+        static_cast<const Boosting_Generator_Config *>(config.get());
+    const auto verbosity = cfg->verbosity;
+    const auto max_iter = cfg->max_iter;
+    const auto min_iter = cfg->min_iter;
+    const auto profile = cfg->profile;
     vector<Feature> features = features_;
 
     boost::timer timer;
@@ -399,6 +416,11 @@ train_iteration(Thread_Context & context,
                 float & Z,
                 Optimization_Info & opt_info) const
 {
+    const auto * cfg =
+            static_cast<const Boosting_Generator_Config *>(config.get());
+    const auto & weak_learner = cfg->weak_learner;
+    const auto & cost_function = cfg->cost_function;
+
     bool bin_sym = convert_bin_sym(weights, data, predicted, features);
 
     /* Make sure we have some features. */
@@ -512,6 +534,11 @@ train_iteration(Thread_Context & context,
                 double & training_accuracy, float & Z,
                 Optimization_Info & opt_info) const
 {
+    const auto * cfg =
+        static_cast<const Boosting_Generator_Config *>(config.get());
+    const auto & weak_learner = cfg->weak_learner;
+    const auto & cost_function = cfg->cost_function;
+
     bool bin_sym
         = convert_bin_sym(weights, data, predicted, features);
 

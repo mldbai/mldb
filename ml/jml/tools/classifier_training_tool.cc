@@ -24,6 +24,7 @@
 #include "mldb/jml/stats/moments.h"
 #include "datasets.h"
 #include "mldb/jml/utils/info.h"
+#include "mldb/types/json_parsing.h"
 
 #include <iterator>
 #include <iostream>
@@ -210,20 +211,22 @@ try
         else dataset_params.push_back(param);
     }
 
-    Configuration config;
-    if (config_file_name != "") config.load(config_file_name);
-    config.parse_command_line(option_params);
+//     Configuration config;
+//     if (config_file_name != "") config.load(config_file_name);
+//     config.parse_command_line(option_params);
+// 
+//     if (trainer_type != "")
+//         config[(trainer_name == "" ? string("type") : trainer_name + ".type")]
+//             = trainer_type;
 
-    if (trainer_type != "")
-        config[(trainer_name == "" ? string("type") : trainer_name + ".type")]
-            = trainer_type;
-
+    Json::Value todoPwet;
     std::shared_ptr<Classifier_Generator> generator
-        = get_trainer(trainer_name, config);
+        = get_trainer(trainer_name, todoPwet);
 
     if (help_config) {
-        Config_Options options = generator->options();
-        options.dump(cerr);
+        // TODO
+//         Config_Options options = generator->options();
+//         options.dump(cerr);
         exit(0);
     }
 

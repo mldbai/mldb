@@ -68,6 +68,81 @@ struct Stats {
 
 } // file scope
 
+/*****************************************************************************/
+/* PERCEPTRON_GENERATOR_CONFIG                                               */
+/*****************************************************************************/
+Perceptron_Generator_Config::
+Perceptron_Generator_Config() :
+    max_iter(100), min_iter(10), learning_rate(0.01), arch_str("%i"),
+    activation(TF_TANH), output_activation(TF_TANH), do_decorrelate(true),
+    do_normalize(true), batch_size(1024), target_value(0.8)
+{
+}
+
+void
+Perceptron_Generator_Config::
+defaults()
+{
+    Early_Stopping_Generator_Config::defaults();
+    max_iter = 100;
+    min_iter = 10;
+    learning_rate = 0.01;
+    arch_str = "%i";
+    activation = output_activation = TF_TANH;
+    do_decorrelate = true;
+    do_normalize = true;
+    batch_size = 1024;
+    target_value = 0.8;
+}
+
+void
+Perceptron_Generator_Config::
+validateFct()
+{
+    Early_Stopping_Generator_Config::validateFct();
+    if (min_iter < 1) {
+        throw Exception("min_iter must be >= 1");
+    }
+    if (max_iter < min_iter) {
+        throw Exception("max_iter must be >= min_iter");
+    }
+    if (target_value < 0 && target_value > 1) {
+        throw Exception("target_value must be between 0 and 1");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Perceptron_Generator_Config);
+
+Perceptron_Generator_ConfigDescription::
+Perceptron_Generator_ConfigDescription()
+{
+    addField("min_iter", &Perceptron_Generator_Config::min_iter,
+             "minimum number of training iterations to run", (unsigned)10);
+    addField("max_iter", &Perceptron_Generator_Config::max_iter,
+             "maximum number of training iterations to run", (unsigned)100);
+    addField("learning_rate", &Perceptron_Generator_Config::learning_rate,
+             "positive: rate of learning relative to dataset size: negative "
+             "for absolute", (float(0.01)));
+    addField("arch", &Perceptron_Generator_Config::arch_str,
+             "hidden unit specification; %i=in vars, %o=out vars; eg 5_10",
+             string("%i"));
+    addField("activation", &Perceptron_Generator_Config::activation,
+             "activation function for neurons", TF_TANH);
+    addField("output_activation",
+             &Perceptron_Generator_Config::output_activation,
+             "activation function for output layer of neurons", TF_TANH);
+    addField("decorrelate", &Perceptron_Generator_Config::do_decorrelate,
+             "decorrelate the features before training", true);
+    addField("normalize", &Perceptron_Generator_Config::do_normalize,
+             "normalize to zero mean and unit std before training", true);
+    addField("batch_size", &Perceptron_Generator_Config::batch_size,
+             "number of samples in each \"mini batch\" for stochastic",
+             (float)1024);
+    addField("target_value", &Perceptron_Generator_Config::target_value,
+             "the output for a 1 that we ask the network to provide",
+             (float)0.8);
+    addParent<Early_Stopping_Generator_Config>();;
+}
 
 /*****************************************************************************/
 /* PERCEPTRON_GENERATOR                                                      */
@@ -81,69 +156,6 @@ Perceptron_Generator()
 
 Perceptron_Generator::~Perceptron_Generator()
 {
-}
-
-void
-Perceptron_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Early_Stopping_Generator::configure(config, unparsedKeys);
-    
-    config.findAndRemove(max_iter, "max_iter", unparsedKeys);
-    config.findAndRemove(min_iter, "min_iter", unparsedKeys);
-    config.findAndRemove(learning_rate, "learning_rate", unparsedKeys);
-    config.findAndRemove(arch_str, "arch", unparsedKeys);
-    config.findAndRemove(batch_size, "batch_size", unparsedKeys);
-    config.findAndRemove(activation, "activation", unparsedKeys);
-    config.findAndRemove(output_activation, "output_activation", unparsedKeys);
-    config.findAndRemove(do_decorrelate, "decorrelate", unparsedKeys);
-    config.findAndRemove(do_normalize, "normalize", unparsedKeys);
-    config.findAndRemove(target_value, "target_value", unparsedKeys);
-}
-
-void
-Perceptron_Generator::
-defaults()
-{
-    Early_Stopping_Generator::defaults();
-    max_iter = 100;
-    min_iter = 10;
-    learning_rate = 0.01;
-    arch_str = "%i";
-    activation = output_activation = TF_TANH;
-    do_decorrelate = true;
-    do_normalize = true;
-    batch_size = 1024;
-    target_value = 0.8;
-}
-
-Config_Options
-Perceptron_Generator::
-options() const
-{
-    Config_Options result = Early_Stopping_Generator::options();
-    result
-        .add("min_iter", min_iter, "1-max_iter",
-             "minimum number of training iterations to run")
-        .add("max_iter", max_iter, ">=min_iter",
-             "maximum number of training iterations to run")
-        .add("learning_rate", learning_rate, "real",
-             "positive: rate of learning relative to dataset size: negative for absolute")
-        .add("arch", arch_str, "(see doc)",
-             "hidden unit specification; %i=in vars, %o=out vars; eg 5_10")
-        .add("activation", activation,
-             "activation function for neurons")
-        .add("output_activation", output_activation,
-             "activation function for output layer of neurons")
-        .add("decorrelate", do_decorrelate,
-             "decorrelate the features before training")
-        .add("normalize", do_normalize,
-             "normalize to zero mean and unit std before training")
-        .add("batch_size", batch_size, "0.0-1.0 or 1 - nvectors",
-             "number of samples in each \"mini batch\" for stochastic")
-        .add("target_value", target_value, "0.0-1.0", "the output for a 1 that we ask the network to provide");
-    
-    return result;
 }
 
 void
@@ -163,6 +175,15 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features, int) const
 {
+    const auto * cfg =
+        static_cast<const Perceptron_Generator_Config *>(config.get());
+    const auto max_iter = cfg->max_iter;
+    const auto min_iter = cfg->min_iter;
+    const auto arch_str = cfg->arch_str;
+    const auto batch_size = cfg->batch_size;
+    const auto verbosity = cfg->verbosity;
+    const auto target_value = cfg->target_value;
+
     boost::timer timer;
 
     Feature predicted = model.predicted();
@@ -247,7 +268,7 @@ generate(Thread_Context & context,
        example weight (on average 1/num examples in training set) as part of
        the training, and we want to counteract this effect).
     */
-    float learning_rate = this->learning_rate;
+    float learning_rate = cfg->learning_rate;
     if (learning_rate < 0.0) {
         learning_rate
             *= -1.0 * training_ex_weights.size() / training_ex_weights.total();
@@ -431,6 +452,11 @@ decorrelate(const Training_Data & data,
             const std::vector<Feature> & possible_features,
             Perceptron & result) const
 {
+    const auto * cfg =
+        static_cast<const Perceptron_Generator_Config *>(config.get());
+    const auto do_normalize = cfg->do_normalize;
+    const auto do_decorrelate = cfg->do_decorrelate;
+
     PROFILE_FUNCTION(t_decorrelate);
 
     const Dataset_Index & index = data.index();
@@ -703,6 +729,11 @@ init(const Training_Data & data,
      Perceptron & result,
      Thread_Context & context) const
 {
+    const auto * cfg =
+        static_cast<const Perceptron_Generator_Config *>(config.get());
+    const auto activation = cfg->activation;
+    const auto output_activation = cfg->output_activation;
+
     result = model;
 
     /* Find out about the output that we need (in particular, how many

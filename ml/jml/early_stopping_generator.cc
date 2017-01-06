@@ -11,7 +11,7 @@
 #include "mldb/ml/jml/early_stopping_generator.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/jml/utils/sgi_numeric.h"
-#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/structure_description.h"
 #include "mldb/server/mldb_server.h"
 
 using namespace std;
@@ -49,6 +49,17 @@ Early_Stopping_Generator_ConfigDescription()
 /*****************************************************************************/
 /* EARLY_STOPPING_GENERATOR                                                  */
 /*****************************************************************************/
+Early_Stopping_Generator::
+Early_Stopping_Generator()
+    : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Early_Stopping_Generator_Config>()))
+{
+}
+
+Early_Stopping_Generator::
+Early_Stopping_Generator(shared_ptr<Classifier_Generator_Config> config)
+    : Classifier_Generator(config)
+{
+}
 
 Early_Stopping_Generator::
 ~Early_Stopping_Generator()
@@ -63,15 +74,15 @@ generate(Thread_Context & context,
          const std::vector<Feature> & features,
          int recursion) const
 {
-    const auto & cfg =
-        static_cast<const Early_Stopping_Generator_Config&>(config);
+    const auto * cfg =
+        static_cast<const Early_Stopping_Generator_Config*>(config.get());
     if (recursion > 10)
         throw Exception("Early_Stopping_Generator::generate(): recursion");
 
-    if (cfg.validate_split <= 0.0 || cfg.validate_split >= 1.0)
+    if (cfg->validate_split <= 0.0 || cfg->validate_split >= 1.0)
         throw Exception("invalid validate split value");
 
-    float train_prop = 1.0 - cfg.validate_split;
+    float train_prop = 1.0 - cfg->validate_split;
 
     int nx = ex_weights.size();
 

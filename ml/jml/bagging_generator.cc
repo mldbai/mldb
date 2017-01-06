@@ -79,12 +79,13 @@ Bagging_Generator_ConfigDescription()
 /*****************************************************************************/
 
 Bagging_Generator::
-Bagging_Generator()
+Bagging_Generator() :
+    Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Bagging_Generator_Config>()))
 {
-    defaults();
 }
 
-Bagging_Generator::~Bagging_Generator()
+Bagging_Generator::
+~Bagging_Generator()
 {
 }
 
@@ -93,8 +94,8 @@ Bagging_Generator::
 init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
-    auto & cfg = static_cast<Bagging_Generator_Config&>(config);
-    cfg.weak_learner->init(fs, predicted);
+    auto * cfg = static_cast<Bagging_Generator_Config*>(config.get());
+    cfg->weak_learner->init(fs, predicted);
 }
 
 namespace {
@@ -232,12 +233,13 @@ generate(Thread_Context & context,
          const std::vector<Feature> & features,
          int recursion) const
 {
-    const auto & cfg = static_cast<const Bagging_Generator_Config&>(config);
-    auto num_bags = cfg.num_bags;
-    auto validation_split = cfg.validation_split;
-    auto & weak_learner = cfg.weak_learner;
-    auto verbosity = cfg.verbosity;
-    auto profile = cfg.profile;
+    const auto * cfg =
+        static_cast<const Bagging_Generator_Config*>(config.get());
+    auto num_bags = cfg->num_bags;
+    auto validation_split = cfg->validation_split;
+    auto & weak_learner = cfg->weak_learner;
+    auto verbosity = cfg->verbosity;
+    auto profile = cfg->profile;
 
     boost::timer timer;
 

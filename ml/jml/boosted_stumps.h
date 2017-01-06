@@ -15,6 +15,7 @@
 #include "mldb/jml/utils/floating_point.h"
 #include <boost/iterator/transform_iterator.hpp>
 #include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace ML {
 
@@ -268,6 +269,7 @@ private:
 
 };
 
+DECLARE_ENUM_DESCRIPTION(Boosted_Stumps::Output);
 
 } // namespace ML
 

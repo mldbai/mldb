@@ -29,7 +29,6 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"
 #include <cassert>
-#include "mldb/server/mldb_server.h"
 
 using namespace std;
 
@@ -111,7 +110,7 @@ Stump_Generator_ConfigDescription()
     addField("feature_prop",
              &Stump_Generator_Config::feature_prop,
              "try lazy training on only this proportion of features per iter",
-             1);
+             (float)1);
     addField("trace",
              &Stump_Generator_Config::trace,
              "trace training (very detailed) to given level", 0);
@@ -120,8 +119,8 @@ Stump_Generator_ConfigDescription()
              "select the harshness of the update algorithm", Stump::NORMAL);
     addField("ignore_highest",
              &Stump_Generator_Config::ignore_highest,
-             "ignore the examples witht the highest N% of weights", 0);
-    addParent<ClassifierGeneratorConfig>();
+             "ignore the examples witht the highest N% of weights", (float)0);
+    addParent<Classifier_Generator_Config>();
 }
 
 /*****************************************************************************/
@@ -130,32 +129,12 @@ Stump_Generator_ConfigDescription()
 
 Stump_Generator::
 Stump_Generator()
+    : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Stump_Generator_Config>()))
 {
-    defaults();
 }
 
 Stump_Generator::~Stump_Generator()
 {
-}
-
-void
-Stump_Generator::
-configure(const Configuration & config, vector<string> & unparsedKeys)
-{
-    Classifier_Generator::configure(config, unparsedKeys);
-    
-}
-
-void
-Stump_Generator::
-defaults()
-{
-    Classifier_Generator::defaults();
-    committee_size = 1;
-    feature_prop = 1.0;
-    trace = 0;
-    update_alg = Stump::NORMAL;
-    ignore_highest = 0.0;
 }
 
 void
@@ -175,12 +154,9 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features_, int) const
 {
-    auto cfg = static_cast<Stump_Generator_Config>(config);
-    const auto trace = cfg.trace;
-    const auto ignore_highest = cfg.ignore_highest;
-    const auto committee_size = cfg.committee_size;
-    const auto & update_alg = cfg.update_alg;
-    const auto feature_prop = cfg.feature_prop;
+    const auto * cfg =
+        static_cast<const Stump_Generator_Config *>(config.get());
+    const auto committee_size = cfg->committee_size;
 
     vector<Feature> features = features_;
 
@@ -234,6 +210,10 @@ generate(Thread_Context & context,
          float & Z,
          int recursion) const
 {
+    const auto * cfg =
+        static_cast<const Stump_Generator_Config *>(config.get());
+    const auto committee_size = cfg->committee_size;
+
     vector<Feature> features = features_;
 
     boost::timer timer;
@@ -356,6 +336,14 @@ train_all(Thread_Context & context,
           const boost::multi_array<float, 2> & weights,
           const std::vector<Feature> & features_) const
 {
+    const auto * cfg =
+        static_cast<const Stump_Generator_Config *>(config.get());
+    const auto trace = cfg->trace;
+    const auto ignore_highest = cfg->ignore_highest;
+    const auto committee_size = cfg->committee_size;
+    const auto & update_alg = cfg->update_alg;
+    const auto feature_prop = cfg->feature_prop;
+
     size_t nx = data.example_count();
     size_t nl = model.label_count();
 

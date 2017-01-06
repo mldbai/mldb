@@ -75,6 +75,18 @@ Classifier_Generator_ConfigDescription()
 /*****************************************************************************/
 /* CLASSIFIER_GENERATOR                                                      */
 /*****************************************************************************/
+Classifier_Generator::
+Classifier_Generator() : config(make_shared<Classifier_Generator_Config>())
+{
+    config->defaults();
+}
+
+Classifier_Generator::
+Classifier_Generator(shared_ptr<Classifier_Generator_Config> config)
+    : config(config)
+{
+    config->defaults();
+}
 
 Classifier_Generator::
 ~Classifier_Generator()
@@ -92,16 +104,24 @@ init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 
 void
 Classifier_Generator::
-configure(const Classifier_Generator_Config & config)
+configure(const shared_ptr<Classifier_Generator_Config> & config)
 {
     this->config = config;
 }
 
 void
 Classifier_Generator::
+configure(const Json::Value & config)
+{
+    configure(make_shared<Classifier_Generator_Config>(
+                jsonDecode<Classifier_Generator_Config>(config)));
+}
+
+void
+Classifier_Generator::
 defaults()
 {
-    config.defaults();
+    config->defaults();
 }
 
 std::shared_ptr<Classifier_Impl>
@@ -237,7 +257,7 @@ log(const std::string & module, int level) const
 
     static MLDB::filter_ostream cnull("");
 
-    if (level <= config.verbosity)
+    if (level <= config->verbosity)
         return cerr;
     else return cnull;
 }
@@ -253,63 +273,30 @@ type() const
 /* FACTORIES                                                                 */
 /*****************************************************************************/
 
-std::tuple<std::string, std::string>
-get_type(const std::string & name, const Configuration & config)
-{
-    std::string name2 = name;
-    if (config.count(name) && config[name] != "") {
-        // allow "default=lso1" to work
-        name2 = config[name];
-    }
-    
-    string type_key = (name2 == "" ? string("type") : name2 + ".type");
-
-    if (!config.count(type_key, true))
-        throw Exception("key " + type_key + " not found in config ("
-                        "initial was " + name + ".type)");
-    
-    std::string key = config.find_key(type_key, true);
-
-    if (config.prefix() != ""
-        && key.find(config.prefix() + '.') != string::npos)
-        key = string(key, config.prefix().size() + 1);
-
-    name2 = key;
-    name2.resize(std::max<int>(0, name2.size() - 5));  // remove the ".type"
-    
-    return std::make_tuple(config[key], name2);
-}
-
 std::shared_ptr<Classifier_Generator>
-get_trainer(const std::string & name, const Configuration & config)
+get_trainer(const std::string & name,
+            const Json::Value & config)
 {
-    // TODO--------
-//     std::string type, name2;
-//     std::tie(type, name2) = get_type(name, config);
-//     
-//     if (type == "") {
-//         //cerr << config << endl;
-//         throw Exception("Object with name \"" + name + "\" has no type "
-//                         "in configuration file with prefix "
-//                         + config.prefix());
-//     }
-//     
-    string type = "";
+    const auto type = config["type"].asString();
+    if (type == "") {
+        //cerr << config << endl;
+        throw Exception("Object with name \"" + name + "\" has no type "
+                        "in configuration file with prefix ");
+                        // TODO + config.prefix());
+    }
     std::shared_ptr<Classifier_Generator> result
         = Registry<Classifier_Generator>::singleton().create(type);
-// 
-//     Configuration config2(config, name, Configuration::PREFIX_APPEND);
-//     auto unparsedKeys = config2.unparsedKeys();
-//     result->configure(config2);
-// 
-//     string typeKey = config2.prefix() + ".type";
-//     string allowPrefix = config2.prefix() + "._";
-//     auto allowKeyFct = [&] (const string & str) {
-//         return str == typeKey || str.find(allowPrefix) == 0;
-//     };
-//     config2.throwOnUnknwonKeys(unparsedKeys, allowKeyFct);
+
+    // TODO throw unparseable
+    result->configure(config);
+
+    if (!result->config->unparsedKeys.empty()) {
+        //TODO more verbose than that please
+        throw Exception("unpased keys found");
+    }
 
     return result;
 }
+
 } // namespace ML
 

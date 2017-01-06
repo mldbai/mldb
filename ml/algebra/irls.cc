@@ -18,6 +18,7 @@
 #include "multi_array_utils.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/ml/algebra/lapack.h"
+#include "mldb/types/enum_description.h"
 #include <cmath>
 
 using namespace std;
@@ -938,6 +939,19 @@ Enum_Info<ML::Link_Function>::OPT[5] = {
 const char * Enum_Info<ML::Link_Function>::NAME
    = "Link_Function";
 
+DEFINE_ENUM_DESCRIPTION(Link_Function);
+
+Link_FunctionDescription::
+Link_FunctionDescription()
+{
+    addValue("logit", ML::LOGIT, "");
+    addValue("probit", ML::PROBIT, "");
+    addValue("comp_Log_log", ML::COMP_LOG_LOG, "");
+    addValue("linear", ML::LINEAR, "");
+    addValue("log", ML::LOG, "");
+}
+
+
 COMPACT_PERSISTENT_ENUM_IMPL(Regularization);
   
 const Enum_Opt<ML::Regularization>
@@ -949,6 +963,15 @@ Enum_Info<ML::Regularization>::OPT[3] = {
 const char * Enum_Info<ML::Regularization>::NAME
    = "Regularization";
 
+DEFINE_ENUM_DESCRIPTION(Regularization);
+
+RegularizationDescription::
+RegularizationDescription()
+{
+    addValue("none", ML::Regularization_none, "");
+    addValue("l1", ML::Regularization_l1, "");
+    addValue("l2", ML::Regularization_l2, "");
+}
+
+
 } // namespace ML
-
-

@@ -53,7 +53,7 @@ validateFct()
         throw Exception("trace must be greater or equal to 0");
     }
     if (feature_prop < 0 || feature_prop > 1) {
-        throw Exception("feature_prop must be between 0 and 1")
+        throw Exception("feature_prop must be between 0 and 1");
     }
 }
 
@@ -65,7 +65,7 @@ Naive_Bayes_Generator_ConfigDescription()
     addField("trace",
              &Naive_Bayes_Generator_Config::trace,
              "trace execution of training in a very fine-grained fashion", 0);
-    addParent<ClassifierGeneratorConfig>();
+    addParent<Classifier_Generator_Config>();
 }
 
 /*****************************************************************************/
@@ -74,8 +74,8 @@ Naive_Bayes_Generator_ConfigDescription()
 
 Naive_Bayes_Generator::
 Naive_Bayes_Generator()
+    : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Naive_Bayes_Generator_Config>()))
 {
-    defaults();
 }
 
 Naive_Bayes_Generator::~Naive_Bayes_Generator()
@@ -97,7 +97,7 @@ generate(Thread_Context & context,
          const distribution<float> & training_ex_weights,
          const std::vector<Feature> & features, int) const
 {
-    const auto verbosity = config.verbosity;
+    const auto verbosity = config->verbosity;
 
     boost::timer timer;
 
@@ -328,6 +328,11 @@ train_weighted(Thread_Context & context,
                const boost::multi_array<float, 2> & weights,
                const std::vector<Feature> & features_) const
 {
+    const auto * cfg =
+        static_cast<const Naive_Bayes_Generator_Config *>(config.get());
+    const auto feature_prop = cfg->feature_prop;
+    const auto trace = cfg->trace;
+
     Naive_Bayes result = model;
 
     vector<Feature> features = features_;

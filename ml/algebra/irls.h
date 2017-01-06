@@ -13,6 +13,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/jml/utils/enum_info.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace ML {
 
@@ -29,6 +30,7 @@ enum Regularization{
 };
 
 COMPACT_PERSISTENT_ENUM_DECL(Regularization);
+DECLARE_ENUM_DESCRIPTION(Regularization);
 
 /** Print out a Regularization enum. */
 std::string print(Regularization link);
@@ -93,6 +95,7 @@ enum Link_Function {
 };
 
 COMPACT_PERSISTENT_ENUM_DECL(Link_Function);
+DECLARE_ENUM_DESCRIPTION(Link_Function);
 
 /** Print out a link function. */
 std::string print(Link_Function link);

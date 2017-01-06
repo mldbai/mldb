@@ -216,21 +216,23 @@ run(const ProcedureRunConfig & run,
         throw HttpReturnException(400, "Unknown classifier mode");
     }
 
-    ML::Configuration classifierConfig;
-
-    if (!runProcConf.configuration.isNull()) {
-        classifierConfig =
-            jsonDecode<ML::Configuration>(runProcConf.configuration);
-    }
-    else {
-        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
-                                  runProcConf.configurationFile :
-                                  "/opt/bin/classifiers.json");
-        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
-    }
+//     ML::Configuration classifierConfig;
+// 
+//     if (!runProcConf.configuration.isNull()) {
+//         classifierConfig =
+//             jsonDecode<ML::Configuration>(runProcConf.configuration);
+//     }
+//     else {
+//         filter_istream stream(runProcConf.configurationFile.size() > 0 ?
+//                                   runProcConf.configurationFile :
+//                                   "/opt/bin/classifiers.json");
+//         classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
+//     }
+    //TODO
+    Json::Value todoPwet;
     std::shared_ptr<ML::Classifier_Generator> trainer
         = ML::get_trainer(runProcConf.algorithm,
-                          classifierConfig);
+                          todoPwet);
 
     labelInfo.set_biased(true);
 
@@ -1174,11 +1176,13 @@ void jmlclassifierMacro(MacroContext & context,
 
         context.writeHtml("<table><tr><th>Parameter</th><th>Range</th>"
                           "<th>Default</th><th>Description</th></tr>");
-        for (auto & o: generator->options())
-            context.writeHtml(MLDB::format(
-                                         "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
-                                         o.name.c_str(), o.range.c_str(), o.value.c_str(), o.doc.c_str()
-                                         ));
+//TODO
+//         for (auto & o: generator->options()) {
+//             context.writeHtml(MLDB::format(
+//                                          "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
+//                                          o.name.c_str(), o.range.c_str(), o.value.c_str(), o.doc.c_str()
+//                                          ));
+//         }
 
         context.writeHtml("</table>");
 

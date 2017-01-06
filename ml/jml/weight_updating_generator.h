@@ -26,6 +26,8 @@ namespace ML {
 
 class Weight_Updating_Generator : public Early_Stopping_Generator {
 public:
+    Weight_Updating_Generator(std::shared_ptr<Classifier_Generator_Config> config)
+        : Early_Stopping_Generator(config) {}
     virtual ~Weight_Updating_Generator() {}
 
     virtual std::shared_ptr<Classifier_Impl>

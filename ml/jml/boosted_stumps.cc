@@ -24,6 +24,7 @@
 #include "binary_symmetric.h"
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
+#include "mldb/types/enum_description.h"
 #include <iostream>
 
 
@@ -809,5 +810,17 @@ Enum_Info<ML::Boosted_Stumps::Output>::OPT[3] = {
 
 const char * Enum_Info<ML::Boosted_Stumps::Output>::NAME
     = "Boosted_Stumps::Output";
+
+
+typedef Boosted_Stumps::Output BoostedStumpsOutput;
+DEFINE_ENUM_DESCRIPTION(BoostedStumpsOutput);
+
+BoostedStumpsOutputDescription::
+BoostedStumpsOutputDescription()
+{
+    addValue("raw", ML::Boosted_Stumps::RAW, "");
+    addValue("logit", ML::Boosted_Stumps::LOGIT, "");
+    addValue("logit_norm", ML::Boosted_Stumps::LOGIT_NORM, "");
+}
 
 } // namespace ML

@@ -997,8 +997,11 @@ operator >> (DB::Store_Reader & store, Classifier & classifier)
 
 void Classifier::load(const std::string & filename)
 {
+    cerr << "AAAAAAAAA" << endl;
     MLDB::filter_istream stream(filename);
+    cerr << "BBBBBBBBB" << endl;
     Store_Reader store(stream);
+    cerr << "CCCCCCCC" << endl;
     reconstitute(store);
 }
 

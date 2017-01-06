@@ -18,6 +18,25 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* PERCEPTRON_GENERATOR_CONFIG                                               */
+/*****************************************************************************/
+struct Perceptron_Generator_Config : Early_Stopping_Generator_Config {
+    unsigned max_iter;
+    unsigned min_iter;
+    float learning_rate;
+    std::string arch_str;
+    Transfer_Function_Type activation, output_activation;
+    bool do_decorrelate;
+    bool do_normalize;
+    float batch_size;
+    float target_value;
+
+    Perceptron_Generator_Config();
+    virtual void validateFct() override;
+    virtual void defaults() override;
+};
+DECLARE_STRUCTURE_DESCRIPTION(Perceptron_Generator_Config);
 
 /*****************************************************************************/
 /* PERCEPTRON_GENERATOR                                                      */
@@ -32,17 +51,6 @@ public:
     Perceptron_Generator();
 
     virtual ~Perceptron_Generator();
-
-    /** Configure the generator with its parameters. */
-    virtual void
-    configure(const Configuration & config,
-              std::vector<std::string> & unusedKeys) override;
-    
-    /** Return to the default configuration. */
-    virtual void defaults() override;
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
@@ -60,16 +68,6 @@ public:
              const distribution<float> & validation_weights,
              const std::vector<Feature> & features, int = 0) const override;
 
-    unsigned max_iter;
-    unsigned min_iter;
-    float learning_rate;
-    Transfer_Function_Type activation, output_activation;
-    bool do_decorrelate;
-    bool do_normalize;
-    float batch_size;
-    float target_value;
-
-    std::string arch_str;
 
     /* Once init has been called, we clone our potential models from this
        one. */

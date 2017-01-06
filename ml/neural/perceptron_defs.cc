@@ -11,6 +11,7 @@
 #include <iostream>
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/db/persistent.h"
+#include "mldb/types/enum_description.h"
 
 using namespace std;
 using namespace MLDB;
@@ -64,6 +65,20 @@ OPT[Enum_Info<ML::Transfer_Function_Type>::NUM] = {
 
 const char * Enum_Info<ML::Transfer_Function_Type>::NAME
     = "Transfer_Function_Type";
+
+
+DEFINE_ENUM_DESCRIPTION(Transfer_Function_Type);
+
+Transfer_Function_TypeDescription::
+Transfer_Function_TypeDescription()
+{
+    addValue("logsig", ML::TF_LOGSIG, "");
+    addValue("tanh", ML::TF_TANH, "");
+    addValue("tanhs", ML::TF_TANHS, "");
+    addValue("identity", ML::TF_IDENTITY, "");
+    addValue("softmax", ML::TF_SOFTMAX, "");
+    addValue("nonstandard", ML::TF_NONSTANDARD, "");
+}
 
 const Enum_Opt<ML::Sampling>
 Enum_Info<ML::Sampling>::OPT[Enum_Info<ML::Sampling>::NUM] = {

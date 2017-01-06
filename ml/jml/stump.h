@@ -14,6 +14,7 @@
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/enum_info.h"
 #include "split.h"
+#include "mldb/types/value_description_fwd.h"
 
 
 namespace ML {
@@ -220,6 +221,7 @@ public:
     merge(const Classifier_Impl & other, float weight = 1.0) const;
 };
 
+DECLARE_ENUM_DESCRIPTION(Stump::Update);
 
 } // namespace ML
 

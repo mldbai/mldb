@@ -22,6 +22,7 @@
 #include "boosted_stumps.h"
 #include "mldb/jml/stats/distribution_ops.h"
 #include "mldb/jml/utils/profile.h"
+#include "mldb/types/enum_description.h"
 
 using namespace std;
 using namespace ML::DB;
@@ -438,6 +439,17 @@ Enum_Info<ML::Stump::Update>::OPT[3] = {
 
 const char * Enum_Info<ML::Stump::Update>::NAME
    = "Stump::Update";
+
+typedef Stump::Update StumpUpdate;
+DEFINE_ENUM_DESCRIPTION(StumpUpdate);
+
+StumpUpdateDescription::
+StumpUpdateDescription()
+{
+    addValue("normal", ML::Stump::NORMAL, "");
+    addValue("gentel", ML::Stump::GENTLE, "");
+    addValue("prob", ML::Stump::PROB, "");
+}
 
 } // namespace ML
 

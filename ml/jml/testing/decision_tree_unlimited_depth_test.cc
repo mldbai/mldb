@@ -30,10 +30,6 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-static const char * config_options = "\
-trace=0\n\
-";
-
 BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_binary )
 {
     /* Create the dataset */
@@ -68,12 +64,11 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_binary )
     }
 
     /* Create the decision tree generator */
-    Configuration config;
-    config.parse_string(config_options, "inbuilt config file");
-
     Decision_Tree_Generator generator;
+    auto config = make_shared<Decision_Tree_Generator_Config>();
+    config->trace = 0;
     vector<string> unparsedKeys; // should be used to root out invalid keys
-    generator.configure(config, unparsedKeys);
+    generator.configure(config);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
@@ -120,12 +115,11 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_regression )
     }
 
     /* Create the decision tree generator */
-    Configuration config;
-    config.parse_string(config_options, "inbuilt config file");
-
     Decision_Tree_Generator generator;
+    auto config = make_shared<Decision_Tree_Generator_Config>();
+    config->trace = 0;
     vector<string> unparsedKeys; // should be used to root out invalid keys
-    generator.configure(config, unparsedKeys);
+    generator.configure(config);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);

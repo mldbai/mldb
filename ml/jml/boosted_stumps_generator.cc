@@ -102,10 +102,10 @@ Boosted_Stumps_Generator_ConfigDescription()
 {
     addField("max_iter",
              &Boosted_Stumps_Generator_Config::max_iter,
-             "maximum number of training iterations to run", 500);
+             "maximum number of training iterations to run", (unsigned)500);
     addField("min_iter",
              &Boosted_Stumps_Generator_Config::min_iter,
-             "minimum number of training iterations to run", 10);
+             "minimum number of training iterations to run", (unsigned)10);
     addField("true_only",
              &Boosted_Stumps_Generator_Config::true_only,
              "don't allow missing predicates to infer labels", false);
@@ -136,8 +136,8 @@ Boosted_Stumps_Generator_ConfigDescription()
 
 Boosted_Stumps_Generator::
 Boosted_Stumps_Generator()
+    : Weight_Updating_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Boosted_Stumps_Generator_Config>()))
 {
-    defaults();
 }
 
 Boosted_Stumps_Generator::~Boosted_Stumps_Generator()
@@ -176,10 +176,18 @@ generate_stumps(Thread_Context & context,
                 const distribution<float> & validate_ex_weights,
                 const std::vector<Feature> & features_) const
 {
-    auto cfg = static_cast<Boosted_Stumps_Generator_Config>(config);
-    const Feature_Space & fs = *training_set.feature_space();
+    const auto * cfg =
+        static_cast<const Boosted_Stumps_Generator_Config *>(config.get());
+    const auto & output_function = cfg->output_function;
+    const auto max_iter = cfg->max_iter;
+    const auto min_iter = cfg->min_iter;
+    const auto verbosity = cfg->verbosity;
+    const auto trace_training_acc = cfg->trace_training_acc;
+    const auto fair = cfg->fair;
+    const auto short_circuit_window = cfg->short_circuit_window;
+    const auto profile = cfg->profile;
 
-    const auto verbosity = cfg.verbosity;
+    const Feature_Space & fs = *training_set.feature_space();
 
     vector<Feature> features = features_;
 
@@ -396,7 +404,19 @@ generate_and_update(Thread_Context & context,
                     boost::multi_array<float, 2> & weights,
                     const std::vector<Feature> & features_) const
 {
-    auto cfg = static_cast<Boosted_Stumps_Generator_Config>(config);
+    const auto * cfg =
+        static_cast<const Boosted_Stumps_Generator_Config *>(config.get());
+    const auto max_iter = cfg->max_iter;
+    const auto min_iter = cfg->min_iter;
+    //const auto true_only = cfg.true_only; // TODO unused
+    //const auto & cost_function = cfg.cost_function;
+    //const auto & output_function = cfg.output_function;
+    //const auto fair = cfg.fair;
+    //const auto short_circuit_window = cfg.short_circuit_window;
+    //const auto trace_training_acc = cfg.trace_training_acc;
+    const auto verbosity = cfg->verbosity;
+    const auto profile = cfg->profile;
+
     const Feature_Space & fs = *training_set.feature_space();
 
     vector<Feature> features = features_;
@@ -407,16 +427,6 @@ generate_and_update(Thread_Context & context,
 
     float best_acc = 0.0;
     int best_iter = 0;
-
-    const auto max_iter = cfg.max_iter;
-    const auto min_iter = cfg.min_iter;
-    const auto true_only = cfg.true_only;
-    const auto & cost_function = cfg.cost_function;
-    const auto & output_function = cfg.output_function;
-    const auto fair = cfg.fair;
-    const auto short_circuit_window = cfg.short_circuit_window;
-    const auto trace_training_acc = cfg.trace_training_acc;
-    const auto verbosity = cfg.verbosity;
 
     boost::multi_array<float, 2> training_output
         (boost::extents[training_set.example_count()][nl]);
@@ -523,6 +533,9 @@ train_iteration_fair(Thread_Context & context,
                      Boosted_Stumps & result,
                      vector<Optimization_Info> & opt_infos) const
 {
+    const auto * cfg =
+        static_cast<const Boosted_Stumps_Generator_Config *>(config.get());
+    const auto cost_function = cfg->cost_function;
     Feature predicted = model.predicted();
 
     bool bin_sym
@@ -576,6 +589,10 @@ train_iteration(Thread_Context & context,
                 Boosted_Stumps & result,
                 Optimization_Info & opt_info) const
 {
+    const auto * cfg =
+        static_cast<const Boosted_Stumps_Generator_Config *>(config.get());
+    const auto cost_function = cfg->cost_function;
+
     //PROFILE_FUNCTION(t_train);
     Feature predicted = model.predicted();
 
@@ -669,6 +686,10 @@ train_iteration(Thread_Context & context,
                 double & training_accuracy,
                 Optimization_Info & opt_info) const
 {
+    const auto * cfg =
+        static_cast<const Boosted_Stumps_Generator_Config *>(config.get());
+    const auto cost_function = cfg->cost_function;
+
     size_t ticks_before = ticks();
 
     bool bin_sym

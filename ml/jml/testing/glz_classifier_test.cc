@@ -32,10 +32,6 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-static const char * config_options = "\
-verbosity=3\n\
-";
-
 int nfv = 1000;
 
 
@@ -70,12 +66,11 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
     }
 
     /* Create the decision tree generator */
-    Configuration config;
-    config.parse_string(config_options, "inbuilt config file");
-
     GLZ_Classifier_Generator generator;
+    auto config = make_shared<GLZ_Classifier_Generator_Config>();
+    config->verbosity = 3;
     vector<string> unparsedKeys; // should be used to root out invalid keys
-    generator.configure(config, unparsedKeys);
+    generator.configure(config);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
@@ -137,12 +132,11 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
     }
 
     /* Create the decision tree generator */
-    Configuration config;
-    config.parse_string(config_options, "inbuilt config file");
-
     GLZ_Classifier_Generator generator;
+    auto config = make_shared<GLZ_Classifier_Generator_Config>();
+    config->verbosity = 3;
     vector<string> unparsedKeys; // should be used to root out invalid keys
-    generator.configure(config, unparsedKeys);
+    generator.configure(config);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
@@ -210,12 +204,11 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
 
 
     /* Create the decision tree generator */
-    Configuration config;
-    config.parse_string(config_options, "inbuilt config file");
-
     GLZ_Classifier_Generator generator;
+    auto config = make_shared<GLZ_Classifier_Generator_Config>();
+    config->verbosity = 3;
     vector<string> unparsedKeys; // should be used to root out invalid keys
-    generator.configure(config, unparsedKeys);
+    generator.configure(config);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);

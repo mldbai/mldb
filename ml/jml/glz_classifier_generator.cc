@@ -134,8 +134,8 @@ GLZ_Classifier_Generator_ConfigDescription()
 
 GLZ_Classifier_Generator::
 GLZ_Classifier_Generator()
+    : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<GLZ_Classifier_Generator_Config>()))
 {
-    defaults();
 }
 
 GLZ_Classifier_Generator::~GLZ_Classifier_Generator()
@@ -161,17 +161,9 @@ generate(Thread_Context & thread_context,
 {
     boost::timer timer;
 
-    const auto link_function = cfg.link_function;
-    const auto add_bias = cfg.add_bias;
-    const auto do_decode = cfg.do_decode;
-    const auto normalize = cfg.normalize;
-    const auto regularization = cfg.regularization;
-    const auto regularization_factor = cfg.regularization_factor;
-    const auto max_regularization_iteration = cfg.max_regularization_iteration;
-    const auto regularization_epsilon = cfg.regularization_epsilon;
-    const auto condition = cfg.condition;
-    const auto feature_proportion = cfg.feature_proportion;
-
+    const auto * cfg =
+        static_cast<const GLZ_Classifier_Generator_Config *>(config.get());
+    const auto verbosity = cfg->verbosity;
 
     Feature predicted = model.predicted();
 
@@ -251,6 +243,19 @@ train_weighted(Thread_Context & thread_context,
        1.  Convert training data to a dense format;
        2.  Train on each column
     */
+
+    const auto * cfg =
+        static_cast<const GLZ_Classifier_Generator_Config *>(config.get());
+    const auto link_function = cfg->link_function;
+    const auto do_decode = cfg->do_decode;
+    const auto normalize = cfg->normalize;
+    const auto regularization = cfg->regularization;
+    const auto regularization_factor = cfg->regularization_factor;
+    const auto max_regularization_iteration = cfg->max_regularization_iteration;
+    const auto regularization_epsilon = cfg->regularization_epsilon;
+    const auto condition = cfg->condition;
+    const auto feature_proportion = cfg->feature_proportion;
+    const auto add_bias = cfg->add_bias;
 
     result = model;
     result.features.clear();

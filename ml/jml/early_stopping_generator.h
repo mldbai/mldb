@@ -22,7 +22,6 @@ struct Early_Stopping_Generator_Config : Classifier_Generator_Config {
     float validate_split;
 
     Early_Stopping_Generator_Config();
-    virtual void validateFct() override;
     virtual void defaults() override;
 };
 DECLARE_STRUCTURE_DESCRIPTION(Early_Stopping_Generator_Config);
@@ -37,12 +36,9 @@ DECLARE_STRUCTURE_DESCRIPTION(Early_Stopping_Generator_Config);
 
 class Early_Stopping_Generator : public Classifier_Generator {
 public:
+    Early_Stopping_Generator();
+    Early_Stopping_Generator(std::shared_ptr<Classifier_Generator_Config> config);
     virtual ~Early_Stopping_Generator();
-
-    /** Return to the default configuration. */
-
-    /** Return possible configuration options. */
-    virtual Config_Options options() const override;
 
     using Classifier_Generator::generate;
 

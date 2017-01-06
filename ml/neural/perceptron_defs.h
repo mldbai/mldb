@@ -13,6 +13,7 @@
 
 #include "mldb/jml/utils/enum_info.h"
 #include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace ML {
     
@@ -25,6 +26,7 @@ enum Transfer_Function_Type {
     TF_SOFTMAX,     ///< Pseudo-probabilistic
     TF_NONSTANDARD
 };
+DECLARE_ENUM_DESCRIPTION(Transfer_Function_Type);
 
 std::string print(Transfer_Function_Type tf);
 
