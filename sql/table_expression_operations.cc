@@ -824,7 +824,7 @@ void
 RowTableExpression::
 printJson(JsonPrintingContext & context)
 {
-    context.writeStringUtf8(print());
+    context.writeStringUtf8(surface);
 }
 
 std::string

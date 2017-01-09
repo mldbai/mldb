@@ -93,7 +93,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         FetcherOutput result;
         Utf8String url = args.url;
         try {
-            filter_istream stream(url.rawString(), { { "mapped", "true" } });
+                filter_istream stream(url.rawString(),
+                                      { { "mapped", "true" },
+                                        { "httpArbitraryTooSlowAbort", "1"} });
 
             FsObjectInfo info = stream.info();
             

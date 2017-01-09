@@ -613,6 +613,19 @@ The following functions provide digital signal processing capabilities:
   time-shifted by `e` steps, ie zeros everywhere apart from the `e`th element
   which is one.
 
+### <a name="imagefunctions"></a>Image processing functions
+
+The following functions provide image processing capabilities:
+
+- `parse_exif(blob)` takes a JPEG image blob and parses basic EXIF information from it. It should be used in combination with the `fetcher()` function. The returned values are:
+
+![](%%type MLDB::Builtins::ExifMetadata)
+
+### <a name="blobfunctions"></a>Blob functions
+
+The following functions are specific to blob data:
+
+- `blob_length(x)` returns the length (in bytes) of the blob `x`
 
 ### <a name="httpfunctions"></a>Web data functions
 
@@ -623,8 +636,9 @@ The following functions are used to extract and process web data.
 Fetches resources from a given file or URL. It acts as the
 default version of [function fetcher](../functions/Fetcher.md.html). It returns
 two output columns:
-* content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
-* error is a string containing the error message. If the fetch succeeded, it will be null.
+
+* `content`, a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
+* `error`, a string containing the error message. If the fetch succeeded, it will be null.
 
 **Example**
 

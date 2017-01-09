@@ -67,3 +67,6 @@
 [submodule "testing/mldb_sample_plugin"]
 	path = testing/mldb_sample_plugin
 	url = git@github.com:mldbai/mldb_sample_plugin.git
+[submodule "ext/easyexif"]
+	path = ext/easyexif
+	url = https://github.com/mldbai/easyexif.git

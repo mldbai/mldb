@@ -427,6 +427,6 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
             ['_rowName', 'isconst',],
             ['row1', True],
         ])
-    
+
 if __name__ == '__main__':
     mldb.run_tests()

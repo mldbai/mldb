@@ -40,17 +40,17 @@ Put these 3 files in the `container_files/nvidia/files` directory.
 Run `docker build` from the `container_files/nvidia` directory as follows,  changing `TAG` for something useful:
 
 ```
-docker build -t mldb_base_nvidia:TAG -f ./Dockerfile  .
+docker build -t quay.io/datacratic/mldb_base_nvidia:TAG -f ./Dockerfile  .
 
 # To reduce the image size we can squash (flatten, merge) the docker image
-virtualenv/bin/docker-squash -t mldb_base_nvidia:TAG.squashed mldb_base_nvidia:TAG
+virtualenv/bin/docker-squash -t quay.io/datacratic/mldb_base_nvidia:TAG.squashed quay.io/datacratic/mldb_base_nvidia:TAG
 ```
 
 
 ### Building MLDB docker based on this image
 
 ```
-nice make -j $(nproc) docker_mldb WITH_CUDA=1 DOCKER_POST_INSTALL_ARGS=-s DOCKER_BASE_IMAGE=mldb_base_nvidia:TAG.squashed
+nice make -j $(nproc) docker_mldb WITH_CUDA=1 DOCKER_POST_INSTALL_ARGS=-s DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base_nvidia:TAG.squashed
 ```
 
 Running MLDB with GPUs
