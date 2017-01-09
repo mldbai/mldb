@@ -131,10 +131,19 @@ Stump_Generator::
 Stump_Generator()
     : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Stump_Generator_Config>()))
 {
+      config->type = "stump";
 }
 
 Stump_Generator::~Stump_Generator()
 {
+}
+
+void
+Stump_Generator::
+configure(const Json::Value & config)
+{
+    setConfig(make_shared<Stump_Generator_Config>(
+              jsonDecode<Stump_Generator_Config>(config)));
 }
 
 void

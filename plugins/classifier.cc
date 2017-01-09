@@ -216,23 +216,18 @@ run(const ProcedureRunConfig & run,
         throw HttpReturnException(400, "Unknown classifier mode");
     }
 
-//     ML::Configuration classifierConfig;
-// 
-//     if (!runProcConf.configuration.isNull()) {
-//         classifierConfig =
-//             jsonDecode<ML::Configuration>(runProcConf.configuration);
-//     }
-//     else {
-//         filter_istream stream(runProcConf.configurationFile.size() > 0 ?
-//                                   runProcConf.configurationFile :
-//                                   "/opt/bin/classifiers.json");
-//         classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
-//     }
-    //TODO
-    Json::Value todoPwet;
-    std::shared_ptr<ML::Classifier_Generator> trainer
-        = ML::get_trainer(runProcConf.algorithm,
-                          todoPwet);
+    Json::Value classifierConfig;
+    if (!runProcConf.configuration.isNull()) {
+        classifierConfig = runProcConf.configuration;
+    }
+    else {
+        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
+                                  runProcConf.configurationFile :
+                                  "/opt/bin/classifiers.json");
+        string jsonStr = stream.readAll();
+        classifierConfig = Json::parse(jsonStr);
+    }
+    auto trainer = ML::get_trainer(runProcConf.algorithm, classifierConfig);
 
     labelInfo.set_biased(true);
 

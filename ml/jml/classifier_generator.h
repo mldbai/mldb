@@ -27,6 +27,7 @@ struct Classifier_Generator_Config {
     int verbosity;
     bool profile;
     bool validate;
+    std::string type;
 
     std::vector<std::string> unparsedKeys;
 
@@ -54,12 +55,14 @@ public:
 
 
     /** Configure the generator with its parameters. */
-    virtual void
-    configure(const std::shared_ptr<Classifier_Generator_Config> & config);
+    void setConfig(
+        const std::shared_ptr<Classifier_Generator_Config> & config);
     virtual void configure(const Json::Value & config);
-    
+
     /** Return to the default configuration. */
     virtual void defaults();
+
+    virtual Json::Value getDefaultConfig();
 
     /** Initialize the generator, given the feature space to be used for
         generation. */

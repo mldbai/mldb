@@ -56,6 +56,8 @@ Classifier_Generator_ConfigDescription()
              "whether or not to profile", false);
     addField("validate", &Classifier_Generator_Config::validate,
              "perform expensive internal validation", false);
+    addField("type", &Classifier_Generator_Config::type,
+             "the type of the classifier");
 
     onUnknownField = [] (Classifier_Generator_Config * config,
                          JsonParsingContext & context)
@@ -104,7 +106,7 @@ init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 
 void
 Classifier_Generator::
-configure(const shared_ptr<Classifier_Generator_Config> & config)
+setConfig(const shared_ptr<Classifier_Generator_Config> & config)
 {
     this->config = config;
 }
@@ -113,8 +115,8 @@ void
 Classifier_Generator::
 configure(const Json::Value & config)
 {
-    configure(make_shared<Classifier_Generator_Config>(
-                jsonDecode<Classifier_Generator_Config>(config)));
+    setConfig(make_shared<Classifier_Generator_Config>(
+              jsonDecode<Classifier_Generator_Config>(config)));
 }
 
 void
@@ -122,6 +124,13 @@ Classifier_Generator::
 defaults()
 {
     config->defaults();
+}
+
+Json::Value
+Classifier_Generator::
+getDefaultConfig()
+{
+    return jsonEncode(Classifier_Generator_Config{});
 }
 
 std::shared_ptr<Classifier_Impl>
@@ -287,14 +296,26 @@ get_trainer(const std::string & name,
     std::shared_ptr<Classifier_Generator> result
         = Registry<Classifier_Generator>::singleton().create(type);
 
-    // TODO throw unparseable
     result->configure(config);
 
     if (!result->config->unparsedKeys.empty()) {
-        //TODO more verbose than that please
-        throw Exception("unpased keys found");
+        bool first = true;
+        stringstream ss;
+        ss << "Unparsed keys found: ";
+        for (const string & str: result->config->unparsedKeys) {
+            if (first) {
+                first = false;
+            }
+            else {
+                ss << ", ";
+            }
+            ss << str;
+        }
+        throw Exception(ss.str());
     }
 
+    Classifier_Generator_ConfigDescription test;
+    auto toto = test.fields();
     return result;
 }
 

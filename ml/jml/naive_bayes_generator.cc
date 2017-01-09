@@ -76,10 +76,19 @@ Naive_Bayes_Generator::
 Naive_Bayes_Generator()
     : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Naive_Bayes_Generator_Config>()))
 {
+      config->type = "naive_bayes";
 }
 
 Naive_Bayes_Generator::~Naive_Bayes_Generator()
 {
+}
+
+void
+Naive_Bayes_Generator::
+configure(const Json::Value & config)
+{
+    setConfig(make_shared<Naive_Bayes_Generator_Config>(
+              jsonDecode<Naive_Bayes_Generator_Config>(config)));
 }
 
 void

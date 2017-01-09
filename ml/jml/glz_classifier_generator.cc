@@ -136,10 +136,19 @@ GLZ_Classifier_Generator::
 GLZ_Classifier_Generator()
     : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<GLZ_Classifier_Generator_Config>()))
 {
+      config->type = "glz";
 }
 
 GLZ_Classifier_Generator::~GLZ_Classifier_Generator()
 {
+}
+
+void
+GLZ_Classifier_Generator::
+configure(const Json::Value & config)
+{
+    setConfig(make_shared<GLZ_Classifier_Generator_Config>(
+              jsonDecode<GLZ_Classifier_Generator_Config>(config)));
 }
 
 void

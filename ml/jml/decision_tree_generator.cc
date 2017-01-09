@@ -173,10 +173,19 @@ Decision_Tree_Generator::
 Decision_Tree_Generator()
     : Classifier_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Decision_Tree_Generator_Config>()))
 {
+  config->type = "decision_tree";
 }
 
 Decision_Tree_Generator::~Decision_Tree_Generator()
 {
+}
+
+void
+Decision_Tree_Generator::
+configure(const Json::Value & config)
+{
+    setConfig(make_shared<Decision_Tree_Generator_Config>(
+              jsonDecode<Decision_Tree_Generator_Config>(config)));
 }
 
 void

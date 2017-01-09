@@ -25,6 +25,7 @@ namespace ML {
 Null_Classifier_Generator::
 Null_Classifier_Generator()
 {
+    config->type = "null";
 }
 
 Null_Classifier_Generator::~Null_Classifier_Generator()

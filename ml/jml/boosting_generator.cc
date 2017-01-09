@@ -109,10 +109,19 @@ Boosting_Generator::
 Boosting_Generator()
     : Weight_Updating_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Boosting_Generator_Config>()))
 {
+    config->type = "boosting";
 }
 
 Boosting_Generator::~Boosting_Generator()
 {
+}
+
+void
+Boosting_Generator::
+configure(const Json::Value & config)
+{
+    setConfig(make_shared<Boosting_Generator_Config>(
+              jsonDecode<Boosting_Generator_Config>(config)));
 }
 
 void

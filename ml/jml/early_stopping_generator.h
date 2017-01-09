@@ -40,6 +40,8 @@ public:
     Early_Stopping_Generator(std::shared_ptr<Classifier_Generator_Config> config);
     virtual ~Early_Stopping_Generator();
 
+    virtual void configure(const Json::Value & config) override;
+
     using Classifier_Generator::generate;
 
     /** Generate a classifier from a training set with data weighted

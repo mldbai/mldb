@@ -52,6 +52,8 @@ public:
 
     virtual ~Boosting_Generator();
 
+    virtual void configure(const Json::Value & config) override;
+
     /** Initialize the generator, given the feature space to be used for
         generation. */
     virtual void init(std::shared_ptr<const Feature_Space> fs,

@@ -60,9 +60,12 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
     filestream.close();
     filestream.open(configname);
 
-    filestream << "glz {type=glz;\nverbosity=3;\nnormalize = true;\nregularization = l2;\n}" << endl;
+    filestream << "{\"type\" : \"glz\", \
+                    \"verbosity\" : 3, \
+                    \"normalize\" : true, \
+                    \"regularization\" : \"l2\"}";
 
-    filestream.close(); 
+    filestream.close();
 
     vector<string> probabilizer = {"-p 3", "-p 1 -Q 1"};
     for(int probIdx=0; probIdx<probabilizer.size(); probIdx++) {

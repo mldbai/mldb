@@ -138,10 +138,19 @@ Boosted_Stumps_Generator::
 Boosted_Stumps_Generator()
     : Weight_Updating_Generator(static_cast<shared_ptr<Classifier_Generator_Config>>(make_shared<Boosted_Stumps_Generator_Config>()))
 {
+      config->type = "boosted_stumps";
 }
 
 Boosted_Stumps_Generator::~Boosted_Stumps_Generator()
 {
+}
+
+void
+Boosted_Stumps_Generator::
+configure(const Json::Value & config)
+{
+    setConfig(make_shared<Boosted_Stumps_Generator_Config>(
+              jsonDecode<Boosted_Stumps_Generator_Config>(config)));
 }
 
 void

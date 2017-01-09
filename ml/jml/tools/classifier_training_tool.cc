@@ -24,7 +24,8 @@
 #include "mldb/jml/stats/moments.h"
 #include "datasets.h"
 #include "mldb/jml/utils/info.h"
-#include "mldb/types/json_parsing.h"
+#include "mldb/ext/jsoncpp/json.h"
+#include "mldb/vfs/filter_streams.h"
 
 #include <iterator>
 #include <iostream>
@@ -201,27 +202,70 @@ try
        to train on.
     */
 
-    vector<string> dataset_params;
     vector<string> option_params;
+    vector<string> dataset_params;
+
+    Json::Value config;
+    if (config_file_name != "") {
+        filter_istream stream(config_file_name);
+        string configStr = stream.readAll();
+        config = Json::parse(configStr);
+    }
 
     for (unsigned i = 0;  i < dataset_files.size();  ++i) {
         string param = dataset_files[i];
-        if (param.find('=') != string::npos)
+        int idx = param.find('=');
+        if (idx != string::npos) {
             option_params.push_back(param);
-        else dataset_params.push_back(param);
+        }
+        else {
+            dataset_params.push_back(param);
+        }
     }
-
-//     Configuration config;
-//     if (config_file_name != "") config.load(config_file_name);
 //     config.parse_command_line(option_params);
 // 
 //     if (trainer_type != "")
 //         config[(trainer_name == "" ? string("type") : trainer_name + ".type")]
 //             = trainer_type;
 
-    Json::Value todoPwet;
-    std::shared_ptr<Classifier_Generator> generator
-        = get_trainer(trainer_name, todoPwet);
+    auto generator = get_trainer(trainer_name, config);
+
+    //const Classifier_Generator_Config & toto = *generator->config.get();
+    auto configJson = jsonEncode(*generator->config.get());
+    cerr << configJson.toString() << endl;
+    for (const auto & arg: option_params) {
+        int idx = arg.find('=');
+        ExcAssert(idx != string::npos);
+        string key = arg.substr(0, idx);
+        string valStr = arg.substr(idx + 1);
+        string typePrefix = config["type"].asString() + ".";
+        idx = key.find(typePrefix);
+        if (idx == 0) {
+            key = key.substr(typePrefix.size());
+        }
+
+        if (!configJson.isMember(key)) {
+            throw Exception("Unknown configuration key: " + key);
+        }
+        if (configJson[key].isDouble()) {
+            float val = atof(valStr.c_str());
+            if (valStr != to_string(val)) {
+                throw Exception(key + " must be a float/double");
+            }
+            configJson[key] = val;
+        }
+        else if (configJson[key].isInt()) {
+            int val = atoi(valStr.c_str());
+            if (valStr != to_string(val)) {
+                throw Exception(key + " must be an int");
+            }
+            configJson[key] = val;
+        }
+        else {
+            configJson[key] = valStr;
+        }
+    }
+    generator->configure(configJson);
 
     if (help_config) {
         // TODO

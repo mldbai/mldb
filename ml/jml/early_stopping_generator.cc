@@ -66,6 +66,14 @@ Early_Stopping_Generator::
 {
 }
 
+void
+Early_Stopping_Generator::
+configure(const Json::Value & config)
+{
+    setConfig(make_shared<Early_Stopping_Generator_Config>(
+              jsonDecode<Early_Stopping_Generator_Config>(config)));
+}
+
 std::shared_ptr<Classifier_Impl>
 Early_Stopping_Generator::
 generate(Thread_Context & context,
