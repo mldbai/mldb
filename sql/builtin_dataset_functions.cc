@@ -4,6 +4,7 @@
 #include "sql_expression.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/builtin/transposed_dataset.h"
+#include "mldb/builtin/sub_dataset.h"
 #include "mldb/types/value_description.h"
 
 using namespace std;
@@ -21,6 +22,7 @@ std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std
 std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
                                                     std::shared_ptr<Dataset> dataset,
                                                     const ExpressionValue & options);
+std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbServer *, const std::vector<NamedRowValue> &);
 
 // defined in table_expression_operations.cc
 BoundTableExpression
@@ -104,6 +106,9 @@ static RegisterBuiltin registerTranspose(transpose, "transpose");
 /* MERGED DATASET                                                            */
 /*****************************************************************************/
 
+// Overridden by libmldb.so when it loads up to break circular link dependency
+// and allow expression parsing to be in a separate library
+
 BoundTableExpression merge(const SqlBindingScope & context,
                            const std::vector<BoundTableExpression> & args,
                            const ExpressionValue & options,
@@ -118,8 +123,25 @@ BoundTableExpression merge(const SqlBindingScope & context,
     datasets.reserve(args.size());
     for (auto arg : args)
     {
-        if (arg.dataset)
+        if (arg.dataset) {
             datasets.push_back(arg.dataset);
+        }
+        else if (!!arg.table) {
+            SqlBindingScope dummyScope;
+            auto generator = arg.table.runQuery(dummyScope,
+                                           SelectExpression::STAR,
+                                           WhenExpression::TRUE,
+                                           *SqlExpression::TRUE,
+                                           OrderByExpression(),
+                                           0, -1);
+            SqlRowScope fakeRowScope;
+            // Generate all outputs of the query
+            std::vector<NamedRowValue> rows
+                = generator(-1, fakeRowScope);
+            auto subDataset = createSubDatasetFromRowsFn(context.getMldbServer(), rows);
+
+            datasets.push_back(subDataset);
+        }
     }
 
     auto ds = createMergedDatasetFn(context.getMldbServer(), datasets);
