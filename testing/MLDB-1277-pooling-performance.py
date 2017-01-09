@@ -11,19 +11,27 @@ import unittest
 class PoolingPerformanceTest(unittest.TestCase):
 
     def test_it(self):
-        mldb.create_dataset({
-            "id": "reddit_raw", "type": "text.line",
+
+        res = mldb.put('/v1/procedures/import_reddit', {
+            "type": "import.text",
             "params": {
-                "dataFileUrl": "https://public.mldb.ai/reddit.csv.gz"
-            }
+                "dataFileUrl": "https://public.mldb.ai/reddit.csv.gz",
+                "delimiter": "",
+                "quoteChar": "",
+                'outputDataset': {'id': 'reddit_raw', 'type': 'sparse.mutable'},
+                'runOnCreation': True
+            } 
         })
 
-        mldb.create_dataset({
-            "id": "reddit_svd_embedding",
-            "type": "text.csv.tabular",
+        res = mldb.put('/v1/procedures/import_reddit', {
+            "type": "import.text",
             "params": {
                 "dataFileUrl": "https://public.mldb.ai/reddit_embedding.csv.gz",
-            }
+                "delimiter": ",",
+                "quoteChar": "",
+                'outputDataset': {'id': 'reddit_svd_embedding', 'type': 'tabular'},
+                'runOnCreation': True
+            } 
         })
 
         mldb.put("/v1/procedures/rename", {
