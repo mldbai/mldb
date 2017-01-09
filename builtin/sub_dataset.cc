@@ -430,11 +430,18 @@ regSub(builtinPackage(),
        {MldbEntity::INTERNAL_ENTITY});
 
 extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
+extern std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbServer *, const std::vector<NamedRowValue>&);
 
 std::shared_ptr<Dataset> createSubDataset(MldbServer * server, const SubDatasetConfig & config)
 {
     return std::make_shared<SubDataset>(server, config);
 }
+
+std::shared_ptr<Dataset> createSubDatasetFromRows(MldbServer * server, const std::vector<NamedRowValue>& rows)
+{
+    return std::make_shared<SubDataset>(server, rows);
+}
+
 
 std::vector<NamedRowValue>
 querySubDataset(MldbServer * server,
@@ -499,6 +506,7 @@ struct AtInit {
     AtInit()
     {
         createSubDatasetFn = createSubDataset;
+        createSubDatasetFromRowsFn = createSubDatasetFromRows;
         querySubDatasetFn = querySubDataset;
     }
 } atInit;
