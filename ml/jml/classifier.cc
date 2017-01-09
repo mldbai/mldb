@@ -644,7 +644,9 @@ struct Accuracy_Job_Info {
 
             //cerr << "x = " << x << " w = " << w << endl;
             
-            distribution<float> result = classifier.predict(data[x], opt_info);
+            distribution<float> result = opt_info ? 
+                classifier.predict(data[x], opt_info) :
+                classifier.predict(data[x]);
             
             if (regression_problem) {
                 float correct = data[x][classifier.predicted()];
