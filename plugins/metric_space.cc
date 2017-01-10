@@ -230,13 +230,6 @@ dist(int rowNum1, int rowNum2,
     float result = 1.0 - coords1.dotprod(coords2) * two_norm_recip.at(rowNum1) * two_norm_recip.at(rowNum2);
     if (result < 0.0) {
         result = 0.0;
-#if 0
-        cerr << "rowNum1 = " << rowNum1 << endl;
-        cerr << "rowNum2 = " << rowNum2 << endl;
-        cerr << "coords1 = " << coords1 << endl;
-        cerr << "coords2 = " << coords2 << endl;
-        cerr << "result = " << result << endl;
-#endif
     }
 
     ExcAssert(isfinite(result));
