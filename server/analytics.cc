@@ -330,7 +330,6 @@ getEmbedding(const SelectStatement & stm,
 void
 validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 {
-    stm.where->bind(scope);
     stm.when.bind(scope);
     stm.orderBy.bindAll(scope);
     if (!stm.groupBy.clauses.empty()) {
@@ -368,7 +367,11 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
 
     validateQueryWithoutDataset(stm, scope);
 
-    if (stm.offset < 1 && stm.limit != 0) {
+    auto boundWhere = stm.where->bind(scope);
+    ExcAssert(boundWhere.info->isConst()); //If not const binding above should have failed
+    bool whereValue = boundWhere.constantValue().isTrue();
+
+    if (stm.offset < 1 && stm.limit != 0 && whereValue) {
         // Fast path when there is no possibility of result since
         // queryWithoutDataset produces at most single row results.
 

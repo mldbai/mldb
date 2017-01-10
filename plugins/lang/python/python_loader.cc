@@ -717,7 +717,7 @@ class mldb_wrapper(object):
                                     step['type'], step['value']))
                 elif 'started' in step:
                     running_since = now - parse_date(step['started'])
-                    self.log("{} runing since {} seconds - {} {}"
+                    self.log("{} running since {} seconds - {} {}"
                             .format(step['name'], running_since.total_seconds(),
                                     step['type'], step['value']))
 
