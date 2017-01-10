@@ -17,6 +17,8 @@
 #include "mldb/core/plugin.h"
 #include "mldb/core/function.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/plugins/progress.h"
+#include "mldb/rest/cancellation_exception.h"
 
 
 using namespace std;
@@ -317,8 +319,32 @@ run(const ProcedureRunConfig & run,
     SerialProcedureStatus result;
     SerialProcedureStatus detail;
 
-    for (auto & s: steps) {
-        RunOutput output = s->run(run, onProgress);
+    Progress serialProgress;
+    auto iterationStep = serialProgress.steps({
+        make_pair("processing", "percentage")
+    });
+    iterationStep->value = 0;
+
+    auto onProg = [&] (const Json::Value & data) {
+        Json::Value progress;
+        progress["steps"] = Json::arrayValue;
+        progress["steps"][0] = jsonEncode(iterationStep);
+        if (!data.empty()) {
+            progress["subProgress"] = data;
+        }
+        return onProgress(progress);
+    };
+
+    for (int i = 0; i < steps.size(); ++i ) {
+        auto & s = steps[i];
+        iterationStep->value = (float)i / steps.size() * 100;
+
+        bool keepGoing = onProg(Json::Value{});
+        if (!keepGoing) {
+                throw MLDB::CancellationException("Procedure mock cancelled");
+        }
+
+        RunOutput output = s->run(run, onProg);
         result.steps.emplace_back(std::move(output.results));
         detail.steps.emplace_back(std::move(output.details));
     }
