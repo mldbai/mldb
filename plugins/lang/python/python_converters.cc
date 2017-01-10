@@ -217,7 +217,16 @@ construct_recur(PyObject * pyObj)
         // https://docs.python.org/2/c-api/unicode.html#c.PyUnicode_AsUTF8String
         PyObject* from_unicode = PyUnicode_AsUTF8String(pyObj);
         if(!from_unicode) {
-            std::cerr << "WARNING! Unable to extract unicode to ascii" << std::endl;
+            PyObject* str_obj = PyObject_Str(pyObj);
+            std::string str_rep = "<Unable to create str representation of object>";
+            if(str_obj) {
+                str_rep = bp::extract<std::string>(str_obj);
+            }
+            // not returned so needs to be garbage collected
+            Py_DECREF(str_obj);
+
+            throw MLDB::Exception("Unable to encode unicode to UTF-8"
+                                  "Str representation: "+str_rep);
         }
         else {
             std::string str = bp::extract<std::string>(from_unicode);

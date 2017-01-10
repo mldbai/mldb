@@ -75,7 +75,6 @@ pyExec(Utf8String code,
     res = fcntl(fds[1], F_SETFL, O_NONBLOCK);
     if (res == -1) {
         auto errno2 = errno;
-        cerr << "fcntl O_NONBLOCK: " << strerror(errno2) << endl;
         throw HttpReturnException(500, "Python evaluation fcntl: "
                                   + string(strerror(errno2)));
     }
