@@ -320,15 +320,14 @@ run(const ProcedureRunConfig & run,
     SerialProcedureStatus detail;
 
     Progress serialProgress;
-    auto iterationStep = serialProgress.steps({
-        make_pair("processing", "percentage")
-    });
-    iterationStep->value = 0;
+    std::vector<std::pair<std::string, std::string>> progressSteps;
+    for (int i = 0; i < steps.size(); ++i ) {
+        progressSteps.emplace_back(make_pair("step " + to_string(i), "done"));
+    }
+    auto iterationStep = serialProgress.steps(progressSteps);
 
     auto onProg = [&] (const Json::Value & data) {
-        Json::Value progress;
-        progress["steps"] = Json::arrayValue;
-        progress["steps"][0] = jsonEncode(iterationStep);
+        Json::Value progress = jsonEncode(serialProgress);
         if (!data.empty()) {
             progress["subProgress"] = data;
         }
@@ -337,16 +336,20 @@ run(const ProcedureRunConfig & run,
 
     for (int i = 0; i < steps.size(); ++i ) {
         auto & s = steps[i];
-        iterationStep->value = (float)i / steps.size() * 100;
+        //iterationStep->value = (float)i / steps.size() * 100;
 
         bool keepGoing = onProg(Json::Value{});
         if (!keepGoing) {
-                throw MLDB::CancellationException("Procedure mock cancelled");
+            throw MLDB::CancellationException("Procedure serial cancelled");
         }
 
         RunOutput output = s->run(run, onProg);
         result.steps.emplace_back(std::move(output.results));
         detail.steps.emplace_back(std::move(output.details));
+
+        if (i < steps.size() - 1) {
+            iterationStep = iterationStep->nextStep(1);
+        }
     }
 
     return { result, detail };

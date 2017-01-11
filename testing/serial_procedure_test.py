@@ -36,16 +36,22 @@ class SerialProcedureTest(MldbUnitTest):  # noqa
         }).json()
         proc_id = res['id']
         run_id = res['status']['firstRun']['id']
-        res = mldb.get('/v1/procedures/{}/runs/{}'.format(proc_id, run_id)) \
-            .json()
+        time.sleep(0.5)
+        url = '/v1/procedures/{}/runs/{}'.format(proc_id, run_id)
+        res = mldb.get(url).json()
         self.assertEqual(res['state'], 'executing')
-        self.assertEqual(res['progress']['steps'][0]['value'], 0)
         self.assertTrue('subProgress' in res['progress'])
+        self.assertEqual(len(res['progress']['steps']), 5)
+
+        def reducer(x, y):
+            return x + y['value']
+
+        total1 = reduce(reducer, res['progress']['steps'], 0)
 
         time.sleep(1)
-        res = mldb.get('/v1/procedures/{}/runs/{}'.format(proc_id, run_id)) \
-            .json()
-        self.assertGreater(res['progress']['steps'][0]['value'], 0)
+        res = mldb.get(url).json()
+        total2 = reduce(reducer, res['progress']['steps'], 0)
+        self.assertGreater(total2, total1)
 
 if __name__ == '__main__':
     mldb.run_tests()
