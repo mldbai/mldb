@@ -1244,5 +1244,25 @@ Register_Factory<Feature_Space, Dense_Feature_Space>
 DFS_REG("DENSE_FEATURE_SPACE");
 
 
+void apply_permutation_in_place(float * vec,
+                                const std::vector<std::size_t>& p) {
+    std::vector<bool> done(p.size());
+    for (std::size_t i = 0; i < p.size(); ++i) {
+        if (done[i]) {
+            continue;
+        }
+        done[i] = true;
+        std::size_t prev_j = i;
+        std::size_t j = p[i];
+        while (i != j) {
+            std::swap(*(vec + prev_j), *(vec + j));
+            done[j] = true;
+            prev_j = j;
+            j = p[j];
+        }
+    }
+}
+
+
 } // namespace ML
 

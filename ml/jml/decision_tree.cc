@@ -192,13 +192,6 @@ predict(const Feature_Set & features,
 
 bool
 Decision_Tree::
-optimization_supported() const
-{
-    return true;
-}
-
-bool
-Decision_Tree::
 predict_is_optimized() const
 {
     return optimized_;

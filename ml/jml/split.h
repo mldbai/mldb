@@ -117,7 +117,7 @@ public:
 
     // Update the given weights with the feature between the given range of
     // iterators
-    // PRECONDITION: all iterator vales from first to last (except for last
+    // PRECONDITION: all iterator values from first to last (except for last
     // itself) should point to our feature.
     template<class FeatureExPtrIter>
     MLDB_ALWAYS_INLINE void

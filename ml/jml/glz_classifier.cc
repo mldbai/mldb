@@ -176,13 +176,6 @@ GLZ_Classifier::predict(const distribution<float> & features_c,
 
 bool
 GLZ_Classifier::
-optimization_supported() const
-{
-    return true;
-}
-
-bool
-GLZ_Classifier::
 predict_is_optimized() const
 {
     return optimized_;
