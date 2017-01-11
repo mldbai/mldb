@@ -16,5 +16,20 @@ class WhereWithoutDatasetTest(MldbUnitTest):  # noqa
                 "_rowName"
             ]
         ])
+
+    def test_where_limit_0(self):
+        res = mldb.query("SELECT 1 LIMIT 0")
+        self.assertTableResultEquals(res, [
+            [
+                "_rowName"
+            ]
+        ])
+
+    def test_where_limit_1(self):
+        res = mldb.query("SELECT 1 LIMIT 1")
+        self.assertTableResultEquals(res, [
+            [ "_rowName", "1" ],
+            [ "result", 1]
+        ])
         
 mldb.run_tests()
