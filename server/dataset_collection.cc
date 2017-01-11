@@ -263,10 +263,8 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 
         const auto& columns = sparseOutput[0].columns;
 
-            // std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
-
         if (columns.size() == 0) {
-            connection.sendErrorResponse(400, "Query with atom format returned no column.");
+            connection.sendErrorResponse(400, "Query with atom format returned no columns.");
             return;
         }
 
