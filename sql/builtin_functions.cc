@@ -1908,7 +1908,7 @@ static RegisterBuiltin registerToken_extract(token_extract, "token_extract");
 BoundFunction token_split(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() != 2)
-        throw HttpReturnException(400, "requires at two arguments");
+        throw HttpReturnException(400, "requires two arguments");
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
