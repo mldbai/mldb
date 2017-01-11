@@ -8,13 +8,6 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class MLDB2108SplitStringTest(MldbUnitTest):  # noqa
 
-    @classmethod
-    def setUpClass(cls):
-        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
-        ds.record_row('row0', [['x', 'A', 0]])
-        ds.record_row('row1', [['x', 'B', 0]])
-        ds.commit()
-
     def test_row(self):
         res = mldb.query("SELECT token_split(x, '::') AS x FROM (SELECT 'A::B::C' as x)")
         self.assertTableResultEquals(res, [
