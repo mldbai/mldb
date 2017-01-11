@@ -16,14 +16,14 @@ class MLDB2108SplitStringTest(MldbUnitTest):  # noqa
         ds.commit()
 
     def test_row(self):
-        res = mldb.query("SELECT token_split(x, '::') AS x FROM (SELECT 'A::B::C' as x)")
+        res = mldb.query("SELECT split_part(x, '::') AS x FROM (SELECT 'A::B::C' as x)")
         self.assertTableResultEquals(res, [
             [ "_rowName", "x.0", "x.1", "x.2" ],
             [ "result", "A", "B", "C" ]
         ])
 
     def test_row(self):
-        res = mldb.query("SELECT token_split(x, ' ')[\"2\"] AS x FROM (SELECT 'The Quick Brown Fox' as x)")
+        res = mldb.query("SELECT split_part(x, ' ')[\"2\"] AS x FROM (SELECT 'The Quick Brown Fox' as x)")
         self.assertTableResultEquals(res, [
             [ "_rowName", "x" ],
             [ "result", "Brown" ]
