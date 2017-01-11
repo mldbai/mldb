@@ -15,6 +15,19 @@ class MLDB2108SplitStringTest(MldbUnitTest):  # noqa
             [ "result", "A", "B", "C" ]
         ])
 
+    def test_row_no_as(self):
+        res = mldb.query("""
+            SELECT token_split(x, '::')
+            FROM (SELECT 'A::B::C' as x)
+        """)
+        self.assertTableResultEquals(res, [
+            [ "_rowName",
+             "token_split(x, '::').0",
+             "token_split(x, '::').1",
+             "token_split(x, '::').2" ],
+            [ "result", "A", "B", "C" ]
+        ])
+
     def test_single(self):
         res = mldb.query("SELECT token_split(x, ' ')[\"2\"] AS x FROM (SELECT 'The Quick Brown Fox' as x)")
         self.assertTableResultEquals(res, [
