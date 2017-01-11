@@ -6,7 +6,7 @@
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
-class MLDB2043TabularBigInt(MldbUnitTest):  # noqa
+class MLDB2107ScalarFormatTest(MldbUnitTest):  # noqa
 
     @classmethod
     def setUpClass(cls):
