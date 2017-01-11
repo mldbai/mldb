@@ -24,6 +24,8 @@ This endpoint accepts the following query-string parameters:
     rows are represented as arrays of 2-element [column, value] arrays instead
     of objects. 
       - All values for each cell are returned, without timestamps
+  - `atom`: a single atomic value, without the row name or the column name
+      - The query will fail if anything else than a single row / column is returned.
 - `headers`: boolean (default `true`), if `true` the table format will include a header.
 - `rowNames`: boolean (default `true`), if `true` an implicit column called `_rowName` will
    be added, containing the row name.

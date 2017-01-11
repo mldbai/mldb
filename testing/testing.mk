@@ -417,6 +417,7 @@ $(eval $(call mldb_unit_test,MLDB-1843-select-disappearing-values.js))
 $(eval $(call mldb_unit_test,MLDB-1933-subselect-flatten.py))
 $(eval $(call mldb_unit_test,MLDB-1947-reshape-builtin.py))
 $(eval $(call mldb_unit_test,MLDB-1891-case-in-import.py))
+$(eval $(call mldb_unit_test,MLDB-2107-scalar-format.py))
 $(eval $(call mldb_unit_test,where-without-dataset.py))
 $(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,,manual)) #require tensorflow plugin
 
