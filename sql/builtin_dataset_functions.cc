@@ -33,7 +33,8 @@ namespace Builtins {
 typedef BoundTableExpression (*BuiltinDatasetFunction) (const SqlBindingScope & context,
                                                         const std::vector<BoundTableExpression> &,
                                                         const ExpressionValue & options,
-                                                        const Utf8String& alias);
+                                                        const Utf8String& alias,
+                                                        const ProgressFunc & onProgress);
 
 struct RegisterBuiltin {
     template<typename... Names>
@@ -54,11 +55,12 @@ struct RegisterBuiltin {
                        const std::vector<BoundTableExpression> & args,
                        const ExpressionValue & options,
                        const SqlBindingScope & context,
-                       const Utf8String& alias)
+                       const Utf8String& alias,
+                       const ProgressFunc & onProgress)
             -> BoundTableExpression
             {
                 try {
-                    return function(context, args, options, alias);
+                    return function(context, args, options, alias, onProgress);
                 } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin Dataset function "
                                          + str + ": " + getExceptionString(),
@@ -80,7 +82,8 @@ struct RegisterBuiltin {
 BoundTableExpression transpose(const SqlBindingScope & context,
                                const std::vector<BoundTableExpression> & args,
                                const ExpressionValue & options,
-                               const Utf8String& alias)
+                               const Utf8String& alias,
+                               const ProgressFunc & onProgress)
 {
     if (args.size() != 1)
         throw HttpReturnException(500, "transpose() takes a single argument");
@@ -112,7 +115,8 @@ static RegisterBuiltin registerTranspose(transpose, "transpose");
 BoundTableExpression merge(const SqlBindingScope & context,
                            const std::vector<BoundTableExpression> & args,
                            const ExpressionValue & options,
-                           const Utf8String& alias)
+                           const Utf8String& alias,
+                           const ProgressFunc & onProgress)
 {
     if (args.size() < 1)
         throw HttpReturnException(500, "merge() needs at least 1 argument");
@@ -129,11 +133,11 @@ BoundTableExpression merge(const SqlBindingScope & context,
         else if (!!arg.table) {
             SqlBindingScope dummyScope;
             auto generator = arg.table.runQuery(dummyScope,
-                                           SelectExpression::STAR,
-                                           WhenExpression::TRUE,
-                                           *SqlExpression::TRUE,
-                                           OrderByExpression(),
-                                           0, -1);
+                                                SelectExpression::STAR,
+                                                WhenExpression::TRUE,
+                                                *SqlExpression::TRUE,
+                                                OrderByExpression(),
+                                                0, -1, onProgress);
             SqlRowScope fakeRowScope;
             // Generate all outputs of the query
             std::vector<NamedRowValue> rows
@@ -160,7 +164,8 @@ static RegisterBuiltin registerMerge(merge, "merge");
 BoundTableExpression sample(const SqlBindingScope & context,
                             const std::vector<BoundTableExpression> & args,
                             const ExpressionValue & options,
-                            const Utf8String& alias)
+                            const Utf8String& alias,
+                            const ProgressFunc & onProgress)
 {
     if (args.size() != 1)
         throw HttpReturnException(400, "The 'sample' function takes 1 dataset as input, "

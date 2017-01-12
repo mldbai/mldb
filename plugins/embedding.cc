@@ -1317,7 +1317,7 @@ bindT(SqlBindingScope & outerContext,
     std::unique_ptr<NearestNeighborsFunctionApplier> result
         (new NearestNeighborsFunctionApplier(this));
 
-    auto boundDataset = functionConfig.dataset->bind(outerContext);
+    auto boundDataset = functionConfig.dataset->bind(outerContext, nullptr);
     if (!boundDataset.dataset) {
         throw HttpReturnException
             (400, "Nearest neighbors function cannot operate on the output of "

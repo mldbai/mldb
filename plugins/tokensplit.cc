@@ -89,8 +89,9 @@ TokenSplit(MldbServer * owner,
         };
 
     BoundTableExpression boundDataset;
+    ConvertProgressToJson convertProgressToJson(onProgress);
     if (functionConfig.tokens.stm->from)
-        boundDataset = functionConfig.tokens.stm->from->bind(context);
+        boundDataset = functionConfig.tokens.stm->from->bind(context, convertProgressToJson);
 
     if (boundDataset.dataset)
         iterateDataset(functionConfig.tokens.stm->select,
@@ -101,7 +102,7 @@ TokenSplit(MldbServer * owner,
                        functionConfig.tokens.stm->orderBy,
                        functionConfig.tokens.stm->offset,
                        functionConfig.tokens.stm->limit,
-                       onProgress);
+                       convertProgressToJson);
     else { // query containing only a select (e.g. select "token1", "token2", "token3")
         std::vector<MatrixNamedRow> rows  = queryWithoutDataset(*functionConfig.tokens.stm, context);
         std::for_each(rows.begin(), rows.end(), processor);

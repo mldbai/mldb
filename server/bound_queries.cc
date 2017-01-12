@@ -53,7 +53,7 @@ struct BoundSelectQuery::Executor {
                          bool processInParallel,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
+                         const ProgressFunc & onProgress)
     {
         auto newProcessor = [&] (Path & rowName,
                                  ExpressionValue & val,
@@ -77,7 +77,7 @@ struct BoundSelectQuery::Executor {
                              bool processInParallel,
                              ssize_t offset,
                              ssize_t limit,
-                             std::function<bool (const Json::Value &)> onProgress)
+                             const ProgressFunc & onProgress)
     {
         auto newProcessor = [&] (NamedRowValue & output,
                                  std::vector<ExpressionValue> & calcd,
@@ -136,7 +136,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                              bool processInParallel,
                              ssize_t offset,
                              ssize_t limit,
-                             std::function<bool (const Json::Value &)> onProgress)
+                             const ProgressFunc & onProgress)
     {
         //There are two variations on how to generate the rows, 
         //but most of the output code is the same
@@ -155,7 +155,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                       bool processInParallel,
                       ssize_t offset,
                       ssize_t limit,
-                      std::function<bool (const Json::Value &)> onProgress)
+                      const ProgressFunc & onProgress)
     {
         //STACK_PROFILE(UnorderedExecutor);
         DEBUG_MSG(logger) << "bound query unordered num buckets: " << numBuckets
@@ -164,7 +164,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
-        auto rows = whereGenerator(-1, Any(), BoundParameters(), onProgress).first;
+        //TODO MLDB-2110 put back progress
+        auto rows = whereGenerator(-1, Any(), BoundParameters()).first;
 
         //cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
 
@@ -179,14 +180,14 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, numRows);
         std::atomic_ulong rowCount(0);
+        ProgressState progress(numRows);
         auto doRow = [&] (size_t rowNum) -> bool
             {
                 ++rowCount;
 
                 if (rowCount % 1000 == 0) {
                     if (onProgress) {
-                        Json::Value progress;
-                        progress["percent"] = (float) rowCount / numRows;
+                        progress = rowCount;
                         if (!onProgress(progress)) {
                             DEBUG_MSG(logger) << "dataset iteration was cancelled";
                             return false;
@@ -248,12 +249,12 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     std::vector<std::tuple<Path, ExpressionValue, std::vector<ExpressionValue> > >
                         output(upper-offset);
                 
+                    ProgressState progress(upper-offset);
                     auto copyRow = [&] (int rowNum) -> bool
                         {
                             if (rowNum % 1000 == 0) {
                                 if (onProgress) {
-                                    Json::Value progress;
-                                    progress["percent"] = (float) rowNum / (upper - offset);
+                                    progress = rowNum;
                                     if (!onProgress(progress)) {
                                         DEBUG_MSG(logger) << "dataset iteration was cancelled";
                                         return false;
@@ -292,7 +293,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                            bool processInParallel,
                            ssize_t offset,
                            ssize_t limit,
-                           std::function<bool (const Json::Value &)> onProgress)
+                           const ProgressFunc & onProgress)
     {
         //STACK_PROFILE(UnorderedExecutor_optimized);
         DEBUG_MSG(logger) << "UnorderedIterExecutor num buckets: " << numBuckets 
@@ -321,6 +322,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         ExcAssert(processInParallel);
 
         std::atomic_ulong bucketCount(0);
+        ProgressState progress(effectiveNumBucket);
         auto doBucket = [&] (int bucketNumber) -> bool
             {
                 size_t it = bucketNumber * numPerBucket;
@@ -342,8 +344,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                         return false;
                 }
                 if (onProgress) {
-                    Json::Value progress;
-                    progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
+                    progress = ++bucketCount;
                     if (!onProgress(progress))
                         return false;
                 }
@@ -433,7 +434,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         bool processInParallel,
         ssize_t offset,
         ssize_t limit,
-        std::function<bool (const Json::Value &)> onProgress)
+        const ProgressFunc & onProgress)
     {
         //STACK_PROFILE(OrderedExecutor);
 
@@ -463,6 +464,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         PerThreadAccumulator<SortedRows> accum;
 
         std::atomic<int64_t> rowsAdded(0);
+        ProgressState progress(rows.size());
 
         auto doWhere = [&] (int rowNum) -> bool
             {
@@ -471,8 +473,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 auto row = dataset.getRowExpr(rows[rowNum]);
 
                 if (onProgress && rowsAdded % 1000 == 0) {
-                    Json::Value progress;
-                    progress["percent"] = (float) rowsAdded / rows.size();
+                    progress = rowsAdded;
                     if (!onProgress(progress))
                         return false;
                 }
@@ -668,7 +669,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                          bool processInParallel,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
+                         const ProgressFunc & onProgress)
     {
         if (limit < 0 || !(whereGenerator.rowStream))
             return execute_bloc(processor, offset, limit, onProgress);
@@ -683,7 +684,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                                              int rowNum)> processor,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
+                         const ProgressFunc & onProgress)
     {
         //STACK_PROFILE(RowHashOrderedExecutor_execute_bloc);
 
@@ -938,7 +939,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                                              int rowNum)> processor,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
+                         const ProgressFunc & onProgress)
     {
         //STACK_PROFILE(RowHashOrderedExecutor_execute_iter);
 
@@ -1190,7 +1191,7 @@ BoundSelectQuery::
 execute(RowProcessorEx processor,
         ssize_t offset,
         ssize_t limit,
-        std::function<bool (const Json::Value &)> onProgress)
+        const ProgressFunc & onProgress)
 {
     //STACK_PROFILE(BoundSelectQuery);
 
@@ -1212,7 +1213,7 @@ execute(std::function<bool (NamedRowValue & output,
         bool processInParallel,
         ssize_t offset,
         ssize_t limit,
-        std::function<bool (const Json::Value &)> onProgress)
+        const ProgressFunc & onProgress)
 {
     //STACK_PROFILE(BoundSelectQuery);
 
@@ -1238,7 +1239,7 @@ BoundSelectQuery::
 executeExpr(RowProcessorExpr processor,
             ssize_t offset,
             ssize_t limit,
-            std::function<bool (const Json::Value &)> onProgress)
+            const ProgressFunc & onProgress)
 {
     auto subProcessor = [&] (Path & rowName,
                              ExpressionValue & row,
@@ -1261,7 +1262,7 @@ executeExpr(std::function<bool (Path & rowName,
             bool processInParallel,
             ssize_t offset,
             ssize_t limit,
-            std::function<bool (const Json::Value &)> onProgress)
+            const ProgressFunc & onProgress)
 {
     //STACK_PROFILE(BoundSelectQuery);
 
@@ -1627,7 +1628,7 @@ BoundGroupByQuery::
 execute(RowProcessor processor,
         ssize_t offset,
         ssize_t limit,
-        std::function<bool (const Json::Value &)> onProgress)
+        const ProgressFunc & onProgress)
 {
     //STACK_PROFILE(BoundGroupByQuery);
 

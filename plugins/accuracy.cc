@@ -104,7 +104,7 @@ AccuracyConfigDescription()
 AccuracyProcedure::
 AccuracyProcedure(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const std::function<bool (const Json::Value &)> & onConvertProgressToJson)
     : Procedure(owner)
 {
     this->accuracyConfig = config.params.convert<AccuracyConfig>();
@@ -614,14 +614,15 @@ runRegression(AccuracyConfig & runAccuracyConf,
 RunOutput
 AccuracyProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Json::Value &)> & onConvertProgressToJson) const
 {
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
+    ConvertProgressToJson convertProgressToJson(onConvertProgressToJson);
+    auto dataset = runAccuracyConf.testingData.stm->from->bind(context, convertProgressToJson).dataset;
 
     // prepare output dataset
     std::shared_ptr<Dataset> output;

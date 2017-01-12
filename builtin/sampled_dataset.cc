@@ -297,7 +297,8 @@ SampledDataset(MldbServer * owner,
     }
 
     SqlExpressionMldbScope context(owner);
-    bondTableExpression = sampleConfig.dataset->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    bondTableExpression = sampleConfig.dataset->bind(context, convertProgressToJson);
 
     itl.reset(new Itl(server, bondTableExpression.dataset, sampleConfig));
 }

@@ -16,6 +16,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/svd_utils.h"
 #include "mldb/utils/log_fwd.h"
+#include "mldb/plugins/progress.h"
 #include <boost/multi_array.hpp>
 
 
@@ -487,7 +488,7 @@ ClassifiedColumns classifyColumns(const SelectExpression & select,
                                   ssize_t offset,
                                   ssize_t limit,
                                   std::shared_ptr<spdlog::logger> logger,
-                                  std::function<bool (const Json::Value &)> & onProgress);
+                                  const ProgressFunc & onProgress);
 
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);
@@ -501,13 +502,13 @@ FeatureBuckets extractFeaturesFromRows(const SelectExpression & select,
                                        ssize_t limit,
                                        const ClassifiedColumns & columns,
                                        std::shared_ptr<spdlog::logger> logger,
-                                       std::function<bool (const Json::Value &)> & onProgress);
+                                       const ProgressFunc & onProgress);
 
 ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
                const FeatureBuckets & featureBuckets,
                std::shared_ptr<spdlog::logger> logger,
-               std::function<bool (const Json::Value &)> & onProgress);
+               const ProgressFunc & onProgress);
     
 ColumnCorrelations
 calculateCorrelations(const ColumnIndexEntries & columnIndex,

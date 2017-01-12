@@ -54,12 +54,12 @@ struct SubDataset::Itl
     Date earliest, latest;
     std::shared_ptr<ExpressionValueInfo> columnInfo;
 
-    Itl(SelectStatement statement, MldbServer* owner)
+    Itl(SelectStatement statement, MldbServer* owner, const ProgressFunc & onProgress)
     {
         SqlExpressionMldbScope mldbContext(owner);
 
         std::vector<NamedRowValue> rows;
-        auto pair = queryFromStatementExpr(statement, mldbContext);
+        auto pair = queryFromStatementExpr(statement, mldbContext, onProgress);
 
         columnInfo = std::move(std::get<1>(pair));
 
@@ -336,14 +336,15 @@ SubDataset(MldbServer * owner,
 {
     auto subConfig = config.params.convert<SubDatasetConfig>();
     
-    itl.reset(new Itl(subConfig.statement, owner));
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    itl.reset(new Itl(subConfig.statement, owner, convertProgressToJson));
 }
 
 SubDataset::
 SubDataset(MldbServer * owner, SubDatasetConfig config)
     : Dataset(owner)
 {
-    itl.reset(new Itl(config.statement, owner));
+    itl.reset(new Itl(config.statement, owner, nullptr));
 }
 
 SubDataset::

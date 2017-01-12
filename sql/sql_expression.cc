@@ -265,11 +265,12 @@ SqlBindingScope::
 doGetDatasetFunction(const Utf8String & functionName,
                      const std::vector<BoundTableExpression> & args,
                      const ExpressionValue & options,
-                     const Utf8String & alias)
+                     const Utf8String & alias,
+                     const ProgressFunc & onProgress)
 {
     auto factory = tryLookupDatasetFunction(functionName);
     if (factory) {
-        return factory(functionName, args, options, *this, alias);
+        return factory(functionName, args, options, *this, alias, onProgress);
     }
     
     return BoundTableExpression();

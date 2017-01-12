@@ -124,7 +124,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
@@ -155,11 +156,10 @@ run(const ProcedureRunConfig & run,
     };
 
     mutex progressMutex;
-    auto onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
+    auto onProgress2 = [&](const ProgressState & percent) {
         lock_guard<mutex> lock(progressMutex);
-        if (iterationStep->value > itProgress.percent) {
-            iterationStep->value = itProgress.percent;
+        if (iterationStep->value > (float) percent.count / *percent.total) {
+            iterationStep->value = (float) percent.count / *percent.total;
         }
         return onProgress(jsonEncode(bucketizeProgress));
     };

@@ -14,6 +14,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/any.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/plugins/progress.h"
 #include <memory>
 #include <set>
 
@@ -194,7 +195,8 @@ struct TableOperations {
                                      const SqlExpression & where,
                                      const OrderByExpression & orderBy,
                                      ssize_t offset,
-                                     ssize_t limit)>
+                                     ssize_t limit,
+                                     const ProgressFunc &)>
     runQuery;
 
     /// What aliases (sub-dataset names) does this dataset contain?
@@ -438,10 +440,11 @@ struct RegisterAggregator {
     version of the function.
 */
 typedef std::function<BoundTableExpression(const Utf8String & str,
-                                    const std::vector<BoundTableExpression> & args,
-                                    const ExpressionValue & options,
-                                    const SqlBindingScope & context,
-                                    const Utf8String& alias)>
+                                           const std::vector<BoundTableExpression> & args,
+                                           const ExpressionValue & options,
+                                           const SqlBindingScope & context,
+                                           const Utf8String& alias,
+                                           const ProgressFunc &)>
     ExternalDatasetFunction;
 
 std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFunction function);
@@ -575,7 +578,8 @@ struct SqlBindingScope {
     doGetDatasetFunction(const Utf8String & functionName,
                          const std::vector<BoundTableExpression> & args,
                          const ExpressionValue & options,
-                         const Utf8String & alias);
+                         const Utf8String & alias,
+                         const ProgressFunc &);
     
     virtual BoundAggregator
     doGetAggregator(const Utf8String & functionName,
@@ -1540,7 +1544,7 @@ struct TableExpression: public std::enable_shared_from_this<TableExpression> {
     virtual ~TableExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const = 0;
+    bind(SqlBindingScope & context, const ProgressFunc &) const = 0;
     
     virtual Utf8String print() const = 0;
 

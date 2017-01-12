@@ -933,8 +933,9 @@ JoinedDataset(MldbServer * owner,
     SqlExpressionMldbScope mldbScope(server);
 
     // Obtain our datasets
-    BoundTableExpression left = joinConfig.left->bind(mldbScope);
-    BoundTableExpression right = joinConfig.right->bind(mldbScope);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    BoundTableExpression left = joinConfig.left->bind(mldbScope, convertProgressToJson);
+    BoundTableExpression right = joinConfig.right->bind(mldbScope, convertProgressToJson);
     
     
     itl.reset(new Itl(scope,

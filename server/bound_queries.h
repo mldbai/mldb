@@ -108,19 +108,19 @@ struct BoundSelectQuery {
     bool execute(RowProcessorEx processor,
                  ssize_t offset,
                  ssize_t limit,
-                 std::function<bool (const Json::Value &)> onProgress);
+                 const ProgressFunc & onProgress);
 
     bool execute(std::function<bool (NamedRowValue & output,
                                      std::vector<ExpressionValue> & calcd, int rowNum)> processor,
                  bool processInParallel,
                  ssize_t offset,
                  ssize_t limit,
-                 std::function<bool (const Json::Value &)> onProgress);
+                 const ProgressFunc & onProgress);
 
     bool executeExpr(RowProcessorExpr processor,
                      ssize_t offset,
                      ssize_t limit,
-                     std::function<bool (const Json::Value &)> onProgress);
+                     const ProgressFunc & onProgress);
 
     bool executeExpr(std::function<bool (RowPath & rowName,
                                          ExpressionValue & val,
@@ -129,7 +129,7 @@ struct BoundSelectQuery {
                      bool processInParallel,
                      ssize_t offset,
                      ssize_t limit,
-                     std::function<bool (const Json::Value &)> onProgress);
+                     const ProgressFunc & onProgress);
 
     std::shared_ptr<Executor> executor;
 
@@ -155,7 +155,7 @@ struct BoundGroupByQuery {
 
     std::pair<bool, std::shared_ptr<ExpressionValueInfo> > execute(RowProcessor processor,  
                      ssize_t offset, ssize_t limit,
-                     std::function<bool (const Json::Value &)> onProgress);
+                     const ProgressFunc & onProgress);
 
     const Dataset & from;
     WhenExpression when;

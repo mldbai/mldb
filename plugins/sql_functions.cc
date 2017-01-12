@@ -695,7 +695,7 @@ run(const ProcedureRunConfig & run,
         };
 
     if (!runProcConf.inputData.stm->from) {
-        DEBUG_MSG(logger) << "performing transform without a dataset";
+        DEBUG_MSG(logger) << "performing transform without FROM statement";
         // query without dataset
         std::vector<MatrixNamedRow> rows = queryWithoutDataset(*runProcConf.inputData.stm, context);
         std::for_each(rows.begin(), rows.end(), recordRowInOutputDataset);
@@ -703,8 +703,9 @@ run(const ProcedureRunConfig & run,
         return output->getStatus();
     }
 
-
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    DEBUG_MSG(logger) << "binding FROM statement";
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     if (!boundDataset.dataset) {
         ExcAssert(boundDataset.table);
@@ -718,9 +719,12 @@ run(const ProcedureRunConfig & run,
              return true;
         };
 
+        DEBUG_MSG(logger) << "performing transform without a dataset";
+
         queryFromStatement(rowAccumulator,
-                   *runProcConf.inputData.stm,
-                   context);
+                           *runProcConf.inputData.stm,
+                           context,
+                           convertProgressToJson);
     }
     else if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
         Dataset::MultiChunkRecorder recorder
@@ -784,6 +788,7 @@ run(const ProcedureRunConfig & run,
 
         DEBUG_MSG(logger) << "performing dataset transform";
    
+        ConvertProgressToJson convertProgressToJson(onProgress);
         if (!BoundSelectQuery(runProcConf.inputData.stm->select,
                               *boundDataset.dataset,
                               boundDataset.asName,
@@ -794,7 +799,7 @@ run(const ProcedureRunConfig & run,
             .executeExpr({recordRowInOutputDataset, true /*processInParallel*/},
                          runProcConf.inputData.stm->offset,
                          runProcConf.inputData.stm->limit,
-                         onProgress) )
+                         convertProgressToJson) )
             {
                 DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
                 throw CancellationException(std::string(TransformDatasetConfig::name) +
@@ -830,6 +835,7 @@ run(const ProcedureRunConfig & run,
 
         DEBUG_MSG(logger) << "performing dataset transform with group by";
 
+        ConvertProgressToJson convertProgressToJson(onProgress);
         if(!BoundGroupByQuery(runProcConf.inputData.stm->select,
                           *boundDataset.dataset,
                           boundDataset.asName,
@@ -843,7 +849,7 @@ run(const ProcedureRunConfig & run,
             .execute({recordRowInOutputDataset, false /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
-                     onProgress).first ) {
+                     convertProgressToJson).first ) {
             DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
             throw CancellationException(std::string(TransformDatasetConfig::name) +
                                             " procedure was cancelled");

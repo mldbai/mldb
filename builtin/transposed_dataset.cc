@@ -411,7 +411,8 @@ std::shared_ptr<Dataset> createTransposedTable(MldbServer * server, const TableO
                                    WhenExpression::TRUE,
                                    *SqlExpression::TRUE,
                                    OrderByExpression(),
-                                   0, -1);
+                                    0, -1,
+                                    nullptr /*progress*/);
 
     SqlRowScope fakeRowScope;
 

@@ -153,7 +153,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
     auto score = extractNamedSubSelect("score", runProcConf.trainingData.stm->select)->expression;
     auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select)->expression;
     auto weightSubSelect = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);

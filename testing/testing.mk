@@ -463,4 +463,4 @@ $(eval $(call mldb_unit_test,MLDB-1935-const-optim.py))
 $(eval $(call mldb_unit_test,MLDB-2097_exif.py))
 $(eval $(call mldb_unit_test,MLDBFB-724_classifier_exp_segfault_test.py))
 $(eval $(call mldb_unit_test,MLDB-2100_fetcher_timeout_test.py))
-
+$(eval $(call mldb_unit_test,MLDB-2110-merge-and-subselect-progress.py))
