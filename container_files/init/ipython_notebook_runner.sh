@@ -38,6 +38,9 @@ export JUPYTER_CONFIG_DIR={{IPYTHON_DIR}}/config
 export SHELL="/bin/bash"
 
 exec /sbin/setuser _mldb \
+        /usr/local/bin/jupyter nbextension enable --py --sys-prefix widgetsnbextension
+
+exec /sbin/setuser _mldb \
         /usr/local/bin/jupyter notebook \
         --log-level=ERROR
 
