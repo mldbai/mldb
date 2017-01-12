@@ -37,7 +37,7 @@ cp {{MLDB_PUBLIC_HTML_PATH}}/resources/images/mldb_ipython_logo.png {{IPYTHON_IM
 export JUPYTER_CONFIG_DIR={{IPYTHON_DIR}}/config
 export SHELL="/bin/bash"
 
-exec /sbin/setuser _mldb \
+/sbin/setuser _mldb \
         /usr/local/bin/jupyter nbextension enable --py --sys-prefix widgetsnbextension
 
 exec /sbin/setuser _mldb \
