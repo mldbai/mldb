@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-2108-split-string.py
 # Mathieu Marquis Bolduc, 2017-01-11
@@ -34,6 +35,10 @@ class MLDB2108SplitStringTest(MldbUnitTest):  # noqa
             [ "_rowName", "x" ],
             [ "result", "Brown" ]
         ])
+
+    def test_utf8(self):
+        res = mldb.query(u"SELECT split_part(x, ' ')[\"4\"] AS x FROM (SELECT 'ᛖᚴ ᚷᛖᛏ ᛖᛏᛁ ᚧ ᚷᛚᛖᚱ ᛘᚾ ᚦᛖᛋᛋ ᚨᚧ ᚡᛖ ᚱᚧᚨ ᛋᚨᚱ' as x)".encode('utf-8'))
+        self.assertEqual(u"ᚷᛚᛖᚱ".encode('utf-8'), res[1][1].encode('utf-8'))
 
 if __name__ == '__main__':
     mldb.run_tests()
