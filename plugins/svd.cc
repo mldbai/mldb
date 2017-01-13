@@ -33,7 +33,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/plugins/progress.h"
+#include "mldb/utils/progress.h"
 #include "mldb/utils/log.h"
 #include <sstream>
 
@@ -687,8 +687,9 @@ run(const ProcedureRunConfig & run,
     int numBasisVectors = runProcConf.numDenseBasisVectors;
     
     SqlExpressionMldbScope context(server);
-
-    auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
+    
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto dataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson).dataset;
 
     Progress svdProgress;
     std::shared_ptr<Step> classificationStep = svdProgress.steps({
@@ -701,16 +702,6 @@ run(const ProcedureRunConfig & run,
 
     mutex progressMutex;
 
-    std::function<bool (const Json::Value &)> onProgress2;
-    onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
-        lock_guard<mutex> lock(progressMutex);
-        if (classificationStep->value > itProgress.percent) {
-            classificationStep->value = itProgress.percent;
-        }
-        return onProgress(jsonEncode(svdProgress));
-    };
-
     ClassifiedColumns columns = classifyColumns(runProcConf.trainingData.stm->select,
                                                 *dataset,
                                                 runProcConf.trainingData.stm->when,
@@ -719,7 +710,7 @@ run(const ProcedureRunConfig & run,
                                                 runProcConf.trainingData.stm->offset,
                                                 runProcConf.trainingData.stm->limit,
                                                 logger,
-                                                onProgress2);
+                                                convertProgressToJson);
 
     auto outputColumns = [](const ClassifiedColumns & columns) {
         stringstream output;
@@ -743,15 +734,6 @@ run(const ProcedureRunConfig & run,
 
     auto extractionStep = classificationStep->nextStep(1);
 
-    onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
-        lock_guard<mutex> lock(progressMutex);
-        if (extractionStep->value > itProgress.percent) {
-            extractionStep->value = itProgress.percent;
-        }
-        return onProgress(jsonEncode(svdProgress));
-    };
-
     FeatureBuckets extractedFeatures = extractFeaturesFromRows(runProcConf.trainingData.stm->select,
                                                                *dataset,
                                                                runProcConf.trainingData.stm->when,
@@ -761,20 +743,11 @@ run(const ProcedureRunConfig & run,
                                                                runProcConf.trainingData.stm->limit,
                                                                columns,
                                                                logger,
-                                                               onProgress2);
+                                                               convertProgressToJson);
 
     auto inversionStep = extractionStep->nextStep(1);
 
-    onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
-        lock_guard<mutex> lock(progressMutex);
-        if (inversionStep->value > itProgress.percent) {
-            inversionStep->value = itProgress.percent;
-        }
-        return onProgress(jsonEncode(svdProgress));
-    };
-
-    ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures, logger, onProgress2);
+    ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures, logger, convertProgressToJson);
 
     ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors, logger);
     SvdBasis svd = SvdTrainer::calcSvdBasis(correlations,
@@ -891,6 +864,11 @@ run(const ProcedureRunConfig & run,
         if (rowOutput.type.empty())
             rowOutput.type = SvdConfig::defaultOutputDatasetType;
 
+        auto onProgress2 = [&] (const Json::Value & progress) {
+            Json::Value value;
+            value["dataset"] = progress;
+            return onProgress(value);
+        };
         auto output = createDataset(server, rowOutput, onProgress2, true /*overwrite*/);
 
         // getRowPaths can return row names in an arbitrary order as long as it is deterministic.

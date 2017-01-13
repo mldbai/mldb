@@ -195,7 +195,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
     //This will cummulate the number of documents each word is in
     std::unordered_map<Utf8String, uint64_t> dfs;
@@ -220,7 +221,7 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit,
-                   onProgress);
+                   convertProgressToJson);
 
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {

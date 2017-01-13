@@ -163,10 +163,11 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
+    ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
                                         runProcConf.numInputDimensions,
-                                        onProgress2);
+                                        convertProgressToJson);
 
     std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows

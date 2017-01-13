@@ -54,12 +54,12 @@ struct SubDataset::Itl
     Date earliest, latest;
     std::shared_ptr<ExpressionValueInfo> columnInfo;
 
-    Itl(SelectStatement statement, MldbServer* owner)
+    Itl(SelectStatement statement, MldbServer* owner, const ProgressFunc & onProgress)
     {
         SqlExpressionMldbScope mldbContext(owner);
 
         std::vector<NamedRowValue> rows;
-        auto pair = queryFromStatementExpr(statement, mldbContext);
+        auto pair = queryFromStatementExpr(statement, mldbContext, nullptr /*params*/, onProgress);
 
         columnInfo = std::move(std::get<1>(pair));
 
@@ -331,19 +331,19 @@ struct SubDataset::Itl
 SubDataset::
 SubDataset(MldbServer * owner,
            PolyConfig config,
-           const std::function<bool (const Json::Value &)> & onProgress)
+           const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto subConfig = config.params.convert<SubDatasetConfig>();
     
-    itl.reset(new Itl(subConfig.statement, owner));
+    itl.reset(new Itl(subConfig.statement, owner, onProgress));
 }
 
 SubDataset::
-SubDataset(MldbServer * owner, SubDatasetConfig config)
+SubDataset(MldbServer * owner, SubDatasetConfig config, const ProgressFunc & onProgress)
     : Dataset(owner)
 {
-    itl.reset(new Itl(config.statement, owner));
+    itl.reset(new Itl(config.statement, owner, onProgress));
 }
 
 SubDataset::
@@ -429,12 +429,16 @@ regSub(builtinPackage(),
        nullptr,
        {MldbEntity::INTERNAL_ENTITY});
 
-extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
+extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, 
+                                                       const SubDatasetConfig &, 
+                                                       const ProgressFunc &);
 extern std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbServer *, const std::vector<NamedRowValue>&);
 
-std::shared_ptr<Dataset> createSubDataset(MldbServer * server, const SubDatasetConfig & config)
+std::shared_ptr<Dataset> createSubDataset(MldbServer * server, 
+                                          const SubDatasetConfig & config, 
+                                          const ProgressFunc & onProgress)
 {
-    return std::make_shared<SubDataset>(server, config);
+    return std::make_shared<SubDataset>(server, config, onProgress);
 }
 
 std::shared_ptr<Dataset> createSubDatasetFromRows(MldbServer * server, const std::vector<NamedRowValue>& rows)

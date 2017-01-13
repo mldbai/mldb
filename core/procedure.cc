@@ -17,6 +17,7 @@
 #include "mldb/core/plugin.h"
 #include "mldb/core/function.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/utils/progress.h"
 
 
 using namespace std;

@@ -707,7 +707,7 @@ struct SqliteSparseDataset::Itl
 SqliteSparseDataset::
 SqliteSparseDataset(MldbServer * owner,
                     PolyConfig config,
-                    const std::function<bool (const Json::Value &)> & onProgress)
+                    const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     if (!config.params.empty())

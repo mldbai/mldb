@@ -153,7 +153,7 @@ struct MongoDataset: Dataset {
 
     MongoDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         auto dsConfig = config.params.convert<MongoDatasetConfig>();
@@ -202,7 +202,7 @@ struct MongoDataset: Dataset {
 
         return {[=] (ssize_t numToGenerate, Any token,
                      const BoundParameters & params,
-                     std::function<bool (const Json::Value &)> onProgress)
+                     const ProgressFunc & onProgress)
             {
                 std::vector<Path> rowsToKeep;
                 for (; *it != res->end() && numToGenerate != 0; ++*it, --numToGenerate) {

@@ -1404,7 +1404,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 TabularDataset::
 TabularDataset(MldbServer * owner,
                PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress)
+               const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     itl = make_shared<TabularDataStore>(

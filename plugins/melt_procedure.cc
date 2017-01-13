@@ -112,7 +112,8 @@ run(const ProcedureRunConfig & run,
 
 
     SqlExpressionMldbScope context(server);
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     auto toFix = extractNamedSubSelect("to_fix", runProcConf.inputData.stm->select)->expression;
     auto toMelt = extractNamedSubSelect("to_melt", runProcConf.inputData.stm->select)->expression;

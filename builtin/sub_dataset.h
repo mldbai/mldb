@@ -35,9 +35,11 @@ struct SubDataset : public Dataset {
 
     SubDataset(MldbServer * owner,
                PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress);
+               const ProgressFunc & onProgress);
 
-    SubDataset(MldbServer * owner, SubDatasetConfig config);
+    SubDataset(MldbServer * owner, 
+               SubDatasetConfig config,
+               const ProgressFunc & onProgress);
 
     SubDataset(MldbServer * owner,
                std::vector<NamedRowValue> rows);

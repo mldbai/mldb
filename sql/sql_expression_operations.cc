@@ -2914,7 +2914,7 @@ bind(SqlBindingScope & scope) const
 
     switch (kind) {
     case SUBTABLE: {
-        BoundTableExpression boundTable = subtable->bind(scope);
+        BoundTableExpression boundTable = subtable->bind(scope, nullptr /*onProgress*/);
 
         isConstant = false; //TODO
 
@@ -2949,7 +2949,8 @@ bind(SqlBindingScope & scope) const
                                             WhenExpression::TRUE,
                                             *SqlExpression::TRUE,
                                             orderBy,
-                                            offset, limit);
+                                            offset, limit,
+                                            nullptr /*onProgress*/);
             
             // This is a set of all values we can search for in our expression
             auto valsPtr = std::make_shared<std::unordered_set<ExpressionValue> >();

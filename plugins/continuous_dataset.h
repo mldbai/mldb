@@ -47,7 +47,7 @@ struct ContinuousDataset: public Dataset {
 
     ContinuousDataset(MldbServer * owner,
                       PolyConfig config,
-                      const std::function<bool (const Json::Value &)> & onProgress);
+                      const ProgressFunc & onProgress);
     
     virtual ~ContinuousDataset();
 
@@ -107,7 +107,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ContinuousWindowDatasetConfig);
 struct ContinuousWindowDataset: public ForwardedDataset {
     ContinuousWindowDataset(MldbServer * owner,
                             PolyConfig config,
-                            const std::function<bool (const Json::Value &)> & onProgress);
+                            const ProgressFunc & onProgress);
     /// Dataset in which our metadata lives
     std::shared_ptr<Dataset> metadataDataset;
 

@@ -119,7 +119,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MutableSparseMatrixDatasetConfig);
 struct MutableSparseMatrixDataset: public SparseMatrixDataset {
     MutableSparseMatrixDataset(MldbServer * owner,
                                PolyConfig config,
-                               const std::function<bool (const Json::Value &)> & onProgress);
+                               const ProgressFunc & onProgress);
 
     virtual MultiChunkRecorder getChunkRecorder();
 
