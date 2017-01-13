@@ -1938,7 +1938,7 @@ BoundFunction token_split(const std::vector<BoundSqlExpression> & args)
             std::make_shared<UnknownRowValueInfo>()};
 }
 
-static RegisterBuiltin registerToken_split(token_split, "token_split");
+static RegisterBuiltin registerToken_split(token_split, "split_part");
 
 BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
 {
