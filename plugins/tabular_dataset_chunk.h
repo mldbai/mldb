@@ -39,7 +39,7 @@ struct TabularDatasetChunk {
     {
     }
 
-    TabularDatasetChunk(TabularDatasetChunk && other)
+    TabularDatasetChunk(TabularDatasetChunk && other) noexcept
     {
         swap(other);
     }
