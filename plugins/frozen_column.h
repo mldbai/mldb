@@ -9,6 +9,8 @@
 #pragma once
 
 #include "column_types.h"
+#include "mldb/utils/log.h"
+#include "mldb/plugins/tabular_dataset.h"
 #include <memory>
 
 
@@ -32,6 +34,7 @@ struct ColumnFreezeParameters {
 
 /// Base class for a frozen column
 struct FrozenColumn {
+    FrozenColumn();
     virtual ~FrozenColumn()
     {
     }
@@ -58,6 +61,8 @@ struct FrozenColumn {
     static std::shared_ptr<FrozenColumn>
     freeze(TabularDatasetColumn & column,
            const ColumnFreezeParameters & params);
+
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 

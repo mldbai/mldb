@@ -229,7 +229,6 @@ struct ColumnIndexEntry: public ColumnSpec {
                 continuousValues *= 1.0 / stddev;
             }
 
-            //cerr << "continuous variable has mean " << mean << " stddev " << stddev << endl;
             break;
 
         case CONTINUOUS_SPARSE: {
@@ -263,7 +262,6 @@ struct ColumnIndexEntry: public ColumnSpec {
                 v.second *= scale;
             }
             
-            //cerr << "sparse variable has mean " << mean << " stddev " << stddev << endl;
             break;
         }
 
@@ -276,10 +274,6 @@ struct ColumnIndexEntry: public ColumnSpec {
 
     double correlation(const ColumnIndexEntry & other) const
     {
-        //using namespace std;
-        //cerr << "correlation between " << columnType << " and " << other.columnType
-        //     << endl;
-
         switch (columnType) {
         case CONTINUOUS_DENSE:
             switch (other.columnType) {
@@ -321,8 +315,7 @@ struct ColumnIndexEntry: public ColumnSpec {
             / numExamples;
         if (!std::isfinite(result))
             throw MLDB::Exception("non-finite correlation");
-        //cerr << "column " << columnName << " and " << other.columnName
-        //     << " have correlation " << result << endl;
+
         return result;
     }
 
@@ -350,9 +343,6 @@ struct ColumnIndexEntry: public ColumnSpec {
 
         double result = total / numExamples;
 
-        //cerr << "seme-sparse column " << columnName << " and " << other.columnName
-        //     << " " << other.cellValue << " have correlation " << result << endl;
-
         return result;
     }
 
@@ -361,9 +351,6 @@ struct ColumnIndexEntry: public ColumnSpec {
         double total = 0.0;
 
         using namespace std;
-        //cerr << "sparse to sparse" << endl;
-        //cerr << "sparseValus.size() = " << sparseValues.size() << endl;
-        //cerr << "other.sparseValues.size() = " << other.sparseValues.size() << endl;
 
         auto it1 = sparseValues.begin(), end1 = sparseValues.end();
         auto it2 = other.sparseValues.begin(), end2 = other.sparseValues.end();
