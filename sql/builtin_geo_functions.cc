@@ -108,43 +108,35 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
         vector<S2Loop*> loops;
         auto parsePolygon = [&loops] (S2PolygonBuilder & polyBuilder, const ExpressionValue& coords)
         {
-           // cerr << "PARSE POLYGON" << endl;
-         //   bool forEachColumn(const std::function<bool (const PathElement & columnName,
-           //                                      const ExpressionValue & val)>
-             //       & onColumn) const;
+            size_t numLoop = coords.rowLength();
 
-            ExpressionValue coord0 = coords.getColumn(0);
-
-            size_t numPt = coord0.rowLength();
-
-           // cerr << numPt << " points " << endl;
-
-         //   cerr << jsonEncode(val) << endl;
-
-            vector<S2Point> points;
-            points.resize(numPt);
-
-            std::function<bool (const PathElement & columnName,
-                                const ExpressionValue & val)>
-            onPoint = [&] (const PathElement & columnName,
-                           const ExpressionValue & val) -> bool
-            {
-             //   cerr << columnName.toUtf8String() << endl;
-               // cerr << jsonEncode(val) << endl;
-
-                double lat1 = val.getColumn(1).getAtom().toDouble();
-                double lon1 = val.getColumn(0).getAtom().toDouble();
-                points[columnName.toIndex()] = S2Point(S2LatLng::FromDegrees(lat1, lon1).Normalized().ToPoint());
-                return true;
-            };
-
-            coord0.forEachColumn(onPoint);
-
-            //S2Loop loop(points);
-            loops.push_back(new S2Loop(points));
+            for (int i = 0; i < numLoop; ++i) {
                 
-            //if(i>0) 
-            //loops.back()->set_depth(1);  // TODO should this be recursive?
+                ExpressionValue coordi = coords.getColumn(i);
+
+                size_t numPt = coordi.rowLength();
+
+                vector<S2Point> points;
+                points.resize(numPt);
+
+                std::function<bool (const PathElement & columnName,
+                                    const ExpressionValue & val)>
+                onPoint = [&] (const PathElement & columnName,
+                               const ExpressionValue & val) -> bool
+                {
+                    double lat1 = val.getColumn(1).getAtom().toDouble();
+                    double lon1 = val.getColumn(0).getAtom().toDouble();
+                    points[columnName.toIndex()] = S2Point(S2LatLng::FromDegrees(lat1, lon1).Normalized().ToPoint());
+                    return true;
+                };
+
+                coordi.forEachColumn(onPoint);
+                loops.push_back(new S2Loop(points));
+                if(i>0) 
+                    loops.back()->set_depth(1);  // TODO should this be recursive?
+
+                polyBuilder.AddLoop(loops.back());
+            }          
         };
 
         S2PolygonBuilderOptions options;
@@ -153,7 +145,6 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
         vector<S2Polygon*> polygons;
         if(geomType == "Polygon") {
            // cerr << "geomType is POLYGON" << endl;
-            //ExpressionValue coord0 = coordsCol.getColumn(0);
             parsePolygon(polyBuilder, coordsCol);
         }
         else if(geomType == "MultiPolygon") {
@@ -166,17 +157,8 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
             onPolygon = [&] (const PathElement & columnName,
                            const ExpressionValue & val) -> bool
             {
-                parsePolygon(polyBuilder, val);
-                return true;
-            };
-
-            coordsCol.forEachColumn(onPolygon);
-
-            // go over each polygon
-
-            /*for(int i=0; i<coordinatesJs.size(); i++) {
-                S2PolygonBuilder multiPolyBuilder(options);
-                parsePolygon(multiPolyBuilder, coordinatesJs[std::to_string(i)]);
+                S2PolygonBuilder multiPolyBuilder(options);                
+                parsePolygon(multiPolyBuilder, val);
 
                 polygons.push_back(new S2Polygon);//S2Polygon poly;
                 S2PolygonBuilder::EdgeList unused_edges;
@@ -184,8 +166,13 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
                     throw MLDB::Exception("unable to assemble polygon!");
                 }
                 polyBuilder.AddPolygon(polygons.back());
-            }*/
 
+                return true;
+            };
+
+            coordsCol.forEachColumn(onPolygon);
+
+            
         }
         else {
             throw MLDB::Exception("unknown polygon type!");
@@ -199,139 +186,23 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
 
         double lat1 = args[1].getAtom().toDouble();
         double lon1 = args[2].getAtom().toDouble();
+
+     //   cerr << "testing " << lat1 << "," << lon1 << " against: " /*<< endl << jsonEncode(coordsCol) */<< endl;
+
         S2LatLng point1 = S2LatLng::FromDegrees(lat1, lon1).Normalized();
 
+        bool contains = poly.Contains(point1.ToPoint());
+
+      //  cerr << contains << endl;
+
         return ExpressionValue(
-                poly.Contains(point1.ToPoint()),
+                contains,
                 Date());
 
     },
     outputInfo
     };
 }
-
-/*BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
-{
-    checkArgsSize(args.size(), 3, __FUNCTION__);
-
-    auto outputInfo
-        = std::make_shared<BooleanValueInfo>();
-    
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-    {
-        checkArgsSize(args.size(), 3);
-
-        auto getCol = [] (const ExpressionValue & eVal,
-                          const PathElement & columnName)
-        {
-            ExpressionValue col = eVal.getColumn(columnName);
-            if (col.empty()) {
-                throw MLDB::Exception("Cound not find required column '"+
-                        columnName.toUtf8String().rawString()+"'");
-            }
-            return std::move(col);
-        };
-
-        if(!args[0].isRow()) {
-            throw MLDB::Exception("argument 1 must be a row representing a GeoJson geometry");
-        }
-
-        // GeoJson should have a type key telling us we are dealing
-        // with a polygon
-        ExpressionValue typeCol = getCol(args[0], "type");
-        string geomType = typeCol.getAtom().toString();
-        if(geomType != "Polygon" && geomType != "MultiPolygon")
-            throw MLDB::Exception("polygon!!! " + geomType);
-
-
-        ExpressionValue coordsCol = getCol(args[0], "coordinates");
-
-        Json::Value coordinatesJs = std::move(coordsCol.extractJson());
-
-
-        vector<S2Loop*> loops;
-        auto parsePolygon = [&loops] (S2PolygonBuilder & polyBuilder,
-                                const Json::Value & polygonJs)
-        {
-            // For type "Polygon", the "coordinates" member must be an 
-            // array of LinearRing coordinate arrays. For Polygons with 
-            // multiple rings, the first must be the exterior ring and
-            // any others must be interior rings or holes.
-            // http://geojson.org/geojson-spec.html#polygon
-            vector<S2Point> points;
-            points.reserve(polygonJs.size());
-
-            for(int i=0; i<polygonJs.size(); i++) {
-                //cout << "   getting key: " << std::to_string(i) << endl;
-                const Json::Value & currPoint = polygonJs[std::to_string(i)];
-                //cout << currPoint.toStyledString() << endl;
-
-                if(currPoint.size() != 2)
-                    throw MLDB::Exception("wrong zie!!");
-
-                double lat1 = currPoint["1"].asDouble();
-                double lon1 = currPoint["0"].asDouble();
-                points.emplace_back(S2LatLng::FromDegrees(lat1, lon1).Normalized().ToPoint());
-
-                //S2Loop loop(points);
-                loops.push_back(new S2Loop(points));
-                if(i>0) loops.back()->set_depth(1);  // TODO should this be recursive?
-            }
-                
-            polyBuilder.AddLoop(loops.back());
-        };
-
-        S2PolygonBuilderOptions options;
-        S2PolygonBuilder polyBuilder(options);
-
-        vector<S2Polygon*> polygons;
-        if(geomType != "Polygon") {
-            parsePolygon(polyBuilder, coordinatesJs);
-        }
-        else if(geomType != "MultiPolygon") {
-            // go over each polygon
-            for(int i=0; i<coordinatesJs.size(); i++) {
-                S2PolygonBuilder multiPolyBuilder(options);
-                parsePolygon(multiPolyBuilder, coordinatesJs[std::to_string(i)]);
-
-                polygons.push_back(new S2Polygon);//S2Polygon poly;
-                S2PolygonBuilder::EdgeList unused_edges;
-                if(!multiPolyBuilder.AssemblePolygon(polygons.back(), &unused_edges)) {
-                    throw MLDB::Exception("unable to assemble polygon!");
-                }
-                polyBuilder.AddPolygon(polygons.back());
-            }
-
-        }
-        else {
-            throw MLDB::Exception("unknown polygon type!");
-        }
-
-        S2Polygon poly;
-        S2PolygonBuilder::EdgeList unused_edges;
-        if(!polyBuilder.AssemblePolygon(&poly, &unused_edges)) {
-            throw MLDB::Exception("unable to assemble polygon!");
-        }
-
-
-
-        double lat1 = args[1].getAtom().toDouble();
-        double lon1 = args[2].getAtom().toDouble();
-        S2LatLng point1 = S2LatLng::FromDegrees(lat1, lon1).Normalized();
-
-
-        return ExpressionValue(
-                poly.Contains(point1.ToPoint()),
-                Date());
-    },
-    outputInfo
-    };
-
-
-    // s2poylgon.Contains(S2Polygon const* b)
-
-}*/
 
 static RegisterBuiltin registerST_Contains(st_contains, "ST_Contains_Point");
 
