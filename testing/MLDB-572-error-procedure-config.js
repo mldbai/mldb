@@ -54,7 +54,7 @@ var resp3 = mldb.get("/v1/datasets/test/routes/hello");
 
 plugin.log(resp3);
 
-assertEqual(resp3.responseCode, 500);
+assertEqual(resp3.responseCode, 404);
 assertContains(resp3.json.error, "not available due to error in creation");
 
 
