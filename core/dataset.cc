@@ -1088,7 +1088,7 @@ generateRowNameIsConstant(const Dataset & dataset,
         = RowPath::tryParse(rowNameExpr.constant.toUtf8String());
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params,
-                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
+                 const ProgressFunc & onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 // There should be exactly one row
@@ -1112,7 +1112,7 @@ generateRowNameIsExpression(const Dataset & dataset,
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params,
-                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
+                 const ProgressFunc & onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
@@ -1139,7 +1139,7 @@ generateRowPathIsConstant(const Dataset & dataset,
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params,
-                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
+                 const ProgressFunc & onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 // There should be exactly one row
@@ -1162,7 +1162,7 @@ generateRowPathIsExpression(const Dataset & dataset,
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params,
-                 std::function<bool (const Json::Value &)> onProgress) // no need to report progress here
+                 const ProgressFunc & onProgress) // no need to report progress here
             -> std::pair<std::vector<RowPath>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
@@ -1396,7 +1396,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                     
                     return {[=] (ssize_t numToGenerate, Any token,
                                  const BoundParameters & params,
-                                 std::function<bool (const Json::Value &)> onProgress)
+                                 const ProgressFunc & onProgress)
                             -> std::pair<std::vector<RowPath>, Any>
                             {
                                 RowPath except = filterCallback(params);
@@ -1426,7 +1426,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params,
-                             std::function<bool (const Json::Value &)> onProgress)
+                             const ProgressFunc & onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             auto lhsRows = lhsGen(-1, Any(), params).first;
@@ -1458,7 +1458,7 @@ generateRowsWhere(const SqlBindingScope & scope,
             if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params,
-                             std::function<bool (const Json::Value &)> onProgress)
+                             const ProgressFunc & onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             auto lhsRows = lhsGen(-1, Any(), params, onProgress).first;
@@ -1525,7 +1525,7 @@ generateRowsWhere(const SqlBindingScope & scope,
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params,
-                             std::function<bool (const Json::Value &)> onProgress)
+                             const ProgressFunc & onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             std::vector<RowPath> filtered;
@@ -1568,7 +1568,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                         return {[=] (ssize_t numToGenerate, Any token,
                                      const BoundParameters & params,
-                                     std::function<bool (const Json::Value &)> onProgress)
+                                     const ProgressFunc & onProgress)
                                 -> std::pair<std::vector<RowPath>, Any>
                                 {
                                     SqlExpressionParamScope::RowScope rowScope(params);
@@ -1748,7 +1748,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params,
-                             std::function<bool (const Json::Value &)> onProgress)
+                             const ProgressFunc& onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             std::vector<RowPath> filtered;
@@ -1757,15 +1757,15 @@ generateRowsWhere(const SqlBindingScope & scope,
                             size_t numRows = this->getMatrixView()->getRowCount();
 
                             // getRowNames can return row names in an arbitrary order as long as it is deterministic.
+                            ProgressState whereProgress(numRows);
                             for (const RowPath & n: this->getMatrixView()
                                      ->getRowPaths()) {
                                 
                                 ++rowCount;
                                 if (rowCount % 1000 == 0) {
                                     if (onProgress) {
-                                        Json::Value progress;
-                                        progress["percent"] = (float) rowCount / numRows;
-                                        if (!onProgress(progress)) {
+                                        whereProgress = rowCount;
+                                        if (!onProgress(whereProgress)) {
                                             throw CancellationException("rows generation was cancelled");
                                         }
                                     }
@@ -1823,7 +1823,7 @@ generateRowsWhere(const SqlBindingScope & scope,
             GenerateRowsWhereFunction wheregen
                 = {[=] (ssize_t numToGenerate, Any token,
                         const BoundParameters & params,
-                        std::function<bool (const Json::Value &)> onProgress)
+                        const ProgressFunc & onProgress)
                     {
                         ssize_t start = 0;
                         ssize_t limit = numToGenerate;
@@ -1858,7 +1858,7 @@ generateRowsWhere(const SqlBindingScope & scope,
         else {
             return { [=] (ssize_t numToGenerate, Any token,
                           const BoundParameters & params,
-                          std::function<bool (const Json::Value &)> onProgress)  // no need to report progress here
+                          const ProgressFunc & onProgress)  // no need to report progress here
                     -> std::pair<std::vector<RowPath>, Any>
                     {
                         return { {}, Any() };
@@ -1891,7 +1891,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params,
-                 std::function<bool (const Json::Value &)> onProgress)
+                 const ProgressFunc & onProgress)
             {
                 ssize_t start = 0;
                 ssize_t limit = numToGenerate;
@@ -1914,15 +1914,15 @@ generateRowsWhere(const SqlBindingScope & scope,
                 size_t numRows = rows.size();
                 std::atomic_ulong rowCount(0);
 
+                ProgressState whereProgress(numRows);
                 auto onRow = [&] (size_t n)
                     {
                         ++rowCount;
 
                         if (rowCount % 1000 == 0) {
                             if (onProgress) {
-                                Json::Value progress;
-                                progress["percent"] = (float) rowCount / numRows;
-                                if (!onProgress(progress)) {
+                                whereProgress = rowCount;
+                                if (!onProgress(whereProgress)) {
                                     return false;
                                 }
                             }

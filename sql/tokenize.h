@@ -55,5 +55,8 @@ Utf8String token_extract(ParseContext& context,
                          int nth,
                          const TokenizeOptions & options);
 
+std::vector<Utf8String> token_split(ParseContext& context,
+                                    const Utf8String& splitchars);
+
 } // namespace MLDB
 

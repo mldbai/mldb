@@ -164,8 +164,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
-        //TODO MLDB-2110 put back progress
-        auto rows = whereGenerator(-1, Any(), BoundParameters()).first;
+        auto rows = whereGenerator(-1, Any(), BoundParameters(), onProgress).first;
 
         //cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
 

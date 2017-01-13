@@ -48,7 +48,8 @@ BOOST_AUTO_TEST_CASE( test_forEachLine_data )
         result.emplace_back(data, dataSize);
     };
 
-    forEachLine(stream, processLine);
+    auto logger = getMldbLog("test");
+    forEachLine(stream, processLine, logger);
     BOOST_CHECK_EQUAL(result, expected);
 }
 
@@ -68,7 +69,8 @@ BOOST_AUTO_TEST_CASE( test_forEachLineStr_data )
         result.emplace_back(data);
     };
 
-    forEachLineStr(stream, processLine);
+    auto logger = getMldbLog("test");
+    forEachLineStr(stream, processLine, logger);
     BOOST_CHECK_EQUAL(result, expected);
 }
 
@@ -87,5 +89,6 @@ BOOST_AUTO_TEST_CASE( test_forEachLine_throw )
         }
     };
 
-    BOOST_CHECK_THROW(forEachLineStr(stream, processLine), MLDB::Exception);
+    auto logger = getMldbLog("test");
+    BOOST_CHECK_THROW(forEachLineStr(stream, processLine, logger), MLDB::Exception);
 }

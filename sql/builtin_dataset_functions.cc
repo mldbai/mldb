@@ -6,8 +6,10 @@
 #include "mldb/builtin/transposed_dataset.h"
 #include "mldb/builtin/sub_dataset.h"
 #include "mldb/types/value_description.h"
+#include <functional>
 
 using namespace std;
+using namespace std::placeholders;
 
 
 namespace MLDB {
@@ -125,20 +127,34 @@ BoundTableExpression merge(const SqlBindingScope & context,
 
     std::vector<std::shared_ptr<Dataset> > datasets;
     datasets.reserve(args.size());
-    for (auto arg : args)
-    {
+
+    size_t steps = args.size();
+    ProgressState joinState(100);
+    auto stepProgress = [&](uint step, const ProgressState & state) {
+        joinState = (100 / steps * state.count / *state.total) + (100 / steps * step);
+        return onProgress(joinState);
+    };
+ 
+    for (uint i = 0; i < steps; ++i) {
+        auto & arg = args[i];
+        auto & combinedProgress = onProgress ? std::bind(stepProgress, i, _1) : onProgress;
+    
         if (arg.dataset) {
             datasets.push_back(arg.dataset);
+            if (combinedProgress) {
+                ProgressState progress(100);
+                progress = 100; // there is nothing to perform here
+                combinedProgress(progress);
+            }
         }
         else if (!!arg.table) {
-            //TODO - MLDB-2110 split the progress for each args
             SqlBindingScope dummyScope;
             auto generator = arg.table.runQuery(dummyScope,
                                                 SelectExpression::STAR,
                                                 WhenExpression::TRUE,
                                                 *SqlExpression::TRUE,
                                                 OrderByExpression(),
-                                                0, -1, onProgress);
+                                                0, -1, combinedProgress);
             SqlRowScope fakeRowScope;
             // Generate all outputs of the query
             std::vector<NamedRowValue> rows

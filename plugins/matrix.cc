@@ -375,8 +375,8 @@ invertFeatures(const ClassifiedColumns & columns,
             }
 
             for (const ExtractedRow & entry: featureBuckets[n]) {
-                TRACE_MSG(logger) << "continuous " << entry.continuous.size() << " sparse "
-                                  << entry.sparse.size();
+                TRACE_MSG(logger) << "entry in bucket " << n << " contains: continuous " << entry.continuous.size() 
+                                  << " sparse " << entry.sparse.size();
                     
                 for (unsigned i = 0;  i < entry.continuous.size();  ++i) {
                     result[i].continuousValues[index] = entry.continuous[i];
