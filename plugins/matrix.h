@@ -16,7 +16,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/svd_utils.h"
 #include "mldb/utils/log_fwd.h"
-#include "mldb/plugins/progress.h"
+#include "mldb/utils/progress.h"
 #include <boost/multi_array.hpp>
 
 

@@ -131,6 +131,7 @@ BoundTableExpression merge(const SqlBindingScope & context,
             datasets.push_back(arg.dataset);
         }
         else if (!!arg.table) {
+            //TODO - MLDB-2110 split the progress for each args
             SqlBindingScope dummyScope;
             auto generator = arg.table.runQuery(dummyScope,
                                                 SelectExpression::STAR,

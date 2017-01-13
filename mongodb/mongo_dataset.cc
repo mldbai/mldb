@@ -153,7 +153,7 @@ struct MongoDataset: Dataset {
 
     MongoDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         auto dsConfig = config.params.convert<MongoDatasetConfig>();

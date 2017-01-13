@@ -287,7 +287,7 @@ struct SampledDataset::Itl
 SampledDataset::
 SampledDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress)
+                  const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
@@ -297,8 +297,7 @@ SampledDataset(MldbServer * owner,
     }
 
     SqlExpressionMldbScope context(owner);
-    ConvertProgressToJson convertProgressToJson(onProgress);
-    bondTableExpression = sampleConfig.dataset->bind(context, convertProgressToJson);
+    bondTableExpression = sampleConfig.dataset->bind(context, onProgress);
 
     itl.reset(new Itl(server, bondTableExpression.dataset, sampleConfig));
 }

@@ -38,7 +38,7 @@ struct MergedDataset: public Dataset {
 
     MergedDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress);
+                  const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a tree of merged datasets */
     MergedDataset(MldbServer * owner,

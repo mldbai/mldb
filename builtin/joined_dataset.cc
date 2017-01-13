@@ -21,9 +21,10 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/utils/compact_vector.h"
+#include <functional>
 
 using namespace std;
-
+using namespace std::placeholders;
 
 
 namespace MLDB {
@@ -919,7 +920,7 @@ struct JoinedDataset::Itl
 JoinedDataset::
 JoinedDataset(MldbServer * owner,
               PolyConfig config,
-              const std::function<bool (const Json::Value &)> & onProgress)
+              const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto joinConfig = config.params.convert<JoinedDatasetConfig>();
@@ -929,13 +930,23 @@ JoinedDataset(MldbServer * owner,
 
     SqlExpressionMldbScope scope(owner);
 
+    /* The assumption is that both sides have the same number
+       of items to process.  This is obviously not always the case
+       so the progress may differ in speed when switching from the 
+       left dataset to right dataset.
+    */ 
+    ProgressState joinState(100);
+    auto joinedProgress = [&](uint side, const ProgressState & state) {
+        joinState = state.count / *state.total * 100 + 50 * side;
+        return onProgress(joinState);
+    };
+
     // Create a scope to get our datasets from
     SqlExpressionMldbScope mldbScope(server);
 
     // Obtain our datasets
-    ConvertProgressToJson convertProgressToJson(onProgress);
-    BoundTableExpression left = joinConfig.left->bind(mldbScope, convertProgressToJson);
-    BoundTableExpression right = joinConfig.right->bind(mldbScope, convertProgressToJson);
+    BoundTableExpression left = joinConfig.left->bind(mldbScope, bind(joinedProgress, 0, _1));
+    BoundTableExpression right = joinConfig.right->bind(mldbScope, bind(joinedProgress, 1, _1));
     
     
     itl.reset(new Itl(scope,

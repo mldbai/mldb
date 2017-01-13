@@ -33,7 +33,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/plugins/progress.h"
+#include "mldb/utils/progress.h"
 #include "mldb/utils/log.h"
 
 using namespace std;

@@ -254,8 +254,7 @@ runHttpQuery(const Utf8String& query,
 
     auto runQuery = [&] ()
         {
-            
-            return queryFromStatement(stm, mldbContext, nullptr /*progress*/);
+            return queryFromStatement(stm, mldbContext, nullptr /*onProgress*/);
         };
 
     MLDB::runHttpQuery(runQuery,
@@ -270,7 +269,7 @@ query(const Utf8String& query) const
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbScope mldbContext(this);
 
-    return queryFromStatement(stm, mldbContext, nullptr /*progress*/);
+    return queryFromStatement(stm, mldbContext, nullptr /*onProgress*/);
 }
 
 Json::Value

@@ -32,7 +32,7 @@ struct TransposedDataset: public Dataset {
 
     TransposedDataset(MldbServer * owner,
                       PolyConfig config,
-                      const std::function<bool (const Json::Value &)> & onProgress);
+                      const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a temporary transposition. */
     TransposedDataset(MldbServer * owner,

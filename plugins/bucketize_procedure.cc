@@ -22,7 +22,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/utils/log.h"
 #include "mldb/rest/cancellation_exception.h"
-#include "progress.h"
+#include "mldb/utils/progress.h"
 #include <memory>
 
 using namespace std;

@@ -40,7 +40,7 @@ struct SampledDataset: public Dataset {
 
     SampledDataset(MldbServer * owner,
                       PolyConfig config,
-                      const std::function<bool (const Json::Value &)> & onProgress);
+                      const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a temporary sample */
     SampledDataset(MldbServer * owner,

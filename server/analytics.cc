@@ -20,10 +20,10 @@
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/stats/distribution.h"
 #include <mutex>
-
+#include <functional>
 
 using namespace std;
-
+using namespace std::placeholders;
 
 
 namespace MLDB {
@@ -395,11 +395,11 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
 std::vector<MatrixNamedRow>
 queryFromStatement(const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   const ProgressFunc & onProgress,
-                   BoundParameters params)
+                   BoundParameters params,
+                   const ProgressFunc & onProgress)
 {
     std::vector<MatrixNamedRow> output;
-    auto rows = queryFromStatementExpr(stm, scope, onProgress, params);
+    auto rows = queryFromStatementExpr(stm, scope, params, onProgress);
     for (auto& r : std::get<0>(rows)) {
         output.push_back(r.flattenDestructive());
     }
@@ -409,19 +409,32 @@ queryFromStatement(const SelectStatement & stm,
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
 queryFromStatementExpr(const SelectStatement & stm,
                        SqlBindingScope & scope,
-                       const ProgressFunc & onProgress,
-                       BoundParameters params)
+                       BoundParameters params,
+                       const ProgressFunc & onProgress)
 {
-    BoundTableExpression table = stm.from->bind(scope, onProgress);
+    /* The assumption is that both sides have the same number
+       of items to process.  This is obviously not always the case
+       so the progress may differ in speed when switching from the 
+       left dataset to right dataset.
+    */ 
+    ProgressState joinState(100);
+    auto joinedProgress = [&](uint side, const ProgressState & state) {
+        joinState = (50 * state.count / *state.total) + (50 * side);
+        //cerr << "joinState.count " << joinState.count << " joinState.total " << *joinState.total << endl;
+        return onProgress(joinState);
+    };
+
+    BoundTableExpression table = stm.from->bind(scope, bind(joinedProgress, 0, _1));
     
     if (table.dataset) {
         return table.dataset->queryStructuredExpr(stm.select, stm.when,
-                                              *stm.where,
-                                              stm.orderBy, stm.groupBy,
-                                              stm.having,
-                                              stm.rowName,
-                                              stm.offset, stm.limit, 
-                                              table.asName);
+                                                  *stm.where,
+                                                  stm.orderBy, stm.groupBy,
+                                                  stm.having,
+                                                  stm.rowName,
+                                                  stm.offset, stm.limit, 
+                                                  table.asName,
+                                                  bind(joinedProgress, 1, _1));
     }
     else if (table.table.runQuery && stm.from) {
 
@@ -494,8 +507,8 @@ bool
 queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
                    const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   const ProgressFunc & onProgress,
-                   BoundParameters params)
+                   BoundParameters params,
+                   const ProgressFunc & onProgress)
 {
     BoundTableExpression table = stm.from->bind(scope, onProgress);
     

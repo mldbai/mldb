@@ -51,7 +51,7 @@ struct DatasetExpression: public NamedDatasetExpression {
     virtual ~DatasetExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context, const ProgressFunc &) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -85,7 +85,7 @@ struct JoinExpression: public TableExpression {
     virtual ~JoinExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context, const ProgressFunc &) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -113,7 +113,7 @@ struct NoTable: public TableExpression {
     virtual ~NoTable();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context, const ProgressFunc &) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -143,7 +143,7 @@ struct SelectSubtableExpression: public NamedDatasetExpression {
     virtual ~SelectSubtableExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context, const ProgressFunc &) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -173,7 +173,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
     virtual ~DatasetFunctionExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context, const ProgressFunc &) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
 
     virtual Utf8String print() const;
 
@@ -220,7 +220,7 @@ struct RowTableExpression: public TableExpression {
     virtual ~RowTableExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context, const ProgressFunc &) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 

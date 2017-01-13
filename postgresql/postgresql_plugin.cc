@@ -121,7 +121,7 @@ struct PostgresqlDataset: public Dataset {
 
     PostgresqlDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         config_ = config.params.convert<PostgresqlDatasetConfig>();
@@ -354,7 +354,7 @@ struct PostgresqlRecorderDataset: public Dataset {
 
     PostgresqlRecorderDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         config_ = config.params.convert<PostgresqlRecorderDatasetConfig>();

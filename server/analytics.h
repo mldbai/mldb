@@ -17,7 +17,7 @@
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/plugins/progress.h"
+#include "mldb/utils/progress.h"
 
 
 
@@ -181,14 +181,14 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope);
 std::vector<MatrixNamedRow>
 queryFromStatement(const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   const ProgressFunc &,
-                   BoundParameters params = nullptr);
+                   BoundParameters params = nullptr,
+                   const ProgressFunc & onProgress = nullptr);
 
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
 queryFromStatementExpr(const SelectStatement & stm,
                        SqlBindingScope & scope,
-                       const ProgressFunc &,
-                       BoundParameters params = nullptr);
+                       BoundParameters params = nullptr,
+                       const ProgressFunc & onProgress = nullptr);
 
 /** Select from the given statement.  This will choose the most
     appropriate execution method based upon what is in the query.
@@ -204,8 +204,8 @@ bool
 queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
                    const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   const ProgressFunc &,
-                   BoundParameters params = nullptr);
+                   BoundParameters params = nullptr,
+                   const ProgressFunc & onProgress = nullptr);
 
 /** Build a RowPath from an expression value and throw if
     it is not valid (row, empty, etc)

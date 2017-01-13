@@ -14,7 +14,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/any.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/plugins/progress.h"
+#include "mldb/utils/progress.h"
 #include <memory>
 #include <set>
 
@@ -196,7 +196,7 @@ struct TableOperations {
                                      const OrderByExpression & orderBy,
                                      ssize_t offset,
                                      ssize_t limit,
-                                     const ProgressFunc &)>
+                                     const ProgressFunc & onProgress)>
     runQuery;
 
     /// What aliases (sub-dataset names) does this dataset contain?
@@ -444,7 +444,7 @@ typedef std::function<BoundTableExpression(const Utf8String & str,
                                            const ExpressionValue & options,
                                            const SqlBindingScope & context,
                                            const Utf8String& alias,
-                                           const ProgressFunc &)>
+                                           const ProgressFunc & onProgress)>
     ExternalDatasetFunction;
 
 std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFunction function);
@@ -579,7 +579,7 @@ struct SqlBindingScope {
                          const std::vector<BoundTableExpression> & args,
                          const ExpressionValue & options,
                          const Utf8String & alias,
-                         const ProgressFunc &);
+                         const ProgressFunc & onProgress);
     
     virtual BoundAggregator
     doGetAggregator(const Utf8String & functionName,
@@ -1544,7 +1544,7 @@ struct TableExpression: public std::enable_shared_from_this<TableExpression> {
     virtual ~TableExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context, const ProgressFunc &) const = 0;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const = 0;
     
     virtual Utf8String print() const = 0;
 

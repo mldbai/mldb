@@ -40,7 +40,7 @@ struct SqliteSparseDataset: public Dataset {
 
     SqliteSparseDataset(MldbServer * owner,
                      PolyConfig config,
-                     const std::function<bool (const Json::Value &)> & onProgress);
+                     const ProgressFunc & onProgress);
     
     virtual ~SqliteSparseDataset();
 

@@ -820,15 +820,17 @@ queryStructured(const SelectExpression & select,
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
 Dataset::
 queryStructuredExpr(const SelectExpression & select,
-                const WhenExpression & when,
-                const SqlExpression & where,
-                const OrderByExpression & orderBy,
-                const TupleExpression & groupBy,
-                const std::shared_ptr<SqlExpression> having,
-                const std::shared_ptr<SqlExpression> rowName,
-                ssize_t offset,
-                ssize_t limit,
-                Utf8String alias) const
+                    const WhenExpression & when,
+                    const SqlExpression & where,
+                    const OrderByExpression & orderBy,
+                    const TupleExpression & groupBy,
+                    const std::shared_ptr<SqlExpression> having,
+                    const std::shared_ptr<SqlExpression> rowName,
+                    ssize_t offset,
+                    ssize_t limit,
+                    Utf8String alias,
+                    const ProgressFunc & onProgress
+                    ) const
 {
     ExcAssert(having);
     ExcAssert(rowName);
@@ -866,7 +868,7 @@ queryStructuredExpr(const SelectExpression & select,
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
         structureInfo = iterateDataset(select, *this, alias, when, where,
                        { rowName->shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                       nullptr).second;
+                       onProgress).second;
     }
     else {
 
@@ -885,7 +887,7 @@ queryStructuredExpr(const SelectExpression & select,
         structureInfo = iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, *having, *rowName,
                               {processor, false/*processInParallel*/}, orderBy, offset, limit,
-                              nullptr).second;
+                              onProgress).second;
     }
 
     return make_tuple<std::vector<NamedRowValue>, 

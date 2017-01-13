@@ -1898,7 +1898,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             auto rootBound = root->bind();
             auto scope = rootBound->outputScope();
 
-            BoundTableExpression bound = from->bind(*scope, nullptr);
+            BoundTableExpression bound = from->bind(*scope, nullptr /*onProgress*/);
             impl.reset(new GenerateRowsElement(root,
                                                select,
                                                bound.table,

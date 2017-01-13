@@ -703,9 +703,33 @@ run(const ProcedureRunConfig & run,
         return output->getStatus();
     }
 
+    Progress transformProgress;
+    std::shared_ptr<Step> bindingStep = transformProgress.steps({
+            make_pair("binding", "percentile"),
+            make_pair("transforming", "percentile")
+    });
+
     DEBUG_MSG(logger) << "binding FROM statement";
-    ConvertProgressToJson convertProgressToJson(onProgress);
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
+    
+    std::mutex progressMutex;
+    auto onBindingProgress = [&](const ProgressState & percent) {
+        lock_guard<mutex> lock(progressMutex);
+        if (bindingStep->value < (float) percent.count / *percent.total) {       
+            bindingStep->value = (float) percent.count / *percent.total;     
+        }
+        return onProgress(jsonEncode(transformProgress));
+    };
+
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, onBindingProgress);
+
+    auto transformingStep = bindingStep->nextStep(1);
+    auto onTransformingProgress = [&](const ProgressState & percent) {
+        lock_guard<mutex> lock(progressMutex);    
+        if (transformingStep->value < (float) percent.count / *percent.total) {       
+            transformingStep->value = (float) percent.count / *percent.total;     
+        }
+        return onProgress(jsonEncode(transformProgress));
+    };
 
     if (!boundDataset.dataset) {
         ExcAssert(boundDataset.table);
@@ -724,7 +748,8 @@ run(const ProcedureRunConfig & run,
         queryFromStatement(rowAccumulator,
                            *runProcConf.inputData.stm,
                            context,
-                           convertProgressToJson);
+                           nullptr, /*params*/
+                           onTransformingProgress);
     }
     else if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
         Dataset::MultiChunkRecorder recorder
@@ -799,7 +824,7 @@ run(const ProcedureRunConfig & run,
             .executeExpr({recordRowInOutputDataset, true /*processInParallel*/},
                          runProcConf.inputData.stm->offset,
                          runProcConf.inputData.stm->limit,
-                         convertProgressToJson) )
+                         onTransformingProgress) )
             {
                 DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
                 throw CancellationException(std::string(TransformDatasetConfig::name) +
@@ -849,7 +874,7 @@ run(const ProcedureRunConfig & run,
             .execute({recordRowInOutputDataset, false /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
-                     convertProgressToJson).first ) {
+                     onTransformingProgress).first ) {
             DEBUG_MSG(logger) << TransformDatasetConfig::name << " procedure was cancelled";
             throw CancellationException(std::string(TransformDatasetConfig::name) +
                                             " procedure was cancelled");

@@ -646,7 +646,7 @@ struct MergedDataset::Itl
 MergedDataset::
 MergedDataset(MldbServer * owner,
               PolyConfig config,
-              const std::function<bool (const Json::Value &)> & onProgress)
+              const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto mergeConfig = config.params.convert<MergedDatasetConfig>();
@@ -654,7 +654,7 @@ MergedDataset(MldbServer * owner,
     std::vector<std::shared_ptr<Dataset> > datasets;
 
     for (auto & d: mergeConfig.datasets) {
-        datasets.emplace_back(obtainDataset(owner, d, onProgress));
+        datasets.emplace_back(obtainDataset(owner, d, nullptr /*onProgress*/));
     }
 
     itl.reset(new Itl(server, datasets));

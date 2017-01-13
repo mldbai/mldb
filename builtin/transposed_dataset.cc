@@ -323,13 +323,13 @@ struct TransposedDataset::Itl
 TransposedDataset::
 TransposedDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress)
+                  const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto mergeConfig = config.params.convert<TransposedDatasetConfig>();
     
     std::shared_ptr<Dataset> dataset = obtainDataset(owner, mergeConfig.dataset,
-                                                     onProgress);
+                                                     nullptr /*onProgress*/);
 
     itl.reset(new Itl(server, dataset));
 }
@@ -412,7 +412,7 @@ std::shared_ptr<Dataset> createTransposedTable(MldbServer * server, const TableO
                                    *SqlExpression::TRUE,
                                    OrderByExpression(),
                                     0, -1,
-                                    nullptr /*progress*/);
+                                    nullptr /*onProgress*/);
 
     SqlRowScope fakeRowScope;
 

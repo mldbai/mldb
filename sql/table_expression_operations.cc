@@ -9,9 +9,10 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/sql/execution_pipeline.h"
 #include "mldb/types/value_description.h"
+#include <functional>
 
 using namespace std;
-
+using namespace std::placeholders;
 
 namespace MLDB {
 
@@ -406,7 +407,9 @@ SelectSubtableExpression::
 
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
-std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
+std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, 
+                                                const SubDatasetConfig &,
+                                                const ProgressFunc &);
 
 BoundTableExpression
 SelectSubtableExpression::
@@ -414,7 +417,7 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     SubDatasetConfig config;
     config.statement = statement;
-    auto ds = createSubDatasetFn(context.getMldbServer(), config);
+    auto ds = createSubDatasetFn(context.getMldbServer(), config, onProgress);
 
     return bindDataset(ds, asName);
 }
@@ -538,8 +541,19 @@ DatasetFunctionExpression::
 bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     std::vector<BoundTableExpression> boundArgs;
-    for (auto arg : args)
-        boundArgs.push_back(arg->bind(context, onProgress));
+    
+    size_t steps = args.size();
+    ProgressState joinState(100);
+    auto joinedProgress = [&](uint step, const ProgressState & state) {
+        joinState = (100 / steps * state.count / *state.total) + (100 / steps * step);
+        //cerr << "joinState.count " << joinState.count << " joinState.total " << *joinState.total << endl;
+        return onProgress(joinState);
+    };
+
+    for (uint i = 0; i < steps; ++i) {
+        auto & arg = args[i];
+        boundArgs.push_back(arg->bind(context, std::bind(joinedProgress, i, _1)));
+    }
 
     ExpressionValue expValOptions;
     if (options) {

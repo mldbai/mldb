@@ -49,7 +49,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	tfidf.cc \
 	tokensplit.cc \
 	script_function.cc \
-	progress.cc \
 	useragent_function.cc \
 	summary_statistics_proc.cc \
 	csv_writer.cc \
