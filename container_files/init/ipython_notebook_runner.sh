@@ -38,7 +38,7 @@ export JUPYTER_CONFIG_DIR={{IPYTHON_DIR}}/config
 export SHELL="/bin/bash"
 
 /sbin/setuser _mldb \
-        /usr/local/bin/jupyter nbextension enable --py --sys-prefix widgetsnbextension
+        /usr/local/bin/jupyter nbextension enable --py --log-level=WARN widgetsnbextension
 
 exec /sbin/setuser _mldb \
         /usr/local/bin/jupyter notebook \
