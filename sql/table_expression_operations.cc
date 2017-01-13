@@ -544,15 +544,15 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
     
     size_t steps = args.size();
     ProgressState joinState(100);
-    auto joinedProgress = [&](uint step, const ProgressState & state) {
+    auto stepProgress = [&](uint step, const ProgressState & state) {
         joinState = (100 / steps * state.count / *state.total) + (100 / steps * step);
-        //cerr << "joinState.count " << joinState.count << " joinState.total " << *joinState.total << endl;
         return onProgress(joinState);
     };
 
     for (uint i = 0; i < steps; ++i) {
         auto & arg = args[i];
-        boundArgs.push_back(arg->bind(context, std::bind(joinedProgress, i, _1)));
+        auto & combinedProgress = onProgress ? std::bind(stepProgress, i, _1) : onProgress;
+        boundArgs.push_back(arg->bind(context, combinedProgress));
     }
 
     ExpressionValue expValOptions;

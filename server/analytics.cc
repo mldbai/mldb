@@ -424,8 +424,10 @@ queryFromStatementExpr(const SelectStatement & stm,
         return onProgress(joinState);
     };
 
-    BoundTableExpression table = stm.from->bind(scope, bind(joinedProgress, 0, _1));
+    auto & bindProgress = onProgress ? bind(joinedProgress, 0, _1) : onProgress;
+    BoundTableExpression table = stm.from->bind(scope, bindProgress);
     
+    auto & iterateProgress = onProgress ? bind(joinedProgress, 1, _1) : onProgress;
     if (table.dataset) {
         return table.dataset->queryStructuredExpr(stm.select, stm.when,
                                                   *stm.where,
@@ -434,7 +436,7 @@ queryFromStatementExpr(const SelectStatement & stm,
                                                   stm.rowName,
                                                   stm.offset, stm.limit, 
                                                   table.asName,
-                                                  bind(joinedProgress, 1, _1));
+                                                  iterateProgress);
     }
     else if (table.table.runQuery && stm.from) {
 
