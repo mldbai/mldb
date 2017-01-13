@@ -466,3 +466,4 @@ $(eval $(call mldb_unit_test,MLDBFB-724_classifier_exp_segfault_test.py))
 $(eval $(call mldb_unit_test,MLDB-2108-split-string.py))
 $(eval $(call mldb_unit_test,MLDB-2100_fetcher_timeout_test.py))
 
+$(eval $(call mldb_unit_test,MLDB-2112_500_on_broken_proc_test.py))
