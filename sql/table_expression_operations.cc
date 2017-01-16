@@ -9,9 +9,10 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/sql/execution_pipeline.h"
 #include "mldb/types/value_description.h"
+#include <functional>
 
 using namespace std;
-
+using namespace std::placeholders;
 
 namespace MLDB {
 
@@ -45,7 +46,8 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
                                  const SqlExpression & where,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit)
+                                 ssize_t limit,
+                                 const ProgressFunc & onProgress)
         -> BasicRowGenerator
         {
             return dataset->queryBasic(context, select, when, where, orderBy,
@@ -95,7 +97,7 @@ DatasetExpression::
 
 BoundTableExpression
 DatasetExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     if (!config.empty()) {
         return bindDataset(context.doGetDatasetFromConfig(config), asName);
@@ -188,10 +190,10 @@ std::shared_ptr<Dataset>
 
 BoundTableExpression
 JoinExpression::
-bind(SqlBindingScope & scope) const
+bind(SqlBindingScope & scope, const ProgressFunc & onProgress) const
 {
-    BoundTableExpression boundLeft = left->bind(scope);
-    BoundTableExpression boundRight = right->bind(scope);
+    BoundTableExpression boundLeft = left->bind(scope, onProgress);
+    BoundTableExpression boundRight = right->bind(scope, onProgress);
 
     if (boundLeft.dataset && boundRight.dataset) {
         auto ds = createJoinedDatasetFn(scope,
@@ -252,7 +254,8 @@ bind(SqlBindingScope & scope) const
                                      const SqlExpression & where_,
                                      const OrderByExpression & orderBy,
                                      ssize_t offset,
-                                     ssize_t limit)
+                                     ssize_t limit,
+                                     const ProgressFunc & onProgress)
             -> BasicRowGenerator
             {
                 // Joins are detected in the outer query logic and intercepted.
@@ -404,15 +407,17 @@ SelectSubtableExpression::
 
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
-std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
+std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, 
+                                                const SubDatasetConfig &,
+                                                const ProgressFunc &);
 
 BoundTableExpression
 SelectSubtableExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     SubDatasetConfig config;
     config.statement = statement;
-    auto ds = createSubDatasetFn(context.getMldbServer(), config);
+    auto ds = createSubDatasetFn(context.getMldbServer(), config, onProgress);
 
     return bindDataset(ds, asName);
 }
@@ -464,7 +469,7 @@ NoTable::
 
 BoundTableExpression
 NoTable::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     return BoundTableExpression();
 }
@@ -533,18 +538,29 @@ DatasetFunctionExpression::
 
 BoundTableExpression
 DatasetFunctionExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     std::vector<BoundTableExpression> boundArgs;
-    for (auto arg : args)
-        boundArgs.push_back(arg->bind(context));
+    
+    size_t steps = args.size();
+    ProgressState joinState(100);
+    auto stepProgress = [&](uint step, const ProgressState & state) {
+        joinState = (100 / steps * state.count / *state.total) + (100 / steps * step);
+        return onProgress(joinState);
+    };
+
+    for (uint i = 0; i < steps; ++i) {
+        auto & arg = args[i];
+        auto & combinedProgress = onProgress ? std::bind(stepProgress, i, _1) : onProgress;
+        boundArgs.push_back(arg->bind(context, combinedProgress));
+    }
 
     ExpressionValue expValOptions;
     if (options) {
         expValOptions = options->constantValue();
     }
 
-    auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);
+    auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName, onProgress);
 
     if (!fn)
         throw HttpReturnException(400, "could not bind dataset function " + functionName);
@@ -637,7 +653,7 @@ std::vector<NamedRowValue>
 
 BoundTableExpression
 RowTableExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     ExcAssert(querySubDatasetFn);
 
@@ -725,7 +741,8 @@ bind(SqlBindingScope & context) const
                                  const SqlExpression & where_,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit)
+                                 ssize_t limit,
+                                 const ProgressFunc & onProgress)
         -> BasicRowGenerator
         {
             // Copy the where expression

@@ -1905,6 +1905,41 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerToken_extract(token_extract, "token_extract");
 
+BoundFunction token_split(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 2)
+        throw HttpReturnException(400, "requires two arguments");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                Date ts = args[0].getEffectiveTimestamp();
+
+                Utf8String text = args[0].toUtf8String();
+
+                Utf8String separator = args[1].toUtf8String();
+
+                TokenizeOptions options;
+
+                ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
+
+                auto tokens = token_split(pcontext, separator);
+
+                std::vector<CellValue> values;
+
+                for (auto& token : tokens) {
+                    values.push_back(token);
+                }
+
+                ExpressionValue result(values, ts);
+
+                return result;
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+
+static RegisterBuiltin registerToken_split(token_split, "split_part");
+
 BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);

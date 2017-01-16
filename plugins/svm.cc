@@ -237,20 +237,14 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-    {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-    };
-
     checkWritability(runProcConf.modelFileUrl.toDecodedString(),
                      "modelFileUrl");
 
     SqlExpressionMldbScope context(server);
 
+    ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput
-        = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
+        = getEmbedding(*runProcConf.trainingData.stm, context, -1, convertProgressToJson);
 
     std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows

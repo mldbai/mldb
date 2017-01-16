@@ -39,7 +39,7 @@ struct JoinedDataset: public Dataset {
 
     JoinedDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress);
+                  const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a tree of joined datasets
         where some are already bound.

@@ -356,7 +356,7 @@ struct UnionDataset::Itl
 UnionDataset::
 UnionDataset(MldbServer * owner,
              PolyConfig config,
-             const std::function<bool (const Json::Value &)> & onProgress)
+             const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto unionConfig = config.params.convert<UnionDatasetConfig>();
@@ -364,7 +364,7 @@ UnionDataset(MldbServer * owner,
     vector<std::shared_ptr<Dataset> > datasets;
 
     for (auto & d: unionConfig.datasets) {
-        datasets.emplace_back(obtainDataset(owner, d, onProgress));
+        datasets.emplace_back(obtainDataset(owner, d, nullptr /*onProgress*/));
     }
 
     itl.reset(new Itl(server, datasets));

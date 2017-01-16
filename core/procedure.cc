@@ -17,8 +17,8 @@
 #include "mldb/core/plugin.h"
 #include "mldb/core/function.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/plugins/progress.h"
 #include "mldb/rest/cancellation_exception.h"
+#include "mldb/utils/progress.h"
 
 
 using namespace std;

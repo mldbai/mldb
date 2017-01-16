@@ -60,7 +60,7 @@ struct MongoRecord: Dataset {
 
     MongoRecord(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         auto dsConfig = config.params.convert<MongoRecordConfig>();

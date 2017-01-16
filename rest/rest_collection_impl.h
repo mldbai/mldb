@@ -296,14 +296,13 @@ initNodes(RouteManager & result)
                             = nounSingular + " entry '"
                             + resource + "' not available as it is still being created";
                     }
-                    connection.sendResponse(500, error);
                 }
                 else {
                     error["error"]
                         = nounSingular + " entry '"
                         + resource + "' does not exist or has been deleted";
-                    connection.sendResponse(404, error);
                 }
+                connection.sendResponse(404, error);
             }
             else {
                 context.addSharedPtr(ptr);

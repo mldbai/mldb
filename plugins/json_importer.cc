@@ -6,7 +6,7 @@
    Importer for text files containing a JSON per line
 */
 
-#include "progress.h"
+#include "mldb/utils/progress.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"

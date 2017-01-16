@@ -9,8 +9,10 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <functional>
 
 #include "mldb/types/date.h"
+#include "mldb/types/optional.h"
 #include "mldb/types/value_description_fwd.h"
 
 
@@ -41,11 +43,30 @@ struct Progress {
 };
 DECLARE_STRUCTURE_DESCRIPTION(Progress);
 
-struct IterationProgress {
-    IterationProgress() : percent(0) {}
-    float percent;
+struct ProgressState {
+    ProgressState();
+    ProgressState(uint64_t total);
+
+    ProgressState & operator = (uint64_t count);
+
+    uint64_t count;
+    Optional<uint64_t> total;
+    
 };
-DECLARE_STRUCTURE_DESCRIPTION(IterationProgress);
+
+DECLARE_STRUCTURE_DESCRIPTION(ProgressState);
+
+typedef std::function<bool(const ProgressState &)> ProgressFunc;
+
+/* This is a temporary conversion helper to avoid 
+   changing all the procedure run signature.
+   TODO - MLDB-2110 - fix all the progress signature */
+struct ConvertProgressToJson {
+    ConvertProgressToJson(const std::function<bool(const Json::Value &)> & onJsonProgress);
+    const std::function<bool(const Json::Value &)> & onJsonProgress;
+    bool operator () (const ProgressState & progress);
+}
+                           ;
 
 } // namespace MLDB
 

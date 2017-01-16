@@ -20,7 +20,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/plugins/progress.h"
+#include "mldb/utils/progress.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/utils/log.h"
 

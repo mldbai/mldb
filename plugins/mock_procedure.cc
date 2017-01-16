@@ -8,7 +8,7 @@
 
 #include <thread>
 #include <chrono>
-#include "progress.h"
+#include "mldb/utils/progress.h"
 #include "mldb/rest/cancellation_exception.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/basic_value_descriptions.h"

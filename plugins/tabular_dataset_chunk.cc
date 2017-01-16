@@ -24,30 +24,30 @@ memusage() const
     for (auto & c: columns)
         result += c->memusage();
         
-    //cerr << columns.size() << " columns took " << result - before << endl;
+    DEBUG_MSG(logger) << columns.size() << " columns took " << result - before;
     before = result;
         
     for (auto & c: sparseColumns)
         result += c.first.memusage() + c.second->memusage();
 
-    //cerr << sparseColumns.size() << " sparse columns took "
-    //     << result - before << endl;
+    DEBUG_MSG(logger) << sparseColumns.size() << " sparse columns took "
+                      << result - before;
     before = result;
 
     for (auto & r: rowNames)
         result += r.memusage();
     result += integerRowNames.capacity() * sizeof(uint64_t);
 
-    //cerr << rowNames.size() << " row names took "
-    //     << result - before << endl;
+    DEBUG_MSG(logger) << rowNames.size() << " row names took "
+                      << result - before;
     before = result;
 
     result += timestamps->memusage();
 
-    //cerr << "timestamps took "
-    //     << result - before << endl;
+    DEBUG_MSG(logger) << "timestamps took "
+                      << result - before;
 
-    //cerr << "total memory is " << result << endl;
+    DEBUG_MSG(logger) << "total memory is " << result;
     return result;
 }
 

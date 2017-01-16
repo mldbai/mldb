@@ -385,5 +385,27 @@ Utf8String token_extract(ParseContext& context,
 
 }
 
+std::vector<Utf8String> token_split(ParseContext& context,
+                                    const Utf8String& splitchars)
+{
+    std::vector<Utf8String> result;
+
+    auto aggregate = [&] (Utf8String& word) -> bool
+    {
+
+        if (!word.empty())
+            result.push_back(word);
+
+        return true;
+    };
+
+    tokenize_exec(aggregate, context,
+                  splitchars, "",
+                  0);
+
+
+    return result;
+}
+
 
 } // namespace MLDB

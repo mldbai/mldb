@@ -1027,7 +1027,7 @@ struct EmbeddingDataset::Itl
 EmbeddingDataset::
 EmbeddingDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     this->datasetConfig = config.params.convert<EmbeddingDatasetConfig>();
@@ -1317,7 +1317,7 @@ bindT(SqlBindingScope & outerContext,
     std::unique_ptr<NearestNeighborsFunctionApplier> result
         (new NearestNeighborsFunctionApplier(this));
 
-    auto boundDataset = functionConfig.dataset->bind(outerContext);
+    auto boundDataset = functionConfig.dataset->bind(outerContext, nullptr /*onProgress*/);
     if (!boundDataset.dataset) {
         throw HttpReturnException
             (400, "Nearest neighbors function cannot operate on the output of "

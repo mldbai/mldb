@@ -31,7 +31,7 @@ struct UnionDataset: public Dataset {
 
     UnionDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress);
+                 const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a datasets */
     UnionDataset(MldbServer * owner,

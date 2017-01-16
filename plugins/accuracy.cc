@@ -621,7 +621,8 @@ run(const ProcedureRunConfig & run,
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto dataset = runAccuracyConf.testingData.stm->from->bind(context, convertProgressToJson).dataset;
 
     // prepare output dataset
     std::shared_ptr<Dataset> output;

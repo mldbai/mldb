@@ -97,7 +97,8 @@ PoolingFunction(MldbServer * owner,
                                                        onProgress);
 
     SqlExpressionMldbScope context(owner);
-    boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context, convertProgressToJson);
     
     columnNames = boundEmbeddingDataset.dataset->getRowInfo()->allColumnNames();
 }

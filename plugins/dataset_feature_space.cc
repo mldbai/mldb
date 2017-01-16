@@ -581,7 +581,6 @@ serialize(ML::DB::Store_Writer & store) const
 
     store << labelInfo;
 
-    auto logger = MLDB::getMldbLog<DatasetFeatureSpace>();
     DEBUG_MSG(logger) << "serializing " << columnInfo.size() << " features";
     for (auto & i: columnInfo) {
         store << jsonEncodeStr(i.first);
