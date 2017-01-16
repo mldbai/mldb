@@ -58,6 +58,10 @@ struct SubDataset : public Dataset {
 
     virtual size_t getFlattenedColumnCount() const override;
 
+    virtual void recordRowExpr(const RowPath & rowName, const ExpressionValue & expr);
+
+    virtual ExpressionValue getRowExpr(const RowPath & row) const override;
+
 private:
     SubDatasetConfig datasetConfig;
     struct Itl;

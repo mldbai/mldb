@@ -56,14 +56,16 @@ struct SubDataset::Itl
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
-        SqlExpressionMldbScope mldbContext(owner);
+        if (statement.from) {
+             SqlExpressionMldbScope mldbContext(owner);
 
-        std::vector<NamedRowValue> rows;
-        auto pair = queryFromStatementExpr(statement, mldbContext);
+            std::vector<NamedRowValue> rows;
+            auto pair = queryFromStatementExpr(statement, mldbContext);
 
-        columnInfo = std::move(std::get<1>(pair));
+            columnInfo = std::move(std::get<1>(pair));
 
-        init(std::move(std::get<0>(pair)));
+            init(std::move(std::get<0>(pair)));
+        }       
     }
 
     Itl(std::vector<NamedRowValue> rows)
@@ -130,6 +132,82 @@ struct SubDataset::Itl
         fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
                            fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
         std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end());
+
+        cerr << "new sub dataset " << columnNameSet.size() << " columns " << fullFlattenedColumnNames.size() << " flattened" << endl;
+    }
+
+    void AddRow(const RowPath & rowName,
+                const ExpressionValue & expr)
+    {
+        //RowPath rowName;
+        //RowHash rowHash;
+        //StructValue columns;
+       // typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
+
+        NamedRowValue newRow;
+        newRow.columns.reserve(expr.rowLength());
+        auto onSubexpr = [&] (const PathElement & columnName,
+                              const ExpressionValue & val)
+            {
+                newRow.columns.emplace_back(std::move(columnName), val);
+                return true;
+            };
+
+        expr.forEachColumn(onSubexpr);
+        newRow.rowName = rowName;
+        newRow.rowHash = rowName;
+        this->subOutput.push_back(std::move(newRow));
+
+        std::unordered_set<PathElement> columnNameSet;
+        std::unordered_set<ColumnPath> fullflattenColumnNameSet;
+        bool first = earliest == Date::notADate() && latest == Date::notADate();
+
+        const NamedRowValue & row = subOutput.back();
+        ExcAssert(row.rowName != RowPath());
+        rowIndex[row.rowName] = this->subOutput.size() - 1;
+
+        for (auto& c : row.columns)
+        {
+            const PathElement & cName = std::get<0>(c);               
+
+            columnNameSet.insert(cName);
+
+            Date ts = std::get<1>(c).getEffectiveTimestamp();
+            
+            if (ts.isADate()) {
+                if (first) {
+                    earliest = latest = ts;
+                    first = false;
+                }
+                else {
+                    earliest.setMin(ts);
+                    latest.setMax(ts);
+                }
+            }
+
+            auto getName = [&] (const Path & columnName,
+                               const Path & prefix,
+                               const CellValue & val,
+                               Date ts) -> bool
+            {
+                fullflattenColumnNameSet.insert(prefix + columnName);
+                return true;
+            };
+
+            std::get<1>(c).forEachAtom(getName, cName);
+        }
+
+       //  cerr << "recordRowExpr2:: " << row.columns.size() << " columns" << endl;
+
+        // Now do a stable sort of the column names
+        // Todo: maybe do a sorted insert
+        columnNames.insert(columnNames.end(),
+                           columnNameSet.begin(), columnNameSet.end());
+        std::sort(columnNames.begin(), columnNames.end());
+
+        fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
+                           fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
+        std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end()); 
     }
 
     ~Itl() { }
@@ -205,6 +283,19 @@ struct SubDataset::Itl
         }
 
         return subOutput[it->second].flatten();
+    }
+
+    ExpressionValue
+    getRowExpr(const RowPath & rowName) const
+    {
+
+        auto it = rowIndex.find(rowName);
+        if (it == rowIndex.end()) {
+            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in sub-table dataset");
+        }
+
+        cerr << "SUB getRowExpr:: " << subOutput[it->second].columns.size() << " columns" << endl;
+        return subOutput[it->second].columns;
     }
 
     virtual RowPath getRowPath(const RowHash & rowHash) const
@@ -385,6 +476,23 @@ SubDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+void
+SubDataset::
+recordRowExpr(const RowPath & rowName,
+              const ExpressionValue & expr)
+{
+    ExcAssert(itl);
+    //cerr << "recordRowExpr:: " << expr.rowLength() << " columns" << endl;
+    itl->AddRow(rowName, expr);
+}
+
+ExpressionValue
+SubDataset::
+getRowExpr(const RowPath & row) const
+{
+   return itl->getRowExpr(row);
 }
 
 std::shared_ptr<RowStream> 
