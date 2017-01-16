@@ -336,8 +336,6 @@ run(const ProcedureRunConfig & run,
 
     for (int i = 0; i < steps.size(); ++i ) {
         auto & s = steps[i];
-        //iterationStep->value = (float)i / steps.size() * 100;
-
         bool keepGoing = onProg(Json::Value{});
         if (!keepGoing) {
             throw MLDB::CancellationException("Procedure serial cancelled");
