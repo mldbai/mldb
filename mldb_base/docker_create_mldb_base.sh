@@ -84,7 +84,6 @@ apt-get install -y \
     libcurl3 \
     libssh2-1 \
     libpython2.7 \
-    libgit2-0 \
     libicu52 \
     liblapack3 \
     libblas3 \
