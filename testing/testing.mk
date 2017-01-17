@@ -350,6 +350,7 @@ $(eval $(call mldb_unit_test,MLDB-1707-no-context-resolve-table.py))
 $(eval $(call mldb_unit_test,MLDB-1706-horizontal.py))
 $(eval $(call mldb_unit_test,MLDB-1603-nonprintable-chars-json.js))
 $(eval $(call mldb_unit_test,MLDBFB-638-groupby-orderby-transform.py))
+$(eval $(call mldb_unit_test,encode-multiple-png.py, tensorflow))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
@@ -419,7 +420,7 @@ $(eval $(call mldb_unit_test,MLDB-1947-reshape-builtin.py))
 $(eval $(call mldb_unit_test,MLDB-1891-case-in-import.py))
 $(eval $(call mldb_unit_test,MLDB-2107-scalar-format.py))
 $(eval $(call mldb_unit_test,where-without-dataset.py))
-$(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,,manual)) #require tensorflow plugin
+$(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,tensorflow))
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))

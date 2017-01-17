@@ -20,6 +20,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/join_utils.h"
 #include "mldb/sql/binding_contexts.h"
+#include "mldb/sql/eval_sql.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
 #include "mldb/ext/edlib/edlib/include/edlib.h"
@@ -3286,6 +3287,45 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerTryFunction(tryFct, "try");
 
+BoundFunction encodePngs(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    if (!args[0].info->couldBeRow())
+        throw HttpReturnException(400, "requires a row as input");
+
+    Utf8String query = "tf_EncodePng($1)";
+
+    auto outputInfo
+        = std::make_shared<UnknownRowValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                SqlBindingScope emptyBindingScope;
+                SqlRowScope emptyrowScope;
+                ExcAssertEqual(args.size(), 1);
+                StructValue encodedValues;
+
+                std::function<bool (const PathElement & columnName,
+                                    const ExpressionValue & val)>
+                onColumn = [&] (const PathElement & columnName,
+                                const ExpressionValue & val)
+                {
+                    if (!val.isRow())
+                        throw HttpReturnException(400, "requires a row as input, got " + val.getTypeAsString());
+
+                    encodedValues.emplace_back(columnName, evalSql(emptyBindingScope, query, emptyrowScope, val));
+                    return true;
+                };
+
+                args[0].forEachColumn(onColumn);
+
+                return encodedValues;
+            },
+            outputInfo
+        };
+}
+static RegisterBuiltin registerencodePngsFunction(encodePngs, "encodePngs");
 
 /*****************************************************************************/
 /* BUILTIN CONSTANTS                                                         */
