@@ -13,7 +13,7 @@ ADD files/cuda-repo-ubuntu1404-8-0-local_8.0.44-1_amd64.deb \
 RUN dpkg -i /tmp/cuda-repo-ubuntu1404-8-0-local_8.0.44-1_amd64.deb && \
       apt-get update && \
       apt-get install -y software-properties-common  python-software-properties && \
-      curl http://saltmaster.mldb.ai/deb/ops_datacratic.pubkey | apt-key add && \
+      curl http://saltmaster.mldb.ai/deb/ops_datacratic.pubkey | apt-key add - && \
       add-apt-repository -y "http://saltmaster.mldb.ai/deb/graphics-drivers-375.26 main" && \
       apt-get update && \
       apt-get install -y cuda-toolkit-8-0 && \
