@@ -117,20 +117,21 @@ struct PythonContext {
       category(categoryName.rawData()),
       loader(loaderName.rawData()),
       server(server),
-      pluginResource(pluginResource)
+      pluginResource(std::move(pluginResource))
     {
     }
 
     void log(const std::string & message);
     
     Json::Value getArgs() const;
-    void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
-    void setReturnValue1(const Json::Value & rtnVal);
+    void setReturnValue(const Json::Value & returnValue, unsigned returnCode=200);
+    void setReturnValue1(const Json::Value & returnValue);
 
     Utf8String categoryName, loaderName;
 
-    unsigned rtnCode;
-    Json::Value rtnVal;
+    bool hasReturnValue = false;
+    unsigned returnCode = -1;
+    Json::Value returnValue;
 
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader;

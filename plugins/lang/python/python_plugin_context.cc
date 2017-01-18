@@ -504,8 +504,9 @@ getArgs() const
 void PythonContext::
 setReturnValue(const Json::Value & rtn, unsigned returnCode)
 {
-    rtnVal = rtn;
-    rtnCode = returnCode;
+    hasReturnValue = true;
+    returnValue = rtn;
+    returnCode = returnCode;
 }
 
 void PythonContext::

@@ -157,28 +157,33 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptLogEntry);
 /** Describes the output of a script run. */
 
 struct ScriptOutput {
-    ScriptOutput() : _return_code(0) {}
 
     Json::Value result;                   ///< Return value of the script
     std::vector<ScriptLogEntry> logs;     ///< Log entries produced by the script
     std::shared_ptr<ScriptException> exception;  ///< Exception thrown, if any
     Any extra;
 
-    unsigned _return_code;                   ///< Return code of the script
+    bool returnCodeIsSet() const
+    {
+        return returnCode != 0;
+    }
 
     void setReturnCode(unsigned rtnCode)
     {
-        _return_code = rtnCode;
+        returnCode = rtnCode;
     }
 
     unsigned getReturnCode() const
     {
-        if(_return_code == 0)
+        if(returnCode == 0)
             throw MLDB::Exception("Script return_code is set to 0. This should "
                     "never happen.");
 
-        return _return_code;
+        return returnCode;
     }
+
+private:
+    unsigned returnCode = 0;              ///< Return code of the script
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ScriptOutput);

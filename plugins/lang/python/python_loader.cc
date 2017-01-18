@@ -600,8 +600,11 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
 
             if(isScript) {
                 auto ctitl = static_pointer_cast<PythonScriptContext>(titl);
-                result.result = ctitl->rtnVal;
-                result.setReturnCode(ctitl->rtnCode);
+                if (!ctitl->hasReturnValue) {
+                    throw HttpReturnException(400, "Script exited without calling setReturnValue");
+                }
+                result.result = ctitl->returnValue;
+                result.setReturnCode(ctitl->returnCode);
                 for (auto & l: ctitl->logs)
                     result.logs.emplace_back(std::move(l));
                 std::stable_sort(result.logs.begin(), result.logs.end());
@@ -616,8 +619,12 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             boost::python::object obj
                 = pyExec(scriptSource, scriptUri, pyControl.main_namespace);
             
-            result.result = titl->rtnVal;
-            result.setReturnCode(titl->rtnCode);
+            if (!titl->hasReturnValue) {
+                throw HttpReturnException(400, "Script exited without calling setReturnValue");
+            }
+
+            result.result = titl->returnValue;
+            result.setReturnCode(titl->returnCode);
             return result;
         }
         else {
