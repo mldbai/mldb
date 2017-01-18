@@ -1,6 +1,5 @@
 LIBGIT2_FILES := $(wildcard ext/libgit2/src/*.c ext/libgit2/src/*/*.c)
 LIBGIT2_SOURCE:=$(LIBGIT2_FILES:ext/libgit2/%=%)
-$(warning LIBGIT2_SOURCE=$(LIBGIT2_SOURCE))
 
 LIBGIT2_SOURCE:= \
 	src/annotated_commit.c \
