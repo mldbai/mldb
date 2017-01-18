@@ -11,13 +11,13 @@ import unittest
 class myTest(MldbUnitTest):
 
     def test_sequence(self):
-        res = mldb.query("""select encodePngs({[[[1],[2]],[[3],[4]]],
+        res = mldb.query("""select tf_encodePngs({[[[1],[2]],[[3],[4]]],
                                              [[[5],[6]],[[7],[8]]]})""")
         self.assertTableResultEquals([
                         [
                             "_rowName",
-                            "\"encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[1],[2]],[[3],[4]]]",
-                            "\"encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[5],[6]],[[7],[8]]]"
+                            "\"tf_encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[1],[2]],[[3],[4]]]",
+                            "\"tf_encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[5],[6]],[[7],[8]]]"
                         ],
                         [
                             "result",
