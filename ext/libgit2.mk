@@ -1,5 +1,11 @@
-LIBGIT2_FILES := $(wildcard ext/libgit2/src/*.c ext/libgit2/src/*/*.c)
-LIBGIT2_SOURCE:=$(LIBGIT2_FILES:ext/libgit2/%=%)
+# 
+# When upgrading libgit2 to a new version,
+# uncomment these lines and look for missing files between the output and
+# the contents of the LIBGIT2_SOURCE variable below.
+#
+#LIBGIT2_FILES := $(wildcard ext/libgit2/src/*.c ext/libgit2/src/*/*.c)
+#LIBGIT2_SOURCE:=$(LIBGIT2_FILES:ext/libgit2/%=%)
+#$(warning LIBGIT2_SOURCE=$(LIBGIT2_SOURCE))
 
 LIBGIT2_SOURCE:= \
 	src/annotated_commit.c \
