@@ -336,7 +336,9 @@ perform(const std::string & verb,
         if (timeout != -1)
             myRequest.add_option(CURLOPT_TIMEOUT, timeout);
         else myRequest.add_option(CURLOPT_TIMEOUT, 0L);
+
         myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
+        myRequest.add_option(CURLOPT_CONNECTTIMEOUT, 20L);
 
         if (abortOnSlowConnection) {
             // abortOnSlowConnection SPECIFICATION *** /
