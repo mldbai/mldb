@@ -1,6 +1,6 @@
 #
 # MLDB-775_hashbucket_feat_gen.py
-# datacratic, 2015
+# mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
 

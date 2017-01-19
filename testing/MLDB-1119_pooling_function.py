@@ -1,6 +1,6 @@
 #
 # MLDB-1119_pooling_function.py
-# Datacratic, 2016
+# mldb.ai inc, 2016
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import datetime

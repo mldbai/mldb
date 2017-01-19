@@ -1,6 +1,6 @@
 #
 # MLDB-881-DELETE-fails-on-in-construction.py
-# datacratic, 2015
+# mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
 

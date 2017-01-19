@@ -1,6 +1,6 @@
 #
 # MLDB-1142-sparse-mutable-failing-with-underflow.py
-# Datacratic, 2015
+# mldb.ai inc, 2015
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
