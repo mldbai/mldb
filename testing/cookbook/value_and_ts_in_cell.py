@@ -1,7 +1,7 @@
 #
 # value_and_ts_in_cell.py.py
 # Mich, 2016-04-01
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 # How to get "value @ timestamp" as the result of a table query.
 #
