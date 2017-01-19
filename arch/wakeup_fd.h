@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* wakeup_fd.h                                                     -*- C++ -*-
    Jeremy Barnes, 23 January 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Simple class that provides an FD that we can use to wake something
    up.  A generalization of the self-pipe trick.

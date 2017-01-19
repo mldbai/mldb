@@ -1,7 +1,7 @@
 /* stump_regress.h                                                 -*- C++ -*-
    Jeremy Barnes, 30 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Regression training for the decision stumps.  Includes a W data structure
    for the accumulation, a Z object to calculate the split score, and a

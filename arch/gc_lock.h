@@ -1,7 +1,7 @@
 /* gc_lock.h                                                       -*- C++ -*-
    Jeremy Barnes, 19 November 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    "Lock" that works by deferring the destruction of objects into a garbage collection
    process which is only run when nothing could be using them.
