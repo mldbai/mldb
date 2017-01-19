@@ -1,6 +1,6 @@
 # tensorflow.mk
 # Jeremy Barnes, 17 December 2015
-# Copyright (c) 2015 Datacratic Inc.
+# Copyright (c) 2015 mldb.ai inc.
 #
 # This file is part of mldb.ai, Apache 2.0 license.
 #

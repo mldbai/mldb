@@ -1,6 +1,6 @@
 # re2.mk
 # Jeremy Barnes, 16 December 2015
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+# Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 #
 # Build instructions for Google's re2 regular expression engine
 

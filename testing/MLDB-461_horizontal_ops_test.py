@@ -1,7 +1,7 @@
 #
 # MLDB-461_horizontal_ops_test.py
 # mldb.ai inc, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 import unittest
 

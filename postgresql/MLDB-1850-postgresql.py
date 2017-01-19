@@ -1,7 +1,7 @@
 #
 # MLDB-1850-postgresql.py
 # Mathieu Marquis Bolduc, August 12th 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import datetime

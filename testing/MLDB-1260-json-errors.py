@@ -3,7 +3,7 @@
 #####
 #   Testing if the error responses are all formatted in the same way
 #   Guy Dumais, January 27, 2016
-#   Copyright Datacratic 2016
+#   Copyright mldb.ai inc 2016
 ####
 
 import json, random, datetime
