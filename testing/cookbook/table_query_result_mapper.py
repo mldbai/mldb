@@ -1,7 +1,7 @@
 #
 # table_query_result_mapper.py
 # Mich, 2016-01-13
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
 # MLDB doesn't guarantee column ordering of SQL queries will match the ordering
 # of the result. Here is a column mapper example to work around that.
