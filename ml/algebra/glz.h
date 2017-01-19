@@ -3,7 +3,7 @@
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
    $Source$
    
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Generalised linear modeling.  Contains functions to calculate the link
    functions and their inverses, to solve for the model given a set of

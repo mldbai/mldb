@@ -1,7 +1,7 @@
 /* layer_stack.h                                                   -*- C++ -*-
    Jeremy Barnes, 4 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Stack of neural network layers where each one feeds its output as in input
    into the next.

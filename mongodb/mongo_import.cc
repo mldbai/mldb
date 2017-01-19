@@ -2,7 +2,7 @@
  * mongo_import.cc
  * Jeremy Barnes, 23 February 2015
  * Mich, 2016-08-02
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 #include "bsoncxx/builder/stream/document.hpp"
 #include "mongocxx/client.hpp"
