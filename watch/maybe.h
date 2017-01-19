@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** maybe.h                                                        -*- C++ -*-
     Jeremy Barnes, 3 July 2014
-    Copyright (C) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (C) 2014 mldb.ai inc.  All rights reserved.
 
 
 */

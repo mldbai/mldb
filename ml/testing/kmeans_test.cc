@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 // 
 // centroid_feature_generator_test.cc
 // Simon Lemieux - 19 Jun 2013
-// Copyright (c) 2013 Datacratic. All rights reserved.
+// Copyright (c) 2013 mldb.ai inc. All rights reserved.
 // 
 
 #define BOOST_TEST_MAIN
@@ -20,7 +20,7 @@ using namespace MLDB;
 using namespace ML;
 using namespace std;
 
-DATACRATIC_FIXTURE( kmeans_test );
+MLDB_FIXTURE( kmeans_test );
 
 BOOST_FIXTURE_TEST_CASE( test_kmeans, kmeans_test )
 // BOOST_AUTO_TEST_CASE( test_kmeans)

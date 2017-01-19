@@ -140,4 +140,4 @@ updateProb(LoopMonitor::LoadSample sample)
 }
 
 
-} // namepsace Datacratic
+} // namepsace MLDB

@@ -223,4 +223,4 @@ sendResponse(const Json::Value & response)
             onSendFinished);
 }
 
-} // Datacratic
+} // MLDB
