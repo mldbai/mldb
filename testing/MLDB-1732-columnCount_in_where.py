@@ -1,7 +1,7 @@
 #
 # MLDB-1732-columnCount_in_where.py
 # 16 juin 2016, Francois Maillet
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 if False:
     mldb_wrapper = None

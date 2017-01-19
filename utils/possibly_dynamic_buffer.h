@@ -52,4 +52,4 @@ struct PossiblyDynamicBuffer {
 	    PossiblyDynamicBuffer & operator=(PossiblyDynamicBuffer & other);
     };
 
-} // Datacratic
+} // MLDB

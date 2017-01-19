@@ -1,7 +1,7 @@
 #
 # MLDB-1266-import_json.py
 # 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 from functools import partial

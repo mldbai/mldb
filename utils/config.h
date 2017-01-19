@@ -47,4 +47,4 @@ private:
     static ConfigPtr config;
 };
 
-} // Datacratic
+} // MLDB

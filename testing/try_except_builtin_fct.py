@@ -1,7 +1,7 @@
 #
 # try_except_builtin_fct.py
 # Francois-Michel L Heureux, 2016-07-11
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 if False:

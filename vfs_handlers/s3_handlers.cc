@@ -2,7 +2,7 @@
     Jeremy Barnes, 3 July 2012
     Wolfgang Sourdeau, 7 July 2012
     This file is part of MLDB.
-    Copyright (c) 2012, 2016 Datacratic.  All rights reserved.
+    Copyright (c) 2012, 2016 mldb.ai inc.  All rights reserved.
 
     S3 VFS handlers
 */

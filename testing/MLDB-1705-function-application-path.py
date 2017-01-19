@@ -1,7 +1,7 @@
 #
 # MLDB-1705-function-application-path.py
 # 6 juin 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest, json

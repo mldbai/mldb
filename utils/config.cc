@@ -143,4 +143,4 @@ get() {
 
 Config::ConfigPtr Config::config;
 
-} // Datacratic
+} // MLDB

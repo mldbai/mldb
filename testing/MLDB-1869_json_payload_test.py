@@ -1,7 +1,7 @@
 #
 # MLDB-1869_json_payload_test.py
 # Francois-Michel L Heureux, 2016-08-01
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import requests
 import json

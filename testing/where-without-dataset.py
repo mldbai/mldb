@@ -1,7 +1,7 @@
 #
 # where-without-dataset.py
 # 2017-01-09
-# This file is part of MLDB. Copyright 2017 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 if False:
     mldb_wrapper = None

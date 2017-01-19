@@ -1,7 +1,7 @@
 #
 # MLDB-1891-case-in-import.py
 # Mathieu Bolduc, 2016-08-12
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest

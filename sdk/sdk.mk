@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 # We extract header files for the development of external plugins, until such
 # time as we have a fully separate API.  We start with a set of headers we
