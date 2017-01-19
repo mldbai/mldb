@@ -1,7 +1,7 @@
 /** experiment_procedure.h                                                   -*- C++ -*-
     Francois Maillet, 8 septembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Experiment procedure. This is used to train and test a classifier in a
     single step. It abstracts away the need to create a classifier.train/test

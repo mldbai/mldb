@@ -1,6 +1,4 @@
-#How to Build a Service Using the Datacratic REST Api
-
-We will try to document the use of the Datacratic REST Api. An example of a Rest service can be found at  soa/service/testing/rest_api_example.cc
+#How to Build a Service Using the mldb.ai inc. An example of a Rest service can be found at  soa/service/testing/rest_api_example.cc
 
 ## Define the Service
 

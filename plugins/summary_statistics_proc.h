@@ -1,7 +1,7 @@
 /**
  * summary_statistics_proc.h
  * Mich, 2016-06-30
- * Copyright (c) 2016 Datacratic Inc. All rights reserved.
+ * Copyright (c) 2016 mldb.ai inc. All rights reserved.
  *
  * Generates column statistics based on an input query. The statistics are
  * computed from a sequence of mldb sql queries.

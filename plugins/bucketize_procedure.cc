@@ -1,7 +1,7 @@
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 #include "bucketize_procedure.h"

@@ -1,7 +1,7 @@
 /**                                                                 -*- C++ -*-
  * mock_procedure.cc
  * Mich, 2016-10-18
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 
 #include "mock_procedure.h"

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* runner.h                                                        -*- C++ -*-
    Wolfgang Sourdeau, September 2013
-   Copyright (c) 2013 Datacratic.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    A command runner class that hides the specifics of the underlying unix
    system calls and can intercept input and output.

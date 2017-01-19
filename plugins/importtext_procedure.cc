@@ -1,6 +1,6 @@
 /** importext_procedure.cc
     Mathieu Marquis Bolduc, February 12, 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Procedure that reads text files into an indexed dataset.
 */

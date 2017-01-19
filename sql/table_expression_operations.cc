@@ -1,6 +1,6 @@
 /** table_expression_operations.cc
     Jeremy Barnes, 27 July, 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 

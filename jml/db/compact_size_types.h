@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* compact_size_types.h                                            -*- C++ -*-
    Jeremy Barnes, 13 March 2005

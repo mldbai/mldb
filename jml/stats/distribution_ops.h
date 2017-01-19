@@ -1,7 +1,7 @@
 /* distribution_ops.h                                              -*- C++ -*-
    Jeremy Barnes, 2 Febryary 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.   
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.   
 
    ---
 

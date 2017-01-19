@@ -1,7 +1,7 @@
 /**
  * summary_statistics_proc.cc
  * Mich, 2016-06-30
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 #include "summary_statistics_proc.h"
 #include "mldb/types/basic_value_descriptions.h"
