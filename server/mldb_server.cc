@@ -135,7 +135,14 @@ bool
 MldbServer::
 initRoutes()
 {
-    router.description = "mldb.ai inc.0.0";
+    router.description = "Machine Learning Database REST API";
+
+    RestRequestRouter::OnProcessRequest serviceInfoRoute
+        = [=] (RestConnection & connection,
+               const RestRequest & request,
+               const RestRequestParsingContext & context) {
+        Json::Value result;
+        result["apiVersions"]["v1"] = "1.0.0";
         connection.sendResponse(200, result);
         return RestRequestRouter::MR_YES;
     };
