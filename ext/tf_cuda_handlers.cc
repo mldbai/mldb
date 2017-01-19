@@ -1,6 +1,6 @@
 /** tf_cuda_handlers.cc
     Jeremy Barnes, 17 January 2017
-    Copyright (c) 2017 mldb.ai Inc.  All rights reserved.
+    Copyright (c) 2017 mldb.ai inc.  All rights reserved.
 
 */
 
