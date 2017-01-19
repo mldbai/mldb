@@ -1,6 +1,6 @@
 /* postgresql_plugin.cc
    Mathieu Marquis Bolduc, 16 July 2016
-   Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/core/plugin.h"

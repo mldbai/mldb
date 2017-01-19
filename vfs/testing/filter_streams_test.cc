@@ -1,9 +1,9 @@
 /* filter_streams_test.cc
    Jeremy Barnes, 29 June 2011
-   Copyright (c) 2011 Datacratic.
+   Copyright (c) 2011 mldb.ai inc.
    Copyright (c) 2011 Jeremy Barnes.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #define BOOST_TEST_MAIN

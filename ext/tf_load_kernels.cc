@@ -1,6 +1,6 @@
 /** tf_load_kernels.cc
     Jeremy Barnes, 13 September 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
     Detects what machine architecture Tensorflow is running on, and
     loads the appropriate kernels library for the architecture.

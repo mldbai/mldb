@@ -1,6 +1,6 @@
 /** tensorflow_plugin.h                                                   -*- C++ -*-
     Jeremy Barnes, 24 November 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     "Tensorflow" plugins for MLDB.
 */
