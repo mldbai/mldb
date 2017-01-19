@@ -1,6 +1,6 @@
 /** run_json_test_suite.cc
     Jeremy Barnes, 26 October 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
     
     Run the JSON test suite.
 */

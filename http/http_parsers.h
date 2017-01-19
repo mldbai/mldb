@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_parsers.h                                                  -*- C++ -*-
    Wolfgang Sourdeau, January 2014
-   Copyright (c) 2014 Datacratic.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    This module contains classes meant to parse http requests
    (HttpRequestParser) and responses (HttpResponseParser), with a callback

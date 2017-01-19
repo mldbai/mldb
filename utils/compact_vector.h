@@ -1,7 +1,7 @@
 /* compact_vector.h                                                -*- C++ -*-
    Jeremy Barnes, 3 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    An optimized class for holding a variable length unbounded vector.  If the
    vector is below a certain threshold, then the data will all be stored

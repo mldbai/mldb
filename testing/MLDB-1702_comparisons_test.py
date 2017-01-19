@@ -1,7 +1,7 @@
 #
 # MLDB-1702_comparisons_test.py
 # Mich, 2016-06-02
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
 import unittest
 from functools import partial

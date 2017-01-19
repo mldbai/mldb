@@ -1,8 +1,8 @@
  /** cancellation_exception.h                                               -*- C++ -*-
     Guy Dumais, 5 October 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights.
+    Copyright (c) 2016 mldb.ai inc.  All rights.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
     
     Exception class to use to return procedure cancellation.
 */

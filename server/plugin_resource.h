@@ -1,9 +1,9 @@
 /**                                                   -*- C++ -*-
   plugin_resource.cc
   Francois Maillet, 18 fevrier 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
     
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Transparent resource getter for plugins
 */

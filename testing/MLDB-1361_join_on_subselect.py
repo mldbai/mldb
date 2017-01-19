@@ -1,7 +1,7 @@
 #
 # MLDB-1361_join_on_subselect.py
 # Francois Maillet, 2016-02-04
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest

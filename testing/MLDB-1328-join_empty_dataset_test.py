@@ -1,7 +1,7 @@
 #
 # MLDB-1328-join_empty_dataset_test.py
 # Mich, 2016-01-28
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
 # Tools for the plugins and their tests.
 import unittest

@@ -1,6 +1,6 @@
 /** procedure_js.cc
     Jeremy Barnes, 14 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     JS interface for procedures.
 */

@@ -1,7 +1,7 @@
 /* exc_check.h                                                    -*- C++ -*-
    Rémi Attab, 24 Febuary 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Quick and easy way to throw an exception on a failed condition.
 

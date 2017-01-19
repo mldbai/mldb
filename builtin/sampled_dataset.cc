@@ -1,6 +1,6 @@
 /** sampled_dataset.cc                                              -*- C++ -*-
     Francois Maillet, 11 janvier 2016
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 

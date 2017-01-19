@@ -2,7 +2,7 @@
    Jeremy Barnes, 18 March 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Parallelized training for stumps.
 */

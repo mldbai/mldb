@@ -1,6 +1,6 @@
 /* http_socket_handler.h - This file is part of MLDB               -*- C++ -*-
    Wolfgang Sourdeau, September 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    TCP handler classes for an HTTP service
 */

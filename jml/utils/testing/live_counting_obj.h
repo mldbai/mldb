@@ -1,7 +1,7 @@
 /* live_counting_obj.h                                             -*- C++ -*-
    Jeremy Barnes, 10 December 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test object that counts the number that are live.  Used to test that a
    container properly constructs and destroys its contents.

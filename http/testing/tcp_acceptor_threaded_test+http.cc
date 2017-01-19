@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* tcp_acceptor_threaded_test+http.cc
    Wolfgang Sourdeau, September 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    Unit test for TcpAcceptor and HttpSocketHandler in multi-threaded context.
 */

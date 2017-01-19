@@ -2,7 +2,7 @@
    Jeremy Barnes, 21 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test for the environment functions.
 */

@@ -2,7 +2,7 @@
    This file is part of MLDB.
 
    Wolfgang Sourdeau, January 2014
-   Copyright (c) 2014-2016 Datacratic.  All rights reserved.
+   Copyright (c) 2014-2016 mldb.ai inc.  All rights reserved.
 
    Test for HttpClient that performs requests on online services (from the W3C
    for example)

@@ -1,7 +1,7 @@
 /* feature_set.h                                                   -*- C++ -*-
    Jeremy Barnes, 10 May 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A feature set.
 */

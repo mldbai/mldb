@@ -1,6 +1,6 @@
 #
 # MLDB-1594-aggregator-empty-row.py
-# datacratic, 2016
+# mldb.ai inc, 2016
 # this file is part of mldb. copyright 2016 datacratic. all rights reserved.
 #
 

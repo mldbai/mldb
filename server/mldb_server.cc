@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** mldb_server.cc
     Jeremy Barnes, 12 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Server for MLDB.
 */
@@ -135,7 +135,7 @@ bool
 MldbServer::
 initRoutes()
 {
-    router.description = "Datacratic Machine Learning Database REST API";
+    router.description = "Machine Learning Database REST API";
 
     RestRequestRouter::OnProcessRequest serviceInfoRoute
         = [=] (RestConnection & connection,

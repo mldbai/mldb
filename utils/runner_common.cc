@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* runner_common.cc
    Wolfgang Sourdeau, 10 December 2014
-   Copyright (c) 2014 Datacratic.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 */
 
 #include <stdio.h>

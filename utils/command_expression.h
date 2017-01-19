@@ -1,6 +1,6 @@
 /* command_expression.h                                            -*- C++ -*-
    Jeremy Barnes, 27 August 2013
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Template for a command that can be reconstituted with calculated
    arguments.

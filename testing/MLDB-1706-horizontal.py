@@ -1,7 +1,7 @@
 #
 # MLDB-1706-horizontal.py
 # Mathieu Marquis Bolduc, 2016-06-08
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
 import unittest
 

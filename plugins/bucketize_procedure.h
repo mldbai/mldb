@@ -1,9 +1,9 @@
 /**
  * bucketize_procedure.h
  * Mich, 2015-10-27
- * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ * Copyright (c) 2015 mldb.ai inc. All rights reserved.
 
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 #pragma once

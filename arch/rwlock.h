@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** rwlock.h                                                       -*- C++ -*-
     Jeremy Barnes, 13 November 2011
-    Copyright (c) 2011 Datacratic.  All rights reserved.
+    Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 
     Placed under the BSD license.
 */

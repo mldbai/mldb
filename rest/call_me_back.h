@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* call_me_back.h                                                  -*- C++ -*-
    Jeremy Barnes, 21 January 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Code to implement functionality to call a call back later in another
    thread.  Used to defer processing that can't happen in a given thread.

@@ -1,7 +1,7 @@
 #
 # MLDB-1507-groupby.py
 # 2016-04-07
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 if False:
     mldb_wrapper = None

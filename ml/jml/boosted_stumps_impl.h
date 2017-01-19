@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* boosted_stumps_impl.h                                           -*- C++ -*-
    Jeremy Barnes, 8 February 2004

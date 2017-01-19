@@ -1,7 +1,7 @@
 /* fast_float_parsing.h                                            -*- C++ -*-
    Jeremy Barnes, 25 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.   
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.   
 
    Fast inline float parsing routines.
 */

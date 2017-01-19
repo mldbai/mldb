@@ -1,7 +1,7 @@
 #
 # MLDB-1490-grouped-validation.py
 # 2016-03-25
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest

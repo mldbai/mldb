@@ -1,6 +1,6 @@
 /** endian.h                                                       -*- C++ -*-
     Jeremy Barnes, 1 August 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
     Code to deal with endianness in MLDB.
 */

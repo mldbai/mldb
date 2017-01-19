@@ -1,7 +1,7 @@
 /** per_thread_accumulator.h                                       -*- C++ -*-
     Jeremy Barnes, 30 July 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Object that allows map-reduce over multiple threads and accumulation
     at the end.
