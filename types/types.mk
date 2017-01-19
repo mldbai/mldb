@@ -4,7 +4,7 @@
 # Jeremy Barnes, 2 November 2011
 # Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 #
-# Date library for datacratic.
+# Date library for MLDB.
 
 LIBVALUE_DESCRIPTION_SOURCES := \
 	value_description.cc \

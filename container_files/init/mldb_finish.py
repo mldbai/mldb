@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Copyright Datacratic 2016
-# Author: Jean Raby <jean@datacratic.com>
+# Copyright mldb.ai inc 2016
+# Author: Jean Raby <jean@mldb.ai>
 
 # This script is called by runsv when the mldb service exits.
 # See http://smarden.org/runit/runsv.8.html for more details.

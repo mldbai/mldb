@@ -3,7 +3,7 @@
 # MLDB-558-python-unicode.py
 # mldb.ai inc, 2015
 # Mich, 2016-02-08
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 from urllib import quote
 

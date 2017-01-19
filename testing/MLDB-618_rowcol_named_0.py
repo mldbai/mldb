@@ -1,7 +1,7 @@
 #
 # MLDB-618_rowcol_named_0.py
 # mldb.ai inc, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 import random
 

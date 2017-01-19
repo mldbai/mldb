@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Copyright Datacratic 2016
-# Author: Jean Raby <jean@datacratic.com>
+# Copyright mldb.ai inc 2016
+# Author: Jean Raby <jean@mldb.ai>
 
 # TODO:
 #  - configure logging so that access/error logs go somewhere else than stderr
