@@ -1,8 +1,8 @@
 /**
  * csv_export_procedure.cc
  * Mich, 2015-11-11
- * Copyright (c) 2015 Datacratic Inc. All rights reserved.
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * Copyright (c) 2015 mldb.ai inc. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 #include "csv_export_procedure.h"
@@ -97,7 +97,8 @@ run(const ProcedureRunConfig & run,
     CsvWriter csv(out, runProcConf.delimiter.at(0),
                   runProcConf.quoteChar.at(0));
 
-    auto boundDataset = runProcConf.exportData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.exportData.stm->from->bind(context, convertProgressToJson);
 
     vector<shared_ptr<SqlExpression> > calc;
     BoundSelectQuery bsq(runProcConf.exportData.stm->select,
@@ -212,10 +213,11 @@ run(const ProcedureRunConfig & run,
         }
         csv.endl();
     }
+
     bsq.execute({outputCsvLine, false/*processInParallel*/},
                 runProcConf.exportData.stm->offset,
                 runProcConf.exportData.stm->limit,
-                onProgress);
+                convertProgressToJson);
     RunOutput output;
     return output;
 }

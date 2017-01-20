@@ -1,7 +1,7 @@
 #
 # MLDBFB-308-where-outer-join-test.py
 # Mich, 2016-01-13
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import unittest
 

@@ -1,8 +1,8 @@
 /** fetcher.cc                                                      -*- C++ -*-
     Jeremy Barnes, 6 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Functions to fetch a URLs.
 */
@@ -93,7 +93,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         FetcherOutput result;
         Utf8String url = args.url;
         try {
-            filter_istream stream(url.rawString(), { { "mapped", "true" } });
+                filter_istream stream(url.rawString(),
+                                      { { "mapped", "true" },
+                                        { "httpArbitraryTooSlowAbort", "1"} });
 
             FsObjectInfo info = stream.info();
             

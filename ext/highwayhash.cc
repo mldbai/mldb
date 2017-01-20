@@ -1,6 +1,6 @@
 /** highwayhash.cc
     Jeremy Barnes, 12 July 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
 */
 

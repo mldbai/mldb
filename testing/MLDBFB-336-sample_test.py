@@ -1,7 +1,7 @@
 #
 # MLDBFB-336-sample_test.py
 # 2016-01-01
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 # add this line to testing.mk:

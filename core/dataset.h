@@ -1,8 +1,8 @@
 /** dataset.h                                                       -*- C++ -*-
     Jeremy Barnes, 4 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Interface for datasets into MLDB.
 */
@@ -14,6 +14,7 @@
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
 #include "mldb/core/recorder.h"
+#include "mldb/utils/progress.h"
 #include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
@@ -532,15 +533,16 @@ struct Dataset: public MldbEntity {
 
     std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
     queryStructuredExpr(const SelectExpression & select,
-                    const WhenExpression & when,
-                    const SqlExpression & where,
-                    const OrderByExpression & orderBy,
-                    const TupleExpression & groupBy,
-                    const std::shared_ptr<SqlExpression> having,
-                    const std::shared_ptr<SqlExpression> rowName,
-                    ssize_t offset,
-                    ssize_t limit,
-                    Utf8String alias = "") const;
+                        const WhenExpression & when,
+                        const SqlExpression & where,
+                        const OrderByExpression & orderBy,
+                        const TupleExpression & groupBy,
+                        const std::shared_ptr<SqlExpression> having,
+                        const std::shared_ptr<SqlExpression> rowName,
+                        ssize_t offset,
+                        ssize_t limit,
+                        Utf8String alias = "",
+                        const ProgressFunc & onProgress = nullptr) const;
 
     /** Select from the database. */
     virtual bool
@@ -775,7 +777,8 @@ registerDatasetType(const Package & package,
              const std::function<bool (const Json::Value)> & onProgress)
          {
              std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<DatasetT>();
-             auto dataset = new DatasetT(DatasetT::getOwner(server), config, onProgress);
+             ConvertProgressToJson convertProgressToJson(onProgress);
+             auto dataset = new DatasetT(DatasetT::getOwner(server), config, convertProgressToJson);
              dataset->logger = std::move(logger); // noexcept
              return dataset;
          },

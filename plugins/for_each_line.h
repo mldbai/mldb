@@ -1,14 +1,15 @@
 /** for_each_line.h                                                -*- C++ -*-
     Jeremy Barnes, 29 November 2013
-    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Class to process each line in a file in parallel.
 */
 
 #pragma once
 
+#include "mldb/utils/log_fwd.h"
 #include <iostream>
 #include <functional>
 #include <string>
@@ -28,6 +29,7 @@ size_t
 forEachLine(std::istream & stream,
             const std::function<void (const char * lineStr, size_t lineLen,
                                       int64_t lineNum)> & processLine,
+            std::shared_ptr<spdlog::logger> logger,
             int numThreads = 4,
             bool ignoreStreamExceptions = false,
             int64_t maxLines = -1);
@@ -45,6 +47,7 @@ size_t
 forEachLineStr(std::istream & stream,
                const std::function<void (const std::string & line,
                                          int64_t lineNum)> & processLine,
+               std::shared_ptr<spdlog::logger> logger,
                int numThreads = 4,
                bool ignoreStreamExceptions = false,
                int64_t maxLines = -1);
@@ -64,6 +67,7 @@ size_t
 forEachLine(const std::string & filename,
             const std::function<void (const char * line, size_t lineLength,
                                       int64_t lineNum)> & processLine,
+            std::shared_ptr<spdlog::logger> logger,
             int numThreads = 4,
             bool ignoreStreamExceptions = false,
             int64_t maxLines = -1);
@@ -83,6 +87,7 @@ size_t
 forEachLineStr(const std::string & filename,
                const std::function<void (const std::string & line,
                                          int64_t lineNum)> & processLine,
+               std::shared_ptr<spdlog::logger> logger,
                int numThreads = 4,
                bool ignoreStreamExceptions = false,
                int64_t maxLines = -1);

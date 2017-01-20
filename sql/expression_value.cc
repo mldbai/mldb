@@ -1,8 +1,8 @@
 /** expression_value.h                                             -*- C++ -*-
     Jeremy Barnes, 14 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Code for the type that holds the value of an expression.
 */
@@ -329,6 +329,7 @@ struct ExpressionValueInfoPtrDescription
         }
         Json::Value out;
         out["type"] = MLDB::type_name(**val);
+        out["isConstant"] = (*val)->isConst();
         if ((*val)->isScalar()) {
             out["kind"] = "scalar";
             out["scalar"] = (*val)->getScalarDescription();
@@ -343,7 +344,7 @@ struct ExpressionValueInfoPtrDescription
             out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
             out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
             out["hasUnknownColumnsRecursive"] = (*val)->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
-        }
+        }        
         context.writeJson(out);
     }
 
@@ -541,8 +542,11 @@ getScalarDescription() const
 /*****************************************************************************/
 
 EmbeddingValueInfo::
-EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input, 
+                   bool isConst)
 {
+    this->isConstant = isConst;
+
     if (input.empty()) {
         return;
     }
@@ -592,9 +596,10 @@ EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & in
 }
 
 EmbeddingValueInfo::
-EmbeddingValueInfo(std::vector<ssize_t> shape, StorageType storageType)
+EmbeddingValueInfo(std::vector<ssize_t> shape, StorageType storageType, bool isConst)
     : shape(std::move(shape)), storageType(storageType)
 {
+    this->isConstant = isConst;
 }
 
 std::shared_ptr<EmbeddingValueInfo>
@@ -771,7 +776,12 @@ flatten(const ExpressionValue & value,
 /*****************************************************************************/
 
 AnyValueInfo::
-AnyValueInfo()
+AnyValueInfo() : ExpressionValueInfoT<ExpressionValue>(false)
+{
+}
+
+AnyValueInfo::
+AnyValueInfo(bool isConstant) : ExpressionValueInfoT<ExpressionValue>(isConstant)
 {
 }
 
@@ -827,8 +837,10 @@ getKnownColumns() const
 
 RowValueInfo::
 RowValueInfo(const std::vector<KnownColumn> & columns,
-             SchemaCompleteness completeness)
-    : columns(columns),
+             SchemaCompleteness completeness,
+             bool isconst)
+    : ExpressionValueInfoT<RowValue>(isconst),
+      columns(columns),
       completeness(completeness),
       completenessRecursive(completeness)
 {
@@ -963,8 +975,8 @@ getColumn(const PathElement & columnName) const
 */
 
 VariantExpressionValueInfo::
-VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right) 
-: left_(left), right_(right)
+VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right, bool isConst) 
+: ExpressionValueInfoT<ExpressionValue>(isConst), left_(left), right_(right)
 {
        
 }
@@ -1360,10 +1372,10 @@ struct ExpressionValue::Embedding {
     }
 
     std::shared_ptr<EmbeddingValueInfo>
-    getSpecializedValueInfo() const
+    getSpecializedValueInfo(bool isConstant) const
     {
         return std::make_shared<EmbeddingValueInfo>
-            (vector<ssize_t>(dims_.begin(), dims_.end()), storageType_);
+            (vector<ssize_t>(dims_.begin(), dims_.end()), storageType_, isConstant);
     }
 
     ExpressionValue reshape(DimsVector newShape, Date ts) const
@@ -1483,7 +1495,7 @@ struct ExpressionValue::Superposition {
     }
 
     std::shared_ptr<ExpressionValueInfo>
-    getSpecializedValueInfo() const
+    getSpecializedValueInfo(bool isConst) const
     {
         throw HttpReturnException(600, __PRETTY_FUNCTION__);
     }
@@ -4382,7 +4394,7 @@ operator <  (const ExpressionValue & other) const
 
 std::shared_ptr<ExpressionValueInfo>
 ExpressionValue::
-getSpecializedValueInfo() const
+getSpecializedValueInfo(bool constant) const
 {
     switch (type_) {
     case Type::NONE:
@@ -4393,25 +4405,25 @@ getSpecializedValueInfo() const
             return std::make_shared<EmptyValueInfo>();
         case CellValue::INTEGER:
             if (getAtom().isInt64()) {
-                return std::make_shared<IntegerValueInfo>();
+                return std::make_shared<IntegerValueInfo>(constant);
             }
             else {
-                return std::make_shared<Uint64ValueInfo>();
+                return std::make_shared<Uint64ValueInfo>(constant);
             }
         case CellValue::FLOAT:
-            return std::make_shared<Float64ValueInfo>();
+            return std::make_shared<Float64ValueInfo>(constant);
         case CellValue::ASCII_STRING:
-            return std::make_shared<StringValueInfo>();
+            return std::make_shared<StringValueInfo>(constant);
         case CellValue::UTF8_STRING:
-            return std::make_shared<Utf8StringValueInfo>();
+            return std::make_shared<Utf8StringValueInfo>(constant);
         case CellValue::TIMESTAMP:
-            return std::make_shared<TimestampValueInfo>();
+            return std::make_shared<TimestampValueInfo>(constant);
         case CellValue::TIMEINTERVAL:
-            return std::make_shared<AtomValueInfo>();
+            return std::make_shared<AtomValueInfo>(constant);
         case CellValue::BLOB:
-            return std::make_shared<BlobValueInfo>();
+            return std::make_shared<BlobValueInfo>(constant);
         case CellValue::PATH:
-            return std::make_shared<PathValueInfo>();
+            return std::make_shared<PathValueInfo>(constant);
         case CellValue::NUM_CELL_TYPES:
             throw HttpReturnException(500, "Can't specialize unknown cell type");
         }
@@ -4419,11 +4431,11 @@ getSpecializedValueInfo() const
     case Type::STRUCTURED:
         // TODO: specialize for concrete value.  Currently we just say
         // "it's a row with some values we don't know about yet"
-        return std::make_shared<RowValueInfo>(vector<KnownColumn>(), SCHEMA_OPEN);
+        return std::make_shared<RowValueInfo>(vector<KnownColumn>(), SCHEMA_OPEN, constant);
     case Type::SUPERPOSITION:
-        return superposition_->getSpecializedValueInfo();
+        return superposition_->getSpecializedValueInfo(constant);
     case Type::EMBEDDING:
-        return embedding_->getSpecializedValueInfo();
+        return embedding_->getSpecializedValueInfo(constant);
     }
     throw HttpReturnException(400, "unknown ExpressionValue type");
 }

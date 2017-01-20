@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 $(eval $(call test,date_test,types arch,boost))
 $(eval $(call test,localdate_test,types arch,boost valgrind))

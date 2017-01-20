@@ -1,7 +1,7 @@
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 #include "bucketize_procedure.h"
@@ -22,7 +22,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/utils/log.h"
 #include "mldb/rest/cancellation_exception.h"
-#include "progress.h"
+#include "mldb/utils/progress.h"
 #include <memory>
 
 using namespace std;
@@ -124,7 +124,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
@@ -155,11 +156,10 @@ run(const ProcedureRunConfig & run,
     };
 
     mutex progressMutex;
-    auto onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
+    auto onProgress2 = [&](const ProgressState & percent) {
         lock_guard<mutex> lock(progressMutex);
-        if (iterationStep->value > itProgress.percent) {
-            iterationStep->value = itProgress.percent;
+        if (iterationStep->value > (float) percent.count / *percent.total) {
+            iterationStep->value = (float) percent.count / *percent.total;
         }
         return onProgress(jsonEncode(bucketizeProgress));
     };

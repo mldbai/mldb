@@ -19,4 +19,4 @@ Raw Markdown documentation files are located under `container_files/public_html/
 
 ## Copyright & License (Apache License v2.0)
 
-MLDB is © 2016 Datacratic, and is distributed under the [Apache License, version 2.0](LICENSE), except for the contents of the `ext` directory, which contains modified versions of other open-source software components, each of which is distributed under its own, Apache-compatible license and lists its own copyright information.
+MLDB is © 2016 mldb.ai inc, and is distributed under the [Apache License, version 2.0](LICENSE), except for the contents of the `ext` directory, which contains modified versions of other open-source software components, each of which is distributed under its own, Apache-compatible license and lists its own copyright information.

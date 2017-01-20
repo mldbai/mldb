@@ -47,7 +47,7 @@
 	//
 	// queryui.tsx
 	// Hao Deng, 2016-01-11
-	// Copyright (c) 2016 Datacratic Inc. All rights reserved.
+	// Copyright (c) 2016 mldb.ai inc. All rights reserved.
 	var __extends = (this && this.__extends) || function (d, b) {
 	    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
 	    function __() { this.constructor = d; }
@@ -38469,7 +38469,7 @@
 	// rtable.tsx
 	// a table that support sorting, searching.
 	// Hao Deng, 2016-01-11
-	// Copyright (c) 2016 Datacratic Inc. All rights reserved.
+	// Copyright (c) 2016 mldb.ai inc. All rights reserved.
 	var __extends = (this && this.__extends) || function (d, b) {
 	    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
 	    function __() { this.constructor = d; }

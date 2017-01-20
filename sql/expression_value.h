@@ -1,7 +1,7 @@
 /** expression_value.h                                             -*- C++ -*-
     Jeremy Barnes, 14 February 2015
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Code for the type that holds the value of an expression.
 */
@@ -343,6 +343,12 @@ struct ExpressionValueInfo {
     {
         return true;
     }
+
+    // Does it always returns the same value
+    virtual bool isConst() const = 0;
+
+    //return an expression value info of the same type, with the assigned constness
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const = 0;
 
     /** Return the ExpressionValueInfo that covers the range of types of
         each of the two given values.
@@ -1187,7 +1193,7 @@ struct ExpressionValue {
     /** Return the most specialized possible value info for this given value.
         Used for static analysis of constants.
     */
-    std::shared_ptr<ExpressionValueInfo> getSpecializedValueInfo() const;
+    std::shared_ptr<ExpressionValueInfo> getSpecializedValueInfo(bool constant) const;
 
     /** Print a JSON representation of the pure value (ignoring timestamps).
         This is how to round-trip JSON through the ExpressionValue class.
@@ -1330,6 +1336,8 @@ extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc)
 template<typename Storage>
 struct ExpressionValueInfoT: public ExpressionValueInfo {
 
+    ExpressionValueInfoT(bool isConstant) : isConstant(isConstant) {}
+
     // GCC 5.3 has trouble when this is not inlined
     virtual ~ExpressionValueInfoT()
     {
@@ -1354,10 +1362,20 @@ struct ExpressionValueInfoT: public ExpressionValueInfo {
 
     /// Copy assignment
     virtual void copyFromCell(void * data, const void * fromData) const;
+
+    virtual bool isConst() const { return isConstant; }
+
+protected:
+
+    bool isConstant;
 };
 
 template<typename Storage>
 struct ScalarExpressionValueInfoT: public ExpressionValueInfoT<Storage> {
+
+    ScalarExpressionValueInfoT() : ExpressionValueInfoT<Storage>(false) {}
+
+    ScalarExpressionValueInfoT(bool isConstant) : ExpressionValueInfoT<Storage>(isConstant) {}
 
     virtual bool isScalar() const
     {
@@ -1440,21 +1458,51 @@ struct EmptyValueInfo: public ExpressionValueInfo {
     {
         return value.empty();
     }
+
+    virtual bool isConst() const { return true; }
+
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<EmptyValueInfo>(); //ignore it
+    }
 };
 
 struct AtomValueInfo: public ScalarExpressionValueInfoT<CellValue> {
+    AtomValueInfo() : ScalarExpressionValueInfoT<CellValue>() {}
+    AtomValueInfo(bool isconst) : ScalarExpressionValueInfoT<CellValue>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<AtomValueInfo>(constant);
+    }
 };
 
 struct NumericValueInfo: public ScalarExpressionValueInfoT<double> {
+    NumericValueInfo() : ScalarExpressionValueInfoT<double>() {}
+    NumericValueInfo(bool isconst) : ScalarExpressionValueInfoT<double>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<NumericValueInfo>(constant);
+    }
 };
 
 struct StringValueInfo: public ScalarExpressionValueInfoT<std::string> {
+    StringValueInfo() : ScalarExpressionValueInfoT<std::string>() {}
+    StringValueInfo(bool isconst) : ScalarExpressionValueInfoT<std::string>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<StringValueInfo>(constant);
+    }
 };
 
 struct Utf8StringValueInfo: public ScalarExpressionValueInfoT<Utf8String> {
+    Utf8StringValueInfo() : ScalarExpressionValueInfoT<Utf8String>() {}
+    Utf8StringValueInfo(bool isconst) : ScalarExpressionValueInfoT<Utf8String>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<Utf8StringValueInfo>(constant);
+    }
 };
 
 struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<uint8_t> > {
+
+    BlobValueInfo() : ScalarExpressionValueInfoT<std::vector<uint8_t> >() {}
+    BlobValueInfo(bool isconst) : ScalarExpressionValueInfoT<std::vector<uint8_t> >(isconst) {}
+
     /// Is the other value compatible with this info?
     virtual bool isCompatible(const ExpressionValue & value) const
     {
@@ -1465,9 +1513,17 @@ struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<uint8_t> > {
     {
         return "blob";
     }
+
+     virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<BlobValueInfo>(constant);
+    }
 };
 
 struct PathValueInfo: public ScalarExpressionValueInfoT<Path> {
+
+    PathValueInfo() : ScalarExpressionValueInfoT<Path>() {}
+    PathValueInfo(bool isconst) : ScalarExpressionValueInfoT<Path>(isconst) {}
+
     /// Is the other value compatible with this info?
     virtual bool isCompatible(const ExpressionValue & value) const
     {
@@ -1478,30 +1534,65 @@ struct PathValueInfo: public ScalarExpressionValueInfoT<Path> {
     {
         return "path";
     }
+
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<PathValueInfo>(constant);
+    }
 };
 
 struct BooleanValueInfo: public ScalarExpressionValueInfoT<char> {
+    BooleanValueInfo() : ScalarExpressionValueInfoT<char>() {}
+    BooleanValueInfo(bool isconst) : ScalarExpressionValueInfoT<char>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<BooleanValueInfo>(constant);
+    }
 };
 
 struct IntegerValueInfo: public ScalarExpressionValueInfoT<int64_t> {
+    IntegerValueInfo() : ScalarExpressionValueInfoT<int64_t>() {}
+    IntegerValueInfo(bool isconst) : ScalarExpressionValueInfoT<int64_t>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<IntegerValueInfo>(constant);
+    }
 };
 
 struct Uint64ValueInfo: public ScalarExpressionValueInfoT<uint64_t> {
+    Uint64ValueInfo() : ScalarExpressionValueInfoT<uint64_t>() {}
+    Uint64ValueInfo(bool isconst) : ScalarExpressionValueInfoT<uint64_t>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<Uint64ValueInfo>(constant);
+    }
 };
 
 struct Float32ValueInfo: public ScalarExpressionValueInfoT<float> {
+    Float32ValueInfo() : ScalarExpressionValueInfoT<float>() {}
+    Float32ValueInfo(bool isconst) : ScalarExpressionValueInfoT<float>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<Float32ValueInfo>(constant);
+    }
 };
 
 struct Float64ValueInfo: public ScalarExpressionValueInfoT<double> {
+    Float64ValueInfo() : ScalarExpressionValueInfoT<double>() {}
+    Float64ValueInfo(bool isconst) : ScalarExpressionValueInfoT<double>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<Float64ValueInfo>(constant);
+    }
 };
 
 struct TimestampValueInfo: public ScalarExpressionValueInfoT<Date> {
+    TimestampValueInfo() : ScalarExpressionValueInfoT<Date>() {}
+    TimestampValueInfo(bool isconst) : ScalarExpressionValueInfoT<Date>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<TimestampValueInfo>(constant);
+    }
 };
 
 /// May be anything
 struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
     AnyValueInfo();
+    AnyValueInfo(bool constant);
 
     virtual bool isScalar() const override;
 
@@ -1538,13 +1629,19 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
     { 
         return true; 
     }
+
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const
+    {
+        return std::make_shared<AnyValueInfo>(constant);
+    }
 };
 
 /// For a row.  This may have information about columns within that row.
 struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     
     RowValueInfo(const std::vector<KnownColumn> & columns,
-                 SchemaCompleteness completeness = SCHEMA_CLOSED);
+                 SchemaCompleteness completeness = SCHEMA_CLOSED,
+                 bool isconst = false);
 
     virtual bool isScalar() const override;
 
@@ -1585,8 +1682,15 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
         return false;
     }
 
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const
+    {
+        auto clone = std::make_shared<RowValueInfo>(*this);
+        clone->isConstant = constant;
+        return clone;
+    }
+
 protected:
-    RowValueInfo()
+    RowValueInfo() : ExpressionValueInfoT<RowValue>(false)
     {
     }
 
@@ -1607,6 +1711,12 @@ struct UnknownRowValueInfo: public RowValueInfo {
     {
         return true;
     }
+
+    virtual bool isConst() const { return false; }
+
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<UnknownRowValueInfo>(); //ignore it
+    }
 };
 
 /// For an embedding
@@ -1623,11 +1733,12 @@ struct EmbeddingValueInfo: public RowValueInfo {
     }
 
     EmbeddingValueInfo(std::vector<ssize_t> shape,
-                       StorageType storageType = ST_ATOM);
+                       StorageType storageType = ST_ATOM,
+                       bool isConst = false);
 
     /** Infer the output type for an array of elements of types given in the
         input. */
-    EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
+    EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input, bool isConst = false);
 
     static std::shared_ptr<EmbeddingValueInfo>
     fromShape(const DimsVector& shape, StorageType storageType = ST_ATOM);
@@ -1676,6 +1787,12 @@ struct EmbeddingValueInfo: public RowValueInfo {
     {
         return value.isArray();
     }
+
+   virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        auto clone = std::make_shared<EmbeddingValueInfo>(*this);
+        clone->isConstant = constant;
+        return clone;
+    }
 };
 
 /*****************************************************************************/
@@ -1688,7 +1805,7 @@ struct EmbeddingValueInfo: public RowValueInfo {
 
 struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
-    VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right);
+    VariantExpressionValueInfo(std::shared_ptr<ExpressionValueInfo> left, std::shared_ptr<ExpressionValueInfo> right, bool isConst = false);
 
     //Will return a VariantExpressionValueInfo or another type if the two input type info match in some way.
     static std::shared_ptr<ExpressionValueInfo>
@@ -1716,7 +1833,12 @@ struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> 
     virtual bool couldBeScalar() const override;
 
     virtual std::string getScalarDescription() const override;
-   
+
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const
+    {
+        return std::make_shared<VariantExpressionValueInfo>(left_, right_, constant);
+    }
+
     std::shared_ptr<ExpressionValueInfo> left_;
     std::shared_ptr<ExpressionValueInfo> right_;
 };

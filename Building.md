@@ -22,7 +22,6 @@ apt-get install -y \
   libcurl4-openssl-dev \
   libffi-dev \
   libfreetype6-dev \
-  libgit2-dev \
   libgoogle-perftools-dev \
   liblapack-dev \
   liblzma-dev \

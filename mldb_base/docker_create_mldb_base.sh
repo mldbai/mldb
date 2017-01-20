@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+# Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 set -e
 set -x
 
@@ -84,7 +84,6 @@ apt-get install -y \
     libcurl3 \
     libssh2-1 \
     libpython2.7 \
-    libgit2-0 \
     libicu52 \
     liblapack3 \
     libblas3 \

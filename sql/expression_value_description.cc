@@ -1,6 +1,6 @@
 /** expression_value_description.cc
     Jeremy Barnes, 6 October 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
     Value description functions for ExpressionValue.
 */

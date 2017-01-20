@@ -1,8 +1,8 @@
 /* exc_assert.h                                                    -*- C++ -*-
    Jeremy Barnes, 15 July 2010
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Simple functionality to include asserts that throw exceptions rather than
    abort the program.

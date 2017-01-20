@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** dataset_collection.cc
     Jeremy Barnes, 24 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Collection of datasets.
 
@@ -249,6 +249,34 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 
         connection.sendResponse(200, jsonEncodeStr(output),
                                 "application/json");
+    }
+    else if (format == "atom") {
+        if (sparseOutput.size() > 1) {
+            connection.sendErrorResponse(400, "Query with atom format returning multiple rows. Consider using limit.");
+            return;
+        }
+
+        if (sparseOutput.size() == 0) {
+            connection.sendErrorResponse(400, "Query with atom format returned no rows.");
+            return;
+        }
+
+        const auto& columns = sparseOutput[0].columns;
+
+        if (columns.size() == 0) {
+            connection.sendErrorResponse(400, "Query with atom format returned no columns.");
+            return;
+        }
+
+        if (columns.size() > 1) {
+            connection.sendErrorResponse(400, "Query with atom format returned multiple columns.");
+            return;
+        }
+
+        const auto& val = std::get<1>(columns[0]);
+
+        connection.sendResponse(200, jsonEncodeStr(val),
+                                "application/json"); 
     }
     else {
         connection.sendErrorResponse(400, "Unknown output format '" + format + "'");

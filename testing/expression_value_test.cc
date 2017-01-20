@@ -1,6 +1,6 @@
 /** expression_value_test.cc
     Jeremy Barnes, 1 April 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
     Tests for the ExpressionValue class.
 */

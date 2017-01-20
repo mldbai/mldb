@@ -1,6 +1,6 @@
 /* MLDB-1398-main-library.cc
    Jeremy Barnes, 22 February 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    Main library for MLDB-1398 test.
 */

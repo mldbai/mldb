@@ -1,8 +1,8 @@
 /* graphite_connector.h                                            -*- C++ -*-
    Jeremy Barnes, 3 August 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Class to accumulate operational stats and connect to graphite (directly).
 */

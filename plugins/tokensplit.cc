@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** tokensplit.cc
     Mathieu Marquis Bolduc, November 24, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Function to parse strings for tokens and insert separators
 */
@@ -89,8 +89,9 @@ TokenSplit(MldbServer * owner,
         };
 
     BoundTableExpression boundDataset;
+    ConvertProgressToJson convertProgressToJson(onProgress);
     if (functionConfig.tokens.stm->from)
-        boundDataset = functionConfig.tokens.stm->from->bind(context);
+        boundDataset = functionConfig.tokens.stm->from->bind(context, convertProgressToJson);
 
     if (boundDataset.dataset)
         iterateDataset(functionConfig.tokens.stm->select,
@@ -101,7 +102,7 @@ TokenSplit(MldbServer * owner,
                        functionConfig.tokens.stm->orderBy,
                        functionConfig.tokens.stm->offset,
                        functionConfig.tokens.stm->limit,
-                       onProgress);
+                       convertProgressToJson);
     else { // query containing only a select (e.g. select "token1", "token2", "token3")
         std::vector<MatrixNamedRow> rows  = queryWithoutDataset(*functionConfig.tokens.stm, context);
         std::for_each(rows.begin(), rows.end(), processor);

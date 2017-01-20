@@ -1,6 +1,6 @@
 /** builtin_functions.cc
     Jeremy Barnes, 14 June 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Builtin functions for SQL.
 */
@@ -26,6 +26,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/http/curl_wrapper.h"
 
 #include <iterator>
 #include <thread>
@@ -1436,7 +1437,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_part expected a string as third argument, got " +
@@ -1498,7 +1499,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_trunc expected a string as third argument, got " +
@@ -1903,6 +1904,41 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerToken_extract(token_extract, "token_extract");
+
+BoundFunction token_split(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 2)
+        throw HttpReturnException(400, "requires two arguments");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                Date ts = args[0].getEffectiveTimestamp();
+
+                Utf8String text = args[0].toUtf8String();
+
+                Utf8String separator = args[1].toUtf8String();
+
+                TokenizeOptions options;
+
+                ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
+
+                auto tokens = token_split(pcontext, separator);
+
+                std::vector<CellValue> values;
+
+                for (auto& token : tokens) {
+                    values.push_back(token);
+                }
+
+                ExpressionValue result(values, ts);
+
+                return result;
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+
+static RegisterBuiltin registerToken_split(token_split, "split_part");
 
 BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
 {
@@ -2374,6 +2410,24 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerLength(length, "length");
 
+BoundFunction blob_length(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+     return {[] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+             {
+                checkArgsSize(args.size(), 1);
+
+                return ExpressionValue
+                    (args[0].getAtom().coerceToBlob().blobLength(), 
+                     args[0].getEffectiveTimestamp());
+             },
+             std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerblob_length(blob_length, "blob_length");
+
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 2);
@@ -2521,7 +2575,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
                 throw HttpReturnException
                     (400,"Null embedding needs third argument to reshape()");
             auto shape = args[1].info->getEmbeddingShape();
-            auto st = args[2].metadata.isConstant
+            auto st = args[2].info->isConst()
                 ? valueStorageType(args[2].constantValue().getAtom())
                 : ST_ATOM;
             auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
@@ -2564,7 +2618,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
     if (!args[1].info->isEmbedding())
         throw HttpReturnException(400, "requires an embedding as second argument");
 
-    if (args[1].metadata.isConstant) {
+    if (args[1].info->isConst()) {
         //Dont know the type without evaluating second arg;
         auto embeddingFormat = args[1].constantValue();
 
@@ -3232,7 +3286,6 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerTryFunction(tryFct, "try");
 
-
 /*****************************************************************************/
 /* BUILTIN CONSTANTS                                                         */
 /*****************************************************************************/
@@ -3265,9 +3318,7 @@ bind(const Utf8String &,
         };
 
     BoundFunction result(exec,
-                         resultVal.getSpecializedValueInfo());
-    result.resultMetadata.isConstant = true;
-
+                         resultVal.getSpecializedValueInfo(true /*isConstant*/));
     return result;
 }
 
@@ -3302,8 +3353,10 @@ bind(const std::vector<BoundSqlExpression> & args,
                  + " parameters instead of " + std::to_string(arity)
                  + " expected parameters");
         }
+        bool isConstant = true;
         std::vector<std::shared_ptr<ExpressionValueInfo> > info;
         for (auto & a: args) {
+            isConstant = isConstant && a.info->isConst();
             info.emplace_back(a.info);
         }
 
@@ -3329,7 +3382,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                 }
             };
 
-        result.resultInfo = std::move(bound.info);
+        result.resultInfo = bound.info->getConst(isConstant && bound.info->isConst());
         
         return result;
     } MLDB_CATCH_ALL {
@@ -3361,7 +3414,8 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                 try {
 
                     filter_istream stream(args[0].toUtf8String().rawString(),
-                                          { { "mapped", "true" } });
+                                          { { "mapped", "true" },
+                                            { "httpAbortOnSlowConnection", "true"} });
 
                     FsObjectInfo info = stream.info();
 
@@ -3398,10 +3452,10 @@ BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
 
-    bool isConst = args[0].metadata.isConstant;
+    bool isConst = args[0].info->isConst();
 
     auto outputInfo
-        = std::make_shared<BooleanValueInfo>();
+        = std::make_shared<BooleanValueInfo>(true);
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {

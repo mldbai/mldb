@@ -1,7 +1,7 @@
 #
 # python_converters_test.py
 # Francois Maillet - 10 mars 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 import py_conv_test_module as Tester

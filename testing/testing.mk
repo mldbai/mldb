@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 # Test for the presence of ~/.cloud_credentials with an S3 entry.  If present,
 # some extra tests can be enabled.  This will be "1" or empty for true or false.
@@ -141,7 +141,7 @@ $(eval $(call mldb_unit_test,MLDB-665_nearest_neighbours.py))
 $(eval $(call mldb_unit_test,MLDB-538_route_deadlock.py))
 $(eval $(call mldb_unit_test,MLDB-643_script_function.py))
 $(eval $(call mldb_unit_test,MLDB-668-object-column-name.py))
-$(eval $(call mldb_unit_test,MLDB-621_serial_procedure_deadlock.py))
+$(eval $(call mldb_unit_test,serial_procedure_testing.py))
 $(eval $(call mldb_unit_test,MLDB-654-classifier-function-info.js))
 $(eval $(call mldb_unit_test,MLDB-605-timestamp-query.js))
 $(eval $(call mldb_unit_test,MLDB-679-latest-get-variable.js))
@@ -350,6 +350,7 @@ $(eval $(call mldb_unit_test,MLDB-1707-no-context-resolve-table.py))
 $(eval $(call mldb_unit_test,MLDB-1706-horizontal.py))
 $(eval $(call mldb_unit_test,MLDB-1603-nonprintable-chars-json.js))
 $(eval $(call mldb_unit_test,MLDBFB-638-groupby-orderby-transform.py))
+$(eval $(call mldb_unit_test,encode-multiple-png.py, tensorflow))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
@@ -417,7 +418,9 @@ $(eval $(call mldb_unit_test,MLDB-1843-select-disappearing-values.js))
 $(eval $(call mldb_unit_test,MLDB-1933-subselect-flatten.py))
 $(eval $(call mldb_unit_test,MLDB-1947-reshape-builtin.py))
 $(eval $(call mldb_unit_test,MLDB-1891-case-in-import.py))
-$(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,,manual)) #require tensorflow plugin
+$(eval $(call mldb_unit_test,MLDB-2107-scalar-format.py))
+$(eval $(call mldb_unit_test,where-without-dataset.py))
+$(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,tensorflow))
 
 $(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))
@@ -449,11 +452,20 @@ $(eval $(call mldb_unit_test,union_dataset_test.py))
 $(eval $(call mldb_unit_test,deepteach_test.py,tensorflow,manual))
 $(eval $(call mldb_unit_test,post_run_and_track_procedure_test.py))
 $(eval $(call mldb_unit_test,MLDB-2022-multiple-prediction-example.js))
+$(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))
+$(eval $(call mldb_unit_test,MLDB-2064_transform_proc_row_expr.py))
+$(eval $(call mldb_unit_test,MLDB-2065-transpose_rowdataset_segfaults.py))
+$(eval $(call mldb_unit_test,MLDB-2103-merge-row-dataset.py))
 $(eval $(call mldb_unit_test,MLDB-2063-sparse-mutable-encodeVal.py))
 $(eval $(call mldb_unit_test,MLDB-2075_ds_feature_sparse_v2_backward_compat_test.py))
-$(eval $(call mldb_unit_test,MLDB-2043_tabular_big_int.py))
 $(eval $(call mldb_unit_test,MLDB-2074-empty-join.py))
 $(eval $(call mldb_unit_test,MLDB-2040_join_tests.py))
 $(eval $(call mldb_unit_test,MLDB-2077_merge_single_ds.py))
+$(eval $(call mldb_unit_test,MLDB-1935-const-optim.py))
+$(eval $(call mldb_unit_test,MLDB-2097_exif.py))
 $(eval $(call mldb_unit_test,MLDBFB-724_classifier_exp_segfault_test.py))
 $(eval $(call test,http_streambuf_test,vfs boost_filesystem boost_system runner io_base,boost))
+$(eval $(call mldb_unit_test,MLDB-2108-split-string.py))
+$(eval $(call mldb_unit_test,MLDB-2100_fetcher_timeout_test.py))
+$(eval $(call mldb_unit_test,MLDB-2110-merge-and-subselect-progress.py))
+$(eval $(call mldb_unit_test,MLDB-2112_500_on_broken_proc_test.py))

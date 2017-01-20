@@ -1,7 +1,7 @@
 /* log.h                                                           -*- C++ -*-
    Guy Dumais, 29 January 2016
 
-   This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
    Logging interface.
 */
@@ -33,6 +33,9 @@ namespace MLDB {
 static constexpr char const * timestampFormat = "%Y-%m-%dT%T.%e%z";
 
 std::shared_ptr<spdlog::logger> getConfiguredLogger(const std::string & name, const std::string & format) {
+    /* If this is replaced with another logger (e.g. a file logger) make sure to pick one that
+       is thread-safe (i.e. with suffix _mt) for many loggers are used on multiple threads by MLDB.
+    */
     std::shared_ptr<spdlog::logger> logger = spdlog::stdout_logger_mt(name);
     logger->set_pattern(format);
     return logger;

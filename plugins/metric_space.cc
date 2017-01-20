@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** metric_space.cc
     Jeremy Barnes, 25 April 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Create a metric space.
 */
@@ -230,13 +230,6 @@ dist(int rowNum1, int rowNum2,
     float result = 1.0 - coords1.dotprod(coords2) * two_norm_recip.at(rowNum1) * two_norm_recip.at(rowNum2);
     if (result < 0.0) {
         result = 0.0;
-#if 0
-        cerr << "rowNum1 = " << rowNum1 << endl;
-        cerr << "rowNum2 = " << rowNum2 << endl;
-        cerr << "coords1 = " << coords1 << endl;
-        cerr << "coords2 = " << coords2 << endl;
-        cerr << "result = " << result << endl;
-#endif
     }
 
     ExcAssert(isfinite(result));

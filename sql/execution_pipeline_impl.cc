@@ -1,8 +1,8 @@
 /** execution_pipeline_impl.cc
     Jeremy Barnes, 27 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of the new query execution pipeline.
 */
@@ -348,13 +348,15 @@ start(const BoundParameters & getParam) const
 {
     auto result = std::make_shared<GenerateRowsExecutor>();
     result->source = source_->start(getParam);
+
     result->generator
         = parent->from.runQuery(*outputScope_,
                                 parent->select,
                                 parent->when,
                                 *parent->where,
                                 parent->orderBy,
-                                0 /* offset */, -1 /* limit */);
+                                0 /* offset */, -1 /* limit */,
+                                nullptr /*onProgress*/);
     result->params = getParam;
     ExcAssert(result->params);
     return result;
@@ -1838,12 +1840,13 @@ FromElement(std::shared_ptr<PipelineElement> root_,
 
             // Allow the dataset to run queries
             dummyTable.runQuery = [=] (const SqlBindingScope & context,
-                                         const SelectExpression & select,
-                                         const WhenExpression & when,
-                                         const SqlExpression & where,
-                                         const OrderByExpression & orderBy,
-                                         ssize_t offset,
-                                         ssize_t limit)
+                                       const SelectExpression & select,
+                                       const WhenExpression & when,
+                                       const SqlExpression & where,
+                                       const OrderByExpression & orderBy,
+                                       ssize_t offset,
+                                       ssize_t limit,
+                                       const ProgressFunc & onProgress)
                 -> BasicRowGenerator
                 {
 
@@ -1895,7 +1898,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             auto rootBound = root->bind();
             auto scope = rootBound->outputScope();
 
-            BoundTableExpression bound = from->bind(*scope);
+            BoundTableExpression bound = from->bind(*scope, nullptr /*onProgress*/);
             impl.reset(new GenerateRowsElement(root,
                                                select,
                                                bound.table,

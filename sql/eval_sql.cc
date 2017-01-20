@@ -1,6 +1,6 @@
 /** eval_sql.cc                                                     -*- C++ -*-
     Jeremy Barnes, 1 August 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Lambda function written in SQL.
 */
@@ -50,7 +50,8 @@ evalSql(SqlBindingScope & scope,
     std::vector<std::shared_ptr<ExpressionValueInfo> > info;
     info.reserve(numArgs);
     for (size_t i = 0;  i < numArgs;  ++i) {
-        info.emplace_back(argsVec[i].getSpecializedValueInfo());
+        //We dont know the constness so we have to assume they are not
+        info.emplace_back(argsVec[i].getSpecializedValueInfo(false /*isconst*/));
     }
 
     SqlExpressionEvalScope evalScope(scope, info);

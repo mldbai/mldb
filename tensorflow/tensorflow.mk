@@ -10,6 +10,7 @@ MANUAL_IF_NO_GPUS:=$(if $(call seq,0,$(NUM_CUDA_GPUS)),manual)
 # Tensorflow plugins
 LIBMLDB_TENSORFLOW_PLUGIN_SOURCES:= \
 	tensorflow_plugin.cc \
+    tensorflow_additional_builtin.cc \
 
 $(eval $(call set_compile_option,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),$$(TENSORFLOW_COMPILE_FLAGS) -Imldb/ext/tensorflow))
 

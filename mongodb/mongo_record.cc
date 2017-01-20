@@ -2,7 +2,7 @@
  * mongo_record.cc
  * Jeremy Barnes, 23 February 2015
  * Mich, 2016-08-02
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 #include "bsoncxx/builder/stream/document.hpp"
 #include "bsoncxx/builder/stream/array.hpp"
@@ -60,7 +60,7 @@ struct MongoRecord: Dataset {
 
     MongoRecord(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         auto dsConfig = config.params.convert<MongoRecordConfig>();

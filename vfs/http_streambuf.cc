@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** http_streambuf.cc
     Jeremy Barnes, 26 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -64,6 +64,8 @@ struct HttpStreamingDownloadSource {
 
         For options, the following is accepted:
         http-set-cookie: sets the given header in the request to the given value.
+        httpArbitraryTooSlowAbort: Will abort if the connection speed is below
+                                   10K/sec for 5 secs.
     */
     HttpStreamingDownloadSource(const std::string & urlStr,
                                 const std::map<std::string, std::string> & options)
@@ -97,13 +99,17 @@ struct HttpStreamingDownloadSource {
         Impl(const std::string & urlStr,
              const std::map<std::string, std::string> & options)
             : proxy(urlStr), urlStr(urlStr), shutdown(false), dataQueue(100),
-              eof(false), currentDone(0), headerSet(false)
+              eof(false), currentDone(0), headerSet(false),
+              httpAbortOnSlowConnection(false)
         {
             for (auto & o: options) {
                 if (o.first == "http-set-cookie")
                     proxy.setCookie(o.second);
                 else if (o.first.find("http-") == 0)
                     throw MLDB::Exception("Unknown HTTP stream parameter " + o.first + " = " + o.second);
+                else if (o.first == "httpAbortOnSlowConnection" && o.second == "true") {
+                    httpAbortOnSlowConnection = true;
+                }
             }
 
             reset();
@@ -131,6 +137,8 @@ struct HttpStreamingDownloadSource {
 
         std::atomic<bool> headerSet;
         std::promise<HttpHeader> headerPromise;
+
+        bool httpAbortOnSlowConnection;
 
         /* cleanup all the variables that are used during reading, the
            "static" ones are left untouched */
@@ -263,7 +271,8 @@ struct HttpStreamingDownloadSource {
                 auto resp = proxy.get("", {}, {}, -1 /* timeout */,
                                       false /* exceptions */,
                                       onData, onHeader,
-                                      true /* follow redirect */);
+                                      true /* follow redirect */,
+                                      httpAbortOnSlowConnection);
                 
                 if (shutdown)
                     return;

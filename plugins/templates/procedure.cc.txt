@@ -2,7 +2,7 @@
  * {filename}.cc
  * {author}, {date}
  *
- * This file is part of MLDB. Copyright {year} Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright {year} mldb.ai inc. All rights reserved.
  **/
 
 #include "{filename}.h"

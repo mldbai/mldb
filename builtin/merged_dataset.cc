@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** merged_dataset.cc                                              -*- C++ -*-
     Jeremy Barnes, 28 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -14,7 +14,9 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 #include <thread>
+#include <sstream>
 
 
 using namespace std;
@@ -61,19 +63,28 @@ struct MergedDataset::Itl
     /// Matrix view.  Length is the same as that of datasets.
     std::vector<std::shared_ptr<MatrixView> > matrices;
 
+    shared_ptr<spdlog::logger> logger;
+
     Itl(MldbServer * server, std::vector<std::shared_ptr<Dataset> > datasets)
+        : logger(getMldbLog<MergedDataset>())
     {
         // 1.  Sort them so that the biggest ones are at the start
 
-        //for (auto & d: datasets) {
-        //    cerr << "dataset has " << d->getMatrixView()->getRowHashes().size()
-        //         << " rows and " << d->getMatrixView()->getColumnPaths().size()
-        //         << " columns" << endl;
-        //}
+        auto outputDatasets = [](std::vector<std::shared_ptr<Dataset> > datasets) {
+            stringstream output;            
+            for (auto & d: datasets) {
+                output << "dataset has " 
+                       << d->getMatrixView()->getRowHashes().size() << " rows and "
+                       << d->getMatrixView()->getColumnPaths().size() << " columns" << endl;
+            }
+            return output.str();
+        };
 
         if (datasets.empty())
             throw MLDB::Exception("Attempt to merge no datasets together");
 
+        DEBUG_MSG(logger) << outputDatasets(datasets);
+        DEBUG_MSG(logger) << "sorting datasets to merge from biggest to smallest";
 
         std::sort(datasets.begin(), datasets.end(),
                   [] (std::shared_ptr<Dataset> p1,
@@ -82,6 +93,7 @@ struct MergedDataset::Itl
                     return p1->getRowCount() > p2->getRowCount();
                   });
 
+        DEBUG_MSG(logger) << outputDatasets(datasets);
         std::vector<std::shared_ptr<Dataset> > toMerge;
 
         // Now work out how our tree is laid out.  We aim to have the biggest
@@ -170,6 +182,7 @@ struct MergedDataset::Itl
         std::thread mergeColumns([&] () { extractAndMerge(toMerge.size(), getColumnHashes, initColumnBucket); });
         std::thread mergeRows([&] () { extractAndMerge(toMerge.size(), getRowHashes, initRowBucket); });
 
+        DEBUG_MSG(logger) << "merging columns and rows";
         mergeColumns.join();
         mergeRows.join();
 
@@ -179,9 +192,9 @@ struct MergedDataset::Itl
             matrices.emplace_back(d->getMatrixView());
         }
 
-        cerr << "merged dataset has " << this->getRowHashes().size()
-             << " rows and " << this->getColumnPaths().size()
-             << " columns" << endl;
+        DEBUG_MSG(logger) << "merged dataset has " 
+                          << this->getRowHashes().size() << " rows and " 
+                          << this->getColumnPaths().size() << " columns";
     }
 
     struct MergedRowStream : public RowStream {
@@ -633,7 +646,7 @@ struct MergedDataset::Itl
 MergedDataset::
 MergedDataset(MldbServer * owner,
               PolyConfig config,
-              const std::function<bool (const Json::Value &)> & onProgress)
+              const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto mergeConfig = config.params.convert<MergedDatasetConfig>();
@@ -641,7 +654,7 @@ MergedDataset(MldbServer * owner,
     std::vector<std::shared_ptr<Dataset> > datasets;
 
     for (auto & d: mergeConfig.datasets) {
-        datasets.emplace_back(obtainDataset(owner, d, onProgress));
+        datasets.emplace_back(obtainDataset(owner, d, nullptr /*onProgress*/));
     }
 
     itl.reset(new Itl(server, datasets));

@@ -1,8 +1,8 @@
 /** rest_collection_impl.h                                         -*- C++ -*-
     Jeremy Barnes, 21 January 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -296,14 +296,13 @@ initNodes(RouteManager & result)
                             = nounSingular + " entry '"
                             + resource + "' not available as it is still being created";
                     }
-                    connection.sendResponse(500, error);
                 }
                 else {
                     error["error"]
                         = nounSingular + " entry '"
                         + resource + "' does not exist or has been deleted";
-                    connection.sendResponse(404, error);
                 }
+                connection.sendResponse(404, error);
             }
             else {
                 context.addSharedPtr(ptr);

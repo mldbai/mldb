@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** fixtures.h                                 -*- C++ -*-
     Rémi Attab, 30 Apr 2013
-    Copyright (c) 2013 Datacratic.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
     Testing fixtures.
 */
@@ -47,11 +47,11 @@ private:
 
     Quick example: let's say we have a test in test_awesome_component.cc
 
-    DATACRATIC_FIXTURE(TestAwesomeComponent);
+    MLDB_FIXTURE(TestAwesomeComponent);
     BOOST_FIXTURE_TEST_CASE(myTest, TestAwesomeComponent) {...}
 
  */
-#define DATACRATIC_FIXTURE(_name_)                      \
+#define MLDB_FIXTURE(_name_)                      \
     struct _name_ : public TestFolderFixture {          \
         _name_() : TestFolderFixture(#_name_) {}        \
     }

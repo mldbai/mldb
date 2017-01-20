@@ -1,6 +1,6 @@
 /** dataset_context.cc
     Jeremy Barnes, 24 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Context to bind a row expression to a dataset.
 */
@@ -57,7 +57,7 @@ doGetFunction(const Utf8String & tableName,
             std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo;
             argInfo.reserve(args.size());
             for (auto & a: args) {
-                constantArgs = constantArgs && a.metadata.isConstant;
+                constantArgs = constantArgs && a.info->isConst();
                 argInfo.emplace_back(a.info);
             }
             
@@ -75,10 +75,10 @@ doGetFunction(const Utf8String & tableName,
                     }
                 };
 
-            BoundFunction boundFunction(exec, applier->info.output);
-            boundFunction.resultMetadata.isConstant = constantArgs && applier->info.deterministic;
+            bool isConst = constantArgs && applier->info.deterministic;
+            auto outputInfo = applier->info.output->getConst(isConst);
 
-            return boundFunction;
+            return BoundFunction(exec, outputInfo);
         }
     }
 

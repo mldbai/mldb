@@ -613,6 +613,19 @@ The following functions provide digital signal processing capabilities:
   time-shifted by `e` steps, ie zeros everywhere apart from the `e`th element
   which is one.
 
+### <a name="imagefunctions"></a>Image processing functions
+
+The following functions provide image processing capabilities:
+
+- `parse_exif(blob)` takes a JPEG image blob and parses basic EXIF information from it. It should be used in combination with the `fetcher()` function. The returned values are:
+
+![](%%type MLDB::Builtins::ExifMetadata)
+
+### <a name="blobfunctions"></a>Blob functions
+
+The following functions are specific to blob data:
+
+- `blob_length(x)` returns the length (in bytes) of the blob `x`
 
 ### <a name="httpfunctions"></a>Web data functions
 
@@ -623,8 +636,9 @@ The following functions are used to extract and process web data.
 Fetches resources from a given file or URL. It acts as the
 default version of [function fetcher](../functions/Fetcher.md.html). It returns
 two output columns:
-* content is a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
-* error is a string containing the error message. If the fetch succeeded, it will be null.
+
+* `content`, a binary BLOB field containing the (binary) content that was loaded from the URL. If there was an error, it will be null.
+* `error`, a string containing the error message. If the fetch succeeded, it will be null.
 
 **Example**
 
@@ -668,6 +682,7 @@ can be used to create bag-of-tokens representations of strings, by returning a r
 columns are formed by tokenizing `str` by splitting along `splitChars` and whose values by default are the
 number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitChars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`.
 - `token_extract(str, n, {splitChars: ',', quoteChar: '', offset: 0, limit: null, minTokenLength: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `minTokenLength` will be considered, and ngram options are ignored.
+- `split_part(str, splitChars)` will return an embedding of all tokens as separated by the provided `splitChars`.
 
 Parameters to `tokenize` and `token_extract` are as follows:
 

@@ -20,3 +20,8 @@ $(eval $(call test,pffft_vectorization_test,pffft,boost))
 
 $(eval $(call library,uap,uap-cpp/UaParser.cpp,yaml-cpp))
 $(eval $(call include_sub_make,s2,s2-geometry-library/geometry,../../s2.mk))
+
+EASYEXIF_CC_FILES:= easyexif/exif.cpp
+$(eval $(call set_compile_option,$(EASYEXIF_CC_FILES),$(EASYEXIF_WARNING_OPTIONS)))
+$(eval $(call library,easyexif,$(EASYEXIF_CC_FILES)))
+$(eval $(call include_sub_make,libgit2,libgit2,../libgit2.mk))

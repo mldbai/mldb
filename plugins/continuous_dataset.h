@@ -1,8 +1,8 @@
 /** continuous_dataset.h                                           -*- C++ -*-
     Jeremy Barnes, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset that continuously records and expires on a time window.
 */
@@ -47,7 +47,7 @@ struct ContinuousDataset: public Dataset {
 
     ContinuousDataset(MldbServer * owner,
                       PolyConfig config,
-                      const std::function<bool (const Json::Value &)> & onProgress);
+                      const ProgressFunc & onProgress);
     
     virtual ~ContinuousDataset();
 
@@ -107,7 +107,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ContinuousWindowDatasetConfig);
 struct ContinuousWindowDataset: public ForwardedDataset {
     ContinuousWindowDataset(MldbServer * owner,
                             PolyConfig config,
-                            const std::function<bool (const Json::Value &)> & onProgress);
+                            const ProgressFunc & onProgress);
     /// Dataset in which our metadata lives
     std::shared_ptr<Dataset> metadataDataset;
 

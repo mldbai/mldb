@@ -1,8 +1,8 @@
 /** kmeans.cc
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     Implementation of an KMEANS algorithm for embedding of a dataset.
 */
 
@@ -163,10 +163,11 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
+    ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
                                         runProcConf.numInputDimensions,
-                                        onProgress2);
+                                        convertProgressToJson);
 
     std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows

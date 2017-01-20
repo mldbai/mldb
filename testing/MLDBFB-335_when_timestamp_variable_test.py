@@ -1,7 +1,7 @@
 #
 # MLDBFB-335_when_timestamp_variable_test.py
 # Mich, 2016-02-02
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import unittest
 

@@ -1,6 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* Test of regression. */
+
+function assertEqual(expr, val, msg)
+{
+    if (expr == val)
+        return;
+    if (JSON.stringify(expr) == JSON.stringify(val))
+        return;
+
+    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
+        + " not equal to " + JSON.stringify(val);
+}
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -21,16 +32,15 @@ dataset.recordRow("ex5", [ [ "x", 5, ts ], ["y", 5, ts] ]);
 dataset.commit()
 
 
-var svdUri = "tmp/MLDB-174.svd";
+var svdUri = "file://tmp/MLDB-174.svd";
 
 var trainSvdProcedureConfig = {
-    id: "trainSvdProcedure",
     type: "svd.train",
     params: {
         trainingData: { "from" : {id: "test" }},
         rowOutputDataset: { id: "svdRowOutput", type: "embedding" },
         columnOutputDataset: { id: "svdColOutput", type: "embedding" },
-        svdUri: svdUri
+        modelFileUrl: svdUri
     }
 };
 
@@ -38,13 +48,15 @@ var procedureOutput
     = mldb.put("/v1/procedures/svd_train", trainSvdProcedureConfig);
 
 plugin.log("procedure output", procedureOutput);
+assertEqual(procedureOutput.responseCode, 201, "failed to train SVD");
 
-var trainingOutput
-    = mldb.put("/v1/procedures/svd_train/trainings/1", {});
+var selectRowOutput = mldb.query("SELECT * FROM svdRowOutput");
+plugin.log(selectRowOutput);
+assertEqual(selectRowOutput.length, 6, "expected 6 rows");
 
-plugin.log("training output", trainingOutput);
+var selectColumnOutput = mldb.query("SELECT * FROM svdColOutput");
+plugin.log(selectColumnOutput);
+assertEqual(selectColumnOutput.length, 2, "expected 2 rows");
 
-plugin.log(mldb.get("/v1/datasets/svdRowOutput/query").json);
-plugin.log(mldb.get("/v1/datasets/svdColOutput/query").json);
 
 "success"

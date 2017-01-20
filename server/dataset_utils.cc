@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** dataset_utils.cc                                 -*- C++ -*-
     Rémi Attab, 29 Apr 2015
-    Copyright (c) 2015 Datacratic.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/server/dataset_utils.h"

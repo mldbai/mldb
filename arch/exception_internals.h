@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* exception_internals.h                                           -*- C++ -*-
    Jeremy Barnes, 18 October 2010
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
 
    Internals needed to interoperate with the exception handling.  These are
    copied from the libsupc++ sources, but contain no functionality, only

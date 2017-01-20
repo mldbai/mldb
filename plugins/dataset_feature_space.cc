@@ -1,5 +1,5 @@
 /** dataset_feature_space.cc
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "dataset_feature_space.h"
@@ -581,7 +581,6 @@ serialize(ML::DB::Store_Writer & store) const
 
     store << labelInfo;
 
-    auto logger = MLDB::getMldbLog<DatasetFeatureSpace>();
     DEBUG_MSG(logger) << "serializing " << columnInfo.size() << " features";
     for (auto & i: columnInfo) {
         store << jsonEncodeStr(i.first);

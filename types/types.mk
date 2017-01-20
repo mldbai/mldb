@@ -1,10 +1,10 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 # date.mk
 # Jeremy Barnes, 2 November 2011
-# Copyright (c) 2011 Datacratic.  All rights reserved.
+# Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 #
-# Date library for datacratic.
+# Date library for MLDB.
 
 LIBVALUE_DESCRIPTION_SOURCES := \
 	value_description.cc \

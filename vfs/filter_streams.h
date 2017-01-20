@@ -2,7 +2,7 @@
    Jeremy Barnes, 12 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
    
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
    
    This file is part of "Jeremy's Machine Learning Library", copyright (c)
    1999-2015 Jeremy Barnes.
@@ -212,6 +212,9 @@ public:
         - "compression": if not set, it will detect.  If set to "none", it
           will not decompress no matter what it finds.  Otherwise, it can
           be set to a compression scheme to force that scheme to be used.
+        - httpAbortOnSlowConnection: For http files, will timeout if the
+          connexion is too slow. Refer to http_rest_proxy.cc for the
+          specification of slow. (the parameter name is abortOnSlowConnection)
     */
     filter_istream(const std::string & uri,
                    const std::map<std::string, std::string> & options);

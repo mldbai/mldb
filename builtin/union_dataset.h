@@ -1,7 +1,7 @@
 /**                                                                 -*- C++ -*-
  * union_dataset.h
  * Mich, 2016-09-14
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 
 #pragma once
@@ -31,7 +31,7 @@ struct UnionDataset: public Dataset {
 
     UnionDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress);
+                 const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a datasets */
     UnionDataset(MldbServer * owner,

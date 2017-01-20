@@ -1,6 +1,6 @@
 /** frozen_column.cc                                               -*- C++ -*-
     Jeremy Barnes, 27 March 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Implementation of code to freeze columns into a binary format.
 */
@@ -236,21 +236,21 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             writer.write(i.second, indexBits);
         }
 
-#if 0
-        size_t mem = memusage();
-        if (mem > 30000) {
-            using namespace std;
-            cerr << "table with " << column.sparseIndexes.size()
-                 << " entries from "
-                 << column.minRowNumber << " to " << column.maxRowNumber
-                 << " and " << table.size()
-                 << " uniques takes " << mem << " memory" << endl;
-
-            for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
-                cerr << "  " << table[i] << endl;
+        if (logger->should_log(spdlog::level::debug)) {
+            size_t mem = memusage();
+            if (mem > 30000) {
+                using namespace std;
+                logger->debug() << "table with " << column.sparseIndexes.size()
+                                << " entries from "
+                                << column.minRowNumber << " to " << column.maxRowNumber
+                                << " and " << table.size()
+                                << " uniques takes " << mem << " memory";
+                
+                for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
+                    logger->debug() << "  " << table[i];
+                }
             }
         }
-#endif
     }
 
     virtual bool forEach(const ForEachRowFn & onRow) const
@@ -319,9 +319,9 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             uint32_t rowNum, index;
             std::tie(rowNum, index) = getAtIndex(middle);
 
-            //cerr << "first = " << first << " middle = " << middle
-            //     << " last = " << last << " rowNum = " << rowNum
-            //     << " looking for " << rowIndex << endl;
+            TRACE_MSG(logger) << "first = " << first << " middle = " << middle
+                              << " last = " << last << " rowNum = " << rowNum
+                              << " looking for " << rowIndex;
 
             if (rowNum == rowIndex) {
                 ExcAssertLess(index, table.size());
@@ -515,13 +515,12 @@ struct IntegerFrozenColumn: public FrozenColumn {
             static std::mutex mutex;
             std::unique_lock<std::mutex> guard(mutex);
 
-            cerr << "got " << offsets.size() << " unique offsets starting at "
-                 << offsets.front() << endl;
+            TRACE_MSG(logger) << "got " << offsets.size() << " unique offsets starting at "
+                              << offsets.front();
 
             for (size_t i = 0;  i < 100 && i < offsets.size() - 1;  ++i) {
-                cerr << "  " << offsets[i];
+                TRACE_MSG(logger) << "  " << offsets[i];
             }
-            cerr << endl;
 #endif
             entryBits = ML::highest_bit(range + hasNulls) + 1;
             numWords = (entryBits * numEntries + 63) / 64;
@@ -564,14 +563,14 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
         if (!hasNulls) {
             // Contiguous rows
-            //cerr << "fill with contiguous" << endl;
+            DEBUG_MSG(logger) << "fill with contiguous";
             ML::Bit_Writer<uint64_t> writer(data);
             for (size_t i = 0;  i < column.sparseIndexes.size();  ++i) {
                 ExcAssertEqual(column.sparseIndexes[i].first, i);
                 int64_t val
                     = column.indexedVals[column.sparseIndexes[i].second].toInt();
-                //cerr << "writing " << val << " - " << offset << " = "
-                //     << val - offset << " at " << i << endl;
+                DEBUG_MSG(logger) << "writing " << val << " - " << offset << " = "
+                                  << val - offset << " at " << i;
                 writer.write(val - offset, entryBits);
             }
         }
@@ -590,8 +589,8 @@ struct IntegerFrozenColumn: public FrozenColumn {
 #if 0
         // Check that we got the right thing
         for (auto & i: column.sparseIndexes) {
-            //cerr << "getting " << i.first << " with value "
-            //     << column.indexedVals.at(i.second) << endl;
+            DEBUG_MSG(logger) << "getting " << i.first << " with value "
+                              << column.indexedVals.at(i.second);
             ExcAssertEqual(get(i.first + firstEntry),
                            column.indexedVals.at(i.second));
         }
@@ -652,7 +651,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
             else return result = val + offset - 1;
         }
         else {
-            //cerr << "got val " << val << " " << val + offset << endl;
+            TRACE_MSG(logger) << "got val " << val << " " << val + offset;
             return result = val + offset;
         }
     }
@@ -825,6 +824,13 @@ registerFormat(std::shared_ptr<FrozenColumnFormat> format)
 /*****************************************************************************/
 /* FROZEN COLUMN                                                             */
 /*****************************************************************************/
+
+FrozenColumn::
+FrozenColumn()
+    : logger(getMldbLog<TabularDataset>()) // this class is only used by the tabular dataset
+{
+}
+
 
 std::shared_ptr<FrozenColumn>
 FrozenColumn::

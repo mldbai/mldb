@@ -2,10 +2,10 @@
 
 /** abort.h                                 -*- C++ -*-
     Rémi Attab, 13 Nov 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
     Utilities related to the abort() function.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     These functions are meant to be used as debugging helpers so that the
     program can be stopped as soon as an error is detected. This is mainly

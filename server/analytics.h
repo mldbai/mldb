@@ -1,8 +1,8 @@
 /** analytics.h                                                    -*- C++ -*-
     Jeremy Barnes, 30 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Analytics queries for mldb.
 */
@@ -17,6 +17,7 @@
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/sql/sql_expression_operations.h"
+#include "mldb/utils/progress.h"
 
 
 
@@ -80,7 +81,7 @@ iterateDataset(const SelectExpression & select,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
-                    std::function<bool (const Json::Value &)> onProgress);
+                    const ProgressFunc & onProgress);
 
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
@@ -96,7 +97,7 @@ iterateDatasetExpr(const SelectExpression & select,
                         const OrderByExpression & orderBy,
                         ssize_t offset,
                         ssize_t limit,
-                        std::function<bool (const Json::Value &)> onProgress);
+                        const ProgressFunc & onProgress);
 
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
@@ -112,7 +113,7 @@ iterateDataset(const SelectExpression & select,
                     const OrderByExpression & orderBy = ORDER_BY_NOTHING,
                     ssize_t offset = 0 /* start at start */,
                     ssize_t limit = -1 /* all */,
-                    std::function<bool (const Json::Value &)> onProgress = nullptr);
+                    const ProgressFunc & onProgress = nullptr);
 
 /** Full select function, with grouping. */
 std::pair<bool, std::shared_ptr<ExpressionValueInfo> >
@@ -129,7 +130,7 @@ iterateDatasetGrouped(const SelectExpression & select,
                            const OrderByExpression & orderBy = ORDER_BY_NOTHING,
                            ssize_t offset = 0 /* start at start */,
                            ssize_t limit = -1 /* all */,
-                           std::function<bool (const Json::Value &)> onProgress = nullptr);
+                           const ProgressFunc & onProgress = nullptr);
 
 
 /** Create an embedding matrix, one embedding per row.  Returns both the embedding
@@ -148,14 +149,14 @@ getEmbedding(const SelectExpression & select,
              const OrderByExpression & orderBy = ORDER_BY_NOTHING,
              int offset = 0,
              int limit = -1,
-             const std::function<bool (const Json::Value &)> & onProgress = nullptr);
+             const ProgressFunc & onProgress = nullptr);
 
 std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectStatement & stm,
              SqlExpressionMldbScope & context,
              int maxDimensions = -1,
-             const std::function<bool (const Json::Value &)> & onProgress = nullptr);
+             const ProgressFunc & onProgress = nullptr);
 
 /** SELECT without FROM.
    
@@ -180,12 +181,14 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope);
 std::vector<MatrixNamedRow>
 queryFromStatement(const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   BoundParameters params = nullptr);
+                   BoundParameters params = nullptr,
+                   const ProgressFunc & onProgress = nullptr);
 
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
 queryFromStatementExpr(const SelectStatement & stm,
-                   SqlBindingScope & scope,
-                   BoundParameters params = nullptr);
+                       SqlBindingScope & scope,
+                       BoundParameters params = nullptr,
+                       const ProgressFunc & onProgress = nullptr);
 
 /** Select from the given statement.  This will choose the most
     appropriate execution method based upon what is in the query.
@@ -201,7 +204,8 @@ bool
 queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
                    const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   BoundParameters params = nullptr);
+                   BoundParameters params = nullptr,
+                   const ProgressFunc & onProgress = nullptr);
 
 /** Build a RowPath from an expression value and throw if
     it is not valid (row, empty, etc)

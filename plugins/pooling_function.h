@@ -1,6 +1,6 @@
 /** pooling_function.h                                                   -*- C++ -*-
     Francois Maillet, 30 novembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 

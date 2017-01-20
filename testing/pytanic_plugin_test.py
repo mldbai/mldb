@@ -1,7 +1,7 @@
 #
 # pytanic_plugin_test.py
 # Francois Maillet, 2015-03-26
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 # Test the pytanic plugin example
 

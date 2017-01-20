@@ -1,8 +1,8 @@
 /** python_plugin_loader.cc
     Jeremy Barnes, 6 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Plugin loader for Python plugins.
 */
@@ -75,7 +75,6 @@ pyExec(Utf8String code,
     res = fcntl(fds[1], F_SETFL, O_NONBLOCK);
     if (res == -1) {
         auto errno2 = errno;
-        cerr << "fcntl O_NONBLOCK: " << strerror(errno2) << endl;
         throw HttpReturnException(500, "Python evaluation fcntl: "
                                   + string(strerror(errno2)));
     }
@@ -717,7 +716,7 @@ class mldb_wrapper(object):
                                     step['type'], step['value']))
                 elif 'started' in step:
                     running_since = now - parse_date(step['started'])
-                    self.log("{} runing since {} seconds - {} {}"
+                    self.log("{} running since {} seconds - {} {}"
                             .format(step['name'], running_since.total_seconds(),
                                     step['type'], step['value']))
 

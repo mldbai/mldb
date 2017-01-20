@@ -1,8 +1,8 @@
 /** sql_expression.h                                               -*- C++ -*-
     Jeremy Barnes, 24 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Base SQL expression support.
 */
@@ -14,6 +14,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/any.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/utils/progress.h"
 #include <memory>
 #include <set>
 
@@ -98,35 +99,6 @@ DECLARE_ENUM_DESCRIPTION(OrderByDirection);
 
 typedef std::function<ExpressionValue (const Utf8String & paramName)> BoundParameters;
 
-
-/*****************************************************************************/
-/* BOUND EXPRESSION METADATA                                                 */
-/*****************************************************************************/
-
-/** Metadata about a bound expression.  Mostly used for static analysis. */
-
-struct BoundExpressionMetadata {
-
-    BoundExpressionMetadata()
-        : isConstant(false)
-    {
-    }
-
-    BoundExpressionMetadata(bool isConstant)
-        : isConstant(isConstant)
-    {
-    }
-
-    /// Is this expression constant, in other words it always returns the
-    /// same value that is independent of input?  If this is true, the
-    /// exec function must not access or use its SqlRowScope
-    /// argument at all.
-    bool isConstant;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(BoundExpressionMetadata);
-
-
 /*****************************************************************************/
 /* BOUND ROW EXPRESSION                                                      */
 /*****************************************************************************/
@@ -158,8 +130,7 @@ struct BoundSqlExpression {
 
     BoundSqlExpression(ExecFunction exec,
                        const SqlExpression * expr,
-                       std::shared_ptr<ExpressionValueInfo> info,
-                       BoundExpressionMetadata metadata = BoundExpressionMetadata());
+                       std::shared_ptr<ExpressionValueInfo> info);
     
     operator bool () const { return !!exec; };
 
@@ -168,9 +139,6 @@ struct BoundSqlExpression {
 
     /// What kind of value does this return?
     std::shared_ptr<ExpressionValueInfo> info;
-
-    /// Metadata for the expression
-    BoundExpressionMetadata metadata;
 
     /** Attempt to extract the value of this expression as a constant.  Only
         really makes sense when metadata.isConstant is true.
@@ -227,7 +195,8 @@ struct TableOperations {
                                      const SqlExpression & where,
                                      const OrderByExpression & orderBy,
                                      ssize_t offset,
-                                     ssize_t limit)>
+                                     ssize_t limit,
+                                     const ProgressFunc & onProgress)>
     runQuery;
 
     /// What aliases (sub-dataset names) does this dataset contain?
@@ -352,9 +321,6 @@ struct BoundFunction {
     /// If defined, overrides the default bindFunction call.
     BindFunction bindFunction;
 
-    /// Extra metadata about the result
-    BoundExpressionMetadata resultMetadata;
-
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
     {
@@ -474,10 +440,11 @@ struct RegisterAggregator {
     version of the function.
 */
 typedef std::function<BoundTableExpression(const Utf8String & str,
-                                    const std::vector<BoundTableExpression> & args,
-                                    const ExpressionValue & options,
-                                    const SqlBindingScope & context,
-                                    const Utf8String& alias)>
+                                           const std::vector<BoundTableExpression> & args,
+                                           const ExpressionValue & options,
+                                           const SqlBindingScope & context,
+                                           const Utf8String& alias,
+                                           const ProgressFunc & onProgress)>
     ExternalDatasetFunction;
 
 std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFunction function);
@@ -611,7 +578,8 @@ struct SqlBindingScope {
     doGetDatasetFunction(const Utf8String & functionName,
                          const std::vector<BoundTableExpression> & args,
                          const ExpressionValue & options,
-                         const Utf8String & alias);
+                         const Utf8String & alias,
+                         const ProgressFunc & onProgress);
     
     virtual BoundAggregator
     doGetAggregator(const Utf8String & functionName,
@@ -1478,7 +1446,7 @@ struct GenerateRowsWhereFunction {
     typedef std::function<std::pair<std::vector<RowPath>, Any>
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params,
-                           std::function<bool (const Json::Value &)> onProgress)> Exec;
+                           const ProgressFunc & onProgress)> Exec;
 
     GenerateRowsWhereFunction(Exec exec = nullptr,
                               Utf8String explain = "",
@@ -1495,7 +1463,7 @@ struct GenerateRowsWhereFunction {
     std::pair<std::vector<RowPath>, Any>
     operator () (ssize_t numToGenerate, Any token,
                  const BoundParameters & params = BoundParameters(),
-                 std::function<bool (const Json::Value &)> onProgress = nullptr) const
+                 const ProgressFunc & onProgress = nullptr) const
     {
         return exec(numToGenerate, token, params, onProgress);
     }
@@ -1576,7 +1544,7 @@ struct TableExpression: public std::enable_shared_from_this<TableExpression> {
     virtual ~TableExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const = 0;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const = 0;
     
     virtual Utf8String print() const = 0;
 

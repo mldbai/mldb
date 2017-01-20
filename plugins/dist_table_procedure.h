@@ -1,6 +1,6 @@
 /** dist_table_procedure.h                                         -*- C++ -*-
     Simon Lemieux, June 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     distTable procedure
 */

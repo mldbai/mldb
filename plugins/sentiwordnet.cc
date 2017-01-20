@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sentiwordnet.cc
     Francois Maillet, 4 novembre 2015
-    Copyright (c) Datacratic Inc.  All rights reserved.
+    Copyright (c) mldb.ai inc.  All rights reserved.
 
     Importer class for SentiWordNet: http://sentiwordnet.isti.cnr.it
 */

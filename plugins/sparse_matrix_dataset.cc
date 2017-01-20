@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sparse_matrix_dataset.cc
     Jeremy Barnes, 9 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of sparseMatrix database.
 */
@@ -833,7 +833,7 @@ struct SparseMatrixDataset::Itl
             //ExcAssertEqual(decoded, std::get<1>(v));
 
             uint64_t col = encodeCol(std::get<0>(v), trans);
-            DEBUG_MSG(logger) << "col " << std::get<0>(v) << " encoded as " << col;
+            TRACE_MSG(logger) << "col " << std::get<0>(v) << " encoded as " << col;
 
             entries.push_back({col, ts, val, tag, {}});
         }
@@ -1883,7 +1883,7 @@ struct MutableSparseMatrixDataset::Itl
 MutableSparseMatrixDataset::
 MutableSparseMatrixDataset(MldbServer * owner,
                            PolyConfig config,
-                           const std::function<bool (const Json::Value &)> & onProgress)
+                           const ProgressFunc & onProgress)
     : SparseMatrixDataset(owner)
 {
     auto params = config.params.convert<MutableSparseMatrixDatasetConfig>();

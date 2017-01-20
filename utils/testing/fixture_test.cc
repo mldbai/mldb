@@ -1,10 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** fixture_test.cc                                 -*- C++ -*-
     Rémi Attab, 02 May 2013
-    Copyright (c) 2013 Datacratic.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-    Small example/test on how to use the datacratic fixture.
+    Small example/test on how to use the MLDB fixture.
 
 */
 
@@ -40,7 +40,7 @@ string readLine(ifstream& ifs)
     running tests and that the test never has to do any cleanup. This is even
     true if the process crashes due to signals.
  */
-DATACRATIC_FIXTURE(FixtureTest);
+MLDB_FIXTURE(FixtureTest);
 
 
 /** Simple test that reads and writes a file in it's sandbox */
