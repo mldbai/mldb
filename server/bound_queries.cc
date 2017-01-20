@@ -184,7 +184,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             {
                 ++rowCount;
 
-                if (rowCount % 1000 == 0) {
+                if (rowCount % PROGRESS_RATE == 0) {
                     if (onProgress) {
                         progress = rowCount;
                         if (!onProgress(progress)) {
@@ -251,7 +251,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     ProgressState progress(upper-offset);
                     auto copyRow = [&] (int rowNum) -> bool
                         {
-                            if (rowNum % 1000 == 0) {
+                            if (rowNum % PROGRESS_RATE == 0) {
                                 if (onProgress) {
                                     progress = rowNum;
                                     if (!onProgress(progress)) {
@@ -471,7 +471,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
                 auto row = dataset.getRowExpr(rows[rowNum]);
 
-                if (onProgress && rowsAdded % 1000 == 0) {
+                if (onProgress && rowsAdded % PROGRESS_RATE == 0) {
                     progress = rowsAdded;
                     if (!onProgress(progress))
                         return false;

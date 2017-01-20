@@ -1012,7 +1012,7 @@ struct ImportTextProcedureWorkInstance
                            int64_t lineNum)
         {
             byteCount += length + 1;
-            if (++lineCount % 1000 == 0) {
+            if (++lineCount % PROGRESS_RATE == 0) {
                 iterationStep->value = lineCount;
                 onProgress(jsonEncode(iterationStep));
             }
