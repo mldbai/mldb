@@ -1,7 +1,7 @@
 /**                                                                -*- C++ -*-
  * http_streambuf_test.cc
  * Mich, 2017-01-19
- * This file is part of MLDB. Copyright 2017 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2017 mld.ai inc. All rights reserved.
  *
  * Make sure http errors print the proper status code in the terminal
  **/
