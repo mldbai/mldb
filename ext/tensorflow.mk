@@ -327,7 +327,7 @@ $(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BU
 # Libraries that the core of TensorFlow relies on.  We need the CUDA
 # libraries, if support is included, since the core includes the
 # functionality to set up the CUDA support.
-TENSORFLOW_CORE_LINK := protobuf3 re2 png jpeg farmhash giflib $(TENSORFLOW_CUDA_LINK) http
+TENSORFLOW_CORE_LINK := protobuf3 re2 png jpeg farmhash giflib $(TENSORFLOW_CUDA_LINK)
 
 # Finally, build a library with the tensorflow functionality inside
 $(eval $(call library,tensorflow-core,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD) $(if $(WITH_CUDA),../tf_cuda_handlers.cc),$(TENSORFLOW_CORE_LINK),,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
