@@ -10,17 +10,16 @@ import subprocess
 import datetime
 import time
 from dateutil.tz import tzutc
+
 try:
     subprocess.check_call(['which', 'mongod'])
-    got_mongod = True
-except subprocess.CalledProcessError:
-    got_mongod = False
-
-if got_mongod:
     import sys
     sys.path.append('build/x86_64/bin')
     from python_mongo_temp_server_wrapping import MongoTemporaryServerPtr
     from pymongo import MongoClient
+    got_mongod = True
+except (subprocess.CalledProcessError, ImportError):
+    got_mongod = False
 
 if False:
     mldb_wrapper = None
