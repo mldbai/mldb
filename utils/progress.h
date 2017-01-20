@@ -18,6 +18,11 @@
 
 namespace MLDB {
 
+// process rate for common operations (e.g iterating a dataset)
+static constexpr unsigned short PROGRESS_RATE = 50;
+// progress rate for operations are very fast (e.g. importing a CSV)
+static constexpr unsigned short PROGRESS_RATE_LOW = 10000;
+
 struct Step {
     Step(const std::string & name, const std::string & type)
         : name(name), value(0), type(type) {}

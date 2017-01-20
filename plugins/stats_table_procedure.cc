@@ -693,7 +693,7 @@ run(const ProcedureRunConfig & run,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
-            if(num_req++ % 10000 == 0) {
+            if(num_req++ % PROGRESS_RATE_LOW == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;
