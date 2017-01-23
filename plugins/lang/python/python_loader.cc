@@ -50,7 +50,7 @@ using namespace MLDB::Python;
 namespace MLDB {
 
 // NOTE: copied from exec.cpp in Boost, available under the Boost license
-
+// Copyright Stefan Seefeld 2005 - http://www.boost.org/LICENSE_1_0.txt
 boost::python::object
 pyExec(Utf8String code,
        Utf8String filename,
