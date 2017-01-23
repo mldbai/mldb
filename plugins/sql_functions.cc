@@ -664,6 +664,10 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
+    if (runProcConf.inputData.stm == nullptr) {
+        throw HttpReturnException(400, "You need to define inputData");
+    }
+
     // Get the input dataset
     SqlExpressionMldbScope context(server);
 
