@@ -30,7 +30,7 @@ The following is a list of such libraries, along with links to their respective 
   - [PFFFT](https://github.com/mldbai/pffft/blob/master/fftpack.h)
   - [RE2](https://github.com/mldbai/re2/blob/master/LICENSE)
   - [SIMD (SSE1+MMX or SSE2) implementation of exp](https://github.com/mldbai/mldb/blob/master/arch/sse2_exp.h)
-  - [Snowball](https://github.com/mldbai/mldb/blob/master/ext/libstemmer/LICENSE)
+  - [Snowball libstemmer](https://github.com/mldbai/mldb/blob/master/ext/libstemmer/LICENSE)
   - [dtoa](https://github.com/mldbai/mldb/blob/master/types/dtoa.c)
   - [easyexif](https://github.com/mldbai/easyexif/blob/master/LICENSE)
   - [edlib](https://github.com/mldbai/edlib/blob/master/LICENSE)
