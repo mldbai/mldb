@@ -638,7 +638,7 @@ getPyContext()
 
 void MldbPythonContext::
 setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx) {
-    this->plugin = pluginCtx;
+    plugin = pluginCtx;
     plugin->mldbContext = this;
 }
 
