@@ -2,7 +2,7 @@
 # to_junit.py
 # Nicolas Kructhen, 2013-03-26
 # Mich, 2015-03-05
-# Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+# Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 #
 # make test | python junit.py > testresults.xml
 

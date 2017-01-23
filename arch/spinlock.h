@@ -2,7 +2,7 @@
     Jeremy Barnes, 13 December 2009.  All rights reserved.
     Implementation of a spinlock.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once

@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 # Test for the presence of ~/.cloud_credentials with an S3 entry.  If present,
 # some extra tests can be enabled.  This will be "1" or empty for true or false.
@@ -141,7 +141,7 @@ $(eval $(call mldb_unit_test,MLDB-665_nearest_neighbours.py))
 $(eval $(call mldb_unit_test,MLDB-538_route_deadlock.py))
 $(eval $(call mldb_unit_test,MLDB-643_script_function.py))
 $(eval $(call mldb_unit_test,MLDB-668-object-column-name.py))
-$(eval $(call mldb_unit_test,serial_procedure_testing.py))
+$(eval $(call mldb_unit_test,serial_procedure_test.py))
 $(eval $(call mldb_unit_test,MLDB-654-classifier-function-info.js))
 $(eval $(call mldb_unit_test,MLDB-605-timestamp-query.js))
 $(eval $(call mldb_unit_test,MLDB-679-latest-get-variable.js))
@@ -464,6 +464,7 @@ $(eval $(call mldb_unit_test,MLDB-2077_merge_single_ds.py))
 $(eval $(call mldb_unit_test,MLDB-1935-const-optim.py))
 $(eval $(call mldb_unit_test,MLDB-2097_exif.py))
 $(eval $(call mldb_unit_test,MLDBFB-724_classifier_exp_segfault_test.py))
+$(eval $(call test,http_streambuf_test,vfs boost_filesystem boost_system runner io_base,boost))
 $(eval $(call mldb_unit_test,MLDB-2108-split-string.py))
 $(eval $(call mldb_unit_test,MLDB-2100_fetcher_timeout_test.py))
 $(eval $(call mldb_unit_test,MLDB-2110-merge-and-subselect-progress.py))

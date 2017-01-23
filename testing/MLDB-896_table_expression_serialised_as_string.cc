@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* MLDB-896_table_expression_serialised_as_string.cc
    Francois Maillet, 14 septembre 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    Check that we're able to start from a JSON, put it into an Any, then
    convert it to JSON and back again to its structured type.

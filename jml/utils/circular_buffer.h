@@ -3,7 +3,7 @@
 /* circular_buffer.h                                               -*- C++ -*-
    Jeremy Barnes, 7 December 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Circular buffer structure, that will grow to hold whatever we put in it.
    O(1) insertion and deletion at the front and at the back.  Kind of like

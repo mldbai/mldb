@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** http_streambuf.cc
     Jeremy Barnes, 26 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -223,10 +223,11 @@ struct HttpStreamingDownloadSource {
                     {
                         if (error) {
                             errorBody = data;
+                            return true;
+                        }
+                        if (shutdown) {
                             return false;
                         }
-                        if (shutdown)
-                            return false;
                         while (!shutdown && !dataQueue.tryPush(data)) {
                             std::this_thread::sleep_for(std::chrono::milliseconds(1));
                         }
@@ -244,22 +245,25 @@ struct HttpStreamingDownloadSource {
                         // Don't set the promise on a 3xx... it's a redirect
                         // and we will get the correct header later on
                         if (!isRedirect(header)) {
-                            if (headerSet)
+                            if (headerSet) {
                                 throw std::logic_error("set header twice");
+                            }
                             
                             if (!headerSet.exchange(true)) {
                                 this->headerPromise.set_value(header);
                             }
                         }
 
-                        if (shutdown)
+                        if (shutdown) {
                             return false;
+                        }
 
                         //cerr << "got header " << header << endl;
                         errorCode = header.responseCode();
 
-                        if (header.responseCode() != 200 && !isRedirect(header))
+                        if (header.responseCode() != 200 && !isRedirect(header)) {
                             error = true;
+                        }
 
                         return !shutdown;
                     };

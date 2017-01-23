@@ -1,6 +1,6 @@
 /** sql_expression_operations.h                                    -*- C++ -*-
     Jeremy Barnes, 24 February 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 

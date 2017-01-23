@@ -1,7 +1,7 @@
 /* MLDBFB-239-s3-test.cc
    Jeremy Barnes, 2 July 2012
    This file is part of MLDB.
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Test of s3.
 */

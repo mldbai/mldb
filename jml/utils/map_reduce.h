@@ -1,8 +1,8 @@
 /** map_reduce.h                                                   -*- C++ -*-
     Jeremy Barnes, 30 October 2012
-    Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Functionality to perform map/reduce type operations in parallel.
 */

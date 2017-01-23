@@ -1,6 +1,6 @@
 /** libc_value_descriptions.h                                      -*- C++ -*-
     Wolfgang Sourdeau, 7 July 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Value descriptions for types defined by the libc
 */

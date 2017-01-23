@@ -1,8 +1,8 @@
 /** http_exception.h                                               -*- C++ -*-
     Jeremy Barnes, 13 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights.
+    Copyright (c) 2015 mldb.ai inc.  All rights.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Exception class to use to return HTTP exceptions.
 */

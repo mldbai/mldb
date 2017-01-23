@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 $(eval $(call library,config,config.cc,boost_program_options boost_locale))
 $(eval $(call library,log,log.cc, config))

@@ -1,6 +1,6 @@
 /** dataset_context.cc
     Jeremy Barnes, 24 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Context to bind a row expression to a dataset.
 */

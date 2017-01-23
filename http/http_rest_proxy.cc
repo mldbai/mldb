@@ -1,8 +1,8 @@
 /* http_rest_proxy.cc
    Jeremy Barnes, 10 April 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    REST proxy class for http.
 */
@@ -336,7 +336,9 @@ perform(const std::string & verb,
         if (timeout != -1)
             myRequest.add_option(CURLOPT_TIMEOUT, timeout);
         else myRequest.add_option(CURLOPT_TIMEOUT, 0L);
+
         myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
+        myRequest.add_option(CURLOPT_CONNECTTIMEOUT, 20L);
 
         if (abortOnSlowConnection) {
             // abortOnSlowConnection SPECIFICATION *** /

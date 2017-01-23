@@ -1,7 +1,7 @@
 #
 # import_text_test.py
 # Francois-Michel L Heureux, 2016-06-21
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import tempfile
 

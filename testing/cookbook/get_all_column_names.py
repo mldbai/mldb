@@ -1,7 +1,7 @@
 #
 # get_all_column_names.py
 # Mich, 2016-03-29
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 # How to get all column names from a datasets.
 #

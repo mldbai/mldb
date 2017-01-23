@@ -1,7 +1,7 @@
 #
 # MLDB-1707-no-context-resolve-table.py
 # Mathieu Marquis Bolduc, 2016-06-07
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
 import unittest
 

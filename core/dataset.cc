@@ -1,8 +1,8 @@
 /* dataset.cc
    Jeremy Barnes, 21 January 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Dataset support.
 */
@@ -1762,7 +1762,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                                      ->getRowPaths()) {
                                 
                                 ++rowCount;
-                                if (rowCount % 1000 == 0) {
+                                if (rowCount % PROGRESS_RATE == 0) {
                                     if (onProgress) {
                                         whereProgress = rowCount;
                                         if (!onProgress(whereProgress)) {
@@ -1919,7 +1919,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                     {
                         ++rowCount;
 
-                        if (rowCount % 1000 == 0) {
+                        if (rowCount % PROGRESS_RATE == 0) {
                             if (onProgress) {
                                 whereProgress = rowCount;
                                 if (!onProgress(whereProgress)) {

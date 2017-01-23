@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* async_event_source.h                                            -*- C++ -*-
    Jeremy Barnes, 9 November 2012
-   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Source of asynchronous events; a bit like a reactor.
 */

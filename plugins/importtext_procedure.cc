@@ -1,6 +1,6 @@
 /** importext_procedure.cc
     Mathieu Marquis Bolduc, February 12, 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Procedure that reads text files into an indexed dataset.
 */
@@ -1012,7 +1012,7 @@ struct ImportTextProcedureWorkInstance
                            int64_t lineNum)
         {
             byteCount += length + 1;
-            if (++lineCount % 1000 == 0) {
+            if (++lineCount % PROGRESS_RATE == 0) {
                 iterationStep->value = lineCount;
                 onProgress(jsonEncode(iterationStep));
             }

@@ -1,8 +1,8 @@
 /* json_printing.h                                                 -*- C++ -*-
    Jeremy Barnes, 26 February 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Context to print out JSON.
 */

@@ -1,7 +1,7 @@
 #
 # generate_procedure.py
 # Mich, 2016-07-07
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 # Create a procedure file skeleton .cc, .h, .html.md and create the entry in
 # the makefile.

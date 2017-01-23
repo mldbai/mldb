@@ -1,6 +1,6 @@
 /** builtin_http_functions.cc
     Francois Maillet, 4 juillet 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Builtin http parsing functions for SQL.
 */

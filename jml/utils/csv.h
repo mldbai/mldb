@@ -1,6 +1,6 @@
 /* csv.h                                                           -*- C++ -*-
    Jeremy Barnes, 5 April 2010
-   This file is part of MLDB. Copyright 2010 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2010 mldb.ai inc. All rights reserved.
 
    Comma Separated Value parsing code.
 */

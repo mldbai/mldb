@@ -1,7 +1,7 @@
 #
 # MLDB-1012_nested_function_calls.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 if False:

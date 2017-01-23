@@ -1,7 +1,7 @@
 /**                                                                 -*- C++ -*-
  * mongo_temporary_server.cc
  * Mich, 2014-12-15
- * This file is part of MLDB. Copyright 2014 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2014 mldb.ai inc. All rights reserved.
  **/
 
 
@@ -42,22 +42,21 @@ MongoTemporaryServer(const string & uniquePath, const int portNum)
 
     if (portNum == 0) {
         int freePort = 0;
-        for (int i = 0; i < 100; ++ i) {
+        {
             struct sockaddr_in addr;
             addr.sin_family = AF_INET;
             auto sockfd = socket(AF_INET, SOCK_STREAM, 0);
-            freePort = rand() % 15000 + 5000; // range 15000 - 20000
-            addr.sin_port = htons(freePort);
+            addr.sin_port = 0; //htons(freePort);
             addr.sin_addr.s_addr = INADDR_ANY;
-            int res = ::bind(sockfd, (struct sockaddr *) &addr, sizeof(addr));
-            if (res == 0) {
-                close(sockfd);
-                break;
+            if (::bind(sockfd, (struct sockaddr *) &addr, sizeof(addr))) {
+                throw Exception("Failed to bind on free port");
             }
-            freePort = 0;
-        }
-        if (freePort == 0) {
-            throw MLDB::Exception("Failed to find free port");
+            socklen_t addrLen = sizeof(addr);
+            if (getsockname(sockfd, (struct sockaddr *)&addr, &addrLen) == -1) {
+                throw Exception("Failed to getsockname");
+            }
+            freePort = addr.sin_port;
+            close(sockfd);
         }
         this->portNum = freePort;
     }

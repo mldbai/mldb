@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # MLDB-902-non-ascii-row-names.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 # I should be able to create a dataset x, add a row with name françois and
 # then query select * from x without error right now I get Error executing

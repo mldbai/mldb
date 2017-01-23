@@ -1,6 +1,6 @@
 /** probabilizer.cc
     Jeremy Barnes, 16 December 2014
-    This file is part of MLDB. Copyright 2014 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2014 mldb.ai inc. All rights reserved.
 
     Implementation of an algorithm to transform an arbitrary score into a
     calibrated probability.

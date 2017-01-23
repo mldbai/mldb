@@ -2,7 +2,7 @@
    Jeremy Barnes, 23 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Operations for operating over a range of bits.
 */

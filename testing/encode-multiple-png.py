@@ -1,7 +1,7 @@
 #
 # encode-multiple-png.py
 # Mathieu marquis Bolduc, 2017-01-17
-# This file is part of MLDB. Copyright 2017 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -11,13 +11,13 @@ import unittest
 class myTest(MldbUnitTest):
 
     def test_sequence(self):
-        res = mldb.query("""select encodePngs({[[[1],[2]],[[3],[4]]],
+        res = mldb.query("""select tf_encodePngs({[[[1],[2]],[[3],[4]]],
                                              [[[5],[6]],[[7],[8]]]})""")
         self.assertTableResultEquals([
                         [
                             "_rowName",
-                            "\"encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[1],[2]],[[3],[4]]]",
-                            "\"encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[5],[6]],[[7],[8]]]"
+                            "\"tf_encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[1],[2]],[[3],[4]]]",
+                            "\"tf_encodePngs({[[[1],[2]],[[3],[4]]],\n                                             [[[5],[6]],[[7],[8]]]})\".[[[5],[6]],[[7],[8]]]"
                         ],
                         [
                             "result",

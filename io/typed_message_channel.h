@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* typed_message_channel.h                                         -*- C++ -*-
    Jeremy Barnes, 31 May 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    An internal message channel that keeps a ring of typed objects that
    are being fed between threads.

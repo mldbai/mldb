@@ -2,7 +2,7 @@
  * progress.h
  * Guy Dumais, 2016-04-28
  * Mich, 2016-05-24
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 #pragma once
 
@@ -17,6 +17,11 @@
 
 
 namespace MLDB {
+
+// process rate for common operations (e.g iterating a dataset)
+static constexpr unsigned short PROGRESS_RATE = 50;
+// progress rate for operations are very fast (e.g. importing a CSV)
+static constexpr unsigned short PROGRESS_RATE_LOW = 10000;
 
 struct Step {
     Step(const std::string & name, const std::string & type)

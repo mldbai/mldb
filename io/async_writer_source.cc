@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* async_writer_source.cc
    Wolfgang Sourdeau, April 2014
-   Copyright (c) 2014 Datacratic.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    A base class for handling writable file descriptors.
 */

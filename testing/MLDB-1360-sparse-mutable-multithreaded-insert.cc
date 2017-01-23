@@ -1,6 +1,6 @@
 /* MLDB-1360-sparse-mutable-multithreaded-insert.cc
    Jeremy Barnes, 20 March 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 

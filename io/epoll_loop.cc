@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* epoll_loop.cc
    Wolfgang Sourdeau, 25 February 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    An alternative event loop to Epoller.
 */
