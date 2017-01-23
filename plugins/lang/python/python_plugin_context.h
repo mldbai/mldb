@@ -126,10 +126,10 @@ struct PythonContext {
     Json::Value getArgs() const;
     void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
     void setReturnValue1(const Json::Value & rtnVal);
+    void resetReturnValue();
 
     Utf8String categoryName, loaderName;
 
-    unsigned rtnCode;
     Json::Value rtnVal;
 
     std::mutex logMutex;  /// protects the categories below
@@ -144,6 +144,13 @@ struct PythonContext {
     std::shared_ptr<LoadedPluginResource> pluginResource;
 
     MldbPythonContext* mldbContext;
+
+    unsigned getRtnCode() {
+        return rtnCode;
+    }
+
+    private:
+        unsigned rtnCode;
 };
 
 
