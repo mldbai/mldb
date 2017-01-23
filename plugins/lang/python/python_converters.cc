@@ -246,6 +246,7 @@ construct_recur(PyObject * pyObj)
         val = construct_lst<bp::list>(pyObj);
     }
     else if(PyDict_Check(pyObj)) {
+        val = Json::objectValue;
         PyDict pyDict = bp::extract<PyDict>(pyObj)();
         bp::list keys = pyDict.keys();
         for(int i = 0; i < len(keys); i++) {

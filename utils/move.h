@@ -2,6 +2,8 @@
 
 // Copied from boost; under the Boost license and copyright
 // Compatible with non-commercial and commercial 
+// https://github.com/boostorg/move
+// Copyright © 2008-2014 Ion Gaztanaga - http://www.boost.org/LICENSE_1_0.txt
 
 #pragma once
 

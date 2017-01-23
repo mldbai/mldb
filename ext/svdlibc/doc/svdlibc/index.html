@@ -5,18 +5,20 @@
 
 <center>
 <h1>SVDLIBC</h1>
-<h3>Doug Rohde's SVD C Library</h3>
-<h3>version 1.34</h3>
+<h3>A C Library for Computing Singular Value Decompositions</h3>
+<h3>version 1.4</h3>
 </center>
 <hr>
 
-SVDLIBC is a C library based on the <a
+SVDLIBC is a C library written by Doug Rohde.  It was based on the <a
 href="http://www.netlib.org/svdpack/">SVDPACKC</a> library, which was written
 by Michael Berry, Theresa Do, Gavin O'Brien, Vijay Krishna and Sowmini
-Varadhan.  SVDLIBC offers a cleaned-up version of the code with a sane library
+Varadhan at the University of Tennessee.  <b>SVDLIBC is made available <a href="license.html">under a BSD License.</a></b>
+
+<p>SVDLIBC offers a cleaned-up version of the code with a new library
 interface and a front-end executable that performs matrix file type
 conversions, along with computing singular value decompositions.  Currently
-the only SVDPACKC algorithm implemented is
+the only SVDPACKC algorithm implemented in SVDLIBC is
 <b>las2</b>, because it seems to be consistently the fastest.  This algorithm
 has the drawback that the low order singular values may be relatively
 imprecise, but that is not a problem for most users who only want the
@@ -188,6 +190,13 @@ SVDPACKC.</a>
 <h3>Version Notes</h3>
 
 <table>
+<tr><td valign=top><b>1.4</b>
+<td><ul>
+<li> Added BSD License
+<li> Incorporated bug fixes by piskvorky, <a href="https://github.com/lucasmaystre/svdlibc/commit/9d0f04b32f6e4c806f2b51127e846bdee8d24f42">reported here</a>.
+<li> Fixed some gcc compiler warnings.
+</ul>
+
 <tr><td valign=top><b>1.34</b>
 <td><ul>
 <li> Worked around a gcc optimizer bug that was reordering statements in the

@@ -378,7 +378,7 @@ struct JSONImporter: public Procedure {
             }
 
             int numLines = recordedLines.fetch_add(1);
-            if (numLines % 10000 == 0) {
+            if (numLines % PROGRESS_RATE_LOW == 0) {
                 lock_guard<mutex> l(progressMutex);
                 if (numLines > iterationStep->value) {
                     iterationStep->value = numLines;

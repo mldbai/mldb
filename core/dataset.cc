@@ -1762,7 +1762,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                                      ->getRowPaths()) {
                                 
                                 ++rowCount;
-                                if (rowCount % 1000 == 0) {
+                                if (rowCount % PROGRESS_RATE == 0) {
                                     if (onProgress) {
                                         whereProgress = rowCount;
                                         if (!onProgress(whereProgress)) {
@@ -1919,7 +1919,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                     {
                         ++rowCount;
 
-                        if (rowCount % 1000 == 0) {
+                        if (rowCount % PROGRESS_RATE == 0) {
                             if (onProgress) {
                                 whereProgress = rowCount;
                                 if (!onProgress(whereProgress)) {

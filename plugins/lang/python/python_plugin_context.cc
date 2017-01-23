@@ -504,6 +504,9 @@ getArgs() const
 void PythonContext::
 setReturnValue(const Json::Value & rtn, unsigned returnCode)
 {
+    if (returnCode == 0) {
+        throw MLDB::Exception("Cannot set return code to 0");
+    }
     rtnVal = rtn;
     rtnCode = returnCode;
 }
@@ -514,6 +517,11 @@ setReturnValue1(const Json::Value & rtn)
     setReturnValue(rtn);
 }
 
+void PythonContext::
+resetReturnValue()
+{
+    rtnCode = 0;
+}
 
 /****************************************************************************/
 /* PYTHON PLUGIN CONTEXT                                                    */
@@ -629,14 +637,14 @@ getPyContext()
 }
 
 void MldbPythonContext::
-setPlugin(std::shared_ptr<PythonPluginContext> plug) {
-    plugin = plug;
+setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx) {
+    plugin = pluginCtx;
     plugin->mldbContext = this;
 }
 
 void MldbPythonContext::
-setScript(std::shared_ptr<PythonScriptContext> scrp) {
-    script = scrp;
+setScript(std::shared_ptr<PythonScriptContext> scriptCtx) {
+    script = scriptCtx;
     script->mldbContext = this;
 }
 
