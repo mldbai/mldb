@@ -29,7 +29,7 @@ docker_mldb_sdk: docker_mldb
 
 
 docker_mldb_sdk: \
-	DOCKER_BASE_IMAGE=quay.io/datacratic/mldb:$(WHOAMI)-$(CURRENT_BRANCH) \
+	DOCKER_BASE_IMAGE=quay.io/mldb/mldb:$(WHOAMI)-$(CURRENT_BRANCH) \
 	DOCKER_POST_INSTALL_SCRIPT=sdk/install_sdk.sh \
 	DOCKER_COMMIT_ARGS=-run='{"Cmd": [ "/sbin/my_init" ], "PortSpecs": ["80"], "Volumes": { "$(MLDB_DATA_DIR)": {} } }'
 
