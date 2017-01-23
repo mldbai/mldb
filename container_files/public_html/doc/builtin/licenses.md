@@ -60,3 +60,24 @@ The following is a list of such libraries, along with links to their respective 
   - [xxhash](https://github.com/mldbai/mldb/blob/master/ext/xxhash/xxhash.h)
   - [zstd](https://github.com/mldbai/zstd/blob/master/LICENSE)
 
+
+### Javascript libraries
+
+The following javascript libraries are also included in the source tree:
+
+  - [React generated code](https://raw.githubusercontent.com/mldbai/mldb/master/container_files/public_html/resources/queries/bundle.js)
+  - [jQuery](https://github.com/mldbai/mldb/blob/master/container_files/public_html/resources/js/jquery-1.11.2.min.js)
+  - [Bootstrap](https://github.com/mldbai/mldb/blob/master/container_files/public_html/resources/js/bootstrap.min.js)
+  - [ACE - Ajax.org Cloud9 Editor](https://github.com/mldbai/mldb/blob/master/container_files/public_html/resources/js/ace.js)
+  - [CoffeScript Compiler](https://github.com/mldbai/mldb/blob/master/container_files/public_html/resources/js/coffee-script.js)
+  - [PrismJS](https://github.com/mldbai/mldb/blob/master/container_files/public_html/resources/js/prism.js)
+
+### Python packages
+
+Multiple python packages are included in the Docker distribution of MLDB.
+
+The complete list of those unmodified packages can be found in the following files:
+
+  - [python_requirements.txt](https://github.com/mldbai/mldb/blob/master/python_requirements.txt)
+  - [python_requirements_mldb_base.txt](https://github.com/mldbai/mldb/blob/master/python_requirements_mldb_base.txt)
+  - [python_constraints.txt](https://github.com/mldbai/mldb/blob/master/python_constraints.txt)
