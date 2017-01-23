@@ -646,14 +646,6 @@ TransformDatasetConfigDescription()
              "Skip rows from the input dataset where no values are selected",
              false);
     addParent<ProcedureConfig>();
-
-    onPostValidate = [] (TransformDatasetConfig * cfg,
-                         JsonParsingContext & context)
-    {
-        if (cfg->inputData.stm == nullptr) {
-            throw HttpReturnException(400, "You need to define inputData");
-        }
-    };
 }
 
 TransformDataset::
@@ -671,6 +663,10 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
+
+    if (runProcConf.inputData.stm == nullptr) {
+        throw HttpReturnException(400, "You need to define inputData");
+    }
 
     // Get the input dataset
     SqlExpressionMldbScope context(server);
