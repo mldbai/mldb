@@ -646,6 +646,14 @@ TransformDatasetConfigDescription()
              "Skip rows from the input dataset where no values are selected",
              false);
     addParent<ProcedureConfig>();
+
+    onPostValidate = [] (TransformDatasetConfig * cfg,
+                         JsonParsingContext & context)
+    {
+        if (cfg->inputData.stm == nullptr) {
+            throw HttpReturnException(400, "You need to define inputData");
+        }
+    };
 }
 
 TransformDataset::
