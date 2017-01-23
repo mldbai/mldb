@@ -270,8 +270,8 @@ struct MldbPythonContext {
 
     PythonContext* getPyContext();
 
-    void setPlugin(std::shared_ptr<PythonPluginContext> plug);
-    void setScript(std::shared_ptr<PythonScriptContext> scrp);
+    void setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx);
+    void setScript(std::shared_ptr<PythonScriptContext> scriptCtx);
 
     /** Set the path optimization level.  See base/optimized_path.h. */
     void setPathOptimizationLevel(const std::string & level);
