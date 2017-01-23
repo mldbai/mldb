@@ -597,7 +597,9 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             if(isScript) {
                 auto ctitl = static_pointer_cast<PythonScriptContext>(titl);
                 result.result = ctitl->rtnVal;
-                result.setReturnCode(ctitl->getRtnCode());
+                // python scripts don't need to set a return code
+                result.setReturnCode(
+                    ctitl->getRtnCode() == 0 ? 200 : ctitl->getRtnCode());
                 for (auto & l: ctitl->logs)
                     result.logs.emplace_back(std::move(l));
                 std::stable_sort(result.logs.begin(), result.logs.end());
