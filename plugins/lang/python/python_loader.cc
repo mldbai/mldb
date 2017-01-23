@@ -443,7 +443,7 @@ handleRequest(RestConnection & connection,
                 pyControl.releaseGil();
 
                 itl->restRequest = make_shared<PythonRestRequest>(request, context);
-                itl->setReturnValue(Json::Value());
+                itl->resetReturnValue();
                 auto jsonResult = runPythonScript(itl,
                         PackageElement::ROUTES, request, context, pyControl);
 
@@ -452,10 +452,6 @@ handleRequest(RestConnection & connection,
                 getOutputFromPy(pyControl, last_output, false);
                 if(jsonResult.exception) {
                     connection.sendResponse(400, jsonEncodeStr(jsonResult), "application/json");
-                }
-
-                if(!jsonResult.result) {
-                    return RestRequestRouter::MR_NO;
                 }
 
                 connection.sendResponse(jsonResult.getReturnCode(), jsonResult.result);
@@ -601,7 +597,9 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             if(isScript) {
                 auto ctitl = static_pointer_cast<PythonScriptContext>(titl);
                 result.result = ctitl->rtnVal;
-                result.setReturnCode(ctitl->rtnCode);
+                // python scripts don't need to set a return code
+                result.setReturnCode(
+                    ctitl->getRtnCode() == 0 ? 200 : ctitl->getRtnCode());
                 for (auto & l: ctitl->logs)
                     result.logs.emplace_back(std::move(l));
                 std::stable_sort(result.logs.begin(), result.logs.end());
@@ -615,9 +613,12 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
             pySetArgv();
             boost::python::object obj
                 = pyExec(scriptSource, scriptUri, pyControl.main_namespace);
-            
+            if (titl->getRtnCode() == 0) {
+                 throw HttpReturnException(
+                         500, "The route did not set a return code");
+            }
             result.result = titl->rtnVal;
-            result.setReturnCode(titl->rtnCode);
+            result.setReturnCode(titl->getRtnCode());
             return result;
         }
         else {
@@ -634,6 +635,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
         getOutputFromPy(pyControl, result);
         result.exception = std::make_shared<ScriptException>(std::move(pyexc));
         result.exception->context.push_back("Executing Python script");
+        result.setReturnCode(500);
         return result;
     };
 }
