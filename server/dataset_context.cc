@@ -180,7 +180,8 @@ getColumn(const ColumnPath & columnName,
             = expr->tryGetNestedColumn(columnName, storage, filter);
         if (!val)
             return storage = ExpressionValue::null(Date::negativeInfinity());
-        else return *val;
+        else 
+            return *val;
     }
     else {
         const ExpressionValue * fromOutput
@@ -311,7 +312,7 @@ doGetColumn(const Utf8String & tableName,
     //cerr << "alias " << alias << endl;
     //for (auto & c: childaliases)
     //    cerr << "  child " << c << endl;
-    //cerr << "simplified = " << simplified << endl;
+    //cerr << "simplified = " << simplified << endl << endl;
 
     return {[=] (const SqlRowScope & context,
                  ExpressionValue & storage,

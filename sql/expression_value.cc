@@ -3610,7 +3610,10 @@ getFiltered(const VariableFilter & filter,
             accum(val);
             ExpressionValue storage;
             const ExpressionValue * output = accum.extract(storage);
-            ExcAssert(output);
+
+            if (!output)
+                return true;
+
             if (output != &storage)
                 rows.emplace_back(std::move(col), *output);
             else rows.emplace_back(std::move(col), std::move(storage));

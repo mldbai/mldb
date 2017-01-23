@@ -133,7 +133,7 @@ struct SubDataset::Itl
                            fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
         std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end());
 
-        cerr << "new sub dataset " << columnNameSet.size() << " columns " << fullFlattenedColumnNames.size() << " flattened" << endl;
+    //    cerr << "new sub dataset " << columnNameSet.size() << " columns " << fullFlattenedColumnNames.size() << " flattened" << endl;
     }
 
     void AddRow(const RowPath & rowName,
@@ -168,9 +168,12 @@ struct SubDataset::Itl
 
         for (auto& c : row.columns)
         {
-            const PathElement & cName = std::get<0>(c);               
+            const PathElement & cName = std::get<0>(c);
 
-            columnNameSet.insert(cName);
+            if (std::find(columnNameSet.begin(), columnNameSet.end(), cName) == columnNameSet.end()
+                && std::find(columnNames.begin(), columnNames.end(), cName) == columnNames.end()) {
+                columnNameSet.insert(cName);
+            }
 
             Date ts = std::get<1>(c).getEffectiveTimestamp();
             
@@ -294,7 +297,6 @@ struct SubDataset::Itl
             throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in sub-table dataset");
         }
 
-        cerr << "SUB getRowExpr:: " << subOutput[it->second].columns.size() << " columns" << endl;
         return subOutput[it->second].columns;
     }
 
