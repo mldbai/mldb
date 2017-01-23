@@ -1630,7 +1630,7 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
         return true; 
     }
 
-    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const override
     {
         return std::make_shared<AnyValueInfo>(constant);
     }
@@ -1682,7 +1682,8 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
         return false;
     }
 
-    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getConst(bool constant) const override
     {
         auto clone = std::make_shared<RowValueInfo>(*this);
         clone->isConstant = constant;
@@ -1788,7 +1789,9 @@ struct EmbeddingValueInfo: public RowValueInfo {
         return value.isArray();
     }
 
-   virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getConst(bool constant) const override
+    {
         auto clone = std::make_shared<EmbeddingValueInfo>(*this);
         clone->isConstant = constant;
         return clone;
@@ -1834,7 +1837,8 @@ struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> 
 
     virtual std::string getScalarDescription() const override;
 
-    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getConst(bool constant) const override
     {
         return std::make_shared<VariantExpressionValueInfo>(left_, right_, constant);
     }
