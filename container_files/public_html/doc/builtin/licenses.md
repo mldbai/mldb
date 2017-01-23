@@ -9,10 +9,10 @@ The **MLDB Enterprise Edition** is a pre-built binary distribution of MLDB which
 
 When you run the MLDB Enterprise Edition for the first time, you will be prompted for a license key to activate the software. You can create your Free Trial license key instantly by signing up to [MLDB.ai](https://mldb.ai/#license_management) and filling out the request form.
 
-## Open Source software
+## Included open source software
 
 To ease integration with the MLDB codebase and for easier distribution,
-libraries have been included in the source code repository.
+libraries have been included in the MLDB source code repository.
 
 The following is a list of such libraries, along with links to their respective licenses and/or copyright notices.
 
