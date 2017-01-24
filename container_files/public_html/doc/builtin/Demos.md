@@ -11,13 +11,14 @@ MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
 * ![](%%nblink _tutorials/Querying Data Tutorial) 
 * ![](%%nblink _tutorials/SELECT Tutorial) 
 * ![](%%nblink _tutorials/Procedures and Functions Tutorial)
-* ![](%%nblink _tutorials/Identifying Biased Features Tutorial)
+* ![](%%nblink _tutorials/Using pymldb Progress Bar and Cancel Button Tutorial)
 
 ### Intermediate
 * ![](%%nblink _tutorials/Loading Data From An HTTP Server Tutorial)
 * ![](%%nblink _tutorials/Virtual Manipulation of Datasets Tutorial) 
 * ![](%%nblink _tutorials/Executing JavaScript Code Directly in SQL Queries Using the jseval Function Tutorial)
 * ![](%%nblink _tutorials/Selecting Columns Programmatically Using Column Expressions Tutorial)
+* ![](%%nblink _tutorials/Identifying Biased Features Tutorial)
 * ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) 
 
 ## Benchmarks
