@@ -177,7 +177,7 @@ The `mldb` docker is built on top of a few base images:
   - `quay.io/mldb/baseimage:0.9.17`
 
 Some warnings:
-* you will not be able to push to quay.io/mldb unless you are a MLDB.ai employee
+* you will not be able to push to quay.io/mldb unless you are a mldb.ai employee
 * if you need to rebuild a layer, you must rebuild all layers which depend on it. (all the ones above it)
 * the build is done from the top level of the mldb repo
 * The build process will build whatever is in the current workspace.
