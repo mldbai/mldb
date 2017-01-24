@@ -9,7 +9,7 @@ DOCUMENTATION_ENABLED:=1
 TCMALLOC_ENABLED?=1
 
 DOCKER_REGISTRY:=quay.io/
-DOCKER_USER:=datacratic/
+DOCKER_USER:=mldb/
 
 # Shim for the 14.04 migration
 DIST_CODENAME:=$(shell lsb_release -sc)

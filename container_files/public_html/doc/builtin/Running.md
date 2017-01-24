@@ -109,7 +109,7 @@ docker run --rm=true \
 -v </absolute/path/to/mldb_data>:/mldb_data \
 -e MLDB_IDS="`id`" \
 -p 127.0.0.1:<mldbport>:80 \
-quay.io/datacratic/mldb:latest
+quay.io/mldb/mldb:latest
 ```
 
 Once the container is booted, the path `/mldb_data` inside the container is mapped to `</absolute/path/to/mldb_data>` on the host machine, so MLDB will be able to access files at `</absolute/path/to/mldb_data>/file.ext` via the URL `file:///mldb_data/file.ext`. Read more about URLs [here](Url.md).
@@ -151,7 +151,7 @@ done manually.
 
 When you launch MLDB with the commands above, your container will be called `mldb`, and will keep running even if you close the terminal you used to launch it. To stop MLDB, use `docker kill mldb`, and to restart it you re-run the command you used to launch the container.
 
-To upgrade MLDB to the latest version hosted, just stop your container, run `docker pull quay.io/datacratic/mldb:latest` and restart your container.
+To upgrade MLDB to the latest version hosted, just stop your container, run `docker pull quay.io/mldb/mldb:latest` and restart your container.
 
 ### Batch mode
 

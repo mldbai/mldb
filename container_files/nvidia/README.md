@@ -18,9 +18,9 @@ Requirements
 
 ### mldb_base
 
-This baseimage should is built on top of `quay.io/datacratic/mldb_base`.
+This baseimage should is built on top of `quay.io/mldb/mldb_base`.
 
-Make sure it exists before trying to build. (`docker pull quay.io/datacratic/mldb_base:14.04`)
+Make sure it exists before trying to build. (`docker pull quay.io/mldb/mldb_base:14.04`)
 
 ### NVIDIA packages
 
@@ -40,17 +40,17 @@ Put these 3 files in the `container_files/nvidia/files` directory.
 Run `docker build` from the `container_files/nvidia` directory as follows,  changing `TAG` for something useful:
 
 ```
-docker build -t quay.io/datacratic/mldb_base_nvidia:TAG -f ./Dockerfile  .
+docker build -t quay.io/mldb/mldb_base_nvidia:TAG -f ./Dockerfile  .
 
 # To reduce the image size we can squash (flatten, merge) the docker image
-virtualenv/bin/docker-squash -t quay.io/datacratic/mldb_base_nvidia:TAG.squashed quay.io/datacratic/mldb_base_nvidia:TAG
+virtualenv/bin/docker-squash -t quay.io/mldb/mldb_base_nvidia:TAG.squashed quay.io/mldb/mldb_base_nvidia:TAG
 ```
 
 
 ### Building MLDB docker based on this image
 
 ```
-nice make -j $(nproc) docker_mldb WITH_CUDA=1 DOCKER_POST_INSTALL_ARGS=-s DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base_nvidia:TAG.squashed
+nice make -j $(nproc) docker_mldb WITH_CUDA=1 DOCKER_POST_INSTALL_ARGS=-s DOCKER_BASE_IMAGE=quay.io/mldb/mldb_base_nvidia:TAG.squashed
 ```
 
 Running MLDB with GPUs
@@ -66,7 +66,7 @@ docker run [... usual arguments ...] \
     --device=/dev/nvidia0:/dev/nvidia0 \
     --device=/dev/nvidiactl:/dev/nvidiactl \
     --device=/dev/nvidia-uvm:/dev/nvidia-uvm \
-    quay.io/datacratic/mldb:YOUR_MLDB_TAG
+    quay.io/mldb/mldb:YOUR_MLDB_TAG
 ```
 
 *Multiple GPUs can be mounted into the container by passing multiple `--dev /dev/nvidiaN:/dev/nvidiaN` flags.*

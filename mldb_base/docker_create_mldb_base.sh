@@ -6,8 +6,8 @@ set -x
 progname=$(basename $0)
 
 CIDFILE=$(mktemp -u -t $progname.cid.XXXXXX)  # Race me!
-BASE_IMG="quay.io/datacratic/baseimage:0.9.17"
-IMG_NAME=${IMG_NAME:="quay.io/datacratic/mldb_base:14.04"}
+BASE_IMG="quay.io/mldb/baseimage:0.9.17"
+IMG_NAME=${IMG_NAME:="quay.io/mldb/mldb_base:14.04"}
 
 BUILD_DOCKER_DIR="/mnt/build"
 

@@ -2,7 +2,7 @@
 # See README.md for notes on building this image
 #
 
-FROM quay.io/datacratic/mldb_base:14.04
+FROM quay.io/mldb/mldb_base:14.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 ADD files/cuda-repo-ubuntu1404-8-0-local_8.0.44-1_amd64.deb \
