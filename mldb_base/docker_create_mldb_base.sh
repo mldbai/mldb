@@ -65,6 +65,7 @@ apt-get update
 #####################
 apt-get install -y \
     bash \
+    binutils \
     nginx \
     vim-tiny \
     libboost-serialization1.54.0 \
