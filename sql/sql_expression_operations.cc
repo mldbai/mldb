@@ -4197,6 +4197,52 @@ wildcards() const
 }
 
 
+  
+BoundSqlExpression
+GroupByKeyExpression::
+bind(SqlBindingScope & scope) const
+{
+    auto getGroupbyKey = scope.doGetGroupbyKey(index);
+
+    if (!getGroupbyKey.info) {
+        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
+                            + " doGetGroupbyKey '"
+                            + "' didn't return info");
+    }
+
+    auto outputInfo = getGroupbyKey.info->getConst(false);
+
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
+            {
+                return getGroupbyKey(row, storage, filter);
+            },
+            this,
+            outputInfo};
+}
+
+Utf8String
+GroupByKeyExpression::
+print() const
+{
+    return "GroupBy Key";
+}
+
+std::shared_ptr<SqlExpression>
+GroupByKeyExpression::
+transform(const TransformArgs & transformArgs) const
+{
+    return make_shared<GroupByKeyExpression>(index);
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+GroupByKeyExpression::
+getChildren() const
+{
+    return {};
+}
+
 } // namespace MLDB
 
 

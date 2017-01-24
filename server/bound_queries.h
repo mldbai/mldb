@@ -173,7 +173,7 @@ struct BoundGroupByQuery {
     BoundSqlExpression boundRowName;
 
     // Select Expression to resolve
-    const SelectExpression& select;
+    SelectExpression select;
 
     // Having Expression to resolve
     const SqlExpression& having;

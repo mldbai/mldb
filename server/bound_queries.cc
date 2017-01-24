@@ -1503,6 +1503,19 @@ struct GroupContext: public SqlExpressionDatasetScope {
                 std::make_shared<AtomValueInfo>()};
     }
 
+    ColumnGetter
+    doGetGroupbyKey(size_t index)
+    {
+        return {[=] (const SqlRowScope & context,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    auto & row = context.as<RowScope>();
+                    return row.currentGroupKey[index];
+                },
+                std::make_shared<AnyValueInfo>()};
+    }
+
     RowScope
     getRowScope(NamedRowValue & output,
                   const std::vector<ExpressionValue> & currentGroupKey) const
@@ -1568,6 +1581,58 @@ struct GroupContext: public SqlExpressionDatasetScope {
 /* BOUND GROUP BY QUERY                                                      */
 /*****************************************************************************/
 
+//Replace all expressions that appears as a key in the group by
+//with an expression that reads the key
+void
+replaceGroupByKey(SelectExpression & select, const TupleExpression & groupBy)
+{
+    std::function<std::shared_ptr<SqlExpression> (std::shared_ptr<SqlExpression> a)>
+        doArg;
+
+    std::vector<Utf8String> printGroupbyClauses;
+    for (auto& c : groupBy.clauses) {
+        printGroupbyClauses.push_back(c->print());
+    }
+
+    auto onChild = [&] (std::vector<std::shared_ptr<SqlExpression> > args)
+        {
+            for (auto & a: args) {
+                a = doArg(a);
+            }
+
+            return args;
+        };
+
+    doArg = [&] (std::shared_ptr<SqlExpression> a)
+        -> std::shared_ptr<SqlExpression>
+        {
+            auto function = dynamic_pointer_cast<FunctionCallExpression>(a);
+            if (!function || (function->functionName != "rowName" && function->functionName != "rowHash")) {
+                 auto printref = a->print();
+
+                auto iter = std::find(printGroupbyClauses.begin(), printGroupbyClauses.end(), printref);
+                if (iter != printGroupbyClauses.end()) {
+                    size_t index = iter - printGroupbyClauses.begin();
+                    return  make_shared<GroupByKeyExpression>(index);
+                }
+            }
+
+            return a->transform(onChild);
+        };
+
+    auto doRoot = [&] (std::shared_ptr<SqlRowExpression> a)
+        {
+            return dynamic_pointer_cast<SqlRowExpression>(doArg(a));
+        };
+
+    // Walk the tree.
+    for (auto& p : select.clauses) {
+        auto result = doRoot(p);
+        result->surface = result->print();
+        p = result;
+    }
+}
+
 BoundGroupByQuery::
 BoundGroupByQuery(const SelectExpression & select,
                   const Dataset & from,
@@ -1585,7 +1650,6 @@ BoundGroupByQuery(const SelectExpression & select,
       rowContext(new SqlExpressionDatasetScope(from, alias)),
       groupContext(new GroupContext(from, alias, groupBy)),
       groupBy(groupBy),
-      select(select),
       having(having),
       orderBy(orderBy),
       numBuckets(1),
@@ -1615,6 +1679,12 @@ BoundGroupByQuery(const SelectExpression & select,
     //try to have at least MIN_ROW_PER_TASK rows per task
     numBuckets = maxNumRow <= maxNumTask*MIN_ROW_PER_TASK? maxNumRow / maxNumTask : maxNumTask;
     numBuckets = std::max(numBuckets, (size_t)1U);
+
+    //Make a copy of the (const) select
+    this->select = select;
+
+    // replace any sub-expression thats a group key with a GroupByKeyExpression
+    replaceGroupByKey(this->select, groupBy);
 
     // bind the subselect
     //false means no implicit sort by rowhash, we want unsorted

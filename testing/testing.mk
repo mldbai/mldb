@@ -468,6 +468,7 @@ $(eval $(call test,http_streambuf_test,vfs boost_filesystem boost_system runner 
 $(eval $(call mldb_unit_test,MLDB-2108-split-string.py))
 $(eval $(call mldb_unit_test,MLDB-2100_fetcher_timeout_test.py))
 $(eval $(call mldb_unit_test,MLDB-2110-merge-and-subselect-progress.py))
+$(eval $(call mldb_unit_test,MLDB-2111-group-by-expression.py))
 $(eval $(call mldb_unit_test,MLDB-2112_500_on_broken_proc_test.py))
 $(eval $(call mldb_unit_test,MLDB-2114_plugin_post_no_data_404_test.py))
 $(eval $(call mldb_unit_test,MLDB-2119_segfault_transform_no_input.py))
