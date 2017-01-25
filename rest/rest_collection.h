@@ -117,7 +117,7 @@ struct BackgroundTaskBase {
     /** When destroying a background task, we make sure it's cancelled or
         finished so that there is nothing outstanding.
     */
-    ~BackgroundTaskBase();
+    virtual ~BackgroundTaskBase();
 
     Json::Value getProgress() const;
 
