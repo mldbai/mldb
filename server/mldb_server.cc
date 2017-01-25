@@ -396,7 +396,8 @@ shutdown()
     while ((tasks = BackgroundTaskBase::getPendingTasks()) != 0) {
         if (tasks != tasksBefore) {
             tasksBefore = tasks;
-            cerr << "Still waiting for " << tasks << " task(s)" << endl;
+            INFO_MSG(logger) << "Still waiting for " << tasks
+                             << " task(s)";
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
