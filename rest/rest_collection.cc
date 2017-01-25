@@ -648,6 +648,12 @@ BackgroundTaskBase::
 BackgroundTaskBase()
     : running(false), state(State::INITIALIZING)
 {
+    ++runningTasks;
+}
+
+atomic<int> BackgroundTaskBase::runningTasks{0};
+int BackgroundTaskBase::getRunningTasks() {
+    return BackgroundTaskBase::runningTasks.load();
 }
 
 BackgroundTaskBase::
@@ -656,6 +662,7 @@ BackgroundTaskBase::
     if (running) {
         cancel();
     }
+    --runningTasks;
 }
 
 Json::Value
@@ -708,6 +715,7 @@ cancel() noexcept
     // completed
     return old_state != State::CANCELLED;
 }
+
 
 void
 BackgroundTaskBase::

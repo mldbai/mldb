@@ -26,6 +26,8 @@
 #include <boost/exception/diagnostic_information.hpp> 
 #include <signal.h>
 
+#include "mldb/rest/rest_collection.h"
+
 
 using namespace std;
 
@@ -408,6 +410,15 @@ int main(int argc, char ** argv)
         }
 
         if (!dontExitAfterScript) {
+            int tasksBefore = -1;
+            int tasks;
+            while ((tasks = BackgroundTaskBase::getRunningTasks()) != 0) {
+                if (tasks != tasksBefore) {
+                    tasksBefore = tasks;
+                    cerr << "Still waiting for " << tasks << " task(s)" << endl;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
             return 0;
         }
     }

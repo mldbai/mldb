@@ -112,6 +112,8 @@ struct BackgroundTaskBase {
     /// CANCELLED, FINISHED and ERROR are final states 
     enum State {INITIALIZING, EXECUTING, CANCELLED, FINISHED, ERROR};
 
+    static int getRunningTasks();
+
     BackgroundTaskBase();
 
     /** When destroying a background task, we make sure it's cancelled or
@@ -163,6 +165,9 @@ struct BackgroundTaskBase {
     Json::Value progress;
     std::vector<OnProgress> onProgressFunctions;
     int64_t handle;  ///< Handle of the thread running task
+
+    private:
+        static std::atomic<int> runningTasks;
 };
 
 
