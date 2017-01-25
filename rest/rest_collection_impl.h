@@ -561,7 +561,6 @@ addBackgroundJobInThread(Key key,
 
         // Set up the task, without starting it yet
         auto task = std::make_shared<BackgroundTask>();
-        task->running = false;
         task->config = config;
 
         auto onProgressFn = [=] (const Json::Value & progress)

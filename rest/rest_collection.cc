@@ -646,7 +646,7 @@ initRoutes(RouteManager & manager)
 
 BackgroundTaskBase::
 BackgroundTaskBase()
-    : running(true), state(State::INITIALIZING)
+    : running(false), state(State::INITIALIZING)
 {
 }
 
@@ -654,7 +654,7 @@ BackgroundTaskBase::
 ~BackgroundTaskBase()
 {
     if (running) {
-        cancel(); // UNSAFE - cancel() is not noexcept
+        cancel();
     }
 }
 
@@ -668,11 +668,16 @@ getProgress() const
 
 bool
 BackgroundTaskBase::
-cancel()
+cancel() noexcept
 {
     auto old_state = state.exchange(State::CANCELLED);
     if (old_state != State::CANCELLED && old_state != State::FINISHED) {
-        cancelledWatches.trigger(true);
+        try {
+            cancelledWatches.trigger(true);
+        }
+        catch (...) {
+            std::terminate();
+        }
     }
     // cerr << "state is now CANCELLED " << handle << endl;
 

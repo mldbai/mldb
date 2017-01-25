@@ -127,7 +127,7 @@ struct BackgroundTaskBase {
 
         Return false if the task was already cancelled and true otherwise.
     */
-    bool cancel();
+    bool cancel() noexcept;
 
     /** Set state to State::ERROR */
     void setError(std::exception_ptr exc = nullptr);
