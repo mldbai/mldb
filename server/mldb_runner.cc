@@ -11,6 +11,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/rest/rest_collection.h"
 #include "mldb/server/credential_collection.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/config.h"
@@ -25,9 +26,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/exception/diagnostic_information.hpp> 
 #include <signal.h>
-
-#include "mldb/rest/rest_collection.h"
-
 
 using namespace std;
 
