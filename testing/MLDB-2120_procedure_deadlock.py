@@ -3,6 +3,9 @@
 # Francois-Michel L'Heureux, 2017-01-20
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
+# The deadlock set forth by this test was in rest_collection_impl when it was
+# exposed to procedure creation bombardment.
+#
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
