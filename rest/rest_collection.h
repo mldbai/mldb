@@ -112,14 +112,12 @@ struct BackgroundTaskBase {
     /// CANCELLED, FINISHED and ERROR are final states 
     enum State {INITIALIZING, EXECUTING, CANCELLED, FINISHED, ERROR};
 
-    static int getRunningTasks();
-
     BackgroundTaskBase();
 
     /** When destroying a background task, we make sure it's cancelled or
         finished so that there is nothing outstanding.
     */
-    ~BackgroundTaskBase();
+    virtual ~BackgroundTaskBase();
 
     Json::Value getProgress() const;
 
@@ -166,8 +164,19 @@ struct BackgroundTaskBase {
     std::vector<OnProgress> onProgressFunctions;
     int64_t handle;  ///< Handle of the thread running task
 
+    static int getPendingTasks();
+
     private:
-        static std::atomic<int> runningTasks;
+        static std::atomic<int> pendingTasks;
+        std::atomic<int> needToDecrementPendingTasks;
+
+        void tryDecrementPendingTasks() noexcept {
+            // Tasks that end up in cancelled or error state are not deleted,
+            // hence we cannot simply decrement just in the dtor.
+            if (needToDecrementPendingTasks.exchange(0)) {
+                --pendingTasks;
+            }
+        };
 };
 
 

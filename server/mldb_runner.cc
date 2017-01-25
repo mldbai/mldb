@@ -11,7 +11,6 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/http/http_rest_proxy.h"
-#include "mldb/rest/rest_collection.h"
 #include "mldb/server/credential_collection.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/config.h"
@@ -408,15 +407,6 @@ int main(int argc, char ** argv)
         }
 
         if (!dontExitAfterScript) {
-            int tasksBefore = -1;
-            int tasks;
-            while ((tasks = BackgroundTaskBase::getRunningTasks()) != 0) {
-                if (tasks != tasksBefore) {
-                    tasksBefore = tasks;
-                    cerr << "Still waiting for " << tasks << " task(s)" << endl;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
             return 0;
         }
     }

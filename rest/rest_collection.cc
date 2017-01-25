@@ -648,21 +648,22 @@ BackgroundTaskBase::
 BackgroundTaskBase()
     : running(false), state(State::INITIALIZING)
 {
-    ++runningTasks;
+    ++pendingTasks;
+    needToDecrementPendingTasks.store(1);
 }
 
-atomic<int> BackgroundTaskBase::runningTasks{0};
-int BackgroundTaskBase::getRunningTasks() {
-    return BackgroundTaskBase::runningTasks.load();
+atomic<int> BackgroundTaskBase::pendingTasks{0};
+int BackgroundTaskBase::getPendingTasks() {
+    return BackgroundTaskBase::pendingTasks.load();
 }
 
 BackgroundTaskBase::
 ~BackgroundTaskBase()
 {
+    tryDecrementPendingTasks();
     if (running) {
         cancel();
     }
-    --runningTasks;
 }
 
 Json::Value
@@ -677,6 +678,7 @@ bool
 BackgroundTaskBase::
 cancel() noexcept
 {
+    tryDecrementPendingTasks();
     auto old_state = state.exchange(State::CANCELLED);
     if (old_state != State::CANCELLED && old_state != State::FINISHED) {
         try {
@@ -721,6 +723,7 @@ void
 BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
+    tryDecrementPendingTasks();
     auto old_state = state.exchange(State::ERROR);
     // cerr << "state is now ERROR " << handle << endl;
 
