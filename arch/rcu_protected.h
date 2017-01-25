@@ -199,8 +199,9 @@ struct RcuProtected {
         return std::unique_ptr<T>(val.exchange(newVal));
     }
     
+    template<typename DELETER>
     bool cmp_xchg(RcuLocked<T> & current,
-                  std::unique_ptr<T> & newValue,
+                  std::unique_ptr<T, DELETER> & newValue,
                   bool defer = true,
                   void (*cleanup) (T *) = GcLock::doDelete<T>)
     {
