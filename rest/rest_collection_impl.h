@@ -561,7 +561,8 @@ addBackgroundJobInThread(Key key,
 
         // Set up the task, without starting it yet
         auto task = std::make_shared<BackgroundTask>();
-        task->config = std::move(config);
+        task->running = false;
+        task->config = config;
 
         auto onProgressFn = [=] (const Json::Value & progress)
             {
@@ -583,7 +584,7 @@ addBackgroundJobInThread(Key key,
                     WatchT<bool> cancelled = std::move(*cancelledPtr);
                     task->value = fn(onProgressFn, std::move(cancelled));
                     task->setFinished();
-                } 
+                }
                 catch (const CancellationException & exc) {
                     // throwing CancellationException when the task
                     // state was not set to Cancelled
@@ -615,6 +616,7 @@ addBackgroundJobInThread(Key key,
 
         if (impl->entries.cmp_xchg(oldEntries, newEntries, true)) {
             // Now we can start the task, since the commit succeeded
+            task->running = true;
             std::thread thread(toRun);
 
             auto handle = thread.native_handle();

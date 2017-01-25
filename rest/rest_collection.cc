@@ -654,7 +654,7 @@ BackgroundTaskBase::
 ~BackgroundTaskBase()
 {
     if (running) {
-        cancel();
+        cancel(); // UNSAFE - cancel() is not noexcept
     }
 }
 
@@ -671,8 +671,7 @@ BackgroundTaskBase::
 cancel()
 {
     auto old_state = state.exchange(State::CANCELLED);
-    if (old_state != State::CANCELLED && 
-        old_state != State::FINISHED) {
+    if (old_state != State::CANCELLED && old_state != State::FINISHED) {
         cancelledWatches.trigger(true);
     }
     // cerr << "state is now CANCELLED " << handle << endl;
