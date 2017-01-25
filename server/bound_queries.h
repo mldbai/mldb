@@ -82,6 +82,7 @@ struct BoundSelectQuery {
     const WhenExpression & when;
     const SqlExpression & where;
     std::vector<std::shared_ptr<SqlExpression> > calc;
+    std::vector<BoundSqlExpression> boundCalc;
     const OrderByExpression & orderBy;
     std::shared_ptr<SqlExpressionDatasetScope> context;
     std::shared_ptr<ExpressionValueInfo> selectInfo;
@@ -176,10 +177,10 @@ struct BoundGroupByQuery {
     SelectExpression select;
 
     // Having Expression to resolve
-    const SqlExpression& having;
+    std::shared_ptr<SqlExpression> having;
 
     // groupby Expression to resolve
-    const OrderByExpression & orderBy;
+    OrderByExpression orderBy;
 
     SelectExpression subSelectExpr;
 

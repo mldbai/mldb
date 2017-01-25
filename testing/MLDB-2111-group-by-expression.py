@@ -95,5 +95,33 @@ class Mldb2111GroupByTests(MldbUnitTest):  # noqa
              ["[3]",4],
              ["[4]",5]])
 
+    def test_groupby_named(self):
+        res = mldb.query("""
+            SELECT x+1  NAMED (x+1)*2 FROM (SELECT x:1) GROUP BY x+1
+        """)
+
+        self.assertTableResultEquals(res, 
+            [[ "_rowName", "x+1"],
+             [ "4", 2 ]])
+
+    def test_groupby_orderby(self):
+        res = mldb.query("""
+            SELECT x+1  FROM ds GROUP BY x+1 ORDER BY x+1
+        """)
+
+        self.assertTableResultEquals(res, 
+            [["_rowName", "x+1"],
+             ["[2]", 2],
+             ["[3]", 3]])
+
+    def test_groupby_having(self):
+        res = mldb.query("""
+            SELECT 0 as z FROM ds GROUP BY x+1 HAVING x+1 = 3
+        """)
+
+        self.assertTableResultEquals(res, 
+            [["_rowName","z"],
+             ["[3]", 0]])
+
 if __name__ == '__main__':
     mldb.run_tests()
