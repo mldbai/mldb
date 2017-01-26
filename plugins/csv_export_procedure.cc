@@ -109,7 +109,8 @@ run(const ProcedureRunConfig & run,
                          runProcConf.exportData.stm->orderBy,
                          calc);
 
-    const auto columnNames = bsq.getSelectOutputInfo()->allColumnNames();
+    const auto columnNames = bsq.getSelectOutputInfo()->allAtomNames();
+
     vector<string> lineBuffer; // keeps the data that cannot be outputed
                                // yet to the csv due to the ordering difference
                                // between columnNames and the order in which
@@ -208,7 +209,7 @@ run(const ProcedureRunConfig & run,
     };
 
     if (runProcConf.headers) {
-        for (const auto & name: bsq.getSelectOutputInfo()->allColumnNames()) {
+        for (const auto & name: bsq.getSelectOutputInfo()->allAtomNames()) {
             csv << name.toUtf8String();
         }
         csv.endl();

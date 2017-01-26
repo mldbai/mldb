@@ -241,6 +241,14 @@ getKnownAtoms(const ColumnPath prefix) const
                                 atom.sparsity == c.sparsity ? atom.sparsity : COLUMN_IS_SPARSE,
                                 -1);
             }
+
+            //if it has no child and could be scalar, return as an atom
+            if (subResult.empty() && c.valueInfo->couldBeScalar() ){
+                result.emplace_back(prefix + c.columnName, 
+                                c.valueInfo,
+                                c.sparsity,
+                                -1);
+            }
         }
         else {
             result.emplace_back(prefix + c.columnName, 
@@ -259,6 +267,16 @@ allColumnNames() const
 {
     std::vector<ColumnPath> result;
     for (auto & val: getKnownColumns())
+        result.emplace_back(std::move(val.columnName));
+    return result;
+}
+
+std::vector<ColumnPath>
+ExpressionValueInfo::
+allAtomNames() const
+{
+    std::vector<ColumnPath> result;
+    for (auto & val: getKnownAtoms())
         result.emplace_back(std::move(val.columnName));
     return result;
 }

@@ -333,6 +333,8 @@ struct ExpressionValueInfo {
 
     /// Return a list of all known column names
     virtual std::vector<ColumnPath> allColumnNames() const;
+
+    virtual std::vector<ColumnPath> allAtomNames() const;
     
     /// Is the other value compatible with this info?
     virtual bool isCompatible(const ExpressionValue & value) const = 0;
