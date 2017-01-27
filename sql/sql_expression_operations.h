@@ -615,7 +615,7 @@ struct GroupByKeyExpression: public SqlRowExpression {
 
     virtual std::string getType() const override
     {
-        return "groupbykey";
+        return "groupByKey";
     }
 
     virtual Utf8String getOperation() const override

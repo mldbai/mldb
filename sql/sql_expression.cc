@@ -388,7 +388,7 @@ doGetBoundParameter(const Utf8String & paramName)
 
 ColumnGetter
 SqlBindingScope::
-doGetGroupbyKey(size_t index)
+doGetGroupByKey(size_t index)
 {
     throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                               + " is not a group by context");

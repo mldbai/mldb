@@ -1503,7 +1503,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
     }
 
     ColumnGetter
-    doGetGroupbyKey(size_t index)
+    doGetGroupByKey(size_t index)
     {
         return {[=] (const SqlRowScope & context,
                      ExpressionValue & storage,
@@ -1602,7 +1602,7 @@ replaceGroupByKey(const std::shared_ptr<SqlExpression> p, const std::vector<Utf8
         {
             auto function = dynamic_pointer_cast<FunctionCallExpression>(a);
             if (!function || (function->functionName != "rowName" && function->functionName != "rowHash")) {
-                 auto printref = a->print();
+                auto printref = a->print();
 
                 auto iter = std::find(printGroupbyClauses.begin(), printGroupbyClauses.end(), printref);
                 if (iter != printGroupbyClauses.end()) {

@@ -4202,14 +4202,16 @@ BoundSqlExpression
 GroupByKeyExpression::
 bind(SqlBindingScope & scope) const
 {
-    auto getGroupbyKey = scope.doGetGroupbyKey(index);
+    auto getGroupbyKey = scope.doGetGroupByKey(index);
 
     if (!getGroupbyKey.info) {
         throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
-                            + " doGetGroupbyKey '"
+                            + " doGetGroupByKey '"
                             + "' didn't return info");
     }
 
+    //GroupByKeyExpression are never constant because we need the group by row
+    //to evaluate them.
     auto outputInfo = getGroupbyKey.info->getConst(false);
 
     return {[=] (const SqlRowScope & row,
@@ -4226,7 +4228,7 @@ Utf8String
 GroupByKeyExpression::
 print() const
 {
-    return "GroupBy Key";
+    return "GroupBy Key [" + to_string(index) + "]";
 }
 
 std::shared_ptr<SqlExpression>

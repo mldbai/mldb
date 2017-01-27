@@ -647,7 +647,7 @@ struct SqlBindingScope {
 
     /** Used to obtain the value of a group by key. */
     virtual ColumnGetter
-    doGetGroupbyKey(size_t index);
+    doGetGroupByKey(size_t index);
 
     /** Used to obtain a dataset from a dataset name. */
     virtual std::shared_ptr<Dataset>

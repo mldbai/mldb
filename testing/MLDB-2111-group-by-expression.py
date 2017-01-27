@@ -11,11 +11,15 @@ class Mldb2111GroupByTests(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
-        ds.record_row('0', [['x', 1, 0], ['y', 1, 0]])
-        ds.record_row('1', [['x', 1, 0], ['y', 2, 0]])
-        ds.record_row('2', [['x', 2, 0], ['y', 1, 0]])
-        ds.record_row('3', [['x', 2, 0], ['y', 2, 0]])
+        ds.record_row('0', [['x', 1, 1], ['y', 1, 2]])
+        ds.record_row('1', [['x', 1, 3], ['y', 2, 4]])
+        ds.record_row('2', [['x', 2, 5], ['y', 1, 6]])
+        ds.record_row('3', [['x', 2, 7], ['y', 2, 8]])
         ds.commit()
+
+        ds2 = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
+        ds2.record_row('0', [['x', 1, 1], ['x', 2, 2]])
+        ds2.commit()
 
     def test_groupby_expression(self):
         res = mldb.query("""
@@ -59,20 +63,26 @@ class Mldb2111GroupByTests(MldbUnitTest):  # noqa
     ## Rowname & rowHash in the select is different than in the group by
     def test_groupby_rowname(self):
         res = mldb.query("""
-            SELECT rowName() FROM ds GROUP BY rowName() LIMIT 1
+            SELECT rowName() FROM ds GROUP BY rowName()
         """)
 
         self.assertTableResultEquals(res, 
             [["_rowName", "rowName()"],
-             ["\"[\"\"0\"\"]\"","\"[\"\"0\"\"]\""]])
+             ["\"[\"\"0\"\"]\"", "\"[\"\"0\"\"]\""],
+             ["\"[\"\"1\"\"]\"", "\"[\"\"1\"\"]\""],
+             ["\"[\"\"2\"\"]\"", "\"[\"\"2\"\"]\""],
+             ["\"[\"\"3\"\"]\"", "\"[\"\"3\"\"]\""]])
 
         res = mldb.query("""
-            SELECT rowHash() FROM ds GROUP BY rowHash() LIMIT 1
+            SELECT rowHash() FROM ds GROUP BY rowHash()
         """)
 
         self.assertTableResultEquals(res, 
             [["_rowName","rowHash()"],
-             ["[10408321403207385874]", 11729733417614312054]])
+             ["[10408321403207385874]",11729733417614312054],
+             ["[11275350073939794026]",9399015998024610411],
+             ["[11413460447292444913]",4531258406341702386],
+             ["[17472595041006102391]",12806200029519745032]])
 
     def test_groupby_argument(self):
         res = mldb.query("""
@@ -122,6 +132,29 @@ class Mldb2111GroupByTests(MldbUnitTest):  # noqa
         self.assertTableResultEquals(res, 
             [["_rowName","z"],
              ["[3]", 0]])
+
+    def test_groupby_temporal(self):
+        res = mldb.query("""
+            select temporal_latest({*}) as * from ds2
+        """)
+
+        self.assertTableResultEquals(res, 
+            [["_rowName","x"],
+             ["0", 2]])
+
+    def test_groupby_inexact(self):
+
+        msg = "variable 'x' must appear in the GROUP BY clause or be used in an aggregate function"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            res = mldb.query("""
+                SELECT x+1 FROM (SELECT x:1) GROUP BY 1+x
+            """)
+
+        msg = "variable 'x' must appear in the GROUP BY clause or be used in an aggregate function"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            res = mldb.query("""
+                SELECT x+1*3 FROM (SELECT x:1) GROUP BY 1+x
+            """)     
 
 if __name__ == '__main__':
     mldb.run_tests()
