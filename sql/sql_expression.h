@@ -645,6 +645,10 @@ struct SqlBindingScope {
     virtual ColumnGetter
     doGetBoundParameter(const Utf8String & paramName);
 
+    /** Used to obtain the value of a group by key. */
+    virtual ColumnGetter
+    doGetGroupByKey(size_t index);
+
     /** Used to obtain a dataset from a dataset name. */
     virtual std::shared_ptr<Dataset>
     doGetDataset(const Utf8String & datasetName);

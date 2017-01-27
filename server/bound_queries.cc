@@ -1098,14 +1098,12 @@ BoundSelectQuery(const SelectExpression & select,
 
         selectInfo = boundSelect.info;
 
-        std::vector<BoundSqlExpression> boundCalc;
         for (auto & c: calc) {
             ExcAssert(c);
             boundCalc.emplace_back(c->bind(*context));
         }
 
         // Get a generator rows from the for the ordered, limited where expression
-
         // Remove any constants from the order by clauses
 
         OrderByExpression newOrderBy;
@@ -1145,7 +1143,7 @@ BoundSelectQuery(const SelectExpression & select,
                                                       *context,
                                                       std::move(whenBound),
                                                       std::move(boundSelect),
-                                                      std::move(boundCalc),
+                                                      boundCalc,
                                                       std::move(newOrderBy),
                                                       outputInParallel));          
            
@@ -1158,7 +1156,7 @@ BoundSelectQuery(const SelectExpression & select,
                                                *context,
                                                std::move(whenBound),
                                                std::move(boundSelect),
-                                               std::move(boundCalc),
+                                               boundCalc,
                                                std::move(newOrderBy),
                                                select.distinctExpr.size()));
         } else {
@@ -1168,7 +1166,7 @@ BoundSelectQuery(const SelectExpression & select,
                                                 *context,
                                                  std::move(whenBound),
                                                  std::move(boundSelect),
-                                                 std::move(boundCalc),
+                                                 boundCalc,
                                                  std::move(newOrderBy),
                                                  numBuckets,
                                                  logger));
@@ -1304,10 +1302,12 @@ typedef std::vector<std::shared_ptr<void> > GroupMapValue;
 struct GroupContext: public SqlExpressionDatasetScope {
 
     GroupContext(const Dataset& dataset, const Utf8String& alias, 
-            const TupleExpression & groupByExpression) : 
-        SqlExpressionDatasetScope(dataset, alias), 
+            const TupleExpression & groupByExpression,
+            std::vector<std::shared_ptr<ExpressionValueInfo> >& groupInfo) : 
+        SqlExpressionDatasetScope(dataset, alias),
         groupByExpression(groupByExpression),
-        argCounter(0), argOffset(0),
+        groupInfo(groupInfo),
+        argCounter(0), argOffset(groupInfo.size()),
         evaluateEmptyGroups(false)
     {
     }
@@ -1316,7 +1316,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(NamedRowValue & output,
-                   const std::vector<ExpressionValue> & currentGroupKey)
+                 const std::vector<ExpressionValue> & currentGroupKey)
             : output(output), currentGroupKey(currentGroupKey)
         {
         }
@@ -1433,15 +1433,14 @@ struct GroupContext: public SqlExpressionDatasetScope {
     {
         // First, search for something that matches the surface (ugh)
         // of a group by clause.  We can use that directly.
+
+        // This whole block is only necessary right now because of this use-case:
+        // Select dataset.column From dataset group by column
+        // When this case if properly managed by replaceGroupByKey
+        // we can eliminate this block
         for (unsigned i = 0;  i < groupByExpression.clauses.size();  ++i) {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
-
-            // This logic is not completely implemented.  We need to identify
-            // any parts of the group by expression that are referred to by
-            // the select clause and return their value, not just the variable
-            // names.  For the moment, we're just hacking it so that it will
-            // work with variable names.
 
             ColumnPath simplifiedSurface;
             if (columnName[0] == alias) {
@@ -1503,6 +1502,19 @@ struct GroupContext: public SqlExpressionDatasetScope {
                 std::make_shared<AtomValueInfo>()};
     }
 
+    ColumnGetter
+    doGetGroupByKey(size_t index)
+    {
+        return {[=] (const SqlRowScope & context,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    auto & row = context.as<RowScope>();
+                    return row.currentGroupKey[index];
+                },
+                groupInfo[index]};
+    }
+
     RowScope
     getRowScope(NamedRowValue & output,
                   const std::vector<ExpressionValue> & currentGroupKey) const
@@ -1555,7 +1567,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
         }
     }
              
-
+    std::vector<std::shared_ptr<ExpressionValueInfo> > groupInfo;
     std::vector<OutputAggregator> outputAgg;    
     std::vector<std::shared_ptr<void> > aggData;  //working buffers for the above
     int argCounter;
@@ -1567,6 +1579,46 @@ struct GroupContext: public SqlExpressionDatasetScope {
 /*****************************************************************************/
 /* BOUND GROUP BY QUERY                                                      */
 /*****************************************************************************/
+
+//Replace all expressions that appears as a key in the group by
+//with an expression that reads the key
+std::shared_ptr<SqlExpression>
+replaceGroupByKey(const std::shared_ptr<SqlExpression> p, const std::vector<Utf8String>& printGroupbyClauses)
+{
+    std::function<std::shared_ptr<SqlExpression> (std::shared_ptr<SqlExpression> a)>
+        doArg;
+
+    auto onChild = [&] (std::vector<std::shared_ptr<SqlExpression> > args)
+        {
+            for (auto & a: args) {
+                a = doArg(a);
+            }
+
+            return args;
+        };
+
+    doArg = [&] (std::shared_ptr<SqlExpression> a)
+        -> std::shared_ptr<SqlExpression>
+        {
+            auto function = dynamic_pointer_cast<FunctionCallExpression>(a);
+            if (!function || (function->functionName != "rowName" && function->functionName != "rowHash")) {
+                auto printref = a->print();
+
+                auto iter = std::find(printGroupbyClauses.begin(), printGroupbyClauses.end(), printref);
+                if (iter != printGroupbyClauses.end()) {
+                    size_t index = iter - printGroupbyClauses.begin();
+                    return  make_shared<GroupByKeyExpression>(index);
+                }
+            }
+
+            return a->transform(onChild);
+        };
+
+    // Walk the tree.
+    auto result = doArg(p);
+    result->surface = result->print();
+    return result;
+}
 
 BoundGroupByQuery::
 BoundGroupByQuery(const SelectExpression & select,
@@ -1583,10 +1635,9 @@ BoundGroupByQuery(const SelectExpression & select,
       when(when),
       where(where),
       rowContext(new SqlExpressionDatasetScope(from, alias)),
-      groupContext(new GroupContext(from, alias, groupBy)),
       groupBy(groupBy),
       select(select),
-      having(having),
+      having(having.shallowCopy()),
       orderBy(orderBy),
       numBuckets(1),
       logger(getMldbLog<BoundGroupByQuery>())
@@ -1595,8 +1646,6 @@ BoundGroupByQuery(const SelectExpression & select,
         calc.push_back(g);
     }
 
-    groupContext->argOffset = calc.size();
-
     // Convert the select clauses to a list
     for (auto & expr : aggregatorsExpr)
     {
@@ -1604,11 +1653,8 @@ BoundGroupByQuery(const SelectExpression & select,
         //Important: This assumes they are in the same order as in the group context
         for (auto & a: fn->args) {
            calc.emplace_back(a);
-        } 
+        }
     }
-
-    // Bind the row name expression
-    boundRowName = rowName.bind(*groupContext);
 
     size_t maxNumRow = from.getMatrixView()->getRowCount();
     int maxNumTask = numCpus() * TASK_PER_THREAD;
@@ -1619,6 +1665,34 @@ BoundGroupByQuery(const SelectExpression & select,
     // bind the subselect
     //false means no implicit sort by rowhash, we want unsorted
     subSelect.reset(new BoundSelectQuery(subSelectExpr, from, alias, when, where, subOrderBy, calc, numBuckets));
+
+    std::vector<std::shared_ptr<ExpressionValueInfo> > groupInfo;
+    for (size_t c = 0; c < groupBy.clauses.size(); ++c) {
+        groupInfo.push_back(subSelect->boundCalc[c].info);
+    }
+
+    groupContext = make_shared<GroupContext>(from, alias, groupBy, groupInfo);
+
+    // replace any sub-expression thats a group key with a GroupByKeyExpression
+    std::vector<Utf8String> printGroupbyClauses;
+    for (auto& c : groupBy.clauses) {
+        printGroupbyClauses.push_back(c->print());
+    }
+
+    for (auto& p : this->select.clauses)
+        p = dynamic_pointer_cast<SqlRowExpression>(replaceGroupByKey(p, printGroupbyClauses));
+
+    for (auto& p : this->orderBy.clauses) {
+        p.first =replaceGroupByKey(p.first, printGroupbyClauses);
+    }
+
+    if (!this->having->isConstantTrue() && !this->having->isConstantFalse())
+        this->having = replaceGroupByKey(this->having, printGroupbyClauses);
+
+    auto pRowName = replaceGroupByKey(rowName.shallowCopy(), printGroupbyClauses);
+
+     // Bind the row name expression
+    boundRowName = pRowName->bind(*groupContext);
 
 }
 
@@ -1656,10 +1730,10 @@ execute(RowProcessor processor,
 
     //bind the having expression. Must be bound after the select because
     //we placed the having aggregators after the select aggregator in the list
-    BoundSqlExpression boundHaving = having.bind(*groupContext);
+    BoundSqlExpression boundHaving = having->bind(*groupContext);
 
     //The bound having must resolve to a boolean expression
-    if (!having.isConstantTrue() && !having.isConstantFalse() && dynamic_cast<BooleanValueInfo*>(boundHaving.info.get()) == nullptr)
+    if (!having->isConstantTrue() && !having->isConstantFalse() && dynamic_cast<BooleanValueInfo*>(boundHaving.info.get()) == nullptr)
         throw HttpReturnException(400, "HAVING must be a boolean expression");
 
     // Bind in the order by expression. Must be bound after the having because
