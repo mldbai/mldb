@@ -386,6 +386,14 @@ doGetBoundParameter(const Utf8String & paramName)
                               + " does not support bound parameters ($1... or $name)");
 }
 
+ColumnGetter
+SqlBindingScope::
+doGetGroupByKey(size_t index)
+{
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+                              + " is not a group by context");
+}
+
 std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
@@ -3209,7 +3217,31 @@ std::shared_ptr<SqlExpression>
 SelectExpression::
 transform(const TransformArgs & transformArgs) const
 {
-    throw HttpReturnException(400, "Not implemented: SelectExpression::transform()");
+    std::vector<std::shared_ptr<SqlExpression>> args;
+    for (auto c : clauses)
+        args.push_back(c);
+    for (auto c : distinctExpr)
+        args.push_back(c);
+
+    size_t numClause = clauses.size();
+
+    auto result = std::make_shared<SelectExpression>(*this);
+    auto newArgs = transformArgs(args);
+
+    result->clauses.clear();
+    result->distinctExpr.clear();
+
+    for (int i = 0; i < numClause; ++i) {
+        auto clause = dynamic_pointer_cast<SqlRowExpression>(newArgs[i]);
+        ExcAssert(clause);
+        result->clauses.push_back(clause);
+    }
+
+    for (int i = numClause; i < newArgs.size(); ++i) {
+        result->distinctExpr.push_back(newArgs[i]);
+    }
+
+    return result;
 }
 
 std::string

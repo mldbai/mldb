@@ -599,4 +599,36 @@ struct SelectColumnExpression: public SqlRowExpression {
     std::map<ScopedName, UnboundWildcard> wildcards() const;
 };
 
+/** Read the value from a groupby key */
+struct GroupByKeyExpression: public SqlRowExpression {
+    GroupByKeyExpression(size_t index) : index(index) { }
+
+    size_t index;
+
+    virtual BoundSqlExpression
+    bind(SqlBindingScope & context) const override;
+
+    virtual Utf8String print() const override;
+
+    virtual std::shared_ptr<SqlExpression>
+    transform(const TransformArgs & transformArgs) const override;
+
+    virtual std::string getType() const override
+    {
+        return "groupByKey";
+    }
+
+    virtual Utf8String getOperation() const override
+    {
+        return getType() + "[" + std::to_string(index) + "]";
+    }
+
+    virtual bool isConstant() const override
+    {
+        return false;
+    }
+
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
+};
+
 } // namespace MLDB

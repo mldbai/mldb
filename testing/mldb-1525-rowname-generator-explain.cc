@@ -9,6 +9,7 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
+#include "mldb/builtin/sub_dataset.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -26,21 +27,10 @@ BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
 
 static MldbServer *notNull = (MldbServer *)0x000001;
 
-struct DummyDataset: public Dataset {
-
-    DummyDataset() : Dataset(notNull) {
-
-    }
-
-    virtual Any getStatus() const { return Any(); }
-    virtual std::shared_ptr<MatrixView> getMatrixView() const { return nullptr; }
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const { return nullptr; }
-};
-
 BOOST_AUTO_TEST_CASE(test_explain)
 {
     {
-        DummyDataset dataset;        
+        SubDataset dataset(notNull, {});
 
         SqlBindingScope scope;
 
