@@ -1220,6 +1220,8 @@ struct ExpressionValue {
     */
     size_t hash() const;
 
+    void DebugPrint();
+
 private:
     void extractImpl(void * obj, const ValueDescription & desc) const;
 

@@ -4776,6 +4776,20 @@ assertType(Type requested, const std::string & details) const
     }
 }
 
+void
+ExpressionValue::
+DebugPrint()
+{
+    string str = jsonEncodeStr(*this);
+    if (str.length() > 1000) {
+        cerr << str.substr(1000) << "...<truncated "
+             << str.length() - 1000 << "chars" << endl;
+    }
+    else {
+        cerr << str << endl;
+    }
+}
+
 
 // Get a value description for values
 DEFINE_VALUE_DESCRIPTION_NS(ExpressionValue, ExpressionValueDescription);
