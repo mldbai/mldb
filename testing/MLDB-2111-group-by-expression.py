@@ -135,12 +135,20 @@ class Mldb2111GroupByTests(MldbUnitTest):  # noqa
 
     def test_groupby_temporal(self):
         res = mldb.query("""
-            select temporal_latest({*}) as * from ds2
+            select temporal_latest({x}) as * from ds2 GROUP BY x
         """)
 
         self.assertTableResultEquals(res, 
             [["_rowName","x"],
-             ["0", 2]])
+             ["[2]", 2]])
+
+        res = mldb.query("""
+            select temporal_latest({x}) from ds2 group by temporal_latest({x})
+        """)
+
+        self.assertTableResultEquals(res, 
+            [["_rowName","temporal_latest({x}).x"],
+             ["\"[[[\"\"x\"\",[2,\"\"1970-01-01T00:00:02Z\"\"]]]]\"", 2]])
 
     def test_groupby_inexact(self):
 
@@ -153,7 +161,7 @@ class Mldb2111GroupByTests(MldbUnitTest):  # noqa
         msg = "variable 'x' must appear in the GROUP BY clause or be used in an aggregate function"
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             res = mldb.query("""
-                SELECT x+1*3 FROM (SELECT x:1) GROUP BY 1+x
+                SELECT x+1*3 FROM (SELECT x:1) GROUP BY x+1
             """)     
 
 if __name__ == '__main__':
