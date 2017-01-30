@@ -213,12 +213,18 @@ class SqlSquareBracketOperatorTests(MldbUnitTest):  # noqa
                 """SELECT a[foo bar] FROM (SELECT {"foo bar": 123} AS a)""")
 
     def test_internal_ws_double_quotes(self):
+        expected = [
+            ['_rowName', "a.foo bar"],
+            ['result', 123]
+        ]
         res = mldb.query(
             """SELECT a["foo bar"] FROM (SELECT {"foo bar": 123} AS a)""")
-        self.assertEqual(res, [
-            ['_rowName', """a.foo bar"""],
-            ['result', 123]
-        ])
+        self.assertEqual(res, expected)
+
+        # make sure this is coherent
+        res = mldb.query(
+            """SELECT a."foo bar" FROM (SELECT {"foo bar": 123} AS a)""")
+        self.assertEqual(res, expected)
 
 
 if __name__ == '__main__':
