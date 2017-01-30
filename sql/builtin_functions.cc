@@ -2615,7 +2615,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
         throw HttpReturnException(400, "requires an embedding as first argument, got " + jsonEncodeStr(args[0].info));
     }
 
-    if (!args[1].info->isEmbedding())
+    if (!args[1].info->couldBeEmbedding())
         throw HttpReturnException(400, "requires an embedding as second argument");
 
     if (args[1].info->isConst()) {
