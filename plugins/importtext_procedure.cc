@@ -96,6 +96,8 @@ ImportTextConfigDescription::ImportTextConfigDescription()
             "Ignore extra columns that weren't in header.  This allows for files that "
             "have optional trailing columns that aren't listed in the header or for "
             "files with a partially fixed, partially variable column set to be imported.");
+    addAuto("skipLineRegex", &ImportTextConfig::skipLineRegex,
+            "Regex used to skip lines");
 
     addParent<ProcedureConfig>();
     onUnknownField = [] (ImportTextConfig * config,
@@ -369,8 +371,9 @@ Encoding parseEncoding(const std::string & encodingStr_)
     return encoding;
 }
 
-const char * findInvalidAscii(const char * start, size_t length, char*buf, char replaceInvalidCharactersWith) {
-
+const char * findInvalidAscii(const char * start, size_t length, char*buf,
+                              char replaceInvalidCharactersWith)
+{
     memcpy(buf, start, length);
 
     char* p = buf;
@@ -387,12 +390,12 @@ const char * findInvalidAscii(const char * start, size_t length, char*buf, char 
 } // file scope
 
 namespace {
-    const string unclosedQuoteError = "Unclosed quoted CSV value";
-    const string notEnoughColsError = "not enough columns in row";
+    static const string unclosedQuoteError = "Unclosed quoted CSV value";
+    static const string notEnoughColsError = "not enough columns in row";
 }
 
 // Inline version of isascii
-MLDB_ALWAYS_INLINE bool isascii(int c)
+static MLDB_ALWAYS_INLINE bool isascii(int c)
 {
     return (c & (~127)) == 0;
 }
@@ -424,7 +427,7 @@ MLDB_ALWAYS_INLINE bool isascii(int c)
     - hasQuoteChar: should we use the quote char
 */
 
-const char *
+static const char *
 parseFixedWidthCsvRow(const char * & line,
                       size_t length,
                       CellValue * values,
@@ -794,6 +797,11 @@ struct ImportTextProcedureWorkInstance
                 while(true) {
                     std::getline(stream, header);
 
+                    if (prevHeader.empty()
+                        && config.skipLineRegex.initialized()
+                        && regex_match(header, config.skipLineRegex))
+                        continue;
+
                     if(!prevHeader.empty()) {
                         prevHeader += ' ' + header;
                         header.assign(std::move(prevHeader));
@@ -805,7 +813,7 @@ struct ImportTextProcedureWorkInstance
                         fields = expect_csv_row(pcontext, -1, separator);
                         break;
                     }
-                    catch (FileFinishInsideQuote & exp) {
+                    catch (const FileFinishInsideQuote & exp) {
                         if(config.allowMultiLines) {
                             prevHeader.assign(std::move(header));
                             continue;
@@ -1025,14 +1033,21 @@ struct ImportTextProcedureWorkInstance
             if (linesDone && linesDone % 100000 == 0) {
 
                 double wall = timer.elapsed_wall();
-                INFO_MSG(this->logger)
+                cerr
+                    //INFO_MSG(this->logger)
                     << "done " << linesDone << " in " << wall
                     << "s at " << linesDone / wall * 0.000001
                     << "M lines/second on "
                     << timer.elapsed_cpu() / timer.elapsed_wall()
-                    << " CPUs";
+                    << " CPUs"
+                    << endl;
             }
 #endif
+
+            // Skip lines if we are asked to
+            if (config.skipLineRegex.initialized()
+                && regex_match(Utf8String(line, length), config.skipLineRegex))
+                return true;
 
             // MLDB-1111 empty lines are treated as error
             if (length == 0)

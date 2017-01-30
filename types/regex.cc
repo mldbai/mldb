@@ -348,7 +348,8 @@ bool
 Regex::
 operator == (const Regex & other) const
 {
-    return surface() == other.surface()
+    return !!impl == !!other.impl
+        && surface() == other.surface()
         && flags() == other.flags();
 }
 
@@ -363,9 +364,11 @@ bool
 Regex::
 operator < (const Regex & other) const
 {
-    return surface() < other.surface()
-       || (surface() == other.surface()
-           && flags() < other.flags());
+    return !!impl < !!other.impl
+        || (!!impl == !!other.impl
+            && (surface() < other.surface()
+                || (surface() == other.surface()
+                    && flags() < other.flags())));
 }
 
 
@@ -468,7 +471,15 @@ struct RegexDescription
     virtual void printJsonTyped(const Regex * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeStringUtf8(val->surface());
+        if (!val->initialized())
+            context.writeNull();
+        else
+            context.writeStringUtf8(val->surface());
+    }
+
+    virtual bool isDefaultTyped(const Regex * val) const
+    {
+        return !val->initialized();
     }
 };
 
