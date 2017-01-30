@@ -395,9 +395,7 @@ void forEachLineBlock(std::istream & stream,
                         std::string lastLine;
                         getline(stream, lastLine);
                 
-                        size_t cnt = stream.gcount();
-
-                        if (cnt != 0) {
+                        if (!lastLine.empty()) {
                             // Check for overflow on the buffer size
                             if (offset + lastLine.size() + 1 > BLOCK_SIZE + EXTRA_SIZE) {
                                 // reallocate and copy
@@ -414,7 +412,7 @@ void forEachLineBlock(std::istream & stream,
                     
                             lineOffsets.emplace_back(offset + lastLine.length());
                             ++doneLines;
-                            offset += cnt;
+                            offset += lastLine.size() + 1;
                         }                
                     }
 
