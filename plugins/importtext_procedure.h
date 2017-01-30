@@ -63,6 +63,7 @@ struct ImportTextConfig : public ProcedureConfig  {
 
     PolyConfigT<Dataset> output;
 
+    bool ignoreExtraColumns = false;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ImportTextConfig);

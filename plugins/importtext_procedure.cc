@@ -92,6 +92,10 @@ ImportTextConfigDescription::ImportTextConfigDescription()
              "If true, the indexes of the columns will be used to name them."
              "This cannot be set to true if headers is defined.",
              false);
+    addAuto("ignoreExtraColumns", &ImportTextConfig::ignoreExtraColumns,
+            "Ignore extra columns that weren't in header.  This allows for files that "
+            "have optional trailing columns that aren't listed in the header or for "
+            "files with a partially fixed, partially variable column set to be imported.");
 
     addParent<ProcedureConfig>();
     onUnknownField = [] (ImportTextConfig * config,
@@ -431,7 +435,8 @@ parseFixedWidthCsvRow(const char * & line,
                       int replaceInvalidCharactersWith,
                       bool isTextLine,
                       bool hasQuoteChar,
-                      shared_ptr<spdlog::logger> & logger)
+                      const shared_ptr<spdlog::logger> & logger,
+                      bool ignoreExtraColumns)
 {
     ExcAssert(!(hasQuoteChar && isTextLine));
 
@@ -507,8 +512,11 @@ parseFixedWidthCsvRow(const char * & line,
             break;
         }
 
-        if (colNum >= numColumns)
+        if (colNum >= numColumns) {
+            if (ignoreExtraColumns)
+                break;
             return "too many columns in row";
+        }
 
         const char * start = line;
 
@@ -647,7 +655,7 @@ parseFixedWidthCsvRow(const char * & line,
     if (errorMsg)
         return errorMsg;
 
-    if (line < lineEnd) {
+    if (line < lineEnd && !ignoreExtraColumns) {
         return "too many columns in row";
     }
 
@@ -1056,7 +1064,8 @@ struct ImportTextProcedureWorkInstance
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith,
                                             isTextLine,
-                                            hasQuoteChar, logger);
+                                            hasQuoteChar, logger,
+                                            config.ignoreExtraColumns);
 
                 if (errorMsg) {
                     if(config.allowMultiLines) {
