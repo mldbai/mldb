@@ -1404,7 +1404,9 @@ struct ExpressionValue::Embedding {
 
         if (totalLength != length()) {
             throw HttpReturnException
-                (400, "Attempt to change embedding size by reshaping");
+                (400, "Attempt to change embedding size by reshaping.  Original size "
+                 "is [" + to_string(length()) + 
+                 "] target size is [" + to_string(totalLength) + "]");
         }
         return ExpressionValue::embedding(ts, data_,
                                           storageType_,
@@ -2704,6 +2706,7 @@ coerceToEmbedding() const
                             shape.resize(fullColumnName.size());
 
                         for (size_t i = 0; i < fullColumnName.size(); ++i) {
+                            // indexing starts at 0 therefore the +1
                             shape[i] = std::max(shape[i], (size_t)(fullColumnName[i].toIndex()+1));
                         }
 

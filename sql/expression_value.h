@@ -1676,6 +1676,11 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
         return true;
     }
 
+    virtual bool couldBeEmbedding() const override 
+    { 
+        return true; 
+    }
+
     virtual bool couldBeRow() const override
     {
         return true;
