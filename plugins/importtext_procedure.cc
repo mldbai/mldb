@@ -99,6 +99,13 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addAuto("processExcelFormulas", &ImportTextConfig::processExcelFormulas,
             "Process formulas in `=\"...\"` format from Excel export of "
             "CSV");
+    addAuto("skipLineRegex", &ImportTextConfig::skipLineRegex,
+            "Regex used to skip lines.  This regex must match the entire line, in "
+            "other words it is automatically anchored at the beginning and the "
+            "end of the line, so `#.*` will skip lines that have a `#` in the "
+            "first character position.  Default skips no lines.  This option applies "
+            "to the text, not to the CSV rows, and so may interact strangely with the "
+            "`allowMultiLines` option.");
 
     addParent<ProcedureConfig>();
     onUnknownField = [] (ImportTextConfig * config,
