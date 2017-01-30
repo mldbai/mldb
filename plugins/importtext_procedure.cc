@@ -98,6 +98,8 @@ ImportTextConfigDescription::ImportTextConfigDescription()
             "files with a partially fixed, partially variable column set to be imported.");
     addAuto("skipLineRegex", &ImportTextConfig::skipLineRegex,
             "Regex used to skip lines");
+    addAuto("ignoreExtraColumns", &ImportTextConfig::ignoreExtraColumns,
+            "Ignore extra columns that weren't in header");
 
     addParent<ProcedureConfig>();
     onUnknownField = [] (ImportTextConfig * config,
