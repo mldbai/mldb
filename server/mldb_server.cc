@@ -18,6 +18,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/server/plugin_manifest.h"
+#include "mldb/server/plugin_resource.h"
 #include "mldb/sql/sql_expression.h"
 #include <signal.h>
 
@@ -410,24 +411,37 @@ scanPlugins(const std::string & dir_)
         {
             try {
                 auto manifest = jsonDecodeStream<PluginManifest>(stream);
+                if (manifest.config.type == "sharedLibrary") {
+                    auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
+                    // strip off the file:// prefix
+                    shlibConfig.address = string(dir, 7);
+                    shlibConfig.allowInsecureLoading = true;
 
-                auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
-                // strip off the file:// prefix
-                shlibConfig.address = string(dir, 7);
-                shlibConfig.allowInsecureLoading = true;
+                    manifest.config.params = shlibConfig;
 
-                manifest.config.params = shlibConfig;
-
-                auto plugin = plugins->obtainEntitySync(manifest.config,
-                                                        nullptr /* on progress */);
+                    auto plugin = plugins->obtainEntitySync(
+                        manifest.config, nullptr /* on progress */);
+                }
+                else if (manifest.config.type == "python" ||
+                         manifest.config.type == "javascript") {
+                    auto config = manifest.config.params.convert<PluginResource>();
+                    config.address = dir;
+                    manifest.config.params = config;
+                    auto plugin = plugins->obtainEntitySync(
+                        manifest.config, nullptr /* on progress */);
+                }
+                else {
+                    throw HttpReturnException(
+                        500, "unknown plugin type to autoload at " + dir);
+                }
             } catch (const HttpReturnException & exc) {
-                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "loading plugin " << dir << ": " << exc.what();
                 logger->error() << "details:";
                 logger->error() << jsonEncode(exc.details);
                 logger->error() << "plugin will be ignored";
                 return;
             } catch (const std::exception & exc) {
-                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "loading plugin " << dir << ": " << exc.what();
                 logger->error() << "plugin will be ignored";
                 return;
             }
