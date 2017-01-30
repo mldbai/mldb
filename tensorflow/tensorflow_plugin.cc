@@ -25,6 +25,7 @@
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/server/static_content_macro.h"
 #include "mldb/sql/builtin_functions.h"
+#include "mldb/utils/log.h"
 
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
@@ -688,12 +689,14 @@ struct TensorflowGraphBase: public Function {
     struct Applier: public FunctionApplier {
         Applier(const TensorflowGraphBase * owner,
                 SqlBindingScope & outerScope,
-                const std::shared_ptr<ExpressionValueInfo> & input)
+                const std::shared_ptr<ExpressionValueInfo> & input,
+                shared_ptr<spdlog::logger> logger)
             : FunctionApplier(owner),
               owner(owner),
               mldbScope(owner->server),
               functionScope(mldbScope, input),
-              graphScope(outerScope, *owner->graph)
+              graphScope(outerScope, *owner->graph),
+              logger(logger)
         {
             // 1.  Collect what is known for each of the input clauses.
             boundInputs = owner->inputs.bind(functionScope);
@@ -718,6 +721,7 @@ struct TensorflowGraphBase: public Function {
         SqlExpressionMldbScope mldbScope;
         SqlExpressionExtractScope functionScope;
         GraphExtractScope graphScope;
+        shared_ptr<spdlog::logger> logger;
         BoundSqlExpression boundInputs, boundOutputs;
 
         ExpressionValue apply(const ExpressionValue & inputData) const
@@ -739,6 +743,7 @@ struct TensorflowGraphBase: public Function {
 
             for (const auto & inputColumn: boundInputs.info->getKnownColumns()) {
                 std::string nodeName = inputColumn.columnName.toUtf8String().rawString();
+                DEBUG_MSG(logger) << "input tensor node name " << nodeName;
                 ExpressionValue field = in.getColumn(nodeName);
                 
                 outputTs.setMax(field.getEffectiveTimestamp());
@@ -800,7 +805,7 @@ struct TensorflowGraphBase: public Function {
                  "one row as input",
                  "inputs", input);
         std::unique_ptr<FunctionApplier> result
-            (new Applier(this, outerScope, ExpressionValueInfo::toRow(input[0])));
+            (new Applier(this, outerScope, ExpressionValueInfo::toRow(input[0]), logger));
         return result;
     }
 
@@ -828,7 +833,6 @@ struct TensorflowGraphBase: public Function {
     {
         if (val.isAtom()) {
             const CellValue & atom = val.getAtom();
-
             switch (type) {
             case tensorflow::DT_FLOAT: {
                 tensorflow::Tensor result(tensorflow::DT_FLOAT, {});
@@ -893,7 +897,7 @@ struct TensorflowGraphBase: public Function {
                 shape.AddDim(s);
                 len *= s;
             }
-            
+
             switch (type) {
                 case tensorflow::DT_FLOAT: {
                     tensorflow::Tensor result(type, shape);
@@ -1040,12 +1044,16 @@ struct TensorflowGraphBase: public Function {
     getTensorFor(const std::string & layer,
                  const ExpressionValue & val) const
     {
+        TRACE_MSG(logger) << "input value for tensor is '" << jsonEncode(val) << "'";
         for (const auto & node: graph->node()) {
             if (node.name() == layer) {
                 auto it = node.attr().find("value");
                 if (it != node.attr().end()) {
                     // It has a value.  Attempt to match the datatype and
                     // the entire size.
+                    DEBUG_MSG(logger) << "found value for tensor node '" << node.name()
+                                      << "' of type '" << it->second.tensor().dtype()
+                                      << "' and shape '" << it->second.tensor().tensor_shape().DebugString() << "'";
                     return castToSizedAndTypedTensor
                         (val,
                          tensorflow::TensorShape(it->second.tensor().tensor_shape()),
@@ -1055,6 +1063,9 @@ struct TensorflowGraphBase: public Function {
                 if (it != node.attr().end()) {
                     auto it2 = node.attr().find("shape");
                     if (it2 != node.attr().end()) {
+                        DEBUG_MSG(logger) << "found type '" << it->second.tensor().dtype()
+                                          << "' and shape '" << it2->second.tensor().tensor_shape().DebugString()
+                                          << "' for tensor node '" << node.name() << "'";
                         // Match datatype and shape
                         return castToSizedAndTypedTensor
                             (val,
@@ -1334,6 +1345,8 @@ struct TensorflowGraphBase: public Function {
             }
 
             if (!foundInput) {
+                DEBUG_MSG(logger) << "found input tensor with name: '"
+                                  << inputLayers[i] << "'";
                 inputTensors.emplace_back(inputLayers[i], inputs[i]);
             }
         }
@@ -1351,11 +1364,15 @@ struct TensorflowGraphBase: public Function {
         //    ->RunWithStats(inputTensors, outputLayers,
         //                   {}, &outputs, &stats);
 
+        DEBUG_MSG(logger) << "running tensor for outputs " << jsonEncode(outputLayers);
+
         Status run_status = session.first
             ->Run(inputTensors, outputLayers,
                   {}, &outputs);
         
         if (!run_status.ok()) {
+            DEBUG_MSG(logger) << "unable to run tensor of shape " <<
+                inputTensors[0].second.shape().DebugString();
             throw HttpReturnException(400, "Unable to run model: "
                                       + run_status.error_message());
         }
@@ -1592,8 +1609,10 @@ struct TensorflowOp: public TensorflowGraphBase {
 static RegisterFunctionType<TensorflowOp, TensorflowOpConfig>
 regTensorflowOp(tensorflowPackage(),
                 "tensorflow.op",
-                "Run a single TensorfFlow operation",
-                "TensorflowGraph.md.html");
+                "Run a single Tensorflow operation",
+                "TensorflowGraph.md.html",
+                nullptr,
+                { MldbEntity::INTERNAL_ENTITY });
 
 
 /*****************************************************************************/
@@ -2081,6 +2100,9 @@ struct TensorflowPlugin: public Plugin {
                 pconfig.params = config;
                 auto fn = std::make_shared<TensorflowOp>
                     (server, pconfig, nullptr /* progress */);
+
+                std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<TensorflowOp>();
+                fn->logger = std::move(logger);
 
                 std::shared_ptr<FunctionApplier> applier
                     (fn->bind(context, {inputInfo})
