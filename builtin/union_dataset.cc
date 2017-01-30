@@ -1,7 +1,7 @@
 /**                                                                 -*- C++ -*-
  * union_dataset.cc
  * Mich, 2016-09-14
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 #include "union_dataset.h"
 
@@ -304,9 +304,11 @@ struct UnionDataset::Itl
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
             for (const auto curr: d->getColumnIndex()->getColumnValues(columnPath)) {
-                res.emplace_back(
-                    PathElement(i) + std::get<0>(curr).toUtf8String().rawString(),
-                    std::get<1>(curr));
+                if (filter(std::get<1>(curr))) {
+                    res.emplace_back(
+                        PathElement(i) + std::get<0>(curr).toUtf8String().rawString(),
+                        std::get<1>(curr));
+                }
             }
         }
         return res;
@@ -354,7 +356,7 @@ struct UnionDataset::Itl
 UnionDataset::
 UnionDataset(MldbServer * owner,
              PolyConfig config,
-             const std::function<bool (const Json::Value &)> & onProgress)
+             const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto unionConfig = config.params.convert<UnionDatasetConfig>();
@@ -362,7 +364,7 @@ UnionDataset(MldbServer * owner,
     vector<std::shared_ptr<Dataset> > datasets;
 
     for (auto & d: unionConfig.datasets) {
-        datasets.emplace_back(obtainDataset(owner, d, onProgress));
+        datasets.emplace_back(obtainDataset(owner, d, nullptr /*onProgress*/));
     }
 
     itl.reset(new Itl(server, datasets));

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sqlite.cc
     Jeremy Barnes, 9 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of sqlite database.
 */
@@ -707,7 +707,7 @@ struct SqliteSparseDataset::Itl
 SqliteSparseDataset::
 SqliteSparseDataset(MldbServer * owner,
                     PolyConfig config,
-                    const std::function<bool (const Json::Value &)> & onProgress)
+                    const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     if (!config.params.empty())

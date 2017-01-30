@@ -1,8 +1,8 @@
 /* http_rest_proxy.cc
    Jeremy Barnes, 10 April 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    REST proxy class for http.
 */
@@ -289,10 +289,12 @@ get(const std::string & resource,
     bool exceptions,
     OnData onData,
     OnHeader onHeader,
-    bool followRedirect) const
+    bool followRedirect,
+    bool abortOnSlowConnection) const
 {
     return perform("GET", resource, Content(), queryParams, headers,
-                   timeout, exceptions, onData, onHeader, followRedirect);
+                   timeout, exceptions, onData, onHeader, followRedirect,
+                   abortOnSlowConnection);
 }
 
 HttpRestResponse
@@ -306,7 +308,8 @@ perform(const std::string & verb,
         bool exceptions,
         OnData onData,
         OnHeader onHeader,
-        bool followRedirect) const
+        bool followRedirect,
+        bool abortOnSlowConnection) const
 {
     string responseHeaders;
     string body;
@@ -333,7 +336,15 @@ perform(const std::string & verb,
         if (timeout != -1)
             myRequest.add_option(CURLOPT_TIMEOUT, timeout);
         else myRequest.add_option(CURLOPT_TIMEOUT, 0L);
+
         myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
+        myRequest.add_option(CURLOPT_CONNECTTIMEOUT, 20L);
+
+        if (abortOnSlowConnection) {
+            // abortOnSlowConnection SPECIFICATION *** /
+            myRequest.add_option(CURLOPT_LOW_SPEED_LIMIT, 1024 * 10);
+            myRequest.add_option(CURLOPT_LOW_SPEED_TIME, 5);
+        }
 
         if (itl->noSSLChecks) {
             myRequest.add_option(CURLOPT_SSL_VERIFYHOST, 0L);

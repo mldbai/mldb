@@ -1,8 +1,8 @@
 /** svd.h                                                          -*- C++ -*-
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     SVD algorithm for a dataset.
 */
@@ -15,6 +15,7 @@
 #include "matrix.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
+#include "mldb/utils/log_fwd.h"
 
 
 namespace MLDB {
@@ -78,7 +79,8 @@ struct SvdBasis {
     /** Given the other column, project it onto the basis. */
     distribution<float>
     rightSingularVector(const ColumnIndexEntries & basisColumns,
-                        const ColumnIndexEntry & column) const;
+                        const ColumnIndexEntry & column,
+                        std::shared_ptr<spdlog::logger> logger) const;
 
     /** Given a particular column and its value, calculate the right
         singular value for that column.
@@ -86,24 +88,28 @@ struct SvdBasis {
     distribution<float>
     rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                                  int maxValues,
-                                 bool acceptUnknownValues) const;
+                                 bool acceptUnknownValues,
+                                 std::shared_ptr<spdlog::logger> logger) const;
 
     /** Given the row, calculate its embedding. */
     std::pair<distribution<float>, Date>
     leftSingularVector(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & row,
                        int maxValues,
-                       bool acceptUnknownValues) const;
+                       bool acceptUnknownValues,
+                       std::shared_ptr<spdlog::logger> logger) const;
 
     std::pair<distribution<float>, Date>
     leftSingularVector(const std::vector<std::tuple<ColumnPath, CellValue, Date> > & row,
                        int maxValues,
-                       bool acceptUnknownValues) const;
+                       bool acceptUnknownValues,
+                       std::shared_ptr<spdlog::logger> logger) const;
 
     template<typename Tuple>
     std::pair<distribution<float>, Date>
     doLeftSingularVector(const std::vector<Tuple> & row,
                          int maxValues,
-                         bool acceptUnknownValues) const;
+                         bool acceptUnknownValues,
+                         std::shared_ptr<spdlog::logger> logger) const;
 
     /** Check the validity of the data structure after loading. */
     void validate();

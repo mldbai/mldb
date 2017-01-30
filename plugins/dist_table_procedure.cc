@@ -1,6 +1,6 @@
 /** dist_table_procedure.cc                                        -*- C++ -*-
     Simon Lemieux, June 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     distTable procedure
 */
@@ -317,7 +317,8 @@ run(const ProcedureRunConfig & run,
 
 
     SqlExpressionMldbScope context(server);
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
     vector<Utf8String> outcome_names;
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)

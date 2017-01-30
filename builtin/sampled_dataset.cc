@@ -1,6 +1,6 @@
 /** sampled_dataset.cc                                              -*- C++ -*-
     Francois Maillet, 11 janvier 2016
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -287,7 +287,7 @@ struct SampledDataset::Itl
 SampledDataset::
 SampledDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress)
+                  const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
@@ -297,7 +297,7 @@ SampledDataset(MldbServer * owner,
     }
 
     SqlExpressionMldbScope context(owner);
-    bondTableExpression = sampleConfig.dataset->bind(context);
+    bondTableExpression = sampleConfig.dataset->bind(context, onProgress);
 
     itl.reset(new Itl(server, bondTableExpression.dataset, sampleConfig));
 }

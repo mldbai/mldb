@@ -1,6 +1,6 @@
 /** melt_procedure.cc
     Francois Maillet, 21 janvier 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 */
 
 #include "melt_procedure.h"
@@ -112,7 +112,8 @@ run(const ProcedureRunConfig & run,
 
 
     SqlExpressionMldbScope context(server);
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     auto toFix = extractNamedSubSelect("to_fix", runProcConf.inputData.stm->select)->expression;
     auto toMelt = extractNamedSubSelect("to_melt", runProcConf.inputData.stm->select)->expression;

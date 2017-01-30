@@ -1,7 +1,7 @@
 #
 # MLDB-957-function-name.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 if False:

@@ -1,7 +1,7 @@
 /**                                                                 -*- C++ -*-
  * mongo_dataset.cc
  * Mich, 2016-08-05
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 #include <memory>
 #include <thread>
@@ -153,7 +153,7 @@ struct MongoDataset: Dataset {
 
     MongoDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         auto dsConfig = config.params.convert<MongoDatasetConfig>();
@@ -202,7 +202,7 @@ struct MongoDataset: Dataset {
 
         return {[=] (ssize_t numToGenerate, Any token,
                      const BoundParameters & params,
-                     std::function<bool (const Json::Value &)> onProgress)
+                     const ProgressFunc & onProgress)
             {
                 std::vector<Path> rowsToKeep;
                 for (; *it != res->end() && numToGenerate != 0; ++*it, --numToGenerate) {

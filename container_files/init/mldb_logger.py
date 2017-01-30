@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Copyright Datacratic 2016
-# Author: Jean Raby <jean@datacratic.com>
+# Copyright mldb.ai inc 2016
+# Author: Jean Raby <jean@mldb.ai>
 
 # TODO:
 #  - configure logging so that access/error logs go somewhere else than stderr
@@ -22,12 +22,13 @@ from datetime import datetime
 from collections import namedtuple, deque
 
 try:
-  from mldb_logger_utils import LOGBUFSIZE, RUNAS, HTTP_LISTEN_PORT
+  from mldb_logger_utils import RUNAS, HTTP_LISTEN_PORT
 except NameError:
   # provide defaults if templating didn't run
-  LOGBUFSIZE = 1024
   RUNAS = "nobody"
   HTTP_LISTEN_PORT = 1234
+
+LOGBUFSIZE = 8192
 
 
 LogLine = namedtuple('LogLine', ['dt', 'data', ])

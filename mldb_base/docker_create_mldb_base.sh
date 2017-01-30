@@ -1,13 +1,13 @@
 #!/bin/bash
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+# Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 set -e
 set -x
 
 progname=$(basename $0)
 
 CIDFILE=$(mktemp -u -t $progname.cid.XXXXXX)  # Race me!
-BASE_IMG="quay.io/datacratic/baseimage:0.9.17"
-IMG_NAME=${IMG_NAME:="quay.io/datacratic/mldb_base:14.04"}
+BASE_IMG="quay.io/mldb/baseimage:0.9.17"
+IMG_NAME=${IMG_NAME:="quay.io/mldb/mldb_base:14.04"}
 
 BUILD_DOCKER_DIR="/mnt/build"
 
@@ -65,6 +65,7 @@ apt-get update
 #####################
 apt-get install -y \
     bash \
+    binutils \
     nginx \
     vim-tiny \
     libboost-serialization1.54.0 \
@@ -84,7 +85,6 @@ apt-get install -y \
     libcurl3 \
     libssh2-1 \
     libpython2.7 \
-    libgit2-0 \
     libicu52 \
     liblapack3 \
     libblas3 \

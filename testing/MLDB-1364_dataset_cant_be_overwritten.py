@@ -1,7 +1,7 @@
 #
 # MLDB-1364_dataset_cant_be_overwritten.py
 # Francois Maillet, 5 fevrier 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 

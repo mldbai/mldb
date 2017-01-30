@@ -1,7 +1,7 @@
 /** filtered_dataset.h                                               -*- C++ -*-
     Guy Dumais, September 18th 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset that filters some of the tuples out.  This is used namely to implement
     the SQL WHEN clause.

@@ -1,6 +1,6 @@
 /** tabular_dataset_chunk.h                                        -*- C++ -*-
     Jeremy Barnes, 27 March 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Self-contained, recordable chunk of a tabular dataset.
 */
@@ -12,6 +12,8 @@
 #include "mldb/sql/path.h"
 #include "mldb/types/date.h"
 #include "tabular_dataset_column.h"
+#include "mldb/utils/log.h"
+#include "tabular_dataset.h"
 #include <mutex>
 
 
@@ -32,7 +34,8 @@ struct ExpressionValue;
 struct TabularDatasetChunk {
 
     TabularDatasetChunk(size_t numColumns = 0)
-        : columns(numColumns)
+        : columns(numColumns),
+          logger(getMldbLog<TabularDataset>())  // this is only used by the tabular dataset
     {
     }
 
@@ -54,6 +57,7 @@ struct TabularDatasetChunk {
         rowNames.swap(other.rowNames);
         integerRowNames.swap(other.integerRowNames);
         std::swap(timestamps, other.timestamps);
+        logger.swap(other.logger);
     }
 
     size_t rowCount() const
@@ -80,6 +84,7 @@ struct TabularDatasetChunk {
 private:
     std::vector<Path> rowNames;
     std::vector<uint64_t> integerRowNames;
+    std::shared_ptr<spdlog::logger> logger;
 public:
     std::shared_ptr<FrozenColumn> timestamps;
 

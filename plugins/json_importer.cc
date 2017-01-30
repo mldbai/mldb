@@ -1,12 +1,12 @@
 /* xlsx_importer.cc
    Francois Maillet, 19 janvier 2016
 
-   This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
    Importer for text files containing a JSON per line
 */
 
-#include "progress.h"
+#include "mldb/utils/progress.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"
@@ -378,7 +378,7 @@ struct JSONImporter: public Procedure {
             }
 
             int numLines = recordedLines.fetch_add(1);
-            if (numLines % 10000 == 0) {
+            if (numLines % PROGRESS_RATE_LOW == 0) {
                 lock_guard<mutex> l(progressMutex);
                 if (numLines > iterationStep->value) {
                     iterationStep->value = numLines;

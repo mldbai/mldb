@@ -1,6 +1,6 @@
 /** sampled_dataset.h                                               -*- C++ -*-
     Francois Maillet, 11 janvier 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 */
 
@@ -40,7 +40,7 @@ struct SampledDataset: public Dataset {
 
     SampledDataset(MldbServer * owner,
                       PolyConfig config,
-                      const std::function<bool (const Json::Value &)> & onProgress);
+                      const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a temporary sample */
     SampledDataset(MldbServer * owner,

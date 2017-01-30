@@ -39,14 +39,14 @@ ifdef VERSION_NAME
 endif
 
 docker_mldb: \
-	DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base:14.04
+	DOCKER_BASE_IMAGE=quay.io/mldb/mldb_base:14.04
 	DOCKER_POST_INSTALL_SCRIPT=mldb/container_files/docker_post_install.sh $(DOCKER_POST_INSTALL_ARGS)
 
 mldb_base:
-	./mldb/mldb_base/docker_create_mldb_base.sh -w https://wheelhouse.datacratic.com/public/ubuntu/trusty/x86_64 $(IMG_NAME)
+	./mldb/mldb_base/docker_create_mldb_base.sh -w https://wheelhouse.mldb.ai/ubuntu/trusty/x86_64 $(IMG_NAME)
 .PHONY: mldb_base
 
 baseimage:
-	(cd mldb/baseimage-docker && make build NAME=quay.io/datacratic/baseimage)
+	(cd mldb/baseimage-docker && make build NAME=quay.io/mldb/baseimage)
 
 endif

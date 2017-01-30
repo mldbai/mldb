@@ -1,8 +1,8 @@
 /** python_plugin_context.cc
     Francois Maillet, 6 mars 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "python_plugin_context.h"
@@ -12,6 +12,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/utils/log.h"
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <memory>
@@ -215,9 +216,7 @@ _sys.stderr = catctOutErr
 
     int res = PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
     if (res) {
-        cerr << "error injecting logging code: " << endl;
         PyErr_Print(); //make python print any errors, unfortunately to console
-        cerr << "MLDB will now raise an exception" << endl;
         throw HttpReturnException
             (500, "Couldn't inject Python code (see error message on console). "
              "Have you installed python_dependenies (json and datetime) and "
@@ -438,7 +437,8 @@ readLines(MldbPythonContext * mldbCon,
             lines.append(line);
         };
 
-    forEachLine(stream, onLine, 1 /* numThreads */, false /* ignore exc */,
+    auto logger = getMldbLog("python");
+    forEachLine(stream, onLine, logger, 1 /* numThreads */, false /* ignore exc */,
                     maxLines);
 
     return lines;
@@ -504,6 +504,9 @@ getArgs() const
 void PythonContext::
 setReturnValue(const Json::Value & rtn, unsigned returnCode)
 {
+    if (returnCode == 0) {
+        throw MLDB::Exception("Cannot set return code to 0");
+    }
     rtnVal = rtn;
     rtnCode = returnCode;
 }
@@ -514,6 +517,11 @@ setReturnValue1(const Json::Value & rtn)
     setReturnValue(rtn);
 }
 
+void PythonContext::
+resetReturnValue()
+{
+    rtnCode = 0;
+}
 
 /****************************************************************************/
 /* PYTHON PLUGIN CONTEXT                                                    */
@@ -629,14 +637,14 @@ getPyContext()
 }
 
 void MldbPythonContext::
-setPlugin(std::shared_ptr<PythonPluginContext> plug) {
-    plugin = plug;
+setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx) {
+    plugin = pluginCtx;
     plugin->mldbContext = this;
 }
 
 void MldbPythonContext::
-setScript(std::shared_ptr<PythonScriptContext> scrp) {
-    script = scrp;
+setScript(std::shared_ptr<PythonScriptContext> scriptCtx) {
+    script = scriptCtx;
     script->mldbContext = this;
 }
 

@@ -1,6 +1,6 @@
 /* http_client_test.cc
    Wolfgang Sourdeau, January 2014
-   This file is part of MLDB. Copyright 2014-20176 Datacratic.
+   This file is part of MLDB. Copyright 2014-20176 mldb.ai inc.
    All rights reserved.
 
    Test for HttpClient

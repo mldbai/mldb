@@ -1,7 +1,7 @@
 /** joined_dataset.h                                               -*- C++ -*-
     Jeremy Barnes, 27 July 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset that is the joined product of multiple underlying datasets.
 */
@@ -39,7 +39,7 @@ struct JoinedDataset: public Dataset {
 
     JoinedDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress);
+                  const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a tree of joined datasets
         where some are already bound.

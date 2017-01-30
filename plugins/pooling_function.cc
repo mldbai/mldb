@@ -1,6 +1,6 @@
 /** pooling_function.cc
     Francois Maillet, 30 novembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -97,7 +97,8 @@ PoolingFunction(MldbServer * owner,
                                                        onProgress);
 
     SqlExpressionMldbScope context(owner);
-    boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context, convertProgressToJson);
     
     columnNames = boundEmbeddingDataset.dataset->getRowInfo()->allColumnNames();
 }

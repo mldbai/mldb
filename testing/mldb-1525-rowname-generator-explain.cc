@@ -1,14 +1,15 @@
 /** mldb-1225-rowname-generator-explain.cc
     Mathieu Marquis Bolduc, 25 April 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Test of sql expression transform method
 */
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
+#include "mldb/builtin/sub_dataset.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -26,21 +27,10 @@ BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
 
 static MldbServer *notNull = (MldbServer *)0x000001;
 
-struct DummyDataset: public Dataset {
-
-    DummyDataset() : Dataset(notNull) {
-
-    }
-
-    virtual Any getStatus() const { return Any(); }
-    virtual std::shared_ptr<MatrixView> getMatrixView() const { return nullptr; }
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const { return nullptr; }
-};
-
 BOOST_AUTO_TEST_CASE(test_explain)
 {
     {
-        DummyDataset dataset;        
+        SubDataset dataset(notNull, {});
 
         SqlBindingScope scope;
 

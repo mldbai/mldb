@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** for_each_line.cc
     Jeremy Barnes, 29 November 2013
-    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -19,6 +19,7 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/date.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -67,6 +68,7 @@ namespace MLDB {
 static size_t
 readStream(std::istream & stream,
            Processing & processing,
+           shared_ptr<spdlog::logger> logger,
            bool ignoreStreamExceptions,
            int64_t maxLines)
 {
@@ -100,17 +102,17 @@ readStream(std::istream & stream,
                 current.second.reserve(1000);
             }
 
-            if (done % 1000000 == 0) {
+            if (done % 1000000 == 0 && 
+                logger->should_log(spdlog::level::info)) {
 
-                //cerr << "done " << done << " lines" << endl;
+                logger->info() << "done " << done << " lines";
                 Date now = Date::now();
 
                 double elapsed = now.secondsSince(start);
                 double instElapsed = now.secondsSince(lastCheck);
-                cerr << MLDB::format("doing %.3fMlines/second total, %.3f instantaneous",
-                                   done / elapsed / 1000000.0,
-                                   1000000 / instElapsed / 1000000.0)
-                     << endl;
+                logger->info() << MLDB::format("doing %.3fMlines/second total, %.3f instantaneous",
+                                               done / elapsed / 1000000.0,
+                                               1000000 / instElapsed / 1000000.0);
                 lastCheck = now;
             }
         }
@@ -119,7 +121,7 @@ readStream(std::istream & stream,
             processing.takeLastException();
         }
         else {
-            cerr << "stream threw ignored exception: " << exc.what() << endl;
+            WARNING_MSG(logger) << "stream threw ignored exception: " << exc.what();
         }
     }
 
@@ -133,7 +135,8 @@ readStream(std::istream & stream,
 static void
 parseLinesThreadStr(Processing & processing,
                     const std::function<void (const std::string &,
-                                              int64_t lineNum)> & processLine)
+                                              int64_t lineNum)> & processLine,
+                    shared_ptr<spdlog::logger> logger)
 {
     while (!processing.hasException()) {
         std::pair<int64_t, vector<string> > lines;
@@ -154,8 +157,8 @@ parseLinesThreadStr(Processing & processing,
                 processLine(line, lines.first + i);
             } catch (const std::exception & exc) {
                 processing.takeLastException();
-                cerr << "error dealing with line " << line
-                     << ": " << exc.what() << endl;
+                WARNING_MSG(logger) << "error dealing with line " << line
+                                    << ": " << exc.what();
             } catch (...) {
                 processing.takeLastException();
             }
@@ -167,6 +170,7 @@ size_t
 forEachLine(std::istream & stream,
             const std::function<void (const char *, size_t,
                                       int64_t)> & processLine,
+            shared_ptr<spdlog::logger> logger,
             int numThreads,
             bool ignoreStreamExceptions,
             int64_t maxLines)
@@ -175,7 +179,7 @@ forEachLine(std::istream & stream,
         processLine(line.c_str(), line.size(), lineNum);
     };
 
-    return forEachLineStr(stream, onLineStr, numThreads,
+    return forEachLineStr(stream, onLineStr, logger, numThreads,
                           ignoreStreamExceptions, maxLines);
 }
 
@@ -183,6 +187,7 @@ size_t
 forEachLineStr(std::istream & stream,
                const std::function<void (const std::string &,
                                          int64_t)> & processLine,
+               shared_ptr<spdlog::logger> logger,
                int numThreads,
                bool ignoreStreamExceptions,
                int64_t maxLines)
@@ -193,9 +198,10 @@ forEachLineStr(std::istream & stream,
     for (unsigned i = 0;  i < numThreads;  ++i)
         threads.emplace_back(std::bind(parseLinesThreadStr,
                                        std::ref(processing),
-                                       std::ref(processLine)));
+                                       std::ref(processLine),
+                                       logger));
         
-    size_t result = readStream(stream, processing,
+    size_t result = readStream(stream, processing, logger,
                                ignoreStreamExceptions, maxLines);
         
     processing.shutdown = true;
@@ -213,24 +219,26 @@ forEachLineStr(std::istream & stream,
 size_t
 forEachLine(const std::string & filename,
             const std::function<void (const char *, size_t, int64_t)> & processLine,
+            shared_ptr<spdlog::logger> logger,
             int numThreads,
             bool ignoreStreamExceptions,
             int64_t maxLines)
 {
     filter_istream stream(filename);
-    return forEachLine(stream, processLine, numThreads,
+    return forEachLine(stream, processLine, logger, numThreads,
                        ignoreStreamExceptions, maxLines);
 }
 
 size_t
 forEachLineStr(const std::string & filename,
                const std::function<void (const std::string &, int64_t)> & processLine,
+               shared_ptr<spdlog::logger> logger,
                int numThreads,
                bool ignoreStreamExceptions,
                int64_t maxLines)
 {
     filter_istream stream(filename);
-    return forEachLineStr(stream, processLine, numThreads,
+    return forEachLineStr(stream, processLine, logger, numThreads,
                           ignoreStreamExceptions, maxLines);
 }
 
@@ -278,8 +286,6 @@ void forEachLineBlock(std::istream & stream,
 
     std::function<void ()> doBlock = [&] ()
         {
-            //cerr << "block starting at line " << doneLines << endl;
-
             std::shared_ptr<const char> blockOut;
 
             int64_t startOffset = byteOffset;
@@ -363,7 +369,6 @@ void forEachLineBlock(std::istream & stream,
                                 ExcAssertEqual(*current, '\n');
                                 if (lineOffsets.back() != current - block.get()) {
                                     lineOffsets.push_back(current - block.get());
-                                    //cerr << "got line at offset " << lineOffsets.back() << endl;
                                     ++doneLines;
                                 }
                                 ++current;
@@ -425,10 +430,6 @@ void forEachLineBlock(std::istream & stream,
                     }
                 }
                     
-                //cerr << "processing block of " << lineOffsets.size() - 1
-                //     << " lines starting at " << startLine << endl;
-
-
                 int64_t chunkLineNumber = startLine;
                 size_t lastLineOffset = lineOffsets[0];
 

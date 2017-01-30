@@ -1,7 +1,7 @@
 #
 # MLDB-800-nested_sql_query.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 if False:
     mldb_wrapper = None
@@ -57,6 +57,7 @@ expected = {
         "hasUnknownColumnsRecursive": True, 
         "type": "MLDB::RowValueInfo", 
         "kind": "row", 
+        "isConstant": False,
         "knownColumns": []
     } ], 
     "output": {
@@ -64,6 +65,7 @@ expected = {
         "hasUnknownColumnsRecursive": True, 
         "type": "MLDB::RowValueInfo", 
         "kind": "row", 
+        "isConstant": False,
         "knownColumns": [
             {
                 "columnName": "patate({*})", 
@@ -72,20 +74,23 @@ expected = {
                     "hasUnknownColumnsRecursive": True, 
                     "type": "MLDB::RowValueInfo", 
                     "kind": "row", 
+                    "isConstant": False,
                     "knownColumns": [
                         {
                             "columnName": "x", 
                             "valueInfo": {
-                                "type": "MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo",
+                                "isConstant": False
                             }, 
-                            "sparsity": "sparse"
+                            "sparsity": "sparse",
                         }, 
                         {
                             "columnName": "y", 
                             "valueInfo": {
-                                "type": "MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo",
+                                "isConstant": False
                             }, 
-                            "sparsity": "sparse"
+                            "sparsity": "sparse",
                         }
                     ]
                 }, 

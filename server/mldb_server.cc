@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** mldb_server.cc
     Jeremy Barnes, 12 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Server for MLDB.
 */
@@ -135,7 +135,7 @@ bool
 MldbServer::
 initRoutes()
 {
-    router.description = "Datacratic Machine Learning Database REST API";
+    router.description = "Machine Learning Database REST API";
 
     RestRequestRouter::OnProcessRequest serviceInfoRoute
         = [=] (RestConnection & connection,
@@ -254,7 +254,7 @@ runHttpQuery(const Utf8String& query,
 
     auto runQuery = [&] ()
         {
-            return queryFromStatement(stm, mldbContext);
+            return queryFromStatement(stm, mldbContext, nullptr /*onProgress*/);
         };
 
     MLDB::runHttpQuery(runQuery,
@@ -269,7 +269,7 @@ query(const Utf8String& query) const
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbScope mldbContext(this);
 
-    return queryFromStatement(stm, mldbContext);
+    return queryFromStatement(stm, mldbContext, nullptr /*onProgress*/);
 }
 
 Json::Value

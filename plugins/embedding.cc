@@ -1,8 +1,8 @@
 /** embedding.cc
     Jeremy Barnes, 9 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Implementation of embedding dataset.
 */
@@ -1027,7 +1027,7 @@ struct EmbeddingDataset::Itl
 EmbeddingDataset::
 EmbeddingDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     this->datasetConfig = config.params.convert<EmbeddingDatasetConfig>();
@@ -1317,7 +1317,7 @@ bindT(SqlBindingScope & outerContext,
     std::unique_ptr<NearestNeighborsFunctionApplier> result
         (new NearestNeighborsFunctionApplier(this));
 
-    auto boundDataset = functionConfig.dataset->bind(outerContext);
+    auto boundDataset = functionConfig.dataset->bind(outerContext, nullptr /*onProgress*/);
     if (!boundDataset.dataset) {
         throw HttpReturnException
             (400, "Nearest neighbors function cannot operate on the output of "

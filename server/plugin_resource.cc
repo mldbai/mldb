@@ -1,33 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** plugin_resource.cc
     Francois Maillet, 18 fevrier 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "mldb/server/plugin_resource.h"
 
-#include <git2.h>
-#include <git2/clone.h>
+#include "mldb/ext/libgit2/include/git2.h"
+#include "mldb/ext/libgit2/include/git2/clone.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
-
-#define LIBGIT2_INT_VERSION (LIBGIT2_VER_MAJOR * 10000 \
-                             + LIBGIT2_VER_MINOR * 100 \
-                             + LIBGIT2_VER_REVISION)
-
-/* libgit2 renamed a bunch of functions and defines between 0.19 and 0.22
- * We do the mapping here so the code below works on both versions
- */
-#if LIBGIT2_INT_VERSION < 2200
-#define git_libgit2_init git_threads_init
-#define git_libgit2_shutdown git_threads_shutdown
-#define git_checkout_options git_checkout_opts
-#define GIT_CHECKOUT_OPTIONS_INIT GIT_CHECKOUT_OPTS_INIT
-#define GIT_EUNBORNBRANCH GIT_EORPHANEDHEAD
-#endif
-
 
 using namespace std;
 
@@ -256,7 +240,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
         git_clone_options clone_opts = GIT_CLONE_OPTIONS_INIT;
         git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
 
-        checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE_CREATE;
+        checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
         //   checkout_opts.progress_cb = checkout_progress;
         clone_opts.checkout_opts = checkout_opts;
         //   clone_opts.remote_callbacks.transfer_progress = &fetch_progress;

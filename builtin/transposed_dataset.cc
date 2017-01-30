@@ -1,13 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** transposed_dataset.cc                                              -*- C++ -*-
     Jeremy Barnes, 28 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "mldb/sql/sql_expression.h"
 #include "transposed_dataset.h"
+#include "mldb/builtin/sub_dataset.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
@@ -322,13 +323,13 @@ struct TransposedDataset::Itl
 TransposedDataset::
 TransposedDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress)
+                  const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto mergeConfig = config.params.convert<TransposedDatasetConfig>();
     
     std::shared_ptr<Dataset> dataset = obtainDataset(owner, mergeConfig.dataset,
-                                                     onProgress);
+                                                     nullptr /*onProgress*/);
 
     itl.reset(new Itl(server, dataset));
 }
@@ -395,10 +396,33 @@ regTransposed(builtinPackage(),
               "datasets/TransposedDataset.md.html");
 
 extern std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
+extern std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbServer *, const TableOperations& table);
 
 std::shared_ptr<Dataset> createTransposedDataset(MldbServer * server, std::shared_ptr<Dataset> dataset)
 {  
     return std::make_shared<TransposedDataset>(server, dataset);
+}
+
+std::shared_ptr<Dataset> createTransposedTable(MldbServer * server, const TableOperations& table)
+{
+    SqlBindingScope dummyScope;
+    auto generator = table.runQuery(dummyScope,
+                                   SelectExpression::STAR,
+                                   WhenExpression::TRUE,
+                                   *SqlExpression::TRUE,
+                                   OrderByExpression(),
+                                    0, -1,
+                                    nullptr /*onProgress*/);
+
+    SqlRowScope fakeRowScope;
+
+    // Generate all outputs of the query
+    std::vector<NamedRowValue> rows
+        = generator(-1, fakeRowScope);
+
+    auto subDataset = std::make_shared<SubDataset>(server, rows);
+
+    return std::make_shared<TransposedDataset>(server, subDataset);
 }
 
 namespace {
@@ -406,6 +430,7 @@ struct AtInit {
     AtInit()
     {
         createTransposedDatasetFn = createTransposedDataset;
+        createTransposedTableFn = createTransposedTable;
     }
 } atInit;
 }

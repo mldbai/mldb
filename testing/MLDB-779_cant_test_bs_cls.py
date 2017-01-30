@@ -1,7 +1,7 @@
 #
 # filename
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 # This test is for issues MLDB-779 AND MLDB-780
 # We do the training pipelines twice and each cls has a different

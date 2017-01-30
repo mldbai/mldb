@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bit_compressed_index.cc                                         -*- C++ -*-
    Jeremy Barnes, 7 April 2009

@@ -22,7 +22,6 @@ apt-get install -y \
   libcurl4-openssl-dev \
   libffi-dev \
   libfreetype6-dev \
-  libgit2-dev \
   libgoogle-perftools-dev \
   liblapack-dev \
   liblzma-dev \
@@ -174,11 +173,11 @@ docker exec -t -i CONTAINER_ID|CONTAINER_NAME /bin/bash
 
 The `mldb` docker is built on top of a few base images:
 
-  - `quay.io/datacratic/mldb_base:14.04`
-  - `quay.io/datacratic/baseimage:0.9.17`
+  - `quay.io/mldb/mldb_base:14.04`
+  - `quay.io/mldb/baseimage:0.9.17`
 
 Some warnings:
-* you will not be able to push to quay.io/datacratic unless you are a Datacratic employee
+* you will not be able to push to quay.io/mldb unless you are a mldb.ai employee
 * if you need to rebuild a layer, you must rebuild all layers which depend on it. (all the ones above it)
 * the build is done from the top level of the mldb repo
 * The build process will build whatever is in the current workspace.
@@ -187,7 +186,7 @@ Some warnings:
 * **Note that there is no versioning of the resulting images at the moment**
 
 
-### `quay.io/datacratic/mldb_base`
+### `quay.io/mldb/mldb_base`
 
 This layer is built on top of `baseimage`, it contains all the required system packages and python modules to run the `mldb` layer.
 A change to any of these would require a rebuild of this image:
@@ -201,14 +200,14 @@ A change to any of these would require a rebuild of this image:
 To rebuild this layer, run:
 
 ```
-make mldb_base IMG_NAME=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
+make mldb_base IMG_NAME=quay.io/mldb/mldb_base:YOUR_NEW_TAG
 
-make docker_mldb DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
+make docker_mldb DOCKER_BASE_IMAGE=quay.io/mldb/mldb_base:YOUR_NEW_TAG
 # When convinced things are ok:
-docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
-docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:14.04
-docker push quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
-docker push quay.io/datacratic/mldb_base:14.04
+docker tag quay.io/mldb/mldb_base:YOUR_NEW_TAG quay.io/mldb/mldb_base:vYYYY.MM.DD.0
+docker tag quay.io/mldb/mldb_base:YOUR_NEW_TAG quay.io/mldb/mldb_base:14.04
+docker push quay.io/mldb/mldb_base:vYYYY.MM.DD.0
+docker push quay.io/mldb/mldb_base:14.04
 ```
 
 The script used to build this layer is `mldb_base/docker_create_mldb_base.sh`
@@ -218,12 +217,12 @@ Some switches are available if you need to do a custom build of that layer for s
 ```
 docker_create_mldb_base.sh [-b base_image] [-i image_name] [-w pip_wheelhouse_url]
 
-    -b base_image               Base image to use (quay.io/datacratic/baseimage:0.9.17)
-    -i image_name               Name of the resulting image (quay.io/datacratic/mldb_base:14.04)
+    -b base_image               Base image to use (quay.io/mldb/baseimage:0.9.17)
+    -i image_name               Name of the resulting image (quay.io/mldb/mldb_base:14.04)
     -w pip_wheelhouse_url       URL to use a a pip wheelhouse
 ```
 
-### `quay.io/datacratic/baseimage:0.9.17`
+### `quay.io/mldb/baseimage:0.9.17`
 
 This image is a fork of `phusion/baseimage:0.9.17` rebuilt to have the latest packages updates.
 This image contains the base ubuntu packages and a custom init system.
@@ -238,8 +237,8 @@ To do so, run the following commands from the top of the mldb repo:
 ```
 docker pull ubuntu:14.04
 make baseimage
-docker tag quay.io/datacratic/baseimage:0.9.17 quay.io/datacratic/baseimage:latest
-docker push quay.io/datacratic/baseimage:latest
+docker tag quay.io/mldb/baseimage:0.9.17 quay.io/mldb/baseimage:latest
+docker push quay.io/mldb/baseimage:latest
 ```
 
 ## S3 Credentials

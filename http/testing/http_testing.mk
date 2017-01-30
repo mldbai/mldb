@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 $(eval $(call test,http_header_test,http,boost manual))
 $(eval $(call test,MLDB-1016-http-connection-overflow,http,boost))

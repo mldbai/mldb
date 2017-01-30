@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** continuous.cc
     Jeremy Barnes, 9 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of continuous dataset.
 */
@@ -346,7 +346,7 @@ struct ContinuousDataset::Itl {
 ContinuousDataset::
 ContinuousDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress)
+                  const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     datasetConfig = config.params.convert<ContinuousDatasetConfig>();
@@ -537,7 +537,7 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
 ContinuousWindowDataset::
 ContinuousWindowDataset(MldbServer * owner,
                         PolyConfig config_,
-                        const std::function<bool (const Json::Value &)> & onProgress)
+                        const ProgressFunc & onProgress)
     : ForwardedDataset(owner)
 {
     auto config = config_.params.convert<ContinuousWindowDatasetConfig>();
@@ -567,7 +567,7 @@ ContinuousWindowDataset(MldbServer * owner,
     try {
         // Obtain the merged dataset, recursively
         std::shared_ptr<Dataset> underlying
-            = obtainDataset(server, toLoadConfig, onProgress);
+            = obtainDataset(server, toLoadConfig);
         setUnderlying(underlying);
     } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "

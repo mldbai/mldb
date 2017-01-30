@@ -1,6 +1,6 @@
 /* compressor.h                                                    -*- C++ -*-
    Jeremy Barnes, 19 September 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Interface to a compressor object.
 

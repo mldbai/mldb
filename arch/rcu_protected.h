@@ -1,8 +1,8 @@
 /* rcu_protected.h                                                 -*- C++ -*-
    Jeremy Barnes, 12 April 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Building blocks for RCU protected data structures.
 */
@@ -199,8 +199,9 @@ struct RcuProtected {
         return std::unique_ptr<T>(val.exchange(newVal));
     }
     
+    template<typename DELETER>
     bool cmp_xchg(RcuLocked<T> & current,
-                  std::unique_ptr<T> & newValue,
+                  std::unique_ptr<T, DELETER> & newValue,
                   bool defer = true,
                   void (*cleanup) (T *) = GcLock::doDelete<T>)
     {

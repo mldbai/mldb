@@ -1,7 +1,7 @@
 /**
  * summary_statistics_proc.cc
  * Mich, 2016-06-30
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 #include "summary_statistics_proc.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -21,7 +21,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/utils/log.h"
-#include "progress.h"
+#include "mldb/utils/progress.h"
 #include <memory>
 
 
@@ -224,6 +224,7 @@ struct NumericRowHandler {
         try {
             // The first query is used to determine whether it's numeric or
             // not, hence the special try/catch/failedProcessingQuery handling.
+            ConvertProgressToJson convertProgressToJson(onProgress);
             BoundGroupByQuery(select,
                               *boundDataset.dataset,
                               boundDataset.asName,
@@ -237,7 +238,7 @@ struct NumericRowHandler {
                 .execute({onRow, false /*processInParallel*/},
                          0, // offset
                          -1, // limit
-                         onProgress);
+                         convertProgressToJson);
         }
         catch (const MLDB::Exception & exc) {
             if (!isNumeric) {
@@ -281,6 +282,7 @@ struct NumericRowHandler {
             }
             return true;
         };
+        ConvertProgressToJson convertProgressToJson(onProgress);
         BoundGroupByQuery(select,
                         *boundDataset.dataset,
                         boundDataset.asName,
@@ -292,9 +294,9 @@ struct NumericRowHandler {
                         *config.inputData.stm->rowName,
                         orderBy)
             .execute({onRow2, false /*processInParallel*/},
-                    0, // offset
-                    -1, // limit
-                    onProgress);
+                     0, // offset
+                     -1, // limit
+                     convertProgressToJson);
         ExcAssert(count == numNotNull);
         ExcAssert(idx == NUM_QUARTILES);
         vector<Cell> toRecord;
@@ -357,6 +359,7 @@ struct CategoricalRowHandler {
         vector<shared_ptr<SqlExpression>> aggregators =
             select.findAggregators(!config.inputData.stm->groupBy.clauses.empty());
 
+        ConvertProgressToJson convertProgressToJson(onProgress);
         BoundGroupByQuery(select,
                         *boundDataset.dataset,
                         boundDataset.asName,
@@ -368,9 +371,9 @@ struct CategoricalRowHandler {
                         *config.inputData.stm->rowName,
                         config.inputData.stm->orderBy)
             .execute({onRow, false /*processInParallel*/},
-                    0, // offset
-                    -1, // limit
-                    onProgress);
+                     0, // offset
+                     -1, // limit
+                    convertProgressToJson);
 
         select = SelectExpression::parse("count(" + name + ") AS _0, "
                                          + name + " AS _1");
@@ -405,7 +408,7 @@ struct CategoricalRowHandler {
             .execute({onRow2, false /*processInParallel*/},
                     0, // offset
                     -1, // limit
-                    onProgress);
+                    convertProgressToJson);
         vector<Cell> toRecord;
         for (int i = 0; i < mostFrequents.currSize; ++ i) {
             toRecord.emplace_back(
@@ -431,7 +434,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     vector<shared_ptr<SqlExpression> > calc;
 

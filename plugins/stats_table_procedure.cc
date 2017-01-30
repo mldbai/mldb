@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** stats_table_procedure.cc
     Francois Maillet, 2 septembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Stats table procedure
 */
@@ -213,7 +213,8 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     SqlExpressionMldbScope context(server);
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
     vector<string> outcome_names;
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
@@ -669,7 +670,8 @@ run(const ProcedureRunConfig & run,
     }
 
     SqlExpressionMldbScope context(server);
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
     vector<string> outcome_names;
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
@@ -691,7 +693,7 @@ run(const ProcedureRunConfig & run,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
-            if(num_req++ % 10000 == 0) {
+            if(num_req++ % PROGRESS_RATE_LOW == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string message = MLDB::format("done %d. %0.4f/sec", num_req, num_req / secs);
                 Json::Value progress;

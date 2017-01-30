@@ -1,6 +1,6 @@
 /** http_rest_proxy_impl.h                                         -*- C++ -*-
     Jeremy Barnes, 20 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Details of the HttpRestProxy connection class.  Split out for internal
     users that want to use HttpRestProxy's connection pool but not its

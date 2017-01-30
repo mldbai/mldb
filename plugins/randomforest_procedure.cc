@@ -1,8 +1,8 @@
 /** randomforest_procedure.cc                                             -*- C++ -*-
     Mathieu Marquis Bolduc, 11 Mars 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Procedure to train a random forest binary classifier.
 */
@@ -143,7 +143,8 @@ run(const ProcedureRunConfig & run,
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
     ML::Mutable_Feature_Info labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
     labelInfo.set_biased(true);

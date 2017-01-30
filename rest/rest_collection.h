@@ -1,8 +1,8 @@
 /* rest_collection.h                                               -*- C++ -*-
    Jeremy Barnes, 21 January 2014
-   Copyright (C) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (C) 2014 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Helpers for creating a collection of REST objects.
 */
@@ -117,7 +117,7 @@ struct BackgroundTaskBase {
     /** When destroying a background task, we make sure it's cancelled or
         finished so that there is nothing outstanding.
     */
-    ~BackgroundTaskBase();
+    virtual ~BackgroundTaskBase();
 
     Json::Value getProgress() const;
 
@@ -127,7 +127,7 @@ struct BackgroundTaskBase {
 
         Return false if the task was already cancelled and true otherwise.
     */
-    bool cancel();
+    bool cancel() noexcept;
 
     /** Set state to State::ERROR */
     void setError(std::exception_ptr exc = nullptr);

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_collection.h"
@@ -44,13 +44,13 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
     scriptConfig["address"] = "file://mldb/testing/python_script_test1.py";
 
     auto output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
-    BOOST_CHECK_EQUAL(output.code(), 200);
+    BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     // Check with more than 65k in the script
     scriptConfig["address"] = "file://mldb/testing/python_script_test1_big.py";
 
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
-    BOOST_CHECK_EQUAL(output.code(), 200);
+    BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     // Check python script with error
     scriptConfig["address"] = "";
@@ -59,17 +59,17 @@ print "hoho"
 print datetime.datetime.datime.now()
 )foo";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
-    BOOST_CHECK_EQUAL(output.code(), 400);
+    BOOST_REQUIRE_EQUAL(output.code(), 400);
     cout << output << endl;
     auto jsonOutput = output.jsonBody();
     auto excp = jsonOutput["exception"];
     cout << jsonOutput.toStyledString() << endl;
-    BOOST_CHECK_EQUAL(excp["message"].asString(), "name 'datetime' is not defined");
-    BOOST_CHECK_EQUAL(excp["lineNumber"].asInt(), 3);
-    BOOST_CHECK_EQUAL(excp["stack"].size(), 3);
-    BOOST_CHECK_EQUAL(excp["stack"][0]["where"].asString().find("Traceback"), 0);
+    BOOST_REQUIRE_EQUAL(excp["message"].asString(), "name 'datetime' is not defined");
+    BOOST_REQUIRE_EQUAL(excp["lineNumber"].asInt(), 3);
+    BOOST_REQUIRE_EQUAL(excp["stack"].size(), 3);
+    BOOST_REQUIRE_EQUAL(excp["stack"][0]["where"].asString().find("Traceback"), 0);
     // make sure we're getting cout
-    BOOST_CHECK_EQUAL(jsonOutput["logs"][0]["c"].asString(), "hoho");
+    BOOST_REQUIRE_EQUAL(jsonOutput["logs"][0]["c"].asString(), "hoho");
 
     pluginConfig2.type = "python";
     plugRes.source.main = scriptConfig["source"].asString();
@@ -84,7 +84,7 @@ print datetime.datetime.datime.now()
 next(x for x in enumerate(['a', 'b', 'c']) if x[0] > 5)
 )foo";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
-    BOOST_CHECK_EQUAL(output.code(), 400);
+    BOOST_REQUIRE_EQUAL(output.code(), 400);
     cout << output << endl;
 
 
@@ -93,7 +93,7 @@ next(x for x in enumerate(['a', 'b', 'c']) if x[0] > 5)
     output = proxy.get("/v1/plugins/plugin_noimport");
     jsonOutput = output.jsonBody();
     cout << jsonOutput.toStyledString() << endl;
-    BOOST_CHECK_EQUAL(jsonOutput["progress"]["exception"]["details"]["logs"][0]["c"].asString(), "hoho");
+    BOOST_REQUIRE_EQUAL(jsonOutput["progress"]["exception"]["details"]["logs"][0]["c"].asString(), "hoho");
 
 
 
@@ -103,13 +103,13 @@ next(x for x in enumerate(['a', 'b', 'c']) if x[0] > 5)
 a b
 )foo";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
-    BOOST_CHECK_EQUAL(output.code(), 400);
+    BOOST_REQUIRE_EQUAL(output.code(), 400);
     cout << output << endl;
     jsonOutput = output.jsonBody();
     excp = jsonOutput["exception"];
-    BOOST_CHECK_EQUAL(excp["lineNumber"].asInt(), 2);
-    BOOST_CHECK_EQUAL(excp["stack"].size(), 1);
-    BOOST_CHECK_EQUAL(excp["stack"][0]["where"].asString().find("Syntax"), 0);
+    BOOST_REQUIRE_EQUAL(excp["lineNumber"].asInt(), 2);
+    BOOST_REQUIRE_EQUAL(excp["stack"].size(), 1);
+    BOOST_REQUIRE_EQUAL(excp["stack"][0]["where"].asString().find("Syntax"), 0);
 
 
 
@@ -125,35 +125,35 @@ a b
 
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
-    BOOST_CHECK_EQUAL(output.jsonBody()["logs"][0]["c"].asString(), "hoho");
-    BOOST_CHECK_EQUAL(output.jsonBody()["result"]["a"].asInt(), 5);
-    BOOST_CHECK_EQUAL(output.code(), 200);
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["logs"][0]["c"].asString(), "hoho");
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["result"]["a"].asInt(), 5);
+    BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     scriptConfig["args"] = Json::Value(5);
 
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
-    BOOST_CHECK_EQUAL(output.jsonBody()["result"].asInt(), 5);
-    BOOST_CHECK_EQUAL(output.code(), 200);
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["result"].asInt(), 5);
+    BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     // try the same as before but getting the file from http
     scriptConfig["address"] = "https://gist.githubusercontent.com/mailletf/24fa95ccf5b3b679345b/raw/144930ac7a9cd20478e7ce37139916872928e4c0/main.py";
 
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
-    BOOST_CHECK_EQUAL(output.jsonBody()["result"].asInt(), 5);
-    BOOST_CHECK_EQUAL(output.code(), 200);
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["result"].asInt(), 5);
+    BOOST_REQUIRE_EQUAL(output.code(), 200);
     
     // try the same as before but getting the file from http
     scriptConfig["address"] = "https://blah";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
-    BOOST_CHECK_EQUAL(output.code(), 400);
+    BOOST_REQUIRE_EQUAL(output.code(), 400);
     
     scriptConfig["address"] = "https://gist.githubusercontent.com/mailletf/24fa95ccf5b3b679345b/raw/144930ac7a9cd20478e7ce37139916872928e4c/main55.py";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
-    BOOST_CHECK_EQUAL(output.code(), 400);
+    BOOST_REQUIRE_EQUAL(output.code(), 400);
 
 
     // *****************
@@ -167,10 +167,10 @@ print "a"
  
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
-    BOOST_CHECK_EQUAL(output.jsonBody()["logs"].size(), 2);
-    BOOST_CHECK_EQUAL(output.jsonBody()["logs"][0]["s"].asString(), "stdout");
-    BOOST_CHECK_EQUAL(output.jsonBody()["logs"][0]["c"].asString(), "a\nb");
-    BOOST_CHECK_EQUAL(output.jsonBody()["logs"][1]["c"].asString(), "a");
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["logs"].size(), 2);
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["logs"][0]["s"].asString(), "stdout");
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["logs"][0]["c"].asString(), "a\nb");
+    BOOST_REQUIRE_EQUAL(output.jsonBody()["logs"][1]["c"].asString(), "a");
 
 
     // ************************
@@ -183,7 +183,7 @@ print "a"
                                jsonEncode(pluginConfig2));
     cerr << putResult << endl;
     auto jsPutResult = putResult.jsonBody();
-    BOOST_CHECK_EQUAL(putResult.code(), 400);
+    BOOST_REQUIRE_EQUAL(putResult.code(), 400);
 
     
     // ************************
@@ -195,8 +195,8 @@ print "a"
                                jsonEncode(pluginConfig2));
     cerr << putResult << endl;
     jsPutResult = putResult.jsonBody();
-    BOOST_CHECK(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
-    BOOST_CHECK_EQUAL(putResult.code(), 400);
+    BOOST_REQUIRE(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
+    BOOST_REQUIRE_EQUAL(putResult.code(), 400);
     auto status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin_nocompile").jsonBody());
     cerr << "status = " << jsonEncode(status) << endl;
 
@@ -209,8 +209,8 @@ print "a"
                                jsonEncode(pluginConfig2));
     cerr << putResult << endl;
     jsPutResult = putResult.jsonBody();
-    BOOST_CHECK(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
-    BOOST_CHECK_EQUAL(putResult.code(), 400);
+    BOOST_REQUIRE(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
+    BOOST_REQUIRE_EQUAL(putResult.code(), 400);
     status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin_nocompile").jsonBody());
     cerr << "status = " << jsonEncode(status) << endl;
     
@@ -222,17 +222,17 @@ print "a"
                           jsonEncode(pluginConfig2));
     cerr << putResult << endl;
 
-    BOOST_CHECK_EQUAL(putResult.code(), 201);
+    BOOST_REQUIRE_EQUAL(putResult.code(), 201);
 
     // this should work
     auto getResult = proxy.get("/v1/plugins/pyplugin_requestexc/routes/pathExists");
     cerr << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
 
     // this should throw
     getResult = proxy.get("/v1/plugins/pyplugin_requestexc/routes/hello");
     cerr << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 400);
+    BOOST_REQUIRE_EQUAL(getResult.code(), 400);
 
 
     // ************************
@@ -247,45 +247,45 @@ print "a"
     // check init output
     getResult = proxy.get("/v1/plugins/pyplugin/routes/lastoutput");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
-    BOOST_CHECK_EQUAL(getResult.jsonBody()["logs"][0]["c"].asString(), "testing pluging for MLDB!!");
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.jsonBody()["logs"][0]["c"].asString(), "testing pluging for MLDB!!");
 
     status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin").jsonBody());
     
     cerr << "status = " << jsonEncode(status) << endl;
-    //BOOST_CHECK_EQUAL(jsonEncode(status)["status"]["message"].asString(), "A-OK");
+    //BOOST_REQUIRE_EQUAL(jsonEncode(status)["status"]["message"].asString(), "A-OK");
     
 
     getResult = proxy.get("/v1/plugins/pyplugin/routes/hello");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
-    BOOST_CHECK_EQUAL(getResult.jsonBody()["how"].asString(), "are you");
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.jsonBody()["how"].asString(), "are you");
     
     // make sure we're getting a 200 return code for empty dict and list
     getResult = proxy.get("/v1/plugins/pyplugin/routes/emptyList");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
-    BOOST_CHECK(getResult.jsonBody().isArray());
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE(getResult.jsonBody().isArray());
     
     getResult = proxy.get("/v1/plugins/pyplugin/routes/emptyDict");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 404);
-//     BOOST_CHECK(getResult.jsonBody().isObject());
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE(getResult.jsonBody().isObject());
     
     // make sure we can return custom return codes
     getResult = proxy.get("/v1/plugins/pyplugin/routes/teaPot");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 418);
+    BOOST_REQUIRE_EQUAL(getResult.code(), 418);
     
     // check last output
     getResult = proxy.get("/v1/plugins/pyplugin/routes/lastoutput");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
-    BOOST_CHECK_EQUAL(getResult.jsonBody()["logs"][0]["c"].asString(), "in route!");
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.jsonBody()["logs"][0]["c"].asString(), "in route!");
     
     getResult = proxy.get("/v1/plugins/pyplugin/routes/static/static.html");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
     BOOST_REQUIRE(boost::starts_with(getResult.body(), "OK"));
 
 
@@ -304,13 +304,13 @@ print "a"
     scriptConfig["address"] = "gist://gist.github.com/mailletf/fc41a2b177e6e66795b5";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cerr << "postStatus: " << output << endl;
-    BOOST_CHECK_EQUAL(output.code(), 200);
+    BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     scriptConfig["source"] = "";
     scriptConfig["address"] = "gist://gist.github.com/I_DONT_EXIST";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cerr << "postStatus: " << output << endl;
-    BOOST_CHECK_EQUAL(output.code(), 400);
+    BOOST_REQUIRE_EQUAL(output.code(), 400);
 
 
 
@@ -327,13 +327,13 @@ print "a"
     getResult = proxy.get("/v1/plugins/pyplugin_gist_multifile/routes/func");
     cerr << getResult << endl;
 
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
-    BOOST_CHECK_EQUAL(getResult.jsonBody()["value"].asString(), "in function");
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.jsonBody()["value"].asString(), "in function");
     
     getResult = proxy.get("/v1/plugins/pyplugin_gist_multifile/version");
     cerr << getResult << endl;
     
-    BOOST_CHECK_EQUAL(getResult.jsonBody()["branch"].asString(), "master");
+    BOOST_REQUIRE_EQUAL(getResult.jsonBody()["branch"].asString(), "master");
 
 
 
@@ -348,12 +348,12 @@ print "a"
     getResult = proxy.get("/v1/plugins/pyplugin_local_multifile/routes/func");
     cerr << getResult << endl;
 
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
-    BOOST_CHECK_EQUAL(getResult.jsonBody()["value"].asString(), "in function");
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.jsonBody()["value"].asString(), "in function");
 
     getResult = proxy.get("/v1/plugins/pyplugin_local_multifile/routes/doc");
     cerr << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 404);
+    BOOST_REQUIRE_EQUAL(getResult.code(), 500);
 
     getResult = proxy.get("/v1/plugins/pyplugin_local_multifile/doc/index.html");
     cerr << getResult << endl;
@@ -361,7 +361,7 @@ print "a"
     
     getResult = proxy.get("/v1/plugins/pyplugin_local_multifile/doc/index.md");
     cerr << getResult << endl;
-    BOOST_CHECK(getResult.body().find("<h1>My markdown doc") != string::npos);
+    BOOST_REQUIRE(getResult.body().find("<h1>My markdown doc") != string::npos);
 
 
     //// checking out specific revision for a plugin
@@ -375,12 +375,12 @@ print "a"
         // if we're expecting a failure
         if(code == -1) {
             cerr << putStatus << endl;
-            BOOST_CHECK_EQUAL(putStatus.code(), 400);
+            BOOST_REQUIRE_EQUAL(putStatus.code(), 400);
         }
         else {
             getResult = proxy.get("/v1/plugins/test_git_plugin/routes");
-            BOOST_CHECK_EQUAL(getResult.code(), 200);
-            BOOST_CHECK_EQUAL(getResult.jsonBody()["version"].asInt(), code);
+            BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+            BOOST_REQUIRE_EQUAL(getResult.jsonBody()["version"].asInt(), code);
         }
     };
 
@@ -401,12 +401,12 @@ print "a"
     // check init output
     getResult = proxy.get("/v1/plugins/pyplugin/routes/lastoutput");
     cerr << "getResult = " << getResult << endl;
-    BOOST_CHECK_EQUAL(getResult.code(), 200);
-    BOOST_CHECK_EQUAL(getResult.jsonBody()["logs"][0]["c"].asString(), "testing pluging for MLDB!!");
+    BOOST_REQUIRE_EQUAL(getResult.code(), 200);
+    BOOST_REQUIRE_EQUAL(getResult.jsonBody()["logs"][0]["c"].asString(), "testing pluging for MLDB!!");
 
     status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin").jsonBody());
     
     cerr << "status = " << jsonEncode(status) << endl;
-    //BOOST_CHECK_EQUAL(jsonEncode(status)["status"]["message"].asString(), "A-OK");
+    //BOOST_REQUIRE_EQUAL(jsonEncode(status)["status"]["message"].asString(), "A-OK");
 
 }

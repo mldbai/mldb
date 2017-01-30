@@ -1,7 +1,7 @@
 #
 # MLDB-1212_csv_import_long_quoted_lines.py
 # 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest

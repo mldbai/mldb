@@ -1,6 +1,6 @@
 # tensorflow.mk
 # Jeremy Barnes, 17 December 2015
-# Copyright (c) 2015 Datacratic Inc.
+# Copyright (c) 2015 mldb.ai inc.
 #
 # This file is part of mldb.ai, Apache 2.0 license.
 #
@@ -222,7 +222,18 @@ TENSORFLOW_CUDA_NVCC_BUILD:=$(sort $(TENSORFLOW_CUDA_NVCC_FILES:$(CWD)/%=%))
 # - EIGEN_HAS_VARIADIC_TEMPLATES is required for cross-compiling, where
 #   Eigen disables needed std::initializer_list constructors in its arrays
 #   because it doesn't properly detect that this feature is available
-TENSORFLOW_COMMON_CUDA_FLAGS=-DGOOGLE_CUDA=1 -I$(CUDA_BASE_DIR)/include -DEIGEN_AVOID_STL_ARRAY=1 -DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) -DEIGEN_HAS_VARIADIC_TEMPLATES=1 -I$(INC)/third_party/gpus
+# - -DEigenCudaErrorFunctionDeclaration,-DcheckForCudaSuccess are to
+#   install a custom error handler that doesn't crash MLDB on a transient
+#   CUDA failure
+TENSORFLOW_COMMON_CUDA_FLAGS=\
+	-DGOOGLE_CUDA=1 \
+	-I$(CUDA_BASE_DIR)/include \
+	-DTF_EXTRA_CUDA_CAPABILITIES=$(TF_CUDA_CAPABILITIES) \
+	-DEIGEN_AVOID_STL_ARRAY=1 \
+	-DEIGEN_HAS_VARIADIC_TEMPLATES=1 \
+	-DEigenCudaErrorFunctionDeclaration="void mldbCheckForCudaSuccess(cudaError_t);" \
+	-DcheckForCudaSuccess="mldbCheckForCudaSuccess" \
+	-I$(INC)/third_party/gpus 
 
 # Here are the flags we need to pass to NVCC to compile TensorFlow's CUDA
 # files.
@@ -311,7 +322,7 @@ TENSORFLOW_CC_BUILD:=$(sort $(TENSORFLOW_CC_FILES:$(CWD)/%=%))
 
 # We need to set up include paths and turn off a bunch of warnings.  Most of
 # them are triggered by the (3rd party) Eigen library.
-$(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$$(TENSORFLOW_COMPILE_FLAGS)))
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD) ../tf_cuda_handlers.cc,$$(TENSORFLOW_COMPILE_FLAGS)))
 
 # Libraries that the core of TensorFlow relies on.  We need the CUDA
 # libraries, if support is included, since the core includes the
@@ -319,7 +330,7 @@ $(eval $(call set_compile_option,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BU
 TENSORFLOW_CORE_LINK := protobuf3 re2 png jpeg farmhash giflib $(TENSORFLOW_CUDA_LINK)
 
 # Finally, build a library with the tensorflow functionality inside
-$(eval $(call library,tensorflow-core,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD),$(TENSORFLOW_CORE_LINK),,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
+$(eval $(call library,tensorflow-core,$(TENSORFLOW_CC_BUILD) $(TENSORFLOW_PROTOBUF_BUILD) $(if $(WITH_CUDA),../tf_cuda_handlers.cc),$(TENSORFLOW_CORE_LINK),,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
 
 
 # Part of the C++ interface to TensorFlow is created using an automatic

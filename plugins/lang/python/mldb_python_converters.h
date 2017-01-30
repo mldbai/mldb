@@ -1,6 +1,6 @@
 /* mldb_python_converters.h                                             -*- C++ -*-
    Sunil Rottoo, 25 March 2015
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include <boost/python.hpp>
@@ -97,12 +97,10 @@ struct CellValueConverter
     {
         if (PyInt_Check(obj_ptr)) {
             int val = boost::python::extract<int>(obj_ptr);
-//             cerr << "   recording val as INT: " << val << endl;
             new (storage) CellValue(val);
         }
         else if (PyFloat_Check(obj_ptr)) {
             double val = boost::python::extract<double>(obj_ptr);
-//             cerr << "   recording val as DOUBLE: " << val << endl;
             new (storage) CellValue(val);
         }
         else if (PyUnicode_Check(obj_ptr) || PyString_Check(obj_ptr)) {
@@ -112,7 +110,6 @@ struct CellValueConverter
                          "Error converting unicode");
             }
             std::string val = boost::python::extract<std::string>(obj_ptr);
-            //std::cerr << "   recording val as STR: " << val << std::endl;
             new (storage) CellValue(Utf8String(val));
         } else {
             throw MLDB::Exception("Unsupported value type for CellValue converter");

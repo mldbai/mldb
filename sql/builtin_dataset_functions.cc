@@ -1,12 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
 #include "sql_expression.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/builtin/transposed_dataset.h"
+#include "mldb/builtin/sub_dataset.h"
 #include "mldb/types/value_description.h"
+#include <functional>
 
 using namespace std;
+using namespace std::placeholders;
 
 
 namespace MLDB {
@@ -16,10 +19,12 @@ typedef std::function<BoundTableExpression (const std::vector<BoundTableExpressi
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
+std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbServer *, const TableOperations& table);
 std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> >);
 std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
                                                     std::shared_ptr<Dataset> dataset,
                                                     const ExpressionValue & options);
+std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbServer *, const std::vector<NamedRowValue> &);
 
 // defined in table_expression_operations.cc
 BoundTableExpression
@@ -30,7 +35,8 @@ namespace Builtins {
 typedef BoundTableExpression (*BuiltinDatasetFunction) (const SqlBindingScope & context,
                                                         const std::vector<BoundTableExpression> &,
                                                         const ExpressionValue & options,
-                                                        const Utf8String& alias);
+                                                        const Utf8String& alias,
+                                                        const ProgressFunc & onProgress);
 
 struct RegisterBuiltin {
     template<typename... Names>
@@ -51,11 +57,12 @@ struct RegisterBuiltin {
                        const std::vector<BoundTableExpression> & args,
                        const ExpressionValue & options,
                        const SqlBindingScope & context,
-                       const Utf8String& alias)
+                       const Utf8String& alias,
+                       const ProgressFunc & onProgress)
             -> BoundTableExpression
             {
                 try {
-                    return function(context, args, options, alias);
+                    return function(context, args, options, alias, onProgress);
                 } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin Dataset function "
                                          + str + ": " + getExceptionString(),
@@ -77,15 +84,22 @@ struct RegisterBuiltin {
 BoundTableExpression transpose(const SqlBindingScope & context,
                                const std::vector<BoundTableExpression> & args,
                                const ExpressionValue & options,
-                               const Utf8String& alias)
+                               const Utf8String& alias,
+                               const ProgressFunc & onProgress)
 {
     if (args.size() != 1)
         throw HttpReturnException(500, "transpose() takes a single argument");
      if(!options.empty())
          throw HttpReturnException(500, "transpose() does not take any options");
 
-
-    auto ds = createTransposedDatasetFn(context.getMldbServer(), args[0].dataset);
+    std::shared_ptr<Dataset> ds;
+    if (args[0].dataset) {
+        ds = createTransposedDatasetFn(context.getMldbServer(), args[0].dataset);
+    }
+    else {
+        ExcAssert(args[0].table);
+        ds = createTransposedTableFn(context.getMldbServer(), args[0].table);
+    }
 
     return bindDataset(ds, alias); 
 }
@@ -97,10 +111,14 @@ static RegisterBuiltin registerTranspose(transpose, "transpose");
 /* MERGED DATASET                                                            */
 /*****************************************************************************/
 
+// Overridden by libmldb.so when it loads up to break circular link dependency
+// and allow expression parsing to be in a separate library
+
 BoundTableExpression merge(const SqlBindingScope & context,
                            const std::vector<BoundTableExpression> & args,
                            const ExpressionValue & options,
-                           const Utf8String& alias)
+                           const Utf8String& alias,
+                           const ProgressFunc & onProgress)
 {
     if (args.size() < 1)
         throw HttpReturnException(500, "merge() needs at least 1 argument");
@@ -109,10 +127,42 @@ BoundTableExpression merge(const SqlBindingScope & context,
 
     std::vector<std::shared_ptr<Dataset> > datasets;
     datasets.reserve(args.size());
-    for (auto arg : args)
-    {
-        if (arg.dataset)
+
+    size_t steps = args.size();
+    ProgressState joinState(100);
+    auto stepProgress = [&](uint step, const ProgressState & state) {
+        joinState = (100 / steps * state.count / *state.total) + (100 / steps * step);
+        return onProgress(joinState);
+    };
+ 
+    for (uint i = 0; i < steps; ++i) {
+        auto & arg = args[i];
+        auto & combinedProgress = onProgress ? std::bind(stepProgress, i, _1) : onProgress;
+    
+        if (arg.dataset) {
             datasets.push_back(arg.dataset);
+            if (combinedProgress) {
+                ProgressState progress(100);
+                progress = 100; // there is nothing to perform here
+                combinedProgress(progress);
+            }
+        }
+        else if (!!arg.table) {
+            SqlBindingScope dummyScope;
+            auto generator = arg.table.runQuery(dummyScope,
+                                                SelectExpression::STAR,
+                                                WhenExpression::TRUE,
+                                                *SqlExpression::TRUE,
+                                                OrderByExpression(),
+                                                0, -1, combinedProgress);
+            SqlRowScope fakeRowScope;
+            // Generate all outputs of the query
+            std::vector<NamedRowValue> rows
+                = generator(-1, fakeRowScope);
+            auto subDataset = createSubDatasetFromRowsFn(context.getMldbServer(), rows);
+
+            datasets.push_back(subDataset);
+        }
     }
 
     auto ds = createMergedDatasetFn(context.getMldbServer(), datasets);
@@ -131,7 +181,8 @@ static RegisterBuiltin registerMerge(merge, "merge");
 BoundTableExpression sample(const SqlBindingScope & context,
                             const std::vector<BoundTableExpression> & args,
                             const ExpressionValue & options,
-                            const Utf8String& alias)
+                            const Utf8String& alias,
+                            const ProgressFunc & onProgress)
 {
     if (args.size() != 1)
         throw HttpReturnException(400, "The 'sample' function takes 1 dataset as input, "

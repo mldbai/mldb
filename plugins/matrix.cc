@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** matrix.cc
     Jeremy Barnes, 5 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -33,7 +33,7 @@ getColumnStats(const SelectExpression & select,
                const OrderByExpression & orderBy,
                ssize_t offset,
                ssize_t limit,
-               const std::function<bool (const Json::Value &)> & onProgress)
+               const ProgressFunc & onProgress)
 {
     std::unordered_map<ColumnPath, ColumnStats> stats;
        
@@ -102,7 +102,7 @@ classifyColumns(const SelectExpression & select_,
                 ssize_t offset,
                 ssize_t limit,
                 std::shared_ptr<spdlog::logger> logger,
-                std::function<bool (const Json::Value &)> & onProgress)
+                const ProgressFunc & onProgress)
 {
     // Get a list of the columns we want to use, by parsing the select
     // expression.  Note that only direct expression values will work.
@@ -224,7 +224,7 @@ extractFeaturesFromRows(const SelectExpression & select,
                         ssize_t limit,
                         const ClassifiedColumns & columns,
                         std::shared_ptr<spdlog::logger> logger,
-                        std::function<bool (const Json::Value &)> & onProgress)
+                        const ProgressFunc & onProgress)
 {
     static const int numBuckets = 32;
 
@@ -342,7 +342,7 @@ ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
                const FeatureBuckets & featureBuckets,
                std::shared_ptr<spdlog::logger> logger,
-               std::function<bool (const Json::Value &)> & onProgress)
+               const ProgressFunc & onProgress)
 {
     Timer timer;
 
@@ -357,6 +357,7 @@ invertFeatures(const ClassifiedColumns & columns,
 
     std::atomic<uint64_t> bucketCount(0);
     size_t bucketNum = featureBuckets.size();
+    ProgressState progress(bucketNum);
 
     auto doBucket = [&] (int n)
         {
@@ -368,15 +369,14 @@ invertFeatures(const ClassifiedColumns & columns,
             int index = featureBuckets[n].startIndex;
             ++bucketCount;
             if (onProgress) {
-                Json::Value progress;
-                progress["percent"] = (float) bucketCount / bucketNum;
+                progress = bucketCount;
                 if (!onProgress(progress))
                     return false;
             }
 
             for (const ExtractedRow & entry: featureBuckets[n]) {
-                TRACE_MSG(logger) << "continuous " << entry.continuous.size() << " sparse "
-                                  << entry.sparse.size();
+                TRACE_MSG(logger) << "entry in bucket " << n << " contains: continuous " << entry.continuous.size() 
+                                  << " sparse " << entry.sparse.size();
                     
                 for (unsigned i = 0;  i < entry.continuous.size();  ++i) {
                     result[i].continuousValues[index] = entry.continuous[i];

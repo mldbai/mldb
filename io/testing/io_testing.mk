@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 $(eval $(call test,asio_timer_test,io_base,boost))
 $(eval $(call test,async_writer_bench,io_base,boost))

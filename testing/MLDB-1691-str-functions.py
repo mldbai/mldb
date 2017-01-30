@@ -2,7 +2,7 @@
 #
 # MLDB-1691-str-functions.py
 # Francois Maillet, 27 mai 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest

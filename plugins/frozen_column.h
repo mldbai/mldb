@@ -1,6 +1,6 @@
 /** frozen_column.h                                                -*- C++ -*-
     Jeremy Barnes, 27 March 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Frozen (immutable), compressed column representations and methods
     to operate on them.
@@ -9,6 +9,8 @@
 #pragma once
 
 #include "column_types.h"
+#include "mldb/utils/log.h"
+#include "mldb/plugins/tabular_dataset.h"
 #include <memory>
 
 
@@ -32,6 +34,7 @@ struct ColumnFreezeParameters {
 
 /// Base class for a frozen column
 struct FrozenColumn {
+    FrozenColumn();
     virtual ~FrozenColumn()
     {
     }
@@ -58,6 +61,8 @@ struct FrozenColumn {
     static std::shared_ptr<FrozenColumn>
     freeze(TabularDatasetColumn & column,
            const ColumnFreezeParameters & params);
+
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 

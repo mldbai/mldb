@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** 
   pyplugin_static_folder_test.cc
   Francois Maillet, 19 mars 2015  
-  Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+  Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/server/mldb_server.h"

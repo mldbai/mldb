@@ -15,22 +15,22 @@ Theano==0.7.0
 seaborn==0.7.0
 scikit-learn==0.17
 
-pymldb==0.7.2
+pymldb==0.8.1
 pivottablejs==0.1.0
 
+# Progress bar
+tqdm==4.11.0
+
 # notebook and friends
-ipython==4.1.1
+ipython==5.1.0
 jupyter==1.0.0
-jupyter-client==4.1.1
-jupyter-console==4.1.0
-jupyter-core==4.0.6
+jupyter-client==4.4.0
+jupyter-console==5.0.0
+jupyter-core==4.2.1
 
 # validator
 uWSGI==2.0.12
 pycrypto==2.6.1
 
 tornado==4.3
-
-# Generic tools
-boto==2.39.0
 

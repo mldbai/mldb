@@ -1,7 +1,7 @@
 #
 # MLDBFB-509_pushed_non_printable_char_cant_query.py
 # Mich, 2016-05-02
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import unittest
 

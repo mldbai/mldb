@@ -1,8 +1,8 @@
 /** classifier.cc
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Integration of JML machine learning library to train classifiers.
 */
@@ -195,7 +195,8 @@ run(const ProcedureRunConfig & run,
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
     std::shared_ptr<ML::Mutable_Categorical_Info> categorical;
 

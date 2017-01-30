@@ -1,7 +1,7 @@
 #
 # MLDB-2040_join_tests.py
 # Francois-Michel L'Heureux, 2016-11-02
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa

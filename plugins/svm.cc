@@ -1,8 +1,8 @@
 /** svm.cc
     Mathieu Marquis Bolduc, October 28th, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Support Vector Machine Procedure and Function
 */
@@ -237,20 +237,14 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-    {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-    };
-
     checkWritability(runProcConf.modelFileUrl.toDecodedString(),
                      "modelFileUrl");
 
     SqlExpressionMldbScope context(server);
 
+    ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput
-        = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
+        = getEmbedding(*runProcConf.trainingData.stm, context, -1, convertProgressToJson);
 
     std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows

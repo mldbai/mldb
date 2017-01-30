@@ -1,6 +1,6 @@
 /** sql_expression_operations.h                                    -*- C++ -*-
     Jeremy Barnes, 24 February 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -392,7 +392,6 @@ struct BoundParameterExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; }
 
     Utf8String paramName;
 };
@@ -598,6 +597,38 @@ struct SelectColumnExpression: public SqlRowExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
     std::map<ScopedName, UnboundWildcard> wildcards() const;
+};
+
+/** Read the value from a groupby key */
+struct GroupByKeyExpression: public SqlRowExpression {
+    GroupByKeyExpression(size_t index) : index(index) { }
+
+    size_t index;
+
+    virtual BoundSqlExpression
+    bind(SqlBindingScope & context) const override;
+
+    virtual Utf8String print() const override;
+
+    virtual std::shared_ptr<SqlExpression>
+    transform(const TransformArgs & transformArgs) const override;
+
+    virtual std::string getType() const override
+    {
+        return "groupByKey";
+    }
+
+    virtual Utf8String getOperation() const override
+    {
+        return getType() + "[" + std::to_string(index) + "]";
+    }
+
+    virtual bool isConstant() const override
+    {
+        return false;
+    }
+
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
 };
 
 } // namespace MLDB

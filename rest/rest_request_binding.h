@@ -1,7 +1,7 @@
 /** rest_request_binding.h                                         -*- C++ -*-
     Jeremy Barnes, 15 November 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Functionality to bind arbitrary functions into REST requests in a
     declarative manner.
@@ -464,7 +464,7 @@ createParameterExtractor(Json::Value & argHelp,
         {
             Json::Value parsed = request.payload.empty() ?
                 Json::nullValue : Json::parse(request.payload);
-            if (!request.params.empty() && !parsed == Json::nullValue) {
+            if (!request.params.empty() && !parsed.empty()) {
                 throw HttpReturnException(
                     400, "You cannot mix query string and body parameters");
             }
@@ -504,7 +504,7 @@ createParameterExtractor(Json::Value & argHelp,
         {
             Json::Value parsed = request.payload.empty() ?
                 Json::nullValue : Json::parse(request.payload);
-            if (!request.params.empty() && !parsed == Json::nullValue) {
+            if (!request.params.empty() && !parsed.empty()) {
                 throw HttpReturnException(
                     400, "You cannot mix query string and body parameters");
             }

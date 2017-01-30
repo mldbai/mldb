@@ -1,7 +1,7 @@
 /* lightweight_hash.h                                              -*- C++ -*-
    Jeremy Barnes, 8 December 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A lightweight invasive hash map.
 */

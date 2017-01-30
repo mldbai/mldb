@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 # Behavioural dataset plugin
 LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
@@ -49,7 +49,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	tfidf.cc \
 	tokensplit.cc \
 	script_function.cc \
-	progress.cc \
 	useragent_function.cc \
 	summary_statistics_proc.cc \
 	csv_writer.cc \

@@ -2,7 +2,7 @@
    This file is part of MLDB.
 
    Wolfgang Sourdeau, July 2016
-   Copyright (c) 2016 Datacratic.  All rights reserved.
+   Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/base/exc_assert.h"

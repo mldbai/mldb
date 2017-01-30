@@ -1,7 +1,7 @@
 /** binding_contexts.cc                                              -*- C++ -*-
     Jeremy Barnes, 14 March 2015
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
     Scopes in which to execute scoped SQL expressions.
@@ -33,7 +33,7 @@ doGetFunction(const Utf8String & tableName,
 {
     std::vector<BoundSqlExpression> outerArgs;		
     for (auto & arg: args) {		
-        if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
+        if (arg.info->isConst())  //don't rebind constant expression since they don't need to access the row
             outerArgs.emplace_back(std::move(arg));		
         else		
             outerArgs.emplace_back(rebind(arg));

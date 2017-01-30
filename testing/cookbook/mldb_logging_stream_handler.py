@@ -1,7 +1,7 @@
 #
 # mldb_logging_stream_handler.py
 # Mich, 2016-04-11
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 # How to build a logging StreamHandler that will output to MLDB since the
 # regular stream handler won't work.

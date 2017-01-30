@@ -1,7 +1,7 @@
 /**
  * ranking_procedure.cc
  * Mich, 2016-01-11
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 
 #include "ranking_procedure.h"
@@ -85,7 +85,8 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
@@ -125,7 +126,7 @@ run(const ProcedureRunConfig & run,
         .execute({getSize,false/*processInParallel*/},
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
-                 onProgress);
+                 convertProgressToJson);
 
     int64_t rowCount = orderedRowNames.size();
 

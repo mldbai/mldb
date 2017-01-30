@@ -1,6 +1,6 @@
 /** probabilizer.cc
     Jeremy Barnes, 16 December 2014
-    This file is part of MLDB. Copyright 2014 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2014 mldb.ai inc. All rights reserved.
 
     Implementation of an algorithm to transform an arbitrary score into a
     calibrated probability.
@@ -153,7 +153,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
     auto score = extractNamedSubSelect("score", runProcConf.trainingData.stm->select)->expression;
     auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select)->expression;
     auto weightSubSelect = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);

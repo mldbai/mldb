@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* rest_collection.cc
    Jeremy Barnes, 23 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -646,7 +646,7 @@ initRoutes(RouteManager & manager)
 
 BackgroundTaskBase::
 BackgroundTaskBase()
-    : running(true), state(State::INITIALIZING)
+    : running(false), state(State::INITIALIZING)
 {
 }
 
@@ -668,12 +668,16 @@ getProgress() const
 
 bool
 BackgroundTaskBase::
-cancel()
+cancel() noexcept
 {
     auto old_state = state.exchange(State::CANCELLED);
-    if (old_state != State::CANCELLED && 
-        old_state != State::FINISHED) {
-        cancelledWatches.trigger(true);
+    if (old_state != State::CANCELLED && old_state != State::FINISHED) {
+        try {
+            cancelledWatches.trigger(true);
+        }
+        catch (...) {
+            std::terminate();
+        }
     }
     // cerr << "state is now CANCELLED " << handle << endl;
 

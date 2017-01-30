@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* json_promise.h                                                  -*- C++ -*-
    Jeremy Barnes, 22 January 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    A class that contains something that is promised to be JSON.  Used to
    defer JSON processing until needed to avoid unnecessary transformations.

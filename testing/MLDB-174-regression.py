@@ -1,6 +1,6 @@
 #
 # MLDB-174-regression.py
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 import unittest, json

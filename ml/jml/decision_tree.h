@@ -1,7 +1,7 @@
 /* decision_tree.h                                                -*- C++ -*-
    Jeremy Barnes, 22 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Decision tree classifier.
 */

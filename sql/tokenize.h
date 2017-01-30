@@ -1,8 +1,8 @@
 /* tokenize.h                                        -*- C++ -*-
    Mathieu Marquis Bolduc, October 5th 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Generic delimiter-token parsing.
 */
@@ -54,6 +54,9 @@ bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
 Utf8String token_extract(ParseContext& context,
                          int nth,
                          const TokenizeOptions & options);
+
+std::vector<Utf8String> token_split(ParseContext& context,
+                                    const Utf8String& splitchars);
 
 } // namespace MLDB
 

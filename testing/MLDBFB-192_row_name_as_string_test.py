@@ -1,7 +1,7 @@
 #
 # MLDBFB-192_row_name_as_string_test.py
 # Mich, 2016-02-02
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
 import tempfile
 import os

@@ -2,7 +2,7 @@
    Jeremy Barnes, 3 July 2012
 
    This file is part of MLDB.
-   Copyright 2012-2015 Datacratic. All rights reserved.
+   Copyright 2012-2015 mldb.ai inc. All rights reserved.
 
    Class to deal with doing s3.
    Note: Your access key must have the listallmybuckets permission on the aws side.

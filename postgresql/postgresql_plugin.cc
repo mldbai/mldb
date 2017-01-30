@@ -1,6 +1,6 @@
 /* postgresql_plugin.cc
    Mathieu Marquis Bolduc, 16 July 2016
-   Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/core/plugin.h"
@@ -121,7 +121,7 @@ struct PostgresqlDataset: public Dataset {
 
     PostgresqlDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         config_ = config.params.convert<PostgresqlDatasetConfig>();
@@ -230,7 +230,7 @@ struct PostgresqlDataset: public Dataset {
 
         return {[=] (ssize_t numToGenerate, Any token,
                      const BoundParameters & params,
-                     std::function<bool (const Json::Value &)> onProgress)
+                     const ProgressFunc & onProgress)
         {
             ssize_t start = 0;
             ssize_t limit = numToGenerate;
@@ -354,7 +354,7 @@ struct PostgresqlRecorderDataset: public Dataset {
 
     PostgresqlRecorderDataset(MldbServer * owner,
                  PolyConfig config,
-                 const std::function<bool (const Json::Value &)> & onProgress)
+                 const ProgressFunc & onProgress)
         : Dataset(owner)
     {
         config_ = config.params.convert<PostgresqlRecorderDatasetConfig>();

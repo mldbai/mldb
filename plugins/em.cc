@@ -1,8 +1,8 @@
 /** em.cc                                                          -*- C++ -*-
     Mathieu Marquis Bolduc, October 28th, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Guassian clustering procedure and functions.
 */
@@ -145,10 +145,11 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
+    ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
                                         runProcConf.numInputDimensions,
-                                        onProgress2);
+                                        convertProgressToJson);
 
     auto rows = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;

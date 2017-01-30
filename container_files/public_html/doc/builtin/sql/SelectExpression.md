@@ -89,7 +89,8 @@ The following functions are available in the context of a column expression:
   is the second to last element). For a columnName of `x.y.2`, then `columnPathElement(0)` 
   will be `x`, `columnPathElement(1)` will be `y` and `columnPathElement(2)` is equivalent 
   to `columnPathElement(-1)` which will be `2`. If n is bigger than the number 
-  of elements in the column path, NULL will be returned.
+  of elements in the column path, NULL will be returned which results in an error since column
+  names cannot be of type NULL.
 - `columnPathLength()` is the number of elements in the column path.
 - `value()` is the value of the column.
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.

@@ -1,7 +1,7 @@
 #
 # post_run_and_track_procedure_test.py
 # Francois-Michel L'Heureux, 2016-10-18
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa

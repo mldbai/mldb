@@ -1,8 +1,8 @@
 /** analytics.cc
     Jeremy Barnes, 30 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "mldb/server/analytics.h"
@@ -20,10 +20,10 @@
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/stats/distribution.h"
 #include <mutex>
-
+#include <functional>
 
 using namespace std;
-
+using namespace std::placeholders;
 
 
 namespace MLDB {
@@ -47,7 +47,7 @@ iterateDataset(const SelectExpression & select,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
-                    std::function<bool (const Json::Value &)> onProgress)
+                    const ProgressFunc & onProgress)
 {
     BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
 
@@ -68,7 +68,7 @@ iterateDatasetExpr(const SelectExpression & select,
                         const OrderByExpression & orderBy,
                         ssize_t offset,
                         ssize_t limit,
-                        std::function<bool (const Json::Value &)> onProgress)
+                        const ProgressFunc & onProgress)
 {
     BoundSelectQuery query(select, from, alias, when, where, orderBy, calc);
 
@@ -92,7 +92,7 @@ iterateDatasetGrouped(const SelectExpression & select,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
-                           std::function<bool (const Json::Value &)> onProgress)
+                           const ProgressFunc & onProgress)
 {
     BoundGroupByQuery query(select, from, alias, when, where, groupBy,
                              aggregators, having, rowName, orderBy);
@@ -111,7 +111,7 @@ iterateDataset(const SelectExpression & select,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
-                    std::function<bool (const Json::Value &)> onProgress)
+                    const ProgressFunc & onProgress)
 {
     std::function<bool (NamedRowValue & output,
                         const std::vector<ExpressionValue> & calcd)>
@@ -136,7 +136,7 @@ void iterateDense(const SelectExpression & select,
                                       int64_t rowNumber,
                                       const std::vector<double> & features,
                                       const std::vector<ExpressionValue> & extra)> processor,
-                  std::function<bool (const Json::Value &)> onProgress)
+                  const ProgressFunc & onProgress)
 {
     ExcAssert(processor);
 
@@ -225,7 +225,7 @@ getEmbedding(const SelectExpression & select,
              const OrderByExpression & orderBy,
              int offset,
              int limit,
-             const std::function<bool (const Json::Value &)> & onProgress)
+             const ProgressFunc & onProgress)
 {
     SqlExpressionDatasetScope context(dataset, alias);
 
@@ -312,9 +312,9 @@ std::pair<std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
 getEmbedding(const SelectStatement & stm,
              SqlExpressionMldbScope & context,
              int maxDimensions,
-             const std::function<bool (const Json::Value &)> & onProgress)
+             const ProgressFunc & onProgress)
 {
-    auto boundDataset = stm.from->bind(context);
+    auto boundDataset = stm.from->bind(context, onProgress);
     if (!boundDataset.dataset)
         throw HttpReturnException
             (400, "You can't train this algorithm from a sub-select or "
@@ -330,7 +330,6 @@ getEmbedding(const SelectStatement & stm,
 void
 validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 {
-    stm.where->bind(scope);
     stm.when.bind(scope);
     stm.orderBy.bindAll(scope);
     if (!stm.groupBy.clauses.empty()) {
@@ -368,7 +367,11 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
 
     validateQueryWithoutDataset(stm, scope);
 
-    if (stm.offset < 1 && stm.limit != 0) {
+    auto boundWhere = stm.where->bind(scope);
+    ExcAssert(boundWhere.info->isConst()); //If not const binding above should have failed
+    bool whereValue = boundWhere.constantValue().isTrue();
+
+    if (stm.offset < 1 && stm.limit != 0 && whereValue) {
         // Fast path when there is no possibility of result since
         // queryWithoutDataset produces at most single row results.
 
@@ -392,10 +395,11 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
 std::vector<MatrixNamedRow>
 queryFromStatement(const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   BoundParameters params)
+                   BoundParameters params,
+                   const ProgressFunc & onProgress)
 {
     std::vector<MatrixNamedRow> output;
-    auto rows = queryFromStatementExpr(stm, scope, params);
+    auto rows = queryFromStatementExpr(stm, scope, params, onProgress);
     for (auto& r : std::get<0>(rows)) {
         output.push_back(r.flattenDestructive());
     }
@@ -404,19 +408,35 @@ queryFromStatement(const SelectStatement & stm,
 
 std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
 queryFromStatementExpr(const SelectStatement & stm,
-                   SqlBindingScope & scope,
-                   BoundParameters params)
+                       SqlBindingScope & scope,
+                       BoundParameters params,
+                       const ProgressFunc & onProgress)
 {
-    BoundTableExpression table = stm.from->bind(scope);
+    /* The assumption is that both sides have the same number
+       of items to process.  This is obviously not always the case
+       so the progress may differ in speed when switching from the 
+       left dataset to right dataset.
+    */ 
+    ProgressState joinState(100);
+    auto joinedProgress = [&](uint side, const ProgressState & state) {
+        joinState = (50 * state.count / *state.total) + (50 * side);
+        //cerr << "joinState.count " << joinState.count << " joinState.total " << *joinState.total << endl;
+        return onProgress(joinState);
+    };
+
+    auto & bindProgress = onProgress ? bind(joinedProgress, 0, _1) : onProgress;
+    BoundTableExpression table = stm.from->bind(scope, bindProgress);
     
+    auto & iterateProgress = onProgress ? bind(joinedProgress, 1, _1) : onProgress;
     if (table.dataset) {
         return table.dataset->queryStructuredExpr(stm.select, stm.when,
-                                              *stm.where,
-                                              stm.orderBy, stm.groupBy,
-                                              stm.having,
-                                              stm.rowName,
-                                              stm.offset, stm.limit, 
-                                              table.asName);
+                                                  *stm.where,
+                                                  stm.orderBy, stm.groupBy,
+                                                  stm.having,
+                                                  stm.rowName,
+                                                  stm.offset, stm.limit, 
+                                                  table.asName,
+                                                  iterateProgress);
     }
     else if (table.table.runQuery && stm.from) {
 
@@ -427,7 +447,9 @@ queryFromStatementExpr(const SelectStatement & stm,
             };
         
         if (!params)
-            params = [] (const Utf8String & param) -> ExpressionValue { throw HttpReturnException(500, "No query parameter " + param); };
+            params = [] (const Utf8String & param) -> ExpressionValue { 
+                throw HttpReturnException(500, "No query parameter " + param); 
+            };
 
         std::shared_ptr<PipelineElement> pipeline = PipelineElement::root(scope)->statement(stm, getParamInfo);
 
@@ -487,9 +509,10 @@ bool
 queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
                    const SelectStatement & stm,
                    SqlBindingScope & scope,
-                   BoundParameters params)
+                   BoundParameters params,
+                   const ProgressFunc & onProgress)
 {
-    BoundTableExpression table = stm.from->bind(scope);
+    BoundTableExpression table = stm.from->bind(scope, onProgress);
     
     if (table.dataset) {
         return table.dataset->queryStructuredIncremental
