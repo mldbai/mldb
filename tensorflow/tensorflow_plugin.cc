@@ -1727,6 +1727,13 @@ struct TensorflowPlugin: public Plugin {
                                       std::placeholders::_1,
                                       std::placeholders::_2,
                                       std::placeholders::_3));
+
+        tfOperationsMacroHandle
+            = registerMacro("tfOperations",
+                            std::bind(&TensorflowPlugin::tfOperationsMacro,
+                                      this,
+                                      std::placeholders::_1,
+                                      std::placeholders::_2));
     }
 
     virtual Any getStatus() const
@@ -1803,6 +1810,31 @@ struct TensorflowPlugin: public Plugin {
     }
 
     /** Documentation macro for TF operations */
+    void tfOperationsMacro(MacroContext & context,
+                           const std::string & macroName)
+    {
+        auto writeTocEntry = [&context](const Utf8String & op) {
+            // anchor
+            context.writeHtml("<li>");
+            context.writeHtml("<a href=#");
+            context.writeText(op);
+            context.writeHtml(">");
+            context.writeHtml("TensorFlow <code>");
+            context.writeText(op);
+            context.writeHtml("</code></a>");
+            context.writeHtml("</li>");
+        };
+        
+        // write the table of content
+        context.writeHtml("<ul>");
+        for (const auto & op : registeredOps)
+            writeTocEntry(op.first);
+        context.writeHtml("</ul>");
+
+        for (const auto & op : registeredOps)
+            tfOperationMacro(context, macroName, op.first);
+    }
+
     void tfOperationMacro(MacroContext & context,
                           const std::string & macroName,
                           const Utf8String & op)
@@ -1841,11 +1873,17 @@ struct TensorflowPlugin: public Plugin {
 
         try {
             auto * opDef = it->second.op;
+             // anchor
+            context.writeHtml("<a name=\"");
+            context.writeText(op);
+            context.writeHtml("\"></a>");
+            // heading
             context.writeHtml("<h2>TensorFlow <code>");
             context.writeText(op);
             context.writeHtml("</code> Operation</h2>");
             context.writeHtml("<h3>Description</h3>");
             context.writeMarkdown(opDef->description());
+           
 
             if (opDef->attr_size()) {
                 context.writeHtml("<h3>Attributes</h3>");
@@ -2141,8 +2179,9 @@ struct TensorflowPlugin: public Plugin {
     /// all of the Tensorflow ops
     std::map<Utf8String, RegisteredOp> registeredOps;
 
-    /// Handle to the documentation macro we register
-    std::shared_ptr<void> tfOperationMacroHandle;
+    /// Handle to the documentation macros we register
+    std::shared_ptr<void> tfOperationMacroHandle; // document one operation
+    std::shared_ptr<void> tfOperationsMacroHandle; // document all operations
 };
 
 // tf_node function
