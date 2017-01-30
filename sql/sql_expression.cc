@@ -759,6 +759,56 @@ static Utf8String matchIdentifier(ParseContext & context, bool allowUtf8)
     return result;
 }
 
+void matchSingleQuoteStringUTF8(ParseContext & context,
+                                std::basic_string<char32_t>& resultStr)
+{
+    {
+        ParseContext::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\'\'"))
+                resultStr += '\'';
+            else if (context.match_literal('\'')) {
+                token.ignore();
+                return;
+            }
+            else if (!context) {
+                break;  // eof inside string
+            }
+            else resultStr += expectUtf8Char(context);
+        }
+    }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
+}
+
+void matchDoubleQuotesStringUTF8(ParseContext & context,
+                                 std::basic_string<char32_t>& resultStr)
+{
+    {
+        ParseContext::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\\\""))
+                resultStr += '\"';
+            else if (context.match_literal('\"')) {
+                token.ignore();
+                return;
+            }
+            else if (!context) {
+                break;  // eof inside string
+            }
+            else resultStr += expectUtf8Char(context);
+        }
+    }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
+}
+
+
+// Can either be a ".<columnName>" or "['<columnName>']
 static ColumnPath matchColumnName(ParseContext & context, bool allowUtf8)
 {
     ColumnPath result;
@@ -773,14 +823,39 @@ static ColumnPath matchColumnName(ParseContext & context, bool allowUtf8)
     }
 
     result = PathElement(std::move(first));
-
-    while (context.match_literal('.')) {
-        Utf8String next = matchIdentifier(context, allowUtf8);
-        if (next.empty())
-            break;  // will happen for a *
-        result = result + next;
+    while (!context.eof()) {
+        if (context.match_literal('.')) {
+            Utf8String next = matchIdentifier(context, allowUtf8);
+            if (next.empty())
+                break;  // will happen for a *
+            result = result + next;
+        }
+        else if (*context == '[') {
+            ParseContext::Revert_Token token(context);
+            context.expect_literal('[');
+            context.skip_whitespace();
+            if (context.match_literal('\'')) {
+                break;
+            }
+            token.ignore();
+            if (context.match_literal('"')) {
+                std::basic_string<char32_t> resultStr;
+                matchDoubleQuotesStringUTF8(context, resultStr);
+                Utf8String next(resultStr);
+                result = result + next;
+            }
+            else {
+                string text;
+                context.match_text(text, " ]");
+                result = result + text;
+            }
+            context.skip_whitespace();
+            context.expect_literal(']');
+        }
+        else {
+            break;
+        }
     }
-
     return result;
 }
 
@@ -946,30 +1021,6 @@ void matchSingleQuoteStringAscii(ParseContext & context, std::string& resultStr)
             else if (*context < 0 || *context > 127)
                 context.exception("Non-ASCII character in ASCII context");
             else resultStr += *context++;
-        }
-    }
-
-    // If we get here, we had EOF inside a string
-    context.exception("No closing quote character for string");
-}
-
-void matchSingleQuoteStringUTF8(ParseContext & context,
-                                std::basic_string<char32_t>& resultStr)
-{
-    {
-        ParseContext::Revert_Token token(context);
-
-        for (;;) {
-            if (context.match_literal("\'\'"))
-                resultStr += '\'';
-            else if (context.match_literal('\'')) {
-                token.ignore();
-                return;
-            }
-            else if (!context) {
-                break;  // eof inside string
-            }
-            else resultStr += expectUtf8Char(context);
         }
     }
 
