@@ -52,6 +52,7 @@ struct ImportTextConfig : public ProcedureConfig  {
     bool ignoreExtraColumns = false;
     Regex skipLineRegex;
     bool ignoreExtraColumns = false;
+    bool processExcelFormulas = true;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ImportTextConfig);
