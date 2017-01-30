@@ -1339,7 +1339,22 @@ getChildren() const
     else return { rhs };
 }
 
+bool 
+ArithmeticExpression::
+isCommutative() const
+{
+    auto iter = operators.begin();
+    while (iter != operators.end()) {
+        if (op.compare(iter->token) == 0) {
+            break;
+        }
+        ++iter;
+    };
 
+    ExcAssert(iter != operators.end());
+
+    return false;
+}
 /*****************************************************************************/
 /* BITWISE EXPRESSION                                                        */
 /*****************************************************************************/

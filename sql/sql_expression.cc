@@ -1137,39 +1137,39 @@ matchJoinQualification(ParseContext & context, JoinQualification& joinQualify)
     return false;
 }
 
-const SqlExpression::Operator operators[] = {
-    //symbol, unary, handler, precedence, description
-    { "~", true,         SqlExpression::bwise,  1, "Bitwise NOT" },
-    { "timestamp", true, SqlExpression::func,   1, "Coercion to timestamp" },
-    { "@", false,        SqlExpression::func,   2, "Set timestamp" },
-    { "*", false,        SqlExpression::arith,  2, "Multiplication" },
-    { "/", false,        SqlExpression::arith,  2, "Division" },
-    { "%", false,        SqlExpression::arith,  2, "Modulo" },
-    { "+", true,         SqlExpression::arith,  3, "Unary positive" },
-    { "-", true,         SqlExpression::arith,  3, "Unary negative" },
-    { "+", false,        SqlExpression::arith,  3, "Addition / Concatenation" },
-    { "-", false,        SqlExpression::arith,  3, "Subtraction" },
-    { "&", false,        SqlExpression::bwise,  3, "Bitwise and" },
-    { "|", false,        SqlExpression::bwise,  3, "Bitwise or" },
-    { "^", false,        SqlExpression::bwise,  3, "Bitwise exclusive or" },
-    { "=", false,        SqlExpression::compar, 4, "Equality" },
-    { ">=", false,       SqlExpression::compar, 4, "Greater or equal to" },
-    { "<=", false,       SqlExpression::compar, 4, "Less or equal to" },
-    { "<>", false,       SqlExpression::compar, 4, "" },
-    { "!=", false,       SqlExpression::compar, 4, "Not equal to" },
-    { "!>", false,       SqlExpression::compar, 4, "Not greater than" },
-    { "!<", false,       SqlExpression::compar, 4, "Not less than" },
-    { ">", false,        SqlExpression::compar, 4, "Greater than" },
-    { "<", false,        SqlExpression::compar, 4, "Less than" },
-    { "NOT", true,       SqlExpression::booln,  5, "Unary not" },
-    { "AND", false,      SqlExpression::booln,  6, "Boolean and" },
-    { "OR", false,       SqlExpression::booln,  7, "Boolean or" },
-    { "ALL", true,       SqlExpression::unimp,  7, "All true" },
-    { "ANY", true,       SqlExpression::unimp,  7, "Any true" },
-    { "SOME", true,      SqlExpression::unimp,  7, "Some true" }
-};
-
 } // file scope
+
+const std::vector<SqlExpression::Operator> SqlExpression::operators = {
+    //symbol, unary, handler, precedence, commutative, description
+    { "~", true,         SqlExpression::bwise,  1, COMMUTATIVE_ALWAYS, "Bitwise NOT" },
+    { "timestamp", true, SqlExpression::func,   1, COMMUTATIVE_ALWAYS, "Coercion to timestamp" },
+    { "@", false,        SqlExpression::func,   2, COMMUTATIVE_ALWAYS, "Set timestamp" },
+    { "*", false,        SqlExpression::arith,  2, COMMUTATIVE_SOMETIMES, "Multiplication" },
+    { "/", false,        SqlExpression::arith,  2, COMMUTATIVE_NOT, "Division" },
+    { "%", false,        SqlExpression::arith,  2, COMMUTATIVE_NOT, "Modulo" },
+    { "+", true,         SqlExpression::arith,  3, COMMUTATIVE_ALWAYS, "Unary positive" },
+    { "-", true,         SqlExpression::arith,  3, COMMUTATIVE_ALWAYS, "Unary negative" },
+    { "+", false,        SqlExpression::arith,  3, COMMUTATIVE_SOMETIMES, "Addition / Concatenation" },
+    { "-", false,        SqlExpression::arith,  3, COMMUTATIVE_SOMETIMES, "Subtraction" },
+    { "&", false,        SqlExpression::bwise,  3, COMMUTATIVE_ALWAYS, "Bitwise and" },
+    { "|", false,        SqlExpression::bwise,  3, COMMUTATIVE_ALWAYS, "Bitwise or" },
+    { "^", false,        SqlExpression::bwise,  3, COMMUTATIVE_ALWAYS, "Bitwise exclusive or" },
+    { "=", false,        SqlExpression::compar, 4, COMMUTATIVE_ALWAYS, "Equality" },
+    { ">=", false,       SqlExpression::compar, 4, COMMUTATIVE_NOT, "Greater or equal to" },
+    { "<=", false,       SqlExpression::compar, 4, COMMUTATIVE_NOT, "Less or equal to" },
+    { "<>", false,       SqlExpression::compar, 4, COMMUTATIVE_NOT, "" },
+    { "!=", false,       SqlExpression::compar, 4, COMMUTATIVE_ALWAYS, "Not equal to" },
+    { "!>", false,       SqlExpression::compar, 4, COMMUTATIVE_NOT, "Not greater than" },
+    { "!<", false,       SqlExpression::compar, 4, COMMUTATIVE_NOT, "Not less than" },
+    { ">", false,        SqlExpression::compar, 4, COMMUTATIVE_NOT, "Greater than" },
+    { "<", false,        SqlExpression::compar, 4, COMMUTATIVE_NOT, "Less than" },
+    { "NOT", true,       SqlExpression::booln,  5, COMMUTATIVE_ALWAYS, "Unary not" },
+    { "AND", false,      SqlExpression::booln,  6, COMMUTATIVE_ALWAYS, "Boolean and" },
+    { "OR", false,       SqlExpression::booln,  7, COMMUTATIVE_ALWAYS, "Boolean or" },
+    { "ALL", true,       SqlExpression::unimp,  7, COMMUTATIVE_ALWAYS, "All true" },
+    { "ANY", true,       SqlExpression::unimp,  7, COMMUTATIVE_ALWAYS, "Any true" },
+    { "SOME", true,      SqlExpression::unimp,  7, COMMUTATIVE_ALWAYS, "Some true" }
+};
 
 std::shared_ptr<SqlExpression>
 SqlExpression::
@@ -1910,6 +1910,50 @@ unimp(std::shared_ptr<SqlExpression> lhs,
       const std::string & op)
 {
     throw HttpReturnException(400, "unimplemented operator " + op);
+}
+
+//static
+bool
+SqlExpression::
+areEquivalentExpressions(const SqlExpression& lhs, const SqlExpression& rhs)
+{
+    if (lhs.getType() == rhs.getType() &&
+        lhs.getOperation() == rhs.getOperation()){
+
+        auto leftPrint = lhs.print();
+        auto rightPrint = rhs.print();
+
+        cerr << leftPrint << endl;
+        cerr << rightPrint << endl;
+
+        if (leftPrint == rightPrint)
+            return true;
+
+        auto leftChildren = lhs.getChildren();
+        auto rightChildren = rhs.getChildren();
+        
+        if (leftChildren.size() == rightChildren.size()) {
+            if (lhs.isCommutative()) {
+                ExcAssert(rhs.isCommutative());
+            }
+            else {
+                ExcAssert(!rhs.isCommutative());
+                auto leftIt = leftChildren.begin();
+                auto leftEnd = leftChildren.end();
+                auto rightIt = rightChildren.begin();
+                while (leftIt != leftEnd) {
+                    if (!areEquivalentExpressions(**leftIt, **rightIt))
+                        return false;
+                    ++leftIt;
+                    ++rightIt;
+                }
+
+                return true;
+            }
+        }
+    }
+
+    return false; 
 }
 
 //Find aggregators for any class implementing getChildren.

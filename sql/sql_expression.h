@@ -1073,6 +1073,10 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     virtual bool isAggregator() const {return false; }
     virtual bool isWildcard() const {return false; }
 
+    virtual bool isCommutative() const {return false;}
+
+    static bool areEquivalentExpressions(const SqlExpression& lhs, const SqlExpression& rhs);
+
     //should be private:
     typedef std::shared_ptr<SqlExpression> (*OperatorHandler)
     (std::shared_ptr<SqlExpression> lhs,
@@ -1113,13 +1117,22 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
      std::shared_ptr<SqlExpression> rhs,
      const std::string & op);
 
+    enum COMMUTATIVITY {
+        COMMUTATIVE_NOT = 0,
+        COMMUTATIVE_ALWAYS = 1,
+        COMMUTATIVE_SOMETIMES
+    };
+
     struct Operator {
         const char * token;
         bool unary;
         OperatorHandler handler;
         int precedence;
+        COMMUTATIVITY commutative;
         const char * desc;
     };
+
+    static const std::vector<SqlExpression::Operator> operators;
 
 public:
     /// This is the text that was originally parsed to create the

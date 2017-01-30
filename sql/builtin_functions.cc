@@ -3466,6 +3466,24 @@ BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
 }
 static RegisterBuiltin registerIsConstFunction(static_is_constant, "__isconst");
 
+BoundFunction static_is_Equivalent(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 2);
+
+    bool isEquivalent = SqlExpression::areEquivalentExpressions(*args[0].expr, *args[1].expr);
+
+    auto outputInfo
+        = std::make_shared<BooleanValueInfo>(true);
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                return ExpressionValue(isEquivalent, Date::negativeInfinity());
+            },
+            outputInfo
+        };
+}
+static RegisterBuiltin registerIsEquivalentFunction(static_is_Equivalent, "__isEquivalent");
+
 } // namespace Builtins
 } // namespace MLDB
 

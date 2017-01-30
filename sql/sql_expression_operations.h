@@ -58,6 +58,8 @@ struct ArithmeticExpression: public SqlExpression {
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
+    virtual bool isCommutative() const override;
+
     std::shared_ptr<SqlExpression> lhs;
     std::shared_ptr<SqlExpression> rhs;
     std::string op;
