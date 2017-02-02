@@ -21,8 +21,8 @@ var dataset = mldb.createDataset(config);
 mldb.log(config);
 mldb.log(dataset.id());
 
-if (config.id.indexOf("auto-") != 0)
-    throw "ID should start with 'auto-' : '" + config.id + "'"; 
+if (config.id.indexOf("auto_") != 0)
+    throw "ID should start with 'auto_' : '" + config.id + "'";
 
 assertEqual(config.id, dataset.id());
 
