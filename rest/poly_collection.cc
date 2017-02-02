@@ -141,7 +141,7 @@ getKey(PolyConfig & config)
         + std::to_string(std::hash<std::thread::id>()(std::this_thread::get_id()));
     
     // Create an auto hash that is cleary identified as one
-    return config.id = MLDB::format("auto-%016llx-%016llx",
+    return config.id = MLDB::format("auto_%016llx_%016llx",
                                   (unsigned long long)jsonHash(jsonEncode(config)),
                                   (unsigned long long)jsonHash(disambig));
 }
