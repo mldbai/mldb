@@ -16,10 +16,21 @@ Plugins are loaded into MLDB via a [REST API call](PluginConfig.md).
 
 MLDB will load up system plugins from `/opt/mldb/plugins` automatically on startup.
 
-MLDB will scan the directory in `/mldb_data/plugins/autoload`, and for each file named `mldb_plugin.json` found,
-will autoload the plugin described by it. `mldb_plugin.json` must contain the same JSON payload that would be used to POST or
-PUT the plugin to MLDB.
+MLDB will recursively scan the directory `/mldb_data/plugins/autoload`, and for each file named `mldb_plugin.json` found,
+will autoload the plugin described by it. `mldb_plugin.json` must contain the a JSON payload with a single top key `config`
+having as a value an object similar as what needs to be `POST` or `PUT` when creating a plugin.
 
+Here is an example for a python plugin.
+```
+{
+    "config" : {
+        "id" : "demo_plugin",
+        "type" : "python",
+        "params" : { }
+    }
+}
+```
+`params` can be left empty as MLDB will automatically set the "adress" value to the path where the plugin was found.
 
 ## Writing Plugins
 
