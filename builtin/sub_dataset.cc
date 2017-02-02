@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+    // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sub_dataset.cc                                              -*- C++ -*-
     Mathieu Marquis Bolduc, August 19th, 2015
@@ -33,9 +33,6 @@ SubDatasetConfigDescription::
 SubDatasetConfigDescription()
 {
     nullAccepted = true;
-
-    addField("statement", &SubDatasetConfig::statement,
-             "Select Statement that will result in the table");
 }
 
 
@@ -126,23 +123,18 @@ struct SubDataset::Itl
         // Now do a stable sort of the column names
         columnNames.insert(columnNames.end(),
                            columnNameSet.begin(), columnNameSet.end());
-        std::sort(columnNames.begin(), columnNames.end());
 
         fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
                            fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
-        std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end());
+
+        sortColumnNames();
 
     //    cerr << "new sub dataset " << columnNameSet.size() << " columns " << fullFlattenedColumnNames.size() << " flattened" << endl;
     }
 
-    void AddRow(const RowPath & rowName,
+    void AddRowInternal(const RowPath & rowName,
                 const ExpressionValue & expr)
     {
-        //RowPath rowName;
-        //RowHash rowHash;
-        //StructValue columns;
-       // typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
-
         NamedRowValue newRow;
         newRow.columns.reserve(expr.rowLength());
         auto onSubexpr = [&] (const PathElement & columnName,
@@ -199,17 +191,32 @@ struct SubDataset::Itl
             std::get<1>(c).forEachAtom(getName, cName);
         }
 
-       //  cerr << "recordRowExpr2:: " << row.columns.size() << " columns" << endl;
-
-        // Now do a stable sort of the column names
-        // Todo: maybe do a sorted insert
         columnNames.insert(columnNames.end(),
-                           columnNameSet.begin(), columnNameSet.end());
-        std::sort(columnNames.begin(), columnNames.end());
+                           columnNameSet.begin(), columnNameSet.end());        
 
         fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
                            fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
+        
+    }
+
+    void sortColumnNames() {
+        std::sort(columnNames.begin(), columnNames.end());
         std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end()); 
+    }
+
+    void AddRow(const RowPath & rowName,
+                const ExpressionValue & expr)
+    {
+        AddRowInternal(rowName, expr);
+        sortColumnNames();
+    }
+
+    void AddRows(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
+    {
+        for (auto& p : rows) {
+            AddRow(p.first, p.second);
+        }
+        sortColumnNames();
     }
 
     ~Itl() { }
@@ -281,7 +288,7 @@ struct SubDataset::Itl
     {
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end()) {
-            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in sub-table dataset");
+            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
         }
 
         return subOutput[it->second].flatten();
@@ -293,7 +300,7 @@ struct SubDataset::Itl
 
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end()) {
-            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in sub-table dataset");
+            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
         }
 
         return subOutput[it->second].columns;
@@ -485,8 +492,14 @@ recordRowExpr(const RowPath & rowName,
               const ExpressionValue & expr)
 {
     ExcAssert(itl);
-    //cerr << "recordRowExpr:: " << expr.rowLength() << " columns" << endl;
-    itl->AddRow(rowName, expr);
+    itl->AddRows({{rowName, expr}});
+}
+
+void
+SubDataset::
+recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows) {
+     ExcAssert(itl);
+     itl->AddRows(rows);
 }
 
 ExpressionValue
@@ -532,9 +545,9 @@ getFlattenedColumnCount() const
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
-       "sub",
-       "Dataset view on the result of a SELECT query",
-       "datasets/SubDataset.md.html",
+       "structured.mutable",
+       "Dataset optimized for structured data",
+       "datasets/StructuredDataset.md.html",
        nullptr,
        {MldbEntity::INTERNAL_ENTITY});
 

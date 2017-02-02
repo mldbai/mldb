@@ -60,7 +60,8 @@ struct SubDataset : public Dataset {
 
     virtual size_t getFlattenedColumnCount() const override;
 
-    virtual void recordRowExpr(const RowPath & rowName, const ExpressionValue & expr);
+    virtual void recordRowExpr(const RowPath & rowName, const ExpressionValue & expr) override;
+    virtual void recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows) override;
 
     virtual ExpressionValue getRowExpr(const RowPath & row) const override;
 
