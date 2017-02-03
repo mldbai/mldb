@@ -15,6 +15,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/http/http_exception.h"
 #include <unordered_set>
+#include <mutex>
 
 using namespace std;
 
@@ -45,11 +46,12 @@ struct SubDataset::Itl
     : public MatrixView, public ColumnIndex {
 
     std::vector<NamedRowValue> subOutput;
-    std::vector<PathElement> columnNames;
-    std::vector<ColumnPath> fullFlattenedColumnNames;
+    std::set<PathElement> columnNames;
+    std::set<ColumnPath> fullFlattenedColumnNames;
     Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date earliest, latest;
     std::shared_ptr<ExpressionValueInfo> columnInfo;
+    std::mutex recordLock;
 
     Itl(SelectStatement statement, MldbServer* owner, const ProgressFunc & onProgress)
     {
@@ -120,14 +122,10 @@ struct SubDataset::Itl
             }
         }
 
-        // Now do a stable sort of the column names
-        columnNames.insert(columnNames.end(),
-                           columnNameSet.begin(), columnNameSet.end());
+        columnNames.insert(columnNameSet.begin(), columnNameSet.end());
 
-        fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
-                           fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
-
-        sortColumnNames();
+        fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
+            fullflattenColumnNameSet.end());
 
     //    cerr << "new sub dataset " << columnNameSet.size() << " columns " << fullFlattenedColumnNames.size() << " flattened" << endl;
     }
@@ -147,7 +145,10 @@ struct SubDataset::Itl
         expr.forEachColumn(onSubexpr);
         newRow.rowName = rowName;
         newRow.rowHash = rowName;
-        this->subOutput.push_back(std::move(newRow));
+        {
+            std::lock_guard<std::mutex> lock(recordLock);
+            this->subOutput.push_back(std::move(newRow));
+        }
 
         std::unordered_set<PathElement> columnNameSet;
         std::unordered_set<ColumnPath> fullflattenColumnNameSet;
@@ -155,7 +156,10 @@ struct SubDataset::Itl
 
         const NamedRowValue & row = subOutput.back();
         ExcAssert(row.rowName != RowPath());
-        rowIndex[row.rowName] = this->subOutput.size() - 1;
+        {
+            std::lock_guard<std::mutex> lock(recordLock);
+            rowIndex[row.rowName] = this->subOutput.size() - 1;
+        }
 
         for (auto& c : row.columns)
         {
@@ -191,24 +195,19 @@ struct SubDataset::Itl
             std::get<1>(c).forEachAtom(getName, cName);
         }
 
-        columnNames.insert(columnNames.end(),
-                           columnNameSet.begin(), columnNameSet.end());        
-
-        fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
-                           fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
+        {
+            std::lock_guard<std::mutex> lock(recordLock);
+            columnNames.insert(columnNameSet.begin(), columnNameSet.end());
+            fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
+                fullflattenColumnNameSet.end());
+        }
         
-    }
-
-    void sortColumnNames() {
-        std::sort(columnNames.begin(), columnNames.end());
-        std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end()); 
     }
 
     void AddRow(const RowPath & rowName,
                 const ExpressionValue & expr)
     {
         AddRowInternal(rowName, expr);
-        sortColumnNames();
     }
 
     void AddRows(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
@@ -216,7 +215,13 @@ struct SubDataset::Itl
         for (auto& p : rows) {
             AddRow(p.first, p.second);
         }
-        sortColumnNames();
+    }
+
+    void
+    AddRowNonStructured(const RowPath & rowName,
+                        const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
+    {
+        AddRow(rowName, ExpressionValue(vals));
     }
 
     ~Itl() { }
@@ -462,7 +467,11 @@ Any
 SubDataset::
 getStatus() const
 {
-    return Any();
+    Json::Value status;
+    status["rowCount"] = itl->subOutput.size();
+    status["columnCount"] = itl->fullFlattenedColumnNames.size();
+
+    return status;
 }
 
 std::pair<Date, Date>
@@ -502,6 +511,15 @@ recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows) {
      itl->AddRows(rows);
 }
 
+void
+SubDataset::
+recordRowItl(const RowPath & rowName,
+             const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
+{
+    ExcAssert(itl);
+    itl->AddRowNonStructured(rowName, vals);
+}
+
 ExpressionValue
 SubDataset::
 getRowExpr(const RowPath & row) const
@@ -533,7 +551,7 @@ std::vector<ColumnPath>
 SubDataset::
 getFlattenedColumnNames() const
 {
-    return itl->fullFlattenedColumnNames;
+    return std::vector<ColumnPath>(itl->fullFlattenedColumnNames.begin(), itl->fullFlattenedColumnNames.end());
 }
 
 size_t 
