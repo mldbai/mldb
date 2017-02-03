@@ -8,6 +8,4 @@ Most tensorflow functions are available in MLDB queries and expressions with a
 of the same dimensions and closest matching type, and vice versa. In case of inconsistent 
 type in a MLDB embedding, it will be converted to a 64-bit floating point tensor.
 
-![](%%tfOperation EncodePng)
-![](%%tfOperation MatrixInverse)
-
+![](%%tfOperations)
