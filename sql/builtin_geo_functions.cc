@@ -101,7 +101,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
         ExpressionValue typeCol = getCol(args[0], "type");
         string geomType = typeCol.getAtom().toString();
         if(geomType != "Polygon" && geomType != "MultiPolygon")
-            throw MLDB::Exception("polygon!!! " + geomType);
+            throw MLDB::Exception("unknown polygon type: " + geomType);
 
         ExpressionValue coordsCol = getCol(args[0], "coordinates");
 
@@ -172,7 +172,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
             
         }
         else {
-            throw MLDB::Exception("unknown polygon type!");
+            ExcAssert(false); //tested above
         }
 
         S2Polygon poly;
