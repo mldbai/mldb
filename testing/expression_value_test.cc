@@ -535,3 +535,16 @@ BOOST_AUTO_TEST_CASE( test_superposition_with_search_row )
     BOOST_CHECK_EQUAL(jsonEncode(found), Json::parse(expected));
 }
 
+BOOST_AUTO_TEST_CASE( test_embedding_length )
+{
+    std::vector<float> values = {1,2,3,4};
+    Date ts;
+    DimsVector shape = {2,2};
+
+    ExpressionValue myValue(values,
+                            ts,
+                            shape);
+
+    BOOST_CHECK_EQUAL(myValue.rowLength(), 2);
+    BOOST_CHECK_EQUAL(myValue.getAtomCount(), 4);
+}
