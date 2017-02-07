@@ -176,16 +176,6 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
             res = mldb.query("""
                 SELECT ST_Contains_Point({'Polygon' as type, [0,1] as coordinates}, 3, 4) as contains
             """)
-    """
-    def test_coordinates_shape_2(self):
-        mldb.log("this test")
-        msg = "Attempt to access non-row as row"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
-            res = mldb.query("""
-                SELECT ST_Contains_Point({'Polygon' as type, [[[0,1],[0,1]]] as coordinates}, 3, 4) as contains
-            """)
-    """
-
 
 if __name__ == '__main__':
     mldb.run_tests()
