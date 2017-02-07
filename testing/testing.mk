@@ -154,7 +154,7 @@ $(eval $(call mldb_unit_test,MLDB-723-jseval-exceptions.js))
 $(eval $(call mldb_unit_test,MLDB-761-sub-queries.py))
 $(eval $(call mldb_unit_test,MLDB-565-classifier-details.js))
 $(eval $(call mldb_unit_test,MLDB-1597-regression.py))
-$(eval $(call mldb_unit_test,MLDB-749-csv-dataset.js,,manual)) #reading from old user
+$(eval $(call mldb_unit_test,MLDB-749-csv-dataset.js,,manual))
 $(eval $(call mldb_unit_test,MLDB-702-row-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-770-group-by-parsing.js))
 $(eval $(call mldb_unit_test,MLDB-768-order-by-missing-function.js))

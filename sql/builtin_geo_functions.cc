@@ -133,7 +133,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
                 coordi.forEachColumn(onPoint);
                 loops.push_back(new S2Loop(points));
                 if(i>0) 
-                    loops.back()->set_depth(1);  // TODO should this be recursive?
+                    loops.back()->set_depth(1);
 
                 polyBuilder.AddLoop(loops.back());
             }          
@@ -144,13 +144,10 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
 
         vector<S2Polygon*> polygons;
         if(geomType == "Polygon") {
-           // cerr << "geomType is POLYGON" << endl;
+
             parsePolygon(polyBuilder, coordsCol);
         }
         else if(geomType == "MultiPolygon") {
-            //cerr << "geomType is MultiPolygon" << endl;
-
-            //TODO: put the first one first?
 
             std::function<bool (const PathElement & columnName,
                                 const ExpressionValue & val)>
@@ -187,13 +184,9 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
         double lat1 = args[1].getAtom().toDouble();
         double lon1 = args[2].getAtom().toDouble();
 
-     //   cerr << "testing " << lat1 << "," << lon1 << " against: " /*<< endl << jsonEncode(coordsCol) */<< endl;
-
         S2LatLng point1 = S2LatLng::FromDegrees(lat1, lon1).Normalized();
 
         bool contains = poly.Contains(point1.ToPoint());
-
-      //  cerr << contains << endl;
 
         return ExpressionValue(
                 contains,

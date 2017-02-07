@@ -127,7 +127,6 @@ struct SubDataset::Itl
         fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
             fullflattenColumnNameSet.end());
 
-    //    cerr << "new sub dataset " << columnNameSet.size() << " columns " << fullFlattenedColumnNames.size() << " flattened" << endl;
     }
 
     void AddRowInternal(const RowPath & rowName,
@@ -158,7 +157,13 @@ struct SubDataset::Itl
         ExcAssert(row.rowName != RowPath());
         {
             std::lock_guard<std::mutex> lock(recordLock);
-            rowIndex[row.rowName] = this->subOutput.size() - 1;
+                        
+            if (!rowIndex.insert({row.rowHash, this->subOutput.size() - 1}).second) {
+                throw HttpReturnException
+                    (400, "Duplicate row name in dataset",
+                     "rowName",
+                     row.rowName);
+            }
         }
 
         for (auto& c : row.columns)
