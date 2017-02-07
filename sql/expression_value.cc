@@ -1187,12 +1187,22 @@ struct ExpressionValue::Embedding {
     DimsVector dims_;
     std::shared_ptr<const EmbeddingMetadata> metadata_;
 
+    /* Total flattened length */
     size_t length() const
     {
         size_t result = 1;
         for (auto & d: dims_)
             result *= d;
         return result;
+    }
+
+    /* Non-Flattened length */
+    size_t rowLength() const
+    {
+        if (dims_.empty())
+            return dims_[0];
+        else 
+            return 0;
     }
 
     CellValue getValue(size_t n) const
@@ -3247,13 +3257,35 @@ rowLength() const
         return structured_->size();
     }
     else if (type_ == Type::EMBEDDING) {
+        return embedding_->rowLength();
+    }
+    else if (type_ == Type::SUPERPOSITION) {
+        return superposition_->values.size();
+    }
+    else throw HttpReturnException(500, "Attempt to access non-row as row",
+                                   "value", *this);
+}
+
+size_t 
+ExpressionValue::
+getAtomCount() const
+{
+    if (type_ == Type::STRUCTURED) {
+        size_t count = 0;
+        for (const auto& v : *structured_)
+            count += std::get<1>(v).getAtomCount();
+
+        return count;
+    }
+    else if (type_ == Type::EMBEDDING) {
         return embedding_->length();
     }
     else if (type_ == Type::SUPERPOSITION) {
         return superposition_->length();
     }
-    else throw HttpReturnException(500, "Attempt to access non-row as row",
-                                   "value", *this);
+    else {
+        return 1;
+    }
 }
 
 void

@@ -1827,9 +1827,9 @@ bind(SqlBindingScope & scope) const
                     ts.setMin(v.getEffectiveTimestamp());
 
                     std::vector<CellValue> valueCells
-                        = v.getEmbeddingCell(v.rowLength());
+                        = v.getEmbeddingCell(v.getAtomCount());
 
-                    if (valueCells.size() != v.rowLength())
+                    if (valueCells.size() != v.getAtomCount())
                         throw HttpReturnException(400, "Embeddings don't contain the same number of elements");
 
                     cells.insert(cells.end(),
