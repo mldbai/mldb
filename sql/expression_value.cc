@@ -1199,7 +1199,7 @@ struct ExpressionValue::Embedding {
     /* Non-Flattened length */
     size_t rowLength() const
     {
-        if (dims_.empty())
+        if (!dims_.empty())
             return dims_[0];
         else 
             return 0;
