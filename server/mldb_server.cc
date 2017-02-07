@@ -404,47 +404,68 @@ scanPlugins(const std::string & dir_)
 {
     DEBUG_MSG(logger) << "scanning plugins in directory " << dir_;
 
-    std::string dir = dir_;
+    string dir = dir_;
+
+    map<Utf8String, PluginManifest> missingDependencies;
+    set<Utf8String> loadedPlugins;
+
+    auto errorWrapper = [&] (const function<void()> & fct) {
+        try {
+            fct();
+        } catch (const HttpReturnException & exc) {
+            logger->error() << "loading plugin " << dir << ": " << exc.what();
+            logger->error() << "details:";
+            logger->error() << jsonEncode(exc.details);
+            logger->error() << "plugin will be ignored";
+            return;
+        } catch (const std::exception & exc) {
+            logger->error() << "loading plugin " << dir << ": " << exc.what();
+            logger->error() << "plugin will be ignored";
+            return;
+        }
+    };
+
+    auto loadPlugin = [&] (PluginManifest & manifest) {
+        if (manifest.config.type == "sharedLibrary") {
+            auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
+            // strip off the file:// prefix
+            shlibConfig.address = string(dir, 7);
+            shlibConfig.allowInsecureLoading = true;
+
+            manifest.config.params = shlibConfig;
+
+            auto plugin = plugins->obtainEntitySync(
+                manifest.config, nullptr /* on progress */);
+        }
+        else if (manifest.config.type == "python" ||
+                 manifest.config.type == "javascript") {
+            auto config = manifest.config.params.convert<PluginResource>();
+            config.address = dir;
+            manifest.config.params = config;
+            auto plugin = plugins->obtainEntitySync(
+                manifest.config, nullptr /* on progress */);
+        }
+        else {
+            throw HttpReturnException(
+                500, "unknown plugin type to autoload at " + dir);
+        }
+        loadedPlugins.insert(manifest.config.id);
+        missingDependencies.erase(manifest.config.id);
+    };
 
     auto foundPlugin = [&] (const std::string & dir,
                             std::istream & stream)
         {
-            try {
+            errorWrapper([&]() {
                 auto manifest = jsonDecodeStream<PluginManifest>(stream);
-                if (manifest.config.type == "sharedLibrary") {
-                    auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
-                    // strip off the file:// prefix
-                    shlibConfig.address = string(dir, 7);
-                    shlibConfig.allowInsecureLoading = true;
-
-                    manifest.config.params = shlibConfig;
-
-                    auto plugin = plugins->obtainEntitySync(
-                        manifest.config, nullptr /* on progress */);
+                for (const auto & dep: manifest.dependencies) {
+                    if (loadedPlugins.find(dep) == loadedPlugins.end()) {
+                        missingDependencies[manifest.config.id] = manifest;
+                        return;
+                    }
                 }
-                else if (manifest.config.type == "python" ||
-                         manifest.config.type == "javascript") {
-                    auto config = manifest.config.params.convert<PluginResource>();
-                    config.address = dir;
-                    manifest.config.params = config;
-                    auto plugin = plugins->obtainEntitySync(
-                        manifest.config, nullptr /* on progress */);
-                }
-                else {
-                    throw HttpReturnException(
-                        500, "unknown plugin type to autoload at " + dir);
-                }
-            } catch (const HttpReturnException & exc) {
-                logger->error() << "loading plugin " << dir << ": " << exc.what();
-                logger->error() << "details:";
-                logger->error() << jsonEncode(exc.details);
-                logger->error() << "plugin will be ignored";
-                return;
-            } catch (const std::exception & exc) {
-                logger->error() << "loading plugin " << dir << ": " << exc.what();
-                logger->error() << "plugin will be ignored";
-                return;
-            }
+                loadPlugin(manifest);
+            });
         };
 
     auto info = tryGetUriObjectInfo(dir + "mldb_plugin.json");
@@ -474,20 +495,36 @@ scanPlugins(const std::string & dir_)
                 return true;
             };
 
-        try {
+        errorWrapper([&]() {
             forEachUriObject(dir, onFile, onSubdir);
-        } catch (const HttpReturnException & exc) {
-            logger->error() << "error scanning plugin directory "
-                            << dir << ": " << exc.what();
-            logger->error() << "details:";
-            logger->error() << jsonEncode(exc.details);
-            logger->error() << "plugins will be ignored";
-            return;
-        } catch (const std::exception & exc) {
-            logger->error() << "error scanning plugin directory  "
-                            << dir << ": " << exc.what();
-            logger->error() << "plugins will be ignored";
-            return;
+        });
+    }
+
+    // Dumb algo, loop until nothing is left or the last pass didn't load anything
+    while (missingDependencies.size() > 0) {
+        int size = missingDependencies.size();
+        for (auto & missing: missingDependencies) {
+            bool load = true;
+            for (const auto & dep: missing.second.dependencies) {
+                if (loadedPlugins.find(dep) == loadedPlugins.end()) {
+                    load = false;
+                    break;
+                }
+            }
+            if (load) {
+                errorWrapper([&]() {
+                    loadPlugin(missing.second);
+                });
+            
+            }
+        }
+
+        if (size == missingDependencies.size()) {
+            for (const auto & missing: missingDependencies) {
+                logger->error() << "Failed to load dependencies for " << missing.first;
+                logger->error() << "plugin will be ignored";
+            }
+            break;
         }
     }
 }

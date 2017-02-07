@@ -21,6 +21,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct PluginManifest {
+    std::vector<std::string> dependencies;
     PolyConfig config;
 };
 

@@ -18,6 +18,9 @@ DEFINE_STRUCTURE_DESCRIPTION(PluginManifest);
 PluginManifestDescription::
 PluginManifestDescription()
 {
+    addField("dependencies", &PluginManifest::dependencies,
+             "The list of plugin ids this plugin depends on. "
+             "Dependencies must be within the same plugins directory.");
     addField("config", &PluginManifest::config,
              "Configuration of plugin loading");
 }
