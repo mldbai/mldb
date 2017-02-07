@@ -545,8 +545,6 @@ BOOST_AUTO_TEST_CASE( test_embedding_length )
                             ts,
                             shape);
 
-    cerr << jsonEncode(myValue) << endl;
-
     BOOST_CHECK_EQUAL(myValue.rowLength(), 2);
     BOOST_CHECK_EQUAL(myValue.getAtomCount(), 4);
 }
