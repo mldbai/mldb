@@ -1,4 +1,4 @@
-    // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sub_dataset.cc                                              -*- C++ -*-
     Mathieu Marquis Bolduc, August 19th, 2015
