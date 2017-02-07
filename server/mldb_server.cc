@@ -406,10 +406,12 @@ scanPlugins(const std::string & dir_)
 
     string dir = dir_;
 
-    map<Utf8String, PluginManifest> missingDependencies;
+    //<id, <dir, PluginManifest>>
+    map<Utf8String, pair<string, PluginManifest>> missingDependencies;
+    //<id>
     set<Utf8String> loadedPlugins;
 
-    auto errorWrapper = [&] (const function<void()> & fct) {
+    auto errorWrapper = [&] (const function<void()> & fct, const string & dir) {
         try {
             fct();
         } catch (const HttpReturnException & exc) {
@@ -425,7 +427,7 @@ scanPlugins(const std::string & dir_)
         }
     };
 
-    auto loadPlugin = [&] (PluginManifest & manifest) {
+    auto loadPlugin = [&] (const string & dir, PluginManifest & manifest) {
         if (manifest.config.type == "sharedLibrary") {
             auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
             // strip off the file:// prefix
@@ -450,22 +452,20 @@ scanPlugins(const std::string & dir_)
                 500, "unknown plugin type to autoload at " + dir);
         }
         loadedPlugins.insert(manifest.config.id);
-        missingDependencies.erase(manifest.config.id);
     };
 
-    auto foundPlugin = [&] (const std::string & dir,
-                            std::istream & stream)
+    auto foundPlugin = [&] (const std::string & dir, std::istream & stream)
         {
             errorWrapper([&]() {
                 auto manifest = jsonDecodeStream<PluginManifest>(stream);
                 for (const auto & dep: manifest.dependencies) {
                     if (loadedPlugins.find(dep) == loadedPlugins.end()) {
-                        missingDependencies[manifest.config.id] = manifest;
+                        missingDependencies[manifest.config.id] = make_pair(dir, manifest);
                         return;
                     }
                 }
-                loadPlugin(manifest);
-            });
+                loadPlugin(dir, manifest);
+            }, dir);
         };
 
     auto info = tryGetUriObjectInfo(dir + "mldb_plugin.json");
@@ -497,15 +497,15 @@ scanPlugins(const std::string & dir_)
 
         errorWrapper([&]() {
             forEachUriObject(dir, onFile, onSubdir);
-        });
+        }, dir);
     }
 
     // Dumb algo, loop until nothing is left or the last pass didn't load anything
     while (missingDependencies.size() > 0) {
-        int size = missingDependencies.size();
+        vector<Utf8String> toDelete;
         for (auto & missing: missingDependencies) {
             bool load = true;
-            for (const auto & dep: missing.second.dependencies) {
+            for (const auto & dep: missing.second.second.dependencies) {
                 if (loadedPlugins.find(dep) == loadedPlugins.end()) {
                     load = false;
                     break;
@@ -513,20 +513,24 @@ scanPlugins(const std::string & dir_)
             }
             if (load) {
                 errorWrapper([&]() {
-                    loadPlugin(missing.second);
-                });
-            
+                    loadPlugin(missing.second.first, missing.second.second);
+                }, missing.second.first);
+                toDelete.emplace_back(missing.first);
             }
         }
 
-        if (size == missingDependencies.size()) {
+        if (toDelete.empty()) {
             for (const auto & missing: missingDependencies) {
                 logger->error() << "Failed to load dependencies for " << missing.first;
                 logger->error() << "plugin will be ignored";
             }
             break;
         }
+        for (const auto & id: toDelete) {
+            missingDependencies.erase(id);
+        }
     }
+
 }
 
 Utf8String
