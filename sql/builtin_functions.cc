@@ -2527,7 +2527,7 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
                     // If this is an embedding (but couldn't be proved statically),
                     // then do it the simple and efficient way
                     if (args[0].isEmbedding()) {
-                        size_t len = args[0].rowLength();
+                        size_t len = args[0].getAtomCount();
                         return args[0].reshape({len});
                     }
 
@@ -2769,7 +2769,7 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
             // Go argument by argument, copying elements in
             char * data = (char *)outBuffer.get();
             for (auto & a: args) {
-                size_t n = a.rowLength();
+                size_t n = a.getAtomCount();
                 a.convertEmbedding(data, n, st);
                 size_t bytes = storageBufferBytes(n, st);
                 data += bytes;
