@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /*  -*- C++ -*- */
 #pragma once
@@ -6,7 +6,7 @@
 #include "mldb/core/function.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -42,5 +42,4 @@ struct TestFunction: public Function {
 };
 
 
-}
 }

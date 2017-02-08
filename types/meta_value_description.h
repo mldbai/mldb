@@ -1,6 +1,6 @@
 /** meta_value_description.h                                       -*- C++ -*-
     Jeremy Barnes, 4 January 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Description of value descriptions.
 */
@@ -11,7 +11,7 @@
 #include <vector>
 #include "mldb/ext/jsoncpp/value.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 DECLARE_ENUM_DESCRIPTION(ValueKind);
 
@@ -85,5 +85,5 @@ getDefaultDescription(const ValueDescription * * desc);
 ValueDescriptionT<ValueDescription const *> *
 getDefaultDescriptionUninitialized(const ValueDescription * * desc);
 
-} // namespace Datacratic
+} // namespace MLDB
 

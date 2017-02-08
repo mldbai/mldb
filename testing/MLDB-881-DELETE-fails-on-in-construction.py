@@ -1,7 +1,7 @@
 #
 # MLDB-881-DELETE-fails-on-in-construction.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 
 if False:
@@ -11,9 +11,9 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 # create an expensive resource async
 resp = mldb.put_async("/v1/datasets/dummy2", {
-    'type' : 'text.line',
+    'type' : 'import.text',
     'params' : {
-        'dataFileUrl': 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+        'dataFileUrl': 'http://public.mldb.ai/reddit.csv.gz'
     }
 })
 assert resp.json()['state'] == 'initializing', \

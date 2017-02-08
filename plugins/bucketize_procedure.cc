@@ -1,7 +1,7 @@
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 #include "bucketize_procedure.h"
@@ -21,13 +21,14 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/utils/log.h"
-#include "progress.h"
+#include "mldb/rest/cancellation_exception.h"
+#include "mldb/utils/progress.h"
 #include <memory>
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 BucketizeProcedureConfig::
@@ -46,9 +47,7 @@ BucketizeProcedureConfigDescription()
              "but has no effect.  The order by expression is used to rank the rows prior to "
              "bucketization.");
     addField("outputDataset", &BucketizeProcedureConfig::outputDataset,
-             "Output dataset configuration. This may refer either to an "
-             "existing dataset, or a fully specified but non-existing dataset "
-             "which will be created by the procedure.",
+             GENERIC_OUTPUT_DS_DESC,
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "
@@ -76,22 +75,22 @@ BucketizeProcedureConfigDescription()
         auto last = make_pair(-1.0, -1.0);
         for (const auto & range: ranges) {
             if (range.first < 0) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: lower bound must be "
                     "greater or equal to 0", range.first, range.second);
             }
             if (range.second > 100) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must be "
                     "lower or equal to 1", range.first, range.second);
             }
             if (range.first >= range.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket [%f, %f]: higher bound must  "
                     "be greater than lower bound", range.first, range.second);
             }
             if (range.first < last.second) {
-                throw ML::Exception(
+                throw MLDB::Exception(
                     "Invalid percentileBucket: [%f, %f] is overlapping with "
                     "[%f, %f]", last.first, last.second, range.first,
                     range.second);
@@ -125,7 +124,8 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
@@ -139,7 +139,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    vector<RowName> orderedRowNames;
+    vector<RowPath> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
@@ -156,42 +156,43 @@ run(const ProcedureRunConfig & run,
     };
 
     mutex progressMutex;
-    auto onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
+    auto onProgress2 = [&](const ProgressState & percent) {
         lock_guard<mutex> lock(progressMutex);
-        if (iterationStep->value > itProgress.percent) {
-            iterationStep->value = itProgress.percent;
+        if (iterationStep->value > (float) percent.count / *percent.total) {
+            iterationStep->value = (float) percent.count / *percent.total;
         }
         return onProgress(jsonEncode(bucketizeProgress));
     };
 
-    BoundSelectQuery(select,
+    if (!BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
                      runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-
         .execute({getSize, false/*processInParallel*/},
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
-                 onProgress2);
+                 onProgress2)) {
+        throw CancellationException(std::string(BucketizeProcedureConfig::name) +
+                                    " procedure was cancelled");
+    }
 
     int64_t rowCount = orderedRowNames.size();
-    logger->debug() << "Row count: " << rowCount;
+    DEBUG_MSG(logger) << "Row count: " << rowCount;
 
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> Cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<Cell>>>> accum;
+    typedef tuple<ColumnPath, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowPath, vector<Cell>>>> accum;
 
     auto bucketizeStep = iterationStep->nextStep(1);
     atomic<ssize_t> rowIndex(0);
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
-        rowValue.emplace_back(ColumnName("bucket"),
+        rowValue.emplace_back(ColumnPath("bucket"),
                               mappedRange.first,
                               globalMaxOrderByTimestamp);
 
@@ -212,8 +213,10 @@ run(const ProcedureRunConfig & run,
                 if (newVal > bucketizeStep->value) {
                     bucketizeStep->value = newVal;
                 }
-                onProgress(jsonEncode(bucketizeProgress));
+                if (!onProgress(jsonEncode(bucketizeProgress)))
+                    return false;
             }
+            return true;
         };
         auto range = mappedRange.second;
 
@@ -223,14 +226,17 @@ run(const ProcedureRunConfig & run,
 
         ExcAssert(higherBound <= rowCount);
 
-        logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
-                        << " to " << higherBound;
+        DEBUG_MSG(logger) << "Bucket " << mappedRange.first << " from "
+                          << lowerBound << " to " << higherBound;
 
-        parallelMap(lowerBound, higherBound, applyFct);
+        if (!parallelMapHaltable(lowerBound, higherBound, applyFct)) {
+            throw CancellationException(std::string(BucketizeProcedureConfig::name) +
+                                        " procedure was cancelled");
+        }
     }
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<Cell>>> * rows)
+    accum.forEach([&] (vector<pair<RowPath, vector<Cell>>> * rows)
     {
         output->recordRows(*rows);
     });
@@ -256,4 +262,4 @@ regBucketizeProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

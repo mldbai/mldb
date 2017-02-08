@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** MLDB-204-circular-references-initialization.cc
     Jeremy Barnes, 19 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -18,8 +18,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_simple_recursion )
 {

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** json_utils.cc
     Jeremy Barnes, 10 November 2013
-    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
     Utilities for JSON values.
 */
@@ -10,10 +10,12 @@
 #include <algorithm>
 #include "json_utils.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/ext/siphash/csiphash.h"
+#include "mldb/ext/highwayhash.h"
 #include "mldb/types/json_parsing.h"
 #include "mldb/types/json_printing.h"
 #include "mldb/base/exc_assert.h"
+#include <cstring>
+
 
 using namespace std;
 using namespace ML;
@@ -21,26 +23,29 @@ using namespace ML;
 
 namespace {
 
-uint64_t siphash24(const void *src, unsigned long src_sz, Datacratic::HashSeed key)
+uint64_t highwayhash(const void *src, unsigned long src_sz,
+                     const MLDB::HashSeed & key)
 {
-    return ::mldb_siphash24(src, src_sz, key.b);
+    return MLDB::highwayHash(key.u64, (const char *)src, src_sz);
 }
 
-uint64_t siphash24(const std::string & str, Datacratic::HashSeed key)
+uint64_t highwayhash(const std::string & str, const MLDB::HashSeed & key)
 {
-    return ::mldb_siphash24(str.c_str(), str.length(), key.b);
+    return MLDB::highwayHash(key.u64, str.data(), str.length());
 }
 
 template<typename T>
-uint64_t siphash24_bin(const T & v, Datacratic::HashSeed key)
+uint64_t highwayhash_bin(const T & v, const MLDB::HashSeed & key)
 {
-    return ::mldb_siphash24(&v, sizeof(v), key.b);
+    char c[sizeof(v)];
+    std::memcpy(c, &v, sizeof(v));
+    return MLDB::highwayHash(key.u64, c, sizeof(v));
 }
 
-}
+} // file scope
 
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string
 jsonPrintAbbreviatedString(const Json::Value & val,
@@ -132,7 +137,7 @@ jsonPrintAbbreviated(const Json::Value & val,
     }
 }
 
-const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+const HashSeed defaultHashSeedStable { .u64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 uint64_t jsonHashObject(const Json::Value & val,
                         HashSeed seed)
@@ -146,11 +151,11 @@ uint64_t jsonHashObject(const Json::Value & val,
     uint64_t subHashes[keys.size() * 2];
 
     for (unsigned i = 0;  i < keys.size();  ++i) {
-        subHashes[i * 2] = siphash24(keys[i], seed);
+        subHashes[i * 2] = highwayhash(keys[i], seed);
         subHashes[i * 2 + 1] = jsonHash(val[keys[i]], seed);
     }
 
-    return siphash24(subHashes, 16 * keys.size(), seed);
+    return highwayhash(subHashes, 16 * keys.size(), seed);
 }
 
 uint64_t jsonHashArray(const Json::Value & val,
@@ -164,7 +169,7 @@ uint64_t jsonHashArray(const Json::Value & val,
         subHashes[i] = jsonHash(val[i], seed);
     }
 
-    return siphash24(subHashes, 8 * val.size(), seed);
+    return highwayhash(subHashes, 8 * val.size(), seed);
 }
 
 uint64_t jsonHash(const Json::Value & val,
@@ -176,19 +181,19 @@ uint64_t jsonHash(const Json::Value & val,
     case Json::arrayValue:
         return jsonHashArray(val, seed);
     case Json::stringValue:
-        return siphash24(val.asString(), seed);
+        return highwayhash(val.asString(), seed);
     case Json::booleanValue:
-        return siphash24_bin(val.asBool(), seed);
+        return highwayhash_bin(val.asBool(), seed);
     case Json::realValue:
-        return siphash24_bin(val.asDouble(), seed);
+        return highwayhash_bin(val.asDouble(), seed);
     case Json::intValue:
-        return siphash24_bin(val.asInt(), seed);
+        return highwayhash_bin(val.asInt(), seed);
     case Json::uintValue:
-        return siphash24_bin(val.asUInt(), seed);
+        return highwayhash_bin(val.asUInt(), seed);
     case Json::nullValue:
         return 1;
     default:
-        throw ML::Exception("unknown value type for jsonHash");
+        throw MLDB::Exception("unknown value type for jsonHash");
     }
 }
 
@@ -214,7 +219,7 @@ Json::Value jsonMin(const Json::Value & v1,
         return v1.asDouble() < v2.asDouble() ? v1 : v2;
     else if (v1.isString() && v2.isString())
         return v1.asString() < v2.asString() ? v1 : v2;
-    else throw ML::Exception("cannot compare " + v1.toString() + " to "
+    else throw MLDB::Exception("cannot compare " + v1.toString() + " to "
                              + v2.toString());
 }
 
@@ -225,7 +230,7 @@ Json::Value jsonMax(const Json::Value & v1,
         return v1.asDouble() < v2.asDouble() ? v2 : v1;
     else if (v1.isString() && v2.isString())
         return v1.asString() < v2.asString() ? v2 : v1;
-    else throw ML::Exception("cannot compare " + v1.toString() + " to "
+    else throw MLDB::Exception("cannot compare " + v1.toString() + " to "
                              + v2.toString());
 }
 
@@ -250,5 +255,5 @@ Json::Value jsonMinVector(const std::vector<Json::Value> & args)
     return result;
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

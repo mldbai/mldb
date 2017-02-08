@@ -1,8 +1,8 @@
 /** execution_pipeline.h                                           -*- C++ -*-
     Jeremy Barnes, 27 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -11,7 +11,7 @@
 #include "binding_contexts.h"
 #include "table_expression_operations.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct BoundTableExpression;
@@ -52,13 +52,14 @@ struct LexicalScope {
         offset within the row scope for this table's fields.
     */
     virtual ColumnGetter
-    doGetColumn(const ColumnName & variableName, int fieldOffset) = 0;
+    doGetColumn(const ColumnPath & variableName, int fieldOffset) = 0;
 
     /** Return a wildcard accessor for the table.  fieldOffset gives the
         offset within the row scope for this table's fields.
     */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    const ColumnFilter& keep,
                     int fieldOffset) = 0;
 
     /** Return a function accessor for the table.  fieldOffset gives the
@@ -123,11 +124,11 @@ struct PipelineExpressionScope:
         from the function input or output.
     */
     virtual ColumnGetter
-    doGetColumn(const Utf8String & tableName, const ColumnName & columnName);
+    doGetColumn(const Utf8String & tableName, const ColumnPath & columnName);
 
     virtual GetAllColumnsOutput 
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -140,8 +141,8 @@ struct PipelineExpressionScope:
 
     virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullColumnName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullColumnName,
                        Utf8String &tableName) const;
 
     std::vector<Utf8String> getTableNames() const;
@@ -179,15 +180,17 @@ private:
         int fieldOffset;                    ///< Offset for fields of table
 
         ColumnGetter
-        doGetColumn(const ColumnName & variableName) const;
+        doGetColumn(const ColumnPath & variableName) const;
 
         GetAllColumnsOutput
-        doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const;
+        doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const;
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,
                       const std::vector<BoundSqlExpression> & args,
                       SqlBindingScope & argsScope) const;
+
+         virtual std::set<Utf8String> tableNames() const;
     };
 
     /** The outer scope, with the scope for the current element. */
@@ -387,8 +390,8 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
 
     // return a pipeline that will execute the specified statement
     std::shared_ptr<PipelineElement>
-    statement(SelectStatement& statement, GetParamInfo getParamInfo);
+    statement(const SelectStatement& statement, GetParamInfo getParamInfo);
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

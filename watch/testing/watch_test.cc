@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* watch_test.cc
    Jeremy Barnes, 31 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Test of watches.
 */
 
 #include "mldb/watch/watch.h"
 #include "mldb/watch/watch_impl.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -17,13 +17,13 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_move )
 {
     WatchesT<std::string> watches;
     std::vector<Watch> w;
-    w.emplace_back(std::move(watches.add()));
+    w.emplace_back(watches.add());
     BOOST_CHECK_EQUAL(watches.size(), 1);
     
     watches.trigger("hello");
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( test_timeout_wait_no_event )
 
     Date before = Date::now();
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w.wait(0.1), std::exception);
     }
     Date after = Date::now();
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE( test_cant_assign_wrong_type )
     //BOOST_CHECK_EQUAL(w.boundType(), &typeid(std::tuple<std::string>));
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w = watches.add(), std::exception);
     }
     BOOST_CHECK(!w.attached());
@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE( test_cant_assign_wrong_type_through_generic )
     WatchesT<int> watches;
     Watch w = watches.add();
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(WatchT<std::string> w2 = std::move(w), std::exception);
     }
 }
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE( test_generic_watches )
     Watches watches;
     WatchT<std::string> w = watches.add();
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w.pop(), std::exception);
     }
     watches.trigger<std::string>("hello");
@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE( test_generic_watch )
     WatchesT<std::string> watches;
     Watch w = watches.add();
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w.pop<std::string>(), std::exception);
     }
         
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE( test_generic_watch_and_watches )
     Watches watches;
     Watch w = watches.add();
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w.pop<std::string>(), std::exception);
     }
     watches.trigger<std::string>("hello");
@@ -284,7 +284,7 @@ BOOST_AUTO_TEST_CASE( test_multiplexing_watches_incompatible_mixed_types )
     Watch w;
     w.multiplex(watches1.add());
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w.multiplex(watches2.add()), std::exception);
     }
 
@@ -408,7 +408,7 @@ BOOST_AUTO_TEST_CASE( test_generic_watches_type_safety )
     BOOST_CHECK_EQUAL(watches1.boundType(), watches2.boundType());
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(watches2.trigger<int>(3), std::exception);
     }
 
@@ -422,7 +422,7 @@ BOOST_AUTO_TEST_CASE( test_generic_watches_type_safety )
     WatchT<string> w2 = watches2.add();
     WatchT<int> w3;
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w3 = watches2.add(), std::exception);
     }
 
@@ -431,7 +431,7 @@ BOOST_AUTO_TEST_CASE( test_generic_watches_type_safety )
     BOOST_CHECK(w.any());
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w.pop<int>(), std::exception);
     }
 
@@ -441,7 +441,7 @@ BOOST_AUTO_TEST_CASE( test_generic_watches_type_safety )
     BOOST_CHECK_EQUAL(w2.pop(), "hello");
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w3.pop(), std::exception);
     }
 }

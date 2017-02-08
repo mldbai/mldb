@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #include "url.h"
 
@@ -13,7 +13,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 namespace {
@@ -84,10 +84,10 @@ Url::init(std::string s)
     }
 
     if (s.find("://") == string::npos) {
-        throw ML::Exception("Attempt to create a URL without a scheme: if you mean http:// or file:// then add it explicitly: " + s);
+        throw MLDB::Exception("Attempt to create a URL without a scheme: if you mean http:// or file:// then add it explicitly: " + s);
         //s = "http://" + s;
     }
-    url.reset(new GURL(s));
+    url.reset(new GURL(encodeUri(s)));
 
     if (url->possibly_invalid_spec().empty()) {
         //cerr << "bad parse 1" << endl;
@@ -120,6 +120,26 @@ toUtf8String() const
     if (valid())
         return Utf8String(canonical());
     return Utf8String(original);
+}
+
+string
+Url::
+toDecodedString() const
+{
+    if (valid()) {
+        return decodeUri(canonical()).rawString();
+    }
+    return original;
+}
+
+Utf8String
+Url::
+toDecodedUtf8String() const
+{
+    if (valid()) {
+        return decodeUri(canonical());
+    }
+    return original;
 }
 
 const char *
@@ -226,14 +246,14 @@ uint64_t
 Url::
 urlHash()
 {
-    throw ML::Exception("urlHash");
+    throw MLDB::Exception("urlHash");
 }
 
 uint64_t
 Url::
 hostHash()
 {
-    throw ML::Exception("hostHash");
+    throw MLDB::Exception("hostHash");
 }
 
 #if 0
@@ -320,7 +340,7 @@ decodeUri(Utf8String in)
 
             ++it; // over high
             if (it == in.end() || !isxdigit(*it)) {
-                throw ML::Exception("Invalid encoding on uri fragment: "
+                throw MLDB::Exception("Invalid encoding on uri fragment: "
                                     + inCopy.rawString());
             }
             high = *it;
@@ -328,7 +348,7 @@ decodeUri(Utf8String in)
 
             ++it; // over low
             if (it == in.end() || !isxdigit(*it)) {
-                throw ML::Exception("Invalid encoding on uri fragment: "
+                throw MLDB::Exception("Invalid encoding on uri fragment: "
                                     + inCopy.rawString());
             }
             low = *it;
@@ -351,7 +371,7 @@ decodeUri(Utf8String in)
         }
 
         if (remaining != 0) {
-            throw ML::Exception("Invalid encoding on uri fragment: "
+            throw MLDB::Exception("Invalid encoding on uri fragment: "
                                 + inCopy.rawString());
         }
 
@@ -371,6 +391,61 @@ decodeUri(Utf8String in)
     return out;
 #endif
 }
+
+Utf8String
+Url::
+encodeUri(const Utf8String & uri)
+{
+    return encodeUri(uri.rawString());
+}
+
+string
+Url::
+encodeUri(const char * uri)
+{
+    return encodeUri(string(uri));
+}
+
+string
+Url::
+encodeUri(const string & uri)
+{
+    string res;
+    string toEncode;
+    for (const char c: uri) {
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c<= '9') || c == '#' || c == ';' || c == ','
+            || c == '/' || c == '?' || c == ':' || c == '@' || c == '&'
+            || c == '=' || c == '+' || c == '$' || c == '-' || c == '_'
+            || c == '.' || c == '!' || c == '~' || c == '*' || c == '\''
+            || c == '(' || c == ')')
+        {
+            if (!toEncode.empty()) {
+                url_canon::RawCanonOutputT<char> buffer;
+                url_util::EncodeURIComponent(toEncode.c_str(),
+                                             toEncode.length(),
+                                             &buffer);
+                res += string(buffer.data(), buffer.length());
+                toEncode = "";
+            }
+            res += c;
+        }
+        else {
+            toEncode += c;
+        }
+    }
+
+    if (!toEncode.empty()) {
+        url_canon::RawCanonOutputT<char> buffer;
+        url_util::EncodeURIComponent(toEncode.c_str(),
+                                        toEncode.length(),
+                                        &buffer);
+        res += string(buffer.data(), buffer.length());
+    }
+
+    return res;
+}
+
 
 
 /*****************************************************************************/
@@ -396,8 +471,8 @@ struct UrlDescription
     virtual bool isDefaultTyped(const Url * val) const;
 };
 
-extern template class ValueDescriptionT<Datacratic::Url>;
-extern template class ValueDescriptionI<Datacratic::Url, ValueKind::ATOM, UrlDescription>;
+extern template class ValueDescriptionT<MLDB::Url>;
+extern template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
 DEFINE_VALUE_DESCRIPTION(Url, UrlDescription);
 
@@ -438,6 +513,6 @@ void setUrlDocumentationUri(const std::string & newUri)
         ->documentationUri = "/doc/builtin/Url.md";
 }
 
-template class ValueDescriptionI<Datacratic::Url, ValueKind::ATOM, UrlDescription>;
+template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
-} // namespace Datacratic
+} // namespace MLDB

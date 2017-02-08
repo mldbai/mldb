@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** experiment_procedure.h                                                   -*- C++ -*-
     Francois Maillet, 8 septembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Experiment procedure. This is used to train and test a classifier in a
     single step. It abstracts away the need to create a classifier.train/test
@@ -11,7 +10,7 @@
 
 #pragma once
 
-#include "types/value_description.h"
+#include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
 #include "server/mldb_server.h"
 #include "mldb/core/procedure.h"
@@ -20,7 +19,7 @@
 #include "plugins/accuracy.h"
 #include "types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -132,7 +131,7 @@ struct JsStatsStatsGenerator {
                             const std::string & path) const;
 
     Json::Value lastObj;
-    std::map<std::string, ML::distribution<double>> outputStatsAccum;
+    std::map<std::string, distribution<double>> outputStatsAccum;
 };
 
 
@@ -155,4 +154,4 @@ struct ExperimentProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

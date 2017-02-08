@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* watch_impl.h                                                    -*- C++ -*-
    Jeremy Barnes, 21 May 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Implementation of watch methods.
 */
@@ -19,7 +19,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/date.h" // TODO: shouldn't need this
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -422,8 +422,8 @@ operator = (Watch && other)
         && other.boundType() != &typeid(std::tuple<T...>))
         throwException(WATCH_ERR_TYPE,
                        "Attempt to bind watch of type '%s' from watch of type '%s'",
-                       ML::type_name<std::tuple<T...> >().c_str(),
-                       ML::demangle(*other.boundType()).c_str());
+                       MLDB::type_name<std::tuple<T...> >().c_str(),
+                       demangle(*other.boundType()).c_str());
 
 
     if (other.data)
@@ -525,8 +525,8 @@ waitTuple(double timeToWait)
     if (&a.type() != &typeid(std::tuple<T...>))
         throwException(WATCH_ERR_TYPE,
                        "waiting for %s but got %s",
-                       ML::type_name<std::tuple<T...> >().c_str(),
-                       ML::demangle(a.type().name()).c_str());
+                       MLDB::type_name<std::tuple<T...> >().c_str(),
+                       demangle(a.type().name()).c_str());
         
     return a.as<std::tuple<T...> >();
 }
@@ -1015,4 +1015,4 @@ tryWaitMaybeGeneric(double timeToWait)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

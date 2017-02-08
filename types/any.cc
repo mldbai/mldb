@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* any.cc
    Jeremy Barnes, 18 June 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Implementation of the Any class.
 */
@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -134,7 +134,7 @@ jsonDecodeStrTyped(const std::string & json)
     Any ev;
     payloadDesc.parseJsonTyped(&ev, context);
 
-    return std::move(ev);
+    return ev;
 }
 
 Any
@@ -145,7 +145,7 @@ jsonDecodeTyped(const Json::Value & json)
     Any ev;
     payloadDesc.parseJsonTyped(&ev, context);
 
-    return std::move(ev);
+    return ev;
 }
 
 std::string
@@ -155,7 +155,7 @@ jsonEncodeStrTyped(const Any & val)
     std::ostringstream stream;
     StreamJsonPrintingContext context(stream);
     payloadDesc.printJson(&val, context);
-    return std::move(stream.str());
+    return stream.str();
 }
 
 Json::Value
@@ -172,7 +172,7 @@ void
 Any::
 throwNoValueDescription() const
 {
-    throw ML::Exception("Any had no type attached");
+    throw MLDB::Exception("Any had no type attached");
 }
 
 bool operator==(const Any & lhs, const Any & rhs)
@@ -323,4 +323,4 @@ getBareAnyDescription()
     return std::make_shared<BareAnyDescription>();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

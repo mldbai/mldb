@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** plugin_collection.cc
     Jeremy Barnes, 24 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Collection of plugins.
 */
@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::shared_ptr<PluginCollection>
@@ -185,8 +185,9 @@ getEntityStatus(const Plugin & plugin) const
     return plugin.getStatus();
 }
 
+template class PolyCollection<Plugin>;
+
 } // namespace MLDB
 
-template class PolyCollection<MLDB::Plugin>;
 
-} // namespace Datacratic
+

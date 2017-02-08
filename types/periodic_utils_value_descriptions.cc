@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** periodic_utils_value_descriptions.cc
     Jeremy Barnes, 26 August 2013
-    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "periodic_utils.h"
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TimePeriodDescription: public ValueDescriptionT<TimePeriod> {
     virtual void parseJsonTyped(TimePeriod * val,
@@ -28,4 +28,4 @@ struct TimePeriodDescription: public ValueDescriptionT<TimePeriod> {
 DEFINE_VALUE_DESCRIPTION(TimePeriod, TimePeriodDescription);
 
 
-} // namespace Datacratic
+} // namespace MLDB

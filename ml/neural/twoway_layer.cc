@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* twoway_layer.cc
    Jeremy Barnes, 4 November 2009
@@ -738,8 +738,8 @@ rbprop(const F * inputs,
 
     typedef Twoway_Layer::Float LFloat;
 
-    int ni JML_UNUSED = this->inputs();
-    int no JML_UNUSED = this->outputs();
+    int ni MLDB_UNUSED = this->inputs();
+    int no MLDB_UNUSED = this->outputs();
 
     distribution<F> noisy_input(inputs, inputs + ni);
 
@@ -758,10 +758,10 @@ rbprop(const F * inputs,
     
     const boost::multi_array<LFloat, 2> & W = forward.weights;
 
-    const distribution<LFloat> & b JML_UNUSED = forward.bias;
-    const distribution<LFloat> & c JML_UNUSED = ibias;
-    const distribution<LFloat> & d JML_UNUSED = iscales;
-    const distribution<LFloat> & e JML_UNUSED = oscales;
+    const distribution<LFloat> & b MLDB_UNUSED = forward.bias;
+    const distribution<LFloat> & c MLDB_UNUSED = ibias;
+    const distribution<LFloat> & d MLDB_UNUSED = iscales;
+    const distribution<LFloat> & e MLDB_UNUSED = oscales;
 
     distribution<F> c_updates
         = diff * forward.transfer_function->derivative(denoised_input);
@@ -817,7 +817,7 @@ rbprop(const F * inputs,
 
     for (unsigned i = 0;  i < ni;  ++i) {
 
-        if (!isnan(noisy_input[i])) {
+        if (!std::isnan(noisy_input[i])) {
             
             F W_updates_row[no];
             

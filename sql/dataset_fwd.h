@@ -1,20 +1,16 @@
 /** dataset_fwd.h                                                  -*- C++ -*-
     Jeremy Barnes, 16 February 2014
-    Copyright (c) 2014 Datacratic Inc.  All rigths reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rigths reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Int, int Domain> struct IntWrapper;
 template<int Domain> struct HashWrapper;
-
-struct Id;
-
-namespace MLDB {
 
 struct MldbServer;
 
@@ -27,14 +23,14 @@ typedef HashWrapper<1> RowHash;
 struct PathElement;
 struct Path;
 
-typedef Path RowName;
+typedef Path RowPath;
 
 typedef HashWrapper<3> ColumnHash;
-typedef Path ColumnName;
+typedef Path ColumnPath;
 
 struct Dataset;
 
 struct KnownColumn;
 
 } // namespace MLDB
-} // namespace Datacratic
+

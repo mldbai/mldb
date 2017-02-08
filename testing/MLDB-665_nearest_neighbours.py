@@ -1,7 +1,7 @@
 #
 # MLDB-665_nearest_neighbours.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -48,11 +48,6 @@ class Mldb1415Test(MldbUnitTest):
         })
 
         result = mldb.post("/v1/procedures/kmeans/runs", {})
-
-        result = mldb.get("/v1/datasets/iris_dataset/query",
-                          select="* excluding (class)", format="table",
-                          rowNames="true")
-
 
         # create a nearest neighbour function
         sql_func_res = mldb.put("/v1/functions/nn", {

@@ -1,7 +1,7 @@
 #
 # MLDB-927-null-row-output.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 import json
@@ -68,8 +68,8 @@ for format in formats:
 
     rows1 = json.dumps(result.json(), indent=4, sort_keys=True)
 
-    result = mldb.get('/v1/datasets/dataset1/query',
-        when="value_timestamp() > '%s'" % later, orderBy ="rowHash()", format=format)
+    result = mldb.get('/v1/query',
+        q = "SELECT * from dataset1 WHEN value_timestamp() > '%s' ORDER BY rowHash()" % later, format=format)
 
     rows2 = json.dumps(result.json(), indent=4, sort_keys=True)
 

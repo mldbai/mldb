@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* hash_specializations.h                                          -*- C++ -*-
    Jeremy Barnes, 5 February 2005
@@ -20,7 +20,7 @@
 #include <string>
 #include "mldb/jml/utils/floating_point.h"
 
-#define JML_HASH_NS __gnu_cxx
+#define MLDB_HASH_NS __gnu_cxx
 
 namespace ML {
 
@@ -36,7 +36,7 @@ inline size_t chain_hash(size_t h1, size_t h2 = 0)
 
 namespace std {
 
-using JML_HASH_NS::hash;
+using MLDB_HASH_NS::hash;
 
 } // namespace std
 
@@ -48,7 +48,7 @@ template<>
 struct hash<std::string> {
     size_t operator () (const std::string & str) const
     {
-        return JML_HASH_NS::hash<const char *>()(str.c_str());
+        return MLDB_HASH_NS::hash<const char *>()(str.c_str());
     }
 
 };
@@ -78,7 +78,7 @@ struct hash<std::pair<X, Y> > {
     }
 };
 
-} // namespace JML_HASH_NS
+} // namespace MLDB_HASH_NS
 
 
 #endif /* __utils__hash_specializations_h__ */

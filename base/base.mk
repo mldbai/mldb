@@ -1,12 +1,13 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
 LIBBASE_SOURCES := \
         parse_context.cc \
 	thread_pool.cc \
-	parallel.cc
+	parallel.cc \
+	optimized_path.cc
 
-LIBBASE_LINK :=	arch boost_thread gc
+LIBBASE_LINK :=	arch gc
 
 $(eval $(call library,base,$(LIBBASE_SOURCES),$(LIBBASE_LINK)))
 

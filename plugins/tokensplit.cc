@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** tokensplit.cc
     Mathieu Marquis Bolduc, November 24, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Function to parse strings for tokens and insert separators
 */
@@ -15,11 +15,12 @@
 #include "mldb/server/function_collection.h"
 #include "types/structure_description.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TokenSplitConfig);
@@ -29,14 +30,33 @@ TokenSplitConfigDescription()
 {
     addField("tokens", &TokenSplitConfig::tokens,
              "An SQL expression specifiying the list of tokens to separate.");
-    addField("splitchars", &TokenSplitConfig::splitchars,
+    addField("splitChars", &TokenSplitConfig::splitchars,
              "A string containing the list of possible split characters. "
              "Each character in the list is interpreted as a splitchar. ",
              Utf8String("&lt;space&gt;,"));
-    addField("splitcharToInsert", &TokenSplitConfig::splitcharToInsert,
+    addField("splitCharToInsert", &TokenSplitConfig::splitcharToInsert,
              "A string containing the split character to insert if none of the characters "
              "in 'splitchars' are already present.",
              Utf8String("&lt;space&gt;"));
+
+    onUnknownField = [] (TokenSplitConfig * options,
+                         JsonParsingContext & context)
+    {
+        auto logger = MLDB::getMldbLog<TokenSplit>();
+        if(context.fieldName() == "splitcharToInsert") {
+            options->splitcharToInsert = context.expectStringUtf8();
+            INFO_MSG(logger) << "The 'splitcharToInsert' argument has been renamed to 'splitCharToInsert'";
+        }
+        else if(context.fieldName() == "splitchars") {
+            options->splitchars = context.expectStringUtf8();
+            INFO_MSG(logger) << "The 'splitchars' argument has been renamed to 'splitChars'";
+        }
+        else {
+            context.exception("Unknown field '" + context.fieldName()
+                    + " parsing TokenSplit configuration");
+          }
+        return false;
+    };
 }
 
 /*****************************************************************************/
@@ -47,9 +67,9 @@ TokenSplit::
 TokenSplit(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
-    functionConfig = config.params.convert<TokenSplitConfig>();   
+    functionConfig = config.params.convert<TokenSplitConfig>();
     SqlExpressionMldbScope context(owner);
  
     //get all values from the dataset and add them to our dictionary of tokens
@@ -57,7 +77,7 @@ TokenSplit(MldbServer * owner,
             for (auto & c: row.columns) {
                 const CellValue & cellValue = std::get<1>(c);
                 
-                dictionary.emplace_back(std::move(cellValue.toUtf8String()));
+                dictionary.emplace_back(cellValue.toUtf8String());
             }
             
             return true;
@@ -69,8 +89,9 @@ TokenSplit(MldbServer * owner,
         };
 
     BoundTableExpression boundDataset;
+    ConvertProgressToJson convertProgressToJson(onProgress);
     if (functionConfig.tokens.stm->from)
-        boundDataset = functionConfig.tokens.stm->from->bind(context);
+        boundDataset = functionConfig.tokens.stm->from->bind(context, convertProgressToJson);
 
     if (boundDataset.dataset)
         iterateDataset(functionConfig.tokens.stm->select,
@@ -81,7 +102,7 @@ TokenSplit(MldbServer * owner,
                        functionConfig.tokens.stm->orderBy,
                        functionConfig.tokens.stm->offset,
                        functionConfig.tokens.stm->limit,
-                       onProgress);
+                       convertProgressToJson);
     else { // query containing only a select (e.g. select "token1", "token2", "token3")
         std::vector<MatrixNamedRow> rows  = queryWithoutDataset(*functionConfig.tokens.stm, context);
         std::for_each(rows.begin(), rows.end(), processor);
@@ -255,7 +276,7 @@ getFunctionInfo() const
     outputColumns.emplace_back(PathElement("output"), std::make_shared<AtomValueInfo>(),
                                COLUMN_IS_DENSE, 0);
 
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.input.emplace_back(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
     result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
     
     return result;
@@ -265,11 +286,11 @@ namespace {
 
 RegisterFunctionType<TokenSplit, TokenSplitConfig>
 regSvdEmbedRow(builtinPackage(),
-	       "tokensplit",
-               "Insert spaces after tokens from a dictionary",
-               "functions/TokenSplit.md.html");
+                "tokensplit",
+                "Insert spaces after tokens from a dictionary",
+                "functions/TokenSplit.md.html");
 
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

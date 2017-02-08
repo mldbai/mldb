@@ -1,6 +1,6 @@
 /** useragent_function.h                                               -*- C++ -*-
     Francois Maillet, 27 juin 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -9,7 +9,7 @@
 #include "mldb/ext/uap-cpp/UaParser.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -72,5 +72,4 @@ struct ParseUserAgentFunction: public ValueFunctionT<UserAgentParserArgs, Parsed
     ParseUserAgentFunctionConfig functionConfig;
 };
 
-} // namespace
-} // namespace
+} // namespace MLDB

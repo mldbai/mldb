@@ -1,16 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* rng.cc
    Jeremy Barnes, 12 May 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "rng.h"
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/uniform_01.hpp>
+#include <random>
 
 namespace ML {
 
@@ -20,12 +18,12 @@ namespace ML {
 
 struct RNG::Itl {
     Itl()
-    : uniform01_(rng_)
+    : uniform01_(0, 1)
     {
     }
         
-    boost::mt19937 rng_;
-    boost::uniform_01<boost::mt19937> uniform01_;
+    std::mt19937 rng_;
+    std::uniform_real_distribution<> uniform01_;
 };
 
 RNG::
@@ -52,7 +50,6 @@ seed(uint32_t value)
 {
     if (value == 0) value = 1;
     itl->rng_.seed(value);
-    itl->uniform01_.base().seed(value);
 }
 
 uint32_t
@@ -74,7 +71,7 @@ float
 RNG::
 random01()
 {
-    return itl->uniform01_();
+    return itl->uniform01_(itl->rng_);
 }
 
 RNG & RNG::defaultRNG()

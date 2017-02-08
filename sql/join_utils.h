@@ -1,8 +1,8 @@
 /** join_utils.h                                                   -*- C++ -*-
     Jeremy Barnes, 24 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -10,8 +10,14 @@
 #include "sql_expression.h"
 #include "mldb/sql/table_expression_operations.h" //for join qualification
 
-namespace Datacratic {
+
 namespace MLDB {
+
+ enum JoinSide {
+    JOIN_SIDE_LEFT = 0,
+    JOIN_SIDE_RIGHT,
+    JOIN_SIDE_MAX
+};
 
 /** Fix up an expression, by looking for all column references and removing
     the table name in the set of aliases from each one.
@@ -45,7 +51,7 @@ struct AnnotatedClause {
     std::shared_ptr<SqlExpression> expr;
 
     /// Lists of variables on the left, the right, and satisfied by neither side
-    std::vector<ColumnName> leftVars, rightVars, externalVars;
+    std::vector<ColumnPath> leftVars, rightVars, externalVars;
 
     /// Lists of functions on the left, the right, and satisfied by neither side
     /// We still need to keep the scope, as table1.rowName() is not the same as
@@ -137,22 +143,18 @@ struct AnnotatedJoinCondition {
         /// Original table of the join
         std::shared_ptr<TableExpression> table;
 
-        // WHERE condition on rows on the left side
-        std::vector<AnnotatedClause> whereClauses;
-        
-        /// Left side of equality part of the join expression, for EQUIJOIN
-        std::shared_ptr<SqlExpression> equalExpression;
-
-        /// Clause for the select expression
+        /** Clause for the select expression
+            This is used to evaluated each side of an EQUIJOIN.
+        */
         std::shared_ptr<SqlExpression> selectExpression;
 
         /// Expression to select from the table on this side
         SelectExpression select;
 
-        // left side WHEN condition as an SQL expression
+        // left/right side WHEN condition as an SQL expression
         WhenExpression when;
 
-        // left side WHERE condition as an SQL expression
+        // left/right side WHERE condition as an SQL expression
         std::shared_ptr<SqlExpression> where;
 
         /// Order by clause for the table on this side
@@ -194,4 +196,4 @@ DECLARE_ENUM_DESCRIPTION_NAMED(AnnotatedJoinConditionStyleDescription,
                               AnnotatedJoinCondition::Style);
 
 } // namespace MLDB
-} // namespace Datacratic
+

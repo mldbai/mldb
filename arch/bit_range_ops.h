@@ -2,7 +2,7 @@
    Jeremy Barnes, 23 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Operations for operating over a range of bits.
 */
@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <stdint.h>
 #include <algorithm>
+#include <atomic>
 #include <boost/iterator/iterator_facade.hpp>
 
 
@@ -38,26 +39,26 @@ typedef uint32_t shift_t;
 
 */
 template<typename T>
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T shrd_emulated(T low, T high, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
     ExcAssert(bits < TBITS);
-    //if (JML_UNLIKELY(bits == 0)) return low;
+    //if (MLDB_UNLIKELY(bits == 0)) return low;
     low >>= bits;
     high = (high << (TBITS - bits)) * (bits != 0);
     return low | high;
 }
 
-#if defined( JML_INTEL_ISA ) && ! defined(JML_COMPILER_NVCC)
+#if defined( MLDB_INTEL_ISA ) && ! defined(MLDB_COMPILER_NVCC)
 
 template<typename T>
-JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
 T shrd(T low, T high, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
     ExcAssert(bits < TBITS);
-    if (JML_UNLIKELY(bits == TBITS)) return low;
+    if (MLDB_UNLIKELY(bits == TBITS)) return low;
     __asm__ ("shrd   %[bits], %[high], %[low] \n\t"
             : [low] "+r,r" (low)
             : [bits] "J,c" ((uint8_t)bits), [high] "r,r" (high)
@@ -69,30 +70,30 @@ T shrd(T low, T high, shift_t bits)
 }
 
 // There's no 8 bit shrd instruction available
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 unsigned char shrd(unsigned char low, unsigned char high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
 }
 
 // There's no 8 bit shrd instruction available
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 signed char shrd(signed char low, signed char high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
 }
 
-#if JML_BITS == 32
+#if MLDB_BITS == 32
 
 // There's no 8 byte shrd instruction available
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 unsigned long long shrd(unsigned long long low, unsigned long long high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
 }
 
 // There's no 8 byte shrd instruction available
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 signed long long shrd(signed long long low, signed long long high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
@@ -103,41 +104,26 @@ signed long long shrd(signed long long low, signed long long high, shift_t bits)
 #else // no SHRD instruction available
 
 template<typename T>
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T shrd(T low, T high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
 }
 
-#endif // JML_INTEL_ISA
+#endif // MLDB_INTEL_ISA
 
-
-#if defined( JML_INTEL_ISA ) && ! defined(JML_COMPILER_NVCC) && false
-
-/** Mask off the highest bits of the results, leaving n bits. */
 
 template<typename T>
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
-T maskLower(T val, shift_t bits)
-{
-    // use SHL instruction
-}
-
-#else
-
-template<typename T>
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T maskLower(T val, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
     ExcAssertLessEqual(bits, TBITS);
-    if (JML_UNLIKELY(bits == TBITS))
+    if (MLDB_UNLIKELY(bits == TBITS))
         return val;
-    T mask = ((1 << bits) - 1);
+    T mask = (((T)1 << bits) - 1);
     return val & mask;
 }
-
-#endif
 
 /** Extract the bits from bit to bit+numBits starting at the pointed to
     address.  There can be a maximum of one word extracted in this way.
@@ -150,7 +136,7 @@ T maskLower(T val, shift_t bits)
     2.  Otherwise, do a double shift right across the two memory locations
 */
 template<typename Data>
-JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 Data extract_bit_range(const Data * p, size_t bit, shift_t bits)
 {
     if (bits == 0) return 0;
@@ -171,9 +157,32 @@ Data extract_bit_range(const Data * p, size_t bit, shift_t bits)
     return result & ((Data(1) << bits) - 1);
 }
 
+template<typename Data>
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+Data extract_bit_range(const std::atomic<Data> * p, size_t bit, shift_t bits,
+                       std::memory_order order = std::memory_order_seq_cst)
+{
+    if (bits == 0) return 0;
+
+    Data result = p[0].load(order);
+
+    enum { DBITS = sizeof(Data) * 8 };
+    
+    if (bit + bits > DBITS) {
+        // We need to extract from the two values
+        result = shrd(result, p[1].load(order), bit);
+    }
+    else result >>= bit;
+
+    if (bits == DBITS) return result;
+
+    result *= Data(bits != 0);  // bits == 0: should return 0; mask doesn't work
+    return result & ((Data(1) << bits) - 1);
+}
+
 /** Same, but the low and high values are passed it making it pure. */
 template<typename Data>
-JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
 Data extract_bit_range(Data p0, Data p1, size_t bit, shift_t bits)
 {
     return maskLower(shrd(p0, p1, bit), bits); // extract and mask
@@ -183,7 +192,7 @@ Data extract_bit_range(Data p0, Data p1, size_t bit, shift_t bits)
     mustn't have bits set outside bits, and it must entirely fit within
     the value. */
 template<typename Data>
-JML_ALWAYS_INLINE JML_PURE_FN
+MLDB_ALWAYS_INLINE MLDB_PURE_FN
 Data set_bits(Data in, Data val, shift_t bit, shift_t bits)
 {
     // Create a mask with the bits to modify
@@ -202,10 +211,10 @@ Data set_bits(Data in, Data val, shift_t bit, shift_t bits)
 }
 
 template<typename Data>
-JML_ALWAYS_INLINE
+MLDB_ALWAYS_INLINE
 void set_bit_range(Data& p0, Data& p1, Data val, shift_t bit, shift_t bits)
 {
-    if (JML_UNLIKELY(bits == 0)) return;
+    if (MLDB_UNLIKELY(bits == 0)) return;
 
     /* There's some part of the first and some part of the second
        value (both zero or more bits) that need to be replaced by the
@@ -253,27 +262,27 @@ T fixup_extract(T extracted, shift_t bits)
     return extracted;
 }
 
-JML_ALWAYS_INLINE signed char fixup_extract(signed char e, shift_t bits)
+MLDB_ALWAYS_INLINE signed char fixup_extract(signed char e, shift_t bits)
 {
     return sign_extend(e, bits);
 }
 
-JML_ALWAYS_INLINE signed short fixup_extract(signed short e, shift_t bits)
+MLDB_ALWAYS_INLINE signed short fixup_extract(signed short e, shift_t bits)
 {
     return sign_extend(e, bits);
 } 
 
-JML_ALWAYS_INLINE signed int fixup_extract(signed int e, shift_t bits)
+MLDB_ALWAYS_INLINE signed int fixup_extract(signed int e, shift_t bits)
 {
     return sign_extend(e, bits);
 } 
 
-JML_ALWAYS_INLINE signed long fixup_extract(signed long e, shift_t bits)
+MLDB_ALWAYS_INLINE signed long fixup_extract(signed long e, shift_t bits)
 {
     return sign_extend(e, bits);
 } 
 
-JML_ALWAYS_INLINE signed long long fixup_extract(signed long long e, shift_t bits)
+MLDB_ALWAYS_INLINE signed long long fixup_extract(signed long long e, shift_t bits)
 {
     return sign_extend(e, bits);
 }
@@ -295,8 +304,8 @@ struct Simple_Mem_Buffer {
     {
     }
 
-    JML_ALWAYS_INLINE Data curr() const { return data[0]; }
-    JML_ALWAYS_INLINE Data next() const { return data[1]; }
+    MLDB_ALWAYS_INLINE Data curr() const { return data[0]; }
+    MLDB_ALWAYS_INLINE Data next() const { return data[1]; }
     
     void operator += (int offset) { data += offset; }
 
@@ -318,8 +327,8 @@ struct Buffered_Mem_Buffer {
         b1 = data[1];
     }
 
-    JML_ALWAYS_INLINE Data curr() const { return b0; }
-    JML_ALWAYS_INLINE Data next() const { return b1; }
+    MLDB_ALWAYS_INLINE Data curr() const { return b0; }
+    MLDB_ALWAYS_INLINE Data next() const { return b1; }
     
     void operator += (int offset)
     {
@@ -359,7 +368,7 @@ struct Bit_Buffer {
     /// Extracts bits starting from the least-significant bits of the buffer.
     Data extract(shift_t bits)
     {
-        if (JML_UNLIKELY(bits <= 0)) return Data(0);
+        if (MLDB_UNLIKELY(bits <= 0)) return Data(0);
 
         Data result;
         if (bit_ofs + bits <= 8 * sizeof(Data))
@@ -389,7 +398,7 @@ struct Bit_Buffer {
     /// Extracts bits starting from the most-significant bits of the buffer.
     Data rextract(shift_t bits)
     {
-        if (JML_UNLIKELY(bits == 0)) return Data(0);
+        if (MLDB_UNLIKELY(bits == 0)) return Data(0);
 
         enum { DBITS = 8 * sizeof(Data) };
 
@@ -458,48 +467,48 @@ private:
 template<typename Data, typename Buffer = Bit_Buffer<Data> >
 struct Bit_Extractor {
 
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     Bit_Extractor()
         : bit_ofs(0)
     {
     }
 
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     Bit_Extractor(const Data * data)
         : buf(data), bit_ofs(0)
     {
     }
 
     template<typename T>
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     T extract(int num_bits)
     {
         return buf.extract(num_bits);
     }
 
     template<typename T>
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     T extractFast(int num_bits)
     {
         return buf.extractFast(num_bits);
     }
 
     template<typename T>
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     void extract(T & where, int num_bits)
     {
         where = buf.extract(num_bits);
     }
 
     template<typename T>
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     void extractFast(T & where, int num_bits)
     {
         where = buf.extractFast(num_bits);
     }
 
     template<typename T1, typename T2>
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     void extract(T1 & where1, int num_bits1,
                  T2 & where2, int num_bits2)
     {
@@ -508,7 +517,7 @@ struct Bit_Extractor {
     }
 
     template<typename T1, typename T2, typename T3>
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     void extract(T1 & where1, int num_bits1,
                  T2 & where2, int num_bits2,
                  T3 & where3, int num_bits3)
@@ -519,7 +528,7 @@ struct Bit_Extractor {
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     void extract(T1 & where1, shift_t num_bits1,
                  T2 & where2, shift_t num_bits2,
                  T3 & where3, shift_t num_bits3,
@@ -531,7 +540,7 @@ struct Bit_Extractor {
         where4 = buf.extract(num_bits4);
     }
 
-    JML_COMPUTE_METHOD
+    MLDB_COMPUTE_METHOD
     void advance(ssize_t bits)
     {
         buf.advance(bits);
@@ -566,7 +575,7 @@ struct Bit_Writer {
     /// Writes bits starting from the least-significant bits of the buffer.
     void write(Data val, shift_t bits)
     {
-        if (JML_UNLIKELY(bits == 0)) return;
+        if (MLDB_UNLIKELY(bits == 0)) return;
 
         //using namespace std;
         //cerr << "write: val = " << val << " bits = " << bits << endl;
@@ -591,7 +600,7 @@ struct Bit_Writer {
     /// Writes bits starting from the most-significant bits of the buffer.
     void rwrite(Data val, shift_t bits)
     {
-        if (JML_UNLIKELY(bits == 0)) return;
+        if (MLDB_UNLIKELY(bits == 0)) return;
 
         enum { DBITS = sizeof(Data) * 8 };
 

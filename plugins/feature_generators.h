@@ -1,8 +1,8 @@
 /** feature_generators.h                                           -*- C++ -*-
     Francois Maillet, 27 juillet 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -10,12 +10,12 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/value_function.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/ml/jml/feature_info.h"
 #include "mldb/ml/value_descriptions.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -74,4 +74,4 @@ struct HashedColumnFeatureGenerator: public ValueFunctionT<FeatureGeneratorInput
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

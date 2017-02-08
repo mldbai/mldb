@@ -1,8 +1,8 @@
 /** quadtree.h                                                     -*- C++ -*-
     Jeremy Barnes, 17 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Released under the BSD license, no attribution required.
 */
@@ -14,10 +14,11 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include <memory>
 #include <iostream>
+#include <cmath>
 
 namespace ML {
 
-using Datacratic::compact_vector;
+using MLDB::compact_vector;
 
 typedef compact_vector<float, 3, uint32_t, false> QCoord;
 
@@ -111,7 +112,7 @@ struct QuadtreeNode {
                 cerr << "point = " << point << endl;
                 cerr << "mins " << mins << endl;
                 cerr << "maxs " << maxs << endl;
-                throw ML::Exception("point is not within cell");
+                throw MLDB::Exception("point is not within cell");
             }
         }
 

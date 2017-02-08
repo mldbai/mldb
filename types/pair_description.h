@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** pair_description.h                                          -*- C++ -*-
     Jeremy Barnes, 21 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Value description for a pointer.
 */
@@ -11,14 +10,15 @@
 
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T, typename U>
 struct PairDescription
-    : public ValueDescriptionI<std::pair<T, U>, ValueKind::TUPLE, PairDescription<T, U> > {
+    : public ValueDescriptionI<std::pair<T, U>, ValueKind::TUPLE,
+                               PairDescription<T, U> > {
 
     PairDescription(ValueDescriptionT<T> * inner1,
-                       ValueDescriptionT<U> * inner2)
+                    ValueDescriptionT<U> * inner2)
         : inner1(inner1), inner2(inner2)
     {
     }
@@ -38,30 +38,30 @@ struct PairDescription
     std::shared_ptr<const ValueDescriptionT<T> > inner1;
     std::shared_ptr<const ValueDescriptionT<U> > inner2;
 
-    virtual size_t getTupleLength() const
+    virtual size_t getTupleLength() const override
     {
         return 2;
     }
 
     virtual std::vector<std::shared_ptr<const ValueDescription> >
-    getTupleElementDescriptions() const
+    getTupleElementDescriptions() const override
     {
         return { inner1, inner2 };
     }
 
     virtual const ValueDescription &
-    getArrayElementDescription(const void * val, uint32_t element) const
+    getArrayElementDescription(const void * val, uint32_t element) const override
     {
         if (element == 0)
             return *inner1;
         else if (element == 1)
             return *inner1;
-        else throw ML::Exception("Invalid element number for pair type '"
+        else throw MLDB::Exception("Invalid element number for pair type '"
                                  + this->typeName + "'");
     }
 
     virtual void parseJsonTyped(std::pair<T, U> * val,
-                                JsonParsingContext & context) const JML_OVERRIDE
+                                JsonParsingContext & context) const override
     {
         int el = 0;
         auto onElement = [&] ()
@@ -82,7 +82,7 @@ struct PairDescription
     }
 
     virtual void printJsonTyped(const std::pair<T, U> * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE
+                                JsonPrintingContext & context) const override
     {
         context.startArray(2);
         context.newArrayElement();
@@ -92,13 +92,13 @@ struct PairDescription
         context.endArray();
     }
 
-    virtual bool isDefaultTyped(const std::pair<T, U> * val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(const std::pair<T, U> * val) const override
     {
         return inner1->isDefaultTyped(&val->first)
             && inner2->isDefaultTyped(&val->second);
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner1 = getDefaultDescriptionSharedT<T>();
         this->inner2 = getDefaultDescriptionSharedT<U>();
@@ -107,4 +107,4 @@ struct PairDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(PairDescription, std::pair, typename, T1, typename, T2);
 
-} // namespace Datacratic
+} // namespace MLDB

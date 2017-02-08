@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* cuda.cc
    Jeremy Barnes, 10 March 2009
@@ -22,7 +22,7 @@ namespace ML {
 
 namespace {
 
-Env_Option<bool> debug("DEBUG_CAL_INIT", false);
+EnvOption<bool> debug("DEBUG_CAL_INIT", false);
 
 } // file scope
 

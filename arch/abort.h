@@ -1,10 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// 
 
 /** abort.h                                 -*- C++ -*-
     Rémi Attab, 13 Nov 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
     Utilities related to the abort() function.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     These functions are meant to be used as debugging helpers so that the
     program can be stopped as soon as an error is detected. This is mainly
@@ -14,15 +15,14 @@
 
 */
 
-#ifndef __jml__utils__abort_h__
-#define __jml__utils__abort_h__
+#pragma once
 
-namespace ML {
+namespace MLDB {
 
 /** Calls abort() if one of the following criterias are met:
 
-    - The environment variable JML_ABORT is set.
-    - The macro JML_ABORT is defined.
+    - The environment variable MLDB_ABORT is set.
+    - The macro MLDB_ABORT is defined.
     - set_abort_state(true) is called.
 
     Note that the value passed to set_abort_state() will override all other
@@ -39,6 +39,4 @@ bool get_abort_state();
 void set_abort_state(bool b);
 
 
-} // ML
-
-#endif // __jml__utils__abort_h__
+} // MLDB

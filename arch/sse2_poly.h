@@ -1,16 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* sse2_poly.h                                                     -*- C++ -*-
    Jeremy Barnes, 23 January 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    SSE2 polynomial evalution functions.
 */
 
-#ifndef __jml__arch__sse2_poly_h__
-#define __jml__arch__sse2_poly_h__
+#pragma once
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 inline v4sf polevl( v4sf x, float * coef, int N )
@@ -76,7 +74,5 @@ inline double polevl( double x, double * coef, int N )
 
 
 } // namespace SIMD
-} // namespace ML
-
-#endif /* __jml__arch__sse2_poly_h__ */
+} // namespace MLDB
 

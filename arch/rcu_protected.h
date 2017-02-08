@@ -1,8 +1,8 @@
 /* rcu_protected.h                                                 -*- C++ -*-
    Jeremy Barnes, 12 April 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Building blocks for RCU protected data structures.
 */
@@ -14,7 +14,7 @@
 #include <memory>
 #include <atomic>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T>
 struct RcuLocked {
@@ -97,14 +97,14 @@ struct RcuLocked {
     T * operator -> () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return ptr;
     }
 
     T & operator * () const
     {
         if (!ptr)
-            throw ML::Exception("dereferencing null RCUResult");
+            throw MLDB::Exception("dereferencing null RCUResult");
         return *ptr;
     }
 };
@@ -151,7 +151,7 @@ struct RcuProtected {
         val = 0;
     }
 
-    JML_IMPLEMENT_OPERATOR_BOOL(val);
+    MLDB_IMPLEMENT_OPERATOR_BOOL(val);
 
     RcuLocked<T> operator () ()
     {
@@ -199,8 +199,9 @@ struct RcuProtected {
         return std::unique_ptr<T>(val.exchange(newVal));
     }
     
+    template<typename DELETER>
     bool cmp_xchg(RcuLocked<T> & current,
-                  std::unique_ptr<T> & newValue,
+                  std::unique_ptr<T, DELETER> & newValue,
                   bool defer = true,
                   void (*cleanup) (T *) = GcLock::doDelete<T>)
     {
@@ -279,5 +280,5 @@ struct RcuProtectedCopyable : public RcuProtected<T> {
 
 };
 
-} // namespace Datacratic
+} // namespace MLDB
    

@@ -2,7 +2,7 @@
    Jeremy Barnes, 23 January 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Basic math functions for SSE2.
 */
@@ -12,7 +12,7 @@
 #include "sse2.h"
 #include "sse2_misc.h"
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 inline v4sf pow2f_unsafe(v4si n)
@@ -143,4 +143,4 @@ inline v4sf sse2_trunc(v4sf x)
 }
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** python_plugin_context.h                                        -*- C++ -*-
     Francois Maillet, 6 mars 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -25,13 +24,13 @@
 #include "mldb/server/script_output.h"
 
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb/rest/in_process_rest_connection.h"
 
 
-//using namespace Datacratic::Python;
+//using namespace Python;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -127,10 +126,10 @@ struct PythonContext {
     Json::Value getArgs() const;
     void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
     void setReturnValue1(const Json::Value & rtnVal);
+    void resetReturnValue();
 
     Utf8String categoryName, loaderName;
 
-    unsigned rtnCode;
     Json::Value rtnVal;
 
     std::mutex logMutex;  /// protects the categories below
@@ -145,6 +144,13 @@ struct PythonContext {
     std::shared_ptr<LoadedPluginResource> pluginResource;
 
     MldbPythonContext* mldbContext;
+
+    unsigned getRtnCode() {
+        return rtnCode;
+    }
+
+    private:
+        unsigned rtnCode;
 };
 
 
@@ -264,8 +270,11 @@ struct MldbPythonContext {
 
     PythonContext* getPyContext();
 
-    void setPlugin(std::shared_ptr<PythonPluginContext> plug);
-    void setScript(std::shared_ptr<PythonScriptContext> scrp);
+    void setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx);
+    void setScript(std::shared_ptr<PythonScriptContext> scriptCtx);
+
+    /** Set the path optimization level.  See base/optimized_path.h. */
+    void setPathOptimizationLevel(const std::string & level);
 
     std::shared_ptr<PythonPluginContext> plugin;
     std::shared_ptr<PythonScriptContext> script;
@@ -273,4 +282,4 @@ struct MldbPythonContext {
 };
 
 } // namespace mldb
-} // namespace datacratic
+

@@ -1,8 +1,8 @@
 /** svm.h                                                   -*- C++ -*-
     Mathieu Marquis Bolduc, October 28th, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Support-Vector Machine procedure and functions.
 */
@@ -15,7 +15,7 @@
 #include "matrix.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum SVMType {
@@ -117,4 +117,4 @@ struct SVMFunction: public ValueFunctionT<SVMFunctionArgs, SVMExpressionValue>  
 };
 
 } //MLDB
-} //Datacratic
+

@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 // 
 // fslock_test.cc
 // Wolfgang Sourdeau - Dec 2013
-// Copyright (c) 2013 Datacratic. All rights reserved.
+// Copyright (c) 2013 mldb.ai inc. All rights reserved.
 // 
 
 
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE( test_stale_and_trylock )
 
     pid_t childPid = ::fork();
     if (childPid == -1) {
-        throw ML::Exception(errno, "fork");
+        throw MLDB::Exception(errno, "fork");
     }
     else if (childPid == 0) {
         GuardedFsLock lock(lockedFile);
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE( test_stale_and_lock )
 
     pid_t childPid = ::fork();
     if (childPid == -1) {
-        throw ML::Exception(errno, "fork");
+        throw MLDB::Exception(errno, "fork");
     }
     else if (childPid == 0) {
         GuardedFsLock lock(lockedFile);

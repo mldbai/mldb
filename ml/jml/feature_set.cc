@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* feature_set.cc
    Jeremy Barnes, 10 June 2003
@@ -21,6 +21,7 @@
 using namespace std;
 using namespace ML;
 using namespace ML::DB;
+using namespace MLDB;
 
 
 
@@ -209,7 +210,7 @@ std::string escape_feature_name(const std::string & feature)
     }
 }
 
-std::string expect_feature_name(Parse_Context & c)
+std::string expect_feature_name(ParseContext & c)
 {
     std::string result;
     if (c.match_literal('"')) {
@@ -218,7 +219,7 @@ std::string expect_feature_name(Parse_Context & c)
         bool after_backslash = false;
         int len = 0;
 
-        Parse_Context::Revert_Token tok(c);
+        ParseContext::Revert_Token tok(c);
 
         while (c && (*c != '"' || after_backslash)) {
             if ((!after_backslash && *c == '"') || *c == '\n') break;
@@ -246,7 +247,7 @@ std::string expect_feature_name(Parse_Context & c)
         /* We have a backslash escaped name. */
         bool after_backslash = false;
         
-        Parse_Context::Revert_Token tok(c);
+        ParseContext::Revert_Token tok(c);
 
         int len = 0;
         while (c && *c != '\n') {

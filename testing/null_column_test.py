@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+# Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 # @Author:             Alexis Tremblay
-# @Email:              atremblay@datacratic.com
 # @Date:               2015-03-03 10:14:36
 # @Last Modified by:   Alexis Tremblay
 # @Last Modified time: 2015-04-01 09:25:50
@@ -36,15 +35,15 @@ class DatasetTest(unittest.TestCase):
 
     @classmethod
     def loadDatasetToMLDB(cls):
-        dataset_name = "null_column_test"
+        cls.dataset_name = "null_column_test"
         cls.url = "http://localhost:%d/v1" % cls.port
-        cls.dataset_url = cls.url + "/datasets/" + dataset_name
+        cls.dataset_url = cls.url + "/datasets/" + cls.dataset_name
         requests.delete(cls.dataset_url)
 
         # Register the dataset
         data = json.dumps({
             "type": "sparse.mutable",
-            "id": dataset_name,
+            "id": cls.dataset_name,
         })
         requests.post(cls.url + "/datasets", data=data)
 
@@ -86,11 +85,10 @@ class DatasetTest(unittest.TestCase):
         self.assertEqual(datasets['status']['rowCount'], 2)
 
         params = {
-            "select": 'col2',
-            "where": '"col2" IS NOT NULL'
+            "q": "SELECT col2 FROM " + self.dataset_name + " WHERE col2 IS NOT NULL"
         }
 
-        response = requests.get(self.dataset_url + '/query', params=params)
+        response = requests.get(self.url + '/query', params=params)
         content = json.loads(response.content)
 
         self.assertEqual(
@@ -129,11 +127,10 @@ class DatasetTest(unittest.TestCase):
             msg="2 rows should be in the dataset. r1 and r2")
 
         params = {
-            "select": 'col1',
-            "where": '"col2" IS NULL'
+            "q": "SELECT col1 FROM " + self.dataset_name + " WHERE col2 IS NULL"
         }
 
-        response = requests.get(self.dataset_url + '/query', params=params)
+        response = requests.get(self.url + '/query', params=params)
         content = json.loads(response.content)
 
         self.assertEqual(len(content), 1)
@@ -168,11 +165,10 @@ class DatasetTest(unittest.TestCase):
             msg="2 rows should be in the dataset. r1 and r2")
 
         params = {
-            "select":'col1',
-            "where":"'col2' < 2"
+            "q": "SELECT col1 FROM " + self.dataset_name + " WHERE col2 < 2" 
         }
 
-        response = requests.get(self.dataset_url + '/query', params=params)
+        response = requests.get(self.url + '/query', params=params)
         content = json.loads(response.content)
         self.assertEqual(len(content), 0,
             msg="The query should have returned no results")
@@ -200,11 +196,10 @@ class DatasetTest(unittest.TestCase):
             msg="2 rows should be in the dataset. r1 and r2")
 
         params = {
-            "select": 'col2',
-            "where": '"col2" <= 2'
+            "q": "SELECT col2 FROM " + self.dataset_name + " WHERE col2 <= 2" 
         }
 
-        response = requests.get(self.dataset_url + '/query', params=params)
+        response = requests.get(self.url + '/query', params=params)
         content = json.loads(response.content)
 
         self.assertEqual(

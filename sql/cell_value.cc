@@ -1,12 +1,12 @@
 /** cell_value.cc
     Jeremy Barnes, 24 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "cell_value.h"
-#include "mldb/ext/siphash/csiphash.h"
+#include "mldb/ext/highwayhash.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/dtoa.h"
 #include "mldb/http/http_exception.h"
@@ -20,11 +20,12 @@
 #include "interval.h"
 #include "path.h"
 #include "mldb/ext/s2/s2.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -170,7 +171,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
-                    throw ML::Exception("Invalid sequence within utf-8 string");
+                    throw MLDB::Exception("Invalid sequence within utf-8 string");
             }
             type = ST_UTF8_SHORT_STRING;
         }
@@ -186,7 +187,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
-                    throw ML::Exception("Invalid sequence within utf-8 string");
+                    throw MLDB::Exception("Invalid sequence within utf-8 string");
             }
 
             type = ST_UTF8_LONG_STRING;
@@ -248,23 +249,27 @@ parse(const Utf8String & str)
     return parse(str.rawData(), str.rawLength(), STRING_UNKNOWN);
 }
 
+/**
+   This implementation is slow but correct.  If this becomes the 
+   bottleneck of some scenarios (e.g. importing large csv file) consider
+   rewriting it without a copy of the buffer and by combining the three
+   independent parsing cases into one.  Note that any implementation
+   should be able to detect correctly overflow and underflow.  Also, it
+   should minimize rounding errors as it is done in strtod implementation.
+   See for example https://fossies.org/dox/glibc-2.24/strtod__l_8c_source.html
+   from the glic for an overview of the challenges.
+*/
 CellValue
 CellValue::
 parse(const char * s_, size_t len, StringCharacteristics characteristics)
 {
-    static constexpr size_t NUMERICAL_BUFFER = 64;
-
-    // if the string is longer than 64 characters it can't realistically
-    // be a numerical value
-    if (len > NUMERICAL_BUFFER)
-        return CellValue(s_, len, characteristics);
-
     if (len == 0)
         return CellValue();
 
     // this ensures that our buffer is null terminated as required below
-    char s[NUMERICAL_BUFFER + 1];
-    memcpy(s, s_, len);
+    PossiblyDynamicBuffer<char, 256> sv(len + 1);
+    memcpy(sv.data(), s_, len);
+    auto s = sv.data();
     s[len] = 0;
 
     // First try as an int
@@ -383,11 +388,11 @@ toString() const
     case ST_EMPTY:
         return "";
     case ST_INTEGER:
-        return Datacratic::itoa(intVal);
+        return itoa(intVal);
     case ST_UNSIGNED:
-        return Datacratic::itoa(uintVal);
+        return itoa(uintVal);
     case ST_FLOAT: {
-        return Datacratic::dtoa(floatVal);
+        return dtoa(floatVal);
     }
     case ST_ASCII_SHORT_STRING:
         return string(shortString, shortString + strLength);
@@ -599,6 +604,25 @@ coerceToTimestamp() const
     return CellValue();
 }
 
+Date
+CellValue::
+mustCoerceToTimestamp() const
+{
+    if (type == ST_EMPTY)
+        return Date::notADate();
+    if (isAsciiString()) {
+        return Date::parseIso8601DateTime(toString());
+    }
+    if (type == ST_TIMESTAMP)
+        return toTimestamp();
+    if (isNumber()) {
+        return Date::fromSecondsSinceEpoch(toDouble());
+    }
+    throw HttpReturnException(400, "Couldn't convert value '" + toUtf8String()
+                              + "' to timestamp",
+                              "value", *this);
+}
+
 CellValue
 CellValue::
 coerceToBlob() const
@@ -706,6 +730,64 @@ isNumber() const
 
 bool
 CellValue::
+isPositiveNumber() const
+{
+    switch (type) {
+    case ST_EMPTY:
+        return false;
+    case ST_INTEGER:
+        return intVal > 0;
+    case ST_UNSIGNED:
+        return uintVal > 0;
+    case ST_FLOAT:
+        return !std::isnan(floatVal) && floatVal > 0;
+    case ST_ASCII_SHORT_STRING:
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return false;
+    }
+
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
+bool
+CellValue::
+isNegativeNumber() const
+{
+    switch (type) {
+    case ST_EMPTY:
+        return false;
+    case ST_INTEGER:
+        return intVal < 0;
+    case ST_UNSIGNED:
+        return false;
+    case ST_FLOAT:
+        return !std::isnan(floatVal) && floatVal < 0;
+    case ST_ASCII_SHORT_STRING:
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return false;
+    }
+
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
+bool
+CellValue::
 isFalse() const
 {
     switch (type) {
@@ -736,9 +818,11 @@ isFalse() const
 const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 template<typename T>
-static uint64_t siphash24_bin(const T & v, HashSeed key)
+static uint64_t highwayhash_bin(const T & v, const HashSeed & key)
 {
-    return ::mldb_siphash24(&v, sizeof(v), key.b);
+    char c[sizeof(v)];
+    std::memcpy(c, &v, sizeof(v));
+    return highwayHash(key.u64, c, sizeof(v));
 }
 
 CellValueHash
@@ -749,16 +833,16 @@ hash() const
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_SHORT_BLOB:
-        return CellValueHash(mldb_siphash24(shortString, strLength, defaultSeedStable.b));
+        return CellValueHash(highwayHash(defaultSeedStable.u64, shortString, strLength));
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
     case ST_LONG_BLOB:
         if (!longString->hash) {
-            longString->hash = mldb_siphash24(longString->repr, strLength, defaultSeedStable.b);
+            longString->hash = highwayHash(defaultSeedStable.u64, longString->repr, strLength);
         }
         return CellValueHash(longString->hash);
     case ST_TIMEINTERVAL:
-        return CellValueHash(mldb_siphash24(shortString, 12, defaultSeedStable.b));
+        return CellValueHash(highwayHash(defaultSeedStable.u64, shortString, 12));
     case ST_SHORT_PATH:
     case ST_LONG_PATH:
         return CellValueHash(coerceToPath().hash());
@@ -766,7 +850,7 @@ hash() const
         if (bits2 != 0)
             cerr << "hashing " << jsonEncodeStr(*this) << endl;
         ExcAssertEqual(bits2, 0);
-        return CellValueHash(siphash24_bin(bits1, defaultSeedStable));
+        return CellValueHash(highwayhash_bin(bits1, defaultSeedStable));
     }
 }
 
@@ -844,7 +928,7 @@ operator <  (const CellValue & other) const
     // 3.  STRING or BLOB, compared lexicographically
 
     try {
-        if (JML_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
+        if (MLDB_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
             return false;
  
         switch (type) {
@@ -1091,7 +1175,7 @@ trimmedExceptionString() const
 
         return Utf8String(str, 0, 200) + "... (trimmed)";
     }
-    JML_CATCH_ALL {
+    MLDB_CATCH_ALL {
         return Utf8String("Exception trying to print string");
     }
 }
@@ -1131,12 +1215,12 @@ CellValue::printInterval() const
 
     if (year != 0)
     {
-        result.append(ML::format("%dY", year));
+        result.append(MLDB::format("%dY", year));
     }  
 
     if (monthsCount != 0)
     {
-        result.append(ML::format("%d MONTH", monthsCount));
+        result.append(MLDB::format("%d MONTH", monthsCount));
     } 
 
     if (timeInterval.days != 0)
@@ -1144,7 +1228,7 @@ CellValue::printInterval() const
         if (year != 0 || monthsCount != 0)
             result.append(" ");
 
-        result.append(ML::format("%dD", timeInterval.days));
+        result.append(MLDB::format("%dD", timeInterval.days));
     }   
 
     if (hours != 0 || minutes != 0 || secondCount != 0)
@@ -1153,11 +1237,11 @@ CellValue::printInterval() const
             result.append(" ");
 
         if (hours != 0)
-            result.append(ML::format("%dH %dM %gS", hours, minutes, secondCount));
+            result.append(MLDB::format("%dH %dM %gS", hours, minutes, secondCount));
         else if (minutes != 0)
-            result.append(ML::format("%dM %gS", minutes, secondCount));
+            result.append(MLDB::format("%dM %gS", minutes, secondCount));
         else
-            result.append(ML::format("%gS", secondCount));
+            result.append(MLDB::format("%gS", secondCount));
     }
 
     if (result.empty())
@@ -1357,7 +1441,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
             }
             else if (v.isMember("interval")) {
                 std::string text = v["interval"].asString();
-                ML::Parse_Context context(text, text.c_str(), text.length());
+                ParseContext context(text, text.c_str(), text.length());
                 uint32_t months = 0;
                 uint32_t days = 0;
                 double seconds = 0.0f;
@@ -1485,5 +1569,5 @@ std::ostream & operator << (std::ostream & stream, const CellValue::CellType & t
 }
 
 } // namespace MLDB
-} // namespace Datacratic 
+ 
 

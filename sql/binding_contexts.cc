@@ -1,7 +1,7 @@
 /** binding_contexts.cc                                              -*- C++ -*-
     Jeremy Barnes, 14 March 2015
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
     Scopes in which to execute scoped SQL expressions.
@@ -9,13 +9,14 @@
 
 #include "binding_contexts.h"
 #include "http/http_exception.h"
+#include "builtin_functions.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include <unordered_map>
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -32,10 +33,10 @@ doGetFunction(const Utf8String & tableName,
 {
     std::vector<BoundSqlExpression> outerArgs;		
     for (auto & arg: args) {		
-        if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
+        if (arg.info->isConst())  //don't rebind constant expression since they don't need to access the row
             outerArgs.emplace_back(std::move(arg));		
         else		
-            outerArgs.emplace_back(std::move(rebind(arg)));		
+            outerArgs.emplace_back(rebind(arg));
     }
 
     // Get function from the outer scope
@@ -50,6 +51,7 @@ doGetFunction(const Utf8String & tableName,
     // Call it with the outer scope
     result.exec = [=] (const std::vector<ExpressionValue> & args,
                        const SqlRowScope & scope)
+        -> ExpressionValue
         {
             if (!scope.hasRow()) {
                 // We don't normally need a scope for function calls, since their
@@ -92,7 +94,7 @@ rebind(BoundSqlExpression expr)
 ColumnGetter
 ReadThroughBindingScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     auto outerImpl = outer.doGetColumn(tableName, columnName);
 
@@ -109,7 +111,7 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 ReadThroughBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     GetAllColumnsOutput result = outer.doGetAllColumns(tableName, keep);
     auto outerFn = result.exec;
@@ -165,6 +167,7 @@ doGetFunction(const Utf8String & tableName,
 {
 
     if (functionName == "columnName") {
+        checkArgsSize(args.size(), 0, "columnName()");
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope)
                 {
@@ -176,6 +179,7 @@ doGetFunction(const Utf8String & tableName,
     }
 
     if (functionName == "columnPath") {
+        checkArgsSize(args.size(), 0, "columnPath()");
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope)
                 {
@@ -184,6 +188,58 @@ doGetFunction(const Utf8String & tableName,
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()};
+    }
+
+    if (functionName == "columnPathElement") {
+        checkArgsSize(args.size(), 1, "columnPathElement()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    ExcAssertEqual(args.size(), 1);
+                    auto elementNum = args[0].getAtom().toInt();
+                    auto & col = scope.as<ColumnScope>();
+                    size_t index
+                        = elementNum < 0
+                        ? col.columnName.size() + elementNum
+                        : elementNum;
+
+                    if (index >= col.columnName.size()) {
+                        return ExpressionValue::null(Date::negativeInfinity());
+                    }
+
+                    return ExpressionValue(col.columnName.at(index)
+                                           .toUtf8String(),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()};
+    }
+
+    if (functionName == "columnPathLength") {
+        checkArgsSize(args.size(), 0, "columnPathLength()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & col = scope.as<ColumnScope>();
+                    return ExpressionValue(col.columnName.size(),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<IntegerValueInfo>()};
+    }
+
+    if (functionName == "value") {
+        checkArgsSize(args.size(), 0, "value()");
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & col = scope.as<ColumnScope>();
+                    if (!col.columnValue)
+                        throw HttpReturnException
+                            (400,
+                             "Evaluation value() in column "
+                             "expression without columns");
+                    return *col.columnValue;
+                },
+                std::make_shared<AnyValueInfo>()};
     }
 
     auto fn = outer.doGetColumnFunction(functionName);
@@ -218,7 +274,7 @@ doGetFunction(const Utf8String & tableName,
 
 ColumnGetter 
 ColumnExpressionBindingScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
     throw HttpReturnException(400, "Cannot read column '"
                               + columnName.toUtf8String()
@@ -228,14 +284,14 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput
 ColumnExpressionBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     throw HttpReturnException(400, "Cannot use wildcard inside COLUMN EXPR");
 }
 
-ColumnName
+ColumnPath
 ColumnExpressionBindingScope::
-doResolveTableName(const ColumnName & fullVariableName,
+doResolveTableName(const ColumnPath & fullVariableName,
                    Utf8String & tableName) const
 {
     throw HttpReturnException
@@ -291,6 +347,39 @@ doGetBoundParameter(const Utf8String & paramName)
 
 
 /*****************************************************************************/
+/* SQL EXPRESSION EVAL SCOPE                                                 */
+/*****************************************************************************/
+
+ColumnGetter
+SqlExpressionEvalScope::
+doGetBoundParameter(const Utf8String & paramName)
+{
+    size_t argNum = jsonDecodeStr<size_t>(paramName);
+
+    if (argNum == 0) {
+        throw HttpReturnException
+            (400, "Arguments start at 1, not 0, in SQL evaluate expression");
+    }
+    if (argNum > argInfo.size()) {
+        throw HttpReturnException
+            (400, "Attempt to obtain more arguments than exist when binding "
+             "SQL evaluate expression");
+    }
+        
+    return {[=] (const SqlRowScope & scope,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                auto & row = scope.as<RowScope>();
+                ExcAssertLessEqual(argNum, row.numArgs);
+                return storage = row.args[argNum - 1];
+            },
+            argInfo[argNum - 1]};
+}
+
+
+/*****************************************************************************/
 /* SQL EXPRESSION EXTRACT SCOPE                                              */
 /*****************************************************************************/
 
@@ -298,7 +387,7 @@ SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer,
                           std::shared_ptr<ExpressionValueInfo> inputInfo)
     : outer(outer),
-      inputInfo(ExpressionValueInfo::toRow(inputInfo)),
+      inputInfo(inputInfo),
       wildcardsInInput(false)
 {
     ExcAssert(this->inputInfo);
@@ -331,7 +420,7 @@ inferInput()
 ColumnGetter
 SqlExpressionExtractScope::
 doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
+            const ColumnPath & columnName)
 {
     ExcAssert(!columnName.empty());
     
@@ -363,7 +452,7 @@ doGetColumn(const Utf8String & tableName,
     if (!info) {
         // Don't know the column.  Is it because it never exists, or because
         // the schema is dynamic, or because its deeper?
-        if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED
+        if (inputInfo->getSchemaCompletenessRecursive() != SCHEMA_CLOSED
             || columnName.size() > 1) {
             // Dynamic columns; be prepared to do either depending upon
             // what we find
@@ -407,11 +496,11 @@ doGetColumn(const Utf8String & tableName,
 GetAllColumnsOutput
 SqlExpressionExtractScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     GetAllColumnsOutput result;
 
-    if (!inputInfo || inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED) {
+    if (!inputInfo || inputInfo->getSchemaCompletenessRecursive() != SCHEMA_CLOSED) {
         // In recording mode, or with dynamic columns; we filter once we have the
         // value
 
@@ -431,7 +520,7 @@ doGetAllColumns(const Utf8String & tableName,
                                   CellValue val,
                                   Date ts)
                 {
-                    ColumnName outputColumnName
+                    ColumnPath outputColumnName
                         = keep(prefix + std::move(columnName));
                     if (outputColumnName.empty())
                         return true;
@@ -457,10 +546,10 @@ doGetAllColumns(const Utf8String & tableName,
     vector<KnownColumn> outputColumns;
 
     // List of input name -> outputName for those to keep
-    std::unordered_map<ColumnName, ColumnName> toKeep;
+    std::unordered_map<ColumnPath, ColumnPath> toKeep;
 
     for (auto & c: inputColumns) {
-        ColumnName outputColumnName = keep(c.columnName);
+        ColumnPath outputColumnName = keep(c.columnName);
         if (outputColumnName.empty())
             continue;
 
@@ -519,9 +608,9 @@ doGetFunction(const Utf8String & tableName,
     return outer.doGetFunction(tableName, functionName, args, argScope);
 }
 
-ColumnName
+ColumnPath
 SqlExpressionExtractScope::
-doResolveTableName(const ColumnName & fullVariableName,
+doResolveTableName(const ColumnPath & fullVariableName,
                    Utf8String & tableName) const
 {
     // Let the outer context resolve our table name
@@ -589,15 +678,13 @@ getDatasetDerivedFunction(const Utf8String & tableName,
                     ExpressionValue rowPath = rowPathFn(args, context);
                     Path asPath = rowPath.coerceToPath();
                     int64_t firstElement = args[0].getAtom().toInt();
+
                     if (firstElement < 0)
                         firstElement = asPath.size() + firstElement;
-                    if (firstElement < 0 || firstElement >= asPath.size()) {
-                        throw HttpReturnException
-                            (400, "Couldn't extract element '"
-                             + to_string(firstElement) + "' of path '"
-                             + asPath.toUtf8String() + "' with length "
-                             + to_string(asPath.size()));
-                    }
+
+                    if (firstElement < 0 || firstElement >= asPath.size())
+                        return ExpressionValue::null(args[0].getEffectiveTimestamp());
+
                     return ExpressionValue(asPath.at(firstElement).toUtf8String(),
                                            std::max(rowPath.getEffectiveTimestamp(),
                                                     args[0].getEffectiveTimestamp()));
@@ -611,4 +698,4 @@ getDatasetDerivedFunction(const Utf8String & tableName,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

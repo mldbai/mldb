@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** any_impl.h                                                     -*- C++ -*-
     Jeremy Barnes, 22 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of the Any class's template methods.
 */
@@ -12,7 +12,7 @@
 #include "any.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ANY                                                                       */
@@ -24,8 +24,8 @@ Any::
 as() const
 {
     if (!type_)
-        throw ML::Exception("bad Any cast: null value can't convert to '%s'",
-                            ML::type_name<T>().c_str());
+        throw MLDB::Exception("bad Any cast: null value can't convert to '%s'",
+                            MLDB::type_name<T>().c_str());
 
     // If the same type, conversion is trivial
     if (type_ == &typeid(T))
@@ -37,9 +37,9 @@ as() const
     //    return *reinterpret_cast<const T *>(res);
 
     // Otherwise, no conversion is possible
-    throw ML::Exception("bad Any cast: requested '%s', contained '%s'",
-                        ML::type_name<T>().c_str(),
-                        ML::demangle(*type_).c_str());
+    throw MLDB::Exception("bad Any cast: requested '%s', contained '%s'",
+                        MLDB::type_name<T>().c_str(),
+                        demangle(*type_).c_str());
 }
 
 template<typename T>
@@ -71,9 +71,9 @@ convert(const ValueDescription & desc) const
     }
 
     // Otherwise, no conversion is possible
-    throw ML::Exception("bad Any conversion: requested '%s', contained '%s'",
-                        ML::type_name<T>().c_str(),
-                        ML::demangle(*type_).c_str());
+    throw MLDB::Exception("bad Any conversion: requested '%s', contained '%s'",
+                        MLDB::type_name<T>().c_str(),
+                        demangle(*type_).c_str());
 }
 
 /** Assign a new value of the same type. */
@@ -128,5 +128,5 @@ struct BareAnyDescription: public ValueDescriptionT<Any> {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

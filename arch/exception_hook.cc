@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* exception_hook.cc
    Jeremy Barnes, 7 February 2005
@@ -21,7 +21,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 /** Hook for the function to call when we throw an exception.  The first
     argument is a pointer to the object thrown; the second is the type
@@ -79,7 +79,7 @@ struct Init {
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB
 
 /** Our overridden version of __cxa_throw.  The first argument is the
     object that was thrown.  The second is the type info block for the
@@ -92,23 +92,23 @@ void
 __cxa_throw (void *thrown_object, std::type_info *tinfo,
              void (*destructor) (void *) )
 {
-    using namespace ML;
+    using namespace MLDB;
 
     //cerr << "exception was thrown" << endl;
     //cerr << "exception_tracer = " << exception_tracer << endl;
     
     /** If we have installed an exception tracing hook, we follow it here. */
     if (!exception_tracer || !exception_tracer(thrown_object, tinfo)) {
-        default_exception_tracer(thrown_object, tinfo);
+        MLDB::default_exception_tracer(thrown_object, tinfo);
     }
 
-    if (!done_init) {
-        Init();
+    if (!MLDB::done_init) {
+        MLDB::Init();
     }
 
     /** Now we finish by calling the old handler which will propegate the
         exception as usual. */
-    old_handler(thrown_object, tinfo, destructor);
+    MLDB::old_handler(thrown_object, tinfo, destructor);
 
     /** This should never happen, as __cxa_throw is a noreturn() function.
         If for some reason it returns, we abort out. */

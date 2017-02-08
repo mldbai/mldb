@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* data_partition.cc
    Jeremy Barnes, 26 August 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Functions to implement our generic data partitions.
 */
@@ -12,7 +12,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -68,4 +68,4 @@ add(bool label, const boost::any & key, double weight)
     examples.push_back(make_tuple(label, key, weight));
 }
 
-} // namespace Datacratic
+} // namespace MLDB

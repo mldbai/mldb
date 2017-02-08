@@ -1,8 +1,8 @@
 /* value_description.h                                             -*- C++ -*-
    Jeremy Barnes, 29 March 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Code for description and introspection of values and structures.  Used
    to allow for automated formatters and parsers to be built.
@@ -22,7 +22,7 @@
 #include "json_printing.h"
 #include "mldb/ext/jsoncpp/value.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -162,9 +162,9 @@ struct ValueDescription {
         auto res
             = std::dynamic_pointer_cast<const ValueDescriptionT<T> >(base);
         if (!res)
-            throw ML::Exception("logic error in registry: wrong type: "
-                                + ML::type_name(*base) + " not convertible to "
-                                + ML::type_name<const ValueDescriptionT<T>>());
+            throw MLDB::Exception("logic error in registry: wrong type: "
+                                + MLDB::type_name(*base) + " not convertible to "
+                                + MLDB::type_name<const ValueDescriptionT<T>>());
         return res;
     }
 
@@ -249,7 +249,7 @@ struct ValueDescriptionT : public ValueDescription {
     {
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const JML_OVERRIDE
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
         T * val2 = reinterpret_cast<T *>(val);
         return parseJsonTyped(val2, context);
@@ -260,7 +260,7 @@ struct ValueDescriptionT : public ValueDescription {
         return parseJson(val, context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const JML_OVERRIDE
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         const T * val2 = reinterpret_cast<const T *>(val);
         return printJsonTyped(val2, context);
@@ -271,7 +271,7 @@ struct ValueDescriptionT : public ValueDescription {
         return printJson(val, context);
     }
 
-    virtual bool isDefault(const void * val) const JML_OVERRIDE
+    virtual bool isDefault(const void * val) const override
     {
         const T * val2 = reinterpret_cast<const T *>(val);
         return isDefaultTyped(val2);
@@ -282,7 +282,7 @@ struct ValueDescriptionT : public ValueDescription {
         return false;
     }
 
-    virtual void setDefault(void * val) const JML_OVERRIDE
+    virtual void setDefault(void * val) const override
     {
         T * val2 = reinterpret_cast<T *>(val);
         setDefaultTyped(val2);
@@ -293,17 +293,17 @@ struct ValueDescriptionT : public ValueDescription {
         *val = T();
     }
 
-    virtual void copyValue(const void * from, void * to) const JML_OVERRIDE
+    virtual void copyValue(const void * from, void * to) const override
     {
         copyValue(to, from, typename std::is_copy_assignable<T>::type());
     }
 
-    virtual void moveValue(void * from, void * to) const JML_OVERRIDE
+    virtual void moveValue(void * from, void * to) const override
     {
         moveValue(to, from, typename std::is_move_assignable<T>::type());
     }
 
-    virtual void swapValues(void * from, void * to) const JML_OVERRIDE
+    virtual void swapValues(void * from, void * to) const override
     {
         using std::swap;
         auto from2 = reinterpret_cast<T *>(from);
@@ -313,24 +313,24 @@ struct ValueDescriptionT : public ValueDescription {
         std::swap(*from2, *to2);
     }
 
-    virtual void * constructDefault() const JML_OVERRIDE
+    virtual void * constructDefault() const override
     {
         return constructDefault(typename std::is_default_constructible<T>::type());
     }
 
-    virtual void destroy(void * val) const JML_OVERRIDE
+    virtual void destroy(void * val) const override
     {
         delete (T*)val;
     }
 
     virtual void set(
-            void* obj, void* value, const ValueDescription* valueDesc) const JML_OVERRIDE
+            void* obj, void* value, const ValueDescription* valueDesc) const override
     {
         checkSame(valueDesc);
         copyValue(value, obj);
     }
 
-    virtual void * optionalMakeValue(void * val) const JML_OVERRIDE
+    virtual void * optionalMakeValue(void * val) const override
     {
         T * val2 = reinterpret_cast<T *>(val);
         return optionalMakeValueTyped(val2);
@@ -338,10 +338,10 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual void * optionalMakeValueTyped(T * val) const
     {
-        throw ML::Exception("type is not optional");
+        throw MLDB::Exception("type is not optional");
     }
 
-    virtual const void * optionalGetValue(const void * val) const JML_OVERRIDE
+    virtual const void * optionalGetValue(const void * val) const override
     {
         const T * val2 = reinterpret_cast<const T *>(val);
         return optionalGetValueTyped(val2);
@@ -349,7 +349,7 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual const void * optionalGetValueTyped(const T * val) const
     {
-        throw ML::Exception("type is not optional");
+        throw MLDB::Exception("type is not optional");
     }
 
 private:
@@ -362,7 +362,7 @@ private:
 
     void copyValue(void* obj, const void* value, std::false_type) const
     {
-        throw ML::Exception("type is not copy assignable");
+        throw MLDB::Exception("type is not copy assignable");
     }
 
 
@@ -374,7 +374,7 @@ private:
 
     void moveValue(void* obj, void* value, std::false_type) const
     {
-        throw ML::Exception("type is not move assignable");
+        throw MLDB::Exception("type is not move assignable");
     }
 
     // Template parameter so not instantiated for types that are not
@@ -387,7 +387,7 @@ private:
 
     void * constructDefault(std::false_type) const
     {
-        throw ML::Exception("type is not default constructible");
+        throw MLDB::Exception("type is not default constructible");
     }
 };
 
@@ -583,7 +583,7 @@ std::string jsonEncodeStr(const T & obj)
     result.reserve(116);  /// try to force a 128 byte allocation
     StringJsonPrintingContext context(result);
     desc->printJson(&obj, context);
-    return std::move(result);
+    return result;
 }
 
 // jsonEncode implementation for any type which:
@@ -593,12 +593,12 @@ template<typename T>
 Utf8String jsonEncodeUtf8(const T & obj)
 {
     static auto desc = getDefaultDescriptionSharedT<T>();
-    std::string result;
-    result.reserve(116);  /// try to force a 128 byte allocation
-    StringJsonPrintingContext context(result);
+    Utf8String result;
+    result.reserve(116); // try for a 128 byte allocation
+    Utf8StringJsonPrintingContext context(result);
     context.writeUtf8 = true;
     desc->printJson(&obj, context);
-    return Utf8String(std::move(result), false /* check */);
+    return result;
 }
 
 // jsonEncode implementation for any type which:
@@ -637,7 +637,7 @@ template<typename T>
 struct ValueDescriptionInit {
     static ValueDescription * create()
     {
-        using Datacratic::getDefaultDescriptionUninitialized;
+        using MLDB::getDefaultDescriptionUninitialized;
         return getDefaultDescriptionUninitialized((T *)0);
     }
 };
@@ -660,11 +660,11 @@ getDefaultDescriptionShared(T *)
                 = dynamic_cast<ValueDescriptionT<T>typename GetDefaultDescriptionType<T>::type *>
                     (&desc);
                 if (!descTyped)
-                    throw ML::Exception("Attempt to initialized description for "
-                                        + ML::type_name<T>() + " of type "
-                                        + ML::type_name<typename GetDefaultDescriptionType<T>::type >()
+                    throw MLDB::Exception("Attempt to initialized description for "
+                                        + MLDB::type_name<T>() + " of type "
+                                        + MLDB::type_name<typename GetDefaultDescriptionType<T>::type >()
                                         + " from value of type "
-                                        + ML::type_name(desc));
+                                        + MLDB::type_name(desc));
                 
                 initializeDefaultDescription(*descTyped);
 #endif
@@ -681,9 +681,9 @@ getDefaultDescriptionShared(T *)
     auto cast = std::dynamic_pointer_cast<const ValueDescriptionT<T> >(res);
 
     if (!cast)
-        throw ML::Exception("logic error in registry: wrong type: "
-                            + ML::type_name(*res) + " not convertible to "
-                            + ML::type_name<ValueDescriptionT<T> >());
+        throw MLDB::Exception("logic error in registry: wrong type: "
+                            + MLDB::type_name(*res) + " not convertible to "
+                            + MLDB::type_name<ValueDescriptionT<T> >());
 
     return cast;
 }
@@ -697,4 +697,4 @@ struct GetDefaultDescriptionType {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

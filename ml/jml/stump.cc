@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* stump.cc
    Jeremy Barnes, 6 June 2003
@@ -38,7 +38,7 @@ double t_train_stump = 0.0;
 
 namespace {
 
-Env_Option<bool> profile("PROFILE_BOOSTED_STUMPS", false);
+EnvOption<bool> profile("PROFILE_BOOSTED_STUMPS", false);
 
 struct Stats {
     ~Stats()

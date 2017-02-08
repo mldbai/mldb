@@ -1,8 +1,8 @@
 /* http_rest_proxy.h                                               -*- C++ -*-
    Jeremy Barnes, 10 April 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -14,7 +14,7 @@ namespace Json {
 struct Value;
 } // namespace JSON
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -200,7 +200,8 @@ struct HttpRestProxy {
                  bool exceptions = true,
                  OnData onData = nullptr,
                  OnHeader onHeader = nullptr,
-                 bool followRedirect = false) const;
+                 bool followRedirect = false,
+                 bool abortOnSlowConnection = false) const;
 
     /** Perform a synchronous request from end to end. 
         Note that when followRedirect is set, the onHeader
@@ -217,7 +218,8 @@ struct HttpRestProxy {
                      bool exceptions = true,
                      OnData onData = nullptr,
                      OnHeader onHeader = nullptr,
-                     bool followRedirect = false) const;
+                     bool followRedirect = false,
+                     bool abortOnSlowConnection = false) const;
     
 public:
     /** Get a connection. */
@@ -237,4 +239,4 @@ std::ostream &
 operator << (std::ostream & stream, const HttpRestProxy::Response & response);
 
 
-} // namespace Datacratic
+} // namespace MLDB

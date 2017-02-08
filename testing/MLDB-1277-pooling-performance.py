@@ -1,7 +1,7 @@
 #
 # MLDB-1277-pooling-performance.py
 # 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -14,7 +14,7 @@ class PoolingPerformanceTest(unittest.TestCase):
         mldb.create_dataset({
             "id": "reddit_raw", "type": "text.line",
             "params": {
-                "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz"
+                "dataFileUrl": "https://public.mldb.ai/reddit.csv.gz"
             }
         })
 
@@ -22,7 +22,7 @@ class PoolingPerformanceTest(unittest.TestCase):
             "id": "reddit_svd_embedding",
             "type": "text.csv.tabular",
             "params": {
-                "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit_embedding.csv.gz",
+                "dataFileUrl": "https://public.mldb.ai/reddit_embedding.csv.gz",
             }
         })
 

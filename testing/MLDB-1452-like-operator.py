@@ -1,7 +1,7 @@
 #
 # MLDB-1452-like-operator
 # 2016-03-16
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -21,49 +21,55 @@ class LikeTest(MldbUnitTest):  # noqa
         res = mldb.query('''
             select x LIKE '%' as v
             from sample
+            order by rowPath()
         ''')
 
-        expected = [["_rowName","v"],["d",1],["e",1],["c",1],["b",1],["a",1]]
+        expected = [["_rowName","v"],["a",1],["b",1],["c",1],["d",1],["e",1],]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
             select x LIKE '%o%' as v
             from sample
+            order by rowPath()
         ''')
 
-        expected = [["_rowName","v"],["d",1],["e",1],["c",0],["b",1],["a",0]]
+        expected = [["_rowName","v"],["a",0],["b",1],["c",0],["d",1],["e",1]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
             select x NOT LIKE '%o%' as v
             from sample
+            order by rowPath()
         ''')
 
-        expected = [["_rowName","v"],["d",0],["e",0],["c",1],["b",0],["a",1]]
+        expected = [["_rowName","v"],["a",1],["b",0],["c",1],["d",0],["e",0]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
             select x LIKE '______' as v
             from sample
+            order by rowPath()
         ''')
 
-        expected = [["_rowName","v"],["d",0],["e",1],["c",0],["b",0],["a",0]]
+        expected = [["_rowName","v"],["a",0],["b",0],["c",0],["d",0],["e",1]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
             select x LIKE '___ll__' as v
             from sample
+            order by rowPath()
         ''')
 
-        expected = [["_rowName","v"],["d",1],["e",0],["c",0],["b",0],["a",0]]
+        expected = [["_rowName","v"],["a",0],["b",0],["c",0],["d",1],["e",0]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
             select x LIKE '%t_' as v
             from sample
+            order by rowPath()
         ''')
 
-        expected = [["_rowName","v"],["d",0],["e",1],["c",0],["b",0],["a",0]]
+        expected = [["_rowName","v"],["a",0],["b",0],["c",0],["d",0],["e",1]]
         self.assertEqual(res, expected)
 
     def test_like_in_where(self):
@@ -80,9 +86,10 @@ class LikeTest(MldbUnitTest):  # noqa
             select x
             from sample2
             where x LIKE '%o%'
+            order by rowPath()
         ''')
 
-        expected = [["_rowName","x"],["d","drollic"],["e","egrote"],["b","blaternation"]]
+        expected = [["_rowName","x"],["b","blaternation"],["d","drollic"],["e","egrote"]]
         self.assertEqual(res, expected)
 
     def test_like_special(self):
@@ -204,10 +211,15 @@ class LikeTest(MldbUnitTest):  # noqa
         }])
 
     def test_like_null(self):
-        msg = ("LIKE expression expected its right hand value to be a string, "
-               "got empty")
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
-            mldb.query("SELECT 'abc' LIKE NULL AS res NAMED 'row'")
+        """
+        MLDB-1727 test like null
+        """
+        res = mldb.get('/v1/query',
+                       q="SELECT 'abc' LIKE NULL AS res NAMED 'row'")
+        self.assertFullResultEquals(res.json(), [{
+            'rowName' : "row",
+            'columns' : [['res', None, "-Inf"]]
+        }])
 
     def test_join_no_on_clause(self):
         """

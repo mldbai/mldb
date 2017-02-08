@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* MLDB 434: check round-trip through beh dataset. */
 
@@ -40,7 +40,7 @@ recordExample("ex112", 1, 1, null);
 
 dataset.commit()
 
-var data = mldb.get('/v1/datasets/test/query', {select: 'x,y,label', where:"rowName() = 'ex112'", format:'table'}).json;
+var data = mldb.get('/v1/query', {q: "SELECT x,y,label from test where rowName() = 'ex112'", format:'table'}).json;
 plugin.log(data);
 
 var expected = [

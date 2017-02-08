@@ -1,7 +1,7 @@
 #
 # MLDB-800-nested_sql_query.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 if False:
     mldb_wrapper = None
@@ -37,7 +37,7 @@ res = mldb.get('/v1/functions/poil/info')
 mldb.log("poil function info")
 mldb.log(res.json())
 
-res = mldb.get('/v1/datasets/ds1/query', select='poil({*})')
+res = mldb.get('/v1/query', q='SELECT poil({*}) from ds1')
 mldb.log("ds1 query")
 mldb.log(res.json())
 
@@ -52,37 +52,45 @@ mldb.log(res.json())
 #assert res.statusCode == 200
 
 expected = {
-    "input": {
+    "input": [ {
         "hasUnknownColumns": True, 
-        "type": "Datacratic::MLDB::RowValueInfo", 
+        "hasUnknownColumnsRecursive": True, 
+        "type": "MLDB::RowValueInfo", 
         "kind": "row", 
+        "isConstant": False,
         "knownColumns": []
-    }, 
+    } ], 
     "output": {
         "hasUnknownColumns": False, 
-        "type": "Datacratic::MLDB::RowValueInfo", 
+        "hasUnknownColumnsRecursive": True, 
+        "type": "MLDB::RowValueInfo", 
         "kind": "row", 
+        "isConstant": False,
         "knownColumns": [
             {
                 "columnName": "patate({*})", 
                 "valueInfo": {
-                    "hasUnknownColumns": False, 
-                    "type": "Datacratic::MLDB::RowValueInfo", 
+                    "hasUnknownColumns": True, 
+                    "hasUnknownColumnsRecursive": True, 
+                    "type": "MLDB::RowValueInfo", 
                     "kind": "row", 
+                    "isConstant": False,
                     "knownColumns": [
                         {
                             "columnName": "x", 
                             "valueInfo": {
-                                "type": "Datacratic::MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo",
+                                "isConstant": False
                             }, 
-                            "sparsity": "sparse"
+                            "sparsity": "sparse",
                         }, 
                         {
                             "columnName": "y", 
                             "valueInfo": {
-                                "type": "Datacratic::MLDB::AnyValueInfo"
+                                "type": "MLDB::AnyValueInfo",
+                                "isConstant": False
                             }, 
-                            "sparsity": "sparse"
+                            "sparsity": "sparse",
                         }
                     ]
                 }, 
@@ -97,7 +105,7 @@ assert res.json() == expected
 mldb.log("poil2 function info")
 mldb.log(res.json())
 
-res = mldb.get('/v1/datasets/ds1/query', select='poil2({*})')
+res = mldb.get('/v1/query', q='SELECT poil2({*}) from ds1')
 mldb.log("query result")
 mldb.log(res)
 

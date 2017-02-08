@@ -1,18 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** peer_info.h                                                    -*- C++ -*-
     Jeremy Barnes, 1 June 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Information about a peer.
 */
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -35,4 +34,4 @@ struct PeerInfo {
 DECLARE_STRUCTURE_DESCRIPTION(PeerInfo);
 
 
-} // namespace Datacratic
+} // namespace MLDB

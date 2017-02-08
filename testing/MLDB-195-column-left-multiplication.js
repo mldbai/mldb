@@ -1,7 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 // See MLDB-195
 // Check we can left multiply by a columns
+
+function assertEqual(expr, val, msg)
+{
+    if (expr == val)
+        return;
+    if (JSON.stringify(expr) == JSON.stringify(val))
+        return;
+
+    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
+        + " not equal to " + JSON.stringify(val);
+}
 
 var datasetConfig = { "id": "ds1", "type": "sparse.mutable" };
 
@@ -13,12 +24,16 @@ dataset.recordRow("row1", [ [ "Weight", 1, ts ], ["col2", 2, ts] ]);
 
 dataset.commit();
 
-var output = mldb.perform("GET", "/v1/datasets/ds1/query",
-                          [["select", "2.2*\"Weight\""]]);
+var resp = mldb.get('/v1/query', { q: 'select 2.2 * Weight from ds1', format: 'table' });
 
-plugin.log(output);
+mldb.log(resp.json);
 
-var result = output.responseCode == 200 && JSON.parse(output.response)[0].columns[0][1] == 2.2 
-    ? "success": "failure";
+var expected = [
+   [ "_rowName", "\"2.2 * Weight\"" ],
+   [ "row1", 2.20 ]
+];
 
-result;
+assertEqual(resp.json, expected);
+
+"success"
+

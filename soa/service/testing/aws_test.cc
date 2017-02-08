@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* aws_test.cc
    Jeremy Barnes, 12 May 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Test of the basic functionality of authenticating AWS requests.
 */
@@ -21,7 +21,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 using namespace ML;
 
 // These are all of those on http://docs.amazonwebservices.com/AmazonS3/2006-03-01/dev/RESTAuthentication.html?r=1821

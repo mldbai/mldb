@@ -1,8 +1,8 @@
 /** thread_pool_impl.h                                             -*- C++ -*-
     Jeremy Barnes, 18 December 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of the thread pool abstraction for when work needs to be
     spread over multiple threads.
@@ -15,7 +15,7 @@
 #include <atomic>
 #include <vector>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Item>
 struct ThreadQueue {
@@ -138,5 +138,5 @@ struct ThreadQueue {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

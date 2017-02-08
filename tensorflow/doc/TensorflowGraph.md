@@ -7,6 +7,24 @@ will apply a Tensorflow graph to the given inputs.
 
 ![](%%config function tensorflow.graph)
 
+
+## Functions
+
+The `tf_extract_constant(graph, node)` function allows the value of a node
+in a graph to be extracted.  For example, in the Inception graph below,
+the following call
+
+```sql
+select tf_extract_constant('imageEmbedding', ['mixed','conv', 'batchnorm', 'beta'])
+```
+
+would return the value of the `mixed/conv/batchnorm/beta` node in the
+Inception V3 graph that have been previously loaded under
+`/v1/functions/imageEmbedding` as a `tensorflow.graph` graph.
+
+This can be used to help visualize and understand the structure of an
+existing neural network or to transform the graph programatically.
+
 ## Example
 
 The following function configuration will load the Tensorflow "inception"
@@ -87,7 +105,7 @@ filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Mo
 
 mldb.log("classifying " + filename)
 
-res = mldb.query('SELECT incept({url: ' + mldb.sqlEscape(filename) + '})[output] AS *')
+res = mldb.query('SELECT imageEmbedding({url: ' + mldb.sqlEscape(filename) + '})[output] AS *')
 
 mldb.log(res)
 ```
@@ -116,6 +134,7 @@ and return these results:
 
 * The ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) notebook
 * The ![](%%nblink _demos/Transfer Learning with Tensorflow) demo notebook
+* The ![](%%nblink _demos/Image Processing with Convolutions) demo notebook
 
 ## See also
 

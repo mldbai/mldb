@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* string_functions.h                                              -*- C++ -*-
    Jeremy Barnes, 30 January 2005
@@ -11,8 +11,7 @@
    Functions for the manipulation of strings.
 */
 
-#ifndef __utils__string_functions_h__
-#define __utils__string_functions_h__
+#pragma once
 
 #include <sstream>
 #include <string>
@@ -70,6 +69,3 @@ unsigned replace_all(std::string & haystack, const std::string & search,
 std::string trim(const std::string & other);
 
 } // namespace ML
-
-
-#endif /* __utils__string_functions_h__ */

@@ -1,7 +1,7 @@
 /**
  * ranking_procedure.h
  * Mich, 2016-01-11
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 
 #pragma once
@@ -10,7 +10,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum RankingType {
@@ -49,4 +49,4 @@ struct RankingProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

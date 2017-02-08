@@ -1,18 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* distribution_ops.h                                              -*- C++ -*-
    Jeremy Barnes, 2 Febryary 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.   
 
    ---
 
    Operations on distributions.
 */
 
-#ifndef __utils__distribution_ops_h__
-#define __utils__distribution_ops_h__
+#pragma once
 
 #include "distribution.h"
 #include "mldb/jml/math/bound.h"
@@ -21,7 +17,7 @@
 #include "mldb/arch/math_builtins.h"
 #include <cmath>
 
-namespace ML {
+namespace MLDB {
 
 template<typename F, class Underlying>
 distribution<F, Underlying> bound(const distribution<F, Underlying> & dist, F min, F max)
@@ -229,6 +225,4 @@ distribution<bool> isnan(const distribution<F, Underlying> & dist)
 
 using ::isnan;
 
-} // namespace ML
-
-#endif /* __utils__distribution_ops_h__ */
+} // namespace MLDB

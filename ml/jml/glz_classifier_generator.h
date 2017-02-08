@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* glz_classifier_generator.h                                          -*- C++ -*-
    Jeremy Barnes, 15 March 2006
@@ -35,18 +35,19 @@ public:
 
     /** Configure the generator with its parameters. */
     virtual void
-    configure(const Configuration & config);
+    configure(const Configuration & config,
+              std::vector<std::string> & unparsedKeys) override;
     
     /** Return to the default configuration. */
-    virtual void defaults();
+    virtual void defaults() override;
 
     /** Return possible configuration options. */
-    virtual Config_Options options() const;
+    virtual Config_Options options() const override;
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
     virtual void init(std::shared_ptr<const Feature_Space> fs,
-                      Feature predicted);
+                      Feature predicted) override;
 
     using Classifier_Generator::generate;
 
@@ -57,7 +58,7 @@ public:
              const boost::multi_array<float, 2> & weights,
              const std::vector<Feature> & features,
              float & Z,
-             int) const;
+             int) const override;
 
     bool add_bias;          ///< Do we add and learn a bias term?
     bool do_decode;         ///< Do we run a decoder at all?

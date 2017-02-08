@@ -1,7 +1,7 @@
 #
 # MLDB-945-WHEN-in-proc-and-func.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 import datetime
@@ -213,7 +213,8 @@ def train_kmeans(when):
     mldb.post('/v1/procedures/kmeans/runs')
 
     result = mldb.get(
-        "/v1/datasets/kmeans_centroids_%s/query" % str(dataset_index),
+        "/v1/query",
+        q='SELECT * from kmeans_centroids_%s' % str(dataset_index),
         format="table", rowNames="true")
     kmeans_centroids = result.json()
     mldb.log(kmeans_centroids)

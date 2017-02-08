@@ -1,23 +1,27 @@
 /* md5.cc
    Jeremy Barnes, 25 October 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "hash.h"
 #include "mldb/arch/format.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
 #include "crypto++/md5.h"
 #include "crypto++/hmac.h"
 #include "crypto++/base64.h"
 #include "crypto++/filters.h"
+#pragma GCC diagnostic pop
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string base64Encode(const std::string & str)
 {
@@ -68,7 +72,7 @@ std::string md5HashToHex(const char * buf, size_t nBytes)
 
     string md5;
     for (unsigned i = 0;  i < digestLen;  ++i) {
-        md5 += ML::format("%02x", digest[i]);
+        md5 += MLDB::format("%02x", digest[i]);
     }
 
     return md5;
@@ -149,4 +153,4 @@ std::string hmacSha256Base64(const std::string & stringToSign,
         return base64digest;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

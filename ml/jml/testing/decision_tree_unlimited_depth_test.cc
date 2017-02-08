@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* decision_tree_xor_test.cc
    Jeremy Barnes, 25 February 2008
@@ -72,7 +72,8 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_binary )
     config.parse_string(config_options, "inbuilt config file");
 
     Decision_Tree_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to root out invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);
@@ -123,7 +124,8 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_regression )
     config.parse_string(config_options, "inbuilt config file");
 
     Decision_Tree_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to root out invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(fsp, fs.features()[0]);
 
     distribution<float> training_weights(nfv, 1);

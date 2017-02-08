@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* xml_helpers.h                                                   -*- C++ -*-
    Jeremy Barnes, 12 May 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
    
    Helper functions to deal with XML.   
 */
@@ -14,10 +14,12 @@
 #include "mldb/jml/utils/string_functions.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 const tinyxml2::XMLNode * extractNode(const tinyxml2::XMLNode * element,
                                       const std::string & path);
+
+bool pathExists(const tinyxml2::XMLNode * element, const std::string & path);
 
 template<typename T>
 T extract(const tinyxml2::XMLNode * element, const std::string & path)
@@ -25,10 +27,9 @@ T extract(const tinyxml2::XMLNode * element, const std::string & path)
     using namespace std;
 
     if (!element)
-        throw ML::Exception("can't extract from missing element");
+        throw MLDB::Exception("can't extract from missing element");
     //tinyxml2::XMLHandle handle(element);
 
-    vector<string> splitPath = ML::split(path, '/');
     const auto p = extractNode(element, path);
     auto text = tinyxml2::XMLHandle(const_cast<tinyxml2::XMLNode *>(p)).FirstChild().ToText();
 
@@ -101,5 +102,5 @@ xmlDocumentAsString(const tinyxml2::XMLDocument & xmlDocument)
     return std::string(printer.CStr());
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

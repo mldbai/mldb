@@ -1,7 +1,7 @@
 #
 # MLDB-797-nested_sql_expressions.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -33,7 +33,7 @@ res = mldb.put('/v1/functions/poil', {
 check_res(res, 201)
 
 # query calling through both
-res = mldb.get('/v1/datasets/ds1/query', select='poil({*})')
+res = mldb.get('/v1/query', q='SELECT poil({*}) from ds1')
 check_res(res, 200)
 
 

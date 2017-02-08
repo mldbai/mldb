@@ -1,6 +1,6 @@
 /** builtin_functions.cc
     Jeremy Barnes, 14 June 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Builtin functions for SQL.
 */
@@ -8,6 +8,7 @@
 #include "mldb/sql/builtin_functions.h"
 #include "sql_expression.h"
 #include "tokenize.h"
+#include "regex_helper.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/stats/distribution_simd.h"
@@ -18,11 +19,15 @@
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/join_utils.h"
+#include "mldb/sql/binding_contexts.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
-#include "mldb/ext/edlib/src/edlib.h"
+#include "mldb/ext/edlib/edlib/include/edlib.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
+#include "mldb/http/curl_wrapper.h"
 
-#include <boost/regex/icu.hpp>
 #include <iterator>
 #include <thread>
 #include <mutex>
@@ -31,9 +36,23 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
+
+const Utf8String NO_FUNCTION_NAME;
+
+CellValue getArg(const std::vector<ExpressionValue> & args,
+                 size_t n,
+                 const char * name,
+                 const CellValue & def)
+{
+    if (args.size() > n)
+        return args[n].getAtom();
+    return def;
+}
+
 namespace Builtins {
+
 
 /*****************************************************************************/
 /* UNARY SCALARS                                                             */
@@ -74,10 +93,10 @@ struct RegisterBuiltinUnaryScalar {
             {
                 try {
                     return wrapper(fn, args, scope);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
                                          + functionName
-                                         + ": " + ML::getExceptionString(),
+                                         + ": " + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -116,12 +135,12 @@ struct RegisterBuiltinUnaryScalar {
              const SqlRowScope & scope)
     {
         RowValue output;
-        auto onVal = [&] (ColumnName columnName,
-                          const ColumnName & prefix,
+        auto onVal = [&] (ColumnPath columnName,
+                          const ColumnPath & prefix,
                           const CellValue & val,
                           Date ts)
             {
-                output.emplace_back(std::move(columnName),
+                output.emplace_back(prefix + std::move(columnName),
                                     fn(val),
                                     ts);
                 return true;
@@ -229,10 +248,10 @@ struct RegisterBuiltinUnaryScalar {
                                            std::move(info), args,
                                            scope);
                     }
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + functionName + ": "
-                                         + ML::getExceptionString(),
+                                         + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -314,10 +333,10 @@ struct RegisterBuiltinBinaryScalar {
             {
                 try {
                     return wrapper(fn, args, scope);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
                                          + functionName
-                                         + ": " + ML::getExceptionString(),
+                                         + ": " + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -381,12 +400,12 @@ struct RegisterBuiltinBinaryScalar {
 
         RowValue output;
 
-        auto onVal = [&] (ColumnName columnName,
-                          const ColumnName & prefix,
+        auto onVal = [&] (ColumnPath columnName,
+                          const ColumnPath & prefix,
                           const CellValue & val,
                           Date ts)
             {
-                output.emplace_back(std::move(columnName),
+                output.emplace_back(prefix + std::move(columnName),
                                     fn(v1, val),
                                     std::max(lts, ts));
                 return true;
@@ -406,12 +425,12 @@ struct RegisterBuiltinBinaryScalar {
 
         RowValue output;
 
-        auto onVal = [&] (ColumnName columnName,
-                          const ColumnName & prefix,
+        auto onVal = [&] (ColumnPath columnName,
+                          const ColumnPath & prefix,
                           const CellValue & val,
                           Date ts)
             {
-                output.emplace_back(std::move(columnName),
+                output.emplace_back(prefix + std::move(columnName),
                                     fn(val, v2),
                                     std::max(rts, ts));
                 return true;
@@ -456,8 +475,8 @@ struct RegisterBuiltinBinaryScalar {
         output.reserve(std::max(v1.size(), v2.size()));
         if (v1.size() == v2.size()) {
             for (size_t i = 0;  i < v1.size();  ++i) {
-                const ColumnName & n1 = std::get<0>(v1[i]);
-                const ColumnName & n2 = std::get<1>(v2[i]);
+                const ColumnPath & n1 = std::get<0>(v1[i]);
+                const ColumnPath & n2 = std::get<1>(v2[i]);
 
                 if (n1 != n2)
                     break;
@@ -670,10 +689,10 @@ struct RegisterBuiltinBinaryScalar {
 
                     return bindUnknown(functionName, function, std::move(info),
                                        args, scope);
-                } JML_CATCH_ALL {
+                } MLDB_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + functionName + ": "
-                                         + ML::getExceptionString(),
+                                         + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
                 }
@@ -693,7 +712,7 @@ typedef double (*DoubleBinaryFunction)(double, double);
 ExpressionValue binaryFunction(const std::vector<ExpressionValue> & args,
                                DoubleBinaryFunction func)
 {
-    ExcAssertEqual(args.size(), 2);
+    checkArgsSize(args.size(), 2);
     const auto v1 = args[0];
     const auto v2 = args[1];
     return ExpressionValue(func(v1.toDouble(), v2.toDouble()), calcTs(v1, v2));
@@ -773,21 +792,64 @@ CellValue mod(const CellValue & v1, const CellValue & v2)
 static RegisterBuiltinBinaryScalar
 registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 
+CellValue atan2(const CellValue & v1, const CellValue & v2)
+{
+    return std::atan2(v1.toDouble(), v2.toDouble());
+}
+
+static RegisterBuiltinBinaryScalar
+registerAtan2(atan2, std::make_shared<Float64ValueInfo>(), "atan2");
+
 double ln(double v)
 {
-    if (v <= 0)
-        throw HttpReturnException(400, "the argument of the ln function must"
-                                       " be strictly positive");
-
     return std::log(v);
 }
 
+// log function consistent with postgresql's
+BoundFunction log(const std::vector<BoundSqlExpression> & args)
+{
+    // log(x) (base 10)
+    if (args.size() == 1) {
+        return {[] (const std::vector<ExpressionValue> & args,
+                    const SqlRowScope & scope) -> ExpressionValue
+                {
+                    ExcAssertEqual(args.size(), 1);
+
+                    if (args[0].empty())
+                        return ExpressionValue();
+
+                    return ExpressionValue(std::log10(args[0].toDouble()),
+                                           args[0].getEffectiveTimestamp());
+                },
+                std::make_shared<Float64ValueInfo>()};
+    // log(base, x)
+    } else if (args.size() == 2) {
+        return {[] (const std::vector<ExpressionValue> & args,
+                    const SqlRowScope & scope) -> ExpressionValue
+                {
+                    ExcAssertEqual(args.size(), 2);
+
+                    if (args[0].empty() || args[1].empty())
+                        return ExpressionValue();
+
+                    double base = args[0].toDouble();
+                    double x = args[1].toDouble();
+                    return ExpressionValue(std::log(x) / std::log(base),
+                                           calcTs(args[0], args[1]));
+                },
+                std::make_shared<Float64ValueInfo>()};
+    // wrong number of arguments
+    } else {
+        throw HttpReturnException(400,
+            "the log function expected 1 or 2 arguments, got "
+            + to_string(args.size()));
+    }
+}
+
+static RegisterBuiltin registerLog(log, "log");
+
 double sqrt(double v)
 {
-    if (v < 0)
-        throw HttpReturnException(400, "the argument of the sqrt function must"
-                                       " be non-negative");
-
     return std::sqrt(v);
 }
 
@@ -802,6 +864,12 @@ WRAP_UNARY_MATH_OP(tan, std::tan);
 WRAP_UNARY_MATH_OP(asin, std::asin);
 WRAP_UNARY_MATH_OP(acos, std::acos);
 WRAP_UNARY_MATH_OP(atan, std::atan);
+WRAP_UNARY_MATH_OP(sinh, std::sinh);
+WRAP_UNARY_MATH_OP(cosh, std::cosh);
+WRAP_UNARY_MATH_OP(tanh, std::tanh);
+WRAP_UNARY_MATH_OP(asinh, std::asinh);
+WRAP_UNARY_MATH_OP(acosh, std::acosh);
+WRAP_UNARY_MATH_OP(atanh, std::atanh);
 WRAP_UNARY_MATH_OP(ln, Builtins::ln);
 WRAP_UNARY_MATH_OP(sqrt, Builtins::sqrt);
 WRAP_UNARY_MATH_OP(isfinite, std::isfinite);
@@ -827,7 +895,7 @@ BoundFunction cardinality(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 double v = args[0].toDouble();
                 return ExpressionValue(std::sqrt(v),
                                        args[0].getEffectiveTimestamp());
@@ -848,7 +916,7 @@ BoundFunction binomial_ub_80(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 ExcAssert(args[0].isInteger());
                 int64_t trials = args[0].toInt();
                 int64_t successes = args[1].toInt();
@@ -864,7 +932,7 @@ BoundFunction binomial_lb_80(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 ExcAssert(args[0].isInteger());
                 ExcAssert(args[1].isInteger());
                 int64_t trials = args[0].toInt();
@@ -889,7 +957,7 @@ BoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 if (!args[0].isString()) {
                     return args[0];
                 }
@@ -900,102 +968,6 @@ BoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
-
-/** Helper class that takes care of regular expression application whether
-    it's a constant value or not.
-*/
-struct RegexHelper {
-    RegexHelper(BoundSqlExpression expr_)
-        : expr(std::move(expr_))
-    {
-        if (expr.metadata.isConstant) {
-            isPrecompiled = true;
-            precompiled = compile(expr.constantValue());
-        }
-        else isPrecompiled = false;
-    }
-
-    boost::u32regex compile(const ExpressionValue & val) const
-    {
-        Utf8String regexStr;
-        try {
-            regexStr = val.toUtf8String();
-        } JML_CATCH_ALL {
-            rethrowHttpException
-                (400, "Error when extracting regex from argument '"
-                 + expr.expr->surface + "': " + ML::getExceptionString()
-                 + ".  Regular expressions need to be strings.",
-                 "expr", expr,
-                 "value", val);
-        }
-        try {
-            return boost::make_u32regex(regexStr.rawData());
-        } JML_CATCH_ALL {
-            rethrowHttpException
-                (400, "Error when compiling regex '"
-                 + regexStr + "' from expression " + expr.expr->surface + "': "
-                 + ML::getExceptionString()
-                 + ".  Regular expressions must adhere to Perl-style "
-                 + "regular expression syntax.",
-                 "expr", expr,
-                 "value", val);
-        }
-    }
-
-    /// The expression that the regex came from, to help with error messages
-    BoundSqlExpression expr;
-
-    /// The pre-compiled version of that expression, when it's constant
-    boost::u32regex precompiled;
-
-    /// Is it actually constant (and precompiled), or computed on the fly?
-    bool isPrecompiled;
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const = 0;
-
-    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
-                                 const SqlRowScope & scope)
-    {
-        if (isPrecompiled) {
-            return apply(args, scope, precompiled);
-        }
-        else {
-            return apply(args, scope, compile(args.at(1)));
-        }
-    }
-};
-
-struct ApplyRegexReplace: public RegexHelper {
-    ApplyRegexReplace(BoundSqlExpression e)
-        : RegexHelper(std::move(e))
-    {
-    }
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const
-    {
-        ExcAssertEqual(args.size(), 3);
-
-        if (args[0].empty() || args[1].empty() || args[2].empty())
-            return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
-
-        std::basic_string<char32_t> matchStr = args[0].toWideString();
-        std::basic_string<char32_t> replacementStr = args[2].toWideString();
-
-        std::basic_string<int32_t>
-            matchStr2(matchStr.begin(), matchStr.end());
-        std::basic_string<int32_t>
-            replacementStr2(replacementStr.begin(), replacementStr.end());
-
-        auto result = boost::u32regex_replace(matchStr2, regex, replacementStr2);
-        std::basic_string<char32_t> result2(result.begin(), result.end());
-
-        return ExpressionValue(result2, calcTs(args[0], args[1], args[2]));
-    }
-};
 
 BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 {
@@ -1008,31 +980,6 @@ BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerRegexReplace(regex_replace, "regex_replace");
 
-struct ApplyRegexMatch: public RegexHelper {
-    ApplyRegexMatch(BoundSqlExpression e)
-        : RegexHelper(std::move(e))
-    {
-    }
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const
-    {
-        // TODO: should be able to pass utf-8 string directly in
-
-        ExcAssertEqual(args.size(), 2);
-
-        if (args[0].empty() || args[1].empty())
-            return ExpressionValue::null(calcTs(args[0], args[1]));
-
-        std::basic_string<char32_t> matchStr = args[0].toWideString();
-        
-        auto result = boost::u32regex_match(matchStr.begin(), matchStr.end(),
-                                            regex);
-        return ExpressionValue(result, calcTs(args[0], args[1]));
-    }
-};
-                     
 BoundFunction regex_match(const std::vector<BoundSqlExpression> & args)
 {
     // regex_match(string, regex)
@@ -1044,31 +991,6 @@ BoundFunction regex_match(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerRegexMatch(regex_match, "regex_match");
 
-struct ApplyRegexSearch: public RegexHelper {
-    ApplyRegexSearch(BoundSqlExpression e)
-        : RegexHelper(std::move(e))
-    {
-    }
-
-    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
-                                  const SqlRowScope & scope,
-                                  const boost::u32regex & regex) const
-    {
-        // TODO: should be able to pass utf-8 string directly in
-
-        ExcAssertEqual(args.size(), 2);
-
-        if (args[0].empty() || args[1].empty())
-            return ExpressionValue::null(calcTs(args[0], args[1]));
-
-        std::basic_string<char32_t> searchStr = args[0].toWideString();
-        
-        auto result = boost::u32regex_search(searchStr.begin(), searchStr.end(),
-                                            regex);
-        return ExpressionValue(result, calcTs(args[0], args[1]));
-    }
-};
-                     
 BoundFunction regex_search(const std::vector<BoundSqlExpression> & args)
 {
     // regex_search(string, regex)
@@ -1090,7 +1012,7 @@ BoundFunction earliest_timestamp(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 auto val = args[0];
                 return ExpressionValue(val.getMinTimestamp(),
                                        val.getEffectiveTimestamp());
@@ -1110,7 +1032,7 @@ BoundFunction latest_timestamp(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return ExpressionValue(args[0].getMaxTimestamp(),
                                        args[0].getEffectiveTimestamp());
             },
@@ -1125,7 +1047,7 @@ BoundFunction distinct_timestamps(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
 
                 std::set<CellValue> results;
 
@@ -1154,11 +1076,11 @@ static RegisterBuiltin register_distinct_timestamps(distinct_timestamps, "distin
 BoundFunction toTimestamp(const std::vector<BoundSqlExpression> & args)
 {
     // Return a timestamp coerced from the expression
-    checkArgsSize(args.size(), 1);
+    checkArgsSize(args.size(), 1, "to_timestamp");
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return ExpressionValue(args[0].coerceToTimestamp(),
                                        args[0].getEffectiveTimestamp());
             },
@@ -1175,7 +1097,7 @@ BoundFunction at(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 ExpressionValue result = args[0];
                 result.setEffectiveTimestamp(args[1].coerceToTimestamp().toTimestamp());
                 return result;
@@ -1193,21 +1115,22 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 0);
+                checkArgsSize(args.size(), 0);
                 ExpressionValue result(Date::now(), Date::negativeInfinity());
                 return result;
             },
             std::make_shared<TimestampValueInfo>()};
 }
 
-static RegisterBuiltin registerNow(now, "now");
+static RegisterBuiltin registerNow(RegisterBuiltin::NON_DETERMINISTIC, now, "now");
 
 BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
+    checkArgsSize(args.size(), 1);
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return args[0];
             },
             args[0].info,
@@ -1221,7 +1144,7 @@ BoundFunction temporal_latest(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return args[0];
             },
             args[0].info,
@@ -1245,7 +1168,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
     auto apply = [=] (const std::vector<ExpressionValue> & args,
                       const SqlRowScope & scope) -> ExpressionValue
         {
-            ExcAssertEqual(args.size(), 1);
+            checkArgsSize(args.size(), 1);
 
             const ExpressionValue & val = args[0];
 
@@ -1330,7 +1253,7 @@ BoundFunction jaccard_index(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 if(!args[0].isRow() || !args[1].isRow())
-                    throw ML::Exception("The arguments passed to the jaccard_index must be two "
+                    throw MLDB::Exception("The arguments passed to the jaccard_index must be two "
                         "row expressions");
 
                 set<Path> a, b;
@@ -1390,7 +1313,7 @@ struct Min {
 
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1411,7 +1334,7 @@ struct Max {
     }
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1435,7 +1358,7 @@ struct Sum {
 
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1491,7 +1414,7 @@ struct Count {
 
     static ExpressionValue extract(ExpressionValue val)
     {
-        return std::move(val);
+        return val;
     }
 };
 
@@ -1514,7 +1437,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_part expected a string as third argument, got " +
@@ -1576,7 +1499,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
     bool constantTimezone(false);
     int constantMinute(0);
-    if (args.size() == 3 && args[2].metadata.isConstant) {
+    if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
             throw HttpReturnException(400, "date_trunc expected a string as third argument, got " +
@@ -1624,7 +1547,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerdate_trunc(date_trunc, "date_trunc");
 
-void normalize(ML::distribution<double>& val, double p)
+void normalize(distribution<double>& val, double p)
 {
     if (p == 0) {
         double n = (val != 0).count();
@@ -1658,7 +1581,7 @@ void normalize(ML::distribution<double>& val, double p)
      // Get the current row as an embedding, and return a normalized version
      // of it.
 
-     checkArgsSize(args.size(), 2);
+    checkArgsSize(args.size(), 2);
 
      // TODO: improve performance by getting the embedding directly
 
@@ -1672,7 +1595,7 @@ void normalize(ML::distribution<double>& val, double p)
                           const SqlRowScope & scope) -> ExpressionValue
                      {
                          // Get it as an embedding
-                         ML::distribution<double> val
+                         distribution<double> val
                              = args.at(0).getEmbeddingDouble();
                          Date ts = args.at(0).getEffectiveTimestamp();
                          double p = args.at(1).toDouble();
@@ -1683,7 +1606,7 @@ void normalize(ML::distribution<double>& val, double p)
                                                 ts,
                                                 args.at(0).getEmbeddingShape());
 
-                         return std::move(result);
+                         return result;
 
                      },
                      std::make_shared<EmbeddingValueInfo>
@@ -1695,7 +1618,7 @@ void normalize(ML::distribution<double>& val, double p)
                  throw HttpReturnException
                      (500, "Can't normalize a row with unknown columns");
 
-             auto columnNames = std::make_shared<std::vector<ColumnName> >();
+             auto columnNames = std::make_shared<std::vector<ColumnPath> >();
 
              std::vector<KnownColumn> columns = args[0].info->getKnownColumns();
              for (auto & c: columns)
@@ -1709,7 +1632,7 @@ void normalize(ML::distribution<double>& val, double p)
                           const SqlRowScope & scope) -> ExpressionValue
                      {
                          // Get it as an embedding
-                         ML::distribution<double> val = args[0].getEmbeddingDouble();
+                         distribution<double> val = args[0].getEmbeddingDouble();
                          Date ts = args[0].getEffectiveTimestamp();
                          double p = args[1].toDouble();
 
@@ -1717,7 +1640,7 @@ void normalize(ML::distribution<double>& val, double p)
 
                          ExpressionValue result(std::move(val), columnNames,  ts);
 
-                         return std::move(result);
+                         return result;
                      },
                      std::make_shared<EmbeddingValueInfo>(numDims)};
          }
@@ -1740,7 +1663,7 @@ BoundFunction norm(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 // Get it as an embedding
-                ML::distribution<double> val = args[0].getEmbeddingDouble();
+                distribution<double> val = args[0].getEmbeddingDouble();
                 Date ts = args[0].getEffectiveTimestamp();
 
                 double p = args[1].toDouble();
@@ -1776,43 +1699,81 @@ BoundFunction norm(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerNorm(norm, "norm");
 
 
+struct ParseJsonOptions {
+    bool ignoreErrors = false;
+    JsonArrayHandling arrays = PARSE_ARRAYS;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ParseJsonOptions);
+DEFINE_STRUCTURE_DESCRIPTION(ParseJsonOptions);
+
+ParseJsonOptionsDescription::
+ParseJsonOptionsDescription()
+{
+    addAuto("ignoreErrors", &ParseJsonOptions::ignoreErrors,
+            "If true, errors in the JSON are ignored and the element with "
+            "an error will be silently ignored.  If false (the default), "
+            "a JSON format error will lead to the function failing with "
+            "an exception.");
+    addAuto("arrays", &ParseJsonOptions::arrays,
+            "Describes how arrays are encoded in the JSON output.  For "
+            "''parse' (default), the arrays become structured values. "
+            "For 'encode', "
+            "arrays containing atoms are sparsified with the values "
+            "representing one-hot "
+            "keys and boolean true values");
+}
 
 BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() > 2 || args.size() < 1)
         throw HttpReturnException(400, " takes 1 or 2 argument, got " + to_string(args.size()));
 
+
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 ExcAssert(args.size() > 0 && args.size() < 3);
                 auto & val = args[0];
-                Utf8String str = val.toUtf8String();
 
-                JsonArrayHandling encode = PARSE_ARRAYS;
+                if(val.empty())
+                    return ExpressionValue::null(val.getEffectiveTimestamp());
 
-                if (args.size() > 1) {
-                    const auto & col = args[1].getColumn("arrays");
-                    if(col.empty())
-                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: NULL");
-                    Utf8String arrays = col.toUtf8String();
-                    if (arrays == "encode")
-                        encode = ENCODE_ARRAYS;
-                    else if (arrays != "parse")
-                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
+                ParseJsonOptions options;
+
+                if(args.size() == 2) {
+                    options = args[1].extractT<ParseJsonOptions>();
                 }
 
-                StreamingJsonParsingContext parser(str.rawString(),
-                                                   str.rawData(),
-                                                   str.rawLength());
+                try {
+                    MLDB_TRACE_EXCEPTIONS(!options.ignoreErrors);
 
-                if (!parser.isObject())
-                    throw HttpReturnException(400, "JSON passed to parse_json must be an object",
-                                              "json", str);
+                    Utf8String str = val.toUtf8String();
+                    StreamingJsonParsingContext parser(str.rawString(),
+                                                       str.rawData(),
+                                                       str.rawLength());
 
-                return ExpressionValue::
-                    parseJson(parser, val.getEffectiveTimestamp(),
-                              encode);
+                    if (!parser.isObject() && !parser.isArray())
+                        throw HttpReturnException(400, "JSON passed to parse_json must be "
+                                "an object or an array; got '" + str + "'",
+                                                  "json", str);
+
+                    return ExpressionValue::
+                        parseJson(parser, val.getEffectiveTimestamp(),
+                                  options.arrays);
+                }
+                catch(std::exception & e) {
+                    if(options.ignoreErrors) {
+                        RowValue rv;
+                        rv.emplace_back(make_tuple(Path("__parse_json_error__"),
+                                                   CellValue(true),
+                                                   //CellValue(e.what()),
+                                                   val.getEffectiveTimestamp()));
+                        return ExpressionValue(std::move(rv));
+                    }
+
+                    throw;
+                }
             },
             std::make_shared<UnknownRowValueInfo>()
             };
@@ -1827,7 +1788,7 @@ BoundFunction print_json(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 auto & val = args[0];
                 std::string str;
                 StringJsonPrintingContext context(str);
@@ -1841,85 +1802,6 @@ BoundFunction print_json(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerPrintJson(print_json, "print_json");
 
-BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args)
-{
-    // Comma separated list, first is row name, rest are row columns
-    checkArgsSize(args.size(), 1);
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                auto val = args.at(0);
-                Utf8String str = val.toUtf8String();
-                Date ts = val.getEffectiveTimestamp();
-
-                StreamingJsonParsingContext parser(str.rawString(),
-                                                   str.rawData(),
-                                                   str.rawLength());
-
-                if (!parser.isObject())
-                    throw HttpReturnException(400, "JSON passed to unpack_json must be an object",
-                                              "json", str);
-
-                return ExpressionValue::
-                    parseJson(parser, ts, ENCODE_ARRAYS);
-            },
-            std::make_shared<UnknownRowValueInfo>()};
-}
-
-static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
-
-void
-ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
-                       int& offset, int& limit, int& min_token_length,
-                       ML::distribution<float, std::vector<float> > & ngram_range,
-                       ExpressionValue& values,
-                       bool check[7],
-                       const ExpressionValue::Structured & argRow)
-{
-    auto assertArg = [&] (size_t field, const string & name)
-        {
-            if (check[field])
-                throw HttpReturnException(400, "Argument " + name + " is specified more than once");
-            check[field] = true;
-        };
-    
-    for (auto& arg : argRow) {
-        const ColumnName& columnName = std::get<0>(arg);
-        if (columnName == ColumnName("splitchars")) {
-            assertArg(0, "splitchars");
-            splitchar = std::get<1>(arg).toUtf8String();
-        }
-        else if (columnName == ColumnName("quotechar")) {
-            assertArg(1, "quotechar");
-            quotechar = std::get<1>(arg).toUtf8String();
-        }
-        else if (columnName == ColumnName("offset")) {
-            assertArg(2, "offset");
-            offset = std::get<1>(arg).toInt();
-        }
-        else if (columnName == ColumnName("limit")) {
-            assertArg(3, "limit");
-            limit = std::get<1>(arg).toInt();
-        }
-        else if (columnName == ColumnName("value")) {
-            assertArg(4, "value");
-            values = std::get<1>(arg);
-        }
-        else if (columnName == ColumnName("min_token_length")) {
-            assertArg(5, "min_token_length");
-            min_token_length = std::get<1>(arg).toInt();
-        }
-        else if (columnName == ColumnName("ngram_range")) {
-            assertArg(6, "ngram_range");
-            ngram_range = std::get<1>(arg).getEmbedding(2);
-        }
-        else {
-            throw HttpReturnException(400, "Unknown argument in tokenize", "argument", columnName);
-        }
-    }
-}
 
 BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
 {
@@ -1942,26 +1824,17 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
 
                 Utf8String text = args[0].toUtf8String();
 
-                Utf8String splitchar = ",";
-                Utf8String quotechar = "";
-                int offset = 0;
-                int limit = -1;
-                int min_token_length = 1;
-                ML::distribution<float, std::vector<float> > ngram_range = {1, 1};
-                ExpressionValue values;
-                bool check[] = {false, false, false, false, false, false, false};
+                TokenizeOptions options;
 
-                if (args.size() == 2)
-                    ParseTokenizeArguments(splitchar, quotechar, offset, limit,
-                                           min_token_length, ngram_range, values,
-                                           check, args.at(1).getStructured());
+                if (args.size() == 2) {
+                    options = args[1].extractT<TokenizeOptions>();
+                }
 
-                ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
+                ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
 
                 std::unordered_map<Utf8String, int> bagOfWords;
 
-                tokenize(bagOfWords, pcontext, splitchar, quotechar, offset, limit,
-                        min_token_length, ngram_range);
+                tokenize(bagOfWords, pcontext, options);
 
                 RowValue row;
                 row.reserve(bagOfWords.size());
@@ -1969,26 +1842,19 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 auto it = bagOfWords.begin();
 
                 while (it != bagOfWords.end()) {
-                    if (check[4]) //values
-                    {
-                        if (!values.isAtom())
-                          throw HttpReturnException(400, ML::format("requires 'value' "
-                                "argument be a scalar, got type '%s'",
-                                values.getTypeAsString()));
-
-                        row.emplace_back(ColumnName(it->first),
-                                     values.getAtom(),
-                                     ts);
+                    if (!options.value.empty()) {
+                        row.emplace_back(ColumnPath(it->first),
+                                         options.value,
+                                         ts);
                         ++it;
                     }
                     else
                     {
-                        row.emplace_back(ColumnName(it->first),
-                                     it->second,
-                                     ts);
+                        row.emplace_back(ColumnPath(it->first),
+                                         it->second,
+                                         ts);
                         ++it;
                     }
-
                 }
 
                 return ExpressionValue(std::move(row));
@@ -2015,37 +1881,64 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
 
                 Utf8String text = args[0].toUtf8String();
 
-                Utf8String splitchar = ",";
-                Utf8String quotechar = "";
-                int offset = 0;
-                int limit = 1;
-                int min_token_length = 1;
-                ML::distribution<float, std::vector<float> > ngram_range;
-                ExpressionValue values;
-                bool check[] = {false, false, false, false, false, false, false};
+                TokenizeOptions options;
 
-                int nth = args.at(1).toInt();
-
-                if (args.size() == 3)
-                    ParseTokenizeArguments(splitchar, quotechar, offset, limit, min_token_length,
-                                           ngram_range, values, check, args.at(2).getStructured());
-
-                ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
+                if (args.size() == 3) {
+                    options = args[2].extractT<TokenizeOptions>();
+                }
+                
+                ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
 
                 ExpressionValue result;
 
-                Utf8String output = token_extract(pcontext, splitchar, quotechar, offset, limit,
-                        nth, min_token_length);
+                int nth = args.at(1).toInt();
 
-                if (output != "")
-                    result = ExpressionValue(output, ts);
+                Utf8String output = token_extract(pcontext, nth, options);
 
-                return std::move(result);
+                if (!output.empty())
+                    result = ExpressionValue(std::move(output), ts);
+
+                return result;
             },
             std::make_shared<UnknownRowValueInfo>()};
 }
 
 static RegisterBuiltin registerToken_extract(token_extract, "token_extract");
+
+BoundFunction token_split(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 2)
+        throw HttpReturnException(400, "requires two arguments");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                Date ts = args[0].getEffectiveTimestamp();
+
+                Utf8String text = args[0].toUtf8String();
+
+                Utf8String separator = args[1].toUtf8String();
+
+                TokenizeOptions options;
+
+                ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
+
+                auto tokens = token_split(pcontext, separator);
+
+                std::vector<CellValue> values;
+
+                for (auto& token : tokens) {
+                    values.push_back(token);
+                }
+
+                ExpressionValue result(values, ts);
+
+                return result;
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+
+static RegisterBuiltin registerToken_split(token_split, "split_part");
 
 BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
 {
@@ -2172,7 +2065,10 @@ BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
 
                 args.at(0).forEachAtom(onAtom);
 
-                return ExpressionValue(ML::xdiv(accum, num_cols), ts);
+                if(num_cols > 0)
+                    return ExpressionValue(accum / num_cols, ts);
+
+                return ExpressionValue::null(args[0].getEffectiveTimestamp());
             },
             std::make_shared<Float64ValueInfo>()};
 }
@@ -2299,32 +2195,32 @@ BoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerHorizontal_Latest(horizontal_latest, "horizontal_latest");
 
 struct DiffOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 - d2;
     }
 };
 
 struct SumOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 + d2;
     }
 };
 
 struct ProductOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 * d2;
     }
 };
 
 struct QuotientOp {
-    static ML::distribution<double> apply(ML::distribution<double> & d1,
-                                          ML::distribution<double> & d2)
+    static distribution<double> apply(distribution<double> & d1,
+                                          distribution<double> & d2)
     {
         return d1 / d2;
     }
@@ -2342,7 +2238,7 @@ struct RegisterVectorOp {
         // Get the current row as an embedding, and return a normalized version
         // of it.
 
-        ExcAssertEqual(args.size(), 2);
+        checkArgsSize(args.size(), 2);
 
         //cerr << "vector_diff arg 0 = " << jsonEncode(args[0]) << endl;
         //cerr << "vector_diff arg 1 = " << jsonEncode(args[1]) << endl;
@@ -2366,8 +2262,8 @@ struct RegisterVectorOp {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
-                    ExcAssertEqual(args.size(), 2);
-                    ML::distribution<double> embedding1, embedding2;
+                    checkArgsSize(args.size(), 2);
+                    distribution<double> embedding1, embedding2;
                     std::shared_ptr<const void> token;
                     Date ts;
                     std::tie(embedding1, embedding2, token, ts)
@@ -2385,88 +2281,6 @@ RegisterVectorOp<SumOp> registerVectorSum("vector_sum");
 RegisterVectorOp<ProductOp> registerVectorProduct("vector_product");
 RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
 
-void
-ParseConcatArguments(Utf8String& separator, bool& columnValue,
-                     const ExpressionValue::Structured & argRow)
-{
-    bool check[3] = {false, false, false};
-    auto assertArg = [&] (size_t field, const string & name) {
-        if (check[field]) {
-            throw HttpReturnException(
-                400, "Argument " + name + " is specified more than once");
-        }
-        check[field] = true;
-    };
-
-    for (const auto &arg : argRow) {
-        const ColumnName& columnName = std::get<0>(arg);
-        if (columnName == ColumnName("separator")) {
-            assertArg(1, "separator");
-            separator = std::get<1>(arg).toUtf8String();
-        }
-        else if (columnName == ColumnName("columnValue")) {
-            assertArg(2, "columnValue");
-            columnValue = std::get<1>(arg).asBool();
-        }
-        else {
-            throw HttpReturnException(400, "Unknown argument in concat",
-                                      "argument", columnName);
-        }
-    }
-}
-
-BoundFunction concat(const std::vector<BoundSqlExpression> & args)
-{
-    if (args.size() == 0) {
-        throw HttpReturnException(
-            400, "requires at least one argument");
-    }
-
-    if (args.size() > 2) {
-        throw HttpReturnException(
-            400, "requires at most two arguments");
-    }
-
-    Utf8String separator(",");
-    bool columnValue = true;
-
-    if (args.size() == 2) {
-        SqlRowScope emptyScope;
-        ParseConcatArguments(separator, columnValue,
-                             args[1](emptyScope, GET_LATEST).getStructured());
-    }
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-        {
-            Utf8String result = "";
-            Date ts = Date::negativeInfinity();
-            bool first = true;
-            auto onAtom = [&] (const Path & columnName,
-                               const Path & prefix,
-                               const CellValue & val,
-                               Date atomTs)
-            {
-                if (!val.empty()) {
-                    if (first) {
-                        first = false;
-                    }
-                    else {
-                        result += separator;
-                    }
-                    result += columnValue ?
-                       val.toUtf8String() : columnName.toUtf8String();
-                }
-                return true;
-            };
-
-            args.at(0).forEachAtom(onAtom);
-            return ExpressionValue(result, ts);
-        },
-        std::make_shared<UnknownRowValueInfo>()
-    };
-}
-static RegisterBuiltin registerConcat(concat, "concat");
 
 BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
 {
@@ -2476,7 +2290,7 @@ BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
 
                 Utf8String str = args[0].toUtf8String();
                 return ExpressionValue(base64Encode(str.rawData(),
@@ -2498,7 +2312,7 @@ BoundFunction base64_decode(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 CellValue blob = args[0].coerceToBlob();
                 return ExpressionValue(base64Decode((const char *)blob.blobData(),
                                                     blob.blobLength()),
@@ -2512,8 +2326,7 @@ static RegisterBuiltin registerBase64Decode(base64_decode, "base64_decode");
 
 BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 2)
-        throw HttpReturnException(400, "extract_column function takes 2 arguments");
+    checkArgsSize(args.size(), 2);
 
     // TODO: there is a better implementation if the field name is
     // a constant expression
@@ -2521,12 +2334,12 @@ BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 auto val1 = args[0];
                 auto val2 = args[1];
                 Utf8String fieldName = val1.toUtf8String();
-                cerr << "extracting " << jsonEncodeStr(val1)
-                     << " from " << jsonEncodeStr(val2) << endl;
+                // cerr << "extracting " << jsonEncodeStr(val1)
+                //      << " from " << jsonEncodeStr(val2) << endl;
                 
                 return args[1].getColumn(fieldName);
             },
@@ -2540,13 +2353,12 @@ BoundFunction lower(const std::vector<BoundSqlExpression> & args)
 {
     // Return an expression but with the timestamp modified to something else
 
-    if (args.size() != 1)
-        throw HttpReturnException(400, "lower function takes 1 argument");
+    checkArgsSize(args.size(), 1);
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(args[0].getAtom().toUtf8String().toLower(),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -2561,13 +2373,12 @@ BoundFunction upper(const std::vector<BoundSqlExpression> & args)
 {
     // Return an expression but with the timestamp modified to something else
 
-    if (args.size() != 1)
-        throw HttpReturnException(400, "upper function takes 1 argument");
+    checkArgsSize(args.size(), 1);
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(args[0].getAtom().toUtf8String().toUpper(),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -2580,120 +2391,87 @@ static RegisterBuiltin registerUpper(upper, "upper");
 
 BoundFunction length(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 1)
-        throw HttpReturnException(400, "length function takes a single argument");
-
+    checkArgsSize(args.size(), 1);
      return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
              {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 //if(!args[0].isString())
-                    //throw ML::Exception("The parameter passed to the length "
+                    //throw MLDB::Exception("The parameter passed to the length "
                             //"function must be a string");
 
-                return std::move(
-                        ExpressionValue(args[0].getAtom().toUtf8String().length(), 
-                                        args[0].getEffectiveTimestamp()));
-            },
-            std::make_shared<IntegerValueInfo>()
+                return ExpressionValue
+                    (args[0].getAtom().toUtf8String().length(), 
+                     args[0].getEffectiveTimestamp());
+             },
+             std::make_shared<IntegerValueInfo>()
     };
 }
 
 static RegisterBuiltin registerLength(length, "length");
 
+BoundFunction blob_length(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+     return {[] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+             {
+                checkArgsSize(args.size(), 1);
+
+                return ExpressionValue
+                    (args[0].getAtom().coerceToBlob().blobLength(), 
+                     args[0].getEffectiveTimestamp());
+             },
+             std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerblob_length(blob_length, "blob_length");
+
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 2)
-        throw HttpReturnException(400, "levenshtein_distance function takes 2 arguments");
+    checkArgsSize(args.size(), 2);
 
      return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
              {
                 using namespace Edlib;
 
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 if(!args[0].isString() || !args[1].isString())
-                    throw ML::Exception("The parameters passed to the levenshtein_distance "
+                    throw MLDB::Exception("The parameters passed to the levenshtein_distance "
                             "function must be strings");
 
                 const auto query = args[0].getAtom().toUtf8String().rawString();
                 const auto target = args[1].getAtom().toUtf8String().rawString();
 
                 // start by testing easy edge cases
+                int maxSize = max(query.size(), target.size());
                 int bestScore = -1;
                 if(query.size() == 0 && target.size() == 0)
                     bestScore = 0;
                 else if(query.size() == 0 || target.size() == 0)
-                    bestScore = max(query.size(), target.size());
+                    bestScore = maxSize;
 
                 if(bestScore != -1)
                     return ExpressionValue(bestScore,
                                            args[0].getEffectiveTimestamp());
 
+                auto conf = edlibDefaultAlignConfig();
+                conf.k = maxSize;
 
-                // We convert the strings to ints (from 0 to n, where n is the number
-                // of unique chars) because edlib requires we give it the input in that format
-                unsigned char convQuery[query.size()];
-                unsigned char convTarget[target.size()];
+                EdlibAlignResult alignRes = 
+                    edlibAlign(query.c_str(), query.size(),
+                               target.c_str(), target.size(), conf);
 
-                int idx = 0;
-                map<char, int> charIdx;
+                bestScore = alignRes.editDistance;
+                edlibFreeAlignResult(alignRes);
 
-                auto fct = [&] (const string & in, unsigned char * out) {
-                    auto strLen = in.size();
-                    for (int i = 0; i < strLen; ++i) {
-                        auto & currChar = in[i];
-                        auto it = charIdx.find(currChar);
-                        if (it == charIdx.end()) {
-                            auto res = charIdx.emplace(currChar, idx ++);
-                            ExcAssert(std::get<1>(res));
-                            it = std::get<0>(res);
-                        }
-                        out[i] = it->second;
-                    }
-                };
+                if(bestScore == -1)
+                    throw MLDB::Exception("Error computing Levenshtein distance");
 
-                fct(query, &convQuery[0]);
-                fct(target, &convTarget[0]);
-
-                // DEBUG OUTPUT------------------
-                /*
-                cerr << "AFTER JOIN" << endl;
-                cerr << query << endl;
-                for (int i = 0; i < query.size(); ++i) {
-                    cerr << (int)convQuery[i];
-                }
-                cerr << endl << endl << target << endl;
-                for (int i = 0; i < target.size(); ++i) {
-                    cerr << (int)convTarget[i];
-                }
-                cerr << endl;
-                for (const auto & it: charIdx) {
-                    cerr << it.first << " - " << it.second << endl;
-                }
-                */
-                // ------------------------------
-
-                int numLocations = -1;
-                int* endLocations1, * startLocations1;
-                unsigned char* alignment;
-                int alignmentLength = -1;
-
-                int rtn = edlibCalcEditDistance(
-                    convQuery, query.size(),
-                    convTarget, target.size(),
-                    (int)idx + 1,
-                    -1, EDLIB_MODE_NW, false, false,
-                    &bestScore, 
-                    &endLocations1, &startLocations1, &numLocations,
-                    &alignment, &alignmentLength);
-
-
-                if(rtn != 0)
-                    throw ML::Exception("Error computing Levenshtein distance");
-
-                return std::move(ExpressionValue(bestScore,
-                                       args[0].getEffectiveTimestamp()));
+                return ExpressionValue(bestScore,
+                                       args[0].getEffectiveTimestamp());
             },
             std::make_shared<IntegerValueInfo>()
     };
@@ -2728,7 +2506,7 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
-                    ExcAssertEqual(args.size(), 1);
+                    checkArgsSize(args.size(), 1);
                     size_t len = args[0].rowLength();
                     return args[0].reshape({len});
                 },
@@ -2744,20 +2522,20 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
-                    ExcAssertEqual(args.size(), 1);
+                    checkArgsSize(args.size(), 1);
 
                     // If this is an embedding (but couldn't be proved statically),
                     // then do it the simple and efficient way
                     if (args[0].isEmbedding()) {
-                        size_t len = args[0].rowLength();
+                        size_t len = args[0].getAtomCount();
                         return args[0].reshape({len});
                     }
 
-                    std::vector<std::tuple<ColumnName, CellValue> > vals;
+                    std::vector<std::tuple<ColumnPath, CellValue> > vals;
                     vals.reserve(100);
                     Date tsOut = Date::negativeInfinity();
-                    auto onAtom = [&] (ColumnName col,
-                                       const ColumnName & prefix,
+                    auto onAtom = [&] (ColumnPath col,
+                                       const ColumnPath & prefix,
                                        CellValue val,
                                        Date ts)
                         {
@@ -2784,13 +2562,265 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerFlatten(flatten, "flatten");
 
-BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
+BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
 {
-    // Return the result indexed on a single dimension
+    checkArgsSize(args.size(), 2, 3, "reshape");
 
+    // A null first argument is OK for the empty embedding
+    // this means basically n times the given value
+    if (!args[0].info->couldBeEmbedding()) {
+        if (args[0].info->couldBeScalar()) {
+            // Shape is not a constant, so we need to evaluate after binding
+            if (args.size() != 3)
+                throw HttpReturnException
+                    (400,"Null embedding needs third argument to reshape()");
+            auto shape = args[1].info->getEmbeddingShape();
+            auto st = args[2].info->isConst()
+                ? valueStorageType(args[2].constantValue().getAtom())
+                : ST_ATOM;
+            auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
+
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope) -> ExpressionValue
+                    {
+                        checkArgsSize(args.size(), 3, "reshape");
+                        if (!args[0].getAtom().empty()) {
+                            throw HttpReturnException
+                                (400, "Expected null first argument for scalar reshape()");
+                        }
+
+                        size_t n = 1;
+                        DimsVector shape;
+                        auto addDim = [&] (const Path & columnName,
+                                           const Path & prefix,
+                                           const CellValue & val,
+                                           Date ts)
+                            {
+                                shape.push_back(val.toInt());
+                                n += shape.back();
+                                return true;
+                            };
+
+                        args[1].forEachAtom(addDim);
+
+                        std::vector<CellValue> vals(n, args[2].getAtom());
+                        return ExpressionValue(vals,
+                                               calcTs(args[0], args[1], args[2]),
+                                               shape);
+                    },
+                    outputInfo
+                        };
+            
+        }
+        throw HttpReturnException(400, "requires an embedding as first argument, got " + jsonEncodeStr(args[0].info));
+    }
+
+    if (!args[1].info->couldBeEmbedding())
+        throw HttpReturnException(400, "requires an embedding as second argument");
+
+    if (args[1].info->isConst()) {
+        //Dont know the type without evaluating second arg;
+        auto embeddingFormat = args[1].constantValue();
+
+        DimsVector shape;
+
+        auto addDim = [&] (const Path & columnName,
+                           const Path & prefix,
+                           const CellValue & val,
+                           Date ts)
+            {
+                shape.push_back(val.toInt());
+                return true;
+            };
+
+        embeddingFormat.forEachAtom(addDim);
+
+        auto st = args[0].info->getEmbeddingType();
+
+        auto outputInfo = EmbeddingValueInfo::fromShape(shape, st);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    checkArgsSize(args.size(), 2, 3, "reshape");
+
+                    if (args.size() == 2) {
+                        return args[0].reshape(shape);
+                    }
+                    else {
+                        return args[0].reshape(shape, args[2]);
+                    }
+                },
+                outputInfo
+           };
+    }
+    else {
+        // Shape is not a constant, so we need to evaluate after binding
+        auto shape = args[1].info->getEmbeddingShape();
+        auto st = args[0].info->getEmbeddingType();
+
+        auto outputInfo = std::make_shared<EmbeddingValueInfo>(shape, st);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    checkArgsSize(args.size(), 2, 3, "reshape");
+
+                    DimsVector shape;
+                    auto addDim = [&] (const Path & columnName,
+                                       const Path & prefix,
+                                       const CellValue & val,
+                                       Date ts)
+                        {
+                            shape.push_back(val.toInt());
+                            return true;
+                        };
+
+                    args[1].forEachAtom(addDim);
+
+                    if (args.size() == 2) {
+                        return args[0].reshape(shape);
+                    }
+                    else {
+                        return args[0].reshape(shape, args[2]);
+                    }
+                },
+                outputInfo
+           };
+    }
+}
+
+static RegisterBuiltin registerReshape(reshape, "reshape");
+
+    // Calculate the output shape of the concatenated values
+template<typename Sizes>
+Sizes calcShape(const std::vector<Sizes> & shapes)
+{
+    if (shapes.empty())
+        return Sizes();
+    Sizes result = shapes[0];
+    for (size_t i = 1;  i < shapes.size();  ++i) {
+        const Sizes & shape = shapes[i];
+        if (shape.size() != result.size()) {
+            throw HttpReturnException
+                (400, "Attempt to concat vectors with different shapes");
+        }
+        if (result[0] == -1 || shape[0] == -1)
+            result[0] = -1;
+        else result[0] += shape[0];
+    }
+    
+    return result;
+};
+    
+
+
+BoundFunction concat(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.empty()) {
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope) -> ExpressionValue
+            {
+                return ExpressionValue::null(Date::negativeInfinity());
+            };
+        return {
+            exec,
+            std::make_shared<EmptyValueInfo>()
+        };
+    }
+    
+    DimsVector shape;
+
+    std::vector<std::vector<ssize_t> > knownShapes;
+    StorageType st = args[0].info->getEmbeddingType();
+
+    for (auto & a: args) {
+        if (!a.info->couldBeEmbedding())
+            throw HttpReturnException(400, "concat requires embeddings");
+        auto sh = a.info->getEmbeddingShape();
+        knownShapes.emplace_back(sh);
+        st = coveringStorageType(st, a.info->getEmbeddingType());
+    }
+
+    auto outShape = calcShape(knownShapes);
+
+    auto outputInfo = std::make_shared<EmbeddingValueInfo>(outShape, st);
+    
+    auto exec = [=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+        -> ExpressionValue
+        {
+            ExcAssert(!args.empty());
+
+            Date ts = args[0].getEffectiveTimestamp();
+            std::vector<DimsVector> shapes;
+            shapes.reserve(args.size());
+            auto st = args[0].getEmbeddingType();
+            for (auto & a: args) {
+                shapes.emplace_back(a.getEmbeddingShape());
+                st = coveringStorageType(st, a.getEmbeddingType());
+                ts.setMax(a.getEffectiveTimestamp());
+            }
+            
+            DimsVector shape = calcShape(shapes);
+
+            auto outBuffer = allocateStorageBuffer(shape, st);
+
+            // Go argument by argument, copying elements in
+            char * data = (char *)outBuffer.get();
+            for (auto & a: args) {
+                size_t n = a.getAtomCount();
+                a.convertEmbedding(data, n, st);
+                size_t bytes = storageBufferBytes(n, st);
+                data += bytes;
+            }
+
+            return ExpressionValue::embedding(ts, outBuffer, st, shape);
+        };
+
+    return {
+        exec,
+        outputInfo
+     };
+}
+
+static RegisterBuiltin registerConcat(concat, "concat");
+
+BoundFunction shape(const std::vector<BoundSqlExpression> & args)
+{
     checkArgsSize(args.size(), 1);
 
-    auto outputInfo = std::make_shared<UnknownRowValueInfo>();
+    if (!args[0].info->couldBeEmbedding())
+        throw HttpReturnException(400, "requires an array as first argument");
+     
+    auto outputInfo
+        = std::make_shared<EmbeddingValueInfo>(-1, ST_INT32);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+
+                DimsVector shape = args[0].getEmbeddingShape();
+                std::vector<int> shapeValues;
+                shapeValues.reserve(shape.size());
+
+                for (auto s : shape)
+                    shapeValues.push_back(s);
+
+                return ExpressionValue(shapeValues, args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+    }; 
+}
+
+static RegisterBuiltin registerShape(shape, "shape");
+
+BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    auto outputInfo = valueInfoForType<std::shared_ptr<ExpressionValueInfo> >();
     Date ts = Date::negativeInfinity();  // it has always had this type
 
     auto argInfo = args[0].info;
@@ -2801,7 +2831,7 @@ BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return result;
             },
             outputInfo
@@ -2809,6 +2839,31 @@ BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerStaticType(static_type, "static_type");
+
+BoundFunction static_expression_info(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    auto outputInfo = valueInfoForType<BoundSqlExpression>();
+    Date ts = Date::negativeInfinity();  // it has always had this type
+
+    auto argInfo = args[0].info;
+    ExcAssert(argInfo);
+
+    ExpressionValue result(jsonEncode(args[0]), ts);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                return result;
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerStaticExpressionInfo
+    (static_expression_info, "static_expression_info");
 
 BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
 {
@@ -2830,7 +2885,7 @@ BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 return result;
             },
             outputInfo
@@ -2905,7 +2960,7 @@ BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
                         return true;
                     } ;
 
-                    ExcAssertEqual(args.size(), 3);
+                    checkArgsSize(args.size(), 3);
                     args[0].forEachColumn(exec);
 
                     return ExpressionValue(vals);
@@ -2926,7 +2981,7 @@ BoundFunction parse_path(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
 
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(CellValue(Path::parse(args[0].getAtom().toUtf8String())),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -2946,7 +3001,7 @@ BoundFunction stringify_path(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
 
-                ExcAssertEqual(args.size(), 1);
+                checkArgsSize(args.size(), 1);
                 ExpressionValue result(args[0].coerceToPath().toUtf8String(),
                                        args[0].getEffectiveTimestamp());
                 return result;
@@ -2957,6 +3012,54 @@ BoundFunction stringify_path(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerStringifyPath(stringify_path, "stringify_path");
 
+BoundFunction flatten_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                checkArgsSize(args.size(), 1);
+                ExpressionValue result(Path(PathElement(args[0].coerceToPath().toUtf8String())),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerFlattenPath(flatten_path, "flatten_path");
+
+BoundFunction unflatten_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                Path path = args[0].coerceToPath();
+                if (path.size() != 1) {
+                    throw HttpReturnException
+                        (400, "Attempt to pass non-flattened "
+                         "path with length " + std::to_string(path.size())
+                         + " to unflatten_path().  Must have length of one.",
+                         "path", path);
+                }
+                ExpressionValue result(Path::parse(path[0].toUtf8String()),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerUnflattenPath(unflatten_path, "unflatten_path");
+
+
 BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
 {
     // Return the given element of a path
@@ -2965,7 +3068,7 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 size_t el = args[1].getAtom().toUInt();
                 ExpressionValue result(CellValue(args[0].coerceToPath().at(el)),
                                        calcTs(args[0], args[1]));
@@ -2976,6 +3079,26 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerPathElement(path_element, "path_element");
+
+BoundFunction path_length(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the length of a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 1);
+                ExpressionValue result(CellValue(args[0].coerceToPath().size()),
+                                       calcTs(args[0], args[1]));
+                return result;
+            },
+            std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerPathLength(path_length, "path_length");
+
 
 /*****************************************************************************/
 /* DIAGNOSTIC FUNCTIONS                                                      */
@@ -2995,7 +3118,7 @@ BoundFunction analyze_join(const std::vector<BoundSqlExpression> & args)
     // - A string with the right table expression
     // - A string with the on condition
     // - A string with the external where condition
-    checkArgsSize(args.size(), 4);
+    checkArgsSize(args.size(), 4, "_analyse_join");
 
     auto outputInfo
         = std::make_shared<UnknownRowValueInfo>();
@@ -3003,7 +3126,7 @@ BoundFunction analyze_join(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 4);
+                checkArgsSize(args.size(), 4);
                 std::shared_ptr<TableExpression> left
                     = TableExpression::parse(args[0].getAtom().toUtf8String());
                 std::shared_ptr<TableExpression> right
@@ -3032,7 +3155,7 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
     // - An expression to be analyzed (string)
     // - A table name to be removed
     // - A set of aliases
-    checkArgsSize(args.size(), 2);
+    checkArgsSize(args.size(), 2, "_remove_table_name");
 
     auto outputInfo
         = std::make_shared<UnknownRowValueInfo>();
@@ -3040,7 +3163,7 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 2);
+                checkArgsSize(args.size(), 2);
                 std::shared_ptr<SqlExpression> expr
                     = SqlExpression::parse(args[0].getAtom().toUtf8String());
                 Utf8String tableName = args[1].getAtom().toUtf8String();
@@ -3082,7 +3205,267 @@ BoundFunction sign(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerSignFunction(sign, "sign");
 
+BoundFunction hash(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+    auto outputInfo
+        = std::make_shared<NumericValueInfo>();
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (args[0].empty()) {
+                    return ExpressionValue::null(
+                        args[0].getEffectiveTimestamp());
+                }
+                return ExpressionValue(
+                    args[0].hash(),
+                    args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerHashFunction(hash, "hash");
+
+BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
+{
+    auto outputInfo
+        = std::make_shared<UnknownRowValueInfo>();
+    if (args.size() == 2) {
+        // In case of error, this handler yields the second arg
+        auto bindFunction = [=] (SqlBindingScope & scope,
+                                 std::vector<BoundSqlExpression>& boundArgs,
+                                 const SqlExpression * expr) ->  BoundSqlExpression
+        {
+            return {[=] (const SqlRowScope & row,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter) -> const ExpressionValue &
+            {
+                ExcAssertEqual(boundArgs.size(), 2);
+                try {
+                    return storage = boundArgs[0](row, GET_LATEST);
+                }
+                catch (const std::exception & exc) {
+                }
+                return storage = boundArgs[1](row, GET_LATEST);
+            },
+            expr,
+            outputInfo};
+        };
+        return {bindFunction, outputInfo};
+    }
+
+    if (args.size() != 1) {
+        throw HttpReturnException(400, "requires one or two arguments");
+    }
+
+    // In case of error, this handler yields the exception message
+    auto bindFunction = [=] (SqlBindingScope & scope,
+                             std::vector<BoundSqlExpression>& boundArgs,
+                             const SqlExpression * expr) ->  BoundSqlExpression
+    {
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+        {
+            ExcAssertEqual(boundArgs.size(), 1);
+            try {
+                return storage = boundArgs[0](row, GET_LATEST);
+            }
+            catch (const std::exception & exc) {
+                return storage
+                = ExpressionValue(getExceptionString(),
+                                  Date::negativeInfinity());
+            }
+        },
+        expr,
+        outputInfo};
+    };
+    return {bindFunction, outputInfo};
+}
+
+static RegisterBuiltin registerTryFunction(tryFct, "try");
+
+/*****************************************************************************/
+/* BUILTIN CONSTANTS                                                         */
+/*****************************************************************************/
+
+RegisterBuiltinConstant::
+RegisterBuiltinConstant(const Utf8String & name, const CellValue & value)
+    : RegisterFunction(name,
+                       std::bind(bind,
+                                 std::placeholders::_1,
+                                 std::placeholders::_2,
+                                 std::placeholders::_3,
+                                 value))
+{
+}
+
+BoundFunction
+RegisterBuiltinConstant::
+bind(const Utf8String &,
+     const std::vector<BoundSqlExpression> & args,
+     SqlBindingScope & context,
+     const CellValue & value)
+{
+    ExpressionValue resultVal(value, Date::negativeInfinity());
+
+    auto exec = [=] (const std::vector<ExpressionValue> &,
+                     const SqlRowScope & context)
+        -> ExpressionValue
+        {
+            return resultVal;
+        };
+
+    BoundFunction result(exec,
+                         resultVal.getSpecializedValueInfo(true /*isConstant*/));
+    return result;
+}
+
+/*****************************************************************************/
+/* SQL BUILTINS                                                              */
+/*****************************************************************************/
+
+SqlBuiltin::
+SqlBuiltin(const std::string & name,
+           const Utf8String & expr,
+           size_t arity)
+    : functionName(name), arity(arity)
+{
+    parsed = SqlExpression::parse(expr);
+    this->arity = arity;
+    handle = registerFunction(functionName, std::bind(&SqlBuiltin::bind,
+                                                      this,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3));
+}
+
+BoundFunction
+SqlBuiltin::
+bind(const std::vector<BoundSqlExpression> & args,
+     SqlBindingScope & scope) const
+{
+    try {
+        if (arity != args.size()) {
+            throw HttpReturnException
+                (400, "Called builtin function '" + functionName
+                 + "' with " + std::to_string(args.size())
+                 + " parameters instead of " + std::to_string(arity)
+                 + " expected parameters");
+        }
+        bool isConstant = true;
+        std::vector<std::shared_ptr<ExpressionValueInfo> > info;
+        for (auto & a: args) {
+            isConstant = isConstant && a.info->isConst();
+            info.emplace_back(a.info);
+        }
+
+        SqlExpressionEvalScope evalScope(scope, info);
+
+        BoundSqlExpression bound = parsed->bind(evalScope);
+
+        BoundFunction result;
+
+        result.exec = [=] (const std::vector<ExpressionValue> & args,
+                           const SqlRowScope & scope)
+            -> ExpressionValue
+            {
+                auto rowScope = evalScope.getRowScope(scope, args);
+    
+                try {
+                    return bound(rowScope, GET_ALL);
+                } MLDB_CATCH_ALL {
+                    rethrowHttpException(-1, "Executing builtin function "
+                                         + functionName + ": " + getExceptionString(),
+                                         "functionName", functionName,
+                                         "functionArgs", args);
+                }
+            };
+
+        result.resultInfo = bound.info->getConst(isConstant && bound.info->isConst());
+        
+        return result;
+    } MLDB_CATCH_ALL {
+        rethrowHttpException(-1, "Binding builtin function "
+                             + functionName + ": " + getExceptionString(),
+                             "functionName", functionName,
+                             "functionArgs", args);
+    }
+}
+
+BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    vector<KnownColumn> columnsInfo;
+    columnsInfo.emplace_back(Path("content"), make_shared<BlobValueInfo>(),
+                             ColumnSparsity::COLUMN_IS_DENSE);
+    columnsInfo.emplace_back(Path("error"), make_shared<StringValueInfo>(),
+                             ColumnSparsity::COLUMN_IS_DENSE);
+    auto outputInfo
+        = std::make_shared<RowValueInfo>(columnsInfo);
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                StructValue result;
+                auto content = ExpressionValue::null(Date::notADate());
+                auto error = ExpressionValue::null(Date::notADate());
+                try {
+
+                    filter_istream stream(args[0].toUtf8String().rawString(),
+                                          { { "mapped", "true" },
+                                            { "httpAbortOnSlowConnection", "true"} });
+
+                    FsObjectInfo info = stream.info();
+
+                    const char * mappedAddr;
+                    size_t mappedSize;
+                    std::tie(mappedAddr, mappedSize) = stream.mapped();
+
+                    CellValue blob;
+                    if (mappedAddr) {
+                        blob = CellValue::blob(mappedAddr, mappedSize);
+                    }
+                    else {
+                        std::ostringstream streamo;
+                        streamo << stream.rdbuf();
+                        blob = CellValue::blob(streamo.str());
+                    }
+                    content = ExpressionValue(std::move(blob),
+                                              info.lastModified);
+                }
+                MLDB_CATCH_ALL {
+                    error = ExpressionValue(getUtf8ExceptionString(),
+                                            Date::now());
+                }
+                result.emplace_back("content", content);
+                result.emplace_back("error", error);
+                return result;
+            },
+            outputInfo
+        };
+}
+static RegisterBuiltin registerFetcherFunction(fetcher, "fetcher");
+
+BoundFunction static_is_constant(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    bool isConst = args[0].info->isConst();
+
+    auto outputInfo
+        = std::make_shared<BooleanValueInfo>(true);
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                return ExpressionValue(isConst, args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+        };
+}
+static RegisterBuiltin registerIsConstFunction(static_is_constant, "__isconst");
 
 } // namespace Builtins
 } // namespace MLDB
-} // namespace Datacratic
+

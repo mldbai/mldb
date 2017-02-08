@@ -1,8 +1,8 @@
 /* mldb_server.h                                                   -*- C++ -*-
    Jeremy Barnes, 12 December 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Server class for MLDB.
 */
@@ -15,14 +15,12 @@
 #include "mldb/soa/service/event_service.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+
+namespace MLDB {
 
 struct PolyConfig;
 struct Utf8String;
 struct Package;
-
-
-namespace MLDB {
 
 
 struct PluginCollection;
@@ -115,14 +113,13 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     /** Parse and perform an SQL query, returning the results
         on the given HTTP connection.
     */
-    void runHttpQuery(const Utf8String& qsQuery,
+    void runHttpQuery(const Utf8String& query,
                       RestConnection & connection,
                       const std::string & format,
                       bool createHeaders,
                       bool rowNames,
                       bool rowHashes,
-                      bool sortColumns,
-                      const Utf8String & bQuery) const;
+                      bool sortColumns) const;
 
     /** Get a type info structure for the given type. */
     Json::Value
@@ -180,4 +177,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

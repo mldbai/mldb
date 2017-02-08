@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /**
  * csv_export_procedure.cc
  * Mich, 2015-11-11
- * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ * Copyright (c) 2015 mldb.ai inc. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 #include "csv_export_procedure.h"
@@ -22,21 +21,15 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/soa/utils/csv_writer.h"
+#include "csv_writer.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
 
 
-namespace Datacratic {
-namespace MLDB {
 
-CsvExportProcedureConfig::
-CsvExportProcedureConfig()
-    : headers(true), delimiter(","), quoteChar("\"")
-{
-}
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
 
@@ -52,20 +45,33 @@ CsvExportProcedureConfigDescription()
     addField("headers", &CsvExportProcedureConfig::headers,
              "Whether to print headers", true);
     addField("delimiter", &CsvExportProcedureConfig::delimiter,
-             "The delimiter to place between each value", string("\""));
+             "The delimiter to place between each value", string(","));
     addField("quoteChar", &CsvExportProcedureConfig::quoteChar,
              "The character to enclose the values within when they contain "
-             "either a delimiter or a quoteChar", string(","));
+             "either a delimiter or a quoteChar", string("\""));
+    addField("skipDuplicateCells", &CsvExportProcedureConfig::skipDuplicateCells,
+             "The CSV format cannot represent many values per cell the way MLDB datasets can "
+             "by using the time dimension. When this parameter is set to `false`, an exception "
+             "will be thrown when the export procedure detects many values for the same "
+             "row/column pair.\n\n"
+             "To export a dataset that has more than one value in at least one cell, "
+             "there are two options:\n\n"
+             "  * Set this parameter to `true`, which will pick one in an undetermined way.\n"
+             "  * Apply a temporal aggregator, like `temporal_max()`, to the values. See the\n"
+             "    [Built-in Functions](../sql/ValueExpression.md.html) documentation for the\n"
+             "    complete list of aggregators.\n\n",
+             false);
+
     addParent<ProcedureConfig>();
 
     onPostValidate = [&] (CsvExportProcedureConfig * cfg,
                           JsonParsingContext & context)
     {
         if (cfg->delimiter.size() != 1) {
-            throw ML::Exception("delimiter must be 1 char long.");
+            throw MLDB::Exception("delimiter must be 1 char long.");
         }
         if (cfg->quoteChar.size() != 1) {
-            throw ML::Exception("Quotechar must be 1 char long.");
+            throw MLDB::Exception("Quotechar must be 1 char long.");
         }
         MustContainFrom()(cfg->exportData, CsvExportProcedureConfig::name);
     };
@@ -87,11 +93,12 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
     SqlExpressionMldbScope context(server);
-    filter_ostream out(runProcConf.dataFileUrl.toString());
+    filter_ostream out(runProcConf.dataFileUrl);
     CsvWriter csv(out, runProcConf.delimiter.at(0),
                   runProcConf.quoteChar.at(0));
 
-    auto boundDataset = runProcConf.exportData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.exportData.stm->from->bind(context, convertProgressToJson);
 
     vector<shared_ptr<SqlExpression> > calc;
     BoundSelectQuery bsq(runProcConf.exportData.stm->select,
@@ -102,7 +109,8 @@ run(const ProcedureRunConfig & run,
                          runProcConf.exportData.stm->orderBy,
                          calc);
 
-    const auto columnNames = bsq.getSelectOutputInfo()->allColumnNames();
+    const auto columnNames = bsq.getSelectOutputInfo()->allAtomNames();
+
     vector<string> lineBuffer; // keeps the data that cannot be outputed
                                // yet to the csv due to the ordering difference
                                // between columnNames and the order in which
@@ -127,7 +135,7 @@ run(const ProcedureRunConfig & run,
         };
 
         for (const auto & col: row.columns) {
-            const auto seekColumn = std::get<0>(col); // the column to seek in
+            const auto & seekColumn = std::get<0>(col); // the column to seek in
                                                       // the csv ordering
             auto columnNamesIt = columnNames.begin() + lineBufferIndex;
             size_t columnIndex;
@@ -138,13 +146,19 @@ run(const ProcedureRunConfig & run,
                     // column must always be found, otherwise me should be in a
                     // context where cells have multiple values.
                     if (columnNamesIt == columnNamesEnd) {
-                        throw ML::Exception("CSV export does not work over "
-                                            "cells having multiple values");
+                        if(runProcConf.skipDuplicateCells)
+                            return false;
+
+                        throw MLDB::Exception(Utf8String("CSV export does not work over "
+                                "cells having multiple values, at row '" + row.rowName.toUtf8String() +
+                                "' for column '" + seekColumn.toUtf8String() + "'").utf8String());
                     }
                 }
                 columnIndex = columnNamesIt - columnNamesBegin;
+                return true;
             };
-            updatePointers();
+            if(!updatePointers())
+                continue;
 
             if (columnIndex == lineBufferIndex) {
                 // immediate output
@@ -177,7 +191,8 @@ run(const ProcedureRunConfig & run,
                     // find the next index where to store, collision are not
                     // possible
                     ++ columnNamesIt;
-                    updatePointers();
+                    if(!updatePointers())
+                        continue;
                 }
                 ExcAssert(lineBuffer[columnIndex] == "");
                 lineBuffer[columnIndex] =
@@ -194,15 +209,16 @@ run(const ProcedureRunConfig & run,
     };
 
     if (runProcConf.headers) {
-        for (const auto & name: bsq.getSelectOutputInfo()->allColumnNames()) {
+        for (const auto & name: bsq.getSelectOutputInfo()->allAtomNames()) {
             csv << name.toUtf8String();
         }
         csv.endl();
     }
+
     bsq.execute({outputCsvLine, false/*processInParallel*/},
                 runProcConf.exportData.stm->offset,
                 runProcConf.exportData.stm->limit,
-                onProgress);
+                convertProgressToJson);
     RunOutput output;
     return output;
 }
@@ -221,4 +237,4 @@ regCsvExportProcedure(
     "procedures/CsvExportProcedure.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+

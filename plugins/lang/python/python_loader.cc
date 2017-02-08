@@ -1,8 +1,8 @@
 /** python_plugin_loader.cc
     Jeremy Barnes, 6 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Plugin loader for Python plugins.
 */
@@ -13,6 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/plugin.h"
 #include "mldb/core/procedure.h"
+#include "mldb/base/scope.h"
 #include "mldb/server/plugin_resource.h"
 
 #include "pointer_fix.h" // must come before boost/python
@@ -35,20 +36,153 @@
 #include "mldb/types/dtoa.h"
 
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb_python_converters.h"
 #include "mldb/types/any_impl.h"
 
 #include "datetime.h"
 
 using namespace std;
-using namespace Datacratic::Python;
+using namespace MLDB::Python;
 //namespace bp = boost::python;
 
 
-namespace Datacratic {
 namespace MLDB {
 
+// NOTE: copied from exec.cpp in Boost, available under the Boost license
+// Copyright Stefan Seefeld 2005 - http://www.boost.org/LICENSE_1_0.txt
+boost::python::object
+pyExec(Utf8String code,
+       Utf8String filename,
+       boost::python::object global = boost::python::object(),
+       boost::python::object local = boost::python::object())
+{
+    // We create a pipe so that we don't need to open a temporary
+    // file.  Unfortunately Python only allows us to pass a filename
+    // for error messages if we have a FILE *, so we need to arrange
+    // to have one.  The easiest way is to create an fd on a pipe,
+    // and then to use fopenfd() to open it.
+
+    int fds[2];
+    int res = pipe2(fds, 0 /* flags */);
+
+    if (res == -1)
+        throw HttpReturnException(500, "Python evaluation pipe: "
+                                  + string(strerror(errno)));
+    
+    Scope_Exit(if (fds[0] != -1) ::close(fds[0]); if (fds[1] != -1) ::close(fds[1]));
+
+    res = fcntl(fds[1], F_SETFL, O_NONBLOCK);
+    if (res == -1) {
+        auto errno2 = errno;
+        throw HttpReturnException(500, "Python evaluation fcntl: "
+                                  + string(strerror(errno2)));
+    }
+
+    std::atomic<int> finished(0);
+    std::thread t;
+
+    // Write as much as we can.  In Linux, the default pipe buffer is
+    // 64k, which is enough for most scripts.
+    ssize_t written = write(fds[1], code.rawData(), code.rawLength());
+    
+    if (written == -1) {
+        // Error writing.  Bail out.
+        throw HttpReturnException
+            (500, "Error writing to pipe for python evaluation: "
+             + string(strerror(errno)));
+    }
+    else if (written == code.rawLength()) {
+        // We wrote the whole script to the pipe.  We can close the
+        // write end of the file.
+        ::close(fds[1]);
+        fds[1] = -1;
+    }
+    else {
+        // We weren't able to write the whole thing to the pipe.
+        // We need to set up a thread to push more in once the
+        // Python part has read some.
+
+        // Turn off non-blocking.  We don't want to busy loop.  The
+        // thread won't deadlock, since the FD will be closed if
+        // we need to exit before all of the code is written.
+        res = fcntl(fds[1], F_SETFL, 0);
+        if (res == -1) {
+            auto errno2 = errno;
+            throw HttpReturnException(500, "Python evaluation fcntl: "
+                                      + string(strerror(errno2)));
+        }
+
+        // Set up a thread to continue writing code to the pipe until
+        // all of the code has been passed to the function
+        t = std::thread([&] ()
+            {
+                while (!finished) {
+                    ssize_t done = write(fds[1],
+                                         code.rawData() + written,
+                                         code.rawLength() - written);
+                    if (finished)
+                        return;
+                    if (done == -1) {
+                        if (errno == EAGAIN || errno == EINTR) {
+                            continue;
+                        }
+                        cerr << "Error writing to Python source pipe: "
+                             << strerror(errno) << endl;
+                        std::terminate();
+                    }
+                    else {
+                        written += done;
+                        if (written == code.rawLength()) {
+                            close(fds[1]);
+                            fds[1] = -1;
+                            return;
+                        }
+                    }
+                }
+            });
+    }
+
+    // Finally, we have our fd.  Turn it into a FILE * that Python wants.
+    FILE * file = fdopen(fds[0], "r");
+
+    if (!file) {
+        throw HttpReturnException
+            (500, "Error creating fd for python evaluation: "
+             + string(strerror(errno)));
+    }
+    Scope_Exit(::fclose(file));
+    fds[0] = -1;  // stop the fd guard from closing it, since now we have a guard
+
+    using namespace boost::python;
+    // From here on in is copied from the Boost version
+    // Set suitable default values for global and local dicts.
+    object none;
+    if (global.ptr() == none.ptr()) {
+        if (PyObject *g = PyEval_GetGlobals())
+            global = object(boost::python::detail::borrowed_reference(g));
+        else
+            global = dict();
+    }
+    if (local.ptr() == none.ptr()) local = global;
+    
+    // should be 'char const *' but older python versions don't use 'const' yet.
+    PyObject* result = PyRun_File(file, filename.rawData(), Py_file_input,
+                                  global.ptr(), local.ptr());
+
+    // Clean up no matter what (make sure our writing thread exits).  If it
+    // was blocked on writing, the closing of the fd will unblock it.
+    finished = 1;
+    if (fds[1] != -1) {
+        ::close(fds[1]);
+        fds[1] = -1;
+    }
+    if (t.joinable())
+        t.join();
+
+    if (!result) throw_error_already_set();
+    return boost::python::object(boost::python::detail::new_reference(result));
+}
 
 
 
@@ -82,14 +216,14 @@ struct PythonPlugin: public Plugin {
     virtual Any getVersion() const;
 
     static ScriptOutput
-    runPythonScript(std::shared_ptr<PythonContext> itl,
+    runPythonScript(std::shared_ptr<PythonContext> pyCtx,
                     PackageElement elementToRun,
                     const RestRequest & request,
                     RestRequestParsingContext & context,
                     PythonSubinterpreter & pyControl);
     
     static ScriptOutput
-    runPythonScript(std::shared_ptr<PythonContext> itl,
+    runPythonScript(std::shared_ptr<PythonContext> pyCtx,
                     PackageElement elementToRun,
                     PythonSubinterpreter & pyControl);
 
@@ -100,8 +234,8 @@ struct PythonPlugin: public Plugin {
 
     static void injectMldbWrapper(PythonSubinterpreter & pyControl);
 
-    std::shared_ptr<PythonPluginContext> itl;
-    std::shared_ptr<MldbPythonContext> mldbPy;
+    std::shared_ptr<PythonPluginContext> pluginCtx;
+    std::shared_ptr<MldbPythonContext> mldbPyCtx;
 
     mutable std::mutex routeHandlingMutex;
 
@@ -119,27 +253,28 @@ PythonPlugin(MldbServer * server,
 
     PluginResource res = config.params.convert<PluginResource>();
     try {
-        itl.reset(new PythonPluginContext(config.id, this->server,
+        pluginCtx.reset(new PythonPluginContext(config.id, this->server,
                 std::make_shared<LoadedPluginResource>
                                       (PYTHON,
                                        LoadedPluginResource::PLUGIN,
                                        config.id, res), routeHandlingMutex));
     }
     catch(const std::exception & exc) {
-        throw HttpReturnException(400, ML::format("Exception opening plugin: %s", exc.what()));
+        throw HttpReturnException(400, MLDB::format("Exception opening plugin: %s", exc.what()));
     }
 
-    addRouteSyncJsonReturn(itl->router, "/lastoutput", {"GET"},
+    addRouteSyncJsonReturn(pluginCtx->router, "/lastoutput", {"GET"},
             "Return the output of the last call to the plugin",
             "Output of the last call to the plugin",
             &PythonPlugin::getLastOutput,
             this);
 
 
-    mldbPy.reset(new MldbPythonContext());
-    mldbPy->setPlugin(itl);
+    mldbPyCtx.reset(new MldbPythonContext());
+    mldbPyCtx->setPlugin(pluginCtx);
 
-    Utf8String scriptSource = itl->pluginResource->getScript(PackageElement::MAIN);
+    Utf8String scriptSource = pluginCtx->pluginResource->getScript(PackageElement::MAIN);
+    Utf8String scriptUri = pluginCtx->pluginResource->getScriptUri(PackageElement::MAIN);
 
     // initialize interpreter. if the plugin is being constructed from a python plugin 
     // perform call, the __mldb_child_call will be set so we can engage child mode
@@ -154,34 +289,36 @@ PythonPlugin(MldbServer * server,
     addPluginPathToEnv(pyControl);
 
     try {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] =
-            boost::python::object(boost::python::ptr(mldbPy.get()));
+            boost::python::object(boost::python::ptr(mldbPyCtx.get()));
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "PyPlugin init");
 
         {
-            std::unique_lock<std::mutex> guard(itl->logMutex);
-            LOG(itl->loader) << jsonEncode(pyexc) << endl;
+            std::unique_lock<std::mutex> guard(pluginCtx->logMutex);
+            LOG(pluginCtx->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException(500, "Exception creating Python context", pyexc);
 
     }
 
     try {
-        boost::python::object obj = boost::python::exec(boost::python::str(scriptSource.rawString()),
-                                                        pyControl.main_namespace);
+        injectMldbWrapper(pyControl);
+        boost::python::object obj = pyExec(scriptSource,
+                                           scriptUri,
+                                           pyControl.main_namespace);
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "Running PyPlugin script");
 
         {
-            std::unique_lock<std::mutex> guard(itl->logMutex);
-            LOG(itl->loader) << jsonEncode(pyexc) << endl;
+            std::unique_lock<std::mutex> guard(pluginCtx->logMutex);
+            LOG(pluginCtx->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
 
         string context = "Exception executing Python initialization script";
         ScriptOutput result = exceptionToScriptOutput(pyControl, pyexc, context);
@@ -208,14 +345,14 @@ addPluginPathToEnv(PythonSubinterpreter & pyControl) const
     PyObject* sysPath = PySys_GetObject(key);
     ExcAssert(sysPath);
 
-    string pluginDir = itl->pluginResource->getPluginDir().string();
+    string pluginDir = pluginCtx->pluginResource->getPluginDir().string();
     PyObject * pluginDirPy = PyString_FromString(pluginDir.c_str());
     ExcAssert(pluginDirPy);
 
     PyList_Insert( sysPath, 0, pluginDirPy );
 
     // change working dir to script dir
-//     PyRun_SimpleString(ML::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
+//     PyRun_SimpleString(MLDB::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
 }
 
 ScriptOutput PythonPlugin::
@@ -228,7 +365,7 @@ getLastOutput() const
 Any PythonPlugin::
 getVersion() const
 {
-    return itl->pluginResource->version;
+    return pluginCtx->pluginResource->version;
 }
 
 Any
@@ -240,16 +377,16 @@ getStatus() const
 // 
 //         Any rtn;
 //         try {
-//             rtn = itl->getStatus();
+//             rtn = pluginCtx->getStatus();
 //         } catch (const boost::python::error_already_set & exc) {
 //             ScriptException pyexc = convertException(pyControl, exc, "PyPlugin get status");
 // 
 //             {
-//                 std::unique_lock<std::mutex> guard(itl->logMutex);
-//                 LOG(itl->loader) << jsonEncode(pyexc) << endl;
+//                 std::unique_lock<std::mutex> guard(pluginCtx->logMutex);
+//                 LOG(pluginCtx->loader) << jsonEncode(pyexc) << endl;
 //             }
 // 
-//             JML_TRACE_EXCEPTIONS(false);
+//             MLDB_TRACE_EXCEPTIONS(false);
 //             string context = "Exception in Python status call";
 //             ScriptOutput result = exceptionToScriptOutput(
 //                 pyControl, pyexc, context);
@@ -274,8 +411,9 @@ handleDocumentationRoute(RestConnection & connection,
                          const RestRequest & request,
                          RestRequestParsingContext & context) const
 {
-    if (itl->handleDocumentation)
-        return itl->handleDocumentation(connection, request, context);
+    if (pluginCtx->handleDocumentation) {
+        return pluginCtx->handleDocumentation(connection, request, context);
+    }
 
     return RestRequestRouter::MR_NO;
 }
@@ -287,27 +425,28 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     // First, check for a route
-    auto res = itl->router.processRequest(connection, request, context);
-    if (res != RestRequestRouter::MR_NO)
+    auto res = pluginCtx->router.processRequest(connection, request, context);
+    if (res != RestRequestRouter::MR_NO) {
         return res;
+    }
 
-    // check if 
+    // check if
     bool isChild = request.header.headers.find("__mldb_child_call") != request.header.headers.end();
     PythonSubinterpreter pyControl(isChild);
     addPluginPathToEnv(pyControl);
 
     // Second, check for a generic request handler
-    if(itl->hasRequestHandler) {
+    if(pluginCtx->hasRequestHandler) {
         try {
             RestRequestMatchResult rtn;
             {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
 
                 pyControl.releaseGil();
 
-                itl->restRequest = make_shared<PythonRestRequest>(request, context);
-                itl->setReturnValue(Json::Value());
-                auto jsonResult = runPythonScript(itl,
+                pluginCtx->restRequest = make_shared<PythonRestRequest>(request, context);
+                pluginCtx->resetReturnValue();
+                auto jsonResult = runPythonScript(pluginCtx,
                         PackageElement::ROUTES, request, context, pyControl);
 
                 last_output = ScriptOutput();
@@ -315,10 +454,6 @@ handleRequest(RestConnection & connection,
                 getOutputFromPy(pyControl, last_output, false);
                 if(jsonResult.exception) {
                     connection.sendResponse(400, jsonEncodeStr(jsonResult), "application/json");
-                }
-
-                if(!jsonResult.result) {
-                    return RestRequestRouter::MR_NO;
                 }
 
                 connection.sendResponse(jsonResult.getReturnCode(), jsonResult.result);
@@ -330,11 +465,11 @@ handleRequest(RestConnection & connection,
             ScriptException pyexc = convertException(pyControl, exc, "Handling PyPlugin route");
 
             {
-                std::unique_lock<std::mutex> guard(itl->logMutex);
-                LOG(itl->loader) << jsonEncode(pyexc) << endl;
+                std::unique_lock<std::mutex> guard(pluginCtx->logMutex);
+                LOG(pluginCtx->loader) << jsonEncode(pyexc) << endl;
             }
 
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             string context = "Exception in Python request handler";
             ScriptOutput result = exceptionToScriptOutput(
                     pyControl, pyexc, context);
@@ -354,27 +489,30 @@ handleTypeRoute(RestDirectory * server,
                 RestRequestParsingContext & context)
 {
     if (context.resources.back() == "run") {
-        auto scriptConfig = jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
+        auto scriptConfig =
+            jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
 
-        std::shared_ptr<PythonScriptContext> titl;
-        auto pluginRez = 
+        std::shared_ptr<PythonScriptContext> scriptCtx;
+        auto pluginRez =
             std::make_shared<LoadedPluginResource>(PYTHON,
                                                    LoadedPluginResource::SCRIPT,
                                                    "", scriptConfig);
         try {
-            titl = std::make_shared<PythonScriptContext>("script runner",
-                                                     static_cast<MldbServer *>(server),
-                                                     pluginRez);
+            scriptCtx = std::make_shared<PythonScriptContext>(
+                "script runner", static_cast<MldbServer *>(server), pluginRez);
         }
         catch(const std::exception & exc) {
-            conn.sendResponse(400,
-                          jsonEncodeStr(ML::format("Exception opening script: %s", exc.what())),
-                          "application/json");
+            conn.sendResponse(
+                400,
+                jsonEncodeStr(MLDB::format("Exception opening script: %s", exc.what())),
+                "application/json");
         }
 
         bool isChild = request.header.headers.find("__mldb_child_call") != request.header.headers.end();
         PythonSubinterpreter pyControl(isChild);
-        auto result = runPythonScript(titl, PackageElement::MAIN, pyControl);
+        auto result = runPythonScript(scriptCtx,
+                                      PackageElement::MAIN,
+                                      pyControl);
         conn.sendResponse(result.exception ? 400 : 200,
                           jsonEncodeStr(result), "application/json");
 
@@ -386,51 +524,52 @@ handleTypeRoute(RestDirectory * server,
 
 ScriptOutput
 PythonPlugin::
-runPythonScript(std::shared_ptr<PythonContext> titl, 
+runPythonScript(std::shared_ptr<PythonContext> pyCtx,
         PackageElement elementToRun,
         PythonSubinterpreter & pyControl)
 {
     RestRequest request;
     RestRequestParsingContext context(request);
 
-    return runPythonScript(titl, elementToRun, request, context, pyControl);
+    return runPythonScript(pyCtx, elementToRun, request, context, pyControl);
 }
 
 ScriptOutput
 PythonPlugin::
-runPythonScript(std::shared_ptr<PythonContext> titl, 
-        PackageElement elementToRun,
-        const RestRequest & request,
-        RestRequestParsingContext & context,
-        PythonSubinterpreter & pyControl)
+runPythonScript(std::shared_ptr<PythonContext> pyCtx,
+                PackageElement elementToRun,
+                const RestRequest & request,
+                RestRequestParsingContext & context,
+                PythonSubinterpreter & pyControl)
 {
-    auto mldbPy = std::make_shared<MldbPythonContext>();
-    bool isScript = titl->pluginResource->scriptType == LoadedPluginResource::ScriptType::SCRIPT;
+    auto mldbPyCtx = std::make_shared<MldbPythonContext>();
+    bool isScript = pyCtx->pluginResource->scriptType == LoadedPluginResource::ScriptType::SCRIPT;
     if(isScript) {
-        mldbPy->setScript(static_pointer_cast<PythonScriptContext>(titl));
+        mldbPyCtx->setScript(static_pointer_cast<PythonScriptContext>(pyCtx));
     }
     else {
-        mldbPy->setPlugin(static_pointer_cast<PythonPluginContext>(titl));
+        mldbPyCtx->setPlugin(static_pointer_cast<PythonPluginContext>(pyCtx));
     }
 
-    Utf8String scriptSource = titl->pluginResource->getScript(elementToRun);
+    Utf8String scriptSource = pyCtx->pluginResource->getScript(elementToRun);
+    Utf8String scriptUri = pyCtx->pluginResource->getScriptUri(elementToRun);
 
     pyControl.acquireGil();
 
     try {
-        JML_TRACE_EXCEPTIONS(false);
-        pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
+        MLDB_TRACE_EXCEPTIONS(false);
+        pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPyCtx.get()));
         injectMldbWrapper(pyControl);
 
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "PyRunner init");
 
         {
-            std::unique_lock<std::mutex> guard(titl->logMutex);
-            LOG(titl->loader) << jsonEncode(pyexc) << endl;
+            std::unique_lock<std::mutex> guard(pyCtx->logMutex);
+            LOG(pyCtx->loader) << jsonEncode(pyexc) << endl;
         }
 
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
 
         ScriptOutput result;
 
@@ -440,7 +579,6 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     }
 
     ScriptOutput result;
-    auto scriptSourceStr = boost::python::str(scriptSource.rawString());
 
     auto pySetArgv = [] {
         char argv1[] = "mldb-boost-python";
@@ -452,19 +590,24 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     // if we're simply executing the body of the script
     try {
         if(elementToRun == PackageElement::MAIN) {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             pySetArgv();
             boost::python::object obj =
-                boost::python::exec(scriptSourceStr, pyControl.main_namespace);
+                pyExec(scriptSource,
+                       scriptUri,
+                       pyControl.main_namespace);
 
             getOutputFromPy(pyControl, result);
 
             if(isScript) {
-                auto ctitl = static_pointer_cast<PythonScriptContext>(titl);
-                result.result = ctitl->rtnVal;
-                result.setReturnCode(ctitl->rtnCode);
-                for (auto & l: ctitl->logs)
+                auto scriptCtx = static_pointer_cast<PythonScriptContext>(pyCtx);
+                result.result = scriptCtx->rtnVal;
+                // python scripts don't need to set a return code
+                result.setReturnCode(
+                    scriptCtx->getRtnCode() == 0 ? 200 : scriptCtx->getRtnCode());
+                for (auto & l: scriptCtx->logs) {
                     result.logs.emplace_back(std::move(l));
+                }
                 std::stable_sort(result.logs.begin(), result.logs.end());
             }
 
@@ -475,26 +618,30 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
 
             pySetArgv();
             boost::python::object obj
-                = boost::python::exec(scriptSourceStr, pyControl.main_namespace);
-
-            result.result = titl->rtnVal;
-            result.setReturnCode(titl->rtnCode);
+                = pyExec(scriptSource, scriptUri, pyControl.main_namespace);
+            if (pyCtx->getRtnCode() == 0) {
+                 throw HttpReturnException(
+                         500, "The route did not set a return code");
+            }
+            result.result = pyCtx->rtnVal;
+            result.setReturnCode(pyCtx->getRtnCode());
             return result;
         }
         else {
-            throw ML::Exception("Unknown element to run!!");
+            throw MLDB::Exception("Unknown element to run!!");
         }
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "Running PyRunner script");
 
         {
-            std::unique_lock<std::mutex> guard(titl->logMutex);
-            LOG(titl->loader) << jsonEncode(pyexc) << endl;
+            std::unique_lock<std::mutex> guard(pyCtx->logMutex);
+            LOG(pyCtx->loader) << jsonEncode(pyexc) << endl;
         }
 
         getOutputFromPy(pyControl, result);
         result.exception = std::make_shared<ScriptException>(std::move(pyexc));
         result.exception->context.push_back("Executing Python script");
+        result.setReturnCode(500);
         return result;
     };
 }
@@ -510,10 +657,6 @@ import unittest
 class mldb_wrapper(object):
 
     import json as jsonlib
-
-    @staticmethod
-    def wrap(mldb):
-        return Wrapped(mldb)
 
     class MldbBaseException(Exception):
         pass
@@ -558,6 +701,32 @@ class mldb_wrapper(object):
 
         def __str__(self):
             return self.text
+
+    class StepsLogger(object):
+
+        def __init__(self, mldb):
+            self.done_steps = set()
+            self.log = mldb.log
+
+        def log_progress_steps(self, progress_steps):
+            from datetime import datetime
+            from dateutil.tz import tzutc
+            from dateutil.parser import parse as parse_date
+            now = datetime.now(tzutc())
+            for step in progress_steps:
+                if 'ended' in step:
+                    if step['name'] in self.done_steps:
+                        continue
+                    self.done_steps.add(step['name'])
+                    ran_in = parse_date(step['ended']) - parse_date(step['started'])
+                    self.log("{} completed in {} seconds - {} {}"
+                            .format(step['name'], ran_in.total_seconds(),
+                                    step['type'], step['value']))
+                elif 'started' in step:
+                    running_since = now - parse_date(step['started'])
+                    self.log("{} running since {} seconds - {} {}"
+                            .format(step['name'], running_since.total_seconds(),
+                                    step['type'], step['value']))
 
     class wrap(object):
         def __init__(self, mldb):
@@ -636,8 +805,10 @@ class mldb_wrapper(object):
             return self._perform('DELETE', url, [], {}, [['async', 'true']])
 
         def query(self, query):
-            return self._perform('GET', '/v1/query', [['format', 'table']],
-                                 {'q' : query}).json()
+            return self._perform('GET', '/v1/query', [], {
+                'q' : query,
+                'format' : 'table'
+            }).json()
 
         def run_tests(self):
             import StringIO
@@ -660,6 +831,55 @@ class mldb_wrapper(object):
 
             if res.wasSuccessful():
                 self.script.set_return("success")
+
+        def post_run_and_track_procedure(self, payload, refresh_rate_sec=10):
+            import threading
+
+            if 'params' not in payload:
+                payload['params'] = {}
+            payload['params']['runOnCreation'] = False
+
+            res = self.post('/v1/procedures', payload).json()
+            proc_id = res['id']
+            event = threading.Event()
+
+            def monitor_progress():
+                # wrap everything in a try/except because exceptions are not passed to
+                # mldb.log by themselves.
+                try:
+                    # find run id
+                    run_id = None
+                    sl = mldb_wrapper.StepsLogger(self)
+                    while not event.wait(refresh_rate_sec):
+                        if run_id is None:
+                            res = self.get('/v1/procedures/{}/runs'.format(proc_id)).json()
+                            if res:
+                                run_id = res[0]
+                            else:
+                                continue
+
+                        res = self.get('/v1/procedures/{}/runs/{}'.format(proc_id, run_id)).json()
+                        if res['state'] == 'executing':
+                            sl.log_progress_steps(res['progress']['steps'])
+                        else:
+                            break
+
+                except Exception as e:
+                    self.log(str(e))
+                    import traceback
+                    self.log(traceback.format_exc())
+
+            t = threading.Thread(target=monitor_progress)
+            t.start()
+
+            try:
+                return self.post('/v1/procedures/{}/runs'.format(proc_id), {})
+            except mldb_wrapper.ResponseException as e:
+                return e.response
+            finally:
+                event.set()
+                t.join()
+
 
 
 class MldbUnitTest(unittest.TestCase):
@@ -826,39 +1046,41 @@ struct AtInit {
         from_python_converter< Utf8String,  Utf8StringPyConverter>();
         bp::to_python_converter< Utf8String, Utf8StringPyConverter>();
 
-        from_python_converter< RowName, StrConstructableIdFromPython<RowName> >();
-        from_python_converter< ColumnName, StrConstructableIdFromPython<ColumnName> >();
+        from_python_converter< RowPath, StrConstructableIdFromPython<RowPath> >();
+        from_python_converter< ColumnPath, StrConstructableIdFromPython<ColumnPath> >();
         from_python_converter< CellValue, CellValueConverter >();
 
         from_python_converter< RowCellTuple,
-                               Tuple3ElemConverter<ColumnName, CellValue, Date> >();
+                               Tuple3ElemConverter<ColumnPath, CellValue, Date> >();
 
         from_python_converter< std::vector<RowCellTuple>,
                                VectorConverter<RowCellTuple>>();
 
-        from_python_converter< std::pair<RowName, std::vector<RowCellTuple> >,
-                               PairConverter<RowName, std::vector<RowCellTuple> > >();
+        from_python_converter< std::pair<RowPath, std::vector<RowCellTuple> >,
+                               PairConverter<RowPath, std::vector<RowCellTuple> > >();
 
-        from_python_converter< std::vector<std::pair<RowName, std::vector<RowCellTuple> > >,
-                               VectorConverter<std::pair<RowName, std::vector<RowCellTuple> > > >();
+        from_python_converter< std::vector<std::pair<RowPath, std::vector<RowCellTuple> > >,
+                               VectorConverter<std::pair<RowPath, std::vector<RowCellTuple> > > >();
 
         from_python_converter< ColumnCellTuple,
-                               Tuple3ElemConverter<RowName, CellValue, Date> >();
+                               Tuple3ElemConverter<RowPath, CellValue, Date> >();
 
         from_python_converter< std::vector<ColumnCellTuple>,
                                VectorConverter<ColumnCellTuple>>();
 
-        from_python_converter< std::pair<ColumnName, std::vector<ColumnCellTuple> >,
-                               PairConverter<ColumnName, std::vector<ColumnCellTuple> > >();
+        from_python_converter< std::pair<ColumnPath, std::vector<ColumnCellTuple> >,
+                               PairConverter<ColumnPath, std::vector<ColumnCellTuple> > >();
 
-        from_python_converter< std::vector<std::pair<ColumnName, std::vector<ColumnCellTuple> > >,
-                               VectorConverter<std::pair<ColumnName, std::vector<ColumnCellTuple> > > >();
+        from_python_converter< std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > >,
+                               VectorConverter<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > >();
 
         from_python_converter<std::pair<string, string>,
                         PairConverter<string, string> >();
 
         bp::to_python_converter<std::pair<string, string>,
                         PairConverter<string, string> >();
+        
+        from_python_converter< Path, PathConverter>();
 
         from_python_converter< RestParams, RestParamsConverter>();
         bp::to_python_converter< RestParams, RestParamsConverter>();
@@ -949,12 +1171,15 @@ struct AtInit {
         mldb.add_property("script", &MldbPythonContext::getScript);
         mldb.add_property("plugin", &MldbPythonContext::getPlugin);
 
+        mldb.def("debugSetPathOptimizationLevel",
+                 &MldbPythonContext::setPathOptimizationLevel);
+
         /****
          *  Functions
          *  **/
 
-        bp::class_<Datacratic::Any, boost::noncopyable>("any", bp::no_init)
-               .def("as_json",   &Datacratic::Any::asJson)
+        bp::class_<MLDB::Any, boost::noncopyable>("any", bp::no_init)
+            .def("as_json",   &MLDB::Any::asJson)
             ;
 
         bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)
@@ -988,4 +1213,4 @@ struct AtInit {
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -24,7 +24,7 @@ var pluginConfig = {
             params: {
                 copy: [
                     {
-                        archive: 'docker://quay.io/datacratic/mldb_sample_plugin:latest',
+                        archive: 'docker://quay.io/mldb/mldb_sample_plugin:latest',
                         match: '.*',
                         dest: '/\0'
                     }
@@ -48,7 +48,7 @@ var pluginConfig = {
         startup: {
             type: 'experimental.docker',
             params: {
-                repo: 'quay.io/datacratic/mldb_sample_plugin:latest',
+                repo: 'quay.io/mldb/mldb_sample_plugin:latest',
                 sharedLibrary: 'build/plugin.so'
             }
         }

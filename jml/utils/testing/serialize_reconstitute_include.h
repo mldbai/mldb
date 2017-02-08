@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* serialize_reconstitute_include.h                                -*- C++ -*-
    Jeremy Barnes, 5 November 2009

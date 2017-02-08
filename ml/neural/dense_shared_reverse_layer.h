@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* dense_shared_reverse_layer.h                                    -*- C++ -*-
    Jeremy Barnes, 9 November 2009
@@ -185,7 +185,7 @@ private:
     static RegisterMe register_me;
 };
 
-JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Shared_ReverseLayer<Float>);
+MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Shared_ReverseLayer<Float>);
 
 
 extern template class Dense_Shared_Reverse_Layer<float>;

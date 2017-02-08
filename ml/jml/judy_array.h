@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* judy_array.h                                                    -*- C++ -*-
    Jeremy Barnes, 18 February 2005
@@ -443,7 +443,7 @@ struct judyl_base {
     {
         data_type * pvalue = jlg(key);
         if (pvalue) return *pvalue;
-        throw ML::Exception("value not present in array");
+        throw MLDB::Exception("value not present in array");
     }
 
     size_t memusage_() const
@@ -536,7 +536,7 @@ public:
 
     judyl_typed & operator = (const judyl_typed & other)
     {
-        if (&other == this) return;
+        if (&other == this) return *this;
         clear();
         insert(const_pair_iterator(other.begin()),
                const_pair_iterator(other.end()));
@@ -753,7 +753,7 @@ public:
 
     judyl_typed & operator = (const judyl_typed & other)
     {
-        if (&other == this) return;
+        if (&other == this) return *this;
         clear();
         insert(const_pair_iterator(other.begin()),
                const_pair_iterator(other.end()));

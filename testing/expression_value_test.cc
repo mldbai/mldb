@@ -1,6 +1,6 @@
 /** expression_value_test.cc
     Jeremy Barnes, 1 April 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
     Tests for the ExpressionValue class.
 */
@@ -18,9 +18,10 @@
 #include <boost/test/unit_test.hpp>
 
 
+
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_size )
 {
@@ -37,19 +38,19 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_row )
         
     ExpressionValue val2(row);
 
-    ColumnName cols[2] = { PathElement("a"), PathElement("b") };
+    ColumnPath cols[2] = { PathElement("a"), PathElement("b") };
 
     auto dist = val2.getEmbedding(cols, 2);
 
-    ML::distribution<double> expected{1, 2};
+    distribution<double> expected{1, 2};
 
     BOOST_CHECK_EQUAL(dist, expected);
 
-    ColumnName cols2[2] = { PathElement("b"), PathElement("a") };
+    ColumnPath cols2[2] = { PathElement("b"), PathElement("a") };
 
     dist = val2.getEmbedding(cols2, 2);
 
-    ML::distribution<double> expected2{2, 1};
+    distribution<double> expected2{2, 1};
 
     BOOST_CHECK_EQUAL(dist, expected2);
 }
@@ -107,7 +108,7 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_double_val )
         "[["
         "[\"a\",[ 1, \"1970-01-01T00:00:00Z\" ]	],"
         "[\"b\",[ 2, \"1970-01-01T00:00:00Z\" ]	],"
-        "[\"c\",[[[\"\", [ 6, \"1970-01-01T00:00:00Z\" ]],"
+        "[\"c\",[[[null, [ 6, \"1970-01-01T00:00:00Z\" ]],"
         "         [\"a\",[ 3, \"1970-01-01T00:00:00Z\" ]],"
         "         [\"b\",[ 4, \"1970-01-01T00:00:00Z\" ]]],"
         "         \"1970-01-01T00:00:00Z\"]],"
@@ -399,9 +400,9 @@ BOOST_AUTO_TEST_CASE( test_get_filtered_superposition )
     BOOST_CHECK_EQUAL(makeAndFilter(GET_ANY_ONE).getAtom(),
                       1);
     string expected =
-        "[[['',[ 1, '1970-01-01T00:00:00Z' ]],"
-        "  ['',[ 2, '1970-01-01T00:00:01Z' ]],"
-	"  ['',[ 3, '1970-01-01T00:00:02Z' ]]],"
+        "[[[null,[ 1, '1970-01-01T00:00:00Z' ]],"
+        "  [null,[ 2, '1970-01-01T00:00:01Z' ]],"
+	"  [null,[ 3, '1970-01-01T00:00:02Z' ]]],"
         "'1970-01-01T00:00:02Z']";
 
     BOOST_CHECK_EQUAL(jsonEncode(makeAndFilter(GET_ALL)),
@@ -456,9 +457,9 @@ BOOST_AUTO_TEST_CASE( test_get_filtered_nested )
                       "{\"a\":1}");
 
     string expected =
-        "[[['a', [[['',[ 1, '1970-01-01T00:00:00Z' ]],"
-        "          ['',[ 2, '1970-01-01T00:00:01Z' ]],"
-	"          ['',[ 3, '1970-01-01T00:00:02Z' ]]],"
+        "[[['a', [[[null,[ 1, '1970-01-01T00:00:00Z' ]],"
+        "          [null,[ 2, '1970-01-01T00:00:01Z' ]],"
+	"          [null,[ 3, '1970-01-01T00:00:02Z' ]]],"
         "        '1970-01-01T00:00:02Z']]],"
         " '1970-01-01T00:00:02Z']";
 
@@ -490,7 +491,7 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_atom )
 
     {
         /// Test that extracting from an atom throws as it's not an embedding
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(val.getEmbedding(nullptr, 0), HttpReturnException);
     }
 }
@@ -504,8 +505,8 @@ BOOST_AUTO_TEST_CASE( test_superposition_with_search_row )
     row.emplace_back(PathElement("a"), 2, ts.plusSeconds(1));
 
     string expected =
-        "[[[ 'a', [[['',[ 1, '1970-01-01T00:00:00Z']], "
-        "         ['', [ 2, '1970-01-01T00:00:01Z' ]]], "
+        "[[[ 'a', [[[null,[ 1, '1970-01-01T00:00:00Z']], "
+        "         [null, [ 2, '1970-01-01T00:00:01Z' ]]], "
         "         '1970-01-01T00:00:01Z']]], "
         "'1970-01-01T00:00:01Z']";
 
@@ -518,8 +519,8 @@ BOOST_AUTO_TEST_CASE( test_superposition_with_search_row )
 
     searchRow(row, PathElement("a"), GET_ALL, found);
     BOOST_CHECK(found.isSuperposition() && found.isRow() && !found.isAtom());
-    expected = " [[['',[ 1, '1970-01-01T00:00:00Z']], "
-        "         ['', [ 2, '1970-01-01T00:00:01Z' ]]], "
+    expected = " [[[null,[ 1, '1970-01-01T00:00:00Z']], "
+        "         [null, [ 2, '1970-01-01T00:00:01Z' ]]], "
         "         '1970-01-01T00:00:01Z']]";
     BOOST_CHECK_EQUAL(jsonEncode(found), Json::parse(expected));
 
@@ -534,3 +535,16 @@ BOOST_AUTO_TEST_CASE( test_superposition_with_search_row )
     BOOST_CHECK_EQUAL(jsonEncode(found), Json::parse(expected));
 }
 
+BOOST_AUTO_TEST_CASE( test_embedding_length )
+{
+    std::vector<float> values = {1,2,3,4};
+    Date ts;
+    DimsVector shape = {2,2};
+
+    ExpressionValue myValue(values,
+                            ts,
+                            shape);
+
+    BOOST_CHECK_EQUAL(myValue.rowLength(), 2);
+    BOOST_CHECK_EQUAL(myValue.getAtomCount(), 4);
+}

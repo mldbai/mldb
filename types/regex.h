@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** regex.h                                                        -*- C++ -*-
     UTF-8 aware regex class, wrapping the functionality available
     elsewhere.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -13,7 +12,7 @@
 #include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -130,8 +129,15 @@ struct Regex {
 
     int flags() const;
 
+    /** Is this initialized? */
+    bool initialized() const { return !!impl; }
+
     /** Return the surface form that was used to build this regex. */
     const Utf8String & surface() const;
+
+    bool operator == (const Regex & other) const;
+    bool operator != (const Regex & other) const;
+    bool operator < (const Regex & other) const;
 
     /** Default match results type. */
     typedef std::match_results<Utf8String::const_iterator> match_results;
@@ -181,4 +187,4 @@ bool regex_match(const Utf8String & str,
                  std::regex_constants::match_flag_type flags
                      = std::regex_constants::match_default);
 
-} // namespace Datacratic
+} // namespace MLDB

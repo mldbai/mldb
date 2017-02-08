@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* demangle.cc
    Jeremy Barnes, 17 March 2005
@@ -21,7 +21,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 char * char_demangle(const char * name)
 {
@@ -55,5 +55,5 @@ std::string demangle(const std::type_info & type)
     return demangle(type.name());
 }
 
-} // namespace ML
+} // namespace MLDB
 

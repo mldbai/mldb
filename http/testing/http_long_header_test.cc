@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_long_header_test.cc
    Jeremy Barnes, 31 January 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 
    Test that we can't crash the server sending long headers.
 */
@@ -17,14 +17,14 @@
 #include <sys/socket.h>
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"
 #include <poll.h>
 #include <arpa/inet.h>
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_accept_speed )
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE( test_accept_speed )
 
             bytesDone += data.size();
             if (bytesDone > 1000000)
-                throw ML::Exception("allowed infinite headers");
+                throw MLDB::Exception("allowed infinite headers");
             HttpConnectionHandler::handleData(data);
         }
 
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE( test_accept_speed )
         if (res > 0)
             written += res;
         else if (res == 0)
-            throw ML::Exception("nothing written");
+            throw MLDB::Exception("nothing written");
         else {
             writeError = errno;
             cerr << strerror(errno) << endl;

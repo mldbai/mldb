@@ -1,4 +1,5 @@
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# -*- coding: utf-8 -*-
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 import unittest
 

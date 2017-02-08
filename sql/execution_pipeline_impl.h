@@ -1,16 +1,18 @@
 /** execution_pipeline_impl.h                                      -*- C++ -*-
     Jeremy Barnes, 27 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
 
 #include "execution_pipeline.h"
 #include "join_utils.h"
+#include "mldb/utils/log_fwd.h"
+#include <list>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -36,10 +38,11 @@ struct TableLexicalScope: public LexicalScope {
     static constexpr int ROW_CONTENTS = 1;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -146,15 +149,23 @@ struct SubSelectLexicalScope: public TableLexicalScope {
     std::shared_ptr<ExpressionValueInfo> selectInfo;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOffset);
+    doGetAllColumns(const Utf8String & tableName,
+                    const ColumnFilter& keep,
+                    int fieldOffset);
 
     virtual std::set<Utf8String> tableNames() const;
 
     virtual std::vector<std::shared_ptr<ExpressionValueInfo> >
     outputAdded() const;
+
+    virtual BoundFunction
+    doGetFunction(const Utf8String & functionName,
+              const std::vector<BoundSqlExpression> & args,
+              int fieldOffset,
+              SqlBindingScope & argScope);
 };
 
 /*****************************************************************************/
@@ -254,13 +265,14 @@ struct JoinLexicalScope: public LexicalScope {
 
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     /** For a join, we can select over the columns for either one or the
         other.
     */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -327,14 +339,44 @@ struct JoinElement: public PipelineElement {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
                           std::shared_ptr<ElementExecutor> left,
-                          std::shared_ptr<ElementExecutor> right);
+                          std::shared_ptr<ElementExecutor> right,
+                          size_t leftAdded,
+                          size_t rightAdded);
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
+
+        bool wasOutput;
         
-        std::shared_ptr<PipelineResults> l,r;
+        std::shared_ptr<PipelineResults> l,r;     
+
+        const size_t leftAdded, rightAdded;   
             
         virtual std::shared_ptr<PipelineResults> take();
+
+        void restart();
+    };
+
+    struct FullCrossJoinExecutor: public ElementExecutor {
+        FullCrossJoinExecutor(const Bound * parent,
+                          std::shared_ptr<ElementExecutor> root,
+                          std::shared_ptr<ElementExecutor> left,
+                          std::shared_ptr<ElementExecutor> right,
+                          size_t leftAdded,
+                          size_t rightAdded);
+
+        const Bound * parent;
+        std::shared_ptr<ElementExecutor> root, left, right;
+        virtual std::shared_ptr<PipelineResults> take();
+
+        std::shared_ptr<PipelineResults> r;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, bool > > bufferType;
+        bufferType bufferedLeftValues;
+        bufferType::iterator l;
+        bool firstSpin;
+        bool rightRowWasOutputted;
+       
+        const size_t leftAdded, rightAdded;
 
         void restart();
     };
@@ -352,15 +394,31 @@ struct JoinElement: public PipelineElement {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
                          std::shared_ptr<ElementExecutor> left,
-                         std::shared_ptr<ElementExecutor> right);
+                         std::shared_ptr<ElementExecutor> right,
+                         size_t leftAdded,
+                         size_t rightAdded);
 
         const Bound * parent;
         std::shared_ptr<ElementExecutor> root, left, right;
         
-        std::shared_ptr<PipelineResults> l,r;
+        std::shared_ptr<PipelineResults> r;
+        typedef std::list<std::pair<std::shared_ptr<PipelineResults>, bool > > bufferType;
+        bufferType bufferedLeftValues;
+        /** Note that the left-side values are buffered so that we can
+            backtrack when we need to form the cross product on matching 
+            values.
+        */
+        bufferType::iterator l, firstDuplicate;
+        /** True if we have already seen this left row, ie, if we have rewinded 
+            the left side. */
+        ExpressionValue lastLeftValue;
 
-        void takeMoreInput();
-            
+        bool wasOutput;
+
+        std::shared_ptr<spdlog::logger> logger;
+
+        const size_t leftAdded, rightAdded;
+    
         virtual std::shared_ptr<PipelineResults> take();
 
         virtual void restart();
@@ -661,15 +719,17 @@ struct OrderByElement: public PipelineElement {
 
 struct AggregateLexicalScope: public LexicalScope {
 
-    AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner);
+    AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, int numValues);
 
     std::shared_ptr<PipelineExpressionScope> inner;
+    int numValues_;
 
     virtual ColumnGetter
-    doGetColumn(const ColumnName & columnName, int fieldOffset);
+    doGetColumn(const ColumnPath & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+    doGetAllColumns(const Utf8String & tableName,
+                    const ColumnFilter& keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -795,4 +855,4 @@ struct ParamsElement: public PipelineElement {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

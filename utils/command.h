@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* command.h                                                       -*- C++ -*-
    Jeremy Barnes, 29 August 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Command.  The base thing that we run as a job.
 */
@@ -16,13 +16,13 @@
 #include <memory>
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/types/periodic_utils.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/any.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -158,4 +158,4 @@ struct CommandStatus {
 
 DECLARE_STRUCTURE_DESCRIPTION(CommandStatus);
 
-} // namespace Datacratic
+} // namespace MLDB

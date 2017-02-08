@@ -1,9 +1,9 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #
 # mldb_recordrow_test.py
 # Francois Maillet, 2015-03-17
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+# Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 #
 
 import unittest
@@ -48,8 +48,8 @@ mldb.log("Commited!!")
         print response
 
 
-    def test_dataset_biggerThan2(self):
-        response = requests.get(self.url+"/datasets/testing_types/query?select=*&where=x>2")
+    def test_dataset_biggerThan2(self):        
+        response = requests.get(self.url+"/query?q=select * from testing_types where x>2")
         rez = response.json()
         print rez
         self.assertEqual(response.status_code, 200)
@@ -58,7 +58,7 @@ mldb.log("Commited!!")
         self.assertEqual(rez[1]["rowName"], "id_2")
     
     def test_dataset_biggerEq2dot5(self):
-        response = requests.get(self.url+"/datasets/testing_types/query?select=*&where=x='2.5'")
+        response = requests.get(self.url+"/query?q=select * from testing_types where x='2.5'")
         rez = response.json()
         print rez
         self.assertEqual(response.status_code, 200)
@@ -66,7 +66,7 @@ mldb.log("Commited!!")
         self.assertEqual(rez[0]["rowName"], "id_3")
     
     def test_dataset_biggerSmaller2(self):
-        response = requests.get(self.url+"/datasets/testing_types/query?select=*&where=x<2")
+        response = requests.get(self.url+"/query?q=select * from testing_types where x<2")
         rez = response.json()
         print rez
         self.assertEqual(response.status_code, 200)

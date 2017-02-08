@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** forwarded_dataset.cc                                           -*- C++ -*-
     Jeremy Barnes, 6 October 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of forwarded dataset.
 */
@@ -10,7 +10,7 @@
 #include "forwarded_dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -65,8 +65,8 @@ getStatus() const
 
 void
 ForwardedDataset::
-recordRowItl(const RowName & rowName,
-             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+recordRowItl(const RowPath & rowName,
+             const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     ExcAssert(underlying);
     underlying->recordRowItl(rowName, vals);
@@ -74,7 +74,7 @@ recordRowItl(const RowName & rowName,
 
 void
 ForwardedDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     ExcAssert(underlying);
     underlying->recordRows(rows);
@@ -82,8 +82,8 @@ recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnNam
 
 void
 ForwardedDataset::
-recordColumn(const ColumnName & columnName,
-             const std::vector<std::tuple<RowName, CellValue, Date> > & vals)
+recordColumn(const ColumnPath & columnName,
+             const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
 {
     ExcAssert(underlying);
     underlying->recordColumn(columnName, vals);
@@ -91,7 +91,7 @@ recordColumn(const ColumnName & columnName,
     
 void
 ForwardedDataset::
-recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols)
+recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
 {
     ExcAssert(underlying);
     underlying->recordColumns(cols);
@@ -99,7 +99,7 @@ recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<Row
 
 KnownColumn
 ForwardedDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     ExcAssert(underlying);
     return underlying->getKnownColumnInfo(columnName);
@@ -128,8 +128,8 @@ queryStructured(const SelectExpression & select,
                 const SqlExpression & where,
                 const OrderByExpression & orderBy,
                 const TupleExpression & groupBy,
-                const SqlExpression & having,
-                const SqlExpression & rowName,
+                const std::shared_ptr<SqlExpression> having,
+                const std::shared_ptr<SqlExpression> rowName,
                 ssize_t offset,
                 ssize_t limit,
                 Utf8String alias) const
@@ -156,12 +156,12 @@ selectExplainString(const Utf8String & select,
     return underlying->selectExplainString(select, where);
 }
 
-std::vector<ColumnName>
+std::vector<ColumnPath>
 ForwardedDataset::
-getColumnNames(ssize_t offset, ssize_t limit) const
+getColumnPaths(ssize_t offset, ssize_t limit) const
 {
     ExcAssert(underlying);
-    return underlying->getColumnNames(offset, limit);
+    return underlying->getColumnPaths(offset, limit);
 }
 
 BoundFunction
@@ -259,4 +259,4 @@ getRowStream() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

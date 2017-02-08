@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** basic_value_descriptions.cc
 
@@ -7,7 +7,7 @@
 
 #include "basic_value_descriptions.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct StringDescription
@@ -278,5 +278,5 @@ DEFINE_VALUE_DESCRIPTION(Json::Value, JsonValueDescription);
 DEFINE_VALUE_DESCRIPTION(bool, BoolDescription);
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

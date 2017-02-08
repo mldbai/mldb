@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* service_peer_test.cc
    Jeremy Barnes, 4 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "temporary_etcd_server.h"
 #include "mldb/rest/service_peer.h"
 #include "mldb/rest/etcd_client.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/rest/rest_request_router.h"
 #include <boost/algorithm/string.hpp>
@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 // Checks that a second ServicePeer with the same name as another can't start up
@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE( test_name_clash_leads_to_error )
     peer2->init(PortRange(15000, 16000), "127.0.0.1");
     cerr << "----------- peers is now starting" << endl;
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(peer2->start(), std::exception);
     }
 

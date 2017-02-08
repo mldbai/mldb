@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** static_content_handler.h                                       -*- C++ -*-
     Jeremy Barnes, 5 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of the static content handler for MLDB, including
     things like Markdown conversion.
@@ -11,7 +11,7 @@
 #include <string>
 #include "mldb/rest/rest_request_router.h"
 
-namespace Datacratic {
+
 
 struct RestRequestRouter;
 
@@ -35,5 +35,5 @@ void serveDocumentationDirectory(RestRequestRouter & parent,
                                  bool hideInternalEntities = false);
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

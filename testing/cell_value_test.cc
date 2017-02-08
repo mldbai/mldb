@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* cell_value_test.cc                                              -*- C++ -*-
    Jeremy Barnes, 24 December 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test of cell values.
 */
@@ -16,11 +16,12 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
+#include <climits>
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_size )
 {
@@ -40,10 +41,10 @@ BOOST_AUTO_TEST_CASE( test_basics )
     //BOOST_CHECK_NO_THROW(CellValue(L"Crédit Agricole Suisse Open Gstaad").cellType());
     //BOOST_CHECK_NO_THROW(CellValue(L"Mutua Madrileña Madrid Open").cellType());
     {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(CellValue(std::string("Crédit Agricole Suisse Open Gstaad")).cellType(), ML::Exception);
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(CellValue(std::string("Crédit Agricole Suisse Open Gstaad")).cellType(), MLDB::Exception);
         BOOST_CHECK_THROW(CellValue(std::string("Mutua Madrileña Madrid Open")).cellType(),
-                          ML::Exception);
+                          MLDB::Exception);
     }
     BOOST_CHECK_EQUAL(CellValue(Utf8String("Crédit Agricole Suisse Open Gstaad")).cellType(), CellValue::UTF8_STRING);
     BOOST_CHECK_EQUAL(CellValue(Utf8String("Mutua Madrileña Madrid Open")).cellType(), CellValue::UTF8_STRING);
@@ -134,9 +135,9 @@ BOOST_AUTO_TEST_CASE( test_64_bit_range )
     BOOST_CHECK_EQUAL(CellValue(std::numeric_limits<uint64_t>::max()).toUInt(),
                       std::numeric_limits<uint64_t>::max());
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         auto v = [&] () { return CellValue(std::numeric_limits<uint64_t>::max()).toInt(); };
-        BOOST_CHECK_THROW(v(), ML::Exception);
+        BOOST_CHECK_THROW(v(), MLDB::Exception);
     }
 }
 
@@ -153,7 +154,7 @@ BOOST_AUTO_TEST_CASE( test_date )
 
     Date now(Date::now());
     CellValue ts1(now);
-    cerr << "ts1.toString() = " << ts1.toString() << endl;
+
     BOOST_CHECK_EQUAL(CellValue(ts1.toString()).coerceToTimestamp(),
                       ts1);
 
@@ -233,7 +234,44 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
                                   STRING_IS_VALID_ASCII);
 
     BOOST_CHECK_EQUAL(cell2.cellType(), CellValue::FLOAT);
+
     BOOST_CHECK_EQUAL(cell1, cell2);
+
+    constexpr const char * veryLongFloat = 
+        "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000023942190";
+
+    auto cell3 = CellValue::parse(veryLongFloat, 
+                                  strlen(veryLongFloat),
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell3.cellType(), CellValue::FLOAT);
+
+    constexpr const char * veryVeryLongFloat = 
+        "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "00000000000023942190";
+
+    auto cell4 = CellValue::parse(veryVeryLongFloat, 
+                                  strlen(veryVeryLongFloat),
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell4.cellType(), CellValue::FLOAT);
+
+    constexpr const char * veryVeryVeryLongFloat = 
+        "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "23942190";
+
+    auto cell5 = CellValue::parse(veryVeryVeryLongFloat, 
+                                  strlen(veryVeryVeryLongFloat),
+                                  STRING_IS_VALID_ASCII);
+
+    // the value is rounded to 0
+    BOOST_CHECK_EQUAL(cell5.cellType(), CellValue::INTEGER);
 }
 
 BOOST_AUTO_TEST_CASE (test_realistic_int)
@@ -246,15 +284,32 @@ BOOST_AUTO_TEST_CASE (test_realistic_int)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
 
-    constexpr const char * realisticInt2 = "-38860246539115906123454634";
+    constexpr const char * smallerThanMinInt = "-38860246539115906123454634";
 
-    auto cell2 = CellValue::parse(realisticInt2, 
+    auto cell2 = CellValue::parse(smallerThanMinInt, 
                                   strlen(realisticInt1), // intended - must not read passed the length
                                   STRING_IS_VALID_ASCII);
 
     BOOST_CHECK_EQUAL(cell2.cellType(), CellValue::INTEGER);
     BOOST_CHECK_EQUAL(cell1, cell2);
+
+    constexpr const char * largerThanMaxInt = "+38860246539115906123454634";
+
+    auto cell3 = CellValue::parse(largerThanMaxInt, 
+                                  strlen(largerThanMaxInt),
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell3.cellType(), CellValue::INTEGER);
+    BOOST_CHECK_EQUAL(cell3.toInt(), LLONG_MAX);
+
+    auto cell4 = CellValue::parse(smallerThanMinInt, 
+                                  strlen(smallerThanMinInt),
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell4.cellType(), CellValue::INTEGER);
+    BOOST_CHECK_EQUAL(cell4.toInt(), LLONG_MIN);
 }
+
 
 BOOST_AUTO_TEST_CASE (test_realistic_uint)
 {

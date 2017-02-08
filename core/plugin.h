@@ -1,8 +1,8 @@
 /** plugin.h                                                       -*- C++ -*-
     Jeremy Barnes, 4 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Interface for plugins into MLDB.
 */
@@ -17,7 +17,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 struct RestRequest;
 struct RestConnection;
@@ -183,7 +183,10 @@ registerPluginType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
-             return new PluginT(PluginT::getOwner(server), config, onProgress);
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<PluginT>();
+             auto plugin = new PluginT(PluginT::getOwner(server), config, onProgress);
+             plugin->logger = std::move(logger); // noexcept
+             return plugin;
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
@@ -209,4 +212,4 @@ struct RegisterPluginType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

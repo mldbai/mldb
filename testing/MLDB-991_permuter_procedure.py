@@ -1,7 +1,7 @@
 #
 # MLDB-991_permuter_procedure.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import random, datetime
 
@@ -49,7 +49,6 @@ procedure_conf = {
                 "type": "glz",
                 "verbosity": 3,
                 "normalize": False,
-                "link": "linear",
                 "regularization": 'l2'
             },
             "bglz": {

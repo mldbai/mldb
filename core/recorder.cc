@@ -1,11 +1,11 @@
 /** recorder.cc
     Jeremy Barnes, 26 March 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 */
 
 #include "recorder.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -15,7 +15,7 @@ namespace MLDB {
 
 void
 Recorder::
-recordRowExprDestructive(RowName rowName,
+recordRowExprDestructive(RowPath rowName,
                          ExpressionValue expr)
 {
     recordRowExpr(rowName, expr);
@@ -23,22 +23,22 @@ recordRowExprDestructive(RowName rowName,
 
 void
 Recorder::
-recordRowDestructive(RowName rowName,
-                     std::vector<std::tuple<ColumnName, CellValue, Date> > vals)
+recordRowDestructive(RowPath rowName,
+                     std::vector<std::tuple<ColumnPath, CellValue, Date> > vals)
 {
     recordRow(rowName, vals);
 }
 
 void
 Recorder::
-recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows)
+recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows)
 {
     recordRows(rows);
 }
 
 void
 Recorder::
-recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows)
+recordRowsExprDestructive(std::vector<std::pair<RowPath, ExpressionValue > > rows)
 {
     recordRowsExpr(rows);
 }
@@ -49,15 +49,15 @@ finishedChunk()
 {
 }
 
-std::function<void (RowName rowName, Date timestamp,
+std::function<void (RowPath rowName, Date timestamp,
                     CellValue * vals, size_t numVals,
-                    std::vector<std::pair<ColumnName, CellValue> > extra)>
+                    std::vector<std::pair<ColumnPath, CellValue> > extra)>
 Recorder::
-specializeRecordTabular(const std::vector<ColumnName> & columnNames)
+specializeRecordTabular(const std::vector<ColumnPath> & columnNames)
 {
-    return [=] (RowName rowName, Date timestamp,
+    return [=] (RowPath rowName, Date timestamp,
                 CellValue * vals, size_t numVals,
-                std::vector<std::pair<ColumnName, CellValue> > extra)
+                std::vector<std::pair<ColumnPath, CellValue> > extra)
         {
             recordTabularImpl(std::move(rowName), timestamp,
                               vals, numVals, std::move(extra),
@@ -67,15 +67,15 @@ specializeRecordTabular(const std::vector<ColumnName> & columnNames)
 
 void
 Recorder::
-recordTabularImpl(RowName rowName,
+recordTabularImpl(RowPath rowName,
                   Date timestamp,
                   CellValue * vals,
                   size_t numVals,
-                  std::vector<std::pair<ColumnName, CellValue> > extra,
-                  const std::vector<ColumnName> & columnNames)
+                  std::vector<std::pair<ColumnPath, CellValue> > extra,
+                  const std::vector<ColumnPath> & columnNames)
 {
     ExcAssertEqual(columnNames.size(), numVals);
-    std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+    std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
     result.reserve(numVals + extra.size());
 
     for (unsigned i = 0;  i < columnNames.size();  ++i) {
@@ -90,4 +90,4 @@ recordTabularImpl(RowName rowName,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,8 +1,8 @@
 /** MLDB-1559-transform-method.cc
     Mathieu Marquis Bolduc, 12 April 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Test of sql expression transform method
 */
@@ -21,8 +21,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 #define CHECK_EQUAL_EXPR(val, expected) \
 BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
@@ -52,7 +52,7 @@ void TestExpression(const T& expression, int expected)
                 a = a->transform(onChild);
             }
 
-            return std::move(args);
+            return args;
         };
 
     expression.transform(onChild);

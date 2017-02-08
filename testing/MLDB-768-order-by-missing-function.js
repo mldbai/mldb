@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
@@ -38,7 +38,7 @@ function assertContains(str, val, msg)
         + str + "' does not contain '" + val + "'";
 }
 
-var resp = mldb.get("/v1/datasets/test/query", {select:"1", orderBy: 'hello()'});
+var resp = mldb.get("/v1/query", {q:"SELECT 1 from test order by hello()"});
 
 mldb.log(resp);
 

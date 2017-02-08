@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* prediction_accumulator.h                                         -*- C++ -*-
    Francois Maillet, May 5, 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 */
 
 #pragma once
@@ -14,9 +14,8 @@
 
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/separation_stats.h"
-#include "mldb/types/id.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct ClassStats {
     int count;
@@ -37,12 +36,12 @@ struct PredictionStats {
 class Prediction_Accumulator {
 public:
     // click, pred, uid, groupId
-    typedef std::tuple<int, float, Id, std::string> Prediction;
+    typedef std::tuple<int, float, Utf8String, std::string> Prediction;
 
 	Prediction_Accumulator();
 	Prediction_Accumulator(const std::string& loadFrom);
 
-	void addPrediction(bool click, float prediction, Id uid=Id(),
+	void addPrediction(bool click, float prediction, Utf8String uid=Utf8String(),
             const std::string & groupId="");
 	std::vector<Prediction> getPredictions();
 
@@ -79,7 +78,7 @@ protected:
 
     std::vector<Prediction> predictionsAccum;
 
-    std::map<Id, unsigned> uid_counts;
+    std::map<Utf8String, unsigned> uid_counts;
 
     bool groupsCalibrated;
     std::map<std::string, float> groupCalibration;
@@ -98,10 +97,10 @@ protected:
         std::vector<std::pair<float, float>> neg;
         std::vector<std::pair<float, float>> pos;
 
-        static ML::distribution<float> getDistFor(
+        static distribution<float> getDistFor(
                 const std::vector<std::pair<float, float>> & preds)
         {
-            ML::distribution<float> tp(preds.size());
+            distribution<float> tp(preds.size());
             for(int i=0; i<preds.size(); i++)
                 tp[i] = preds[i].first;
             return tp;
@@ -119,7 +118,7 @@ protected:
     void computeGroupCalibration(const std::string & calibrateToGroup,
             const std::pair<int, int> & calibrateCountsRef=std::make_pair(0,0));
 
-    float getUidWeight(const Id & uid, const std::string & groupId) const;
+    float getUidWeight(const Utf8String & uid, const std::string & groupId) const;
 
     PredsPerClass getSortedPreds(const std::string & calibrateToGroup="",
             const std::pair<int, int> & calibrateCountsRef=std::make_pair(0,0));
@@ -134,5 +133,5 @@ protected:
             const bucket_config& bC);
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

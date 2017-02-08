@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* semaphore.h                                                     -*- C++ -*-
    Jeremy Barnes, 7 September 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Implementation of a semaphore; nominally on top of the futex.
 */
@@ -23,13 +23,13 @@ struct Semaphore {
     Semaphore(int initialVal = 1)
     {
         if (sem_init(&val, 0, initialVal))
-            throw ML::Exception(errno, "sem_init");
+            throw MLDB::Exception(errno, "sem_init");
     }
 
     ~Semaphore()
     {
         if (sem_destroy(&val))
-            throw ML::Exception(errno, "sem_destroy");
+            throw MLDB::Exception(errno, "sem_destroy");
     }
 
     void acquire()
@@ -37,7 +37,7 @@ struct Semaphore {
         int res;
         while ((res = sem_wait(&val)) && errno == EINTR) ;
         if (res)
-            throw ML::Exception(errno, "sem_wait");
+            throw MLDB::Exception(errno, "sem_wait");
     }
 
     int acquire(double secondsToWait)
@@ -48,7 +48,7 @@ struct Semaphore {
         struct timespec ts = { seconds, nanoseconds };
         while ((res = sem_timedwait(&val, &ts)) && errno == EINTR) ;
         if (res && errno != ETIMEDOUT)
-            throw ML::Exception(errno, "sem_timedwait");
+            throw MLDB::Exception(errno, "sem_timedwait");
         return res;
     }
 
@@ -60,7 +60,7 @@ struct Semaphore {
         if (res && (errno == EAGAIN))
             return -1;
         if (res)
-            throw ML::Exception(errno, "sem_trywait");
+            throw MLDB::Exception(errno, "sem_trywait");
 
         return 0;
     }
@@ -70,7 +70,7 @@ struct Semaphore {
         int res;
         while ((res = sem_post(&val)) && errno == EINTR) ;
         if (res)
-            throw ML::Exception(errno, "sem_post");
+            throw MLDB::Exception(errno, "sem_post");
     }
 };
 

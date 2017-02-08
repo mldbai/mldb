@@ -1,6 +1,6 @@
 /** experiment_procedure.cc
     Francois Maillet, 8 septembre 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Experiment procedure
 */
@@ -21,10 +21,11 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/sparse_matrix_dataset.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -139,18 +140,18 @@ ExperimentProcedureConfigDescription()
     addField("algorithm", &ExperimentProcedureConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
              "an entry in the configuration or configurationFile parameters. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.");
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.");
     addField("configuration", &ExperimentProcedureConfig::configuration,
              "Configuration object to use for the classifier.  Each one has "
              "its own parameters.  If none is passed, then the configuration "
              "will be loaded from the ConfigurationFile parameter. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.",
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              Json::Value());
     addField("configurationFile", &ExperimentProcedureConfig::configurationFile,
              "File to load configuration from.  This is a JSON file containing "
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.",
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              string("/opt/bin/classifiers.json"));
     addField("equalizationFactor", &ExperimentProcedureConfig::equalizationFactor,
               "Amount to adjust weights so that all classes have an equal "
@@ -159,7 +160,7 @@ ExperimentProcedureConfigDescription()
               "both positive and negative examples is exactly identical. "
               "A number between will choose a balanced tradeoff.  Typically 0.5 "
               "is a good number to use for unbalanced probabilities. "
-             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.", 0.5);
+              "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.", 0.5);
     addField("modelFileUrlPattern", &ExperimentProcedureConfig::modelFileUrlPattern,
              "URL where the model file (with extension '.cls') should be saved. It "
              "should include the string $runid that will be replaced by an identifier "
@@ -221,7 +222,7 @@ accumStats(const Json::Value & js, const string & path) {
             }
             else {
                 outputStatsAccum.insert(make_pair(currPath,
-                            ML::distribution<double>{js[key].asDouble()}));
+                            distribution<double>{js[key].asDouble()}));
             }
         }
     }
@@ -250,7 +251,7 @@ generateStatistics(const Json::Value & js,
         else if(js[key].isNumeric()) {
             auto it = outputStatsAccum.find(currPath);
             if(it == outputStatsAccum.end()) {
-                throw ML::Exception("Unable to find statistics '"+currPath+"' in results map");
+                throw MLDB::Exception("Unable to find statistics '"+currPath+"' in results map");
             }
 
             Json::Value stats;
@@ -316,16 +317,16 @@ run(const ProcedureRunConfig & run,
     Json::Value test_eval_results(Json::ValueType::arrayValue);
 
     if(!runProcConf.inputData.stm) {
-        throw ML::Exception("Training data must be specified.");
+        throw MLDB::Exception("Training data must be specified.");
     }
 
     // validation
     if(runProcConf.datasetFolds.size() > 0 && runProcConf.kfold != 0) {
-        throw ML::Exception("The datasetFolds and kfold parameters "
+        throw MLDB::Exception("The datasetFolds and kfold parameters "
                 "cannot be specified at the same time.");
     }
     else if(runProcConf.kfold == 1) {
-        throw ML::Exception("When using the kfold parameter, it must be >= 2.");
+        throw MLDB::Exception("When using the kfold parameter, it must be >= 2.");
     }
 
     // default behaviour if nothing is defined
@@ -348,7 +349,7 @@ run(const ProcedureRunConfig & run,
     // generate dataset_splits if using the kfold helper parameter
     if(runProcConf.kfold >= 2) {
         if(runProcConf.testingDataOverride) {
-            throw ML::Exception("Should not use a k-fold cross-validation if testing "
+            throw MLDB::Exception("Should not use a k-fold cross-validation if testing "
                 "dataset is specified.");
         }
 
@@ -356,8 +357,8 @@ run(const ProcedureRunConfig & run,
             //train and test
             runProcConf.datasetFolds.push_back(
                 DatasetFoldConfig(
-                    SqlExpression::parse(ML::format("rowHash() %% %d != %d", runProcConf.kfold, k)),
-                    SqlExpression::parse(ML::format("rowHash() %% %d = %d",  runProcConf.kfold, k))));
+                    SqlExpression::parse(MLDB::format("rowHash() %% %d != %d", runProcConf.kfold, k)),
+                    SqlExpression::parse(MLDB::format("rowHash() %% %d = %d",  runProcConf.kfold, k))));
         }
     }
 
@@ -376,7 +377,7 @@ run(const ProcedureRunConfig & run,
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
         ML::replace_all(baseUrl, "$runid",
-                        ML::format("%s-%d", runProcConf.experimentName, (int)progress));
+                        MLDB::format("%s-%d", runProcConf.experimentName, (int)progress));
         clsProcConf.modelFileUrl = Url(baseUrl);
         clsProcConf.configuration = runProcConf.configuration;
         clsProcConf.configurationFile = runProcConf.configurationFile;
@@ -385,7 +386,7 @@ run(const ProcedureRunConfig & run,
         clsProcConf.mode = runProcConf.mode;
 
 
-        clsProcConf.functionName = ML::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
+        clsProcConf.functionName = MLDB::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
 
         if(progress == 0) {
             PolyConfig clsProcPC;
@@ -393,13 +394,13 @@ run(const ProcedureRunConfig & run,
             clsProcPC.type = "classifier.train";
             clsProcPC.params = jsonEncode(clsProcConf);
 
-            cerr << " >>>>> Creating training procedure" << endl;
+            INFO_MSG(logger) << " >>>>> Creating training procedure";
             clsProcedure = createProcedure(server, clsProcPC, onProgress2, true);
             resourcesToDelete.push_back("/v1/procedures/"+clsProcPC.id.utf8String());
         }
 
         if(!clsProcedure) {
-            throw ML::Exception("Was unable to create classifier.train procedure");
+            throw MLDB::Exception("Was unable to create classifier.train procedure");
         }
 
         // create run configuration
@@ -428,7 +429,7 @@ run(const ProcedureRunConfig & run,
             accuracyProcPC.type = "classifier.test";
             accuracyProcPC.params = accuracyConf;
 
-            cerr << " >>>>> Creating testing procedure" << endl;
+            INFO_MSG(logger) << " >>>>> Creating testing procedure";
             accuracyProc = createProcedure(server, accuracyProcPC, onProgress2, true);
 
             resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
@@ -440,7 +441,7 @@ run(const ProcedureRunConfig & run,
         if     (runProcConf.mode == CM_BOOLEAN ||
                 runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
         else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
-        else throw ML::Exception("Classifier mode %d not implemented", runProcConf.mode);
+        else throw MLDB::Exception("Classifier mode %d not implemented", runProcConf.mode);
 
 
         // this lambda actually runs the accuracy procedure for the given config
@@ -452,16 +453,16 @@ run(const ProcedureRunConfig & run,
             if (!weight)
                 weight = SqlRowExpression::parse("1.0 as weight");
 
-            auto score = SqlRowExpression::parse(ML::format(scoreExpr.c_str(),
+            auto score = SqlRowExpression::parse(MLDB::format(scoreExpr.c_str(),
                                                             clsProcConf.functionName.utf8String(),
                                                             features->surface.utf8String()));
 
             accuracyConf.testingData.stm->select = SelectExpression({features, label, weight, score});
 
-            ML::Timer timer;
+            Timer timer;
 
             if(!accuracyProc)
-                throw ML::Exception("Was unable to create accuracy procedure");
+                throw MLDB::Exception("Was unable to create accuracy procedure");
 
             ProcedureRunConfig accuracyProcRunConf;
             accuracyProcRunConf.id = "run_"+to_string(progress);
@@ -470,7 +471,7 @@ run(const ProcedureRunConfig & run,
             RunOutput accuracyOutput = accuracyProc->run(accuracyProcRunConf, onProgress2);
             Date testFinish = Date::now();
 
-            cerr << "accuracy took " << timer.elapsed() << endl;
+            INFO_MSG(logger) << "accuracy took " << timer.elapsed();
 
             return make_tuple(accuracyOutput,
                               testFinish.secondsSinceEpoch() - testStart.secondsSinceEpoch());
@@ -486,7 +487,7 @@ run(const ProcedureRunConfig & run,
 
                 if(runProcConf.outputAccuracyDataset && onTestSet) {
                     PolyConfigT<Dataset> outputPC;
-                    outputPC.id = ML::format("%s_results_%d", runProcConf.experimentName, 
+                    outputPC.id = MLDB::format("%s_results_%d", runProcConf.experimentName, 
                                                               (int)progress);
                     outputPC.type = "tabular";
 
@@ -497,7 +498,7 @@ run(const ProcedureRunConfig & run,
                         server->handleRequest(connection, request);
 
                         if(connection.responseCode != 204) {
-                            throw ML::Exception("HTTP error "+std::to_string(connection.responseCode)+
+                            throw MLDB::Exception("HTTP error "+std::to_string(connection.responseCode)+
                                 " when trying to DELETE dataset '"+outputPC.id.utf8String()+"'");
                         }
                     }
@@ -551,6 +552,7 @@ run(const ProcedureRunConfig & run,
         Json::Value foldRez;
         foldRez["fold"] = jsonEncode(datasetFold);
         foldRez["modelFileUrl"] = clsProcConf.modelFileUrl.toUtf8String();
+        foldRez["functionName"] = clsProcConf.functionName;
 
         if(runProcConf.outputAccuracyDataset)
             foldRez["accuracyDataset"] = accuracyConfig.outputDataset->id;
@@ -578,7 +580,7 @@ run(const ProcedureRunConfig & run,
             RestRequest request("DELETE", resource, RestParams(), "{}");
             server->handleRequest(connection, request);
             if(connection.responseCode != 204) {
-                throw ML::Exception(ML::format("Unable to delete resource '%s'. "
+                throw MLDB::Exception(MLDB::format("Unable to delete resource '%s'. "
                             "Response code %d", resource, connection.responseCode));
             }
         }
@@ -606,4 +608,4 @@ regExpProc(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

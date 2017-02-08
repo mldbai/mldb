@@ -1,8 +1,8 @@
 /** structure_value_descriptions.h                                 -*- C++ -*-
     Jeremy Barnes, 21 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Value desriptions for structures.
 */
@@ -13,7 +13,7 @@
 #include "utility_descriptions.h"
 #include <cstring>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -80,7 +80,7 @@ struct StructureDescriptionBase {
 
     std::vector<Fields::const_iterator> orderedFields;
 
-    struct Exception: public ML::Exception {
+    struct Exception: public MLDB::Exception {
         Exception(JsonParsingContext & context,
                   const std::string & message);
         virtual ~Exception() throw ();
@@ -178,13 +178,13 @@ struct StructureDescription
         ExcAssert(description);
 
         if (fields.count(name.c_str()))
-            throw ML::Exception("field '" + name + "' added twice");
+            throw MLDB::Exception("field '" + name + "' added twice");
 
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
         
         auto it = fields.insert
-            (Fields::value_type(fieldName, std::move(FieldDescription())))
+            (Fields::value_type(fieldName, FieldDescription()))
             .first;
         
         FieldDescription & fd = it->second;
@@ -210,13 +210,13 @@ struct StructureDescription
                       = getDefaultDescriptionSharedT<V>())
     {
         if (fields.count(name.c_str()))
-            throw ML::Exception("field '" + name + "' added twice");
+            throw MLDB::Exception("field '" + name + "' added twice");
 
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
         
         auto it = fields.insert
-            (Fields::value_type(fieldName, std::move(FieldDescription())))
+            (Fields::value_type(fieldName, FieldDescription()))
             .first;
         
         auto desc = std::make_shared<Desc>(defaultValue, baseDesc);
@@ -229,6 +229,21 @@ struct StructureDescription
         fd.offset = (size_t)&(p->*field);
         fd.fieldNum = fields.size() - 1;
         orderedFields.push_back(it);
+    }
+
+    /** Add a description with an automatic default value derived
+        from the default constructor.
+    */
+    template<typename V, typename Base,
+             typename Desc = ValueDescriptionWithDefault<V> >
+    void addAuto(std::string name,
+                 V Base::* field,
+                 std::string comment,
+                 std::shared_ptr<const ValueDescriptionT<V> > baseDesc
+                     = getDefaultDescriptionSharedT<V>())
+    {
+        V defValue = Base() .* field;
+        addField(std::move(name), field, comment, defValue, baseDesc);
     }
 
     using ValueDescriptionT<Struct>::parents;
@@ -265,7 +280,7 @@ struct StructureDescription
         auto it = fields.find(field.c_str());
         if (it != fields.end())
             return it->second;
-        throw ML::Exception("structure has no field " + field);
+        throw MLDB::Exception("structure has no field " + field);
     }
 
     virtual void parseJson(void * val, JsonParsingContext & context) const
@@ -333,7 +348,7 @@ addParent(ValueDescriptionT<V> * description_)
         = dynamic_cast<StructureDescription<V> *>(description_);
     if (!desc2) {
         delete description_;
-        throw ML::Exception("parent description is not a structure");
+        throw MLDB::Exception("parent description is not a structure");
     }
 
     std::shared_ptr<StructureDescription<V> > description(desc2);
@@ -353,7 +368,7 @@ addParent(ValueDescriptionT<V> * description_)
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
 
-        auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
+        auto it = fields.insert(Fields::value_type(fieldName, FieldDescription())).first;
         FieldDescription & fd = it->second;
         fd.fieldName = fieldName;
         fd.comment = ofd.comment;
@@ -365,4 +380,4 @@ addParent(ValueDescriptionT<V> * description_)
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

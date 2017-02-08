@@ -1,8 +1,8 @@
 /** thread_pool_test.cc
     Jeremy Barnes, 18 December 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Test of the thread pool.
 */
@@ -23,7 +23,7 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 // MLDB-1579
 BOOST_AUTO_TEST_CASE (test_threads_disappearing_jobs_run)
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE (thread_pool_idle_cpu_usage)
     ThreadPool threadPool(32);
     // let it start up and settle down
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    ML::Timer timer;
+    Timer timer;
     std::this_thread::sleep_for(std::chrono::seconds(1));
     double elapsedCpu = timer.elapsed_cpu();
     double elapsedWall = timer.elapsed_wall();
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE (thread_pool_no_busy_looping)
     BOOST_CHECK_EQUAL(threadPool.jobsSubmitted(), 0);
     std::atomic<int> finished(0);
 
-    ML::Timer timer;
+    Timer timer;
 
     threadPool.add([&] () {std::this_thread::sleep_for(std::chrono::milliseconds(100)); finished = 1;});
  
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE(thread_pool_test)
     
     uint64_t numJobs = 1000000;
 
-    ML::Timer timer;
+    Timer timer;
 
     for (uint64_t i = 0;  i < numJobs;  ++i)
         pool.add(work);

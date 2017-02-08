@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** from_python_converter.h                                 -*- C++ -*-
     Rémi Attab, 13 Dec 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
     boost-python helper to convert python data types to C++ data types.
 
@@ -16,7 +16,8 @@
 
 #include <boost/python.hpp>
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 
@@ -74,6 +75,7 @@ struct from_python_converter
 
 
 } // namespace Python
-} // Datacratic
+
+} // namespace MLDB
 
 #endif // __python__from_python_converter_h__

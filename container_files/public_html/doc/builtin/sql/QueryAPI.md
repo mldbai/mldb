@@ -24,14 +24,16 @@ This endpoint accepts the following query-string parameters:
     rows are represented as arrays of 2-element [column, value] arrays instead
     of objects. 
       - All values for each cell are returned, without timestamps
+  - `atom`: a single atomic value, without the row name or the column name
+      - The query will fail if anything else than a single row / column is returned.
 - `headers`: boolean (default `true`), if `true` the table format will include a header.
 - `rowNames`: boolean (default `true`), if `true` an implicit column called `_rowName` will
    be added, containing the row name.
 - `rowHashes`: boolean (default `false`), if `true` an implicit column called
   `_rowHash` will be added. Forced to `true` when `format=full`.
 
-Note that instead of passing `q` in the query string, you can alternatively pass it in
-the body. This is useful whenever your query becomes too long to be put in the query string.
+Note that instead of passing the parameters in the query string, you can
+alternatively pass them in the body.
 
 ### Cell value representation
 

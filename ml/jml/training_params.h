@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* training_params.h                                               -*- C++ -*-
    Jeremy Barnes, 16 February 2005
@@ -76,7 +76,7 @@ struct Training_Params : public std::map<std::string, boost::any> {
     {
         std::map<std::string, boost::any>::const_iterator loc = find(key);
         if (loc == end())
-            throw ML::Exception("key \"" + key + "\" not found in "
+            throw MLDB::Exception("key \"" + key + "\" not found in "
                                     "context object");
         try {
             return boost::any_cast<Obj>(loc->second);

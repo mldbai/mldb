@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* MLDB-991_permutator_permutations 
    Francois Maillet, 17 septembre 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    Check that the permutator permutations are working
 */
@@ -19,7 +19,7 @@
 #include "plugins/permuter_procedure.h"
 
 using namespace std;
-using namespace Datacratic;
+
 using namespace MLDB;
 
 Json::Value parse(const string & js)
@@ -27,7 +27,7 @@ Json::Value parse(const string & js)
     Json::Value root;
     Json::Reader reader;
     if(!reader.parse(js, root))
-        throw ML::Exception("unable to parse");
+        throw MLDB::Exception("unable to parse");
     return root;
 }
 
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE( simple_permutation )
 
     set<string> keyVals;
     for(auto & conf : configs) {
-        keyVals.insert(ML::format("%d%s", conf["args"]["hoho"].asInt(),
+        keyVals.insert(MLDB::format("%d%s", conf["args"]["hoho"].asInt(),
                                           conf["args"]["bouya"].asString()));
     }
 
@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE( deeper_permutation )
     
     set<string> keyvals;
     for(auto & conf : configs) {
-        keyvals.insert(ML::format("%d%s%s%s", conf["args"]["hoho"].asInt(),
+        keyvals.insert(MLDB::format("%d%s%s%s", conf["args"]["hoho"].asInt(),
                                               conf["args"]["bouya"].asString(),
                                               conf["args"]["deep"]["learning"].asString(),
                                               conf["args"]["deep"]["deeper"]["cobb"].asString()));

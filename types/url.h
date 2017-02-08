@@ -1,9 +1,9 @@
 
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* url.h                                                           -*- C++ -*-
    Jeremy Barnes, 16 March 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    URL class.
 */
@@ -18,7 +18,7 @@
 
 class GURL;
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Url {
     Url();
@@ -32,6 +32,8 @@ struct Url {
 
     Utf8String toUtf8String() const;
     std::string toString() const;  // should be Utf8 by default
+    Utf8String toDecodedUtf8String() const;
+    std::string toDecodedString() const;
 
     const char * c_str() const;
 
@@ -56,6 +58,11 @@ struct Url {
     std::string original;
 
     static Utf8String decodeUri(Utf8String str);
+
+    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI
+    static Utf8String encodeUri(const Utf8String & str);
+    static std::string encodeUri(const std::string & str);
+    static std::string encodeUri(const char * str);
 };
 
 inline std::ostream & operator << (std::ostream & stream, const Url & url)
@@ -70,4 +77,4 @@ void setUrlDocumentationUri(const std::string & newUri);
 
 PREDECLARE_VALUE_DESCRIPTION(Url);
 
-} // namespace Datacratic
+} // namespace MLDB

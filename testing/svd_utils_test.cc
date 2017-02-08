@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* svd_utils_test.cc
    Jeremy Barnes, 18 November 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Test for SVD utilities
 */
@@ -22,21 +22,10 @@
 #include <cmath>
 
 using namespace std;
-using namespace Datacratic;
+
 using namespace ML;
 
-
-namespace Datacratic {
-
-int
-intersectionCount(const uint16_t * it1, const uint16_t * end1,
-                  const uint16_t * it2, const uint16_t * end2);
-
-int
-intersectionCount(const uint32_t * it1, const uint32_t * end1,
-                  const uint32_t * it2, const uint32_t * end2);
-
-} // namespace Datacratic
+using namespace MLDB;
 
 void testBucket(std::vector<uint32_t> subs1,
                 std::vector<uint32_t> subs2)

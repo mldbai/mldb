@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* graphite_connector.h                                            -*- C++ -*-
    Jeremy Barnes, 3 August 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Class to accumulate operational stats and connect to graphite (directly).
 */
@@ -15,9 +15,10 @@
 #include <unordered_map>
 #include <map>
 #include <deque>
+#include <atomic>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct StatReading {
@@ -75,8 +76,7 @@ struct CounterAggregator : public StatAggregator {
 
 private:
     Date start;    //< Date at which we last cleared the counter
-    double total;  //< total since we last added it up
-
+    std::atomic<double> total;  //< total since we last added it up
     std::deque<double> totalsBuffer; //< Totals for the last n reads.
 
 };
@@ -106,7 +106,7 @@ struct GaugeAggregator : public StatAggregator {
     virtual void record(float value);
 
     /** Obtain a the current statistics and replace with a new version. */
-    std::pair<ML::distribution<float> *, Date> reset();
+    std::pair<distribution<float> *, Date> reset();
 
     /** Read and reset the counter, providing output in Graphite's preferred
         format.
@@ -116,9 +116,9 @@ struct GaugeAggregator : public StatAggregator {
 private:
     Verbosity verbosity;
     Date start;  //< Date at which we last cleared the counter
-    ML::distribution<float> * volatile values;  //< List of added values
+    std::atomic<distribution<float> *> values;  //< List of added values
     std::vector<int> extra;
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

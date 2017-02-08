@@ -1,8 +1,8 @@
 /* tabular_dataset.h                                               -*- C++ -*-
    Jeremy Barnes, 6 November 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Tabular dataset: one timestamp per row, dense values, known columns.
 
@@ -14,7 +14,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -41,7 +41,7 @@ struct TabularDataset : public Dataset {
 
     TabularDataset(MldbServer * owner,
                    PolyConfig config,
-                   const std::function<bool (const Json::Value &)> & onProgress);
+                   const ProgressFunc & onProgress);
 
     virtual ~TabularDataset();
     
@@ -52,6 +52,8 @@ struct TabularDataset : public Dataset {
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
 
     virtual std::shared_ptr<RowStream> getRowStream() const;
+
+    virtual ExpressionValue getRowExpr(const RowPath & row) const;
     
     virtual std::pair<Date, Date> getTimestampRange() const;
 
@@ -62,16 +64,16 @@ struct TabularDataset : public Dataset {
                       ssize_t offset,
                       ssize_t limit) const;
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
 
     /** Commit changes to the database. */
     virtual void commit();
 
     virtual MultiChunkRecorder getChunkRecorder();
 
-    void recordRowItl(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    virtual void recordRowItl(const RowPath & rowName, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
 protected:
     // To initialize from a subclass
@@ -84,4 +86,4 @@ protected:
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

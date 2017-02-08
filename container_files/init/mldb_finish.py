@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Copyright Datacratic 2016
-# Author: Jean Raby <jean@datacratic.com>
+# Copyright mldb.ai inc 2016
+# Author: Jean Raby <jean@mldb.ai>
 
 # This script is called by runsv when the mldb service exits.
 # See http://smarden.org/runit/runsv.8.html for more details.
@@ -33,8 +33,26 @@ if len(sys.argv) == 3:
 
 print
 if sig == None:
-    print "MLDB exited, shutting down container."
-    os.kill(1, signal.SIGTERM)  # Tell init to terminate every process.
+    if exit_code == "0":
+        print "MLDB exited, shutting down container."
+        os.kill(1, signal.SIGTERM)  # Tell init to terminate every process.
+    else:
+        print "MLDB exited abnormally, aborting container."
+        # Aborting the container properly is tricky.
+        # The following tries to kill process in proper order so that my_init
+        # will exit with a non-zero exit code.
+
+        # 1. Kill runsvdir with SIGHUP so it exits with 111.
+        #    my_init will see this and start binging down all services and
+        #    eventually exit with exit code 111.
+        os.system("/usr/bin/pkill -HUP runsvdir")
+
+        # 2. Kill our parent runsv so it doesn't manage the service anymore
+        #    runsvdir should be dead/dying now, so it won't try to restart it.
+        os.kill(os.getppid(), signal.SIGKILL)
+
+        # 3. We can go now.
+        exit(1)
 else:
     msg = "MLDB exited due to signal %d" % (sig)
     if sig in sigmap:

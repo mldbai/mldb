@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* hex_dump.h                                                      -*- C++ -*-
    Jeremy Barnes, 6 October 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
 
    Routine to dump memory in hex format.
 */
@@ -21,10 +21,10 @@ void hex_dump(const void * mem, size_t total_memory, size_t max_size)
     const char * buffer = (const char *)mem;
 
     for (unsigned i = 0;  i < total_memory && i < max_size;  i += 16) {
-        cerr << format("%04x | ", i);
+        cerr << MLDB::format("%04x | ", i);
         for (unsigned j = i;  j < i + 16;  ++j) {
             if (j < total_memory)
-                cerr << format("%02x ", (int)*(unsigned char *)(buffer + j));
+                cerr << MLDB::format("%02x ", (int)*(unsigned char *)(buffer + j));
             else cerr << "   ";
         }
         

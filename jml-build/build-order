@@ -2,7 +2,7 @@
 #-------------------------------------------------------------- -*- python -*- #
 # buildorder
 # Remi Attab, 08 Nov 2012
-# Copyright (c) 2012 Datacratic.  All rights reserved.
+# Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 #
 # Checks the build ordering of the targets to make sure that a target doesn't
 # depend on something that doesn't exist.

@@ -1,20 +1,21 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* credential_provider.cc
    Jeremy Barnes, 5 November 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Basic functionality to get credentials.
 */
 
 #include "credential_provider.h"
 #include "mldb/types/optional.h"
+#include "mldb/base/exc_assert.h"
 #include <mutex>
 #include <iostream>
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* CREDENTIAL PROVIDER                                                       */
@@ -54,7 +55,6 @@ getCredential(const std::string & resourceType,
             auto creds = (*it)->getCredentialsOfType(resourceType);
             if (!creds.empty()) {
                 candidates.insert(candidates.end(), creds.begin(), creds.end());
-                cerr << "found candidates in " << creds[0].credential.provider << endl;
             }
         }
     }
@@ -75,7 +75,6 @@ getCredential(const std::string & resourceType,
         // better match on path
         if (!bestMatch || bestMatch->resource.find(storedCredential.resource)) {
             bestMatch.reset(new StoredCredentials(storedCredential));
-            cerr << "found matching with path " << storedCredential.resource << endl;
         }
     }
 
@@ -84,9 +83,9 @@ getCredential(const std::string & resourceType,
         return bestMatch->credential;
     }
 
-    throw ML::Exception("No credentials found for " + resourceType + " "
+    throw MLDB::Exception("No credentials found for " + resourceType + " "
                         + resource);
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

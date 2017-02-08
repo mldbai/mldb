@@ -1,8 +1,8 @@
 /** sql_utils.h                                                    -*- C++ -*-
     Jeremy Barnes, 30 November 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Utilities for SQL.
 */
@@ -10,8 +10,8 @@
 #pragma once
 
 #include "mldb/types/string.h"
+#include "regex_helper.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 struct Path;
@@ -19,9 +19,6 @@ struct Path;
 Utf8String escapeSql(const Utf8String & str);
 std::string escapeSql(const std::string & str);
 std::string escapeSql(const char * str);
-
-bool matchSqlFilter(const Utf8String& valueString,
-                    const Utf8String& filterString);
 
 /** For when we have a variable reference like "x.y" in table x, when
     passing the expression through the table we need to remove it from
@@ -32,5 +29,5 @@ Path removeTableName(const Utf8String & alias,
                        const Path & variableName);
 
 } // namespace MLDB
-} // namespace Datacratic
+
     

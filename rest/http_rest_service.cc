@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_rest_service.cc
    Jeremy Barnes, 11 November 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Endpoint to talk with a REST service.
 */
@@ -11,7 +11,7 @@
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/ext/cityhash/src/city.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/http/event_loop.h"
+#include "mldb/io/event_loop.h"
 #include "http_rest_endpoint.h"
 #include "http_rest_service.h"
 #include "mldb/utils/log.h"
@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* REST SERVICE ENDPOINT CONNECTION ID                                       */
@@ -30,7 +30,7 @@ HttpRestConnection::
 sendResponse(int responseCode, std::string response, std::string contentType)
 {
     if (responseSent_)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, response,
@@ -53,7 +53,7 @@ sendResponse(int responseCode,
     //     << endl;
 
     if (responseSent_)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, response.toString(),
@@ -72,7 +72,7 @@ sendErrorResponse(int responseCode, string error, string contentType)
     cerr << "sent error response " << responseCode << " " << error << endl;
 
     if (responseSent_)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
 
     if (endpoint->logResponse)
@@ -92,7 +92,7 @@ sendErrorResponse(int responseCode, const Json::Value & error)
     cerr << "sent error response " << responseCode << " " << error << endl;
     
     if (responseSent_)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
     
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, error.toString(),
@@ -108,7 +108,7 @@ HttpRestConnection::
 sendRedirect(int responseCode, std::string location)
 {
     if (responseSent_)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
     
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, location,
@@ -127,7 +127,7 @@ sendHttpResponse(int responseCode,
                  RestParams headers)
 {
     if (responseSent_)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, response,
@@ -145,10 +145,10 @@ sendHttpResponseHeader(int responseCode,
                        RestParams headers_)
 {
     if (responseSent_)
-        throw ML::Exception("response already sent");
+        throw MLDB::Exception("response already sent");
 
     if (!http)
-        throw ML::Exception("sendHttpResponseHeader only works on HTTP connections");
+        throw MLDB::Exception("sendHttpResponseHeader only works on HTTP connections");
 
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, "", contentType);
@@ -183,7 +183,7 @@ sendPayload(std::string payload)
 {
     if (chunkedEncoding) {
         if (payload.empty()) {
-            throw ML::Exception("Can't send empty chunk over a chunked connection");
+            throw MLDB::Exception("Can't send empty chunk over a chunked connection");
         }
         http->sendHttpChunk(std::move(payload), HttpLegacySocketHandler::NEXT_CONTINUE);
     }
@@ -212,7 +212,7 @@ capture(std::function<void ()> onDisconnect)
 {
     ExcAssert(onDisconnect);
     if (this->http->onDisconnect)
-        throw ML::Exception("Connection has already been captured");
+        throw MLDB::Exception("Connection has already been captured");
     auto result = std::make_shared<HttpRestConnection>(std::move(*this));
     result->http->onDisconnect = std::move(onDisconnect);
     return result;
@@ -283,7 +283,7 @@ HttpRestService::
 bindTcp(PortRange const & httpRange, std::string host)
 {
     std::string httpAddr = httpEndpoint->bindTcp(httpRange, host);
-    logger->debug() << "http listening on " << httpAddr;
+    DEBUG_MSG(logger) << "http listening on " << httpAddr;
     return httpAddr;
 }
 
@@ -313,7 +313,7 @@ handleRequest(RestConnection & connection,
         onHandleRequest(connection, request);
     }
     else {
-        throw ML::Exception("need to override handleRequest or assign to "
+        throw MLDB::Exception("need to override handleRequest or assign to "
                             "onHandleRequest");
     }
 }
@@ -322,9 +322,9 @@ std::string
 HttpRestService::
 getHttpRequestId() const
 {
-    std::string s = Date::now().print(9) + ML::format("%d", random());
+    std::string s = Date::now().print(9) + MLDB::format("%d", random());
     uint64_t jobId = CityHash64(s.c_str(), s.size());
-    return ML::format("%016llx", jobId);
+    return MLDB::format("%016llx", jobId);
 }
 
 void
@@ -355,7 +355,7 @@ logToStream(std::ostream & stream)
             stream << "<-- ========================= finished request "
             << conn.requestId
             << " at " << now.print(9)
-            << ML::format(" (%.3fms)", conn.startDate.secondsUntil(now) * 1000)
+            << MLDB::format(" (%.3fms)", conn.startDate.secondsUntil(now) * 1000)
             << endl;
             stream << code << " " << contentType << " " << resp.length() << " bytes" << endl;;
                 
@@ -369,4 +369,4 @@ logToStream(std::ostream & stream)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

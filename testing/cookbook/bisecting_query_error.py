@@ -1,7 +1,7 @@
 #
 # bisecting_query_error.py
 # Mich, 2016-05-02
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 # In this coobook, bisect is used to find a problematic row when applying a
 # COLUMN EXPR. When it's done, it will print the offset of the problematic row.

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function succeeded(response)
 {
@@ -63,7 +63,7 @@ var svdConfig = {
 
 createAndTrainProcedure(svdConfig, "svd");
 
-var cols = mldb.get("/v1/datasets/svd_random_col/query").json;
+var cols = mldb.get("/v1/query", {q : 'SELECT * from svd_random_col'}).json;
 
 if (cols.length != 26) {
     throw "Expected 26 columns, got " + cols.length;

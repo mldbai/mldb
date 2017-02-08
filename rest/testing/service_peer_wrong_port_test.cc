@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* service_peer_test.cc
    Jeremy Barnes, 4 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "temporary_etcd_server.h"
 #include "mldb/rest/service_peer.h"
 #include "mldb/rest/etcd_client.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/rest/rest_request_router.h"
 #include <boost/algorithm/string.hpp>
@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 // Checks that the ServicePeer won't start up with the wrong port published
@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE( test_publish_wrong_port )
         peer1->init(PortRange(15000, 16000), "127.0.0.1", 13000);
 
         {
-            JML_TRACE_EXCEPTIONS(false);
+            MLDB_TRACE_EXCEPTIONS(false);
             BOOST_CHECK_THROW(peer1->start(), std::exception);
         }
 

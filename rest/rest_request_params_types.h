@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** rest_request_params_types.h                                    -*- C++ -*-
     Wolfgang Sourdeau, 8 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -14,16 +14,16 @@
 #include "mldb/rest/rest_request_params.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 template<>
-struct RestCodec<Datacratic::Date> {
+struct RestCodec<MLDB::Date> {
     static Date decode(const std::string & str)
     {
         return Date::parseIso8601DateTime(str);
     }
 
-    static Date decode(const Datacratic::Utf8String & str)
+    static Date decode(const MLDB::Utf8String & str)
     {
         return Date::parseIso8601DateTime(str.rawString());
     }
@@ -34,4 +34,4 @@ struct RestCodec<Datacratic::Date> {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB

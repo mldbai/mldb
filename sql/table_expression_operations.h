@@ -1,8 +1,8 @@
 /** table_expression_operations.h                                  -*- C++ -*-
     Jeremy Barnes, 27 July 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Operations on tables (implementations of a table expression).
 */
@@ -11,7 +11,7 @@
 
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum JoinQualification {
@@ -51,7 +51,7 @@ struct DatasetExpression: public NamedDatasetExpression {
     virtual ~DatasetExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -85,7 +85,7 @@ struct JoinExpression: public TableExpression {
     virtual ~JoinExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -113,7 +113,7 @@ struct NoTable: public TableExpression {
     virtual ~NoTable();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -143,7 +143,7 @@ struct SelectSubtableExpression: public NamedDatasetExpression {
     virtual ~SelectSubtableExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -173,7 +173,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
     virtual ~DatasetFunctionExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
 
     virtual Utf8String print() const;
 
@@ -191,7 +191,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
 };
 
 /*****************************************************************************/
-/* ROW TABLE                                                                 */
+/* ROW / ATOM DATASET                                                        */
 /*****************************************************************************/
 
 /** Used when we want to treat a row expression as a table:
@@ -202,16 +202,25 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
 
     rowName value
           x     1
+
+    There are two variants: ATOMS creates one row per atom, where as
+    COLUMNS creates one row per column.
 */
 
 struct RowTableExpression: public TableExpression {
+    enum Style {
+        ATOMS,
+        COLUMNS
+    };
+
     RowTableExpression(std::shared_ptr<SqlExpression> expr,
-                       Utf8String asName);
+                       Utf8String asName,
+                       Style style);
 
     virtual ~RowTableExpression();
 
     virtual BoundTableExpression
-    bind(SqlBindingScope & context) const;
+    bind(SqlBindingScope & context, const ProgressFunc & onProgress) const;
     
     virtual Utf8String print() const;
 
@@ -229,7 +238,8 @@ struct RowTableExpression: public TableExpression {
 
     std::shared_ptr<SqlExpression> expr;
     Utf8String asName;
+    Style style;
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

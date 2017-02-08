@@ -1,7 +1,7 @@
 #
 # MLDB-1468-credentials-test.py
 # 2016-04-14
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest
@@ -33,9 +33,9 @@ class CredentialTest(MldbUnitTest):
         })
 
         mldb.log(resp)
-        
+
         mldb.get("/v1/credentials/s3cred")
-        
+
         resp = mldb.delete("/v1/credentials/s3cred")
 
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
@@ -103,7 +103,7 @@ class CredentialTest(MldbUnitTest):
                 resp = mldb.put("/v1/credentials/testcred" + str(idx), {
                     "store" : {
                         "resourceType" : "aws:s3",
-                        "resource" : "s3://dev.mldb.datacratic.com/testing",
+                        "resource" : "s3://private-mldb-ai/testing",
                         "credential" : {
                             "provider" : "Credential collections",
                             "protocol" : "http",
@@ -117,7 +117,7 @@ class CredentialTest(MldbUnitTest):
         csv_conf = {
             "type": "import.text",
             "params": {
-                'dataFileUrl' : 's3://dev.mldb.datacratic.com/testing/MLDB-1468/test.csv',
+                'dataFileUrl' : 's3://private-mldb-ai/testing/MLDB-1468/test.csv',
                 "outputDataset": {
                     "id": "test"
                 },
@@ -125,14 +125,14 @@ class CredentialTest(MldbUnitTest):
             }
         }
 
-        # this is expecting to pick key for path s3://dev.mldb.datacratic.com/testing
+        # this is expecting to pick key for path s3://private-mldb-ai/testing
         mldb.put("/v1/procedures/import", csv_conf)
 
         # store the credential for a specific path
         resp = mldb.put("/v1/credentials/testcredwrong", {
             "store" : {
                 "resourceType" : "aws:s3",
-                "resource" : "s3://dev.mldb.datacratic.com/testing/MLDB-1468",
+                "resource" : "s3://private-mldb-ai/testing/MLDB-1468",
                 "credential" : {
                     "provider" : "Credential collections",
                     "protocol" : "http",
@@ -146,5 +146,30 @@ class CredentialTest(MldbUnitTest):
         # this is expected to pick the most specific but invalid credentials
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put("/v1/procedures/import", csv_conf)
+
+    def test_delete(self):
+        "MLDB-1468"
+        url = '/v1/credentials/test_delete'
+        config = {
+            "store" : {
+                "resourceType" : "aws:s3",
+                "resource" : "s3://dev.mldb.datacratic.com/test_delete",
+                "credential" : {
+                    "provider" : "Credential collections",
+                    "protocol" : "http",
+                    "location" : "s3.amazonaws.com",
+                    "id" : "dummy",
+                    "secret" : "dummy"
+                }
+            }
+        }
+        mldb.put(url, config)
+
+        msg = "entry 'test_delete' already exists"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.put(url, config)
+
+        mldb.delete(url)
+        mldb.put(url, config)
 
 mldb.run_tests()

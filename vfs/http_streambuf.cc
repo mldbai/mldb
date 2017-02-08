@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** http_streambuf.cc
     Jeremy Barnes, 26 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -21,7 +21,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 static FsObjectInfo
 convertHeaderToInfo(const HttpHeader & header)
@@ -64,6 +64,8 @@ struct HttpStreamingDownloadSource {
 
         For options, the following is accepted:
         http-set-cookie: sets the given header in the request to the given value.
+        httpArbitraryTooSlowAbort: Will abort if the connection speed is below
+                                   10K/sec for 5 secs.
     */
     HttpStreamingDownloadSource(const std::string & urlStr,
                                 const std::map<std::string, std::string> & options)
@@ -97,13 +99,17 @@ struct HttpStreamingDownloadSource {
         Impl(const std::string & urlStr,
              const std::map<std::string, std::string> & options)
             : proxy(urlStr), urlStr(urlStr), shutdown(false), dataQueue(100),
-              eof(false), currentDone(0), headerSet(false)
+              eof(false), currentDone(0), headerSet(false),
+              httpAbortOnSlowConnection(false)
         {
             for (auto & o: options) {
                 if (o.first == "http-set-cookie")
                     proxy.setCookie(o.second);
                 else if (o.first.find("http-") == 0)
-                    throw ML::Exception("Unknown HTTP stream parameter " + o.first + " = " + o.second);
+                    throw MLDB::Exception("Unknown HTTP stream parameter " + o.first + " = " + o.second);
+                else if (o.first == "httpAbortOnSlowConnection" && o.second == "true") {
+                    httpAbortOnSlowConnection = true;
+                }
             }
 
             reset();
@@ -131,6 +137,8 @@ struct HttpStreamingDownloadSource {
 
         std::atomic<bool> headerSet;
         std::promise<HttpHeader> headerPromise;
+
+        bool httpAbortOnSlowConnection;
 
         /* cleanup all the variables that are used during reading, the
            "static" ones are left untouched */
@@ -215,10 +223,11 @@ struct HttpStreamingDownloadSource {
                     {
                         if (error) {
                             errorBody = data;
+                            return true;
+                        }
+                        if (shutdown) {
                             return false;
                         }
-                        if (shutdown)
-                            return false;
                         while (!shutdown && !dataQueue.tryPush(data)) {
                             std::this_thread::sleep_for(std::chrono::milliseconds(1));
                         }
@@ -236,22 +245,25 @@ struct HttpStreamingDownloadSource {
                         // Don't set the promise on a 3xx... it's a redirect
                         // and we will get the correct header later on
                         if (!isRedirect(header)) {
-                            if (headerSet)
+                            if (headerSet) {
                                 throw std::logic_error("set header twice");
+                            }
                             
                             if (!headerSet.exchange(true)) {
                                 this->headerPromise.set_value(header);
                             }
                         }
 
-                        if (shutdown)
+                        if (shutdown) {
                             return false;
+                        }
 
                         //cerr << "got header " << header << endl;
                         errorCode = header.responseCode();
 
-                        if (header.responseCode() != 200 && !isRedirect(header))
+                        if (header.responseCode() != 200 && !isRedirect(header)) {
                             error = true;
+                        }
 
                         return !shutdown;
                     };
@@ -259,15 +271,19 @@ struct HttpStreamingDownloadSource {
                 auto resp = proxy.get("", {}, {}, -1 /* timeout */,
                                       false /* exceptions */,
                                       onData, onHeader,
-                                      true /* follow redirect */);
+                                      true /* follow redirect */,
+                                      httpAbortOnSlowConnection);
                 
                 if (shutdown)
                     return;
 
                 if (resp.code() != 200) {
-                    throw ML::Exception("HTTP code %d reading %s\n\n%s",
-                                        resp.code(), urlStr.c_str(),
-                                        string(errorBody, 0, 1024).c_str());
+                    cerr << "resp.errorCode_ = " << resp.errorCode() << endl;
+                    cerr << "resp.errorMessage = " << resp.errorMessage() << endl;
+                    throw MLDB::Exception("HTTP code %d reading %s\n\n%s",
+                                          resp.code(),
+                                          urlStr.c_str(),
+                                          resp.errorMessage().c_str());
                 }
                 
                 dataQueue.push("");
@@ -320,7 +336,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
     {
         auto info = tryGetInfo(url);
         if (!info)
-            throw ML::Exception("Couldn't get URI info for " + url.toString());
+            throw MLDB::Exception("Couldn't get URI info for " + url.toString());
         return info;
     }
 
@@ -347,7 +363,8 @@ struct HttpUrlFsHandler: UrlFsHandler {
                     return true;
                 };
         
-            resp = proxy.perform("HEAD", url.toString(), HttpRestProxy::Content(),
+            resp = proxy.perform("HEAD", url.toDecodedString(),
+                                 HttpRestProxy::Content(),
                                  {}, {}, 1.0, false, nullptr, onHeader,
                                  true /* follow redirects */);
             
@@ -379,7 +396,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
                  << " from HEAD" << endl;
         }
 
-        throw ML::Exception("Couldn't reach server to determine HEAD of '"
+        throw MLDB::Exception("Couldn't reach server to determine HEAD of '"
                             + url.toString() + "': HTTP code "
                             + (didGetHeader ? to_string(header.responseCode()) : string("(unknown)"))
                             + " " + resp.errorMessage());
@@ -409,7 +426,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
 
     virtual bool erase(const Url & url, bool throwException) const
     {
-        throw ML::Exception("Http URIs don't support DELETE");
+        throw MLDB::Exception("Http URIs don't support DELETE");
     }
 
     /** For each object under the given prefix (object or subdirectory),
@@ -421,7 +438,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
                          const std::string & delimiter,
                          const std::string & startAt) const
     {
-        throw ML::Exception("Http URIs don't support listing");
+        throw MLDB::Exception("Http URIs don't support listing");
     }
 };
 
@@ -438,7 +455,7 @@ struct RegisterHttpHandler {
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
-            throw ML::Exception("unable to find http bucket name in resource "
+            throw MLDB::Exception("unable to find http bucket name in resource "
                                 + resource);
         string bucket(resource, 0, pos);
 
@@ -449,9 +466,9 @@ struct RegisterHttpHandler {
             return UriHandler(buf.get(), buf, sb_info.second);
         }
         else if (mode == ios::out) {
-            throw ML::Exception("Can't currently upload files via HTTP/HTTPs");
+            throw MLDB::Exception("Can't currently upload files via HTTP/HTTPs");
         }
-        else throw ML::Exception("no way to create http handler for non in/out");
+        else throw MLDB::Exception("no way to create http handler for non in/out");
     }
     
     RegisterHttpHandler()
@@ -465,4 +482,4 @@ struct RegisterHttpHandler {
 
 } registerHttpHandler;
 
-} // namespace Datacratic
+} // namespace MLDB

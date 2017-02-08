@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** meta_value_description.cc
     Jeremy Barnes, 4 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -14,7 +14,7 @@
 #include "mldb/types/pointer_description.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(ValueKind);
 
@@ -102,7 +102,7 @@ static Json::Value getDefaultValue(const ValueDescription & description)
     description.printJson(val, context);
     description.destroy(val);
 
-    return std::move(jval);
+    return jval;
 }
 
 static ValueDescriptionRepr
@@ -111,8 +111,8 @@ getRepr(const ValueDescription & desc, bool detailed)
     ValueDescriptionRepr result;
     result.kind = desc.kind;
     result.typeName = desc.typeName;
-    if (desc.type && ML::demangle(desc.type->name()) != desc.typeName)
-        result.cppType = ML::demangle(desc.type->name());
+    if (desc.type && demangle(desc.type->name()) != desc.typeName)
+        result.cppType = demangle(desc.type->name());
     result.documentationUri = desc.documentationUri;
     //result.parents = desc.parents;
     
@@ -230,7 +230,7 @@ ValueDescriptionPtrDescription::
 parseJsonTyped(std::shared_ptr<ValueDescription> * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
@@ -258,7 +258,7 @@ ValueDescriptionConstPtrDescription::
 parseJsonTyped(std::shared_ptr<const ValueDescription> * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
@@ -287,7 +287,7 @@ ValueDescriptionNakedPtrDescription::
 parseJsonTyped(ValueDescription * * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
@@ -315,7 +315,7 @@ ValueDescriptionNakedConstPtrDescription::
 parseJsonTyped(ValueDescription const * * val,
                     JsonParsingContext & context) const
 {
-    throw ML::Exception("Can't parse value descriptions");
+    throw MLDB::Exception("Can't parse value descriptions");
 }
 
 void
@@ -338,4 +338,4 @@ isDefaultTyped(ValueDescription const * const * val) const
     return !*val;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

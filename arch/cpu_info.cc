@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* cpu_info.cc
    Jeremy Barnes, 22 January 2010
@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 int num_cpus_result = 0;
 
@@ -46,5 +46,5 @@ void init_num_cpus()
     //cerr << "num_cpus_result = " << num_cpus_result << endl;
 }
 
-} // namespace ML
+} // namespace MLDB
 

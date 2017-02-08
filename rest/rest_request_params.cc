@@ -1,6 +1,6 @@
 /** rest_request_params.cc
     Jeremy Barnes, 18 April 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 
@@ -8,7 +8,7 @@
 #include "mldb/rest/rest_request_params.h"
 #include "mldb/http/http_exception.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 Utf8String restEncode(const Utf8String & str)
 {
@@ -18,9 +18,6 @@ Utf8String restEncode(const Utf8String & str)
 Utf8String restEncode(const std::string & str)
 {
     return str;
-    url_canon::RawCanonOutputT<char> buffer;
-    url_util::EncodeURIComponent(str.c_str(), str.length(), &buffer);
-    return std::string(buffer.data(), buffer.length());
 }
 
 Utf8String restDecode(std::string str, Utf8String *)
@@ -30,12 +27,12 @@ Utf8String restDecode(std::string str, Utf8String *)
 
 std::string restDecode(std::string str, std::string *)
 {
-    return std::move(str);
+    return str;
 }
 
 Utf8String restDecode(Utf8String str, Utf8String *)
 {
-    return std::move(str);
+    return str;
 }
 
 std::string restDecode(Utf8String str, std::string *)
@@ -93,5 +90,4 @@ std::string encodeUriComponent(const std::string & in)
     return std::string(buffer.data(), buffer.length());
 }
 
-
-} // namespace Datacratic
+} // namespace MLDB

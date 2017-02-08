@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* Example script to import a reddit dataset and run an example */
 
@@ -20,7 +20,7 @@ function createDataset()
 
     //return dataset;
 
-    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz'
     //var dataset_address = 'file://reddit_user_posting_behavior.csv';
     var now = new Date("2015-01-01");
 

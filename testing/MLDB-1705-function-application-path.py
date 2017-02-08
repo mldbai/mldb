@@ -1,7 +1,7 @@
 #
 # MLDB-1705-function-application-path.py
 # 6 juin 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest, json
@@ -81,8 +81,7 @@ class Mldb1705(MldbUnitTest):
             "data2": { "y": 2 }
         }
 
-        msg = ("You cannot define input in both the query string and the "
-               "request body")
+        msg = "You cannot mix query string and body parameters"
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
             mldb.get("/v1/functions/func/application",
                      input=json.dumps(data), data={"input" : data})

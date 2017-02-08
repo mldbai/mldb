@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** Test case for MLDB-581 */
 
@@ -27,7 +27,7 @@ function createDataset()
     
     var dataset = mldb.createDataset(dataset_config)
 
-    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz';
+    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz';
     var now = new Date();
 
     var stream = mldb.openStream(dataset_address);

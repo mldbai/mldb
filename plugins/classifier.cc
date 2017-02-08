@@ -1,8 +1,8 @@
 /** classifier.cc
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Integration of JML machine learning library to train classifiers.
 */
@@ -26,6 +26,7 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
+#include "mldb/types/tuple_description.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/ml/jml/training_data.h"
@@ -38,7 +39,6 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/ml/jml/feature_info.h"
-#include "ml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/static_content_macro.h"
@@ -48,7 +48,7 @@
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(ClassifierMode);
@@ -81,7 +81,7 @@ ClassifierConfigDescription()
              "must match that of the classifier mode. Rows with null labels will be ignored. \n"
              "     * `boolean` mode: a boolean (0 or 1)\n"
              "     * `regression` mode: a real number\n"
-             "     * `categorical` mode: any combination of numbers and strings for\n\n"
+             "     * `categorical` mode: any combination of numbers and strings\n\n"
              "The select expression can contain an optional `weight` column. The weight "
              "allows the relative importance of examples to be set. It must "
              "be a real number. If the `weight` is not specified each row will have "
@@ -93,16 +93,19 @@ ClassifierConfigDescription()
              "the derived columns as a previous step and use a query on that dataset instead.");
     addField("algorithm", &ClassifierConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
-             "an entry in the configuration or configurationFile parameters");
+             "an entry in the configuration or configurationFile parameters. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.");
     addField("configuration", &ClassifierConfig::configuration,
              "Configuration object to use for the classifier.  Each one has "
              "its own parameters.  If none is passed, then the configuration "
-             "will be loaded from the ConfigurationFile parameter",
+             "will be loaded from the ConfigurationFile parameter. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              Json::Value());
     addField("configurationFile", &ClassifierConfig::configurationFile,
              "File to load configuration from.  This is a JSON file containing "
              "only objects, strings and numbers.  If the configuration object is "
-             "non-empty, then that will be used preferentially.",
+             "non-empty, then that will be used preferentially. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              string("/opt/bin/classifiers.json"));
     addField("equalizationFactor", &ClassifierConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
@@ -110,7 +113,8 @@ ClassifierConfigDescription()
              "at all.  A value of 1 will ensure that the total weight for "
              "both positive and negative examples is exactly identical. "
              "A number between will choose a balanced tradeoff.  Typically 0.5 (default) "
-             "is a good number to use for unbalanced probabilities",
+             "is a good number to use for unbalanced probabilities. "
+             "See the [classifier configuration documentation](../ClassifierConf.md.html) for details.",
              0.5);
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
@@ -185,12 +189,14 @@ run(const ProcedureRunConfig & run,
 
     // try to create output folder and write open a writer to make sure 
     // we have permissions before we do the actual training
-    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                     "modelFileUrl");
 
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
     std::shared_ptr<ML::Mutable_Categorical_Info> categorical;
 
@@ -210,6 +216,22 @@ run(const ProcedureRunConfig & run,
     default:
         throw HttpReturnException(400, "Unknown classifier mode");
     }
+
+    ML::Configuration classifierConfig;
+
+    if (!runProcConf.configuration.isNull()) {
+        classifierConfig =
+            jsonDecode<ML::Configuration>(runProcConf.configuration);
+    }
+    else {
+        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
+                                  runProcConf.configurationFile :
+                                  "/opt/bin/classifiers.json");
+        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
+    }
+    std::shared_ptr<ML::Classifier_Generator> trainer
+        = ML::get_trainer(runProcConf.algorithm,
+                          classifierConfig);
 
     labelInfo.set_biased(true);
 
@@ -234,7 +256,7 @@ run(const ProcedureRunConfig & run,
 
     SelectExpression select({subSelect});
 
-    std::set<ColumnName> knownInputColumns;
+    std::set<ColumnPath> knownInputColumns;
     {
         // Find only those variables used
         SqlExpressionDatasetScope context(boundDataset);
@@ -248,7 +270,7 @@ run(const ProcedureRunConfig & run,
 
     DEBUG_MSG(logger) << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
-    ML::Timer timer;
+    Timer timer;
 
     // TODO: it's not the feature space itself, but indeed the output of
     // the select expression that's important...
@@ -267,14 +289,14 @@ run(const ProcedureRunConfig & run,
         {
         }
 
-        Fv(RowName rowName,
+        Fv(RowPath rowName,
            ML::Mutable_Feature_Set featureSet)
             : rowName(std::move(rowName)),
               featureSet(std::move(featureSet))
         {
         }
 
-        RowName rowName;
+        RowPath rowName;
         ML::Mutable_Feature_Set featureSet;
 
         float label() const
@@ -405,7 +427,17 @@ run(const ProcedureRunConfig & run,
 
             unordered_set<Path> unique_known_features;
             for (auto & c: row.columns) {
-                featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                try {
+                    featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                } MLDB_CATCH_ALL {
+                    rethrowHttpException
+                        (KEEP_HTTP_CODE,
+                         "Error processing row '" + row.rowName.toUtf8String()
+                         + "' column '" + std::get<0>(c).toUtf8String()
+                         + "': " + getExceptionString(),
+                         "rowName", row.rowName,
+                         "columns", row.columns);
+                }
 
                 if (unique_known_features.count(std::get<0>(c)) != 0) {
                     throw HttpReturnException
@@ -546,12 +578,12 @@ run(const ProcedureRunConfig & run,
         throw HttpReturnException(400, "Unknown classifier mode");
     }
 
-    std::vector<ML::distribution<float>> labelWeights(num_weight_labels);
+    std::vector<distribution<float>> labelWeights(num_weight_labels);
     for(int i=0; i<num_weight_labels; i++) {
         labelWeights[i].resize(nx);
     }
 
-    ML::distribution<float> exampleWeights(nx);
+    distribution<float> exampleWeights(nx);
 
     for (unsigned i = 0;  i < nx;  ++i) {
         float label  = fvs[i].label();
@@ -622,23 +654,8 @@ run(const ProcedureRunConfig & run,
         trainingFeatures.push_back(allFeatures[i]);
     }
 
-    ML::Configuration classifierConfig;
-
-    if (!runProcConf.configuration.isNull()) {
-        classifierConfig = jsonDecode<ML::Configuration>(runProcConf.configuration);
-    }
-    else {
-        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
-                                  runProcConf.configurationFile :
-                                  "/opt/bin/classifiers.json");
-        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
-    }
-
     timer.restart();
 
-    std::shared_ptr<ML::Classifier_Generator> trainer
-        = ML::get_trainer(runProcConf.algorithm,
-                          classifierConfig);
 
     trainer->init(featureSpace, labelFeature);
 
@@ -649,17 +666,16 @@ run(const ProcedureRunConfig & run,
     ML::Thread_Context threadContext;
     threadContext.seed(randomSeed);
 
-    ML::distribution<float> weights;
+    distribution<float> weights;
     if(runProcConf.mode == CM_REGRESSION) {
         weights = exampleWeights;
     }
     else {
-        ML::distribution<float> factor_accum(exampleWeights.size(), 0);
+        distribution<float> factor_accum(exampleWeights.size(), 0);
         for(int lbl=0; lbl<num_weight_labels; lbl++) {
             double factor = pow(labelWeights[lbl].total(), -equalizationFactor);
 
-            //INFO_MSG(logger) 
-            cerr << "factor for class " << lbl << " = " << factor << endl;
+            INFO_MSG(logger) << "factor for class " << lbl << " = " << factor;
 
             factor_accum += factor * labelWeights[lbl];
         }
@@ -677,12 +693,12 @@ run(const ProcedureRunConfig & run,
 
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            classifier.save(runProcConf.modelFileUrl.toString());
+            classifier.save(runProcConf.modelFileUrl.toDecodedString());
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             rethrowHttpException(400, "Error saving classifier to '"
                                  + runProcConf.modelFileUrl.toString() + "': "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "url", runProcConf.modelFileUrl);
         }
         INFO_MSG(logger) << "Saved classifier to " << runProcConf.modelFileUrl;
@@ -731,13 +747,13 @@ ClassifyFunction::
 ClassifyFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     functionConfig = config.params.convert<ClassifyFunctionConfig>();
 
     itl.reset(new Itl());
 
-    itl->classifier.load(functionConfig.modelFileUrl.toString());
+    itl->classifier.load(functionConfig.modelFileUrl.toDecodedString());
 
     itl->featureSpace = itl->classifier.feature_space<DatasetFeatureSpace>();
 
@@ -746,25 +762,6 @@ ClassifyFunction(MldbServer * owner,
     itl->labelInfo = labelInfo;
 
     isRegression = itl->classifier.label_count() == 1;
-}
-
-ClassifyFunction::
-ClassifyFunction(MldbServer * owner,
-                 std::shared_ptr<ML::Classifier_Impl> classifier,
-                 const std::string & labelFeatureName)
-    : Function(owner)
-{
-    itl.reset(new Itl());
-
-    itl->classifier = classifier;
-
-    //itl->featureSpace = itl->classifier.feature_space<DatasetFeatureSpace>();
-
-    //int index = itl->featureSpace->feature_index(labelFeatureName);
-    //
-    //ML::Feature_Info labelInfo = itl->featureSpace->info(ML::Feature(index, 0, 0));
-
-    //itl->labelInfo = labelInfo;
 }
 
 ClassifyFunction::
@@ -809,7 +806,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
                            const CellValue & value,
                            Date tsIn)
             {
-                ColumnName columnName(prefix + suffix);
+                ColumnPath columnName(prefix + suffix);
                 ColumnHash columnHash(columnName);
                 
                 auto it = itl->featureSpace->columnInfo.find(columnHash);
@@ -843,7 +840,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
                        const CellValue & value,
                        Date tsIn)
         {
-            ColumnName columnName(prefix + suffix);
+            ColumnPath columnName(prefix + suffix);
             ColumnHash columnHash(columnName);
 
             auto it = itl->featureSpace->columnInfo.find(columnHash);
@@ -881,7 +878,7 @@ struct ClassifyFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 ClassifyFunction::
 bind(SqlBindingScope & outerContext,
-     const std::shared_ptr<RowValueInfo> & input) const
+     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     // Assume there is one of each features
     vector<ML::Feature> features(itl->featureSpace->columnInfo.size());
@@ -945,7 +942,7 @@ apply(const FunctionApplier & applier_,
     }
     else {
         if(!fset) {
-            throw ML::Exception("Feature_Set is null! Are you giving "
+            throw MLDB::Exception("Feature_Set is null! Are you giving "
                                 "only null features to the classifier function?");
         }
         
@@ -1031,8 +1028,9 @@ getFunctionInfo() const
                               std::make_shared<RowValueInfo>(featureColumns,
                                                              SCHEMA_CLOSED),
                               COLUMN_IS_DENSE);
-    result.input = std::make_shared<RowValueInfo>(std::move(inputColumns),
-                                                  SCHEMA_CLOSED);
+    result.input.emplace_back
+        (std::make_shared<RowValueInfo>(std::move(inputColumns),
+                                        SCHEMA_CLOSED));
     
     std::vector<KnownColumn> outputColumns;
 
@@ -1044,7 +1042,7 @@ getFunctionInfo() const
         std::vector<KnownColumn> scoreColumns;
 
         for (unsigned i = 0;  i < labelCount;  ++i) {
-            scoreColumns.emplace_back(ColumnName::parse(cat->print(i)),
+            scoreColumns.emplace_back(ColumnPath::parse(cat->print(i)),
                                       std::make_shared<Float32ValueInfo>(),
                                       COLUMN_IS_DENSE, i);
         }
@@ -1104,7 +1102,7 @@ apply(const FunctionApplier & applier,
     std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
 
     if (fset->features.empty()) {
-        throw ML::Exception("The specified features couldn't be found in the "
+        throw MLDB::Exception("The specified features couldn't be found in the "
                             "classifier. At least one non-null feature column "
                             "must be provided.");
     }
@@ -1124,7 +1122,7 @@ apply(const FunctionApplier & applier,
     Date effectiveDate = ts;
 
     for(auto iter=expl.feature_weights.begin(); iter!=expl.feature_weights.end(); iter++) {
-        features.emplace_back(ColumnName::parse(itl->featureSpace->print(iter->first)),
+        features.emplace_back(ColumnPath::parse(itl->featureSpace->print(iter->first)),
                               iter->second,
                               effectiveDate);
     }
@@ -1142,9 +1140,11 @@ getFunctionInfo() const
 
     std::vector<KnownColumn> inputCols, outputCols;
 
-    inputCols.emplace_back(PathElement("label"), std::make_shared<AtomValueInfo>(),
+    inputCols.emplace_back(PathElement("label"),
+                           std::make_shared<AtomValueInfo>(),
                            COLUMN_IS_DENSE, 0);
-    inputCols.emplace_back(PathElement("features"), std::make_shared<UnknownRowValueInfo>(),
+    inputCols.emplace_back(PathElement("features"),
+                           std::make_shared<UnknownRowValueInfo>(),
                            COLUMN_IS_DENSE, 1);
 
     outputCols.emplace_back(PathElement("explanation"), std::make_shared<UnknownRowValueInfo>(),
@@ -1152,8 +1152,9 @@ getFunctionInfo() const
     outputCols.emplace_back(PathElement("bias"), std::make_shared<NumericValueInfo>(),
                             COLUMN_IS_DENSE, 1);
 
-    result.input = std::make_shared<RowValueInfo>(std::move(inputCols),
-                                                  SCHEMA_CLOSED);
+    result.input.emplace_back
+        (std::make_shared<RowValueInfo>(std::move(inputCols),
+                                        SCHEMA_CLOSED));
     result.output = std::make_shared<RowValueInfo>(std::move(outputCols),
                                                    SCHEMA_CLOSED);
     
@@ -1175,7 +1176,7 @@ void jmlclassifierMacro(MacroContext & context,
         context.writeHtml("<table><tr><th>Parameter</th><th>Range</th>"
                           "<th>Default</th><th>Description</th></tr>");
         for (auto & o: generator->options())
-            context.writeHtml(ML::format(
+            context.writeHtml(MLDB::format(
                                          "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
                                          o.name.c_str(), o.range.c_str(), o.value.c_str(), o.doc.c_str()
                                          ));
@@ -1213,4 +1214,4 @@ regExplainFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

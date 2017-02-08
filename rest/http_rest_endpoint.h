@@ -1,21 +1,21 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_rest_endpoint.h                                            -*- C++ -*-
    Jeremy Barnes, 9 November 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 */
 
 #pragma once
 
 #include "mldb/http/http_socket_handler.h"
-#include "mldb/http/port_range_service.h"
+#include "mldb/io/port_range_service.h"
 #include "mldb/utils/log_fwd.h"
 #include <atomic>
 #include <memory>
 #include <string>
 #include <time.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 struct EventLoop;
@@ -120,4 +120,4 @@ struct HttpRestEndpoint {
     std::unique_ptr<TcpAcceptor> acceptor_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

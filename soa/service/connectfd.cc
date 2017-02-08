@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* connectfd.h                                                     -*- C++ -*-
    Jeremy Barnes, 5 August 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 int connectHostDgram(const std::string & hostname, int port)
 {
@@ -36,7 +36,7 @@ int connectHostDgram(const std::string & hostname, int port)
 
     s = getaddrinfo(hostname.c_str(), std::to_string(port).c_str(), &hints, &result);
     if (s != 0) {
-        throw ML::Exception("getaddrinfo: %s\n", gai_strerror(s));
+        throw MLDB::Exception("getaddrinfo: %s\n", gai_strerror(s));
     }
 
     /* getaddrinfo() returns a list of address structures.
@@ -87,7 +87,7 @@ int connectHost(const std::string & hostname, int port)
 
     s = getaddrinfo(hostname.c_str(), std::to_string(port).c_str(), &hints, &result);
     if (s != 0) {
-        throw ML::Exception("getaddrinfo: %s\n", gai_strerror(s));
+        throw MLDB::Exception("getaddrinfo: %s\n", gai_strerror(s));
     }
 
     /* getaddrinfo() returns a list of address structures.
@@ -117,4 +117,4 @@ int connectHost(const std::string & hostname, int port)
     return sfd;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

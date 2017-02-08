@@ -1,7 +1,7 @@
 /** sql_config_validator.h                                         -*- C++ -*-
     Guy Dumais, 18 December 2015
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Several templates to validate constraints on SQL statements and other 
     parts of entity configs.
@@ -12,7 +12,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 namespace MLDB {
 
@@ -67,10 +67,10 @@ struct NoGroupByHaving
     {
         if (query.stm) {
             if (!query.stm->groupBy.empty()) {
-                throw ML::Exception(name + " does not support groupBy clause");
+                throw MLDB::Exception(name + " does not support groupBy clause");
             }
             else if (!query.stm->having->isConstantTrue()) {
-                throw ML::Exception(name + " does not support having clause");
+                throw MLDB::Exception(name + " does not support having clause");
             }
         }
     }
@@ -91,7 +91,7 @@ struct NoWhere
     {
         if (query.stm) {
             if (!query.stm->where->isConstantTrue()) {
-                throw ML::Exception(name + " does not support where");
+                throw MLDB::Exception(name + " does not support where");
             }
         }
     }
@@ -113,7 +113,7 @@ struct NoLimit
     {
         if (query.stm) {
             if (query.stm->limit != -1) {
-                throw ML::Exception(name + " does not support limit");
+                throw MLDB::Exception(name + " does not support limit");
             }
         }
     }
@@ -135,7 +135,7 @@ struct NoOffset
     {
         if (query.stm) {
             if (query.stm->offset > 0) {
-                throw ML::Exception(name + " does not support offset");
+                throw MLDB::Exception(name + " does not support offset");
             }
         }
     }
@@ -155,7 +155,7 @@ struct MustContainFrom
     void operator()(const InputQuery & query, const std::string & name) const
     {
         if (!query.stm || !query.stm->from || query.stm->from->surface.empty())
-            throw ML::Exception(name + " must contain a FROM clause");
+            throw MLDB::Exception(name + " must contain a FROM clause");
     }
 
     void operator()(const Optional<InputQuery> & query, const std::string & name) const
@@ -173,6 +173,10 @@ struct PlainColumnSelect
 {
     void operator()(const InputQuery & query, const std::string & name) const
     {
+        if (!query.stm) {
+            return;
+        }
+
         auto getWildcard = [] (const std::shared_ptr<SqlRowExpression> expression)
             -> std::shared_ptr<const WildcardExpression>
             {
@@ -239,60 +243,58 @@ struct PlainColumnSelect
                 return std::dynamic_pointer_cast<const ConstantExpression>(expression);
             };
 
-        if (query.stm) {
-            auto & select = query.stm->select;
-            for (const auto & clause : select.clauses) {
+        auto & select = query.stm->select;
+        for (const auto & clause : select.clauses) {
 
-                auto wildcard = getWildcard(clause);
-                if (wildcard)
+            auto wildcard = getWildcard(clause);
+            if (wildcard)
+                continue;
+
+            auto columnExpression = getColumnExpression(clause);
+            if (columnExpression)
+                continue;
+
+            auto computedVariable = getNamedColumnExpression(clause);
+
+            if (computedVariable) {
+                auto readVariable = getReadVariable(computedVariable->expression);
+                if (readVariable)
+                    continue;
+                // {x, y}
+                auto withinExpression = getWithinExpression(computedVariable->expression);
+                if (withinExpression)
+                    continue;
+                // x is not null
+                auto isTypeExpression = getIsTypeExpression(computedVariable->expression);
+                if (isTypeExpression)
+                    continue;
+                // x = 'true'
+                auto comparisonExpression = getComparisonExpression(computedVariable->expression);
+                if (comparisonExpression)
+                    continue;
+                // NOT x
+                auto booleanExpression = getBooleanExpression(computedVariable->expression);
+                if (booleanExpression)
+                    continue;
+                // function(args)
+                auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
+                if (functionCallExpression)
                     continue;
 
-                auto columnExpression = getColumnExpression(clause);
-                if (columnExpression)
+                // (...)[extract]
+                auto extractExpression = getExtractExpression(computedVariable->expression);
+                if (extractExpression)
                     continue;
 
-                auto computedVariable = getNamedColumnExpression(clause);
-
-                if (computedVariable) {
-                    auto readVariable = getReadVariable(computedVariable->expression);
-                    if (readVariable)
-                        continue;
-                    // {x, y}
-                    auto withinExpression = getWithinExpression(computedVariable->expression);
-                    if (withinExpression)
-                        continue;
-                    // x is not null
-                    auto isTypeExpression = getIsTypeExpression(computedVariable->expression);
-                    if (isTypeExpression)
-                        continue;
-                    // x = 'true'
-                    auto comparisonExpression = getComparisonExpression(computedVariable->expression);
-                    if (comparisonExpression)
-                        continue;
-                    // NOT x
-                    auto booleanExpression = getBooleanExpression(computedVariable->expression);
-                    if (booleanExpression)
-                        continue;
-                    // function(args)
-                    auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
-                    if (functionCallExpression)
-                        continue;
-
-                    // (...)[extract]
-                    auto extractExpression = getExtractExpression(computedVariable->expression);
-                    if (extractExpression)
-                        continue;
-
-                     // 1.0
-                    auto constantExpression = getConstantExpression(computedVariable->expression);
-                    if (constantExpression)
-                        continue;
-                }
-
-                throw ML::Exception(name +
-                                    " only accepts wildcard and column names at " +
-                                    clause->surface.rawString());
+                // 1.0
+                auto constantExpression = getConstantExpression(computedVariable->expression);
+                if (constantExpression)
+                    continue;
             }
+
+            throw MLDB::Exception(name +
+                                " only accepts wildcard and column names at " +
+                                clause->surface.rawString());
         }
     }
 
@@ -334,7 +336,7 @@ struct FeaturesLabelSelect
     {
         if (!containsNamedSubSelect(query, "features") ||
             !containsNamedSubSelect(query, "label") )
-            throw ML::Exception(name + " expects a row named 'features' and a scalar named 'label'");
+            throw MLDB::Exception(name + " expects a row named 'features' and a scalar named 'label'");
     }
 
     void operator()(const Optional<InputQuery> & query, const std::string & name) const
@@ -353,7 +355,7 @@ struct ScoreLabelSelect
     {
         if (!containsNamedSubSelect(query, "score") ||
             !containsNamedSubSelect(query, "label") )
-            throw ML::Exception(name + " expects a scalar named 'score' and a scalar named 'label'");
+            throw MLDB::Exception(name + " expects a scalar named 'score' and a scalar named 'label'");
     }
 };
 
@@ -368,7 +370,7 @@ validateFunction()
     return [](ConfigType * cfg, JsonParsingContext & context) {
         if (!cfg->functionName.empty() &&
             !cfg->modelFileUrl.valid()) {
-                throw ML::Exception(std::string(ConfigType::name) + " requires a valid "
+                throw MLDB::Exception(std::string(ConfigType::name) + " requires a valid "
                                     "modelFileUrl when specifying a functionName. "
                                     "modelFileUrl '" + cfg->modelFileUrl.toString()
                                     + "' is invalid.");
@@ -377,4 +379,4 @@ validateFunction()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /**
  * MLDB-749-csv-dataset.js
  * Nicolas, 2015-07-23
- * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ * Copyright (c) 2015 mldb.ai inc. All rights reserved.
  **/
 
 function assertEqual(expr, val, msg)
@@ -194,7 +194,6 @@ expected = [
          [ "Longitude", 1.46666670, "2012-05-03T03:14:46Z" ],
          [ "Region", 6, "2012-05-03T03:14:46Z" ]
       ],
-      "rowHash" : "2ef190d7a29f2916",
       "rowName" : "2"
    },
    {
@@ -206,7 +205,6 @@ expected = [
          [ "Longitude", 68.4411010, "2012-05-03T03:14:46Z" ],
          [ "Region", 27, "2012-05-03T03:14:46Z" ]
       ],
-      "rowHash" : "f03303280841601c",
       "rowName" : "1000"
    },
    {
@@ -219,7 +217,6 @@ expected = [
          [ "Population", 24107, "2012-05-03T03:14:46Z" ],
          [ "Region", "G2", "2012-05-03T03:14:46Z" ]
       ],
-      "rowHash" : "3514bc1ed7064254",
       "rowName" : "1000000"
    },
    {
@@ -231,7 +228,6 @@ expected = [
          [ "Longitude", 10.81920, "2012-05-03T03:14:46Z" ],
          [ "Region", 44, "2012-05-03T03:14:46Z" ]
       ],
-      "rowHash" : "bb7fbc8842295295",
       "rowName" : "2000000"
    },
    {
@@ -243,7 +239,6 @@ expected = [
          [ "Longitude", -82.42111110, "2012-05-03T03:14:46Z" ],
          [ "Region", "OH", "2012-05-03T03:14:46Z" ]
       ],
-      "rowHash" : "ec051b54935e150d",
       "rowName" : "3000000"
    },
    {
@@ -256,7 +251,6 @@ expected = [
          [ "Population", 79876, "2012-05-03T03:14:46Z" ],
          [ "Region", 7, "2012-05-03T03:14:46Z" ]
       ],
-      "rowHash" : "ac6161ca77cad488",
       "rowName" : "3173959"
    }
 ];
@@ -453,7 +447,7 @@ function getCountWithOffsetLimit2(dataset, offset, limit) {
     var config = {
         type: "import.text",
         params: {
-            dataFileUrl : "http://s3.amazonaws.com/public.mldb.ai/tweets.gz",
+            dataFileUrl : "http://public.mldb.ai/tweets.gz",
             outputDataset: {
                 id: dataset,
             },
@@ -486,7 +480,7 @@ assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows o
 assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
 assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
-//MLDB-1312 specify quotechar
+//MLDB-1312 specify quoteChar
 var mldb1312Config = {
         type: "import.text",
         params: {
@@ -496,7 +490,7 @@ var mldb1312Config = {
             },
             runOnCreation: true,
             encoding: 'latin1',
-            quotechar: '#'
+            quoteChar: '#'
         }
     }
 
@@ -511,18 +505,18 @@ expected =
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb1312 order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quotechar test");
+assertEqual(res.json, expected, "quoteChar test");
 
 var mldb1312Config_b = {
         type: "import.text",
         params: {
-            dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
+            dataFileUrl : "file://mldb/testing/MLDB-1312-quoteChar.csv",
             outputDataset: {
                 id: 'mldb1312_b',
             },
             runOnCreation: true,
             encoding: 'latin1',
-            quotechar: '#',
+            quoteChar: '#',
             delimiter: ''
         }
     }
@@ -540,7 +534,7 @@ var mldb1312Config_c = {
             },
             runOnCreation: true,
             encoding: 'latin1',
-            quotechar: '',
+            quoteChar: '',
             delimiter: ',',
             ignoreBadLines: true
         }
@@ -556,6 +550,6 @@ expected =
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb1312_c order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quotechar test");
+assertEqual(res.json, expected, "quoteChar test");
 
 "success"

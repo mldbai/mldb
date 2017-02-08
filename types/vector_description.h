@@ -1,8 +1,8 @@
 /** vector_description.h                                        -*- C++ -*-
     Jeremy Barnes, 21 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Value description implementations for vectors.
 */
@@ -13,7 +13,7 @@
 #include "list_description_base.h"
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -42,69 +42,69 @@ struct VectorDescription
     {
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const JML_OVERRIDE
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
         std::vector<T, A> * val2 = reinterpret_cast<std::vector<T, A> *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(std::vector<T, A> * val, JsonParsingContext & context) const JML_OVERRIDE
+    virtual void parseJsonTyped(std::vector<T, A> * val, JsonParsingContext & context) const override
     {
         this->parseJsonTypedList(val, context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const JML_OVERRIDE
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         const std::vector<T, A> * val2 = reinterpret_cast<const std::vector<T, A> *>(val);
         return printJsonTyped(val2, context);
     }
 
-    virtual void printJsonTyped(const std::vector<T, A> * val, JsonPrintingContext & context) const JML_OVERRIDE
+    virtual void printJsonTyped(const std::vector<T, A> * val, JsonPrintingContext & context) const override
     {
         this->printJsonTypedList(val, context);
     }
 
-    virtual bool isDefault(const void * val) const JML_OVERRIDE
+    virtual bool isDefault(const void * val) const override
     {
         const std::vector<T, A> * val2 = reinterpret_cast<const std::vector<T, A> *>(val);
         return isDefaultTyped(val2);
     }
 
-    virtual bool isDefaultTyped(const std::vector<T, A> * val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(const std::vector<T, A> * val) const override
     {
         return val->empty();
     }
 
-    virtual size_t getArrayLength(void * val) const JML_OVERRIDE
+    virtual size_t getArrayLength(void * val) const override
     {
         const std::vector<T, A> * val2 = reinterpret_cast<const std::vector<T, A> *>(val);
         return val2->size();
     }
 
-    virtual void * getArrayElement(void * val, uint32_t element) const JML_OVERRIDE
+    virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         std::vector<T, A> * val2 = reinterpret_cast<std::vector<T, A> *>(val);
         return &val2->at(element);
     }
 
-    virtual const void * getArrayElement(const void * val, uint32_t element) const JML_OVERRIDE
+    virtual const void * getArrayElement(const void * val, uint32_t element) const override
     {
         const std::vector<T, A> * val2 = reinterpret_cast<const std::vector<T, A> *>(val);
         return &val2->at(element);
     }
 
-    virtual void setArrayLength(void * val, size_t newLength) const JML_OVERRIDE
+    virtual void setArrayLength(void * val, size_t newLength) const override
     {
         std::vector<T, A> * val2 = reinterpret_cast<std::vector<T, A> *>(val);
         val2->resize(newLength);
     }
     
-    virtual const ValueDescription & contained() const JML_OVERRIDE
+    virtual const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }
@@ -113,4 +113,4 @@ struct VectorDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(VectorDescription, std::vector, typename, T, typename, A);
 
-} // namespace Datacratic
+} // namespace MLDB

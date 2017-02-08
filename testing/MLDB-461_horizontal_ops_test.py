@@ -1,7 +1,7 @@
 #
 # MLDB-461_horizontal_ops_test.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 import unittest
 
@@ -125,6 +125,12 @@ class HorizontalTest(MldbUnitTest):
                 }
              ]
         )
+
+        self.assertTableResultEquals(
+            mldb.query("select horizontal_avg({superPatate*}) from dataset order by rowName()"),
+            [["_rowName","horizontal_avg({superPatate*})"],
+             ["x",None], ["y",None], ["z",None]])
+
 
     def test_horizontal_min(self):
         resp = mldb.get("/v1/query", q="select horizontal_min({*}) from dataset order by rowName()").json()

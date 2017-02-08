@@ -1,8 +1,8 @@
 /** python_converters.h                                 -*- C++ -*-
     Rémi Attab, 13 Dec 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Python converters for common types.
 
@@ -14,7 +14,6 @@
 #pragma once
 
 #include <boost/python.hpp>
-#include "mldb/types/id.h"
 #include "mldb/types/date.h"
 #include <vector>
 #include <memory>
@@ -22,7 +21,8 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "pointer_fix.h"
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 /******************************************************************************/
@@ -281,18 +281,6 @@ struct IntToPyLong
 
 
 /******************************************************************************/
-/* ID TO INT                                                                  */
-/******************************************************************************/
-
-// Converts Ids to boost::python::str objects
-struct IdToPython
-{
-    static PyObject* convert(const Id& id);
-};
-
-
-
-/******************************************************************************/
 /* DATE TO DOUBLE                                                             */
 /******************************************************************************/
 
@@ -324,12 +312,13 @@ struct StrConstructableIdFromPython
 
     static void construct(PyObject* obj_ptr, void* storage)
     {
+        using std::to_string;
         std::string id;
         if (PyInt_Check(obj_ptr)) {
             id = to_string(boost::python::extract<int>(obj_ptr)());
         }
         else if (PyFloat_Check(obj_ptr)) {
-            id = to_string(boost::python::extract<float>(obj_ptr)());
+            id = to_string(boost::python::extract<double>(obj_ptr)());
         }
         else if (PyUnicode_Check(obj_ptr) || PyString_Check(obj_ptr)) {
             if (PyUnicode_Check(obj_ptr)) {
@@ -339,7 +328,7 @@ struct StrConstructableIdFromPython
             }
             id = boost::python::extract<std::string>(obj_ptr)();
         } else {
-            throw ML::Exception("StrConstructableIdFromPython: "
+            throw MLDB::Exception("StrConstructableIdFromPython: "
                                 "Failed to convert value to id");
         }
 
@@ -412,5 +401,5 @@ struct JsonValueConverter
 
 
 } // namespace Python
-} // Datacratic
 
+} // namespace MLDB

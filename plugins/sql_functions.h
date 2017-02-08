@@ -1,8 +1,8 @@
 /** sql_functions.h                                               -*- C++ -*-
     Jeremy Barnes, 6 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Functions to deal with datasets.
 */
@@ -14,7 +14,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct SqlExpression;
@@ -39,13 +39,8 @@ DECLARE_ENUM_DESCRIPTION(SqlQueryOutput);
 /** Function that runs a single-row SQL query against a dataset. */
 
 struct SqlQueryFunctionConfig {
-    SqlQueryFunctionConfig()
-        : output(FIRST_ROW)
-    {
-    }
-
     InputQuery query;
-    SqlQueryOutput output;
+    SqlQueryOutput output = FIRST_ROW;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
@@ -60,8 +55,8 @@ struct SqlQueryFunction: public Function {
 
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const;
-
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const;
+    
     virtual ExpressionValue apply(const FunctionApplier & applier,
                               const ExpressionValue & context) const;
 
@@ -78,17 +73,13 @@ struct SqlQueryFunction: public Function {
 /** Function that runs an SQL expression. */
 
 struct SqlExpressionFunctionConfig {
-    SqlExpressionFunctionConfig()
-        : prepared(false)
-    {
-    }
-
     SelectExpression expression;
-    bool prepared;
+    bool prepared = false;
+    bool raw = false;
+    bool autoInput = false;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlExpressionFunctionConfig);
-
 
 struct SqlExpressionFunction: public Function {
     SqlExpressionFunction(MldbServer * owner,
@@ -100,7 +91,8 @@ struct SqlExpressionFunction: public Function {
 
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & inputInfo) const;
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & inputInfo)
+        const;
 
     virtual ExpressionValue apply(const FunctionApplier & applier,
                               const ExpressionValue & context) const;
@@ -112,7 +104,13 @@ struct SqlExpressionFunction: public Function {
     std::unique_ptr<SqlExpressionMldbScope> outerScope;
     std::unique_ptr<SqlExpressionExtractScope> innerScope;
     FunctionInfo info;
+    PathElement preparedAutoInputName;
     BoundSqlExpression bound;
+
+    BoundSqlExpression doBind(SqlExpressionExtractScope & innerScope) const;
+
+    std::tuple<PathElement, std::vector<std::shared_ptr<ExpressionValueInfo> > >
+    getAutoInputName(SqlExpressionExtractScope & innerScope) const;
 };
 
 
@@ -156,7 +154,5 @@ struct TransformDataset: public Procedure {
     TransformDatasetConfig procedureConfig;
 };
 
-
-
 } // namespace MLDB
-} // namespace Datacratic
+

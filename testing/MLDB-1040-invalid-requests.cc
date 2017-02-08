@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** MLDB-1040-invalid-requests.cc
     Wolfgang Sourdeau, 25 October 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Test the behaviour of MLDB service when receiving all sorts of invalid
     requests.
@@ -13,14 +13,14 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/http/tcp_acceptor.h"
+#include "mldb/io/tcp_acceptor.h"
 #include "mldb/server/mldb_server.h"
 
 
 using namespace std;
 using namespace boost;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 
 /* Test various forms of invalid HTTP requests. Currently, this test is itself

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** link.cc
     Jeremy Barnes, 14 May 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(LinkState);
 
@@ -77,7 +77,7 @@ waitUntilState(double waitTime, LinkState stateRequired)
             return;
         Date now = Date::now();
         if (now > limit)
-            throw ML::Exception("timed out waiting for link connection");
+            throw MLDB::Exception("timed out waiting for link connection");
 
         LinkState state;
         bool found;
@@ -88,7 +88,7 @@ waitUntilState(double waitTime, LinkState stateRequired)
             if (state == stateRequired)
                 return;
             if (state == LS_ERROR)
-                throw ML::Exception("link in error state");
+                throw MLDB::Exception("link in error state");
         }
     }
 }
@@ -391,4 +391,4 @@ release(int id)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

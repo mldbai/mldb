@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* sparse_features.cc
    Jeremy Barnes, 25 June 2003
@@ -83,13 +83,13 @@ print(const ML::Feature & feature) const
 }
 
 bool Sparse_Feature_Space::
-parse(Parse_Context & context, ML::Feature & feature) const
+parse(ParseContext & context, ML::Feature & feature) const
 {
     throw Exception("unimplemented");
 }
 
 void Sparse_Feature_Space::
-expect(Parse_Context & context, ML::Feature & feature) const
+expect(ParseContext & context, ML::Feature & feature) const
 {
     throw Exception("unimplemented");
 }
@@ -227,7 +227,7 @@ Sparse_Training_Data::~Sparse_Training_Data()
 
 void
 Sparse_Training_Data::
-expect_feature(Parse_Context & c, Mutable_Feature_Set & features,
+expect_feature(ParseContext & c, Mutable_Feature_Set & features,
                Sparse_Feature_Space & feature_space,
                bool & guessed_wrong)
 {
@@ -306,7 +306,7 @@ expect_feature(Parse_Context & c, Mutable_Feature_Set & features,
 
 namespace {
 
-bool match_label(Parse_Context & c, Mutable_Feature_Set & features,
+bool match_label(ParseContext & c, Mutable_Feature_Set & features,
                  Sparse_Feature_Space & feature_space)
 {
     /* If the first part is numeric and doesn't include a ":", we assume that
@@ -358,7 +358,7 @@ init(const std::vector<std::string> & filenames,
             /* We load the training data from the file. */
             File_Read_Buffer file(filename);
             
-            Parse_Context c(filename, file.start(), file.end());
+            ParseContext c(filename, file.start(), file.end());
             
             /* Skip over the header. */
             c.skip_line();

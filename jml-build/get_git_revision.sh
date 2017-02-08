@@ -51,7 +51,9 @@ if [ $NUMUNCLEAN -gt 0 ]; then
 
     echo -n "Checking which source files are used to make the target $target... " > /dev/stderr
     # Now find the source files used by make
-    make -n --debug=v $target 2>/dev/null | grep 'Considering target file' | sed 's/ *Considering target file `\(.*\)'"'"'./\1/' | grep -v '^/' | grep -v 'build/' | sort > $FILESUSED
+    # We also replace foo/baz/.. with foo/ to avoid things looking like they
+    # are in a submodule when in fact they aren't
+    make -n --debug=v $target 2>/dev/null | grep 'Considering target file' | sed 's/ *Considering target file `\(.*\)'"'"'./\1/' | grep -v '^/' | grep -v 'build/' | sed 's![^/.]*/\.\.!!g' | sed 's![^/.]*/\.\.!!g' | sort > $FILESUSED
     cat $FILESUSED | wc -l > /dev/stderr
 
     # Dump these in a make friendly manner
@@ -86,10 +88,12 @@ if [ $NUMUNCLEAN -gt 0 ]; then
             SMFILESUSED=$FILESUSED
         else
             echo "doing submodule $sm" >> /dev/stderr
-            SMFILESUSED=`pwd`/$BUILD/tmp/files-used-$target-submodule-$1
+            SMCLEANEDNAME=$(echo $sm | tr '/' '-')
+            SMFILESUSED=`pwd`/$BUILD/tmp/files-used-$target-submodule-$SMCLEANEDNAME
             pushd $sm > /dev/null
             echo -n "extracting build files used in dirty submodule $sm..." >> /dev/stderr
-            cat $FILESUSED | grep "^$sm/" | sed "s!^$sm/!!g" | sort > $SMFILESUSED
+            # Allow a leading directory to show up in the submodule path.
+            cat $FILESUSED | grep -E "^([^/]*/)?$sm/" | sed "s!^.*$sm/!!g" | sort > $SMFILESUSED
         fi
 
         cat $SMFILESUSED | wc -l > /dev/stderr

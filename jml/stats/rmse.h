@@ -1,19 +1,19 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* rmse.h                                                          -*- C++ -*-
    Jeremy Barnes, 9 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Root Mean Squared Error calculation routines.
 */
 
-#ifndef __jml__stats__rmse_h__
-#define __jml__stats__rmse_h__
+#pragma once
 
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/stats/distribution_ops.h"
 
 namespace ML {
+
+using namespace MLDB;
 
 template<typename Float1, typename Float2>
 double
@@ -36,6 +36,3 @@ calc_rmse(const distribution<Float1> & outputs,
 
 
 } // namespace ML
-
-
-#endif /* __jml__stats__rmse_h__ */

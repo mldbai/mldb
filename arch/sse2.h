@@ -2,7 +2,7 @@
    Jeremy Barnes, 15 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Wrappers around SSE functions.
 */
@@ -15,18 +15,18 @@
 
 #define USE_SIMD_SSE2 1
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 typedef float v4sf __attribute__((__vector_size__(16)));
 
 #if __GNUC__ >= 5
-JML_ALWAYS_INLINE constexpr v4sf vec_splat(float val)
+MLDB_ALWAYS_INLINE constexpr v4sf vec_splat(float val)
 {
     return v4sf{val, val, val, val};
 }
 #else
-JML_ALWAYS_INLINE const v4sf vec_splat(float val)
+MLDB_ALWAYS_INLINE const v4sf vec_splat(float val)
 {
     return v4sf{val, val, val, val};
 }
@@ -42,20 +42,20 @@ inline std::ostream & operator << (std::ostream & stream, const v4sf & val)
 
 typedef double v2df __attribute__((__vector_size__(16)));
 
-JML_ALWAYS_INLINE v2df vec_splat(double val)
+MLDB_ALWAYS_INLINE v2df vec_splat(double val)
 {
     v2df result = {val, val};
     return result;
 }
 
-JML_ALWAYS_INLINE v4sf vec_d2f(v2df low, v2df high)
+MLDB_ALWAYS_INLINE v4sf vec_d2f(v2df low, v2df high)
 {
     v4sf rr0a  = __builtin_ia32_cvtpd2ps(low);
     v4sf rr0b  = __builtin_ia32_cvtpd2ps(high);
     return _mm_shuffle_ps(rr0a, rr0b, 0x44);
 }
 
-JML_ALWAYS_INLINE void vec_f2d(v4sf ffff, v2df & low, v2df & high)
+MLDB_ALWAYS_INLINE void vec_f2d(v4sf ffff, v2df & low, v2df & high)
 {
     low  = __builtin_ia32_cvtps2pd(ffff);
     ffff = _mm_shuffle_ps(ffff, ffff, 14);
@@ -71,7 +71,7 @@ inline std::ostream & operator << (std::ostream & stream, const v2df & val)
 
 typedef int v4si __attribute__((__vector_size__(16)));
 
-JML_ALWAYS_INLINE v4si vec_splat(int val)
+MLDB_ALWAYS_INLINE v4si vec_splat(int val)
 {
     v4si result = {val, val, val, val};
     return result;
@@ -125,4 +125,4 @@ inline v4si pack(int * where)
 }
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

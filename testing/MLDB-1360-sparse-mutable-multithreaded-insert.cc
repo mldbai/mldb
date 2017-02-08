@@ -1,6 +1,6 @@
 /* MLDB-1360-sparse-mutable-multithreaded-insert.cc
    Jeremy Barnes, 20 March 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -14,8 +14,8 @@
 #include "mldb/arch/timers.h"
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 void testMtInsert(MutableSparseMatrixDatasetConfig config)
 {
@@ -38,7 +38,7 @@ void testMtInsert(MutableSparseMatrixDatasetConfig config)
         {
             int base = random();
             for (unsigned i = 0;  i < niter;  ++i) {
-                std::vector<std::tuple<ColumnName, CellValue, Date> > vals;
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > vals;
                 dataset.recordRow(PathElement(base + i), vals);
 
                 if (done.fetch_add(1) % 1000 == 0)
@@ -51,7 +51,7 @@ void testMtInsert(MutableSparseMatrixDatasetConfig config)
 
     cerr << "testing " << jsonEncode(config) << endl;
 
-    ML::Timer timer;
+    Timer timer;
 
     std::vector<std::thread> threads;
     for (unsigned i = 0;  i < nthreads;  ++i)

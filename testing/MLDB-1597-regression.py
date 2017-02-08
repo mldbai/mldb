@@ -1,14 +1,14 @@
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb1597Test(MldbUnitTest):  
+class Mldb1597Test(MldbUnitTest):
 
     @classmethod
     def setUpClass(cls):
-        
+
         # the raw data
         mldb.post("/v1/procedures", {
             "type": "import.text",
@@ -21,7 +21,7 @@ class Mldb1597Test(MldbUnitTest):
                     c_1 as c,
                     d_1+d_2-c_2 as d,
                     e_1, e_2, e_1/e_2 as e,
-                    c_1+c_2-d_1-d_2 as p, 
+                    c_1+c_2-d_1-d_2 as p,
                     1-(d_1+d_2-c_2)/c_1 as r
                 """,
                 "limit" : 100,
@@ -35,11 +35,11 @@ class Mldb1597Test(MldbUnitTest):
             "type": "transform",
             "params":{
                 "inputData": """
-                select 
-                    dow, a_int, 
-                    sum(e_1)/sum(e_2) as e, 
+                select
+                    dow, a_int,
+                    sum(e_1)/sum(e_2) as e,
                     avg({b_1, b_2}) as *,
-                    avg(b_1)/avg(b_2) as b_ratio, 
+                    avg(b_1)/avg(b_2) as b_ratio,
                     1-sum(d_1+d_2-c_2)/sum(c_1) as r
                 from ds
                 group by dow, a_int
@@ -58,7 +58,13 @@ class Mldb1597Test(MldbUnitTest):
                         from ds left join ds_stats on (ds.dow + ds.a_int = ds_stats.dow + ds_stats.a_int)
                         limit 10
                     """,
-                    "outputDataset": {"id":"ds_train", "type":"tabular"},
+                    "outputDataset": {
+                        "id":"ds_train",
+                        "type":"tabular",
+                        "params": {
+                            "unknownColumns":"add"
+                        }
+                    },
                     "runOnCreation": True
                 }
             })
@@ -114,18 +120,18 @@ class Mldb1597Test(MldbUnitTest):
 
     def test_order_by_with_aggregate(self):
         mldb.query("""
-        select 
+        select
             sum(c) as s
-        from ds 
+        from ds
         group by dow
         order by sum(c)
         """)
 
         mldb.query("""
-        select 
+        select
             1-(0.001+sum(d))/(0.001+sum(c)) as r,
             sum(c - d) as p
-        from ds 
+        from ds
         group by dow
         order by 1-(0.001+sum(d))/(0.001+sum(c))
         """)
@@ -135,7 +141,7 @@ class Mldb1597Test(MldbUnitTest):
         mldb.log(resp)
         # expecting the header + 10 lines
         self.assertEqual(len(resp), 10 + 1)
-        
+
         # columns in the same order as the input
         mldb.log(resp[1])
         self.assertEqual(resp[0], [
@@ -147,7 +153,7 @@ class Mldb1597Test(MldbUnitTest):
             "right_table.index",
             "right_table.mod"
         ], "following asserts depend on this layout")
-    
+
         for line in resp[1:]:
             self.assertEqual(line[1], line[5], "expected equal values on these fields")
             self.assertEqual(line[2], line[4], "expected equal values on these fields")
@@ -164,21 +170,20 @@ class Mldb1597Test(MldbUnitTest):
         right.commit()
 
         self.run_query_and_compare("""
-        select * 
-        from left_table left join right_table 
+        select *
+        from left_table left join right_table
         on (left_table.asc = right_table.index
         and left_table.const = right_table.const)
         """)
 
         self.run_query_and_compare("""
-        select * 
-        from left_table left join right_table 
-        on (left_table.asc + left_table.const = 
+        select *
+        from left_table left join right_table
+        on (left_table.asc + left_table.const =
         right_table.index + right_table.const)
         """)
-            
-    def test_join_with_and(self):
 
+    def test_join_with_and(self):
         resp = mldb.query('select * from ds_train')
         mldb.log(resp)
 
@@ -190,10 +195,17 @@ class Mldb1597Test(MldbUnitTest):
                         from ds left join ds_stats on (ds.dow=ds_stats.dow and ds.a_int=ds_stats.a_int)
                         limit 10
                     """,
-                    "outputDataset": {"id":"ds_train2", "type":"tabular"},
+                    "outputDataset": {
+                        "id":"ds_train2",
+                        "type":"tabular",
+                        "params": {
+                            "unknownColumns":"add"
+                        }
+                    },
                     "runOnCreation": True
                 }
             })
+
         resp2 = mldb.query('select * from ds_train2')
         mldb.log(resp2)
 
@@ -256,7 +268,7 @@ class Mldb1597Test(MldbUnitTest):
                     "type": "classifier.experiment",
                     "params": {
                         "experimentName": "ds",
-                        "inputData": 
+                        "inputData":
                             "select { %s } as features, %s as label from ds_train" % (
                                 ",".join(features), label),
                         "algorithm": algo,

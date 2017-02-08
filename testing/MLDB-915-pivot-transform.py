@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-915-pivot-transform.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -52,7 +53,6 @@ result = mldb.get('/v1/query', q='select * from example2')
 expected = [
     {
         "rowName": "\"[\"\"nick\"\"]\"",
-        "rowHash": "676fb0c3ba9e8500",
         "columns": [
             [
                 "appl",
@@ -68,7 +68,6 @@ expected = [
     },
     {
         "rowName": "\"[\"\"francois\"\"]\"",
-        "rowHash": "65a04ce6031d924d",
         "columns": [
             [
                 "appl",

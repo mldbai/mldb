@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* Example script to import a reddit dataset and run an example */
 
@@ -85,7 +85,7 @@ var trainingOutput = mldb.put("/v1/procedures/kmeans/runs/1", {});
 assertSucceeded("kmeans training", trainingOutput);
 
 // Dump the centroids.  There should be two, one around (1,1) and the other around (-1,-1).
-var centroids = mldb.perform("GET", "/v1/datasets/kmeans_centroids/query");
+var centroids = mldb.perform("GET", "/v1/query", {q : 'select * from kmeans_centroids'});
 assertSucceeded("getting centroids", centroids);
 
 assert(centroids.json.length == 2, "Centroids should have length 2");
@@ -116,9 +116,9 @@ assertSucceeded("function application", functionApplicationOutput);
 assert(clusterId != functionApplicationOutput.json.output.cluster, "opposite points should be in different clusters");
 
 function applyFunction(regex) {
-    var select = "kmeans({{*} as embedding})[cluster] as cluster";
-    var queryOutput = mldb.get("/v1/datasets/gaussian/query",
-                               { select: select, limit: 10, where: "regex_match(rowName(), '" + regex + "')" });
+    var select = "select kmeans({{*} as embedding})[cluster] as cluster";
+    var query = select + " from gaussian where regex_match(rowName(), '" + regex + "')" + "limit 10";
+    var queryOutput = mldb.get("/v1/query", { q : query });
 
     var prevCluster = queryOutput.json[0].columns[0][1];
     assertSucceeded("kmeans application", queryOutput);

@@ -1,7 +1,7 @@
 #
 # MLDB-1721_pathelements_quoted.py
 # Francois Maillet, 11 juin 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest
@@ -24,7 +24,7 @@ class Mldb1721(MldbUnitTest):
                     SELECT
                         tokenize(
                             lower(text),
-                            {splitchars: ' -''"?!;:/[]*,.'}
+                            {splitChars: ' -''"?!;:/[]*,.'}
                         ) as *
                     FROM sample
                     """,
@@ -34,7 +34,7 @@ class Mldb1721(MldbUnitTest):
         })
 
         self.assertTableResultEquals(
-            mldb.query("select * from bag_of_words"),
+            mldb.query("select * from bag_of_words order by rowName() DESC"),
                 [
                     [
                         "_rowName",

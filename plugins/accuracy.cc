@@ -1,8 +1,8 @@
 /** accuracy.cc
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of an ACCURACY algorithm for embedding of a dataset.
 */
@@ -32,16 +32,17 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/utils/log.h"
 
 #define NO_DATA_ERR_MSG "Cannot run classifier.test procedure on empty test set"
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
-typedef std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > Rows;
+typedef std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > Rows;
 
 DEFINE_STRUCTURE_DESCRIPTION(AccuracyConfig);
 
@@ -126,15 +127,16 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 {
 
     PerThreadAccumulator<ScoredStats> accum;
+    auto logger = MLDB::getMldbLog<AccuracyProcedure>();
 
     auto processor = [&] (NamedRowValue & row,
-                           const std::vector<ExpressionValue> & scoreLabelWeight)
+                          const std::vector<ExpressionValue> & scoreLabelWeight)
         {
-            //cerr << "got vals " << labelWeight << " " << score << endl;
-
             double score = scoreLabelWeight[0].toDouble();
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
+
+            TRACE_MSG(logger) << "score=" << score << "; label=" << label << "; weight=" << weight;
 
             accum.get().update(label, score, weight, row.rowName);
 
@@ -157,7 +159,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
                   });
 
     if (!gotStuff) {
-        throw ML::Exception(NO_DATA_ERR_MSG);
+        throw MLDB::Exception(NO_DATA_ERR_MSG);
     }
 
     //stats.sort();
@@ -167,27 +169,27 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 
         int prevIncludedPop = 0;
 
-        std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+        std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows;
 
         auto recordRow = [&] (unsigned i, const BinaryStats & bstats, ScoredStats::ScoredEntry & entry)
         {
-            std::vector<std::tuple<RowName, CellValue, Date> > row;
+            std::vector<std::tuple<RowPath, CellValue, Date> > row;
 
-            row.emplace_back(ColumnName("index"), i, recordDate);
-            row.emplace_back(ColumnName("label"), entry.label, recordDate);
-            row.emplace_back(ColumnName("score"), entry.score, recordDate);
-            row.emplace_back(ColumnName("weight"), entry.weight, recordDate);
-            row.emplace_back(ColumnName("truePositives"), bstats.truePositives(), recordDate);
-            row.emplace_back(ColumnName("falsePositives"), bstats.falsePositives(), recordDate);
-            row.emplace_back(ColumnName("trueNegatives"), bstats.trueNegatives(), recordDate);
-            row.emplace_back(ColumnName("falseNegatives"), bstats.falseNegatives(), recordDate);
-            row.emplace_back(ColumnName("accuracy"), bstats.accuracy(), recordDate);
-            row.emplace_back(ColumnName("precision"), bstats.precision(), recordDate);
-            row.emplace_back(ColumnName("recall"), bstats.recall(), recordDate);
-            row.emplace_back(ColumnName("truePositiveRate"), bstats.truePositiveRate(), recordDate);
-            row.emplace_back(ColumnName("falsePositiveRate"), bstats.falsePositiveRate(), recordDate);
+            row.emplace_back(ColumnPath("index"), i, recordDate);
+            row.emplace_back(ColumnPath("label"), entry.label, recordDate);
+            row.emplace_back(ColumnPath("score"), entry.score, recordDate);
+            row.emplace_back(ColumnPath("weight"), entry.weight, recordDate);
+            row.emplace_back(ColumnPath("truePositives"), bstats.truePositives(), recordDate);
+            row.emplace_back(ColumnPath("falsePositives"), bstats.falsePositives(), recordDate);
+            row.emplace_back(ColumnPath("trueNegatives"), bstats.trueNegatives(), recordDate);
+            row.emplace_back(ColumnPath("falseNegatives"), bstats.falseNegatives(), recordDate);
+            row.emplace_back(ColumnPath("accuracy"), bstats.accuracy(), recordDate);
+            row.emplace_back(ColumnPath("precision"), bstats.precision(), recordDate);
+            row.emplace_back(ColumnPath("recall"), bstats.recall(), recordDate);
+            row.emplace_back(ColumnPath("truePositiveRate"), bstats.truePositiveRate(), recordDate);
+            row.emplace_back(ColumnPath("falsePositiveRate"), bstats.falsePositiveRate(), recordDate);
 
-            rows.emplace_back(boost::any_cast<RowName>(entry.key), std::move(row));
+            rows.emplace_back(boost::any_cast<RowPath>(entry.key), std::move(row));
             if (rows.size() > 10000) {
                 output->recordRows(rows);
                 rows.clear();
@@ -225,18 +227,17 @@ runBoolean(AccuracyConfig & runAccuracyConf,
         output->commit();
     }
 
-    cerr << "stats are " << endl;
+    DEBUG_MSG(logger) << "stats are ";
 
-    cerr << stats.toJson();
+    DEBUG_MSG(logger) << stats.toJson();
 
-    cerr << stats.atPercentile(0.50).toJson();
-    cerr << stats.atPercentile(0.20).toJson();
-    cerr << stats.atPercentile(0.10).toJson();
-    cerr << stats.atPercentile(0.05).toJson();
-    cerr << stats.atPercentile(0.01).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.50).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.20).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.10).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.05).toJson();
+    DEBUG_MSG(logger) << stats.atPercentile(0.01).toJson();
 
     return Any(stats.toJson());
-
 }
 
 RunOutput
@@ -244,7 +245,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
                std::shared_ptr<Dataset> output)
 {
-    typedef vector<std::tuple<CellValue, CellValue, double, double, RowName>> AccumBucket;
+    typedef vector<std::tuple<CellValue, CellValue, double, double, RowPath>> AccumBucket;
     PerThreadAccumulator<AccumBucket> accum;
 
     PerThreadAccumulator<Rows> rowsAccum;
@@ -257,9 +258,9 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             CellValue maxLabel;
             double maxLabelScore = -INFINITY;
 
-            std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
+            std::vector<std::tuple<RowPath, CellValue, Date> > outputRow;
 
-            static const ColumnName score("score");
+            static const ColumnPath score("score");
             
             auto onAtom = [&] (const Path & columnName,
                                const Path & prefix,
@@ -286,9 +287,9 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             accum.get().emplace_back(label, maxLabel, maxLabelScore, weight, row.rowName);
 
             if(output) {
-                outputRow.emplace_back(ColumnName("maxLabel"), maxLabel, recordDate);
-                outputRow.emplace_back(ColumnName("label"), label, recordDate);
-                outputRow.emplace_back(ColumnName("weight"), weight, recordDate);
+                outputRow.emplace_back(ColumnPath("maxLabel"), maxLabel, recordDate);
+                outputRow.emplace_back(ColumnPath("label"), label, recordDate);
+                outputRow.emplace_back(ColumnPath("weight"), weight, recordDate);
 
                 rowsAccum.get().emplace_back(row.rowName, std::move(outputRow));
                 if(rowsAccum.get().size() > 1000) {
@@ -315,10 +316,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     }
 
 
-    // Create confusion matrix
-    map<CellValue, map<CellValue, unsigned>> confusion_matrix;
-    map<CellValue, unsigned> predicted_sums;
-    map<CellValue, unsigned> real_sums;
+    // Create confusion matrix (actual / predicted)
+    map<CellValue, map<CellValue, double>> confusion_matrix;
+    map<CellValue, double> predicted_sums;
+    map<CellValue, double> real_sums;
+    double conf_mat_sum = 0;
     bool gotStuff = false;
     accum.forEach([&] (AccumBucket * thrBucket)
             {
@@ -326,14 +328,16 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
-                    confusion_matrix[label][predicted] += 1;
-                    real_sums[label] += 1;
-                    predicted_sums[predicted] += 1;
+                    const double & weight = std::get<3>(elem);
+                    confusion_matrix[label][predicted] += weight;
+                    real_sums[label] += weight;
+                    predicted_sums[predicted] += weight;
+                    conf_mat_sum += weight;
                 }
             });
 
     if (!gotStuff) {
-        throw ML::Exception(NO_DATA_ERR_MSG);
+        throw MLDB::Exception(NO_DATA_ERR_MSG);
     }
     // Create per-class statistics
     Json::Value results;
@@ -343,20 +347,15 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     double total_precision = 0;
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
-    unsigned total_support = 0;
+    double total_support = 0;
 
+    int nb_predicted_no_label = 0;
+
+    auto logger = MLDB::getMldbLog<AccuracyProcedure>();
     results["confusionMatrix"] = Json::Value(Json::arrayValue);
     for(const auto & actual_it : confusion_matrix) {
-        unsigned fn = 0;
-        unsigned tp = 0;
 
         for(const auto & predicted_it : actual_it.second) {
-            if(predicted_it.first == actual_it.first)  {
-                tp += predicted_it.second;
-            } else{
-                fn += predicted_it.second;
-            }
-
             Json::Value conf_mat_elem;
             conf_mat_elem["predicted"] = jsonEncode(predicted_it.first);
             conf_mat_elem["actual"] = jsonEncode(actual_it.first);
@@ -364,23 +363,44 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             results["confusionMatrix"].append(conf_mat_elem);
         }
 
+        double tp = confusion_matrix[actual_it.first][actual_it.first];
+        double fp = predicted_sums[actual_it.first] - tp;
+        double fn = real_sums[actual_it.first] - tp;
+        double tn = conf_mat_sum - fn - fp - tp;
+
+        DEBUG_MSG(logger) << "label: " << actual_it.first;
+        DEBUG_MSG(logger) << "TP: " << tp;
+        DEBUG_MSG(logger) << "FP: " << fp;
+        DEBUG_MSG(logger) << "TN: " << tn;
+        DEBUG_MSG(logger) << "FN: " << fn;
+
+        // if our class was (wrongfully) predicted (fp) but was never actually
+        // there (tp + fn == 0), then this is strange
+        if (tp + fn == 0 && fp > 0) {
+            nb_predicted_no_label++;
+            DEBUG_MSG(logger)
+                << "WARNING!! Label '" << actual_it.first
+                << "' was predicted but not in known labels!";
+        }
+
         Json::Value class_stats;
 
-        double accuracy = ML::xdiv(tp, float(real_sums[actual_it.first]));
-        double precision = ML::xdiv(tp, float(predicted_sums[actual_it.first]));
-        double recall = ML::xdiv(tp, float(tp + fn));
-        unsigned support = real_sums[actual_it.first];
+        double accuracy = ML::xdiv(tp + tn, conf_mat_sum);
+        double precision = ML::xdiv(tp, tp + fp);
+        double support = tp + fn;
+        double recall = ML::xdiv(tp, support);
         class_stats["accuracy"] = accuracy;
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
-        class_stats["f"] = 2 * ML::xdiv((precision * recall), (precision + recall));
+        class_stats["f1Score"] = 2 * ML::xdiv(precision * recall,
+                                        precision + recall);
         class_stats["support"] = support;
         results["labelStatistics"][actual_it.first.toString()] = class_stats;
 
         total_accuracy += accuracy * support;
         total_precision += precision * support;
         total_recall += recall * support;
-        total_f1 += class_stats["f"].asDouble() * support;
+        total_f1 += class_stats["f1Score"].asDouble() * support;
         total_support += support;
     }
 
@@ -389,7 +409,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     weighted_stats["accuracy"] = total_accuracy / total_support;
     weighted_stats["precision"] = total_precision / total_support;
     weighted_stats["recall"] = total_recall / total_support;
-    weighted_stats["f"] = total_f1 / total_support;
+    weighted_stats["f1Score"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
     results["weightedStatistics"] = weighted_stats;
 
@@ -397,22 +417,18 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     // TODO maybe this should always return an error? The problem is it is not impossible that because
     // of the way the dataset is split, it is a normal situation. But it can also point to
     // misalignment in the way columns are named
-
-    // for all predicted labels
-    for(const auto & predicted_it : predicted_sums) {
-        // if it is not a true label
-        if(real_sums.find(predicted_it.first) == real_sums.end()) {
-            if(weighted_stats["precision"].asDouble() == 0) {
-                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' "
-                        "was predicted but not in true labels! Are the columns of the predicted "
-                        "labels named properly?", predicted_it.first.toString()));
-            }
-            cerr << "WARNING!! Label '" << predicted_it.first << "' was predicted but not in known labels!" << endl;
-        }
+    
+    // throw if precision is zero and at least one predicted value wasn't even
+    // in the labels
+    if (weighted_stats["precision"].asDouble() == 0
+        && nb_predicted_no_label > 0) {
+        throw MLDB::Exception(MLDB::format("Weighted precision is 0 and %i"
+                "labels were predicted but not in true labels! "
+                "Are the columns of the predicted labels named properly?",
+                nb_predicted_no_label));
     }
-
-
-    cout << results.toStyledString() << endl;
+    
+    // cout << results.toStyledString() << endl;
 
     return Any(results);
 }
@@ -425,17 +441,17 @@ runRegression(AccuracyConfig & runAccuracyConf,
     /* Calculate the r-squared. */
     struct ThreadStats {
         ThreadStats() :
-            mse_sum(0), n(0)
+            mse_sum(0), totalWeight(0)
         {}
 
-        void increment(double v, double l) {
+        void increment(double v, double l, double w) {
             if (!finite(v)) return;
 
-            mse_sum += pow(v-l, 2);
+            mse_sum += pow(v-l, 2) * w;
             absolute_percentage.push_back(abs( (v-l)/l ));
 
-            labels.push_back(l);
-            n++;
+            labelsWeights.emplace_back(l,w);
+            totalWeight += w;
         }
 
         static void merge(ThreadStats & t1, ThreadStats & t2)
@@ -453,9 +469,9 @@ runRegression(AccuracyConfig & runAccuracyConf,
         }
 
         double mse_sum;
-        int n;
-        ML::distribution<double> absolute_percentage;
-        vector<double> labels;
+        double totalWeight;
+        distribution<double> absolute_percentage;
+        vector<pair<double, double>> labelsWeights;
     };
 
     PerThreadAccumulator<ThreadStats> accum;
@@ -470,14 +486,14 @@ runRegression(AccuracyConfig & runAccuracyConf,
             double label = scoreLabelWeight[1].toDouble();
             double weight = scoreLabelWeight[2].toDouble();
 
-            accum.get().increment(score, label);
+            accum.get().increment(score, label, weight);
 
             if(output) {
-                std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
+                std::vector<std::tuple<RowPath, CellValue, Date> > outputRow;
 
-                outputRow.emplace_back(ColumnName("score"), score, recordDate);
-                outputRow.emplace_back(ColumnName("label"), label, recordDate);
-                outputRow.emplace_back(ColumnName("weight"), weight, recordDate);
+                outputRow.emplace_back(ColumnPath("score"), score, recordDate);
+                outputRow.emplace_back(ColumnPath("label"), label, recordDate);
+                outputRow.emplace_back(ColumnPath("weight"), weight, recordDate);
 
                 rowsAccum.get().emplace_back(row.rowName, outputRow);
                 if(rowsAccum.get().size() > 1000) {
@@ -504,17 +520,17 @@ runRegression(AccuracyConfig & runAccuracyConf,
     }
 
 
-    double n = 0, mse_sum = 0;
-    vector<vector<double> > allThreadLabels;
+    double totalWeight = 0, mse_sum = 0;
+    vector<vector<pair<double,double>> > allThreadLabelsWeights;
     accum.forEach([&] (ThreadStats * thrStats)
                   {
-                        n += thrStats->n;
+                        totalWeight += thrStats->totalWeight;
                         mse_sum += thrStats->mse_sum;
-                        allThreadLabels.emplace_back(std::move(thrStats->labels));
+                        allThreadLabelsWeights.emplace_back(std::move(thrStats->labelsWeights));
                   });
 
-    if(n == 0) {
-        throw ML::Exception(NO_DATA_ERR_MSG);
+    if(totalWeight == 0) {
+        throw MLDB::Exception(NO_DATA_ERR_MSG);
     }
 
     std::mutex mergeAccumsLock;
@@ -523,27 +539,27 @@ runRegression(AccuracyConfig & runAccuracyConf,
     auto doThreadMeanLbl = [&] (int threadNum) -> bool
     {
         double averageAccum = 0;
-        for(auto & label : allThreadLabels[threadNum])
-            averageAccum += label / n;
+        for(auto & labelWeight : allThreadLabelsWeights[threadNum])
+            averageAccum += labelWeight.first * labelWeight.second / totalWeight;
 
         std::unique_lock<std::mutex> guard(mergeAccumsLock);
         meanOfLabel += averageAccum;
         return true;
     };
-    parallelMap(0, allThreadLabels.size(), doThreadMeanLbl);
+    parallelMap(0, allThreadLabelsWeights.size(), doThreadMeanLbl);
 
     double totalSumSquares = 0;
     auto doThreadSS = [&] (int threadNum) -> bool
     {
         double ssAccum = 0;
-        for(auto & label : allThreadLabels[threadNum])
-            ssAccum += pow(label - meanOfLabel, 2);
+        for(auto & labelWeight : allThreadLabelsWeights[threadNum])
+            ssAccum += pow(labelWeight.first - meanOfLabel, 2) * labelWeight.second;
 
         std::unique_lock<std::mutex> guard(mergeAccumsLock);
         totalSumSquares += ssAccum;
         return true;
     };
-    parallelMap(0, allThreadLabels.size(), doThreadSS);
+    parallelMap(0, allThreadLabelsWeights.size(), doThreadSS);
 
 
     // calculate the r2 while catching the edge cases
@@ -553,7 +569,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
     else                            r_squared = 1 - (mse_sum / totalSumSquares);
 
     // prepare absolute_percentage distribution
-    ML::distribution<double> absolute_percentage;
+    distribution<double> absolute_percentage;
 
     parallelMergeSortRecursive(accum.threads, 0, accum.threads.size(),
                                [] (const std::shared_ptr<ThreadStats> & t)
@@ -575,15 +591,12 @@ runRegression(AccuracyConfig & runAccuracyConf,
         absolute_percentage = std::move(accum.threads[0]->absolute_percentage);
     }
 
-    ExcAssertEqual(absolute_percentage.size(), n);
-
-
     // create return object
     Json::Value results;
     results["r2"] = r_squared;
 //     results["b"] = b;
 //     results["bd"] = bd;
-    results["mse"] = mse_sum / n;
+    results["mse"] = mse_sum / totalWeight;
 
     Json::Value quantile_errors;
     if(absolute_percentage.size() > 0) {
@@ -608,7 +621,8 @@ run(const ProcedureRunConfig & run,
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto dataset = runAccuracyConf.testingData.stm->from->bind(context, convertProgressToJson).dataset;
 
     // prepare output dataset
     std::shared_ptr<Dataset> output;
@@ -646,7 +660,7 @@ run(const ProcedureRunConfig & run,
     if(runAccuracyConf.mode == CM_REGRESSION)
         return runRegression(runAccuracyConf, boundQuery, output);
 
-    throw ML::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
+    throw MLDB::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
 }
 
 namespace {
@@ -659,4 +673,4 @@ regAccuracy(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,8 +1,8 @@
 /** binding_contexts.h                                             -*- C++ -*-
     Jeremy Barnes, 15 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Binding scopes for dealing with scopes.
 */
@@ -13,7 +13,6 @@
 #include <unordered_set>
 
 
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -60,11 +59,11 @@ struct ReadThroughBindingScope: public SqlBindingScope {
                   SqlBindingScope & argScope);
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
     
@@ -100,12 +99,19 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
     
     /// RowContex structure. Derived class's row scope must derive from this
     struct ColumnScope: public SqlRowScope {
-        ColumnScope(const ColumnName & columnName)
-            : columnName(columnName)
+        ColumnScope(const ColumnPath & columnName)
+            : columnName(columnName), columnValue(nullptr)
         {
         }
 
-        const ColumnName & columnName;
+        ColumnScope(const ColumnPath & columnName,
+                    const ExpressionValue & columnValue)
+            : columnName(columnName), columnValue(&columnValue)
+        {
+        }
+
+        const ColumnPath & columnName;
+        const ExpressionValue * columnValue;
     };
 
     virtual BoundFunction
@@ -114,11 +120,17 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    ColumnScope getColumnScope(const ColumnName & columnName)
+    static ColumnScope getColumnScope(const ColumnPath & columnName)
     {
         return ColumnScope(columnName);
     }
-
+    
+    static ColumnScope getColumnScope(const ColumnPath & columnName,
+                                      const ExpressionValue & val)
+    {
+        return ColumnScope(columnName, val);
+    }
+    
     virtual MldbServer * getMldbServer() const
     {
         return outer.getMldbServer();
@@ -126,16 +138,16 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
 
     // Only so we can return a good error message
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
 
     // Only so we can return a good error message
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     // Only so we can return a good error message
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullVariableName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullVariableName,
                        Utf8String & tableName) const;
 };
 
@@ -223,10 +235,65 @@ struct SqlExpressionParamScope: public ReadThroughBindingScope {
 
 
 /*****************************************************************************/
+/* SQL EXPRESSION EVAL SCOPE                                                 */
+/*****************************************************************************/
+
+/** Scope that only binds parameters, ie entities referenced as $xxx which
+    are passed in after binding but are constant for each query execution.
+*/
+
+struct SqlExpressionEvalScope: public ReadThroughBindingScope {
+
+    SqlExpressionEvalScope(SqlBindingScope & outer,
+                           std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo)
+        : ReadThroughBindingScope(outer),
+          argInfo(std::move(argInfo))
+    {
+    }
+
+    struct RowScope: public ReadThroughBindingScope::RowScope {
+        RowScope(const SqlRowScope & outer,
+                 const std::vector<ExpressionValue> & args)
+            : ReadThroughBindingScope::RowScope(outer),
+              args(args.data()), numArgs(args.size())
+        {
+        }
+
+        RowScope(const SqlRowScope & outer,
+                 const ExpressionValue * args,
+                 size_t numArgs)
+            : ReadThroughBindingScope::RowScope(outer),
+              args(args), numArgs(numArgs)
+        {
+        }
+
+        const ExpressionValue * args;
+        size_t numArgs;
+    };
+    
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
+
+    static RowScope getRowScope(const SqlRowScope & outer,
+                                const std::vector<ExpressionValue> & args)
+    {
+        return RowScope(outer, args);
+    }
+
+    static RowScope getRowScope(const SqlRowScope & outer,
+                                const ExpressionValue * args, size_t numArgs)
+    {
+        return RowScope(outer, args, numArgs);
+    }
+    
+    std::vector<std::shared_ptr<ExpressionValueInfo> > argInfo;
+};
+
+
+/*****************************************************************************/
 /* SQL EXPRESSION CONSTANT SCOPE                                             */
 /*****************************************************************************/
 
-/** Scope that will fail to bind anything apart from built-in function.
+/** Scope that will fail to bind anything apart from built-in functions.
     This is used to bind and evaluate constant expressions.
 */
 
@@ -284,10 +351,10 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
 
     /// Input variables, for when they are known.  Will be null
     /// when the input is unknown.
-    std::shared_ptr<RowValueInfo> inputInfo;
+    std::shared_ptr<ExpressionValueInfo> inputInfo;
 
     /// Set of column names that we're inferring
-    std::unordered_set<ColumnName> inferredInputs;
+    std::unordered_set<ColumnPath> inferredInputs;
 
     /// Do we have wildcards in our input?  If so, we can't have a closed
     /// schema for our inputs.
@@ -300,11 +367,11 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
     void inferInput();
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                             const ColumnName & columnName);
+                             const ColumnPath & columnName);
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -312,8 +379,8 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullVariableName,
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullVariableName,
                        Utf8String & tableName) const;
 
     struct RowScope: public SqlRowScope {
@@ -353,4 +420,4 @@ getDatasetDerivedFunction(const Utf8String & tableName,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

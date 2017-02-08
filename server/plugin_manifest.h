@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** plugin_manifest.h                                              -*- C++ -*-
     Jeremy Barnes, 20 November 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Manifest for an MLDB plugin.
 */
@@ -12,7 +12,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/core/plugin.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -27,4 +27,4 @@ struct PluginManifest {
 DECLARE_STRUCTURE_DESCRIPTION(PluginManifest);
 
 } // namespace MLDB
-} // namespace Datacratic
+

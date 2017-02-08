@@ -1,30 +1,94 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* tokenize.cc
    Mathieu Marquis Bolduc, October 5th 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Generic delimiter-token parsing.
 */
 
 #include "tokenize.h"
 #include "base/parse_context.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/types/pair_description.h"
 #include <queue>
 
 using namespace std;
 
+namespace MLDB {
 
-namespace Datacratic {
+DEFINE_STRUCTURE_DESCRIPTION(TokenizeOptions);
 
+TokenizeOptionsDescription::
+TokenizeOptionsDescription()
+{
+    addAuto("splitChars", &TokenizeOptions::splitchar,
+            "Characters to split on in the tokenization.");
+    addAuto("quoteChar", &TokenizeOptions::quotechar,
+            "a single character to delimit tokens which may contain the "
+            "`splitchars`, so by default "
+            "`tokenize('a,\"b,c\"', {quoteChar:'\"'})` will return the row "
+            "`{'a':1,'b,c':1}`.  By default no quoting character is used.");
+    addAuto("offset", &TokenizeOptions::offset,
+            "Skip the first `offset` tokens of the output (default 0).");
+    addAuto("limit", &TokenizeOptions::limit,
+            "Only generate `limit` tokens in the output (default is -1, "
+            "which means generate all.");
+    addAuto("value", &TokenizeOptions::value,
+            "`value` (if not set to `null`) will be used instead of "
+            "token counts for the values of the columns in the output row.");
+    addAuto("minTokenLength", &TokenizeOptions::minTokenLength,
+            "Minimum number of characters in a token for it to be output or "
+            "included as part of an ngram");
+    addAuto("ngramRange", &TokenizeOptions::ngramRange,
+            "Specifies the complexity of n-grams to return, with the "
+            "first element corresponding to minimum length and the "
+            "second to maximum length.  "
+            "`[1, 1]` will return only unigrams, while `[2, 3]` will "
+            "return bigrams and trigrams, where tokens are joined by "
+            "underscores. For example, "
+            "`tokenize('Good day world', {splitChars:' ', ngramRange:[2,3]})`"
+            "will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`");
+
+    onUnknownField = [] (TokenizeOptions * options,
+                         JsonParsingContext & context)
+    {
+        if(context.fieldName() == "min_token_length") {
+            options->minTokenLength = context.expectInt();
+            cerr << "The 'min_token_length' argument has been renamed to 'minTokenLength'" << endl;
+        }
+        else if(context.fieldName() == "ngram_range") {
+            int i=0;
+            context.forEachElement([&] () 
+                {
+                    if(i++==0)
+                        options->ngramRange.first = context.expectInt();
+                    else
+                        options->ngramRange.second = context.expectInt();
+                });
+            cerr << "The 'ngram_range' argument has been renamed to 'ngramRange'" << endl;
+        }
+        else if(context.fieldName() == "splitchars") {
+            options->splitchar = context.expectStringUtf8();
+            cerr << "The 'splitchars' argument has been renamed to 'splitChars'" << endl;
+        }
+        else if(context.fieldName() == "quotechar") {
+            options->quotechar = context.expectStringUtf8();
+            cerr << "The 'quotechar' argument has been renamed to 'quoteChar'" << endl;
+        }
+        else {
+            context.exception("Unknown field '" + context.fieldName()
+                    + " parsing tokenize configuration");
+          }
+        return false;
+    };
+}
 
 struct NGramer {
-
-    NGramer(int min_range, int max_range) 
+    NGramer(int min_range, int max_range)
         : min_range(min_range), max_range(max_range),
           count(0), buffer_pos(0)
     {
         if(max_range<min_range || min_range<1 || max_range<1)
-            throw ML::Exception("ngram_range values must be bigger than 0 "
+            throw MLDB::Exception("ngramRange values must be bigger than 0 "
                     "and the second value needs to be equal or bigger than the first");
     
         buffer.resize(max_range);
@@ -71,10 +135,10 @@ struct NGramer {
 
 
 
-char32_t expectUtf8Char(ML::Parse_Context & context)
+char32_t expectUtf8Char(ParseContext & context)
 {
     if (!context)
-        context.exception("Expected UTF-8 character");
+        context.exception("Expected UTF-8 character but got EOF instead");
 
     unsigned char c = *context;
 
@@ -105,9 +169,9 @@ char32_t expectUtf8Char(ML::Parse_Context & context)
     return res;
 }
 
-static bool matchUtf8Literal(ML::Parse_Context & context, const Utf8String& literal)
+static bool matchUtf8Literal(ParseContext & context, const Utf8String& literal)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
     auto it = literal.begin();
     while (!context.eof() && it != literal.end())
     {
@@ -125,9 +189,9 @@ static bool matchUtf8Literal(ML::Parse_Context & context, const Utf8String& lite
     return false;
 }
 
-static bool matchOneOfUtf8(ML::Parse_Context & context, const Utf8String& literals)
+static bool matchOneOfUtf8(ParseContext & context, const Utf8String& literals)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
 
     if (context.eof())
        return false;
@@ -147,12 +211,12 @@ static bool matchOneOfUtf8(ML::Parse_Context & context, const Utf8String& litera
 
 void
 tokenize_exec(std::function<bool (Utf8String&)> exec,
-              ML::Parse_Context& context,
+              ParseContext& context,
               const Utf8String& splitchars,
               const Utf8String& quotechar,
-              int min_token_length)
+              int minTokenLength)
 {
-    auto expect_token = [=] (ML::Parse_Context& context, bool& another) -> Utf8String
+    auto expect_token = [=] (ParseContext& context, bool& another) -> Utf8String
         {
             Utf8String result;
 
@@ -195,7 +259,7 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
             }
 
             if (quoted)
-                throw ML::Exception("string finished inside quote");
+                throw MLDB::Exception("string finished inside quote");
 
             return result;
         };
@@ -203,9 +267,9 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
     bool another = false;
     while (another || (context && !context.eof())) {
 
-        Utf8String word = std::move(expect_token(context, another));
+        Utf8String word = expect_token(context, another);
 
-        if(word.length() < min_token_length)
+        if(word.length() < minTokenLength)
             continue;
 
         if (!exec(word))
@@ -215,18 +279,13 @@ tokenize_exec(std::function<bool (Utf8String&)> exec,
     return;
 }
 
-bool
-tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
-         ML::Parse_Context& context,
-         const Utf8String& splitchars,
-         const Utf8String& quotechar,
-         int offset, int limit,
-         int min_token_length,
-         ML::distribution<float, std::vector<float> > & ngram_range)
+bool tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
+              ParseContext& pcontext,
+              const TokenizeOptions & options)
 {
     int count = 0;
  
-    NGramer nGramer(ngram_range[0], ngram_range[1]);
+    NGramer nGramer(options.ngramRange.first, options.ngramRange.second);
 
     auto onGram = [&](Utf8String& word) -> bool
     {
@@ -244,29 +303,31 @@ tokenize(std::unordered_map<Utf8String, int>& bagOfWords,
     auto aggregate = [&](Utf8String& word) -> bool
     {
         ++count;
-        if (count <= offset)
+        if (count <= options.offset)
             return true; //continue
 
         if (word != "") {
             nGramer.add_token(word, onGram);
         }
 
-        if (count == limit+offset)
+        if (count == options.limit+options.offset)
             return false; //stop here
 
         return true;
     };
 
-    tokenize_exec(aggregate, context, splitchars, quotechar, min_token_length);
+    tokenize_exec(aggregate, pcontext,
+                  options.splitchar,
+                  options.quotechar,
+                  options.minTokenLength);
 
     return !bagOfWords.empty();
 }
 
-Utf8String token_extract(ML::Parse_Context& context,
-                         const Utf8String& splitchars,
-                         const Utf8String& quotechar,
-                         int offset, int limit, int nth,
-                         int min_token_length)
+
+Utf8String token_extract(ParseContext& context,
+                         int nth,
+                         const TokenizeOptions & options)
 {
     Utf8String result;
 
@@ -275,7 +336,7 @@ Utf8String token_extract(ML::Parse_Context& context,
         auto aggregate_positive = [&] (Utf8String& word) -> bool
         {
             ++count;
-            if (count <= offset + nth)
+            if (count <= options.offset + nth)
                 return true; //skip & continue
 
             if (word != "") {
@@ -283,13 +344,15 @@ Utf8String token_extract(ML::Parse_Context& context,
                 return false; //found it, stop
             }
 
-            if (count == limit+offset+nth)
+            if (count == options.limit+options.offset+nth)
                 return false; //stop here
 
             return true;
         };
 
-        tokenize_exec(aggregate_positive, context, splitchars, quotechar, min_token_length);
+        tokenize_exec(aggregate_positive, context,
+                      options.splitchar, options.quotechar,
+                      options.minTokenLength);
     }
     else {
         std::queue<Utf8String> tokens;
@@ -297,21 +360,23 @@ Utf8String token_extract(ML::Parse_Context& context,
         auto aggregate_negative = [&](Utf8String& word) -> bool
         {
             ++count;
-            if (count <= offset)
+            if (count <= options.offset)
                 return true; //continue
 
             tokens.push(word);
 
             if (tokens.size() > -nth)
-                   tokens.pop(); //For memory efficiency
+                tokens.pop(); //For memory efficiency
 
-            if (count == limit+offset)
+            if (count == options.limit+options.offset)
                 return false; //stop here
 
             return true;
         };
 
-        tokenize_exec(aggregate_negative, context, splitchars, quotechar, min_token_length);
+        tokenize_exec(aggregate_negative, context,
+                      options.splitchar, options.quotechar,
+                      options.minTokenLength);
         if (tokens.size() == -nth)
             result = std::move(tokens.front());
     }
@@ -320,5 +385,27 @@ Utf8String token_extract(ML::Parse_Context& context,
 
 }
 
+std::vector<Utf8String> token_split(ParseContext& context,
+                                    const Utf8String& splitchars)
+{
+    std::vector<Utf8String> result;
 
-} //Datacratic
+    auto aggregate = [&] (Utf8String& word) -> bool
+    {
+
+        if (!word.empty())
+            result.push_back(word);
+
+        return true;
+    };
+
+    tokenize_exec(aggregate, context,
+                  splitchars, "",
+                  0);
+
+
+    return result;
+}
+
+
+} // namespace MLDB

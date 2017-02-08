@@ -2,7 +2,7 @@
    Jeremy Barnes, 18 January 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 
@@ -43,7 +43,7 @@
 #include "sse2_poly.h"
 #include <cmath>
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 
@@ -144,7 +144,7 @@ inline v4sf sse2_expf(v4sf x)
     int mask = 0;
 
     // For out of range results, we have to use the other values
-    if (JML_UNLIKELY(mask = out_of_range_mask_cc(x, MINLOGF, MAXLOGF))) {
+    if (MLDB_UNLIKELY(mask = out_of_range_mask_cc(x, MINLOGF, MAXLOGF))) {
         using namespace std;
         //cerr << "mask = " << mask << " x = " << x << endl;
 
@@ -290,7 +290,7 @@ inline v2df sse2_exp(v2df x)
     int mask = 0;
 
     // For out of range results, we have to use the other values
-    if (JML_UNLIKELY(mask = out_of_range_mask_cc(x, MINLOG, MAXLOG))) {
+    if (MLDB_UNLIKELY(mask = out_of_range_mask_cc(x, MINLOG, MAXLOG))) {
         //using namespace std;
         //cerr << "mask = " << mask << " x = " << x << endl;
 
@@ -313,4 +313,4 @@ inline v2df sse2_exp(v2df x)
 }
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

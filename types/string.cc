@@ -1,13 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* string.cc
    Sunil Rottoo, 27 April 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "string.h"
-#include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include <iostream>
 #include "mldb/arch/exception.h"
@@ -15,11 +14,13 @@
 #include "mldb/base/exc_assert.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
+#include "mldb/arch/demangle.h"
+#include <cxxabi.h>
 
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -159,7 +160,7 @@ doCheck() const
     string::const_iterator end_it = utf8::find_invalid(data_.begin(), data_.end());
     if (end_it != data_.end())
         {
-            throw ML::Exception("Invalid sequence within utf-8 string");
+            throw MLDB::Exception("Invalid sequence within utf-8 string");
         }
 }
 
@@ -240,6 +241,20 @@ Utf8String::isAscii() const
 size_t Utf8String::length() const
 {
     return std::distance(begin(), end());
+}
+
+void
+Utf8String::
+reserve(size_t capacity)
+{
+    data_.reserve(capacity);
+}
+
+size_t
+Utf8String::
+capacity() const
+{
+    return data_.capacity();
 }
 
 Utf8String::const_iterator
@@ -574,14 +589,14 @@ Utf8String
 Utf8String::
 toLower() const
 {
-    return std::move(boost::locale::to_lower(data_));
+    return boost::locale::to_lower(data_);
 }
 
 Utf8String
 Utf8String::
 toUpper() const
 {
-    return std::move(boost::locale::to_upper(data_));
+    return boost::locale::to_upper(data_);
 }
 
 Utf8String::iterator
@@ -656,4 +671,9 @@ struct AtInit {
 
 } // file scope
 
-} // namespace Datacratic
+Utf8String getUtf8ExceptionString()
+{
+    return getExceptionString();
+}
+
+} // namespace MLDB

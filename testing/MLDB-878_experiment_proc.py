@@ -1,7 +1,7 @@
 #
 # MLDB-878_experiment_proc.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 import datetime, os
 from random import random, gauss
@@ -55,7 +55,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
                         "regularization": 'l2'
                     }
                 },
@@ -258,7 +257,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
                         "regularization": 'l2'
                     }
                 },
@@ -282,6 +280,13 @@ class Mldb878Test(MldbUnitTest):  # noqa
             js_rez["status"]["folds"][0]["resultsTest"]["auc"],
             delta=0.05)
 
+
+        # make sure we have the expected results
+        self.assertEqual(js_rez["status"]["folds"][0]["functionName"], "my_test_exp_scorer_0")
+        mldb.get("/v1/functions/"+js_rez["status"]["folds"][0]["functionName"]) # make sure it exists
+
+        self.assertEqual(js_rez["status"]["folds"][0]["modelFileUrl"], "file://build/x86_64/tmp/bouya-my_test_exp-0.cls")
+
     def test_no_cls_write_perms(self):
         conf = {
             "type": "classifier.experiment",
@@ -297,7 +302,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
                         "regularization": 'l2'
                     }
                 },
@@ -427,7 +431,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -457,7 +460,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -485,7 +487,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -515,7 +516,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -557,7 +557,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 ],
                 'mode': 'boolean',
                 'algorithm': 'dt',
-                'modelFileUrlPattern': 'file://test_orderby_$runid',
+                'modelFileUrlPattern': 'file://tmp/test_orderby_$runid',
                 "configuration": {
                     "dt": {
                         "type": "decision_tree",
@@ -597,7 +597,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },
@@ -627,7 +626,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                             "type": "glz",
                             "verbosity": 3,
                             "normalize": False,
-                            "link": "linear",
                             "regularization": 'l2'
                         }
                     },

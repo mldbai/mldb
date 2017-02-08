@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* sns.cc
    Jeremy Barnes, 12 May 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Basic interface to Amazon's SNS service.
 */
@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -61,4 +61,4 @@ publish(const std::string & topicArn,
                        timeout);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

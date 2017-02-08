@@ -1,7 +1,7 @@
 #
 # MLDB-1258_nofrom_segfault.py
 # 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import unittest
 
@@ -27,7 +27,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "trainingData": """
                     select {* EXCLUDING(quality)} as features, quality as label
                 """,
-                "modelFileUrl": "file://my_model.cls",
+                "modelFileUrl": "file://tmp/my_model.cls",
                 "algorithm": "glz",
                 "equalizationFactor": 0.5,
                 "mode": "regression",
@@ -46,7 +46,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "trainingData": """
                     select {* EXCLUDING(quality)} as features, quality as label
                 """,
-                "modelFileUrl": "file://my_model.cls",
+                "modelFileUrl": "file://tmp/my_model.cls",
                 "runOnCreation": True
             }
         }

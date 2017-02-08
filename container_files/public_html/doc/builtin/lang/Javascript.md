@@ -9,7 +9,7 @@ into MLDB to extend its functionality.
 
 With `PackageElementSources` defined as:
 
-![](%%type Datacratic::MLDB::PackageElementSources)
+![](%%type MLDB::PackageElementSources)
 
 ## Returning a result
 
@@ -24,21 +24,21 @@ then the script will return a string "hello" as its result.
 Running a Javsascript script directly as a plugin, procedure or function will
 return a ScriptOutput result, that looks like this:
 
-![](%%type Datacratic::MLDB::ScriptOutput)
+![](%%type MLDB::ScriptOutput)
 
 with log entries looking like
 
-![](%%type Datacratic::MLDB::ScriptLogEntry)
+![](%%type MLDB::ScriptLogEntry)
 
 ### Exceptions
 
 Exceptions are represented as
 
-![](%%type Datacratic::MLDB::ScriptException)
+![](%%type MLDB::ScriptException)
 
 with stack frames like
 
-![](%%type Datacratic::MLDB::ScriptStackFrame)
+![](%%type MLDB::ScriptStackFrame)
 
 
 ## <a name="API"></a> Server-side Javascript API
@@ -211,7 +211,7 @@ MLDB:
   in the directory, with the URI as the key and the following structure
   as the value:
 
-  ![](%%type Datacratic::FsObjectInfo)
+  ![](%%type MLDB::FsObjectInfo)
 
 #### Stream object
 
@@ -302,11 +302,31 @@ A function object is created similarly to procedure and dataset objects.
 
 It has the following methods defined:
 
+- `function.callJson(args)` calls the function, with the given single
+  JSON argument, waits for it to finish, and returns the JSON output of
+  the function.
 - `function.call(args)` calls the function, with the given arguments,
   waits for it to finish, and returns the output of the function.
+  The input and output are JSON-encoded ExpressionValue objects, which
+  are hard to work with.  It is recommended that the callJson object
+  be used instead.
 - `function.id()` returns the id of the function
 - `function.type()` returns the type of the function
 - `function.config()` returns the configuration of the function
 - `function.status()` returns the status of the function
 - `function.details()` returns the details of the function
 
+## Debugging
+
+The following are useful for debugging MLDB, but should not be used in normal
+use of MLDB:
+
+- `mldb.debugSetPathOptimizationLevel(level)` controls whether MLDB takes
+  optimized or generic paths.  It can be used to unit-test the equivalence
+  of optimized and non-optimized paths.  Setting to `"always"` (the default)
+  will make MLDB always use optimized implementations when possible.  Setting
+  to `"never"` has the opposite effect.  Setting to `"sometimes"` will
+  randomly and non-deterministically choose whether or not to use an
+  optimized path each time that one is encountered (50% probability of each).
+  Note that this setting applies to the entire MLDB instance, and so should
+  not be used in production.

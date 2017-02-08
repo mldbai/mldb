@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -14,12 +14,12 @@ function assertEqual(expr, val, msg)
 var importConfig = {
     type: 'import.text',
     params: {
-        dataFileUrl: 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz',
+        dataFileUrl: 'https://public.mldb.ai/reddit.csv.gz',
         named: "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)",
         outputDataset: { id: 'reddit_text_file' },
         limit: 1000,
         delimiter: "",
-        quotechar: "",
+        quoteChar: "",
         runOnCreation: true
     },
 };

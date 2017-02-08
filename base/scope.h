@@ -1,8 +1,8 @@
 /* scope.h                                                         -*- C++ -*-
    Mathieu Stefani, 26 November 2014
-   Copyright (c) 2014 Datacratic.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
    
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
   * When you exit a scope, you might want to execute a piece of code depending on the
   * context in which the scope exited. For example, when an exception occurs, it can
@@ -40,7 +40,7 @@
 #include <exception>
 #include <utility>
 
-namespace Datacratic {
+namespace MLDB {
 
 namespace Scope {
 
@@ -182,4 +182,4 @@ using Scope::fail;
 #define Scope_Failure(func) Scope_Any(func, Failure)
 */
 
-} // namespace Datacratic
+} // namespace MLDB

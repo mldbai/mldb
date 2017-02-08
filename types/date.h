@@ -1,8 +1,8 @@
 /* date.h                                                          -*- C++ -*-
    Jeremy Barnes, 18 July 2010
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Basic class that holds and manipulates a date.  Not designed for ultimate
    accuracy, but shouldn't be too bad.
@@ -21,14 +21,12 @@ class Value;
 
 } // namespace Json
 
-namespace ML {
-struct Parse_Context;
-} // namespace ML
 
-namespace Datacratic {
+namespace MLDB {
 namespace JS {
 struct JSValue;
 } // namespace JS
+struct ParseContext;
 
 /*****************************************************************************/
 /* TIME UNITS                                                                */
@@ -55,7 +53,7 @@ enum TimeUnit
     TIMEUNIT_INVALID
 };
 
-TimeUnit ParseTimeUnit(ML::Parse_Context& context);
+TimeUnit ParseTimeUnit(ParseContext& context);
 TimeUnit ParseTimeUnit(std::string& sinput);
 
 /*****************************************************************************/
@@ -87,6 +85,14 @@ struct Date {
         Date result;
         result.secondsSinceEpoch_ = (double(ts.tv_sec)
                                      + double(ts.tv_nsec) / 1000000000);
+        return result;
+    }
+
+    static Date fromTimeval(const struct timeval & ts)
+    {
+        Date result;
+        result.secondsSinceEpoch_ = (double(ts.tv_sec)
+                                     + double(ts.tv_usec) / 1000000);
         return result;
     }
 
@@ -368,22 +374,22 @@ struct Date {
 
     //static const boost::posix_time::ptime epoch;
 
-    static Date expect_date(ML::Parse_Context & context,
+    static Date expect_date(ParseContext & context,
                             const std::string & format);
-    static bool match_date(ML::Parse_Context & context, Date & date,
+    static bool match_date(ParseContext & context, Date & date,
                            const std::string & format);
     
-    static double expect_time(ML::Parse_Context & context,
+    static double expect_time(ParseContext & context,
                               const std::string & format);
-    static bool match_time(ML::Parse_Context & context,
+    static bool match_time(ParseContext & context,
                            double & time,
                            const std::string & format);
 
-    static Date expect_date_time(ML::Parse_Context & context,
+    static Date expect_date_time(ParseContext & context,
                                  const std::string & date_format,
                                  const std::string & time_format);
 
-    static bool match_date_time(ML::Parse_Context & context,
+    static bool match_date_time(ParseContext & context,
                                 Date & result,
                                 const std::string & date_format,
                                 const std::string & time_format);
@@ -510,7 +516,7 @@ private:
     int expectTimeZoneMinutes();
     bool matchTimeZoneMinutes(int & result);
 
-     std::unique_ptr<ML::Parse_Context> parser;
+     std::unique_ptr<ParseContext> parser;
  };
 
 PREDECLARE_VALUE_DESCRIPTION(Date);
@@ -519,13 +525,13 @@ ValueDescriptionT<Date> * getStandardDateDescription();
 ValueDescriptionT<Date> * getJavaTimestampDescription();
 ValueDescriptionT<Date> * getIso8601TimestampDescription();
 
-} // namespace Datacratic
+} // namespace MLDB
 
 namespace std {
 
 template<>
-struct hash<Datacratic::Date> {
-    size_t operator () (const Datacratic::Date & date) const
+struct hash<MLDB::Date> {
+    size_t operator () (const MLDB::Date & date) const
     {
         return date.hash();
     }

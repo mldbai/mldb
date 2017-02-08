@@ -1,7 +1,7 @@
 /* feature_set.h                                                   -*- C++ -*-
    Jeremy Barnes, 10 May 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A feature set.
 */
@@ -464,12 +464,12 @@ inline void swap(Mutable_Feature_Set & fs1,
 std::string escape_feature_name(const std::string & feature);
 
 /** Parse a feature name escaped by the escape_feature_name function. */
-std::string expect_feature_name(Parse_Context & c);
+std::string expect_feature_name(MLDB::ParseContext & c);
 
 } // namespace ML
 
 
-namespace JML_HASH_NS {
+namespace MLDB_HASH_NS {
 
 template<>
 struct hash<ML::Feature> {
@@ -479,4 +479,4 @@ struct hash<ML::Feature> {
     }
 };
 
-} // namespace JML_HASH_NS
+} // namespace MLDB_HASH_NS

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* json_format.cc
    Jeremy Barnes, 31 January 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Format JSON.
 */
@@ -18,7 +18,8 @@
 #include "command_expression.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
+using namespace MLDB::PluginCommand;
 
 int main(int argc, char ** argv)
 {
@@ -107,7 +108,7 @@ int main(int argc, char ** argv)
         //cerr << "doing file " << f << endl;
         filter_istream stream(f);
         //cerr << "stream = " << (bool)stream << endl;
-        ML::Parse_Context pcontext(f, stream);
+        ParseContext pcontext(f, stream);
         //cerr << "stream = " << (bool)stream << endl;
 
         while (pcontext) {

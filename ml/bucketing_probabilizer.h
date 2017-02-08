@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bucketing_probabilizer.h                                          -*- C++ -*-
    Francois Maillet, September 14, 2011
@@ -13,7 +13,7 @@
 #include "mldb/jml/db/persistent.h"
 #include "mldb/ml/prediction_accumulator.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* Probabilizer                                                              */
@@ -97,5 +97,5 @@ private:
     const static double TINY_PROB;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

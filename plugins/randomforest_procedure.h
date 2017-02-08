@@ -1,8 +1,8 @@
 /** randomforest_procedure.h                                            -*- C++ -*-
     Mathieu Marquis Bolduc, 11 Mars 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Procedure to train a random forest binary classifier.
 */
@@ -16,7 +16,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/ml/jml/feature_info.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -83,5 +83,4 @@ struct RandomForestProcedure: public Procedure {
 };
 
 
-}
-}
+} // namespace MLDB

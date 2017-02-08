@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 # We extract header files for the development of external plugins, until such
 # time as we have a fully separate API.  We start with a set of headers we
@@ -29,7 +29,7 @@ docker_mldb_sdk: docker_mldb
 
 
 docker_mldb_sdk: \
-	DOCKER_BASE_IMAGE=quay.io/datacratic/mldb:$(WHOAMI)-$(CURRENT_BRANCH) \
+	DOCKER_BASE_IMAGE=quay.io/mldb/mldb:$(WHOAMI)-$(CURRENT_BRANCH) \
 	DOCKER_POST_INSTALL_SCRIPT=sdk/install_sdk.sh \
 	DOCKER_COMMIT_ARGS=-run='{"Cmd": [ "/sbin/my_init" ], "PortSpecs": ["80"], "Volumes": { "$(MLDB_DATA_DIR)": {} } }'
 

@@ -1,7 +1,7 @@
 #
 # MLDB-412_glibc.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -22,5 +22,5 @@ dataset.commit()
 
 
 
-mldb.get("/v1/datasets/x/query", select='max("b")', groupBy='1')
+mldb.get("/v1/query", q='select max("b") from x group by \'1\'')
 mldb.script.set_return("success")

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** meta_value_description_impl.h                                  -*- C++ -*-
     Jeremy Barnes, 23 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Value descriptions for meta.
 */
@@ -10,7 +10,7 @@
 #include "mldb/types/meta_value_description.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct ValueDescriptionPtrDescription
     : public ValueDescriptionT<std::shared_ptr<ValueDescription > > {
@@ -88,4 +88,4 @@ struct ValueDescriptionNakedConstPtrDescription
     virtual bool isDefaultTyped(ValueDescription const * const * val) const;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

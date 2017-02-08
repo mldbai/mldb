@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* sqs.h                                                           -*- C++ -*-
    Jeremy Barnes, 12 May 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Client for Amazon's Simple Notification Service.
 */
@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/unnamed_bool.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -147,7 +147,7 @@ struct SqsApi : public AwsBasicApi {
         */
         SnsMessageBody snsBody() const;
 
-        JML_IMPLEMENT_OPERATOR_BOOL(!isNull());
+        MLDB_IMPLEMENT_OPERATOR_BOOL(!isNull());
     };
 
     Message receiveMessage(const std::string & queueUri,
@@ -257,4 +257,4 @@ struct SqsApi : public AwsBasicApi {
 
 DECLARE_STRUCTURE_DESCRIPTION_NAMED(SqsSnsMessageBodyDescription, SqsApi::SnsMessageBody);
 
-} // namespace Datacratic
+} // namespace MLDB

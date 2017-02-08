@@ -1,8 +1,8 @@
 /** svm.cc
     Mathieu Marquis Bolduc, October 28th, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Support Vector Machine Procedure and Function
 */
@@ -29,7 +29,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(SVMType);
@@ -237,21 +237,16 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-    {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-    };
-
-    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    checkWritability(runProcConf.modelFileUrl.toDecodedString(),
+                     "modelFileUrl");
 
     SqlExpressionMldbScope context(server);
 
+    ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput
-        = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
+        = getEmbedding(*runProcConf.trainingData.stm, context, -1, convertProgressToJson);
 
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+    std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;
 
@@ -260,7 +255,7 @@ run(const ProcedureRunConfig & run,
     size_t num_features = vars.size();
     size_t sizeY = rows.size();
     size_t labelIndex = 0;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     for (size_t i = 0; i < num_features; ++i) {
         if (vars[i].columnName.toUtf8String() == "label")
@@ -329,11 +324,12 @@ run(const ProcedureRunConfig & run,
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_a.svm");
     try {
         if (svm_save_model(model_tmp_name.c_str(),model))
-            throw ML::Exception("");
+            throw MLDB::Exception("");
 
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+        makeUriDirectory(
+            runProcConf.modelFileUrl.toDecodedString());
         filter_istream in(model_tmp_name);
-        filter_ostream out(runProcConf.modelFileUrl.toString());
+        filter_ostream out(runProcConf.modelFileUrl);
 
         // Write a header that gives the model kind
         Json::Value md;
@@ -385,14 +381,14 @@ SVMExpressionValueDescription()
 
 struct SVMFunction::Itl {
     svm_model * model;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 };
 
 SVMFunction::
 SVMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     auto functionConfig = config.params.convert<SVMFunctionConfig>();
 
@@ -403,7 +399,7 @@ SVMFunction(MldbServer * owner,
     auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_b.svm");
     try {
-        filter_istream in(functionConfig.modelFileUrl.toString());
+        filter_istream in(functionConfig.modelFileUrl);
         std::string firstLine;
         std::getline(in, firstLine);
         Json::Value md = Json::parse(firstLine);
@@ -413,7 +409,7 @@ SVMFunction(MldbServer * owner,
         if (md["version"].asInt() != 1) {
             throw HttpReturnException(400, "SVM model version is wrong");
         }
-        itl->columnNames = jsonDecode<std::vector<ColumnName> >(md["columnNames"]);
+        itl->columnNames = jsonDecode<std::vector<ColumnPath> >(md["columnNames"]);
         filter_ostream out(model_tmp_name);
         out << in.rdbuf();
         in.close();
@@ -443,7 +439,7 @@ call(SVMFunctionArgs input) const
     Date ts = input.embedding.getEffectiveTimestamp();
 
     svm_node * x = new svm_node[embedding.size()+1];
-    Scope_Exit(delete x);
+    Scope_Exit(delete[] x);
 
     int nbSparse = 0;
     for (size_t i = 0; i < embedding.size(); ++i) {
@@ -480,4 +476,4 @@ regClassifyFunction(builtinPackage(),
 
 } // filescope
 } // MLDB
-} // Datacratic
+

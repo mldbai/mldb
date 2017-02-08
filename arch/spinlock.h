@@ -2,14 +2,14 @@
     Jeremy Barnes, 13 December 2009.  All rights reserved.
     Implementation of a spinlock.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
 
 #include <atomic>
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -25,7 +25,7 @@ namespace ML {
 
 struct Spinlock {
     Spinlock(int yieldAfter = 100)
-        : value(ATOMIC_FLAG_INIT), yieldAfter(yieldAfter)
+        : yieldAfter(yieldAfter)
     {
     }
 
@@ -66,10 +66,10 @@ struct Spinlock {
     /// way we can avoid including <thread>.
     static void yield();
 
-    std::atomic_flag value;
+    std::atomic_flag value = ATOMIC_FLAG_INIT;
 
     /// How many times to spin before we yield?
     int yieldAfter;
 };
 
-} // namespace ML
+} // namespace MLDB

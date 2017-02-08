@@ -1,7 +1,7 @@
 #
 # MLDB-643_script_function.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -96,9 +96,9 @@ mldb.log("Committing dataset")
 dataset.commit()
 
 # requires "as args" because args is the input argument
-select = "scriptApplier2({{*} as args})[{return}] as *"
+select = "SELECT scriptApplier2({{*} as args})[{return}] as * from toy limit 10"
 
-query_output = mldb.get("/v1/datasets/toy/query", select=select, limit="10")
+query_output = mldb.get("/v1/query", q=select,)
 
 js_resp = query_output.json()
 mldb.log(js_resp)

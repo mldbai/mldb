@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
 #include "test_function.h"
@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TestFunctionConfig);
@@ -27,7 +27,7 @@ TestFunction::
 TestFunction(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner, config)
 {
     ++TestFunction::cnt;
 }
@@ -66,7 +66,7 @@ getFunctionInfo() const
     FunctionInfo result;
     result.output = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
     cols.clear();
-    result.input = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
+    result.input.emplace_back(new RowValueInfo(cols, SCHEMA_CLOSED));
     return result;
 }
 
@@ -84,4 +84,4 @@ regTestFunction(testPackage,
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

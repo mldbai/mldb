@@ -1,7 +1,7 @@
 /* compact_vector.h                                                -*- C++ -*-
    Jeremy Barnes, 3 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    An optimized class for holding a variable length unbounded vector.  If the
    vector is below a certain threshold, then the data will all be stored
@@ -26,7 +26,7 @@
 #include <initializer_list>
 #include <stdint.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename Data,
          size_t Internal_ = 0,
@@ -199,7 +199,7 @@ public:
             p[i].~Data();
 
         if (!is_internal()) {
-            bool debug JML_UNUSED = false;
+            bool debug MLDB_UNUSED = false;
             using namespace std;
 
 #if COMPACT_VECTOR_DEBUG
@@ -279,7 +279,7 @@ public:
     void pop_back()
     {
         if (Safe && empty())
-            throw ML::Exception("popping back empty compact vector");
+            throw MLDB::Exception("popping back empty compact vector");
 
 #if 0 // save space when making smaller
         if (size_ == Internal + 1) {
@@ -346,9 +346,9 @@ public:
     {
         if (Safe) {
             if (first > last)
-                throw ML::Exception("compact_vector::erase(): last before first");
+                throw MLDB::Exception("compact_vector::erase(): last before first");
             if (first < begin() || last > end())
-                throw ML::Exception("compact_vector::erase(): iterators not ours");
+                throw MLDB::Exception("compact_vector::erase(): iterators not ours");
         }
 
         int firstindex = first - begin();
@@ -381,13 +381,13 @@ public:
         return begin() + firstindex;
     }
 
-    JML_ALWAYS_INLINE Data & operator [] (Size index)
+    MLDB_ALWAYS_INLINE Data & operator [] (Size index)
     {
         if (Safe) check_index(index);
         return data()[index];
     }
 
-    JML_ALWAYS_INLINE const Data & operator [] (Size index) const
+    MLDB_ALWAYS_INLINE const Data & operator [] (Size index) const
     {
         if (Safe) check_index(index);
         return data()[index];
@@ -448,17 +448,17 @@ private:
     union {
         struct {
             char internal_[sizeof(Data) * Internal];
-        } JML_PACKED itl;
+        } MLDB_PACKED itl;
         struct {
             Pointer pointer_;
             Size capacity_;
-        } JML_PACKED ext;
+        } MLDB_PACKED ext;
     };
     
     struct {
         Size size_: 8 * sizeof(Size) - 1;
         Size is_internal_ : 1;
-    } JML_PACKED;
+    } MLDB_PACKED;
 
     bool is_internal() const { return is_internal_; }
     Data * internal() { return (Data *)(itl.internal_); }
@@ -469,7 +469,7 @@ private:
     void check_index(size_type index) const
     {
         if (index >= size_)
-            throw ML::Exception("compact_vector: index out of range");
+            throw MLDB::Exception("compact_vector: index out of range");
     }
 
     void init(size_t to_alloc)
@@ -477,7 +477,7 @@ private:
         clear();
 
         if (to_alloc > max_size())
-            throw ML::Exception("compact_vector can't grow that big");
+            throw MLDB::Exception("compact_vector can't grow that big");
         
         if (to_alloc > Internal) {
             is_internal_ = false;
@@ -497,7 +497,7 @@ private:
         // Copy the objects across into the uninitialized memory
         for (; first != last;  ++first, ++p, ++size_) {
             if (Safe && size_ > to_alloc)
-                throw ML::Exception("compact_vector: internal logic error in init()");
+                throw MLDB::Exception("compact_vector: internal logic error in init()");
             new (p) Data(*first);
         }
     }
@@ -512,8 +512,10 @@ private:
 
         // Move the objects across into the uninitialized memory
         for (; first != last;  ++first, ++p, ++size_) {
-            if (Safe && size_ > to_alloc)
-                throw ML::Exception("compact_vector: internal logic error in init()");
+            if (Safe && size_ > to_alloc) {
+                ::fprintf(stderr, "compact_vector: internal logic error in init()");
+                std::terminate();
+            }
             new (p) Data(std::move_if_noexcept(*first));
         }
     }
@@ -533,10 +535,10 @@ private:
         int index = pos - begin();
 
         if (Safe && (index < 0 || index > size_))
-            throw ML::Exception("compact_vector insert: invalid index");
+            throw MLDB::Exception("compact_vector insert: invalid index");
 
         using namespace std;
-        bool debug JML_UNUSED = false;
+        bool debug MLDB_UNUSED = false;
 #if COMPACT_VECTOR_DEBUG
         if (debug)
             cerr << "start_insert: index = " << index << " n = " << n
@@ -659,4 +661,4 @@ void make_vector_set(compact_vector<D, I, S, Sf, P, A> & vec)
     vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-} // namespace Datacratic
+} // namespace MLDB

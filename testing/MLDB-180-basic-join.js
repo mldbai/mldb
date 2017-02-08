@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val)
 {
@@ -188,7 +188,7 @@ testQuery(
     'SELECT poil_group() as *',
     [
         [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "rn", "t1.x" ],
-        [ "result", 2, 1, "[[ex1]-[ex4]]-[ex4]", 1 ]
+        [ "result", 2, 1, "[1]", 1 ]
     ]);
 
 // big example with where and groupby
@@ -244,7 +244,20 @@ mldb.log(resp.json);
 assertEqual(resp.responseCode, 201);
 
 // they should return the same thing
-var funcs = ['patate', 'patate_params', 'patate_params_on_clause' ];
+var funcs = ['patate' ];
+for (var i in funcs) {
+    var func = funcs[i];
+    mldb.log("testing function " + func);
+    testQuery(
+        "SELECT " + func +
+        "() AS *",
+        [
+            [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "t1.x" ],
+            [ "result", 2, 1, 1 ]
+        ]);
+}
+
+var funcs = ['patate_params', 'patate_params_on_clause' ];
 for (var i in funcs) {
     var func = funcs[i];
     mldb.log("testing function " + func);
@@ -256,6 +269,7 @@ for (var i in funcs) {
             [ "result", 2, 1, 1 ]
         ]);
 }
+
 
 // MLDB-1088
 

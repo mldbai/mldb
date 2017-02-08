@@ -1,8 +1,8 @@
 /** bucket.h                                                       -*- C++ -*-
     Mathieu Marquis Bolduc, March 11th 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Structures to bucketize sets of cellvalues
 */
@@ -13,11 +13,12 @@
 #include <stdint.h>
 #include <memory>
 #include <vector>
+#include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 struct CellValue;
+struct Utf8String;
 
 /** Holds an array of bucket indexes, efficiently. */
 struct BucketList {
@@ -41,6 +42,11 @@ struct BucketList {
     int entryBits;
     int numBuckets;
     size_t numEntries;
+
+    size_t rowCount() const
+    {
+        return numEntries;
+    }
 };
 
 /** Writable version of the above.  OK to slice. */
@@ -57,6 +63,25 @@ struct WritableBucketList: public BucketList {
     }
 
     void init(size_t numElements, uint32_t numBuckets);
+
+    // Return a writer at the given offset, which must be a
+    // multiple of 64.  This allows the bucket list to be
+    // written from multiple threads.  Must only be called
+    // without any writing having taken place
+    WritableBucketList atOffset(size_t offset)
+    {
+        ExcAssertEqual(numWritten, 0);
+        size_t bitsToSkip = offset * entryBits;
+        ExcAssertEqual(bitsToSkip % 64, 0);
+        WritableBucketList result;
+        result.current = current + bitsToSkip / 64;
+        result.numWritten = 0;
+        result.bitsWritten = 0;
+        result.entryBits = this->entryBits;
+        result.numBuckets = -1;
+        result.numEntries = -1;
+        return result;
+    }
 
     inline void write(uint64_t value)
     {
@@ -83,6 +108,8 @@ struct NumericValues {
     {
     }
 
+    NumericValues(std::vector<double> values);
+
     bool active;
     uint32_t offset;
     std::vector<double> splits;
@@ -94,6 +121,7 @@ struct NumericValues {
 
     uint32_t getBucket(double val) const;
 
+    void merge(const NumericValues & other);
 };
 
 struct OrdinalValues {
@@ -111,6 +139,8 @@ struct OrdinalValues {
     }
 
     uint32_t getBucket(const CellValue & val) const;
+
+    void merge(const OrdinalValues & other);
 };
 
 struct CategoricalValues {
@@ -130,16 +160,44 @@ struct CategoricalValues {
     uint32_t getBucket(const CellValue & val) const;
 };
 
+struct StringValues {
+    StringValues()
+        : offset(0)
+    {
+    }
+
+    uint32_t offset;
+    std::vector<Utf8String> buckets;
+
+    size_t numBuckets() const
+    {
+        return buckets.size();
+    }
+
+    uint32_t getBucket(const CellValue & val) const;
+};
+
+
+/*****************************************************************************/
+/* BUCKET DESCRIPTIONS                                                       */
+/*****************************************************************************/
+
 struct BucketDescriptions {
     BucketDescriptions();
     bool hasNulls;
     NumericValues numeric;
-    CategoricalValues strings, blobs, paths;
+    StringValues strings;
+    CategoricalValues blobs, paths;
     OrdinalValues timestamps, intervals;
 
     void initialize(std::vector<CellValue> values,
                     int numBuckets = -1);
 
+    void initialize(bool hasNulls,
+                    std::vector<double> numericValues,
+                    std::vector<Utf8String> stringValues,
+                    int numBuckets = -1);
+    
     /// Initialize from a set of pre-discretized
     std::pair<BucketDescriptions, BucketList>
     discretize(BucketList input, int numBuckets = -1);
@@ -152,7 +210,9 @@ struct BucketDescriptions {
 
     bool isOnlyNumeric() const;
 
+    static std::tuple<BucketList, BucketDescriptions>
+    merge(const std::vector<std::tuple<BucketList, BucketDescriptions> > & inputs,
+          int numBuckets = -1);
 };
 
-}
 }

@@ -1,8 +1,8 @@
 /** join_utils.cc                                                  -*- C++ -*-
     Jeremy Barnes, 24 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "join_utils.h"
@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Turn a list of ANDed clauses into an actual where clause. */
@@ -43,7 +43,7 @@ generateWhereExpression(const std::vector<AnnotatedClause> & clause,
 
 //Check if the idenfifier refers to this dataset and if so, remove the prefix.
 bool
-extractTableName(ColumnName & columnName, const Utf8String& tableName)
+extractTableName(ColumnPath & columnName, const Utf8String& tableName)
 {    
     if (!tableName.empty() && !columnName.empty()) {
         if (columnName.startsWith(tableName)) {
@@ -56,7 +56,7 @@ extractTableName(ColumnName & columnName, const Utf8String& tableName)
 }
 
 bool
-extractTableName(ColumnName & columnName, const std::set<Utf8String> & tables)
+extractTableName(ColumnPath & columnName, const std::set<Utf8String> & tables)
 {
     for (const Utf8String& tableName : tables)
     {
@@ -87,7 +87,7 @@ removeTableNameFromExpression(const SqlExpression & expr, const Utf8String & tab
                 a = doArg(a);
             }
             
-            return std::move(args);
+            return args;
         };
 
     doArg = [&] (std::shared_ptr<SqlExpression> a)
@@ -132,7 +132,7 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     
     // Which table does it refer to?
     for (auto & var: vars) {
-        ColumnName v = var.first.name;
+        ColumnPath v = var.first.name;
 
         if (extractTableName(v, leftTables)) {
             ExcAssert(!v.empty());
@@ -166,7 +166,7 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
 
     // Which table does it refer to?
     for (auto & w: wildcards) {
-        ColumnName v = w.first.name;
+        ColumnPath v = w.first.name;
 
         if (extractTableName(v, leftTables)) {
             ExcAssert(!v.empty());
@@ -273,7 +273,12 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                                   "on", on);
     }
     
+    // WHERE condition on rows on the left side
+    std::vector<AnnotatedClause> leftWhereClauses;
 
+    // WHERE condition on rows on the right side
+    std::vector<AnnotatedClause> rightWhereClauses;
+        
     auto checkAndClauses = [&] (std::vector<std::shared_ptr<SqlExpression> >::iterator start) {
         // For each one, figure out which tables are referred to
         //for (auto & c: andClauses) {
@@ -299,10 +304,10 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                 constantConditions.emplace_back(std::move(clauseOut));
                 break;
             case AnnotatedClause::LEFT:
-                left.whereClauses.emplace_back(std::move(clauseOut));
+                leftWhereClauses.emplace_back(std::move(clauseOut));
                 break;
             case AnnotatedClause::RIGHT:
-                right.whereClauses.emplace_back(std::move(clauseOut));
+                rightWhereClauses.emplace_back(std::move(clauseOut));
                 break;
             case AnnotatedClause::CROSS:
                 crossConditions.emplace_back(std::move(clauseOut));
@@ -329,9 +334,9 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
         cerr << jsonEncode(andClauses) << endl;
     }    
 
-    left.where = generateWhereExpression(left.whereClauses,
+    left.where = generateWhereExpression(leftWhereClauses,
                                          leftTable->getAs());
-    right.where = generateWhereExpression(right.whereClauses,
+    right.where = generateWhereExpression(rightWhereClauses,
                                           rightTable->getAs());
 
     // WHEN is not supported in JOIN
@@ -342,12 +347,18 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
 
     std::vector<AnnotatedClause> nonPivotWhere;
 
+    // Left side of equality part of the join expression, for EQUIJOIN
+    std::shared_ptr<SqlExpression> leftEqualExpression;
+
+    // Right side of equality part of the join expression, for EQUIJOIN
+    std::shared_ptr<SqlExpression> rightEqualExpression;
+
     if (crossConditions.size() == 0) {
         // OK, we have a cross join.  Lotsa fun.  Generate all rows from each,
         // with "true" as the join clause
         style = CROSS_JOIN;
-        left.equalExpression
-            = right.equalExpression
+        leftEqualExpression
+            = rightEqualExpression
             = SqlExpression::parse("true");
     }
     else {
@@ -388,8 +399,8 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                 
                 style = EQUIJOIN;
                 c.pivot = AnnotatedClause::CHOSEN_PIVOT;
-                left.equalExpression = leftAnnotated.expr;
-                right.equalExpression = rightAnnotated.expr;
+                leftEqualExpression = leftAnnotated.expr;
+                rightEqualExpression = rightAnnotated.expr;
             }
             else {
                 nonPivotWhere.push_back(c);
@@ -398,21 +409,21 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
 
         if (style != EQUIJOIN) {
             style = CROSS_JOIN;
-            left.equalExpression
-                = right.equalExpression
+            leftEqualExpression
+                = rightEqualExpression
                 = SqlExpression::parse("true");
         }
     }
 
     crossWhere = generateWhereExpression(nonPivotWhere, "");
 
-    auto doSide = [&] (Side & side)
+    auto doSide = [&] (Side & side, std::shared_ptr<SqlExpression> equalExpression)
         {
             // Remove the "table." from "table.var" as we are running the
             // expression locally to the table, not in the context of the
             // join.
 
-            auto localExpr = removeTableNameFromExpression(*side.equalExpression, side.table->getAs());
+            auto localExpr = removeTableNameFromExpression(*equalExpression, side.table->getAs());
             side.selectExpression = localExpr;
 
             // Construct the select expression.  It's simply the value of
@@ -427,8 +438,8 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             side.orderBy.clauses.emplace_back(localExpr, ASC);
         };
 
-    doSide(left);
-    doSide(right);
+    doSide(left, leftEqualExpression);
+    doSide(right, rightEqualExpression);
 }
 
 void
@@ -460,10 +471,6 @@ AnnotatedJoinConditionSideDescription()
 {
     addField("table", &AnnotatedJoinCondition::Side::table,
              "Table underlying this side");
-    addField("whereClauses", &AnnotatedJoinCondition::Side::whereClauses,
-             "WHERE clauses for the  side");
-    addField("equalExpression", &AnnotatedJoinCondition::Side::equalExpression,
-             "Equality expression for the  side");
     addField("selectExpression", &AnnotatedJoinCondition::Side::selectExpression,
              "Select expression for the equi-join part of the side");
     addField("where", &AnnotatedJoinCondition::Side::where,
@@ -519,4 +526,4 @@ AnnotatedJoinConditionStyleDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

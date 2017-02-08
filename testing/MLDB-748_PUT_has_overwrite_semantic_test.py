@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 import json
 import sys
@@ -18,7 +18,7 @@ def test_overwrite():
     resp = mldb.perform("PUT", "/v1/datasets/dummy2", [], {
         'type' : 'text.line',
         'params' : {
-            'dataFileUrl': 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+            'dataFileUrl': 'https://public.mldb.ai/reddit.csv.gz'
         }
     },  [['async','true']])
     # resource should be under construction

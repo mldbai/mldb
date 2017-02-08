@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* boosting_core.h                                                 -*- C++ -*-
    Jeremy Barnes, 4 March 2004
@@ -32,7 +32,7 @@ namespace ML {
 
 /** The boosting loss function.  It is exponential in the margin. */
 struct Boosting_Loss {
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (int label, int corr, float pred, float current) const
     {
         int correct = (corr == label);
@@ -47,7 +47,7 @@ struct Boosting_Loss {
 struct Logistic_Loss {
     Logistic_Loss(double z) : z(z) {}
     
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (int label, int corr, float pred, float current) const
     {
         int correct = (corr == label);
@@ -63,7 +63,7 @@ struct Logistic_Loss {
 /** A "loss" function used to update a set of prediction weights for some
     training data. */
 struct Boosting_Predict {
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (int label, int corr, float pred, float current) const
     {
         return current + pred;
@@ -335,7 +335,7 @@ struct Update_Weights {
 
 struct Binsym_Scorer {
     template<class WeightIterator>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float
     operator () (int label, WeightIterator begin, WeightIterator end) const
     {
@@ -351,7 +351,7 @@ struct Binsym_Scorer {
 
 struct Normal_Scorer {
     template<class WeightIterator>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float
     operator () (int label, WeightIterator begin, WeightIterator end) const
     {

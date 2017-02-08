@@ -1,21 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* info.h                                                          -*- C++ -*-
    Jeremy Barnes, 3 April 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Generic information about the current machine.
 */
 
-#ifndef __utils__info_h__
-#define __utils__info_h__
+#pragma once
 
 #include <string>
 #include "mldb/compiler/compiler.h"
 #include "mldb/arch/cpu_info.h"
 
-namespace ML {
+namespace MLDB {
 
 /** A compact string giving context about the current program. */
 
@@ -39,6 +36,4 @@ size_t num_open_files();
 /** Turn an fd into a filename */
 std::string fd_to_filename(int fd);
 
-} // namespace ML
-
-#endif /* __utils__info_h__ */
+} // namespace MLDB

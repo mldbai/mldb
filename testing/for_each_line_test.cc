@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* for_each_line_test.cc
    Wolfgang Sourdeau, 28 August 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Test for_each_line
 */
@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 namespace {
@@ -48,7 +48,8 @@ BOOST_AUTO_TEST_CASE( test_forEachLine_data )
         result.emplace_back(data, dataSize);
     };
 
-    forEachLine(stream, processLine);
+    auto logger = getMldbLog("test");
+    forEachLine(stream, processLine, logger);
     BOOST_CHECK_EQUAL(result, expected);
 }
 
@@ -68,7 +69,8 @@ BOOST_AUTO_TEST_CASE( test_forEachLineStr_data )
         result.emplace_back(data);
     };
 
-    forEachLineStr(stream, processLine);
+    auto logger = getMldbLog("test");
+    forEachLineStr(stream, processLine, logger);
     BOOST_CHECK_EQUAL(result, expected);
 }
 
@@ -83,9 +85,10 @@ BOOST_AUTO_TEST_CASE( test_forEachLine_throw )
     atomic<int> count(0);
     auto processLine = [&] (const string & data, int64_t lineNum) {
         if (count.fetch_add(1) > 500) {
-            throw ML::Exception("thrown");
+            throw MLDB::Exception("thrown");
         }
     };
 
-    BOOST_CHECK_THROW(forEachLineStr(stream, processLine), ML::Exception);
+    auto logger = getMldbLog("test");
+    BOOST_CHECK_THROW(forEachLineStr(stream, processLine, logger), MLDB::Exception);
 }

@@ -1,39 +1,23 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** plugin_resource.cc
     Francois Maillet, 18 fevrier 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "mldb/server/plugin_resource.h"
 
-#include <git2.h>
-#include <git2/clone.h>
+#include "mldb/ext/libgit2/include/git2.h"
+#include "mldb/ext/libgit2/include/git2/clone.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
-
-#define LIBGIT2_INT_VERSION (LIBGIT2_VER_MAJOR * 10000 \
-                             + LIBGIT2_VER_MINOR * 100 \
-                             + LIBGIT2_VER_REVISION)
-
-/* libgit2 renamed a bunch of functions and defines between 0.19 and 0.22
- * We do the mapping here so the code below works on both versions
- */
-#if LIBGIT2_INT_VERSION < 2200
-#define git_libgit2_init git_threads_init
-#define git_libgit2_shutdown git_threads_shutdown
-#define git_checkout_options git_checkout_opts
-#define GIT_CHECKOUT_OPTIONS_INIT GIT_CHECKOUT_OPTS_INIT
-#define GIT_EUNBORNBRANCH GIT_EORPHANEDHEAD
-#endif
-
 
 using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -107,7 +91,7 @@ ScriptLanguage parseScriptLanguage(const std::string lang)
 {
     if(lang == "python")        return PYTHON;
     if(lang == "javascript")    return JAVASCRIPT;
-    throw ML::Exception("Unknown language");
+    throw MLDB::Exception("Unknown language");
 }
 
 /*****************************************************************************/
@@ -124,7 +108,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     scriptType = type;
 
     if(!url.empty() && !resource.source.empty())
-        throw ML::Exception("Cannot specify both address and source for plugin");
+        throw MLDB::Exception("Cannot specify both address and source for plugin");
 
     // if this is a plugin, we need to create a folder in the plugins folder
     // that we'll be keeping around
@@ -166,7 +150,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     {
         if(!fs::exists(plugin_working_dir)) {
             if(!fs::create_directories(plugin_working_dir))
-                throw ML::Exception("Unable to create plugin directory: " +
+                throw MLDB::Exception("Unable to create plugin directory: " +
                         plugin_working_dir.string());
         }
 
@@ -191,13 +175,13 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
         fs::path symlink;
 
         if (!fs::exists(source)) {
-            throw ML::Exception("Source does not exist");
+            throw MLDB::Exception("Source does not exist");
         }
 
         // if a file at the end, symlink main.xx to that file
         if(!fs::is_directory(source)) {
             if(!fs::create_directories(plugin_working_dir)) {
-                throw ML::Exception("Unable to create plugin directory: " +
+                throw MLDB::Exception("Unable to create plugin directory: " +
                                     plugin_working_dir.string());
             }
             symlink = fs::path(getElementLocation(MAIN));
@@ -225,7 +209,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
         createPluginDir();
 
-        filter_istream istream(url.toString());
+        filter_istream istream(url);
         filter_ostream ostream(getElementLocation(MAIN));
         string line;
         while(getline(istream, line)) {
@@ -247,7 +231,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
             urlToClone = urlToClone.substr(0, hashLocation);
         }
 
-        cerr << ML::format("Cloning GIST %s -> %s", urlToClone, plugin_working_dir.string()) << endl;
+        cerr << MLDB::format("Cloning GIST %s -> %s", urlToClone, plugin_working_dir.string()) << endl;
 
         git_libgit2_init();
 
@@ -256,7 +240,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
         git_clone_options clone_opts = GIT_CLONE_OPTIONS_INIT;
         git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
 
-        checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE_CREATE;
+        checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
         //   checkout_opts.progress_cb = checkout_progress;
         clone_opts.checkout_opts = checkout_opts;
         //   clone_opts.remote_callbacks.transfer_progress = &fetch_progress;
@@ -269,10 +253,10 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
                             &clone_opts);
         if(rtn != 0) {
             const git_error *err = giterr_last();
-            JML_TRACE_EXCEPTIONS(false);
-            if (err) throw ML::Exception(ML::format("Git ERROR %d for %s: %s\n",
+            MLDB_TRACE_EXCEPTIONS(false);
+            if (err) throw MLDB::Exception(MLDB::format("Git ERROR %d for %s: %s\n",
                                             err->klass, urlToClone, err->message));
-            else throw ML::Exception("Git ERROR %d: no detailed info\n", rtn);
+            else throw MLDB::Exception("Git ERROR %d: no detailed info\n", rtn);
         }
 
         if(commitHash != "") {
@@ -280,7 +264,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
             int error = git_revparse_single(&treeish, repo, commitHash.c_str());
             if(error != 0 || !treeish) {
-                throw ML::Exception(ML::format("Error checking out commit '%s' for "
+                throw MLDB::Exception(MLDB::format("Error checking out commit '%s' for "
                             "repository '%s'", commitHash, urlToClone));
             }
 
@@ -329,7 +313,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
     }
     else {
-        throw ML::Exception("Unsupported URL: " + url.toString());
+        throw MLDB::Exception("Unsupported URL: " + url.toString());
     }
 }
 
@@ -362,14 +346,14 @@ getElementFilename(PackageElement elem) const
         case ROUTES:    return "routes";
         case STATUS:    return "status";
     }
-    throw ML::Exception("Unsupported elem!");
+    throw MLDB::Exception("Unsupported elem!");
 }
 
 string LoadedPluginResource::
 getElementLocation(PackageElement elem) const
 {
     if(pluginLocation == SOURCE)
-        throw ML::Exception("no entrypoint for plugin configured with source");
+        throw MLDB::Exception("no entrypoint for plugin configured with source");
 
     string extension;
 
@@ -381,7 +365,7 @@ getElementLocation(PackageElement elem) const
         extension = "js";
         break;
     default:
-        throw ML::Exception("unknown plugin language");
+        throw MLDB::Exception("unknown plugin language");
     }
     
     return (fs::path(plugin_working_dir) / 
@@ -411,7 +395,34 @@ getScript(PackageElement elem) const
     std::ostringstream out;
     out << stream.rdbuf();
     stream.close();
-    return Utf8String(std::move(out.str()));
+    return Utf8String(out.str());
+}
+
+Utf8String LoadedPluginResource::
+getScriptUri(PackageElement elem) const
+{
+    //if(pluginLocation == SOURCE)
+    //    return source.getElementUri(elem);
+
+    string extension;
+
+    switch(pluginLanguage) {
+    case PYTHON:
+        extension = "py";
+        break;
+    case JAVASCRIPT:
+        extension = "js";
+        break;
+    default:
+        throw MLDB::Exception("unknown plugin language");
+    }
+
+    std::string urlStr = url.toString();
+
+    if (urlStr.rfind("." + extension) == urlStr.size() - 1 - extension.size())
+        return urlStr;
+    
+    return urlStr + "/" + getElementFilename(elem) + "." + extension;
 }
     
 fs::path LoadedPluginResource::
@@ -423,4 +434,4 @@ getPluginDir() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

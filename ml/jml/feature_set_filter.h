@@ -2,7 +2,7 @@
    Jeremy Barnes, 27 August 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A filter for feature sets.
 */
@@ -48,7 +48,7 @@ struct Feature_Set_Filter {
     void parse(const std::string & value,
                const Dense_Feature_Space & fs)
     {
-        Parse_Context context(value, value.c_str(),
+        ParseContext context(value, value.c_str(),
                               value.c_str() + value.size());
 
         context.skip_whitespace();

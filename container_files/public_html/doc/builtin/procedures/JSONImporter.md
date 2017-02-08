@@ -3,13 +3,13 @@
 The JSON Import Procedure type is used to import a text file containing
 one JSON per line in a dataset.
 
-This procedure will process lines using the [parse_json](../sql/ValueExpression.md.html) builtin function with `arrays` set to `'encode'`.
-
+This procedure will process lines using the [parse_json](../sql/ValueExpression.md.html) builtin function.
 
 ## Configuration
 
 ![](%%config procedure import.json)
 
+![](%%type MLDB::JsonArrayHandling)
 
 ## See also
 

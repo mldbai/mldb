@@ -1,8 +1,8 @@
 /** fetcher.cc                                                      -*- C++ -*-
     Jeremy Barnes, 6 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Functions to fetch a URLs.
 */
@@ -14,7 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -82,7 +82,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     FetcherFunction(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
-        : BaseT(owner)
+        : BaseT(owner, config)
     {
         functionConfig = config.params.convert<FetcherFunctionConfig>();
     }
@@ -93,7 +93,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         FetcherOutput result;
         Utf8String url = args.url;
         try {
-            filter_istream stream(url.rawString(), { { "mapped", "true" } });
+                filter_istream stream(url.rawString(),
+                                      { { "mapped", "true" },
+                                        { "httpArbitraryTooSlowAbort", "1"} });
 
             FsObjectInfo info = stream.info();
             
@@ -108,16 +110,16 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
             else {
                 std::ostringstream streamo;
                 streamo << stream.rdbuf();
-                blob = CellValue::blob(std::move(streamo.str()));
+                blob = CellValue::blob(streamo.str());
             }
 
             result.content = ExpressionValue(std::move(blob), info.lastModified);
             result.error = ExpressionValue::null(Date::notADate());
             return result;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             result.content = ExpressionValue::null(Date::notADate());
-            result.error = ExpressionValue(ML::getExceptionString(), Date::now());
+            result.error = ExpressionValue(getExceptionString(), Date::now());
         }
         return result;
     }
@@ -129,8 +131,10 @@ static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
 regFetcherFunction(builtinPackage(),
                    "fetcher",
                    "Fetches the contents of a URL each time it's invoked",
-                   "functions/Fetcher.md.html");
+                   "functions/Fetcher.md.html",
+                   nullptr, //static route
+                   { MldbEntity::INTERNAL_ENTITY });
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

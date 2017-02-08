@@ -1,7 +1,7 @@
 #
 # MLDB-1430-aggregate-bug.py
 # Mathieu Bolduc, 2016-02-29
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -33,8 +33,10 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(res, expected)
 
-    #MLDB-1478
     def test_error(self):
+        """
+        MLDB-1478
+        """
 
         csv_conf = {
             "type": "import.text",
@@ -71,14 +73,14 @@ class HavingTest(unittest.TestCase):
 
         mldb.log(re.exception.response.json()["error"])
 
-        expected = 'Cannot read column "a" with no dataset.'
+        expected = 'Cannot read column "a" with no FROM clause.'
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             res = mldb.get("/v1/query", q='SELECT 1 named a')
 
-        expected = 'Cannot read column "a" with no dataset.'
+        expected = 'Cannot read column "a" with no FROM clause.'
 
         mldb.log(re.exception.response.json()["error"])
 
@@ -88,11 +90,15 @@ class HavingTest(unittest.TestCase):
     def test_error_function(self):
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
-            res = mldb.get("/v1/query", q='select hash(2)')
+            res = mldb.get("/v1/query", q='select unexisting(2)')
 
         mldb.log(re.exception.response.json()["error"])
 
-        expected = "Unable to find function 'hash' binding function call 'hash(2)'.  The function is not a built-in function, and either it's not a registered user function, or user functions are not available in the scope of the expression."
+        expected = (
+            "Unable to find function 'unexisting' binding function call "
+            "'unexisting(2)'.  The function is not a built-in function, and "
+            "either it's not a registered user function, or user functions "
+            "are not available in the scope of the expression.")
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 

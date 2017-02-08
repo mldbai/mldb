@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* rest_collection.cc
    Jeremy Barnes, 23 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -22,7 +22,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* VALUE DESCRIPTIONS                                                        */
@@ -227,7 +227,7 @@ watch(const ResourceSpec & spec,
     
 
     //cerr << "watching " << spec << " in entity "
-    //     << ML::type_name(*this) << " with catchUp " << catchUp
+    //     << MLDB::type_name(*this) << " with catchUp " << catchUp
     //     << endl;
 
     if (spec.empty())
@@ -309,7 +309,7 @@ watchWithPath(const ResourceSpec & spec,
               const std::vector<Utf8String> & currentPath)
 {
     //cerr << "watching " << spec << " in entity "
-    //     << ML::type_name(*this) << " with catchUp " << catchUp
+    //     << MLDB::type_name(*this) << " with catchUp " << catchUp
     //     << endl;
 
     if (spec.empty())
@@ -339,7 +339,7 @@ watchWithPath(const ResourceSpec & spec,
     // 1.  Watch the path, so that we know of any entities that come or
     //     go on the path.
     data->childWatch
-        = std::move(watchChildren(spec[0].filter, true /* catchup */, info));
+        = watchChildren(spec[0].filter, true /* catchup */, info);
 
     ExcAssert(!data->childWatch.bound());
 
@@ -381,7 +381,7 @@ WatchT<RestEntityChildEvent>
 RestEntity::
 watchChildren(const Utf8String & spec, bool catchUp, Any info)
 {
-    throw HttpReturnException(400, "entity '" + ML::type_name(*this) + "' does not support watching children: spec " + spec);
+    throw HttpReturnException(400, "entity '" + MLDB::type_name(*this) + "' does not support watching children: spec " + spec);
 }
 
 Watch
@@ -451,7 +451,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
            const std::string & linkType,
            Any linkParams)
 {
-    throw HttpReturnException(400, "acceptLink needs to be overridden for class " + ML::type_name(*this));
+    throw HttpReturnException(400, "acceptLink needs to be overridden for class " + MLDB::type_name(*this));
 }
 
 
@@ -523,7 +523,7 @@ getWatchBoundType(const ResourceSpec & spec)
     if (spec.empty())
         throw HttpReturnException(400, "no type for empty spec");
     if (spec[0].channel != "children")
-        throw HttpReturnException(400, "RestDirectory '" + ML::type_name(*this)
+        throw HttpReturnException(400, "RestDirectory '" + MLDB::type_name(*this)
                                   + "' has only a children channel: "
                                   + jsonEncodeUtf8(spec));
 
@@ -619,7 +619,7 @@ initRoutes(RouteManager & manager)
             try {
                 auto collection = manager.getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto managerStr = jsonEncodeStr(collection->getKeys());
                 connection.sendHttpResponse(200, managerStr,
                                             "application/json", {});
@@ -646,14 +646,14 @@ initRoutes(RouteManager & manager)
 
 BackgroundTaskBase::
 BackgroundTaskBase()
-    : cancelled(false), error(false), finished(false), state(State::_initializing)
+    : running(false), state(State::INITIALIZING)
 {
 }
 
 BackgroundTaskBase::
 ~BackgroundTaskBase()
 {
-    if (!cancelled) {
+    if (running) {
         cancel();
     }
 }
@@ -666,15 +666,20 @@ getProgress() const
     return progress;
 }
 
-void
+bool
 BackgroundTaskBase::
-cancel()
+cancel() noexcept
 {
-    bool wasCancelled = this->cancelled.exchange(true);
-    if (!wasCancelled) {
-        cancelledWatches.trigger(true);
-        state = State::_cancelled;
+    auto old_state = state.exchange(State::CANCELLED);
+    if (old_state != State::CANCELLED && old_state != State::FINISHED) {
+        try {
+            cancelledWatches.trigger(true);
+        }
+        catch (...) {
+            std::terminate();
+        }
     }
+    // cerr << "state is now CANCELLED " << handle << endl;
 
 #if 0
     // Give it one second to stop
@@ -693,36 +698,71 @@ cancel()
             
     //thread->join();
 
-    while (!error && !finished) {
+    while (running) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
+
+    // note that the old state of the entity and its associated task
+    // can be ERROR or event FINISHED meaning that the cancellation
+    // could not occurred before the task encounter an error or was
+    // completed
+    return old_state != State::CANCELLED;
 }
 
 void
 BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
-    error = true;
+    auto old_state = state.exchange(State::ERROR);
+    // cerr << "state is now ERROR " << handle << endl;
+
+    // the entity and the task to create it cannot be
+    // in ERROR and FINISHED,  however, it can be in
+    // CANCELLED state meaning that the error occurred
+    // before the task could be cancelled
+    ExcAssertNotEqual(old_state, State::FINISHED);
     this->exc = std::move(exc);
-    state = State::_error;
 }
 
 void
 BackgroundTaskBase::
 setFinished()
 {
-    finished = true;
-    state = State::_finished;
+    running = false;
+    State oldState = state.load();
+    if (oldState != State::CANCELLED &&
+        oldState != State::ERROR) {
+        // cerr << "state is now FINISHED " << handle << " was " << oldState << endl;
+        state = State::FINISHED;
+    }
 }
 
 void
 BackgroundTaskBase::
 setProgress(const Json::Value & _progress)
 {
-    state = State::_executing;
-    progress = _progress;
-    for (auto & f: onProgressFunctions) {
-        f(progress);
+    ExcAssert(running);
+    
+    State oldState = state.load();
+    if (oldState != State::CANCELLED &&
+        oldState != State::ERROR) {
+        // cerr << "state is now EXECUTING " << handle << endl;
+        state = State::EXECUTING;
+
+        auto type = _progress.type();
+        if (type == Json::nullValue  ||  
+            type == Json::arrayValue  || 
+            type == Json::objectValue)
+            progress.clear();
+
+        ExcAssert(type != Json::stringValue);
+
+        if(!_progress.isNull()) {
+            progress = _progress;
+            for (auto & f: onProgressFunctions) {
+                f(progress);
+            }
+        }
     }
 }
 
@@ -731,17 +771,20 @@ BackgroundTaskBase::
 getState() const
 {
     switch (state.load()) {
-    case State::_cancelled:
+    case State::CANCELLED:
         return L"cancelled";
-    case State::_error:
+    case State::ERROR:
         return L"error";
-    case State::_finished:
+    case State::FINISHED:
         return L"finished";
-    case State::_initializing:
+    case State::INITIALIZING:
         return L"initializing";
-    case State::_executing:
+    case State::EXECUTING:
         return L"executing";
     default:
+        // you get this assert most likely because you have
+        // added a new state and did not update this method
+        ExcAssert(!"update the BackgroundTaskBase::getState method");
         return L"unknown state";
     }
 }
@@ -750,7 +793,7 @@ void validatePayloadForPut(const RestRequest & req,
                            const Utf8String & nounPlural)
 {
     if (req.payload.empty()) {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException
             (400, "PUT to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "
@@ -765,7 +808,7 @@ void validatePayloadForPost(const RestRequest & req,
                             const Utf8String & nounPlural)
 {
     if (req.payload.empty()) {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         throw HttpReturnException
             (400, "POST to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "
@@ -775,4 +818,4 @@ void validatePayloadForPost(const RestRequest & req,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -1,10 +1,11 @@
 toolchain ?= gcc
+port ?= host
 PYTHON_ENABLED:=1
 DOCUMENTATION_ENABLED:=1
 TCMALLOC_ENABLED?=1
 
 DOCKER_REGISTRY:=quay.io/
-DOCKER_USER:=datacratic/
+DOCKER_USER:=mldb/
 
 # Shim for the 14.04 migration
 DIST_CODENAME:=$(shell lsb_release -sc)
@@ -12,6 +13,7 @@ DIST_CODENAME:=$(shell lsb_release -sc)
 MACHINE_NAME:=$(shell uname -n)
 
 V8_LIB:=v8
+HOSTARCH    ?= $(shell uname -m)
 
 
 -include local.mk
@@ -28,9 +30,12 @@ export VIRTUALENV
 default: all
 .PHONY: default
 
+# Define our port
+include ports.mk
+
 PWD     := $(shell pwd)
 BUILD   ?= build
-ARCH    ?= $(shell uname -m)
+ARCH    ?= $(HOSTARCH)
 OBJ     := $(BUILD)/$(ARCH)/obj
 BIN     := $(BUILD)/$(ARCH)/bin
 LIB	:= $(BUILD)/$(ARCH)/lib
@@ -38,7 +43,7 @@ TESTS   := $(BUILD)/$(ARCH)/tests
 TMPBIN	:= $(BUILD)/$(ARCH)/tmp
 INC     := $(BUILD)/$(ARCH)/include
 SRC     := .
-TMP     ?= $(BUILD)/$(ARCH)/tmp
+TMP     ?= $(PWD)/$(BUILD)/$(ARCH)/tmp
 
 # These are for cross-compilation, where binaries used in the build need
 # be be built for the host.
@@ -61,7 +66,7 @@ export BUILD
 export TEST_TMP
 export TMP
 
-$(if $(wildcard $(JML_BUILD)/$(toolchain).mk),,$(error toolchain $(toolchain) is unknown.  Currently 'gcc' and 'clang' are supported.))
+$(if $(wildcard $(JML_BUILD)/$(toolchain).mk),,$(error toolchain $(toolchain) is unknown.  Currently 'gcc', 'gcc5', 'gcc6' and 'clang' are supported.))
 
 include $(JML_BUILD)/arch/$(ARCH).mk
 include $(JML_BUILD)/$(toolchain).mk
@@ -69,6 +74,7 @@ include $(JML_BUILD)/$(toolchain).mk
 VALGRIND ?= valgrind
 VALGRINDFLAGS := --soname-synonyms=somalloc=*tcmalloc* --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full
 
+include $(JML_BUILD)/port.mk
 include $(JML_BUILD)/functions.mk
 include $(JML_BUILD)/rules.mk
 include $(JML_BUILD)/python.mk

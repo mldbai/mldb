@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* simd_test.cc
    Jeremy Barnes, 21 February 2007
@@ -18,7 +18,7 @@
 #include <iostream>
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;

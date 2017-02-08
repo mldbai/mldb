@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** peer_message.h                                                 -*- C++ -*-
     Jeremy Barnes, 30 May 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Message from one peer to another.
 */
@@ -14,7 +14,7 @@
 #include "mldb/types/date.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Controls what priority the message gets.  This allows different
     tradeoffs between latency and throughput to be selected and for
@@ -125,4 +125,4 @@ struct PeerMessage {
               MessageDirection dir);
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sns_send.cc
     Jeremy Barnes, 24 December 2013
-    Copyright (c) 2013 Datacratic.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
     Send an SNS message.
 */
@@ -19,8 +19,7 @@
 namespace po = boost::program_options;
 
 using namespace std;
-using namespace Datacratic;
-using namespace ML;
+using namespace MLDB;
 
 int main(int argc, char* argv[])
 {
@@ -72,7 +71,7 @@ int main(int argc, char* argv[])
     }
 
     if (message.empty())
-        throw ML::Exception("must specify a message");
+        throw MLDB::Exception("must specify a message");
     if (message[0] == '@') {
         filter_istream stream(string(message, 1));
         string msg;

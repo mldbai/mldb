@@ -1,8 +1,8 @@
 /* string.h                                                          -*- C++ -*-
    Sunil Rottoo, 27 April 2012
-   Copyright (c) 20102 Datacratic.  All rights reserved.
+   Copyright (c) 20102 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Basic classes for dealing with string including internationalisation
 */
@@ -13,7 +13,7 @@
 #include "mldb/ext/utf8cpp/source/utf8.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -176,6 +176,18 @@ public:
     void erase(iterator first, iterator last);
 
     size_t length() const;
+
+    /** Reserve the given amount of space. This is in bytes for the UTF-8
+        encoded string, not capacity; in other words to reserve space
+        for string x use x.rawLength() not x.length().
+    */
+    void reserve(size_t capacity);
+
+    /** How much space is reserved?  This is in bytes for the UTF-8
+        encoded string, not capacity; in other words to reserve space
+        for string x use x.rawLength() not x.length().
+    */
+    size_t capacity() const;
 
     const_iterator find(int c) const;
     const_iterator find(const char * s) const;
@@ -481,17 +493,19 @@ std::ostream & operator << (std::ostream & stream, const Utf32String & str);
 
 typedef Utf8String UnicodeString;
 
-} // namespace Datacratic
+Utf8String getUtf8ExceptionString();
+
+} // namespace MLDB
 
 namespace std {
 
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::Utf8String>
-    : public std::unary_function<Datacratic::Utf8String, size_t>
+struct hash<MLDB::Utf8String>
+    : public std::unary_function<MLDB::Utf8String, size_t>
 {
-    size_t operator()(const Datacratic::Utf8String & str) const
+    size_t operator()(const MLDB::Utf8String & str) const
     {
         return std::hash<std::string>()(str.rawString());
     }

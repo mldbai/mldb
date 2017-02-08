@@ -7,7 +7,7 @@ docker run \
   --rm=true \
   -v </absolute/path/to/mldb_data>:/mldb_data \
   -e MLDB_IDS="`id`" \
-  quay.io/datacratic/mldb:latest /opt/bin/mldb_runner \
+  quay.io/mldb/mldb:latest /opt/bin/mldb_runner \
   --plugin-directory /opt/mldb/plugins \
   --run-script /mldb_data/<script>
 ```
@@ -25,7 +25,7 @@ docker run \
   -v </absolute/path/to/mldb_data>:/mldb_data \
   -e MLDB_IDS="`id`" \
   -p 127.0.0.1:<mldbport>:80 \
-  quay.io/datacratic/mldb:latest /opt/bin/mldb_runner \
+  quay.io/mldb/mldb:latest /opt/bin/mldb_runner \
   --http-listen-port 80 \
   --plugin-directory /opt/mldb/plugins \
   --dont-exit-after-script yes \
@@ -46,12 +46,12 @@ from a URL.  The contents of the URL must be a JSON object, array or value.
 
 Credentials are JSON objects that have the following format:
 
-![](%%type Datacratic::StoredCredentials)
+![](%%type MLDB::StoredCredentials)
 
 with the `credential` field (which define the actual credentials and the resource to
 access) as follows:
 
-![](%%type Datacratic::Credential)
+![](%%type MLDB::Credential)
 
 There are examples of credentials under the [Url] (Url.md) page.
 

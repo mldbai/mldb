@@ -1,21 +1,21 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stump_training_multi.h                                          -*- C++ -*-
    Jeremy Barnes, 29 August 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Optimised version of training for when we have multiple labels (more
    than 7).
 */
 
-#ifndef __boosting__stump_training_multi_h__
-#define __boosting__stump_training_multi_h__
+#pragma once
 
 #include "stump_training.h"
 #include "mldb/arch/simd_vector.h"
+#include "mldb/arch/arch.h"
+#if MLDB_INTEL_ISA
 #include "mldb/arch/sse.h"
 #include "mldb/arch/sse2.h"
+#endif
 #include "mldb/ml/algebra/multi_array_utils.h"
 
 #undef USE_SIMD_SSE2
@@ -154,7 +154,7 @@ transfer_core(float * from, float * to, const float * weights, float k,
     }
 }
 
-JML_ALWAYS_INLINE void
+MLDB_ALWAYS_INLINE void
 transfer_core(double * from, double * to, const float * weights, float k,
               int label, int nl)
 {
@@ -387,7 +387,7 @@ struct W_multi {
                             sample weights.
     */
     template<class Iterator>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void transfer(int correct_label, int from, int to, float weight,
                   Iterator it, int advance)
     {
@@ -820,9 +820,3 @@ struct Z_multi {
 };
 
 } // namespace ML
-
-
-
-#endif /* __boosting__stump_training_multi_h__ */
-
-

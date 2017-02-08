@@ -1,8 +1,8 @@
 /** thread_pool.h                                                  -*- C++ -*-
     Jeremy Barnes, 18 December 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of the thread pool abstraction for when work needs to be
     spread over multiple threads.
@@ -13,7 +13,7 @@
 #include <functional>
 #include <memory>
 
-namespace Datacratic {
+namespace MLDB {
 
 typedef std::function<void () noexcept> ThreadJob;
 
@@ -57,6 +57,8 @@ struct ThreadPool {
 
     void work() const;
 
+    size_t numThreads() const;
+
     uint64_t jobsRunning() const;
     uint64_t jobsSubmitted() const;
     uint64_t jobsFinished() const;
@@ -72,4 +74,4 @@ private:
     std::shared_ptr<Itl> itl;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

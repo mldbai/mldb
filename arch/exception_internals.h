@@ -1,16 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* exception_internals.h                                           -*- C++ -*-
    Jeremy Barnes, 18 October 2010
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
 
    Internals needed to interoperate with the exception handling.  These are
    copied from the libsupc++ sources, but contain no functionality, only
    definitions.
 */
 
-#ifndef __jml__arch__exception_internals_h__
-#define __jml__arch__exception_internals_h__
+#pragma once
 
 #include <typeinfo>
 #include <exception>
@@ -62,6 +61,3 @@ struct __cxa_eh_globals
 extern "C" __cxa_eh_globals *__cxa_get_globals () throw();
 
 } // __cxxabiv1
-
-
-#endif /* __jml__arch__exception_internals_h__ */

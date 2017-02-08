@@ -1,8 +1,8 @@
 /**
  * MLDB-865-javascript-unicode.js
- * Datacratic, 2015
+ * mldb.ai inc, 2015
  * Mich, 2016-02-10
- * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 function succeeded(response)

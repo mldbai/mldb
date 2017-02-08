@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_long_header_test.cc
    Jeremy Barnes, 31 January 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 
    Test that we can't crash the server sending long headers.
 */
@@ -18,17 +18,17 @@
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/event_loop.h"
-#include "mldb/http/port_range_service.h"
-#include "mldb/http/tcp_acceptor.h"
-#include "mldb/http/tcp_socket_handler.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/event_loop.h"
+#include "mldb/io/port_range_service.h"
+#include "mldb/io/tcp_acceptor.h"
+#include "mldb/io/tcp_socket_handler.h"
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_connection_overflow )
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE( test_connection_overflow )
         if (res == 0)
             break;
         if (res == -1)
-            throw ML::Exception(errno, "Failed to read()");
+            throw MLDB::Exception(errno, "Failed to read()");
         bytesRead += res;
     }
 

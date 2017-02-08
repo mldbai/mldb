@@ -1,7 +1,7 @@
 #
 # MLDB-1428-text-sparse-output.py
 # Mathieu Bolduc, 2016-02-29
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -23,7 +23,7 @@ class ImportTextToSparseTest(unittest.TestCase):
             } 
         })
 
-        res = mldb.query('SELECT * FROM iris limit 1')
+        res = mldb.query('SELECT * FROM iris ORDER BY rowName() limit 1')
 
         expected = [[
                         "_rowName",
@@ -33,14 +33,7 @@ class ImportTextToSparseTest(unittest.TestCase):
                         "d",
                         "label"
                     ],
-                    [
-                        "150",
-                        5.9,
-                        3,
-                        5.1,
-                        1.8,
-                        "Iris-virginica"
-                    ]]
+                    [u'1', 5.1, 3.5, 1.4, 0.2, u'Iris-setosa']]
 
         self.assertEqual(res, expected)
 
@@ -57,10 +50,10 @@ class ImportTextToSparseTest(unittest.TestCase):
             } 
         })
 
-        res = mldb.query('SELECT * FROM iris_ex limit 1')
+        res = mldb.query('SELECT * FROM iris_ex ORDER BY rowName() limit 1')
 
         expected = [["_rowName", "a", "b", "d", "label" ],
-                    ["150", 5.9, 3, 1.8, "Iris-virginica"]]
+                    [u'1', 5.1, 3.5, 0.2, u'Iris-setosa']]
 
         self.assertEqual(res, expected)
 
@@ -69,19 +62,19 @@ class ImportTextToSparseTest(unittest.TestCase):
         res = mldb.put('/v1/procedures/import_reddit', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz",
+                "dataFileUrl": "https://public.mldb.ai/reddit.csv.gz",
                 "delimiter": "",
-                "quotechar": "",
+                "quoteChar": "",
                 "select": "tokenize(lineText, {offset: 1, value: 1}) as *",
                 'outputDataset': {'id': 'reddit', 'type': 'sparse.mutable'},
                 'runOnCreation': True
             } 
         })
 
-        res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL LIMIT 1')
+        res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL ORDER BY rowName() LIMIT 1')
 
         expected = [["_rowName","gonewild"],
-                    ["471242",1]]
+                    ["100030",1]]
         self.assertEqual(res, expected)
 
     # MLDB-1513

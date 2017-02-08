@@ -1,8 +1,8 @@
 /* value_description_fwd.h                                         -*- C++ -*-
    Jeremy Barnes, 29 March 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Code for description and introspection of values and structures.  Used
    to allow for automated formatters and parsers to be built.
@@ -17,7 +17,7 @@ namespace Json {
 class Value;
 } // namespace Json
 
-namespace Datacratic {
+namespace MLDB {
 
 class Utf8String;
 class Utf32String;
@@ -94,7 +94,7 @@ template<typename T>
 std::shared_ptr<const ValueDescriptionT<T> >
 getDefaultDescriptionSharedT()
 {
-    using namespace Datacratic;
+    using namespace MLDB;
     return getDefaultDescriptionShared((T *)0);
 }
 
@@ -102,7 +102,7 @@ template<typename T>
 ValueDescriptionT<T> *
 getDefaultDescriptionUninitialized(T *)
 {
-    using namespace Datacratic;
+    using namespace MLDB;
     return getDefaultDescription((T *)0);
 }
 
@@ -112,19 +112,19 @@ getDefaultDescriptionUninitialized(T *)
 #define DECLARE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)         \
     struct Name;                                                \
                                                                 \
-    Datacratic::ValueDescriptionT<Type> *                       \
+    MLDB::ValueDescriptionT<Type> *                       \
     getDefaultDescription(Type *);                              \
                                                                 \
-    Datacratic::ValueDescriptionT<Type> *                       \
+    MLDB::ValueDescriptionT<Type> *                       \
     getDefaultDescriptionUninitialized(Type *);                 \
 
 #define DEFINE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
                                                                 \
     struct Name                                                 \
-        :  public Datacratic::StructureDescription<Type> {      \
+        :  public MLDB::StructureDescription<Type> {      \
         Name();                                                 \
                                                                 \
-        Name(const Datacratic::ConstructOnly &);                \
+        Name(const MLDB::ConstructOnly &);                \
                                                                 \
         virtual void initialize()                               \
         {                                                       \
@@ -141,26 +141,26 @@ getDefaultDescriptionUninitialized(T *)
         Regme()                                                         \
             : done(false)                                               \
         {                                                               \
-            Datacratic::registerValueDescription                        \
+            MLDB::registerValueDescription                        \
                 (typeid(Type), [] () { return new Name(); }, true);     \
         }                                                               \
     };                                                                  \
                                                                         \
-    Name::Name(const Datacratic::ConstructOnly &)                       \
+    Name::Name(const MLDB::ConstructOnly &)                       \
     {                                                                   \
         regme.done = true;                                              \
     }                                                                   \
                                                                         \
-    Datacratic::ValueDescriptionT<Type> *                               \
+    MLDB::ValueDescriptionT<Type> *                               \
     getDefaultDescription(Type *)                                       \
     {                                                                   \
         return new Name();                                              \
     }                                                                   \
                                                                         \
-    Datacratic::ValueDescriptionT<Type> *                               \
+    MLDB::ValueDescriptionT<Type> *                               \
     getDefaultDescriptionUninitialized(Type *)                          \
     {                                                                   \
-        return new Name(::Datacratic::constructOnly);                   \
+        return new Name(::MLDB::constructOnly);                         \
     }                                                                   \
     Name::Regme Name::regme;                                            \
     
@@ -174,26 +174,26 @@ getDefaultDescriptionUninitialized(T *)
 
 #define DECLARE_ENUM_DESCRIPTION_NAMED(Name, Type)              \
                                                                 \
-    Datacratic::ValueDescriptionT<Type> *                       \
+    MLDB::ValueDescriptionT<Type> *                       \
     getDefaultDescription(Type *);                              \
                                                                 \
-    Datacratic::ValueDescriptionT<Type> *                       \
+    MLDB::ValueDescriptionT<Type> *                       \
     getDefaultDescriptionUninitialized(Type *);                 \
     
 #define DEFINE_ENUM_DESCRIPTION_NAMED(Name, Type)                   \
                                                                     \
     struct Name                                                     \
-        : public Datacratic::EnumDescription<Type> {                \
+        : public MLDB::EnumDescription<Type> {                \
         Name();                                                     \
     };                                                              \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                           \
+    MLDB::ValueDescriptionT<Type> *                           \
     getDefaultDescription(Type *)                                   \
     {                                                               \
         return new Name();                                          \
     }                                                               \
                                                                     \
-    Datacratic::ValueDescriptionT<Type> *                           \
+    MLDB::ValueDescriptionT<Type> *                           \
     getDefaultDescriptionUninitialized(Type *)                      \
     {                                                               \
         return new Name();                                          \
@@ -207,11 +207,11 @@ getDefaultDescriptionUninitialized(T *)
     DEFINE_ENUM_DESCRIPTION_NAMED(Type##Description, Type)
 
 #define PREDECLARE_VALUE_DESCRIPTION(T)                                 \
-    Datacratic::ValueDescriptionT<T> *                                  \
+    MLDB::ValueDescriptionT<T> *                                  \
     getDefaultDescription(T * = 0);                                     \
-    Datacratic::ValueDescriptionT<T> *                                  \
+    MLDB::ValueDescriptionT<T> *                                  \
     getDefaultDescriptionUninitialized(T * = 0);                        \
-    std::shared_ptr<Datacratic::ValueDescriptionT<T> >                  \
+    std::shared_ptr<MLDB::ValueDescriptionT<T> >                  \
     getDefaultDescriptionShared(T * = 0);                               \
     
 #define DECLARE_VALUE_DESCRIPTION(T)                                    \
@@ -219,19 +219,19 @@ getDefaultDescriptionUninitialized(T *)
     extern template struct ValueDescriptionT<T>;                         \
 
 #define DEFINE_VALUE_DESCRIPTION_NS(T, Desc)                            \
-    Datacratic::ValueDescriptionT<T> * \
+    MLDB::ValueDescriptionT<T> * \
     getDefaultDescription(T *)                                          \
     {                                                                   \
         return new Desc();                                              \
     }                                                                   \
                                                                         \
-    Datacratic::ValueDescriptionT<T> *                                  \
+    MLDB::ValueDescriptionT<T> *                                  \
     getDefaultDescriptionUninitialized(T *)                             \
     {                                                                   \
         return new Desc();                                              \
     }                                                                   \
                                                                         \
-    std::shared_ptr<Datacratic::ValueDescriptionT<T> >                  \
+    std::shared_ptr<MLDB::ValueDescriptionT<T> >                  \
     getDefaultDescriptionShared(T *)                                    \
     {                                                                   \
         static std::shared_ptr<Desc> result = std::make_shared<Desc>(); \
@@ -240,7 +240,7 @@ getDefaultDescriptionUninitialized(T *)
 
 #define DEFINE_VALUE_DESCRIPTION(T, Desc)                               \
     DEFINE_VALUE_DESCRIPTION_NS(T, Desc)                                \
-    template struct ValueDescriptionT<T>;                                \
+    template struct MLDB::ValueDescriptionT<T>;                         \
 
 #define VD_SINGLE_ARG(...) __VA_ARGS__
 
@@ -257,7 +257,7 @@ getDefaultDescriptionUninitialized(T *)
     struct ValueDescriptionInit<Type<ArgList> > {                       \
         static ValueDescription * create()                              \
         {                                                               \
-            return new Impl<ArgList>(Datacratic::ConstructOnly());      \
+            return new Impl<ArgList>(MLDB::ConstructOnly());      \
         }                                                               \
     }                                                                   \
 
@@ -302,4 +302,4 @@ PREDECLARE_VALUE_DESCRIPTION(bool);
 template<typename T>
 ValueDescriptionT<T *> * getDefaultDescription(T ** ptr);
 
-} // namespace Datacratic
+} // namespace MLDB

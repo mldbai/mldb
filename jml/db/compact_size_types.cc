@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* compact_size_types.cc
    Jeremy Barnes, 17 March 2005
@@ -112,7 +112,7 @@ void encode_compact(char * & first, char * last, unsigned long long val)
     int len = idx + 1;
 
     if (first + len > last)
-        throw ML::Exception("not enough space to encode compact_size_t");
+        throw MLDB::Exception("not enough space to encode compact_size_t");
 
     /* Pack it into the back bytes. */
     for (int i = len-1;  i >= 0;  --i) {

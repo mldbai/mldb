@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* remote_peer.cc                                                  -*- C++ -*-
    Jeremy Barnes, 12 May 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -14,12 +14,13 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/jml/utils/vector_utils.h"
 
 
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -100,7 +101,7 @@ initAfterAccept(std::shared_ptr<PeerConnection> connection)
 
     if (!mutex.try_lock_for(std::chrono::milliseconds(1000))) {
         connection->shutdown();
-        throw ML::Exception("didn't receive handshake after one second");
+        throw MLDB::Exception("didn't receive handshake after one second");
     }
 
     remotePeerInfo = jsonDecodeStr<PeerInfo>(payload);
@@ -363,7 +364,7 @@ getMessage(std::string & payload)
                 if (msg.onError) {
                     try {
                         msg.onError(std::move(msg));
-                    } JML_CATCH_ALL {
+                    } MLDB_CATCH_ALL {
                         cerr << "warning: onError handler threw"
                              << endl;
                     }
@@ -395,7 +396,7 @@ getMessage(std::string & payload)
             messagesSent += 1;
         }
         else {
-            //throw ML::Exception("how do we send a response?");
+            //throw MLDB::Exception("how do we send a response?");
             responsesSent += 1;
         }
 
@@ -476,7 +477,7 @@ handleMessageIn(PeerMessage && message)
         ++messagesReceived;
 
         if (message.layer == 0) {
-            throw ML::Exception("layer 0 message not understood");
+            throw MLDB::Exception("layer 0 message not understood");
         }
         else if (message.layer == 1) {
 
@@ -577,7 +578,7 @@ handleResponse(PeerMessage && response)
         } catch (const std::exception & exc) {
             cerr << "error: exception thrown in onResponse: "
                  << exc.what() << endl;
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             cerr << "error: exception thrown in onResponse"
                  << endl;
         }
@@ -637,7 +638,7 @@ checkDeadlines()
             msg.error = "Timeout waiting for response";
             try {
                 msg.onError(std::move(msg));
-            } JML_CATCH_ALL {
+            } MLDB_CATCH_ALL {
                 cerr << "Exception in onError handler" << endl;
                 abort();
             }
@@ -702,7 +703,7 @@ watchWithPath(const ResourceSpec & spec, bool catchUp, Any info,
                 std::unique_lock<std::mutex> guard(remoteWatchMutex);
                 cerr << "erasing local watch data for " << externalWatchId << endl;
                 if (!this->localWatches.erase(externalWatchId)) {
-                    throw ML::Exception("logic error: "
+                    throw MLDB::Exception("logic error: "
                                         "released watch with unknown ID");
                 }
                 //cerr << "done erasing local watch data" << endl;
@@ -943,7 +944,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
     std::unique_ptr<EntityLinkToken> acceptEnd(new EntityLinkToken(targetPath2));
 
     std::tie(res, entry->token)
-        = Datacratic::createLinkT<EntityLinkToken>(std::move(connectEnd),
+        = MLDB::createLinkT<EntityLinkToken>(std::move(connectEnd),
                                                    std::move(acceptEnd),
                                                    LS_CONNECTING, linkParams, nullptr);
     
@@ -1109,7 +1110,7 @@ handleLayerOneMessage(PeerMessage & message)
     }
     }
     
-    //throw ML::Exception("got unknown layer 0 message type %d", type);
+    //throw MLDB::Exception("got unknown layer 0 message type %d", type);
     // For forward compatibility, we simply won't respond to those
     cerr << "got unknown message type " << type << endl;
 }
@@ -1292,7 +1293,7 @@ void
 RemotePeer::
 handleRemoteWatchStatus(std::vector<std::string> & message)
 {
-    throw ML::Exception("handleRemoteWatchStatus");
+    throw MLDB::Exception("handleRemoteWatchStatus");
 }
 
 void
@@ -1320,7 +1321,7 @@ sendPeerWatchFired(int64_t externalWatchId,
             
             this->deletePeerWatch(externalWatchId);
 
-            //throw ML::Exception("peer watch fired error not done yet");
+            //throw MLDB::Exception("peer watch fired error not done yet");
         };
 
     sendMessage(PRI_NORMAL,
@@ -1402,7 +1403,7 @@ handleRemoteCreateLink(std::vector<std::string> & message)
                             
                             //this->deletePeerWatch(peer, externalWatchId);
 
-                            //throw ML::Exception("peer watch fired error not done yet");
+                            //throw MLDB::Exception("peer watch fired error not done yet");
                         };
 
                         sendMessage(PRI_NORMAL,
@@ -1728,4 +1729,4 @@ LinkStatusDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* fixed_array_test.cc
    Jeremy Barnes, 8 February 2005
@@ -20,12 +20,13 @@
 
 using namespace std;
 using namespace ML;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
 vector<string> parseCsvLine(const std::string & line)
 {
-    ML::Parse_Context context(line, line.c_str(), line.c_str() + line.size());
+    ParseContext context(line, line.c_str(), line.c_str() + line.size());
     return expect_csv_row(context);
 }
 

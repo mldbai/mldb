@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* glz_classifier_generator.cc
    Jeremy Barnes, 15 March 2006
@@ -19,6 +19,8 @@
 #include "mldb/ml/algebra/least_squares.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
+#include "mldb/jml/utils/string_functions.h"
+#include <cassert>
 
 using namespace std;
 
@@ -42,20 +44,19 @@ GLZ_Classifier_Generator::~GLZ_Classifier_Generator()
 
 void
 GLZ_Classifier_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
-
-    config.find(add_bias, "add_bias");
-    config.find(do_decode, "decode");
-    config.find(link_function, "link_function");
-    config.find(normalize, "normalize");
-    config.find(condition, "condition");
-    config.find(regularization, "regularization");
-    config.find(regularization_factor, "regularization_factor");
-    config.find(max_regularization_iteration, "max_regularization_iteration");
-    config.find(regularization_epsilon, "regularization_epsilon");
-    config.find(feature_proportion, "feature_proportion");
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(add_bias, "add_bias", unparsedKeys);
+    config.findAndRemove(do_decode, "decode", unparsedKeys);
+    config.findAndRemove(link_function, "link_function", unparsedKeys);
+    config.findAndRemove(normalize, "normalize", unparsedKeys);
+    config.findAndRemove(condition, "condition", unparsedKeys);
+    config.findAndRemove(regularization, "regularization", unparsedKeys);
+    config.findAndRemove(regularization_factor, "regularization_factor", unparsedKeys);
+    config.findAndRemove(max_regularization_iteration, "max_regularization_iteration", unparsedKeys);
+    config.findAndRemove(regularization_epsilon, "regularization_epsilon", unparsedKeys);
+    config.findAndRemove(feature_proportion, "feature_proportion", unparsedKeys);
 }
 
 void
@@ -336,7 +337,7 @@ train_weighted(Thread_Context & thread_context,
             }
         };
     
-    Datacratic::parallelMap(0, indexes.size(), onIndex);
+    MLDB::parallelMap(0, indexes.size(), onIndex);
 
     cerr << "marshalling: " << t.elapsed() << endl;
     t.restart();

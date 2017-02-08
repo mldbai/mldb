@@ -1,6 +1,6 @@
 /* MLDB-1398-main-library.cc
    Jeremy Barnes, 22 February 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    Main library for MLDB-1398 test.
 */
@@ -10,8 +10,8 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 // From the dependent plugin library
 std::string getStatusMessage();
@@ -28,8 +28,8 @@ struct PluginHandler: public Plugin {
     }
 };
 
-Datacratic::MLDB::Plugin *
-mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
+MLDB::Plugin *
+mldbPluginEnterV100(MLDB::MldbServer * server)
 {
     //commenting until MLDBFB-403 is fixed
     //cerr << "entering plugins library" << endl;  

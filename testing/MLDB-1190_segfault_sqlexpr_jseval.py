@@ -1,7 +1,7 @@
 #
 # MLDB-1190_segfault_sqlexpr_jseval.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
@@ -26,7 +26,7 @@ conf = {
     "params": {
         "expression": """
             getMsgStats({text: raw_text}) as *,
-            tokenize(preProcessed, {splitchars: ' !'}) as words
+            tokenize(preProcessed, {splitChars: ' !'}) as words
         """
     }
 }
@@ -42,7 +42,6 @@ for i in range(25):
 expected_response = [
     {
         "rowName": "result", 
-        "rowHash": "d54892b736cac3ab", 
         "columns": [
             [
                 "msgStats.msgLen", 

@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** in_process_rest_connection.cc                                  -*- C++ -*-
  *
     Jeremy Barnes, January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -13,7 +13,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* IN PROCESS HTTP REST CONNECTION                                           */
@@ -137,13 +137,13 @@ isConnected() const
 std::shared_ptr<RestConnection> InProcessRestConnection::
 capture(std::function<void ()> onDisconnect)
 {
-    throw ML::Exception("Capturing not supported");
+    throw MLDB::Exception("Capturing not supported");
 }
 
 std::shared_ptr<RestConnection> InProcessRestConnection::
 captureInConnection(std::shared_ptr<void> toCapture)
 {
-    throw ML::Exception("Capturing not supported");
+    throw MLDB::Exception("Capturing not supported");
 }
 
 };

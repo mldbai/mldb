@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* rusage.h                                                        -*- C++ -*-
    Jeremy Barnes, 26 November 2012
-   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Small structure to track resource usage.
 */
@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Resource usage structure. */
 struct RUsage {
@@ -88,4 +88,4 @@ struct RUsage {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB

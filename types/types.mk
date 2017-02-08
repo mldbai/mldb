@@ -1,14 +1,15 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 # date.mk
 # Jeremy Barnes, 2 November 2011
-# Copyright (c) 2011 Datacratic.  All rights reserved.
+# Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 #
-# Date library for datacratic.
+# Date library for MLDB.
 
 LIBVALUE_DESCRIPTION_SOURCES := \
 	value_description.cc \
 	basic_value_descriptions.cc \
+	libc_value_descriptions.cc \
 	json_parsing.cc \
 	json_printing.cc \
 	dtoa.c \
@@ -27,7 +28,6 @@ LIBTYPES_SOURCES := \
 	date.cc \
 	localdate.cc \
 	string.cc \
-	id.cc \
 	url.cc \
 	periodic_utils.cc \
 	dtoa.c \
@@ -42,7 +42,7 @@ $(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
 ifneq ($(PREMAKE),1)
 $(LIB)/libtypes.so: $(LIB)/date_timezone_spec.csv
 
-$(LIB)/date_timezone_spec.csv: $(CWD)/date_timezone_spec.csv
+$(LIB)/date_timezone_spec.csv: $(CWD)/date_timezone_spec.csv $(LIB)/.dir_exists
 	@echo "           $(COLOR_CYAN)[COPY]$(COLOR_RESET) $< -> $@"
 	@/bin/cp -f $< $@
 endif

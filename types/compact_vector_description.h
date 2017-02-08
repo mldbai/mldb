@@ -2,7 +2,7 @@
     ???, ??? 2015
     Value descriptions for compact vectors.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "value_description.h"
@@ -10,7 +10,7 @@
 
 #pragma once
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T, size_t I, typename S, bool Sf, typename P, typename A>
 struct CompactVectorDescription
@@ -28,69 +28,75 @@ struct CompactVectorDescription
     {
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const
+    virtual void parseJson(void * val,
+                           JsonParsingContext & context) const override
     {
         compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<compact_vector<T, I, S, Sf, P, A> *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(compact_vector<T, I, S, Sf, P, A> * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(compact_vector<T, I, S, Sf, P, A> * val,
+                                JsonParsingContext & context) const override
     {
         this->parseJsonTypedList(val, context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    virtual void printJson(const void * val,
+                           JsonPrintingContext & context) const override
     {
         const compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<const compact_vector<T, I, S, Sf, P, A> *>(val);
         return printJsonTyped(val2, context);
     }
 
-    virtual void printJsonTyped(const compact_vector<T, I, S, Sf, P, A> * val, JsonPrintingContext & context) const
+    virtual void printJsonTyped(const compact_vector<T, I, S, Sf, P, A> * val,
+                                JsonPrintingContext & context) const override
     {
         this->printJsonTypedList(val, context);
     }
 
-    virtual bool isDefault(const void * val) const
+    virtual bool isDefault(const void * val) const override
     {
         const compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<const compact_vector<T, I, S, Sf, P, A> *>(val);
         return isDefaultTyped(val2);
     }
 
-    virtual bool isDefaultTyped(const compact_vector<T, I, S, Sf, P, A> * val) const
+    virtual bool
+    isDefaultTyped(const compact_vector<T, I, S, Sf, P, A> * val) const override
     {
         return val->empty();
     }
 
-    virtual size_t getArrayLength(void * val) const
+    virtual size_t getArrayLength(void * val) const override
     {
         const compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<const compact_vector<T, I, S, Sf, P, A> *>(val);
         return val2->size();
     }
 
-    virtual void * getArrayElement(void * val, uint32_t element) const
+    virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<compact_vector<T, I, S, Sf, P, A> *>(val);
         return &val2->at(element);
     }
 
-    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    virtual const void * getArrayElement(const void * val,
+                                         uint32_t element) const override
     {
         const compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<const compact_vector<T, I, S, Sf, P, A> *>(val);
         return &val2->at(element);
     }
 
-    virtual void setArrayLength(void * val, size_t newLength) const
+    virtual void setArrayLength(void * val, size_t newLength) const override
     {
         compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<compact_vector<T, I, S, Sf, P, A> *>(val);
         val2->resize(newLength);
     }
     
-    virtual const ValueDescription & contained() const
+    virtual const ValueDescription & contained() const override
     {
         return *this->inner;
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();
     }
@@ -102,4 +108,4 @@ DECLARE_TEMPLATE_VALUE_DESCRIPTION_6(CompactVectorDescription, compact_vector,
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

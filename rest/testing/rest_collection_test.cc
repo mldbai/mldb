@@ -1,16 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* rest_collection_test.cc
    Jeremy Barnes, 25 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/rest/rest_collection.h"
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/types/value_description.h"
+#include "mldb/rest/cancellation_exception.h"
 #include <thread>
 
 #define BOOST_TEST_MAIN
@@ -20,7 +21,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 struct TestConfig {
     std::string id;
@@ -181,7 +182,7 @@ BOOST_AUTO_TEST_CASE( test_watching )
     
     // Wrong watch type should throw immediately
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(WatchT<int> w4 = dir.watch({"items", "elements:*"},
                                                      true /* catchUp */,
                                                      string("w4")),
@@ -276,7 +277,7 @@ BOOST_AUTO_TEST_CASE( test_watching_config )
     
     // Wrong watch type should throw immediately
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(WatchT<int> w3 = dir.watch({"items", "elements:*"},
                                                      true /* catchUp */),
                           std::exception);
@@ -344,7 +345,7 @@ struct RecursiveCollection: public RestCollection<std::string, RecursiveCollecti
         if (spec.size() > 1) {
             if (spec[0].channel == "children")
                 return getWatchBoundType(ResourceSpec(spec.begin() + 1, spec.end()));
-            throw ML::Exception("only children channel known");
+            throw MLDB::Exception("only children channel known");
         }
         
         if (spec[0].channel == "children")
@@ -352,7 +353,7 @@ struct RecursiveCollection: public RestCollection<std::string, RecursiveCollecti
                              nullptr);
         else if (spec[0].channel == "elements")
             return make_pair(&typeid(std::tuple<ChildEvent>), nullptr);
-        else throw ML::Exception("unknown channel");
+        else throw MLDB::Exception("unknown channel");
     }
 
     std::string name;
@@ -370,7 +371,7 @@ BOOST_AUTO_TEST_CASE( test_watching_multi_level )
 
     // watch is wrong type
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(w2 = coll.watch({"*", "elements:*"}, true /* catchUp */, string("w2")),
                           std::exception);
     }
@@ -493,4 +494,152 @@ BOOST_AUTO_TEST_CASE ( test_destroying_while_creating )
         // Destroy it while still being created, to test that we
         // don't crash
     }
+}
+
+// Stress test for MLDB-408
+BOOST_AUTO_TEST_CASE ( test_cancelling_while_creating )
+{
+    int numTests = 100;
+
+    for (unsigned i = 0;  i < numTests;  ++i) {
+        SlowToCreateTestCollection collection;
+        TestConfig config{"item1", {}};
+        collection.handlePost("item1", config, true /* must be true */);
+        auto entry = collection.getEntry("item1");
+        if (entry.second) {
+            entry.second->cancel();
+            cerr << entry.second->getState() << endl;
+        }
+        else {
+            BOOST_CHECK(false);
+        }
+    }
+}
+
+struct SlowToCreateTestCollectionWithCancellation: public TestCollection {
+
+    ~SlowToCreateTestCollectionWithCancellation()
+    {
+        this->shutdown();
+    }
+    
+    std::shared_ptr<TestObject>
+    construct(TestConfig config, const OnProgress & onProgress) const
+    {
+        Json::Value progress;
+        for (int i = 0; i < 5; ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (!onProgress(progress)) {
+                cerr << "cancelledddddd" << endl;
+                throw CancellationException("cancellation");
+            }
+        }
+
+        auto result = std::make_shared<TestObject>();
+        result->config.reset(new TestConfig(std::move(config)));
+        return result;
+    }
+};
+
+/** This is a stress test of the RestCollection, to ensure that cancelling entries does
+    not crash MLDB.
+*/
+BOOST_AUTO_TEST_CASE( stress_test_collection_cancellation )
+{
+   SlowToCreateTestCollectionWithCancellation collection;
+    
+    std::atomic<bool> shutdown(false);
+    std::atomic<unsigned int> cancelled(0);
+    std::atomic<unsigned int> lateCancellation(0);
+    std::atomic<unsigned int> created(0);
+    std::atomic<unsigned int> underConstruction(0);
+    std::atomic<unsigned int> deletedAfterCreation(0);
+    std::atomic<unsigned int> cancelledBeforeCreation(0);
+
+     auto addThread = [&] ()
+        {
+            while (!shutdown) {
+
+                string key = "item2";
+
+                TestConfig config{key, {}};
+                
+                try {
+                    collection.handlePost(key, config, true /* must be new entry */);
+                    auto entry = collection.getEntry(key);
+                    if (entry.first) {
+                        cerr << "entry created" << endl;
+                        created++;
+                    }
+                    else {
+                        cerr << "entry is under construction" << endl;
+                        underConstruction++;
+                    }
+                }
+                catch (HttpReturnException & ex) {
+                    BOOST_ERROR("failed creating an entry or to get "
+                                "the entry while under construction");
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+                auto deletedEntry = collection.deleteEntry(key);
+                if (deletedEntry)
+                    deletedAfterCreation++;
+                else
+                    cancelledBeforeCreation++;
+            };
+        };
+
+    auto cancelThread = [&] ()
+        {
+            while (!shutdown) {
+
+                std::string key = "item2";
+
+                try {
+                    auto entry = collection.getEntry(key);
+                    if (entry.second) {
+                        if (entry.second->cancel())
+                            cancelled++;
+                    }
+                    else {
+                        cerr << "failed to cancel the entry because the entry was created" << endl;
+                        lateCancellation++;
+                    }
+                }
+                catch (HttpReturnException & ex) {
+                    cerr << "failed to get the entry" << endl;
+                }
+              
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+            };
+        };
+
+    std::vector<std::thread> threads;
+   
+    std::thread creater(addThread);
+
+    unsigned int numCancellationThreads = 10;
+    for (unsigned i = 0;  i < numCancellationThreads;  ++i) {
+        threads.emplace_back(cancelThread);
+    }
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    shutdown = true;
+    
+    for (auto & t: threads)
+        t.join();
+
+    creater.join();
+
+    cerr << "created " << created 
+         << " under construction " << underConstruction
+         << " deleted after creation " << deletedAfterCreation
+         << " cancelled before creation " << cancelledBeforeCreation
+         << " cancelled " << cancelled
+         << " late cancellation " << lateCancellation
+         << endl;
+    BOOST_CHECK_EQUAL(created + underConstruction, deletedAfterCreation + cancelledBeforeCreation);
 }

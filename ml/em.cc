@@ -1,8 +1,8 @@
 /** em.cc
     Mathieu Marquis Bolduc, 30 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of the Estimation-Maximization algorithm.
 */
@@ -10,13 +10,11 @@
 #include "em.h"
 
 #include "mldb/arch/simd_vector.h"
-#include "mldb/arch/atomic_ops.h"
 #include "mldb/arch/math_builtins.h"
 
 #include "mldb/base/exc_assert.h"
 
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include <mutex>
 
 #include "mldb/ml/algebra/matrix_ops.h"
@@ -24,20 +22,20 @@
 #include "mldb/types/jml_serialization.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 typedef boost::multi_array<double, 2> MatrixType;
 
 namespace ML {
 
-double distance(const ML::distribution<double> & x,
-                const ML::distribution<double> & y)
+double distance(const distribution<double> & x,
+                const distribution<double> & y)
 {
     return (x - y).two_norm();
 }
 
-double gaussianDistance(const ML::distribution<double> & pt,
-                        const ML::distribution<double> & origin,
+double gaussianDistance(const distribution<double> & pt,
+                        const distribution<double> & origin,
                         const MatrixType& covarianceMatrix, 
                         const  MatrixType & invertCovarianceMatrix,
                         float determinant)
@@ -63,10 +61,10 @@ double gaussianDistance(const ML::distribution<double> & pt,
 
 boost::multi_array<double, 2>
 EstimateCovariance(int i,
-                   const std::vector<ML::distribution<double>> & points, 
+                   const std::vector<distribution<double>> & points, 
                    const  MatrixType& distanceMatrix,
                    double totalWeight,
-                   ML::distribution<double> average)
+                   distribution<double> average)
 {
     boost::multi_array<double, 2> variant;
 
@@ -76,7 +74,7 @@ EstimateCovariance(int i,
     variant.resize(boost::extents[average.size()][average.size()]);
     for (int n = 0; n < distanceMatrix.shape()[0]; ++n)
     {
-        ML::distribution<double> pt = points[n] - average;
+        distribution<double> pt = points[n] - average;
         double distance = distanceMatrix[n][i];
         int dim = average.size();
         MatrixType variantPt(boost::extents[dim][dim]);
@@ -103,7 +101,7 @@ EstimateCovariance(int i,
 
 void
 EstimationMaximisation::
-train(const std::vector<ML::distribution<double>> & points,
+train(const std::vector<distribution<double>> & points,
       std::vector<int> & in_cluster,
       int nbClusters,
       int maxIterations,
@@ -112,9 +110,9 @@ train(const std::vector<ML::distribution<double>> & points,
     using namespace std;
 
     if (nbClusters < 2)
-        throw ML::Exception("EM with less than 2 clusters doesn't make any sense!");
+        throw MLDB::Exception("EM with less than 2 clusters doesn't make any sense!");
 
-    boost::mt19937 rng;
+    mt19937 rng;
     rng.seed(randomSeed);
 
     int npoints = points.size();
@@ -176,7 +174,7 @@ train(const std::vector<ML::distribution<double>> & points,
 
         // How many have changed cluster?  Used to know when the cluster
         // contents are stable
-        int changes = 0;
+        std::atomic<int> changes(0);
 
         //Step 1: assign each point to a distribution in the mixture
 
@@ -185,7 +183,7 @@ train(const std::vector<ML::distribution<double>> & points,
             int best_cluster = this->assign(points[i], distanceMatrix, i);
 
             if (best_cluster != in_cluster[i]) {
-                ML::atomic_inc(changes);
+                ++changes;
                 in_cluster[i] = best_cluster;
             }
         };
@@ -238,7 +236,7 @@ train(const std::vector<ML::distribution<double>> & points,
 
             auto svdMatrix = clusters[i].covarianceMatrix;
             MatrixType VT,U;
-            ML::distribution<double> svalues;
+            distribution<double> svalues;
             ML::svd_square(svdMatrix, VT, U, svalues);
 
             //Remove small values and calculate pseudo determinant
@@ -271,7 +269,7 @@ train(const std::vector<ML::distribution<double>> & points,
 
 int
 EstimationMaximisation::
-assign(const ML::distribution<double> & point) const
+assign(const distribution<double> & point) const
 {
     boost::multi_array<double, 2> dummySoftAssignMatrix;
     return assign(point, dummySoftAssignMatrix, -1);
@@ -279,15 +277,15 @@ assign(const ML::distribution<double> & point) const
 
 int
 EstimationMaximisation::
-assign(const ML::distribution<double> & point,
+assign(const distribution<double> & point,
        boost::multi_array<double, 2>& distanceMatrix,
        int pIndex) const
 {
     using namespace std;
     if (clusters.size() == 0)
-        throw ML::Exception("Did you train your em?");
+        throw MLDB::Exception("Did you train your em?");
 
-    ML::distribution<double> distances(clusters.size());
+    distribution<double> distances(clusters.size());
     for (int i=0; i < clusters.size(); ++i) {
         distances[i]
             = gaussianDistance(point, clusters[i].centroid,
@@ -355,11 +353,11 @@ reconstitute(ML::DB::Store_Reader & store)
     std::string name;
     store >> name;
     if (name != "em")
-        throw ML::Exception("invalid name when loading a EM object");  
+        throw MLDB::Exception("invalid name when loading a EM object");  
     int version;
     store >> version;
     if (version != 1)
-        throw ML::Exception("invalid EM version");
+        throw MLDB::Exception("invalid EM version");
     int nbClusters;
     store >> nbClusters;
     clusters.clear();

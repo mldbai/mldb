@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE( test_antoi )
     BOOST_CHECK(antoi(d, d + 2) == -1);
 
     const char * p = "patate";
-    BOOST_CHECK_THROW(antoi(p, p + 6), ML::Exception);
+    BOOST_CHECK_THROW(antoi(p, p + 6), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE( test_string_replace_in_place )

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* environment_test.cc
    Jeremy Barnes, 21 February 2007
@@ -16,7 +16,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
-using namespace ML;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 

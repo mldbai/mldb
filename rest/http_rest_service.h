@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** http_rest_service.h                                            -*- C++ -*-
     Jeremy Barnes, 1 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     REST service, HTTP only.  Originally was RestServiceEndpoint.
 */
@@ -12,16 +12,16 @@
 #include <memory>
 #include <string>
 
-#include "mldb/http/asio_thread_pool.h"
+#include "mldb/io/asio_thread_pool.h"
 #include "mldb/rest/http_rest_endpoint.h"
-#include "mldb/http/port_range_service.h"
+#include "mldb/io/port_range_service.h"
 #include "mldb/rest/rest_connection.h"
 #include "mldb/rest/rest_request.h"
 #include "mldb/types/date.h"
 #include "mldb/utils/log_fwd.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /* Forward declarations */
 
@@ -207,4 +207,4 @@ struct HttpRestService {
     std::shared_ptr<spdlog::logger> logger;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -1,6 +1,6 @@
 /** feature_generators.cc
     Francois Maillet, 27 juillet 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "feature_generators.h"
@@ -15,15 +15,15 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "utils/json_utils.h"
-#include "mldb/ext/siphash/csiphash.h"
-#include "mldb/ext/cityhash/src/city.h"
+#include "mldb/ext/highwayhash.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
-constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+constexpr HashSeed defaultSeedStable { .u64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 
 /*****************************************************************************/
@@ -78,12 +78,12 @@ HashedColumnFeatureGenerator::
 HashedColumnFeatureGenerator(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<HashedColumnFeatureGeneratorConfig>();
 
     for(int i=0; i<numBuckets(); i++) {
-        outputColumns.emplace_back(ColumnName(ML::format("hashColumn%d", i)),
+        outputColumns.emplace_back(ColumnPath(MLDB::format("hashColumn%d", i)),
                                    std::make_shared<Float32ValueInfo>(),
                                    COLUMN_IS_DENSE);
     }
@@ -98,9 +98,9 @@ FeatureGeneratorOutput
 HashedColumnFeatureGenerator::
 call(FeatureGeneratorInput input) const
 {
-    ML::distribution<float> result(numBuckets());
+    distribution<float> result(numBuckets());
 
-    ML::Lightweight_Hash_Set<uint64_t> doneHashes;
+    Lightweight_Hash_Set<uint64_t> doneHashes;
 
     Date ts = Date::negativeInfinity();
 
@@ -115,24 +115,25 @@ call(FeatureGeneratorInput input) const
         }
         else if(functionConfig.mode == COLUMNS_AND_VALUES) {
             Utf8String str(columnName.toUtf8String() + "::" + val.toUtf8String());
-            hash = ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
+            // Keep sip hash so that old classifiers still work
+            hash = sipHash(defaultSeedStable.u64, str.rawData(), str.rawLength());
         }
         else {
-            throw ML::Exception("Unsupported hashing mode");
+            throw MLDB::Exception("Unsupported hashing mode");
         }
 
         if (!doneHashes.insert(hash).second)
             return true;
 
-        // cerr << "got " << hash << endl;
+        TRACE_MSG(logger) << "got " << hash;
 
         int bit = 0;
         for (int i = 0;  bit <= 63;  ++i, bit += functionConfig.numBits) {
             int bucket = (hash >> bit) & ((1ULL << functionConfig.numBits) - 1);
             ExcAssert(bucket >= 0 && bucket <= numBuckets());
             int val = (i % 2 ? -1 : 1);
-            // cerr << "bit = " << bit << " bucket = " << bucket
-            //     << " val = " << val << endl;
+            TRACE_MSG(logger) << "bit = " << bit << " bucket = " << bucket
+                              << " val = " << val;
             result[bucket] += val;
         }
 
@@ -144,7 +145,7 @@ call(FeatureGeneratorInput input) const
     ExpressionValue foResult;
     RowValue rowVal;
     for(int i=0; i<result.size(); i++) {
-        rowVal.push_back(make_tuple(ColumnName(ML::format("hashColumn%d", i)),
+        rowVal.push_back(make_tuple(ColumnPath(MLDB::format("hashColumn%d", i)),
                                     CellValue(result[i]), ts));
     }
 
@@ -164,5 +165,5 @@ regHashedColFeatGenFunction(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

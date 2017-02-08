@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** git.cc
     Jeremy Barnes, 14 November 2015
-    Copyright (c) Datacratic Inc.  All rights reserved.
+    Copyright (c) mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/core/procedure.h"
@@ -18,97 +18,13 @@
 #include "mldb/base/parallel.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/log.h"
 
-#include <git2.h>
-#include <git2/revwalk.h>
-#include <git2/commit.h>
-#include <git2/diff.h>
+#include "mldb/ext/libgit2/include/git2.h"
+#include "mldb/ext/libgit2/include/git2/revwalk.h"
+#include "mldb/ext/libgit2/include/git2/commit.h"
+#include "mldb/ext/libgit2/include/git2/diff.h"
 
-#define LIBGIT2_INT_VERSION (LIBGIT2_VER_MAJOR * 10000 \
-                             + LIBGIT2_VER_MINOR * 100 \
-                             + LIBGIT2_VER_REVISION)
-
-/* libgit2 renamed a bunch of functions and defines between 0.19 and 0.22
- * We do the mapping here so the code below works on both versions
- */
-#if LIBGIT2_INT_VERSION < 2200
-#define git_libgit2_init git_threads_init
-#define git_libgit2_shutdown git_threads_shutdown
-#define git_checkout_options git_checkout_opts
-#define git_diff git_diff_list
-#define GIT_CHECKOUT_OPTIONS_INIT GIT_CHECKOUT_OPTS_INIT
-#define GIT_EUNBORNBRANCH GIT_EORPHANEDHEAD
-
-struct git_diff_stats {
-    git_diff_stats()
-        : files_changed(0), insertions(0), deletions(0)
-    {
-    }
-
-    size_t files_changed;
-    size_t insertions;
-    size_t deletions;
-};
-
-void git_diff_stats_free(git_diff_stats * stats)
-{
-    delete stats;
-}
-
-int stats_each_file_cb(const git_diff_delta *delta,
-                       float progress,
-                       void *payload)
-{
-    git_diff_stats * stats = (git_diff_stats *)payload;
-    ++stats->files_changed;
-    return 0;
-}
-
-int stats_each_hunk_cb(const git_diff_delta *delta,
-                       const git_diff_range *hunk,
-                       const char *header,
-                       size_t header_len,
-                       void *payload)
-{
-    git_diff_stats * stats = (git_diff_stats *)payload;
-    stats->insertions += hunk->new_lines;
-    stats->deletions += hunk->old_lines;
-    return 0;
-}
-
-int git_diff_get_stats(git_diff_stats **out, git_diff *diff)
-{
-    *out = new git_diff_stats();
-
-    int error = git_diff_foreach(diff,
-                                 stats_each_file_cb,
-                                 stats_each_hunk_cb,
-                                 nullptr,
-                                 *out);
-
-    if (error < 0) {
-        delete *out;
-        *out = 0;
-    }
-
-    return error;
-}
-
-
-size_t git_diff_stats_insertions(const git_diff_stats *stats)
-{
-    return stats->insertions;
-}
-
-size_t git_diff_stats_deletions(const git_diff_stats *stats)
-{
-    return stats->deletions;
-}
-
-size_t git_diff_stats_files_changed(const git_diff_stats *stats)
-{
-    return stats->files_changed;
-}
 
 struct GitFileOperation {
     GitFileOperation()
@@ -173,9 +89,7 @@ int stats_by_file_each_file_cb(const git_diff_delta *delta,
 }
 
 int stats_by_file_each_hunk_cb(const git_diff_delta *delta,
-                               const git_diff_range *hunk,
-                               const char *header,
-                               size_t header_len,
+                               const git_diff_hunk * hunk,
                                void *payload)
 {
     GitFileStats & stats = *((GitFileStats *)payload);
@@ -194,26 +108,21 @@ GitFileStats git_diff_by_file(git_diff *diff)
 
     int error = git_diff_foreach(diff,
                                  stats_by_file_each_file_cb,
+                                 nullptr,  /* binary callback */
                                  stats_by_file_each_hunk_cb,
-                                 nullptr,
+                                 nullptr, /* line callback */
                                  &result);
 
     if (error < 0) {
-        throw Datacratic::HttpReturnException(400, "Error traversing diff: "
+        throw MLDB::HttpReturnException(400, "Error traversing diff: "
                                               + std::string(giterr_last()->message));
     }
 
     return result;
 }
 
-
-#endif
-
-
 using namespace std;
-using Datacratic::getDefaultDescription;
 
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -303,7 +212,7 @@ struct GitImporter: public Procedure {
     };
 
     // Process an individual commit
-    std::vector<std::tuple<ColumnName, CellValue, Date> >
+    std::vector<std::tuple<ColumnPath, CellValue, Date> >
     processCommit(git_repository * repo, const git_oid & oid) const
     {
         string sha = encodeOid(oid);
@@ -332,7 +241,7 @@ struct GitImporter: public Procedure {
         const git_signature *author    = git_commit_author(commit);
         //const git_oid *tree_id         = git_commit_tree_id(commit);
         git_diff *diff = nullptr;
-        Scope_Exit(git_diff_list_free(diff));
+        Scope_Exit(git_diff_free(diff));
 
         Utf8String message;
         if (!encoding || strcmp(encoding, "UTF-8") == 0) {
@@ -405,16 +314,16 @@ struct GitImporter: public Procedure {
         Utf8String authorName(author->name);
         Utf8String authorEmail(author->email);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > row;
-        row.emplace_back(ColumnName("committer"), committerName, timestamp);
-        row.emplace_back(ColumnName("committerEmail"), committerEmail, timestamp);
-        row.emplace_back(ColumnName("author"), authorName, timestamp);
-        row.emplace_back(ColumnName("authorEmail"), authorEmail, timestamp);
-        row.emplace_back(ColumnName("message"), message, timestamp);
-        row.emplace_back(ColumnName("parentCount"), parentCount, timestamp);
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > row;
+        row.emplace_back(ColumnPath("committer"), committerName, timestamp);
+        row.emplace_back(ColumnPath("committerEmail"), committerEmail, timestamp);
+        row.emplace_back(ColumnPath("author"), authorName, timestamp);
+        row.emplace_back(ColumnPath("authorEmail"), authorEmail, timestamp);
+        row.emplace_back(ColumnPath("message"), message, timestamp);
+        row.emplace_back(ColumnPath("parentCount"), parentCount, timestamp);
 
         for (auto & p: parents)
-            row.emplace_back(ColumnName("parent"), p, timestamp);
+            row.emplace_back(ColumnPath("parent"), p, timestamp);
 
         int filesChanged = 0;
         int insertions = 0;
@@ -427,30 +336,32 @@ struct GitImporter: public Procedure {
             insertions = stats.insertions;
             deletions = stats.deletions;
 
-            row.emplace_back(ColumnName("insertions"), insertions, timestamp);
-            row.emplace_back(ColumnName("deletions"), deletions, timestamp);
-            row.emplace_back(ColumnName("filesChanged"), filesChanged, timestamp);
+            row.emplace_back(ColumnPath("insertions"), insertions, timestamp);
+            row.emplace_back(ColumnPath("deletions"), deletions, timestamp);
+            row.emplace_back(ColumnPath("filesChanged"), filesChanged, timestamp);
 
             for (auto & f: stats.files) {
                 if (!config.importTree) break;
 
-                row.emplace_back(ColumnName("file"), f.first, timestamp);
+                Utf8String filename(f.first);
+                row.emplace_back(ColumnPath("file"), filename, timestamp);
 
                 if (f.second.insertions > 0)
-                    row.emplace_back(ColumnName("file." + f.first + ".insertions"),
+                    row.emplace_back(ColumnPath("file." + filename + ".insertions"),
                                      f.second.insertions, timestamp);
                 if (f.second.deletions > 0)
-                    row.emplace_back(ColumnName("file." + f.first + ".deletions"),
+                    row.emplace_back(ColumnPath("file." + filename + ".deletions"),
                                      f.second.deletions, timestamp);
                 if (!f.second.op.empty())
-                    row.emplace_back(ColumnName("file." + f.first + ".op"),
+                    row.emplace_back(ColumnPath("file." + filename + ".op"),
                                      f.second.op, timestamp);
             }
         }
 
-        //cerr << "id " << sha << " had " << filesChanged << " changes, "
-        //     << insertions << " insertions and " << deletions << " deletions "
-        //     << message << " parents " << parentCount << endl;
+        DEBUG_MSG(logger)
+            << "id " << sha << " had " << filesChanged << " changes, "
+            << insertions << " insertions and " << deletions << " deletions "
+            << message << " parents " << parentCount;
 
         return row;
     }
@@ -529,23 +440,24 @@ struct GitImporter: public Procedure {
                 git_repository_free(repo);
             }
 
-            std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+            std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows;
 
             git_repository * repo;
         };
 
         PerThreadAccumulator<Accum> accum([&] () { return new Accum(repoName); });
 
-        cerr << "processing " << oids.size() << " commits" << endl;
+        INFO_MSG(logger) << "processing " << oids.size() << " commits";
 
         auto doProcessCommit = [&] (int i)
             {
                 if (i && i % 100 == 0)
-                    cerr << "imported commit " << i << " of " << oids.size() << endl;
+                    INFO_MSG(logger)
+                        << "imported commit " << i << " of " << oids.size();
 
                 Accum & threadAccum = accum.get();
                 auto row = processCommit(repo, oids[i]);
-                threadAccum.rows.emplace_back(RowName(encodeOid(oids[i])),
+                threadAccum.rows.emplace_back(RowPath(encodeOid(oids[i])),
                                               std::move(row));
 
                 if (threadAccum.rows.size() == 1000) {
@@ -582,4 +494,4 @@ regGit(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

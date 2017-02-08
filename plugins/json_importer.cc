@@ -1,11 +1,12 @@
 /* xlsx_importer.cc
    Francois Maillet, 19 janvier 2016
 
-   This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
    Importer for text files containing a JSON per line
 */
 
+#include "mldb/utils/progress.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"
@@ -21,12 +22,14 @@
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/rest/cancellation_exception.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -44,7 +47,8 @@ struct JSONImporterConfig : ProcedureConfig {
           ignoreBadLines(false),
           select(SelectExpression::STAR),
           where(SqlExpression::TRUE),
-          named(SqlExpression::TRUE) // Trick to ease comparison
+          named(SqlExpression::TRUE), // Trick to ease comparison
+          arrays(PARSE_ARRAYS)
     {
         outputDataset.withType("tabular");
     }
@@ -58,6 +62,7 @@ struct JSONImporterConfig : ProcedureConfig {
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
     std::shared_ptr<SqlExpression> named;
+    JsonArrayHandling arrays;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JSONImporterConfig);
@@ -89,8 +94,25 @@ JSONImporterConfigDescription()
              "Row name expression for output dataset. Note that each row "
              "must have a unique name and that names cannot be objects.",
              SqlExpression::parse("lineNumber()"));
+    addField("arrays", &JSONImporterConfig::arrays,
+            "Describes how arrays are encoded in the JSON output.  For "
+            "''parse' (default), the arrays become structured values. "
+            "For 'encode', "
+            "arrays containing atoms are sparsified with the values "
+            "representing one-hot "
+            "keys and boolean true values", PARSE_ARRAYS);
 
     addParent<ProcedureConfig>();
+
+    onPostValidate = [] (JSONImporterConfig * config,
+                         JsonParsingContext & context)
+    {
+        if (config->dataFileUrl.empty()) {
+            throw HttpReturnException(
+                400,
+                "dataFileUrl is a required property and must not be empty");
+        }
+    };
 }
 
 struct JsonRowScope : SqlRowScope {
@@ -106,7 +128,7 @@ struct JsonScope : SqlExpressionMldbScope {
     JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                                const ColumnName & columnName) override
+                                const ColumnPath & columnName) override
     {
         return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
@@ -125,7 +147,7 @@ struct JsonScope : SqlExpressionMldbScope {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep) override
+                    const ColumnFilter& keep) override
     {
         std::vector<KnownColumn> columnsWithInfo;
 
@@ -133,7 +155,7 @@ struct JsonScope : SqlExpressionMldbScope {
         {
             const auto & row = scope.as<JsonRowScope>();
             StructValue result;
-            result.reserve(row.expr.getStructured().size());
+            result.reserve(row.expr.rowLength());
 
             const auto onCol = [&] (const PathElement & columnName,
                                     const ExpressionValue & val)
@@ -194,6 +216,11 @@ struct JSONImporter: public Procedure {
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
+        Progress progress;
+
+        std::shared_ptr<Step> iterationStep = progress.steps({
+            make_pair("iterating", "lines")
+        });
 
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
@@ -217,7 +244,7 @@ struct JSONImporter: public Procedure {
                                       onProgress, true);
 
         if(!outputDataset) {
-            throw ML::Exception("Unable to obtain output dataset");
+            throw MLDB::Exception("Unable to obtain output dataset");
         }
 
         Date zeroTs;
@@ -226,13 +253,13 @@ struct JSONImporter: public Procedure {
         std::atomic<int64_t> recordedLines(0);
         int64_t lineOffset = 1;
         std::string line;
-        std::string filename = runProcConf.dataFileUrl.toString();
+        std::string filename = runProcConf.dataFileUrl.toDecodedString();
 
         filter_istream stream(filename);
 
         Date timestamp = stream.info().lastModified;
 
-        ML::Timer timer;
+        Timer timer;
 
         // Skip those up to the offset
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
@@ -288,10 +315,11 @@ struct JSONImporter: public Procedure {
         bool useNamed = config.named != SqlExpression::TRUE;
 
         JsonScope jsonScope(server);
-        ExpressionValue storage;
         const auto whereBound = config.where->bind(jsonScope);
         const auto selectBound = config.select.bind(jsonScope);
         const auto namedBound = config.named->bind(jsonScope);
+        bool keepGoing = true;
+        mutex progressMutex;
 
         auto onLine = [&] (const char * line,
                            size_t lineLength,
@@ -314,12 +342,10 @@ struct JSONImporter: public Procedure {
                 return handleError("empty line", actualLineNum, "");
             }
 
-            // TODO: in the configuration
-            JsonArrayHandling arrays = ENCODE_ARRAYS;
-
             ExpressionValue expr;
             try {
-                expr = ExpressionValue::parseJson(parser, timestamp, arrays);
+                expr = ExpressionValue::parseJson(parser, timestamp,
+                                                  config.arrays);
             } catch (const std::exception & exc) {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
@@ -329,9 +355,10 @@ struct JSONImporter: public Procedure {
                 return handleError("extra characters at end of line", actualLineNum, "");
             }
 
-            RowName rowName(actualLineNum);
+            RowPath rowName(actualLineNum);
             if (useWhere || useSelect || useNamed) {
                 JsonRowScope row(expr, actualLineNum);
+                ExpressionValue storage;
                 if (useWhere) {
                     if (!whereBound(row, storage, GET_ALL).isTrue()) {
                         return true;
@@ -339,7 +366,7 @@ struct JSONImporter: public Procedure {
                 }
 
                 if (useNamed) {
-                    rowName = RowName(
+                    rowName = RowPath(
                         namedBound(row, storage, GET_ALL).toUtf8String());
                 }
 
@@ -350,27 +377,37 @@ struct JSONImporter: public Procedure {
 
             }
 
-            recordedLines++;
+            int numLines = recordedLines.fetch_add(1);
+            if (numLines % PROGRESS_RATE_LOW == 0) {
+                lock_guard<mutex> l(progressMutex);
+                if (numLines > iterationStep->value) {
+                    iterationStep->value = numLines;
+                }
+                keepGoing = onProgress(jsonEncode(progress));
+            }
 
             threadAccum.threadRecorder->recordRowExprDestructive(
                 std::move(rowName), std::move(expr));
 
-            return true;
+            return keepGoing;
         };
 
         forEachLineBlock(stream, onLine, runProcConf.limit, 32,
                          startChunk, doneChunk);
+        if (!keepGoing) {
+            throw MLDB::CancellationException("Procedure import.json cancelled");
+        }
 
-        cerr << timer.elapsed() << endl;
+        DEBUG_MSG(logger) << timer.elapsed();
         timer.restart();
 
-        cerr << "committing dataset" << endl;
+        DEBUG_MSG(logger) << "committing dataset";
 
         recorder.commit();
 
-        cerr << timer.elapsed() << endl;
+        DEBUG_MSG(logger) << timer.elapsed();
 
-        cerr << "done" << endl;
+        DEBUG_MSG(logger) << "done";
 
         Json::Value result;
         result["rowCount"] = (int64_t)recordedLines;
@@ -393,4 +430,4 @@ regJSON(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* smart_ptr_utils.h                                               -*- C++ -*-
    Jeremy Barnes, 1 February 2005
@@ -64,7 +64,7 @@ std::shared_ptr<const T> make_unowned_std_sp(const T & val)
 
 extern const struct Null_SP {
     template<typename T>
-    JML_ALWAYS_INLINE operator std::shared_ptr<T>() const
+    MLDB_ALWAYS_INLINE operator std::shared_ptr<T>() const
     {
         return std::shared_ptr<T>();
     }
@@ -73,7 +73,7 @@ extern const struct Null_SP {
 
 extern const struct Null_STD_SP {
     template<typename T>
-    JML_ALWAYS_INLINE operator std::shared_ptr<T>() const
+    MLDB_ALWAYS_INLINE operator std::shared_ptr<T>() const
     {
         return std::shared_ptr<T>();
     }

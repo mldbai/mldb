@@ -1,7 +1,7 @@
 #
 # MLDB-869-select-expression.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 
 if False:
@@ -32,7 +32,6 @@ result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x limit 3')
 expected = [
     {
         "rowName": "row_8",
-        "rowHash": "671b4a4dfa1563b5",
         "columns": [
             [
                 "x",
@@ -43,7 +42,6 @@ expected = [
     },
     {
         "rowName": "row_9",
-        "rowHash": "0e832fd840141af8",
         "columns": [
             [
                 "x",
@@ -54,7 +52,6 @@ expected = [
     },
     {
         "rowName": "row_7",
-        "rowHash": "54569df01a700c8b",
         "columns": [
             [
                 "x",

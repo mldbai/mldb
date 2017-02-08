@@ -1,8 +1,8 @@
 /** procedure.h                                                       -*- C++ -*-
     Jeremy Barnes, 4 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Interface for procedures into MLDB.
 */
@@ -22,7 +22,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 
 struct RestDirectory;
 
@@ -33,6 +33,10 @@ struct Procedure;
 
 typedef EntityType<Procedure> ProcedureType;
 
+constexpr char GENERIC_OUTPUT_DS_DESC[] =
+    "Output dataset configuration. This may refer either to an "
+    "existing dataset, or a fully specified but non-existing dataset "
+    "which will be created by the procedure.";
 
 /*****************************************************************************/
 /* PROCEDURE TRAINING                                                        */
@@ -44,6 +48,12 @@ struct ProcedureRunConfig {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunConfig);
+
+struct ProcedureRunState {
+    Utf8String state;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProcedureRunState);
 
 struct ProcedureRunStatus: public PolyStatus {
     Date runStarted;   ///< Timestamp at which run of the procedure started
@@ -346,8 +356,9 @@ registerProcedureType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<ProcedureT>();
              auto procedure = new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
-             procedure->logger = MLDB::getMldbLog<ProcedureT>();
+             procedure->logger = std::move(logger); // noexcept
              return procedure;
          },
          makeInternalDocRedirect(package, docRoute),
@@ -373,4 +384,4 @@ struct RegisterProcedureType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

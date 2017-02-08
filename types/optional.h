@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** optional.h                                                     -*- C++ -*-
     Jeremy Barnes, 19 August 2015
@@ -9,7 +9,7 @@
 
 #include <memory>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T>
 struct Optional: public std::shared_ptr<T> {
@@ -63,4 +63,4 @@ struct Optional: public std::shared_ptr<T> {
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

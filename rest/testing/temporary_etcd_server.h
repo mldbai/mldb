@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* temporary_etcd_server.h                                         -*- C++ -*-
    Jeremy Barnes, 4 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
-   
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.   
 */
 
 #pragma once
 
-#include "mldb/soa/service/runner.h"
-#include "mldb/soa/service/message_loop.h"
+#include "mldb/utils/runner.h"
+#include "mldb/io/message_loop.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/rest/etcd_client.h"
 #include <chrono>
@@ -18,9 +17,10 @@
 #include "mldb/jml/utils/info.h"
 #include "mldb/utils/command.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/types/value_description.h"
 #include <mutex>
 
-namespace Datacratic {
+namespace MLDB {
 
 struct TemporaryEtcdServer {
 
@@ -63,10 +63,10 @@ struct TemporaryEtcdServer {
         cerr << "done waiting for start" << endl;
         
         if (!started) {
-            throw ML::Exception("error starting etcd: " + jsonEncodeStr(runResult));
+            throw MLDB::Exception("error starting etcd: " + jsonEncodeStr(runResult));
         }
         if (!runner.running()) {
-            throw ML::Exception("service is not running");
+            throw MLDB::Exception("service is not running");
         }
 
         string uri = "http://localhost:" + std::to_string(port);
@@ -143,9 +143,9 @@ inline std::string getEtcdPath()
     std::string val = stream.readAll();
     std::string exe = ML::split(val, 0).at(0);
     std::string basename = ML::split(exe, '/').back();
-    std::string result = ML::username() + "-" + basename;
+    std::string result = MLDB::username() + "-" + basename;
     return result;
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

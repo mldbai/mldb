@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -114,109 +114,126 @@ var functionInfo = mldb.get("/v1/functions/iris_cls/info");
 plugin.log(functionInfo.json);
 
 var expected = {
-    "input" : {
-        "hasUnknownColumns" : false,
-        "kind" : "row",
-        "knownColumns" : [
+   "input" : [
+      {
+         "hasUnknownColumns" : false,
+         "hasUnknownColumnsRecursive" : false,
+         "isConstant" : false,
+         "kind" : "row",
+         "knownColumns" : [
             {
-                "columnName" : "features",
-                "sparsity" : "dense",
-                "valueInfo" : {
-                    "hasUnknownColumns" : false,
-                    "kind" : "row",
-                    "knownColumns" : [
-                        {
-                            "columnName" : "petal length",
-                            "sparsity" : "dense",
-                            "valueInfo" : {
-                                "kind" : "scalar",
-                                "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
-                            }
-                        },
-                        {
-                            "columnName" : "petal width",
-                            "sparsity" : "dense",
-                            "valueInfo" : {
-                                "kind" : "scalar",
-                                "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
-                            }
-                        },
-                        {
-                            "columnName" : "sepal length",
-                            "sparsity" : "dense",
-                            "valueInfo" : {
-                                "kind" : "scalar",
-                                "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
-                            }
-                        },
-                        {
-                            "columnName" : "sepal width",
-                            "sparsity" : "dense",
-                            "valueInfo" : {
-                                "kind" : "scalar",
-                                "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
-                            }
+               "columnName" : "features",
+               "sparsity" : "dense",
+               "valueInfo" : {
+                  "hasUnknownColumns" : false,
+                  "hasUnknownColumnsRecursive" : false,
+                  "isConstant" : false,
+                  "kind" : "row",
+                  "knownColumns" : [
+                     {
+                        "columnName" : "petal length",
+                        "sparsity" : "dense",
+                        "valueInfo" : {
+                           "isConstant" : false,
+                           "kind" : "scalar",
+                           "scalar" : "float",
+                           "type" : "MLDB::Float32ValueInfo"
                         }
-                    ],
-                    "type" : "Datacratic::MLDB::RowValueInfo"
-                }
-            }
-        ],
-        "type" : "Datacratic::MLDB::RowValueInfo"
-    },
-    "output" : {
-        "hasUnknownColumns" : false,
-        "kind" : "row",
-        "knownColumns" : [
-            {
-                "columnName" : "scores",
-                "offset" : 0,
-                "sparsity" : "dense",
-                "valueInfo" : {
-                    "hasUnknownColumns" : false,
-                    "kind" : "row",
-                    "knownColumns" : [
-                        {
-                            "columnName" : "Iris-setosa",
-                            "offset" : 0,
-                            "sparsity" : "dense",
-                            "valueInfo" : {
-                                "kind" : "scalar",
-                                "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
-                            }
-                        },
-                        {
-                            "columnName" : "Iris-versicolor",
-                            "offset" : 1,
-                            "sparsity" : "dense",
-                            "valueInfo" : {
-                                "kind" : "scalar",
-                                "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
-                            }
-                        },
-                        {
-                            "columnName" : "Iris-virginica",
-                            "offset" : 2,
-                            "sparsity" : "dense",
-                            "valueInfo" : {
-                                "kind" : "scalar",
-                                "scalar" : "float",
-                                "type" : "Datacratic::MLDB::Float32ValueInfo"
-                            }
+                     },
+                     {
+                        "columnName" : "petal width",
+                        "sparsity" : "dense",
+                        "valueInfo" : {
+                           "isConstant" : false,
+                           "kind" : "scalar",
+                           "scalar" : "float",
+                           "type" : "MLDB::Float32ValueInfo"
                         }
-                    ],
-                    "type" : "Datacratic::MLDB::RowValueInfo"
-                }
+                     },
+                     {
+                        "columnName" : "sepal length",
+                        "sparsity" : "dense",
+                        "valueInfo" : {
+                           "isConstant" : false,
+                           "kind" : "scalar",
+                           "scalar" : "float",
+                           "type" : "MLDB::Float32ValueInfo"
+                        }
+                     },
+                     {
+                        "columnName" : "sepal width",
+                        "sparsity" : "dense",
+                        "valueInfo" : {
+                           "isConstant" : false,
+                           "kind" : "scalar",
+                           "scalar" : "float",
+                           "type" : "MLDB::Float32ValueInfo"
+                        }
+                     }
+                  ],
+                  "type" : "MLDB::RowValueInfo"
+               }
             }
-        ],
-        "type" : "Datacratic::MLDB::RowValueInfo"
-    }
+         ],
+         "type" : "MLDB::RowValueInfo"
+      }
+   ],
+   "output" : {
+      "hasUnknownColumns" : false,
+      "hasUnknownColumnsRecursive" : false,
+      "isConstant" : false,
+      "kind" : "row",
+      "knownColumns" : [
+         {
+            "columnName" : "scores",
+            "offset" : 0,
+            "sparsity" : "dense",
+            "valueInfo" : {
+               "hasUnknownColumns" : false,
+               "hasUnknownColumnsRecursive" : false,
+               "isConstant" : false,
+               "kind" : "row",
+               "knownColumns" : [
+                  {
+                     "columnName" : "Iris-setosa",
+                     "offset" : 0,
+                     "sparsity" : "dense",
+                     "valueInfo" : {
+                        "isConstant" : false,
+                        "kind" : "scalar",
+                        "scalar" : "float",
+                        "type" : "MLDB::Float32ValueInfo"
+                     }
+                  },
+                  {
+                     "columnName" : "Iris-versicolor",
+                     "offset" : 1,
+                     "sparsity" : "dense",
+                     "valueInfo" : {
+                        "isConstant" : false,
+                        "kind" : "scalar",
+                        "scalar" : "float",
+                        "type" : "MLDB::Float32ValueInfo"
+                     }
+                  },
+                  {
+                     "columnName" : "Iris-virginica",
+                     "offset" : 2,
+                     "sparsity" : "dense",
+                     "valueInfo" : {
+                        "isConstant" : false,
+                        "kind" : "scalar",
+                        "scalar" : "float",
+                        "type" : "MLDB::Float32ValueInfo"
+                     }
+                  }
+               ],
+               "type" : "MLDB::RowValueInfo"
+            }
+         }
+      ],
+      "type" : "MLDB::RowValueInfo"
+   }
 };
 
 assertEqual(functionInfo.json, expected);

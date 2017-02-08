@@ -9,12 +9,32 @@ It will take around **45 minutes on a 32-core machine with 244GB of RAM** to run
 For C++ code to compile and the Python modules to install correctly, the following system packages need to be installed:
 
 ```bash
-apt-get install -y git valgrind build-essential libboost-all-dev \
-libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
-liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
-libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
-libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en libyaml-cpp-dev
+apt-get install -y \
+  git \
+  autoconf \
+  build-essential \
+  language-pack-en \
+  libarchive-dev \
+  libblas-dev \
+  libboost-all-dev \
+  libcap-dev \
+  libcrypto++-dev \
+  libcurl4-openssl-dev \
+  libffi-dev \
+  libfreetype6-dev \
+  libgoogle-perftools-dev \
+  liblapack-dev \
+  liblzma-dev \
+  libpng12-dev \
+  libpq-dev \
+  libpython-dev \
+  libsasl2-dev \
+  libssh2-1-dev \
+  libtool \
+  libyaml-cpp-dev \
+  python-virtualenv \
+  unzip \
+  valgrind
 ```
 ## Installing Docker
 
@@ -68,6 +88,12 @@ COMPILER_CACHE:=ccache
 ```
 
 *N.B.* To use `ccache` to maximum effect, you should set the cache size to something like 10GB if you have the disk space with `ccache -M 10G`.
+
+To avoid building MLDB for all supported architectures and save time, check [sample.local.mk](https://github.com/mldbai/mldb/blob/master/jml-build/sample.local.mk)
+
+To have a faster build, you can use clang instead of gcc. Simply add `toolchain=clang` at the end of your make command.
+
+To run a single test, simply specify its name as the target. For python and javascript, include the extension (.py and .js). For C++, omit it.
 
 ## Building a Docker image
 
@@ -147,11 +173,11 @@ docker exec -t -i CONTAINER_ID|CONTAINER_NAME /bin/bash
 
 The `mldb` docker is built on top of a few base images:
 
-  - `quay.io/datacratic/mldb_base:14.04`
-  - `quay.io/datacratic/baseimage:0.9.17`
+  - `quay.io/mldb/mldb_base:14.04`
+  - `quay.io/mldb/baseimage:0.9.17`
 
 Some warnings:
-* you will not be able to push to quay.io/datacratic unless you are a Datacratic employee
+* you will not be able to push to quay.io/mldb unless you are a mldb.ai employee
 * if you need to rebuild a layer, you must rebuild all layers which depend on it. (all the ones above it)
 * the build is done from the top level of the mldb repo
 * The build process will build whatever is in the current workspace.
@@ -160,7 +186,7 @@ Some warnings:
 * **Note that there is no versioning of the resulting images at the moment**
 
 
-### `quay.io/datacratic/mldb_base`
+### `quay.io/mldb/mldb_base`
 
 This layer is built on top of `baseimage`, it contains all the required system packages and python modules to run the `mldb` layer.
 A change to any of these would require a rebuild of this image:
@@ -174,14 +200,14 @@ A change to any of these would require a rebuild of this image:
 To rebuild this layer, run:
 
 ```
-make mldb_base IMG_NAME=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
+make mldb_base IMG_NAME=quay.io/mldb/mldb_base:YOUR_NEW_TAG
 
-make docker_mldb DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
+make docker_mldb DOCKER_BASE_IMAGE=quay.io/mldb/mldb_base:YOUR_NEW_TAG
 # When convinced things are ok:
-docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
-docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:14.04
-docker push quay.io/datacratic/mldb_base:vYYYY.MM.DD.0
-docker push quay.io/datacratic/mldb_base:14.04
+docker tag quay.io/mldb/mldb_base:YOUR_NEW_TAG quay.io/mldb/mldb_base:vYYYY.MM.DD.0
+docker tag quay.io/mldb/mldb_base:YOUR_NEW_TAG quay.io/mldb/mldb_base:14.04
+docker push quay.io/mldb/mldb_base:vYYYY.MM.DD.0
+docker push quay.io/mldb/mldb_base:14.04
 ```
 
 The script used to build this layer is `mldb_base/docker_create_mldb_base.sh`
@@ -191,12 +217,12 @@ Some switches are available if you need to do a custom build of that layer for s
 ```
 docker_create_mldb_base.sh [-b base_image] [-i image_name] [-w pip_wheelhouse_url]
 
-    -b base_image               Base image to use (quay.io/datacratic/baseimage:0.9.17)
-    -i image_name               Name of the resulting image (quay.io/datacratic/mldb_base:14.04)
+    -b base_image               Base image to use (quay.io/mldb/baseimage:0.9.17)
+    -i image_name               Name of the resulting image (quay.io/mldb/mldb_base:14.04)
     -w pip_wheelhouse_url       URL to use a a pip wheelhouse
 ```
 
-### `quay.io/datacratic/baseimage:0.9.17`
+### `quay.io/mldb/baseimage:0.9.17`
 
 This image is a fork of `phusion/baseimage:0.9.17` rebuilt to have the latest packages updates.
 This image contains the base ubuntu packages and a custom init system.
@@ -209,14 +235,16 @@ If the mldb_base layer does a lot of packages upgrade during its creation, it wo
 To do so, run the following commands from the top of the mldb repo:
 
 ```
+docker pull ubuntu:14.04
 make baseimage
-docker push quay.io/datacratic/baseimage:latest
+docker tag quay.io/mldb/baseimage:0.9.17 quay.io/mldb/baseimage:latest
+docker push quay.io/mldb/baseimage:latest
 ```
 
 ## S3 Credentials
 
 Some tests require S3 credentials in order to run, as they access public files in the
-`dev.mldb.datacratic.com` S3 bucket.  These credentials are
+`public-mldb-ai` S3 bucket.  These credentials are
 nothing special: they simply require read-only access to public S3 buckets.
 But they need to be enabled for full test coverage.
 
@@ -242,18 +270,19 @@ not officially supported
 MLDB is compiled by default using the GCC compiler, version 4.8.
 
 
-#### Compiling with GCC 5.x
+#### Compiling with GCC 5.x or 6.x
 
-In order to use GCC version 5.x, the following commands should be used to
-install the compiler (currently GCC 5.3):
+In order to use GCC version 5.x or 6.x, the following commands should be used to
+install the compiler:
 
 ```
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 sudo apt-get update
 sudo apt-get install gcc-5 g++-5
+sudo apt-get install gcc-6 g++-6
 ```
 
-You can then add `toolchain=gcc5` to the make command line to use the
+You can then add `toolchain=gcc5` or `toolchain=gcc6` to the make command line to use the
 newly installed compiler.
 
 #### Compiling with clang
@@ -262,7 +291,7 @@ In order to compile with the clang compiler, you will firstly need to
 install it:
 
 ```
-sudo apt-get install clang-3.5
+sudo apt-get install clang-3.6
 ```
 
 You can then add `toolchain=clang` to compile with the clang compiler.
@@ -273,3 +302,174 @@ You can then add `toolchain=clang` to compile with the clang compiler.
   whether to do extra type checking of row scopes.  Setting to 1 will
   do so, at the expense of slightly slower code.  It may be helpful in
   debugging of segmentation faults.
+* `MLDB_DEFAULT_PATH_OPTIMIZATION_LEVEL` controls how MLDB handles
+  optimized code-paths for specific situations.  When set to 'always'
+  (the default), optimized paths are always used when available.  This
+  leads to maximum speed.  When set to 'never', the base (unoptimized)
+  path is used.  When set to 'sometimes', the optimized path is taken
+  50% of the time.  This can be used when unit testing to ensure the
+  equivalence of optimized and non-optimized versions of code and thus
+  verify the correctness of the optimized versions.
+
+
+## CUDA support
+
+In order to run on a Nvidia GPU, CUDA needs to be enabled and the CUDA
+drivers set up on the machine.
+
+### Machine setup
+
+See here: [http://www.r-tutor.com/gpu-computing/cuda-installation/cuda7.5-ubuntu]
+The machine needs to have the Nvidia CUDA packages installed on the
+machine.
+
+Note that the machine may need to be restarted before the GPUs will be
+usable.
+
+```
+sudo apt-get install linux-image-generic linux-headers-generic
+wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-repo-ubuntu1404_7.5-18_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu1404_7.5-18_amd64.deb
+sudo apt-get update
+sudo apt-get install cuda
+nvidia-smi -q | head  // should print Driver Version: 352.68
+```
+
+You will also need cudnn version 5.5 in order to run most models on
+GPUS.  To get this you first need to sign up at the Nvidia page
+here: [https://developer.nvidia.com/accelerated-computing-developer].
+
+Once the registration is done, you can download the two deb files
+for cudnn:
+
+```
+31899464 libcudnn5_5.1.3-1+cuda7.5_amd64.deb
+28456606 libcudnn5-dev_5.1.3-1+cuda7.5_amd64.deb
+```
+
+and install them as follows:
+
+```
+sudo dpkg -i libcudnn5_5.1.3-1+cuda7.5_amd64.deb libcudnn5-dev_5.1.3-1+cuda7.5_amd64.deb
+```
+
+Note that since cudnn can't be distributed with MLDB, it will need to
+be installed inside the MLDB container (but only the first deb file)
+so that it can be found at runtime by MLDB.
+
+### Hardware compatibility
+
+Note that MLDB requires cards with shader model > 3.0 in order to run
+on CUDA.  You can identify the shader model of your card using the
+command
+
+```
+nvidia-smi -q
+```
+
+### Enabling CUDA in the build
+
+The following should be added to `local.mk`:
+
+```
+WITH_CUDA:=1
+```
+
+Or the following to the Make command-line:
+
+```
+make ... WITH_CUDA=1
+```
+
+
+### Building MLDB for ARM64 (aarch64, eg for Tegra X1 or Jetson X1)
+
+First, the machine needs to be set up with cross compilers:
+
+```
+sudo apt-get install \
+    g++-aarch64-linux-gnu \
+    gcc-aarch64-linux-gnu \
+    libc6-arm64-cross \
+    libc6-dev-arm64-cross \
+    linux-libc-dev-arm64-cross
+```
+
+Then we need to modify the system's apt sources.list to add the `ubuntu-ports` repository for the `arm64` architecture:
+
+```
+sudo apt-add-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse universe'
+sudo apt-add-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ trusty-updates main restricted multiverse universe'
+sudo apt-get update
+```
+
+Thirdly, we need to download the cross development environment for the
+target platform.  This will be installed under `build/aarch64/osdeps`
+
+```
+make -j$(nproc) port_deps ARCH=aarch64
+```
+
+Fourthly, we need to make the build tools for the host architecture
+
+```
+make -j$(nproc) build_tools
+```
+
+Finally, we can build the port itself:
+
+```
+make -j$(nproc) compile ARCH=aarch64
+```
+
+Note that currently no version of the v8 javascript engine is available
+from Debian for arch64.  We are working on a solution.
+
+
+# Building for ARM with hardware float (eg, Raspberry Pi with a Ubuntu derivative)
+
+First, the machine needs to be set up with cross compilers:
+
+```
+sudo apt-get install \
+    g++-4.8-arm-linux-gnueabihf \
+    g++-4.8-multilib-arm-linux-gnueabihf \
+    g++-arm-linux-gnueabihf \
+    gcc-4.8-arm-linux-gnueabihf \
+    gcc-4.8-multilib-arm-linux-gnueabihf \
+    gcc-arm-linux-gnueabihf \
+    libc6-armhf-cross \
+    libc6-dev-armhf-cross \
+    linux-libc-dev-armhf-cross
+```
+
+Then we need to modify the system's apt sources.list to add the `ubuntu-ports` repository for the `armhf` architecture:
+
+```
+sudo apt-add-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ trusty main restricted multiverse universe'
+sudo apt-add-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ trusty-updates main restricted multiverse universe'
+sudo apt-get update
+```
+
+Thirdly, we need to download the cross development environment for the
+target platform.  This will be installed under `build/arm/osdeps`
+
+```
+make -j$(nproc) port_deps ARCH=arm
+```
+
+Fourthly, we need to make the build tools for the host architecture.  Unfortunately this
+takes quite a lot of time as a lot of Tensorflow is required in order to build itself.
+
+```
+make -j$(nproc) build_tools  ###  NOTE: do _not_ specify `ARCH=arm` here.  ###
+```
+
+Finally, we can build the port itself:
+
+```
+make -j$(nproc) compile ARCH=arm
+```
+
+The version of MLDB will be placed in `build/arm/bin` and `build/arm/lib`
+

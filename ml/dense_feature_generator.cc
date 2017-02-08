@@ -1,8 +1,8 @@
 /* dense_feature_generator.cc                                      -*- C++ -*-
    Jeremy Barnes, 20 June 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "dense_feature_generator.h"
@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 std::string
@@ -33,7 +33,7 @@ explain(int numFeatures) const
     std::string result;
 
     for (auto & v: sorted)
-        result += ML::format("%12.6f ", v.second) + v.first + "\n";
+        result += MLDB::format("%12.6f ", v.second) + v.first + "\n";
 
     return result;
 }
@@ -68,7 +68,7 @@ void
 DenseFeatureGenerator::
 serialize(ML::DB::Store_Writer & store) const
 {
-    throw ML::Exception("DenseFeatureGenerator " + ML::type_name(*this)
+    throw MLDB::Exception("DenseFeatureGenerator " + MLDB::type_name(*this)
                         + " doesn't support serialization/reconstitution");
 }
 
@@ -76,7 +76,7 @@ void
 DenseFeatureGenerator::
 reconstitute(ML::DB::Store_Reader & store)
 {
-    throw ML::Exception("DenseFeatureGenerator " + ML::type_name(*this)
+    throw MLDB::Exception("DenseFeatureGenerator " + MLDB::type_name(*this)
                         + " doesn't support serialization/reconstitution");
 }
 
@@ -84,7 +84,7 @@ std::pair<std::string, std::string>
 DenseFeatureGenerator::
 className() const
 {
-    throw ML::Exception("DenseFeatureGenerator " + ML::type_name(*this)
+    throw MLDB::Exception("DenseFeatureGenerator " + MLDB::type_name(*this)
                         + " doesn't support serialization/reconstitution");
 }
 
@@ -95,11 +95,11 @@ polyReconstitute(ML::DB::Store_Reader & store)
     unsigned char version;
     store >> version;
     if (version != 0)
-        throw ML::Exception("unexpected poly reconstitute version");
+        throw MLDB::Exception("unexpected poly reconstitute version");
     std::string tag;
     store >> tag;
     if (tag != "DenseFeatureGeneratorPoly")
-        throw ML::Exception("unexpected poly reconstitute tag "
+        throw MLDB::Exception("unexpected poly reconstitute tag "
                             + tag);
 
     std::string type, args;
@@ -109,7 +109,7 @@ polyReconstitute(ML::DB::Store_Reader & store)
     std::unique_lock<std::recursive_mutex> guard(registry.featureGeneratorsLock);
     auto it = registry.featureGenerators.find(type);
     if (it == registry.featureGenerators.end())
-        throw ML::Exception("couldn't reconstitute DenseFeatureGenerator "
+        throw MLDB::Exception("couldn't reconstitute DenseFeatureGenerator "
                             "of type " + type + " with args '" + args
                             + "'");
     auto result = it->second.factory(args);
@@ -117,7 +117,7 @@ polyReconstitute(ML::DB::Store_Reader & store)
 
     store >> tag;
     if (tag != "DenseFeatureGeneratorPolyEnd")
-        throw ML::Exception("unexpected poly reconstitute ending tag "
+        throw MLDB::Exception("unexpected poly reconstitute ending tag "
                             + tag);
 
     return result;
@@ -151,7 +151,7 @@ registerFactory(const std::string & className,
     FactoryRegistry & registry = getRegistry();
     std::unique_lock<std::recursive_mutex> guard(registry.featureGeneratorsLock);
     if (registry.featureGenerators.count(className))
-        throw ML::Exception("attempt to double register feature generator "
+        throw MLDB::Exception("attempt to double register feature generator "
                             + className);
     registry.featureGenerators[className].factory = factory;
 }
@@ -169,4 +169,4 @@ paramType() const
     return generators[0].generator->paramType();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

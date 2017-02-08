@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
@@ -30,7 +30,7 @@ function assertEqual(expr, val, msg)
 }
 
 
-var resp = mldb.get("/v1/query", {q:"SELECT y, label, x FROM test", format:'table'});
+var resp = mldb.get("/v1/query", {q:"SELECT y, label, x FROM test ORDER BY rowPath()", format:'table'});
 
 assertEqual(resp.responseCode, 200, "Error executing query");
 
@@ -38,9 +38,9 @@ plugin.log("returned", resp.json);
 
 var expected = [
    [ "_rowName", "label", "x", "y" ],
-   [ "ex3", "cat", 1, 2 ],
+   [ "ex1", "cat", 0, 0 ],
    [ "ex2", "dog", 1, 1 ],
-   [ "ex1", "cat", 0, 0 ]
+   [ "ex3", "cat", 1, 2 ]
 ];
 
 plugin.log("expected", expected);
@@ -63,7 +63,6 @@ expected = [
          [ "min(x)", 0, "2015-01-01T00:00:00Z" ],
          [ "min(y)", 0, "2015-01-01T00:00:00Z" ]
       ],
-      "rowHash" : "554f96c80ea05ddb",
       "rowName" : "\"[\"\"cat\"\"]\""
    },
    {
@@ -72,7 +71,6 @@ expected = [
          [ "min(x)", 1, "2015-01-01T00:00:00Z" ],
          [ "min(y)", 1, "2015-01-01T00:00:00Z" ]
       ],
-      "rowHash" : "d55e0e284796f79e",
       "rowName" : "\"[\"\"dog\"\"]\""
    }
 ];

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* event_service.h                                                 -*- C++ -*-
    Jeremy Barnes, 12 December 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Service for high frequency logging of events.
 */
@@ -17,7 +17,7 @@
 #include <vector>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 struct MultiAggregator;
 
@@ -98,21 +98,21 @@ struct EventRecorder {
     void recordEventFmt(EventType type,
                         float value,
                         std::initializer_list<int> extra,
-                        const char * fmt, ...) const JML_FORMAT_STRING(5, 6);
+                        const char * fmt, ...) const MLDB_FORMAT_STRING(5, 6);
 
     template<typename... Args>
     void recordHit(const std::string & event, Args... args) const
     {
         return recordEventFmt(ET_HIT, 1.0, {}, event.c_str(),
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
 
     template<typename... Args>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void recordHit(const char * event, Args... args) const
     {
         return recordEventFmt(ET_HIT, 1.0, {}, event,
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
 
     void recordHit(const char * event) const
@@ -129,15 +129,15 @@ struct EventRecorder {
     void recordCount(float count, const std::string & event, Args... args) const
     {
         return recordEventFmt(ET_COUNT, count, {}, event.c_str(),
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
     
     template<typename... Args>
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void recordCount(float count, const char * event, Args... args) const
     {
         return recordEventFmt(ET_COUNT, count, {}, event,
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
 
     void recordCount(float count, const char * event) const
@@ -154,14 +154,14 @@ struct EventRecorder {
     void recordOutcome(float outcome, const std::string & event, Args... args) const
     {
         return recordEventFmt(ET_OUTCOME, outcome, DefaultOutcomePercentiles, event.c_str(),
-                             ML::forwardForPrintf(args)...);
+                             forwardForPrintf(args)...);
     }
     
     template<typename... Args>
     void recordOutcome(float outcome, const char * event, Args... args) const
     {
         return recordEventFmt(ET_OUTCOME, outcome, DefaultOutcomePercentiles, event,
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
 
     void recordOutcome(float outcome, const char * event) const
@@ -179,7 +179,7 @@ struct EventRecorder {
                                const std::string& event, Args... args) const
     {
         return recordEventFmt(ET_OUTCOME, outcome, percentiles, event.c_str(),
-                             ML::forwardForPrintf(args)...);
+                             forwardForPrintf(args)...);
     }
 
     template<typename... Args>
@@ -187,7 +187,7 @@ struct EventRecorder {
                                const char * event, Args... args) const
     {
         return recordEventFmt(ET_OUTCOME, outcome, percentiles, event,
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
 
     void recordOutcomeCustom(float outcome, std::initializer_list<int> percentiles,
@@ -206,14 +206,14 @@ struct EventRecorder {
     void recordLevel(float level, const std::string & event, Args... args) const
     {
         return recordEventmt(ET_LEVEL, level, {}, event.c_str(),
-                             ML::forwardForPrintf(args)...);
+                             forwardForPrintf(args)...);
     }
     
     template<typename... Args>
     void recordLevel(float level, const char * event, Args... args) const
     {
         return recordEventFmt(ET_LEVEL, level, {}, event,
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
 
     void recordLevel(float level, const char * event) const
@@ -230,14 +230,14 @@ struct EventRecorder {
     void recordStableLevel(float level, const std::string & event, Args... args) const
     {
         return recordEventmt(ET_STABLE_LEVEL, level, {}, event.c_str(),
-                             ML::forwardForPrintf(args)...);
+                             forwardForPrintf(args)...);
     }
 
     template<typename... Args>
     void recordStableLevel(float level, const char * event, Args... args) const
     {
         return recordEventFmt(ET_STABLE_LEVEL, level, {}, event,
-                              ML::forwardForPrintf(args)...);
+                              forwardForPrintf(args)...);
     }
 
     void recordStableLevel(float level, const char * event) const
@@ -256,4 +256,4 @@ protected:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** peer_connection.cc
     Jeremy Barnes, 1 June 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -10,8 +10,8 @@
 #include "asio_peer_connection.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/asio_timer.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/asio_timer.h"
 #include "mldb/watch/watch_impl.h"
 #include "asio_peer_server.h"
 #include <boost/asio.hpp>
@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* PEER CONNECTION                                                           */
@@ -96,7 +96,7 @@ void
 MirrorPeerConnection::
 stopReading()
 {
-    throw ML::Exception("MirrorPeerConnection::stopReading() not implemented");
+    throw MLDB::Exception("MirrorPeerConnection::stopReading() not implemented");
 }
 
 void
@@ -139,7 +139,7 @@ WatchT<Date>
 MirrorPeerConnection::
 getTimer(Date expiry, double period, std::function<void (Date)> toBind)
 {
-    return Datacratic::getTimer(expiry, period, StrandHolder(impl->strand),
+    return MLDB::getTimer(expiry, period, StrandHolder(impl->strand),
                                 toBind);
 }
 
@@ -212,4 +212,4 @@ PeerConnectionStatusDescription()
              "Style of peer connection");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

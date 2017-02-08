@@ -1,7 +1,7 @@
 /* config_test.cc
    Guy Dumais, 9 March 2016
 
-   This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
    Test of configuration interface.
 */
@@ -17,7 +17,7 @@
 #include <iostream>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 using namespace boost::program_options;
 
 BOOST_AUTO_TEST_CASE(test_map_config)

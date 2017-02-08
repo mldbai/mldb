@@ -1,8 +1,8 @@
 /** tfidf.h                                                          -*- C++ -*-
     Mathieu Marquis Bolduc, November 27th 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     TF-IDF algorithm for a dataset.
 */
@@ -17,7 +17,7 @@
 #include "mldb/types/optional.h"
 #include "metric_space.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 enum TFType {
@@ -109,4 +109,4 @@ struct TfidfFunction: public Function {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

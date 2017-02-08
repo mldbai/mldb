@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* perceptron.cc
    Jeremy Barnes, 16 June 2003
@@ -17,8 +17,6 @@
 #include "mldb/ml/algebra/irls.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include <iomanip>
-#include <boost/random/lagged_fibonacci.hpp>
-#include <boost/random/uniform_01.hpp>
 #include "mldb/base/parse_context.h"
 #include "mldb/jml/stats/distribution_simd.h"
 #include "mldb/jml/stats/distribution_ops.h"
@@ -38,7 +36,7 @@ namespace ML {
 
 namespace {
 
-Env_Option<bool> profile("PROFILE_PERCEPTRON", false);
+EnvOption<bool> profile("PROFILE_PERCEPTRON", false);
 
 double t_predict = 0.0, t_accuracy = 0.0, t_decorrelate = 0.0;
 
@@ -167,7 +165,7 @@ std::vector<int>
 Perceptron::
 parse_architecture(const std::string & arch)
 {
-    Parse_Context context(arch, &arch[0], &arch[0] + arch.size());
+    ParseContext context(arch, &arch[0], &arch[0] + arch.size());
 
     vector<int> result;
     while (context) {

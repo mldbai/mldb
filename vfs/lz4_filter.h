@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** lz4_filter.h                                 -*- C++ -*-
     Rémi Attab, 27 Jan 2014
-    Copyright (c) 2014 Datacratic.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     boost iostreams filter implementation for lz4.
 
@@ -17,6 +16,7 @@
 #include "mldb/ext/lz4/lz4.h"
 #include "mldb/ext/lz4/lz4hc.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/arch/endian.h"
 
 #include <boost/iostreams/concepts.hpp>
 #include <ios>
@@ -24,8 +24,8 @@
 #include <cstring>
 #include "mldb/jml/utils/guard.h"
 
-namespace Datacratic {
 
+namespace MLDB {
 
 /******************************************************************************/
 /* LZ4 ERROR                                                                  */
@@ -85,14 +85,14 @@ void read(Source& src, T* typedData, size_t size)
 /* HEADER                                                                     */
 /******************************************************************************/
 
-struct JML_PACKED Header
+struct MLDB_PACKED Header
 {
-    Header() : magic(0) {}
+    Header() : magic{0} {}
     Header( int blockId,
             bool blockIndependence,
             bool blockChecksum,
             bool streamChecksum) :
-        magic(MagicConst), options{0, 0}
+        magic{MagicConst}, options{0, 0}
     {
         const uint8_t version = 1; // 2 bits
 
@@ -136,7 +136,7 @@ struct JML_PACKED Header
         if (head.checkBits != head.checksumOptions())
             throw lz4_error("corrupted options");
 
-        return std::move(head);
+        return head;
     }
 
     template<typename Sink>
@@ -153,7 +153,7 @@ private:
     }
 
     static constexpr uint32_t MagicConst = 0x184D2204;
-    uint32_t magic;
+    uint32_le magic;
     uint8_t options[2];
     uint8_t checkBits;
 };
@@ -170,13 +170,28 @@ static_assert(sizeof(Header) == 7, "sizeof(lz4::Header) == 7");
 struct lz4_compressor : public boost::iostreams::multichar_output_filter
 {
     lz4_compressor(int level = 0, uint8_t blockSizeId = 7) :
-        head(blockSizeId, true, true, false), writeHeader(true), pos(0)
+        head(blockSizeId,
+             true /* independent blocks */,
+             false /* block checksum */,
+             false /* stream checksum */),
+        writeHeader(true),
+        pos(0)
     {
         buffer.resize(head.blockSize());
         compressFn = level < 3 ? LZ4_compress : LZ4_compressHC;
 
-        if (head.streamChecksum())
-            streamChecksumState = XXH32_init(lz4::ChecksumSeed);
+        if (head.streamChecksum()) {
+            streamChecksumState = XXH32_createState();
+            if (XXH32_reset(streamChecksumState, lz4::ChecksumSeed) != XXH_OK) {
+                throw Exception("Error with XXhash checksum initialization");
+            }
+        }
+    }
+
+    ~lz4_compressor()
+    {
+        if (streamChecksumState)
+            XXH32_freeState(streamChecksumState);
     }
 
     template<typename Sink>
@@ -260,7 +275,7 @@ private:
     bool writeHeader;
     std::vector<char> buffer;
     size_t pos;
-    void* streamChecksumState;
+    XXH32_state_t* streamChecksumState = nullptr;
 };
 
 
@@ -272,14 +287,24 @@ struct lz4_decompressor : public boost::iostreams::multichar_input_filter
 {
     lz4_decompressor() : done(false), toRead(0), pos(0) {}
 
+    ~lz4_decompressor()
+    {
+        if (streamChecksumState)
+            XXH32_freeState(streamChecksumState);
+    }
+
     template<typename Source>
     std::streamsize read(Source& src, char* s, std::streamsize n)
     {
         if (done) return -1;
         if (!head) {
             head = lz4::Header::read(src);
-            if (head.streamChecksum())
-                streamChecksumState = XXH32_init(lz4::ChecksumSeed);
+            if (head.streamChecksum()) {
+                streamChecksumState = XXH32_createState();
+                if (XXH32_reset(streamChecksumState, lz4::ChecksumSeed) != XXH_OK) {
+                    throw Exception("Error with XXhash checksum initialization");
+                }
+            }
         }
 
         size_t written = 0;
@@ -366,7 +391,7 @@ private:
     size_t toRead;
     size_t pos;
 
-    void* streamChecksumState;
+    XXH32_state_t* streamChecksumState = nullptr;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

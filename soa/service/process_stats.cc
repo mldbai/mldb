@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* proc_stats.h                                                   -*- C++ -*-
    Rémi Attab, 19 January 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Gathers process and system stats from the proc files.
 */
@@ -23,7 +23,7 @@
 #include <sys/resource.h>
 
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 using namespace boost;
 
@@ -59,13 +59,13 @@ enum ProcLoadAvgFields {
 vector<string> readProcFile(const string& procFile) {
     ifstream ifs(procFile);
     if (ifs.fail()) {
-        throw ML::Exception ("Unable to open proc file " + procFile);
+        throw MLDB::Exception ("Unable to open proc file " + procFile);
     }
 
     std::array<char, 1024> buffer;
     ifs.getline(&buffer[0], buffer.max_size());
     if (ifs.fail() || ifs.eof()) {
-        throw ML::Exception ("Unable to read proc file " + procFile);
+        throw MLDB::Exception ("Unable to read proc file " + procFile);
     }
 
     std::string rawStats = &buffer[0];

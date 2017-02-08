@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* data_aliases.cc
    Jeremy Barnes, 18 February 2005
@@ -19,7 +19,7 @@
 #include <mutex>
 
 using namespace std;
-
+using namespace MLDB;
 
 namespace ML {
 
@@ -60,7 +60,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
     //cerr << "aliases" << endl;
     vector<tuple<int, uint64_t, float> > sorted[32];
-    ML::Spinlock sortedLocks[32];
+    Spinlock sortedLocks[32];
     //sorted.resize(dataset.example_count());
 
     auto doHash = [&] (int exampleNum)
@@ -71,12 +71,12 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
             //cerr << "example " << exampleNum << " hash " << hash << endl;
 
-            std::unique_lock<ML::Spinlock> guard(sortedLocks[hash % 32]);
+            std::unique_lock<Spinlock> guard(sortedLocks[hash % 32]);
             sorted[hash % 32].emplace_back(exampleNum, hash, label);
         };
 
     // Hash the examples in parallel
-    Datacratic::parallelMap(0, dataset.example_count(), doHash);
+    MLDB::parallelMap(0, dataset.example_count(), doHash);
 
     cerr << "hashed examples in " << timer.elapsed() << endl;
 
@@ -109,7 +109,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
             else if (res == 1)
                 return 1;
             else if (res != 0)
-                throw ML::Exception("unexpected compare result");
+                throw MLDB::Exception("unexpected compare result");
 
             return 0;  // equal
         };
@@ -156,7 +156,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
         };
 
-    Datacratic::parallelMap(0, 32, processBucket);
+    MLDB::parallelMap(0, 32, processBucket);
 
     // Assemble a final result
     vector<Alias> result;

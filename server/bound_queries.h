@@ -2,16 +2,17 @@
     Jeremy Barnes, 12 August 2015
     Bound form of SQL queries, that can be executed.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
 
-#include "sql/sql_expression.h"
-#include "server/analytics.h"
+#include "mldb/sql/sql_expression.h"
+#include "mldb/server/analytics.h"
+#include "mldb/utils/log_fwd.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct GroupContext;
@@ -37,7 +38,7 @@ struct QueryThreadTracker {
         QueryThreadTracker result;
         result.inParent = false;
         ++depth;
-        return std::move(result);
+        return result;
     }
 
     // Destructor, which undoes the increment from the desctructor
@@ -81,8 +82,12 @@ struct BoundSelectQuery {
     const WhenExpression & when;
     const SqlExpression & where;
     std::vector<std::shared_ptr<SqlExpression> > calc;
+    std::vector<BoundSqlExpression> boundCalc;
     const OrderByExpression & orderBy;
     std::shared_ptr<SqlExpressionDatasetScope> context;
+    std::shared_ptr<ExpressionValueInfo> selectInfo;
+    std::shared_ptr<spdlog::logger> logger;
+    
 
     /** Note on the ordering of rows
      *  Users are expecting determinist results (e.g. repeated queries
@@ -101,17 +106,31 @@ struct BoundSelectQuery {
                      std::vector<std::shared_ptr<SqlExpression> > calc,
                      int numBuckets = -1);
 
-    void execute(RowProcessorEx processor,
+    bool execute(RowProcessorEx processor,
                  ssize_t offset,
                  ssize_t limit,
-                 std::function<bool (const Json::Value &)> onProgress);
+                 const ProgressFunc & onProgress);
 
-    void execute(std::function<bool (NamedRowValue & output,
+    bool execute(std::function<bool (NamedRowValue & output,
                                      std::vector<ExpressionValue> & calcd, int rowNum)> processor,
                  bool processInParallel,
                  ssize_t offset,
                  ssize_t limit,
-                 std::function<bool (const Json::Value &)> onProgress);
+                 const ProgressFunc & onProgress);
+
+    bool executeExpr(RowProcessorExpr processor,
+                     ssize_t offset,
+                     ssize_t limit,
+                     const ProgressFunc & onProgress);
+
+    bool executeExpr(std::function<bool (RowPath & rowName,
+                                         ExpressionValue & val,
+                                         std::vector<ExpressionValue> & calcd,
+                                         int rowNum)> processor,
+                     bool processInParallel,
+                     ssize_t offset,
+                     ssize_t limit,
+                     const ProgressFunc & onProgress);
 
     std::shared_ptr<Executor> executor;
 
@@ -135,9 +154,9 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    void execute(RowProcessor processor,
-            ssize_t offset, ssize_t limit,
-            std::function<bool (const Json::Value &)> onProgress);
+    std::pair<bool, std::shared_ptr<ExpressionValueInfo> > execute(RowProcessor processor,  
+                     ssize_t offset, ssize_t limit,
+                     const ProgressFunc & onProgress);
 
     const Dataset & from;
     WhenExpression when;
@@ -155,13 +174,13 @@ struct BoundGroupByQuery {
     BoundSqlExpression boundRowName;
 
     // Select Expression to resolve
-    const SelectExpression& select;
+    SelectExpression select;
 
     // Having Expression to resolve
-    const SqlExpression& having;
+    std::shared_ptr<SqlExpression> having;
 
     // groupby Expression to resolve
-    const OrderByExpression & orderBy;
+    OrderByExpression orderBy;
 
     SelectExpression subSelectExpr;
 
@@ -172,7 +191,9 @@ struct BoundGroupByQuery {
 
     size_t numBuckets;
 
+    std::shared_ptr<spdlog::logger> logger;
+
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

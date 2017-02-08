@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** hash_wrapper_description.h                                     -*- C++ -*-
     Jeremy Barnes, 28 November 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Value description of hash_wrapper class.
 */
@@ -12,7 +12,7 @@
 #include "hash_wrapper.h"
 #include "value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<int Domain>
 struct HashWrapperDescription: public ValueDescriptionT<HashWrapper<Domain> > {
@@ -120,4 +120,4 @@ getDefaultDescription(const IntWrapper<Int, Domain> * = 0)
     return new IntWrapperDescription<Int, Domain>();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

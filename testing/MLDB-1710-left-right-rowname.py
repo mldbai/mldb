@@ -1,7 +1,7 @@
 #
 # MLDB-1710-left-right-rowname.py
 # Mathieu Marquis Bolduc, 2016-15-06
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest
@@ -78,7 +78,7 @@ class LikeTest(MldbUnitTest):
         res1 = mldb.query("select rightRowName() from ds1 left join ds2 on ds1.a = ds2.a + 1")
         mldb.log(res1)
 
-        expected = [["_rowName", "rightRowName()"],["[x]-[]",""]]
+        expected = [["_rowName", "rightRowName()"], ["[x]-[]", '""']]
 
         self.assertEqual(res1, expected);
 

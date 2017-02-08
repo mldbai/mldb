@@ -1,16 +1,16 @@
 /** js_common.h                                                    -*- C++ -*-
     Jeremy Barnes, 12 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Common code for JS handling.
 */
 
-#include <v8.h>
-#include "mldb/soa/js/js_utils.h"
+#include "mldb/ext/v8-cross-build-output/include/v8.h"
+#include "js_utils.h"
 #include "mldb/types/value_description.h"
-#include "mldb/http/logs.h"
+#include "mldb/logging/logging.h"
 #include "mldb/server/script_output.h"
 #include <mutex>
 #include "mldb/rest/rest_request_router.h"
@@ -19,12 +19,9 @@
 #pragma once
 
 
-namespace Datacratic {
-
-struct RestRequestRouter;
-
 namespace MLDB {
 
+struct RestRequestRouter;
 struct CellValue;
 struct ExpressionValue;
 struct MldbServer;
@@ -33,6 +30,12 @@ struct LoadedPluginResource;
 extern Logging::Category mldbJsCategory;
 
 struct JsIsolate {
+    JsIsolate()
+        : isolate(nullptr)
+    {
+        // not initialized
+    }
+
     JsIsolate(bool forThisThreadOnly)
     {
         init(forThisThreadOnly);
@@ -68,7 +71,7 @@ struct JsIsolate {
 };
 
 struct V8Init {
-    V8Init();
+    V8Init(MldbServer * server);
 };
 
 void to_js(JS::JSValue & value, const CellValue & val);
@@ -99,9 +102,9 @@ ExpressionValue from_js_ref(const JS::JSValue & value, ExpressionValue * = 0);
 ScriptException convertException(const v8::TryCatch & trycatch,
                                  const Utf8String & context);
 
-struct JsException: public ML::Exception {
+struct JsException: public MLDB::Exception {
     JsException(const ScriptException & exc)
-        : ML::Exception(exc.where.rawString()), rep(exc)
+        : MLDB::Exception(exc.where.rawString()), rep(exc)
     {
     }
 
@@ -218,20 +221,18 @@ public:
         references to it in the javascript. */
     void registerForGarbageCollection();
     
-    static v8::Handle<v8::Value>
-    NoConstructor(const v8::Arguments & args);
+    static void
+    NoConstructor(const v8::FunctionCallbackInfo<v8::Value> & args);
 
     static v8::Handle<v8::FunctionTemplate>
     CreateFunctionTemplate(const char * name,
-                           v8::InvocationCallback constructor = NoConstructor);
+                           v8::FunctionCallback constructor = NoConstructor);
     
 private:
     // Called back once an object is garbage collected.
-    static void garbageCollectionCallback(v8::Persistent<v8::Value> value, void *data);
+    static void
+    garbageCollectionCallback(const v8::WeakCallbackInfo<JsObjectBase> & info);
 };
-
-} // namespace MLDB
-
 
 namespace JS {
 
@@ -243,4 +244,6 @@ fromJsForRestParams(const JSValue & val);
 
 } // namespace JS
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

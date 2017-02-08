@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* decision_tree_xor_test.cc
    Jeremy Barnes, 25 February 2008
@@ -68,7 +68,8 @@ BOOST_AUTO_TEST_CASE( test_xor_function )
     config.parse_string(config_options, "inbuilt config file");
 
     Decision_Tree_Generator generator;
-    generator.configure(config);
+    vector<string> unparsedKeys; // should be used to root out invalid keys
+    generator.configure(config, unparsedKeys);
     generator.init(data.feature_space(),
                    fs.features()[0]);
 
@@ -83,7 +84,7 @@ BOOST_AUTO_TEST_CASE( test_xor_function )
     cerr << tree.print();
 
     // Get the accuracy
-    float accuracy JML_UNUSED = tree.accuracy(data).first;
+    float accuracy MLDB_UNUSED = tree.accuracy(data).first;
 
     // Should be 100% accurate if we were able to learn properly
     //BOOST_CHECK_EQUAL(accuracy, 1.0);

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* format.cc                                                       -*- C++ -*-
    Jeremy Barnes, 26 February 2009
@@ -16,7 +16,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 struct va_ender {
     va_ender(va_list & ap)
@@ -66,4 +66,4 @@ std::string vformat(const char * fmt, va_list ap)
     }
 }
 
-} // namespace ML
+} // namespace MLDB

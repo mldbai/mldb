@@ -1,19 +1,19 @@
 /** pooling_function.h                                                   -*- C++ -*-
     Francois Maillet, 30 novembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/value_function.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/optional.h"
 #include "mldb/plugins/sql_functions.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -60,17 +60,18 @@ struct PoolingFunction: public ValueFunctionT<PoolingInput, PoolingOutput> {
     
     virtual std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const override;
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override;
    
     std::shared_ptr<SqlQueryFunction> queryFunction;
 
     BoundTableExpression boundEmbeddingDataset;
 
     PoolingFunctionConfig functionConfig;
-    std::vector<ColumnName> columnNames;
+    std::vector<ColumnPath> columnNames;
 
     SelectExpression select;
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

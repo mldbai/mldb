@@ -1,8 +1,8 @@
 /** poly_collection_impl.h                                         -*- C++ -*-
     Jeremy Barnes, 22 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of polymorphic collections.
 */
@@ -13,7 +13,7 @@
 #include "mldb/types/meta_value_description_impl.h"
 #include "mldb/types/pointer_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* POLYMORPHIC COLLECTION                                                    */
@@ -263,10 +263,10 @@ struct PolyCollection<Entity>::Registry {
             result["flags"] = Json::Value(it->second.flags.begin(), it->second.flags.end());
 
             return result;
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(500, "Error getting information for type '" + type
                                  + "' in collection " + nounPlural + ": "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "type", type,
                                  "nounPlural", nounPlural);
         }
@@ -459,5 +459,5 @@ createCollection(int numResourcesProducedByPathSpec,
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

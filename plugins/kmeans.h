@@ -1,8 +1,8 @@
 /** kmeans.h                                                          -*- C++ -*-
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     K-means algorithm.
 */
@@ -14,11 +14,11 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "matrix.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
 #include "metric_space.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -114,4 +114,4 @@ struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansExpressio
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

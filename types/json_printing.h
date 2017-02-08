@@ -1,8 +1,8 @@
 /* json_printing.h                                                 -*- C++ -*-
    Jeremy Barnes, 26 February 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Context to print out JSON.
 */
@@ -18,7 +18,7 @@ namespace Json {
 struct Value;
 } // namespace Json
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string jsonEscape(const std::string & str);
 
@@ -26,7 +26,7 @@ void jsonEscape(const std::string & str, std::ostream & out);
 
 void jsonEscape(const std::string & str, std::string & out);
 
-bool isJsonValid(char c);
+bool isJsonValidAscii(char c);
 
 /*****************************************************************************/
 /* JSON PRINTING CONTEXT                                                     */
@@ -215,6 +215,25 @@ protected:
     void write(const std::string & s);
 };
 
+/*****************************************************************************/
+/* UTF8 STRING JSON PRINTING CONTEXT                                         */
+/*****************************************************************************/
+
+/** Writes a JSON representation to the given Utf8 string.  Note that the
+    string CANNOT be modified during writing; direct access to it is
+    undefined.
+
+    TODO: we should change this interface (and that of the previous class)
+    to have a str() method rather than pass in its result by reference.
+*/
+
+struct Utf8StringJsonPrintingContext
+    : public StringJsonPrintingContext {
+
+    Utf8StringJsonPrintingContext(Utf8String & str);
+    Utf8String & str;
+};
+
 
 /*****************************************************************************/
 /* STRUCTURED JSON PRINTING CONTEXT                                          */
@@ -276,5 +295,5 @@ struct StructuredJsonPrintingContext
     virtual void writeBool(bool b);
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

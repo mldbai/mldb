@@ -1,8 +1,8 @@
 /** continuous_dataset.h                                           -*- C++ -*-
     Jeremy Barnes, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset that continuously records and expires on a time window.
 */
@@ -13,11 +13,11 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/server/forwarded_dataset.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/periodic_utils.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -47,16 +47,16 @@ struct ContinuousDataset: public Dataset {
 
     ContinuousDataset(MldbServer * owner,
                       PolyConfig config,
-                      const std::function<bool (const Json::Value &)> & onProgress);
+                      const ProgressFunc & onProgress);
     
     virtual ~ContinuousDataset();
 
     virtual Any getStatus() const;
 
-    virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    virtual void recordRowItl(const RowPath & rowName,
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
     /** Commit changes to the database.  Default is a no-op. */
     virtual void commit();
@@ -107,7 +107,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ContinuousWindowDatasetConfig);
 struct ContinuousWindowDataset: public ForwardedDataset {
     ContinuousWindowDataset(MldbServer * owner,
                             PolyConfig config,
-                            const std::function<bool (const Json::Value &)> & onProgress);
+                            const ProgressFunc & onProgress);
     /// Dataset in which our metadata lives
     std::shared_ptr<Dataset> metadataDataset;
 
@@ -119,5 +119,5 @@ struct ContinuousWindowDataset: public ForwardedDataset {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

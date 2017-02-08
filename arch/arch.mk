@@ -1,8 +1,7 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 LIBARCH_SOURCES := \
         simd_vector.cc \
-	simd_vector_avx.cc \
         demangle.cc \
 	tick_counter.cc \
 	cpuid.cc \
@@ -22,6 +21,9 @@ LIBARCH_SOURCES := \
 	abort.cc \
 	spinlock.cc \
 
+ifeq ($(ARCH),x86_64)
+LIBARCH_SOURCES += simd_vector_avx.cc
+endif
 
 LIBARCH_LINK := dl
 
@@ -32,10 +34,8 @@ endif
 $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
 
 LIBGC_SOURCES := \
-	gc_lock.cc 
-
-LIBGC_SOURCES := \
-	gc_lock.cc 
+	gc_lock.cc \
+	shared_gc_lock.cc
 
 $(eval $(call library,gc,$(LIBGC_SOURCES),rt arch))
 
@@ -46,16 +46,6 @@ $(eval $(call set_single_compile_option,simd_vector_avx.cc,-mavx))
 $(eval $(call library,exception_hook,exception_hook.cc,arch dl))
 
 $(eval $(call library,node_exception_tracing,node_exception_tracing.cc,exception_hook arch dl))
-
-
-ifeq ($(CUDA_ENABLED),1)
-
-LIBARCH_CUDA_SOURCES 	:= cuda.cc
-LIBARCH_CUDA_LINK 	:= arch OcelotIr OcelotParser OcelotExecutive OcelotTrace OcelotAnalysis hydrazine
-
-$(eval $(call library,arch_cuda,$(LIBARCH_CUDA_SOURCES),$(LIBARCH_CUDA_LINK)))
-
-endif # CUDA_ENABLED
 
 
 ifeq ($(CAL_ENABLED),1)

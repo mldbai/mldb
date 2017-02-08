@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* tick_counter.cc
    Jeremy Barnes, 16 February 2007
@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 /** The average number of ticks of overhead for the tick counter. */
 double ticks_overhead = -1.0;
@@ -28,10 +28,10 @@ double seconds_per_tick = -1.0;
 
 namespace {
 
-JML_ALWAYS_INLINE uint64_t fake_ticks()
+MLDB_ALWAYS_INLINE uint64_t fake_ticks()
 {
-    uint64_t result;
-    asm volatile ("" : "=A" (result));
+    uint64_t result = 0;
+    asm volatile ("nop");
     return result;
 }
 
@@ -59,7 +59,7 @@ double calc_ticks_overhead()
 
     uint64_t overhead = nt1 - nt2;
 
-    double result = xdiv<double>(overhead, ITERATIONS);
+    double result = (double)overhead / (double)ITERATIONS;
 
     //cerr << "nt1 = " << nt1 << " nt2 = " << nt2 << " overhead = "
     //     << overhead << " result = " << result << endl;
@@ -115,5 +115,5 @@ struct Init {
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB
 

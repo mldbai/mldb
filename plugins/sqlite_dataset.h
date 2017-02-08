@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sqlite_dataset.h                                               -*- C++ -*-
     Embedding dataset for MLDB.
@@ -10,10 +10,10 @@
 
 
 #include "mldb/core/dataset.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -40,7 +40,7 @@ struct SqliteSparseDataset: public Dataset {
 
     SqliteSparseDataset(MldbServer * owner,
                      PolyConfig config,
-                     const std::function<bool (const Json::Value &)> & onProgress);
+                     const ProgressFunc & onProgress);
     
     virtual ~SqliteSparseDataset();
 
@@ -49,10 +49,10 @@ struct SqliteSparseDataset: public Dataset {
     /** Base database methods require us to be able to iterate through rows.
         All other views are built on top of this.
     */
-    virtual void recordRowItl(const RowName & rowName,
-                           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    virtual void recordRowItl(const RowPath & rowName,
+                           const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
     /** Commit changes to the database.  Default is a no-op. */
     virtual void commit();
@@ -77,5 +77,5 @@ private:
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

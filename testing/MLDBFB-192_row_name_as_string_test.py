@@ -1,7 +1,7 @@
 #
 # MLDBFB-192_row_name_as_string_test.py
 # Mich, 2016-02-02
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
 import tempfile
 import os
@@ -87,20 +87,16 @@ class NullNameTest(MldbUnitTest):
             'id' : 'ds4',
             'type': 'sparse.mutable'
         })
-        import exceptions
-        with self.assertRaises(exceptions.RuntimeError):
-            ds.record_row("", [['colA', 1, 1]])
+        ds.record_row("", [['colA', 1, 1]])
+        ds.commit()
+        res = mldb.query("SELECT * FROM ds4")
+        self.assertEqual(res[1][0], '""')
 
-    def test_post_empty_row_name(self):
-        mldb.put('/v1/datasets/ds5', {
-            'type' : 'sparse.mutable'
-        })
-
+    def test_record_null_row_name(self):
+        mldb.put('/v1/datasets/ds_null', {'type' : 'sparse.mutable'})
         with self.assertRaises(mldb_wrapper.ResponseException): # noqa
-            mldb.post('/v1/datasets/ds5/rows', {
-                'rowName' : '',
-                'columns' : [['colA', 1, 1]]
-            })
+            mldb.post('/v1/datasets/ds_null/rows',
+                    {'rowName' : None, 'columns' : [['colA', 1, 1]]})
 
 if __name__ == '__main__':
     mldb.run_tests()

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* csv.cc
    Jeremy Barnes, 5 April 2010
@@ -15,13 +15,13 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 static const string literalDoubleQuote("\"\"");
 } // file scope
 
-std::string expect_csv_field(Parse_Context & context, bool & another,
+std::string expect_csv_field(ParseContext & context, bool & another,
                              char separator)
 {
     bool quoted = false;
@@ -84,11 +84,11 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
     if (quoted)
         throw FileFinishInsideQuote("file finished inside quote");
 
-    return std::move(result);
+    return result;
 }
 
 std::vector<std::string>
-expect_csv_row(Parse_Context & context, int length, char separator)
+expect_csv_row(ParseContext & context, int length, char separator)
 {
     //    cerr << "*** parsing" << endl;
 
@@ -101,7 +101,7 @@ expect_csv_row(Parse_Context & context, int length, char separator)
 
     bool another = false;
     while (another || (context && !context.match_eol() && *context != '\r')) {
-        result.emplace_back(std::move(expect_csv_field(context, another, separator)));
+        result.emplace_back(expect_csv_field(context, another, separator));
         //cerr << "read " << result.back() << " another = " << another << endl;
     }
 
@@ -113,7 +113,7 @@ expect_csv_row(Parse_Context & context, int length, char separator)
     
     //cerr << "returning result" << endl;
 
-    return std::move(result);
+    return result;
 }
 
 std::string csv_escape(const std::string & s)
@@ -139,4 +139,4 @@ std::string csv_escape(const std::string & s)
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

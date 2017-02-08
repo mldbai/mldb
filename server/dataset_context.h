@@ -1,8 +1,8 @@
 /** dataset_context.h                                              -*- C++ -*-
     Jeremy Barnes, 24 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Context for datasets within row expressions.
 */
@@ -11,8 +11,9 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/binding_contexts.h"
+#include <unordered_map>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct BoundTableExpression;
@@ -43,21 +44,26 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
                   const std::vector<BoundSqlExpression> & args,
-                  SqlBindingScope & argScope);
+                  SqlBindingScope & argScope) override;
     
     virtual std::shared_ptr<Dataset>
-    doGetDataset(const Utf8String & datasetName);
+    doGetDataset(const Utf8String & datasetName) override;
 
     virtual std::shared_ptr<Dataset>
-    doGetDatasetFromConfig(const Any & datasetConfig);
+    doGetDatasetFromConfig(const Any & datasetConfig) override;
 
     virtual TableOperations
-    doGetTable(const Utf8String & tableName);
+    doGetTable(const Utf8String & tableName) override;
 
-    virtual MldbServer * getMldbServer() const;
+    virtual MldbServer * getMldbServer() const override;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                     const ColumnName & columnName);
+                                     const ColumnPath & columnName) override;
+
+    virtual GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    const ColumnFilter& keep) override;
+
 };
 
 
@@ -77,18 +83,85 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
 struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
-        RowScope(const MatrixNamedRow & row,
-                   const BoundParameters * params = nullptr)
-            : row(row), params(params)
+        RowScope(const MatrixNamedRow & rowValue,
+                 const BoundParameters * params = nullptr)
+            : row(&rowValue), rowName(nullptr), expr(nullptr), params(params)
         {
         }
 
-        const MatrixNamedRow & row;
+        RowScope(const RowPath & rowName,
+                 const ExpressionValue & rowValue,
+                 const BoundParameters * params = nullptr)
+            : row(nullptr), rowName(&rowName), expr(&rowValue), params(params)
+        {
+        }
+
+        /** Return a moveable copy of the row name of the row being
+            processed. */
+        RowPath getRowPath() const;
+
+        /** Return either a reference to the row name, or a reference to
+            the row name stored in storage.
+        */
+        const RowPath & getRowPath(RowPath & storage) const;
+
+        /** Return the hash of the row name of the row being processed.
+            INVARIANT: should be equal to RowHash(getRowPath()).
+        */
+        RowHash getRowHash() const;
+
+        /** Return the value of the given column.  If knownOffset is set,
+            then it can be used to immediately find the column within
+            the structure without doing a lookup.
+
+            Either returns a reference to the value, or a reference to
+            storage which has the value stored inside it.
+        */
+        const ExpressionValue & getColumn(const ColumnPath & columnName,
+                                          const VariableFilter & filter,
+                                          ExpressionValue & storage,
+                                          ssize_t knownOffset = -1) const;
+
+        /** Returns the number of columns in the row, and the timestamp
+            associated with it.
+        */
+        ExpressionValue getColumnCount() const;
+        
+        /** Return a reference to the filtered version of the row value.
+            Storage is set as in ther other methods.
+        */
+        const ExpressionValue &
+        getFilteredValue(const VariableFilter & filter,
+                         ExpressionValue & storage) const;
+        
+        /** Return a value which has its values renamed according to the
+            index, and is filtered according to the filter.
+
+            Each column will be:
+            - renamed to the name in index if it appears there;
+            - dropped if not
+        */
+        ExpressionValue
+        getReshaped(const std::unordered_map<ColumnHash, ColumnPath> & index,
+                    const VariableFilter & filter) const;
+
+        /** If we contain a MatrixNamedRow (legacy), this contains a pointer
+            to that value.
+        */
+        const MatrixNamedRow * row;
+
+        /** If we have an ExpressionValue, this points to the rowName of the
+            row.  TODO: don't require a materialized rowName().
+        */
+        const RowPath * rowName;
+
+        /** If we have an ExpressionValue, this points to the value of the
+            row.
+        */
+        const ExpressionValue * expr;
 
         /// If set, this tells us how to get the value of a bound parameter
         const BoundParameters * params;
-
-        //const Date date;
     };
 
     SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
@@ -100,11 +173,15 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     std::vector<Utf8String> childaliases;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
+                    const ColumnFilter& keep);
+
+    GetAllColumnsOutput
+    doGetAllAtoms(const Utf8String & tableName,
+                  const ColumnFilter& keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -124,25 +201,25 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     doGetBoundParameter(const Utf8String & paramName);
     
     static RowScope getRowScope(const MatrixNamedRow & row,
-                                    const BoundParameters * params = nullptr)
+                                const BoundParameters * params = nullptr)
     {
         return RowScope(row, params);
     }
 
-    virtual ColumnName
-    doResolveTableName(const ColumnName & fullColumnName,
-                       Utf8String & tableName) const;
-    
-#if 0
-protected:
+    static RowScope getRowScope(const RowPath & rowName,
+                                const ExpressionValue & row,
+                                const BoundParameters * params = nullptr)
+    {
+        return RowScope(rowName, row, params);
+    }
 
-    // This is for the context where we have several datasets
-    // resolve ambiguity of different table names
-    // by finding the dataset name that resolves first.
-    Utf8String resolveTableName(const Utf8String& columnName) const;
-    Utf8String resolveTableName(const Utf8String& columnName,
-                                Utf8String& resolvedTableName) const;
-#endif
+    virtual ColumnPath
+    doResolveTableName(const ColumnPath & fullColumnName,
+                       Utf8String & tableName) const;
+
+private:
+    GetAllColumnsOutput doGetAllColumnsInternal(const Utf8String & tableName, const ColumnFilter& keep, bool atoms);
+
 };
 
 
@@ -176,7 +253,7 @@ struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
         and then fall back to the underlying row.
     */
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                       const ColumnName & columnName);
+                                       const ColumnPath & columnName);
     
     RowScope getRowScope(const SqlRowScope & outer,
                              const NamedRowValue & output) const
@@ -186,4 +263,4 @@ struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

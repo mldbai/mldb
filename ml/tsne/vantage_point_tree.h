@@ -1,8 +1,8 @@
 /** vantage_point_tree.h                                           -*- C++ -*-
     Jeremy Barnes, 18 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Available under the BSD license, no attribution required.
 */
@@ -20,7 +20,7 @@
 
 namespace ML {
 
-using Datacratic::compact_vector;
+using MLDB::compact_vector;
 
 template<typename Item>
 struct VantagePointTreeT {
@@ -104,7 +104,7 @@ struct VantagePointTreeT {
                                       int depth)
             {
                 // Calculate distances to all children
-                ML::distribution<float> distances(items2.size());
+                distribution<float> distances(items2.size());
 
                 for (unsigned i = 0;  i < items2.size();  ++i) {
                     distances[i] = distance(pivot, items2[i]);
@@ -118,7 +118,7 @@ struct VantagePointTreeT {
 
     static VantagePointTreeT *
     createParallel(const std::vector<Item> & objectsToInsert_,
-                   const std::function<ML::distribution<float> (Item, const std::vector<Item> &, int)> & distance,
+                   const std::function<distribution<float> (Item, const std::vector<Item> &, int)> & distance,
                    int depth = 0)
     {
         using namespace std;
@@ -157,7 +157,7 @@ struct VantagePointTreeT {
             Item pivot = objectsToInsert[0];
 
             // Calculate distances to all children
-            ML::distribution<float> distances
+            distribution<float> distances
                 = distance(pivot, objectsToInsert, depth);
 
             ExcAssertEqual(distances.size(), objectsToInsert.size());

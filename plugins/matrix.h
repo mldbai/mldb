@@ -1,8 +1,8 @@
 /** matrix.h                                                       -*- C++ -*-
     Jeremy Barnes, 5 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset view as a dense+sparse matrix of values.  Rows are numbered by
     integers; columns numbered by integers and sparse values.
@@ -15,10 +15,12 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/svd_utils.h"
+#include "mldb/utils/log_fwd.h"
+#include "mldb/utils/progress.h"
 #include <boost/multi_array.hpp>
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct SqlExpression;
@@ -32,7 +34,7 @@ enum ColumnOperator {
 DECLARE_ENUM_DESCRIPTION(ColumnOperator);
 
 struct ColumnSpec {
-    ColumnSpec(ColumnName columnName = ColumnName(),
+    ColumnSpec(ColumnPath columnName = ColumnPath(),
                CellValue cellValue = CellValue(),
                ColumnOperator op = COL_VALUE,
                float offset = 0.0,
@@ -43,7 +45,7 @@ struct ColumnSpec {
     {
     }
 
-    ColumnName columnName;
+    ColumnPath columnName;
     CellValue cellValue;
     ColumnOperator op;
     float offset;
@@ -61,7 +63,7 @@ struct ColumnSpec {
 DECLARE_STRUCTURE_DESCRIPTION(ColumnSpec);
 
 struct ContinuousColumnInfo: public ColumnSpec {
-    ContinuousColumnInfo(ColumnName columnName, int rowCount)
+    ContinuousColumnInfo(ColumnPath columnName, int rowCount)
         : ColumnSpec(columnName, CellValue(), COL_VALUE),
           rowCount(rowCount)
     {
@@ -71,7 +73,7 @@ struct ContinuousColumnInfo: public ColumnSpec {
 };
 
 struct SparseColumnInfo: public ColumnSpec {
-    SparseColumnInfo(ColumnName columnName, CellValue value, int rowCount,
+    SparseColumnInfo(ColumnPath columnName, CellValue value, int rowCount,
                      bool isContinuous)
         : ColumnSpec(columnName, value, isContinuous ? COL_VALUE: COL_EQUAL),
           rowCount(rowCount)
@@ -86,7 +88,7 @@ struct ExtractedRow {
     {
     }
 
-    ExtractedRow(ML::distribution<float> continuous,
+    ExtractedRow(distribution<float> continuous,
                  std::vector<std::pair<ColumnHash, CellValue> > sparse)
         : continuous(std::move(continuous)),
           sparse(std::move(sparse))
@@ -94,7 +96,7 @@ struct ExtractedRow {
     }
 
     RowHash rowHash;  /// To sort on
-    ML::distribution<float> continuous;
+    distribution<float> continuous;
     std::vector<std::pair<ColumnHash, CellValue> > sparse;
 };
 
@@ -188,7 +190,7 @@ struct ColumnIndexEntry: public ColumnSpec {
     {
     }
 
-    void initContinuousDense(int numExamplesWithColumn, int numExamples, ColumnName columnName)
+    void initContinuousDense(int numExamplesWithColumn, int numExamples, ColumnPath columnName)
     {
         this->columnType = CONTINUOUS_DENSE;
         this->numExamples = numExamples;
@@ -200,7 +202,7 @@ struct ColumnIndexEntry: public ColumnSpec {
         continuousValues.resize(numExamples);
     }
 
-    void initSparse(int numExamplesWithColumn, int numExamples, ColumnName columnName, CellValue cellValue, ColumnOperator op)
+    void initSparse(int numExamplesWithColumn, int numExamples, ColumnPath columnName, CellValue cellValue, ColumnOperator op)
     {
         this->op = op;
         this->columnType = op == COL_VALUE ? CONTINUOUS_SPARSE : DISCRETE_SPARSE;
@@ -228,7 +230,6 @@ struct ColumnIndexEntry: public ColumnSpec {
                 continuousValues *= 1.0 / stddev;
             }
 
-            //cerr << "continuous variable has mean " << mean << " stddev " << stddev << endl;
             break;
 
         case CONTINUOUS_SPARSE: {
@@ -262,7 +263,6 @@ struct ColumnIndexEntry: public ColumnSpec {
                 v.second *= scale;
             }
             
-            //cerr << "sparse variable has mean " << mean << " stddev " << stddev << endl;
             break;
         }
 
@@ -275,10 +275,6 @@ struct ColumnIndexEntry: public ColumnSpec {
 
     double correlation(const ColumnIndexEntry & other) const
     {
-        //using namespace std;
-        //cerr << "correlation between " << columnType << " and " << other.columnType
-        //     << endl;
-
         switch (columnType) {
         case CONTINUOUS_DENSE:
             switch (other.columnType) {
@@ -311,7 +307,7 @@ struct ColumnIndexEntry: public ColumnSpec {
             }
         };
 
-        throw ML::Exception("Unknown ColumnType");
+        throw MLDB::Exception("Unknown ColumnType");
     }
 
     double correlationContinuousContinuous(const ColumnIndexEntry & other) const
@@ -319,9 +315,8 @@ struct ColumnIndexEntry: public ColumnSpec {
         double result = continuousValues.dotprod(other.continuousValues)
             / numExamples;
         if (!std::isfinite(result))
-            throw ML::Exception("non-finite correlation");
-        //cerr << "column " << columnName << " and " << other.columnName
-        //     << " have correlation " << result << endl;
+            throw MLDB::Exception("non-finite correlation");
+
         return result;
     }
 
@@ -349,9 +344,6 @@ struct ColumnIndexEntry: public ColumnSpec {
 
         double result = total / numExamples;
 
-        //cerr << "seme-sparse column " << columnName << " and " << other.columnName
-        //     << " " << other.cellValue << " have correlation " << result << endl;
-
         return result;
     }
 
@@ -360,9 +352,6 @@ struct ColumnIndexEntry: public ColumnSpec {
         double total = 0.0;
 
         using namespace std;
-        //cerr << "sparse to sparse" << endl;
-        //cerr << "sparseValus.size() = " << sparseValues.size() << endl;
-        //cerr << "other.sparseValues.size() = " << other.sparseValues.size() << endl;
 
         auto it1 = sparseValues.begin(), end1 = sparseValues.end();
         auto it2 = other.sparseValues.begin(), end2 = other.sparseValues.end();
@@ -424,7 +413,7 @@ struct ColumnIndexEntry: public ColumnSpec {
     int numExamples;
     int numExamplesWithColumn;
 
-    ML::distribution<float> continuousValues;
+    distribution<float> continuousValues;
     std::vector<std::pair<int, float> > sparseValues;
     SvdColumnEntry discreteValues;
 };
@@ -478,28 +467,41 @@ struct ColumnCorrelations {
 };
 
 
-ClassifiedColumns classifyColumns(const Dataset & dataset,
-                                  SelectExpression select);
+ClassifiedColumns classifyColumns(const SelectExpression & select,
+                                  const Dataset & from,
+                                  const WhenExpression & when,
+                                  const SqlExpression & where,
+                                  const OrderByExpression & orderBy,
+                                  ssize_t offset,
+                                  ssize_t limit,
+                                  std::shared_ptr<spdlog::logger> logger,
+                                  const ProgressFunc & onProgress);
 
 FeatureBuckets extractFeaturesFromEvents(const Dataset & dataset,
                                          const ClassifiedColumns & columns);
 
-FeatureBuckets extractFeaturesFromRows(const Dataset & dataset,
+FeatureBuckets extractFeaturesFromRows(const SelectExpression & select,
+                                       const Dataset & dataset,
                                        const WhenExpression & whenClause,
                                        std::shared_ptr<SqlExpression> whereClause,
                                        const OrderByExpression & orderBy, 
                                        ssize_t offset,
                                        ssize_t limit,
-                                       const ClassifiedColumns & columns);
+                                       const ClassifiedColumns & columns,
+                                       std::shared_ptr<spdlog::logger> logger,
+                                       const ProgressFunc & onProgress);
 
 ColumnIndexEntries
 invertFeatures(const ClassifiedColumns & columns,
-               const FeatureBuckets & featureBuckets);
+               const FeatureBuckets & featureBuckets,
+               std::shared_ptr<spdlog::logger> logger,
+               const ProgressFunc & onProgress);
     
 ColumnCorrelations
 calculateCorrelations(const ColumnIndexEntries & columnIndex,
-                      int numBasisVectors);
+                      int numBasisVectors,
+                      std::shared_ptr<spdlog::logger> logger);
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

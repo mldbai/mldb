@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** word2vec.cc
     Jeremy Barnes, 14 October 2015
-    Copyright (c) Datacratic Inc.  All rights reserved.
+    Copyright (c) mldb.ai inc.  All rights reserved.
 */
 
 #include "mldb/core/procedure.h"
@@ -14,11 +14,12 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/stats/distribution.h"
 #include <boost/algorithm/string.hpp>
+#include "mldb/utils/log.h"
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -76,9 +77,10 @@ struct Word2VecImporter: public Procedure {
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
-        auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
+        auto info = getUriObjectInfo(
+            runProcConf.dataFileUrl.toDecodedString());
 
-        filter_istream stream(runProcConf.dataFileUrl.toString());
+        filter_istream stream(runProcConf.dataFileUrl);
 
         std::string header;
         getline(stream, header);
@@ -96,12 +98,12 @@ struct Word2VecImporter: public Procedure {
             output = createDataset(server, runProcConf.output, nullptr, true /*overwrite*/);
         }
 
-        vector<ColumnName> columnNames;
+        vector<ColumnPath> columnNames;
         for (unsigned i = 0;  i < numDims;  ++i) {
-            columnNames.emplace_back(ML::format("%06d", i));
+            columnNames.emplace_back(MLDB::format("%06d", i));
         }
 
-        vector<tuple<RowName, vector<float>, Date> > rows;
+        vector<tuple<RowPath, vector<float>, Date> > rows;
         int64_t numRecorded = 0;
 
         for (unsigned i = 0;  i < numWords;  ++i) {
@@ -116,18 +118,17 @@ struct Word2VecImporter: public Procedure {
             if (runProcConf.limit != -1 && numRecorded >= runProcConf.limit)
                 break;
 
-            rows.emplace_back(RowName(word), std::move(vec), info.lastModified);
+            rows.emplace_back(RowPath(word), std::move(vec), info.lastModified);
             ++numRecorded;
 
             if (rows.size() == 10000) {
                 if (output)
                     output->recordEmbedding(columnNames, rows);
                 rows.clear();
-                cerr << "recorded " << (i+1) << " of " << numWords << " words"
-                     << endl;
+                INFO_MSG(logger) << "recorded " << (i+1) << " of " << numWords << " words";
             }
 
-            //cerr << "got word " << word << endl;
+            TRACE_MSG(logger) << "got word " << word;
         }
 
         if (output) {
@@ -152,4 +153,4 @@ regScript(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

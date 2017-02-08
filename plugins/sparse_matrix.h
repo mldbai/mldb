@@ -1,8 +1,8 @@
 /** sparse_matrix.h                                                -*- C++ -*-
     Jeremy Barnes, 8 April 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset object for storing data in MLDB.
 */
@@ -10,9 +10,9 @@
 #pragma once
 
 #include "mldb/utils/compact_vector.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /** Implementation of a base matrix.  This stores rows (indexed by integers)
@@ -72,13 +72,15 @@ struct MatrixWriteTransaction;
 
 struct MatrixReadTransaction {
 
-      struct Stream {       
+    struct Stream {       
 
         virtual std::shared_ptr<MatrixReadTransaction::Stream> clone() const = 0;
 
         virtual void initAt(size_t start) = 0;
 
         virtual uint64_t next() = 0;
+
+        virtual uint64_t current() const = 0;
     };
 
     virtual ~MatrixReadTransaction()
@@ -128,4 +130,4 @@ struct BaseMatrix {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

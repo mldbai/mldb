@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** service_peer_startup_test.cc                                   -*- C++ -*-
     Jeremy Barnes, 14 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Test of service peer startup.
 */
@@ -10,7 +10,7 @@
 #include "temporary_etcd_server.h"
 #include "mldb/rest/service_peer.h"
 #include "mldb/rest/etcd_client.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/rest/rest_request_router.h"
 #include <boost/algorithm/string.hpp>
@@ -24,7 +24,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_startup )
 {

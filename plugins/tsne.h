@@ -1,8 +1,8 @@
 /** tsne.h                                                          -*- C++ -*-
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     TSNE algorithm for a dataset.
 */
@@ -13,9 +13,9 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/value_function.h"
 #include "matrix.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct TsneItl;
@@ -27,7 +27,8 @@ struct TsneConfig : public ProcedureConfig {
         : numInputDimensions(-1),
           numOutputDimensions(2),
           tolerance(1e-5),
-          perplexity(30.0)
+          perplexity(30.0),
+          learningRate(500.0)
     {
         output.withType("embedding");
     }
@@ -41,6 +42,7 @@ struct TsneConfig : public ProcedureConfig {
     int numOutputDimensions;
     double tolerance;
     double perplexity;
+    double learningRate;
 
     Utf8String functionName;
 };
@@ -112,4 +114,4 @@ struct TsneEmbed: public ValueFunctionT<TsneInput, TsneOutput> {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

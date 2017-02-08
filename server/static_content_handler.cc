@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** static_content_handler.cc
     Jeremy Barnes, 5 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Handler for static content.
 */
@@ -28,7 +28,7 @@
 using namespace std;
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -190,7 +190,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
             const string & path = context.resources.back().rawString();
 
             if (path.find("..") != string::npos) {
-                throw ML::Exception("not dealing with path with .. in it");
+                throw MLDB::Exception("not dealing with path with .. in it");
             }
 
             string filename = (fs::path(dir) / fs::path(path)).string();
@@ -356,4 +356,4 @@ void serveDocumentationDirectory(RestRequestRouter & parent,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

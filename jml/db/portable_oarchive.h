@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* portable_oarchive.h                                             -*- C++ -*-
    Jeremy Barnes, 17 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.   
 
 
    ---
@@ -11,8 +9,7 @@
    Portable output archive.
 */
 
-#ifndef __db__portable_oarchive_h__
-#define __db__portable_oarchive_h__
+#pragma once
 
 
 #include <algorithm>
@@ -38,6 +35,8 @@ class const_multi_array_ref;
 } // namespace boost
 
 namespace ML {
+using namespace MLDB;
+
 namespace DB {
 
 
@@ -294,5 +293,3 @@ private:
 
 } // namespace DB
 } // namespace ML
-
-#endif /* __db__portable_oarchive_h__ */

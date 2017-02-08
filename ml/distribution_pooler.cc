@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* distribution_pooler.cc
    Francois Maillet, Oct 23, 2012
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 */
 
 #include "distribution_pooler.h"
@@ -19,22 +19,22 @@ using namespace ML;
 
 
 
-namespace Datacratic {
+namespace MLDB {
 
-void DistributionPooler::add(std::shared_ptr<ML::distribution<float>> d)
+void DistributionPooler::add(std::shared_ptr<distribution<float>> d)
 {
     if(!init) {
         for(int i=0; i<d->size(); i++)
-            feature_vectors.push_back(ML::distribution<float>());
+            feature_vectors.push_back(distribution<float>());
         init = true;
     }
     for(int i=0; i<d->size(); i++)
         feature_vectors[i].push_back((*d)[i]);
 }
 
-ML::distribution<float> DistributionPooler::pool()
+distribution<float> DistributionPooler::pool()
 {
-    ML::distribution<float> d;
+    distribution<float> d;
     d.push_back(feature_vectors[0].size());
     for(int i=0; i<feature_vectors.size(); i++) {
         d.push_back(feature_vectors[i].min());

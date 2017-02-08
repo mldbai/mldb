@@ -1,14 +1,16 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 // Copied from boost; under the Boost license and copyright
 // Compatible with non-commercial and commercial 
+// https://github.com/boostorg/move
+// Copyright © 2008-2014 Ion Gaztanaga - http://www.boost.org/LICENSE_1_0.txt
 
 #pragma once
 
 #include <iterator>
 #include <algorithm>
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename I, typename F>
 F uninitialized_move(I first, I last, F result)
@@ -43,4 +45,4 @@ template<typename I, typename F>
    return first;
 }
 
-} // namespace Datacratic
+} // namespace MLDB

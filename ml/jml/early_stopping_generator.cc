@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* early_stopping_generator.cc
    Jeremy Barnes, 17 March 2006
@@ -30,10 +30,10 @@ Early_Stopping_Generator::
 
 void
 Early_Stopping_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
-    config.find(validate_split, "validate_split");
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(validate_split, "validate_split", unparsedKeys);
 }
 
 void

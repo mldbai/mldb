@@ -1,16 +1,16 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* asio_peer_connection.cc                                         -*- C++ -*-
    Jeremy Barnes, 2 June 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "asio_peer_connection.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/arch/backtrace.h"
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/asio_timer.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/asio_timer.h"
 #include "mldb/watch/watch_impl.h"
 #include <atomic>
 #include <boost/asio.hpp>
@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -316,7 +316,7 @@ onReadLengthDone(boost::system::error_code err, size_t bytesDone,
     if (bytesDone != 8) {
         // This is a logic error; it should never happen.  It's OK to
         // crash the world.
-        throw ML::Exception("wrong number of length bytes read in packet");
+        throw MLDB::Exception("wrong number of length bytes read in packet");
     }
 
     //cerr << "itl->currentPacketLength = " << itl->currentPacketLength << endl;
@@ -417,7 +417,7 @@ AsioPeerConnection::
 getTimer(Date expiry, double period,
          std::function<void (Date)> toBind)
 {
-    return Datacratic::getTimer(expiry, period, StrandHolder(itl->strand), toBind);
+    return MLDB::getTimer(expiry, period, StrandHolder(itl->strand), toBind);
 }
 
 void
@@ -435,5 +435,5 @@ postWorkAsync(std::function<void ()> work)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

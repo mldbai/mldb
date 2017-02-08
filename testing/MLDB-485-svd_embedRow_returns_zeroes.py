@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 # @Author:             Alexis Tremblay
-# @Email:              atremblay@datacratic.com
+# @Email:              atremblay@mldb.ai
 # @Date:               2015-04-02 15:20:49
 # @Last Modified by:   Alexis Tremblay
 # @Last Modified time: 2015-04-14 13:47:59
@@ -54,9 +54,6 @@ svd_config = {
         "modelFileUrl": "file://tmp/MLDB-485.svd.json.gz"
     }
 }
-
-r = mldb.get('/v1/datasets/random_dataset/query')
-#mldb.log(json.dumps(json.loads(r["response"]), indent=4))
 
 r = mldb.put(svd_procedure, svd_config)
 #mldb.log(json.dumps(json.reads(r.response), indent=4))

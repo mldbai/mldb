@@ -21,8 +21,8 @@ mldb.put("/v1/functions/split_smiley", {
     "type": "tokensplit",
     "params": {
         "tokens": "select ':P', '(>_<)', ':-)'",
-        "splitchars": " "
-        "splitcharToInsert": " "
+        "splitChars": " "
+        "splitCharToInsert": " "
         }
 })
 ```

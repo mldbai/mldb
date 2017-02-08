@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* buckets.cc
    Jeremy Barnes, 12 September 2011
@@ -16,6 +16,7 @@
 #include "mldb/arch/exception.h"
 
 using namespace std;
+using namespace MLDB;
 
 
 namespace ML {

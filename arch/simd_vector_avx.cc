@@ -1,9 +1,9 @@
 /** simd_vector_avx.h                               
 
     Jeremy Barnes, 11 October 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     SIMD vector operations; AVX specializations.
 */
@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 namespace SIMD {
 
 namespace Generic {
@@ -305,4 +305,4 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n)
 
 } // namespace Avx
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

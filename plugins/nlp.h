@@ -1,8 +1,8 @@
 /** nlp.h                                               -*- C++ -*-
     Francois Maillet, 20 octobre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -11,7 +11,7 @@
 #include "mldb/ext/libstemmer/libstemmer.h"
 #include <mutex>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -100,5 +100,5 @@ struct StemmerOnDocumentFunction: public ValueFunctionT<Document, Document> {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

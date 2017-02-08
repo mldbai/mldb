@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* json_diff.h                                                     -*- C++ -*-
    Jeremy Barnes, 229 October 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Diff for JSON objects.
 */
@@ -16,7 +16,7 @@
 #include "mldb/jml/utils/unnamed_bool.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct JsonArrayElementDiff;
 
@@ -74,7 +74,7 @@ struct JsonDiff {
     /** Functional version of ignore(). */
     JsonDiff ignored(const std::string & toIgnoreRegex, bool debug = false) const;
 
-    JML_IMPLEMENT_OPERATOR_BOOL(!empty());
+    MLDB_IMPLEMENT_OPERATOR_BOOL(!empty());
  
     // Reverse the patch
     void reverse();
@@ -142,4 +142,4 @@ jsonPatch(const Json::Value & val,
     return std::make_pair(std::move(*res.first), std::move(res.second));
 }
 
-} // namespace Datacratic
+} // namespace MLDB

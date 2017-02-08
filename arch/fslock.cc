@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* fs_lock.cc
    Wolfgang Sourdeau, December 2013
-   Copyright (c) 2013 Datacratic.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 */
 
 #include <fcntl.h>
@@ -93,7 +93,7 @@ lock()
             recoverMutex();
         }
         else {
-            throw ML::Exception(error, "pthread_mutex_lock");
+            throw MLDB::Exception(error, "pthread_mutex_lock");
         }
     }
 }
@@ -117,7 +117,7 @@ tryLock()
             goto recovered;
         }
         else if (error != EBUSY) {
-            throw ML::Exception(error, "pthread_mutex_trylock");
+            throw MLDB::Exception(error, "pthread_mutex_trylock");
         }
     }
 
@@ -150,7 +150,7 @@ initMutex()
         if (!mutex_) {
             loadMutexFile();
             if (!mutex_) {
-                throw ML::Exception("mutex could not be loaded nor"
+                throw MLDB::Exception("mutex could not be loaded nor"
                                     " created");
             }
         }
@@ -171,7 +171,7 @@ createMutexFile()
     string tmpLock(lockname + "-" + to_string(gettid()));
     int fd = ::open(tmpLock.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (fd == -1) {
-        throw ML::Exception(errno, "open");
+        throw MLDB::Exception(errno, "open");
     }
 
     Call_Guard fdGuard([&] () {
@@ -183,14 +183,14 @@ createMutexFile()
 
     /* mmap the file */
     if (::ftruncate(fd, sizeof(pthread_mutex_t)) == -1) {
-        throw ML::Exception(errno, "ftruncate");
+        throw MLDB::Exception(errno, "ftruncate");
     }
     pthread_mutex_t * newMutex
         = (pthread_mutex_t *) ::mmap(nullptr, sizeof(pthread_mutex_t),
                                      PROT_READ | PROT_WRITE, MAP_SHARED,
                                      fd, 0);
     if (newMutex == MAP_FAILED) {
-        throw ML::Exception(errno, "mmap");
+        throw MLDB::Exception(errno, "mmap");
     }
 
     Call_Guard mmapGuard([&] () {
@@ -205,24 +205,24 @@ createMutexFile()
 
     error = ::pthread_mutexattr_init(&mutexattr);
     if (error != 0) {
-        throw ML::Exception(error, "pthread_mutexattr_init");
+        throw MLDB::Exception(error, "pthread_mutexattr_init");
     }
     error = ::pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_DEFAULT);
     if (error != 0) {
-        throw ML::Exception(error, "pthread_mutexattr_settype");
+        throw MLDB::Exception(error, "pthread_mutexattr_settype");
     }
     error = ::pthread_mutexattr_setpshared(&mutexattr, 1);
     if (error != 0) {
-        throw ML::Exception(error, "pthread_mutexattr_setpshared");
+        throw MLDB::Exception(error, "pthread_mutexattr_setpshared");
     }
     error = ::pthread_mutexattr_setrobust(&mutexattr, PTHREAD_MUTEX_ROBUST);
     if (error != 0) {
-        throw ML::Exception(error, "pthread_mutexattr_setrobust");
+        throw MLDB::Exception(error, "pthread_mutexattr_setrobust");
     }
 
     error = ::pthread_mutex_init(newMutex, &mutexattr);
     if (error != 0) {
-        throw ML::Exception(error, "pthread_mutexattr_init");
+        throw MLDB::Exception(error, "pthread_mutexattr_init");
     }
 
     Call_Guard mtxGuard([&] () {
@@ -246,7 +246,7 @@ loadMutexFile()
     int fd = ::open(lockname.c_str(), O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     if (fd == -1) {
         if (errno != ENOENT) {
-            throw ML::Exception(errno, "open");
+            throw MLDB::Exception(errno, "open");
         }
     }
     else {
@@ -254,7 +254,7 @@ loadMutexFile()
                              PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (mutex == MAP_FAILED) {
             ::close(fd);
-            throw ML::Exception(errno, "mmap");
+            throw MLDB::Exception(errno, "mmap");
         }
         fd_ = fd;
         mutex_ = (pthread_mutex_t *) mutex;
@@ -268,10 +268,10 @@ recoverMutex()
 {
     int error = ::pthread_mutex_consistent(mutex_);
     if (error != 0) {
-        throw ML::Exception(error, "pthread_mutex_consistent");
+        throw MLDB::Exception(error, "pthread_mutex_consistent");
     }
     error = ::pthread_mutex_unlock(mutex_);
     if (error != 0 && error != EPERM) {
-        throw ML::Exception(error, "pthread_mutex_unlock");
+        throw MLDB::Exception(error, "pthread_mutex_unlock");
     }
 }

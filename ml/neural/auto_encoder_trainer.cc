@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* auto_encoder_trainer.cc
    Jeremy Barnes, 11 November 2009
@@ -235,10 +235,10 @@ train_iter(Auto_Encoder & encoder,
            double learning_rate) const
 {
     int nx = data.size();
-    int ni JML_UNUSED = encoder.inputs();
-    int no JML_UNUSED = encoder.outputs();
+    int ni MLDB_UNUSED = encoder.inputs();
+    int no MLDB_UNUSED = encoder.outputs();
 
-    int microbatch_size = minibatch_size / (Datacratic::numCpus() * 4);
+    int microbatch_size = minibatch_size / (MLDB::numCpus() * 4);
             
     Lock update_lock;
 
@@ -282,7 +282,7 @@ train_iter(Auto_Encoder & encoder,
                                    progress.get())();
             };
 
-        Datacratic::parallelMapChunked
+        MLDB::parallelMapChunked
             (x, std::min<size_t>(nx2, x + minibatch_size),
              microbatch_size, doMicroBatch);
 
@@ -309,10 +309,10 @@ train_iter(Auto_Encoder & encoder,
            const Parameters_Copy<float> & learning_rates) const
 {
     int nx = data.size();
-    int ni JML_UNUSED = encoder.inputs();
-    int no JML_UNUSED = encoder.outputs();
+    int ni MLDB_UNUSED = encoder.inputs();
+    int no MLDB_UNUSED = encoder.outputs();
 
-    int microbatch_size = minibatch_size / (Datacratic::numCpus() * 4);
+    int microbatch_size = minibatch_size / (MLDB::numCpus() * 4);
             
     Lock update_lock;
 
@@ -356,7 +356,7 @@ train_iter(Auto_Encoder & encoder,
                                    progress.get())();
             };
 
-        Datacratic::parallelMapChunked
+        MLDB::parallelMapChunked
             (x, std::min<size_t>(nx2, x + minibatch_size),
              microbatch_size, doMicroBatch);
         
@@ -874,8 +874,8 @@ struct Test_Examples_Job {
         double test_error_exact = 0.0, test_error_noisy = 0.0;
 
         for (unsigned x = first;  x < last;  ++x) {
-            int ni JML_UNUSED = layer.inputs();
-            int no JML_UNUSED = layer.outputs();
+            int ni MLDB_UNUSED = layer.inputs();
+            int no MLDB_UNUSED = layer.outputs();
 
             // Present this input
             distribution<float> model_input(data_in[x]);
@@ -968,7 +968,7 @@ test_and_update(const Auto_Encoder & encoder,
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
 
     // 20 jobs per CPU
-    int batch_size = nx / (Datacratic::numCpus() * 20);
+    int batch_size = nx / (MLDB::numCpus() * 20);
 
     auto doBatch = [&] (size_t x0, size_t x1)
         {
@@ -981,7 +981,7 @@ test_and_update(const Auto_Encoder & encoder,
                               progress.get())();
         };
 
-    Datacratic::parallelMapChunked(0, nx, batch_size, doBatch);
+    MLDB::parallelMapChunked(0, nx, batch_size, doBatch);
 
     return make_pair(sqrt(error_exact / nx),
                      sqrt(error_noisy / nx));

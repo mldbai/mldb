@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -17,7 +17,7 @@ function assertEqual(expr, val, msg)
 csv_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "s3://benchm-ml--main/test.csv",
+        dataFileUrl : "https://s3.amazonaws.com/benchm-ml--main/test.csv",
         outputDataset: {
             id: "test",
         },

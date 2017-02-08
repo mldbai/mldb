@@ -1,19 +1,19 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* etcd_client.h                                                   -*- C++ -*-
    Jeremy Barnes, 4 March 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Client for etcd.
 */
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/date.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/arch/exception.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct EtcdNode {
     EtcdNode()
@@ -83,7 +83,7 @@ struct EtcdClient {
                  std::string basePath = "")
     {
         if (uri.empty())
-            throw ML::Exception("URI is empty");
+            throw MLDB::Exception("URI is empty");
         if (uri[uri.size() - 1] == '/')
             uri = std::string(uri, 0, uri.size() - 1);
         proxy.init(uri);
@@ -137,4 +137,4 @@ struct EtcdClient {
     std::string basePath;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

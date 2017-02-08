@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -16,16 +16,16 @@ function assertEqual(expr, val, msg)
 
 plugin.log(mldb.get("/v1/typeInfo", {type:"std::string"}).json);
 
-var vkInfo = mldb.get("/v1/typeInfo", {type:"Datacratic::ValueKind"}).json;
+var vkInfo = mldb.get("/v1/typeInfo", {type:"MLDB::ValueKind"}).json;
 
-assertEqual(vkInfo.typeName, "Datacratic::ValueKind");
+assertEqual(vkInfo.typeName, "MLDB::ValueKind");
 assertEqual(vkInfo.kind, "ENUM");
 
 var svdInfo = mldb.get("/v1/types/procedures/svd.train/info").json;
 
 plugin.log(svdInfo);
 
-assertEqual(svdInfo.configType.typeName, "Datacratic::MLDB::SvdConfig");
+assertEqual(svdInfo.configType.typeName, "MLDB::SvdConfig");
 assertEqual(svdInfo.configType.kind, "STRUCTURE");
 
 

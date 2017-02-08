@@ -1,7 +1,7 @@
 /**
  * decode_uri_test.cc
  * Mich, 2016-02-10
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 
 #define BOOST_TEST_MAIN
@@ -12,9 +12,10 @@
 #include "mldb/arch/exception.h"
 #include "mldb/types/url.h"
 #include "mldb/types/string.h"
+#include "ext/googleurl/src/url_util.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 #define TEST_ALL 1
 
@@ -65,12 +66,12 @@ BOOST_AUTO_TEST_CASE(test_percent_sign_with_spaces)
 #if TEST_ALL
 BOOST_AUTO_TEST_CASE(test_invalid_input)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Utf8String in("%");
 #if TOLERATE_URL_BAD_ENCODING
     BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 
 
@@ -78,14 +79,14 @@ BOOST_AUTO_TEST_CASE(test_invalid_input)
 #if TOLERATE_URL_BAD_ENCODING
     BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 
     in = "%a";
 #if TOLERATE_URL_BAD_ENCODING
     BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 }
 #endif
@@ -116,13 +117,13 @@ BOOST_AUTO_TEST_CASE(test_utf8_repetitions)
 #if TEST_ALL
 BOOST_AUTO_TEST_CASE(test_invalid_utf8)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Utf8String in = "%C3";
 #if TOLERATE_URL_BAD_ENCODING
     Utf8String expected = "Ã";
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
 #else
-    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+    BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
 #endif
 }
 #endif
@@ -155,5 +156,39 @@ BOOST_AUTO_TEST_CASE(test_4_bytes)
     Utf8String in("%F0%90%8D%88");
     Utf8String expected("𐍈");
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+}
+#endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_encode_uri)
+{
+    string res = Url::encodeUri("http://a b c.com");
+    BOOST_CHECK_EQUAL(res, "http://a%20b%20c.com");
+
+    res = Url::encodeUri("http://a%20b.com?1+2=3##𐍈");
+    BOOST_CHECK_EQUAL(res, "http://a%2520b.com?1+2=3##%F0%90%8D%88");
+
+    res = Url::encodeUri("http://a/b/c/d");
+    BOOST_CHECK_EQUAL(res, "http://a/b/c/d");
+}
+#endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_url_round_tripping)
+{
+    string org = "file://./with%20whitespace.py";
+    Url url(org);
+    BOOST_CHECK_EQUAL(url.toDecodedString(), org);
+    BOOST_CHECK_EQUAL(url.toString(), "file://./with%2520whitespace.py");
+
+    org = "file://./with whitespace.py";
+    url = Url(org);
+    BOOST_CHECK_EQUAL(url.toDecodedString(), org);
+    BOOST_CHECK_EQUAL(url.toString(), "file://./with%20whitespace.py");
+
+    org = "file://./with%20white space.py";
+    url = Url(org);
+    BOOST_CHECK_EQUAL(url.toDecodedString(), org);
+    BOOST_CHECK_EQUAL(url.toString(), "file://./with%2520white%20space.py");
 }
 #endif

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -23,6 +23,6 @@ var res = mldb.post('/v1/types/plugins/javascript/routes/run', scriptConfig);
 mldb.log(res);
 
 assertEqual(res.responseCode, 400);
-assertEqual(res.json.exception.message, "Uncaught SyntaxError: Unexpected token ILLEGAL");
+assertEqual(res.json.exception.message, "Uncaught SyntaxError: Invalid or unexpected token");
 
 "success"

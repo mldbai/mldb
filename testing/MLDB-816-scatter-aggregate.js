@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -30,7 +30,7 @@ recordExample("plum", "died", "stabbed");
 
 dataset.commit()
 
-var resp = mldb.get("/v1/datasets/test/query", {select: 'pivot(what, how) AS *', groupBy: 'who', rowName: 'who', format: 'sparse', orderBy: 'who'});
+var resp = mldb.get("/v1/query", {q: 'SELECT pivot(what, how) AS * NAMED who FROM test GROUP BY who ORDER BY who', format: 'sparse'});
 
 plugin.log(resp.json);
 

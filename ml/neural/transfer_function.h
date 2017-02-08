@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* transfer_function.h                                             -*- C++ -*-
    Jeremy Barnes, 2 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Definition of transfer functions.
 */
 
-#ifndef __jml__neural__transfer_function_h__
-#define __jml__neural__transfer_function_h__
+#pragma once
 
 #include "perceptron_defs.h"
 #include "mldb/jml/stats/distribution.h"
@@ -18,6 +16,7 @@
 
 namespace ML {
 
+using namespace MLDB;
 
 /*****************************************************************************/
 /* RANGE_TYPE                                                                */
@@ -282,7 +281,4 @@ create_transfer_function(const Transfer_Function_Type & function);
 std::shared_ptr<Transfer_Function>
 create_transfer_function(const std::string & name);
 
-
 } // namespace ML
-
-#endif /* __jml__neural__transfer_function_h__ */

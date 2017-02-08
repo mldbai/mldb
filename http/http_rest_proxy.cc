@@ -1,8 +1,8 @@
 /* http_rest_proxy.cc
    Jeremy Barnes, 10 April 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    REST proxy class for http.
 */
@@ -20,10 +20,9 @@
 #include "http_rest_proxy_impl.h"
 
 using namespace std;
-using namespace ML;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 static inline std::string lowercase(const std::string & str)
 {
@@ -70,7 +69,7 @@ getHeader(const std::string & name) const
 {
     auto p = hasHeader(name);
     if (!p)
-        throw ML::Exception("required header " + name + " not found");
+        throw MLDB::Exception("required header " + name + " not found");
     return p->second;
 }
 
@@ -134,7 +133,7 @@ urlEncode(const std::string & str)
                 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             result += c;
-        else result += ML::format("%%%02X", c);
+        else result += MLDB::format("%%%02X", c);
     }
     return result;
 }
@@ -149,7 +148,7 @@ urlEncode(const Utf8String & str)
                 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             result += c;
-        else result += ML::format("%%%02X", c);
+        else result += MLDB::format("%%%02X", c);
     }
     return result;
 }
@@ -204,7 +203,7 @@ struct HttpRestProxy::Itl {
             // Set proxy to this, so when it's destroyed it's put on our list
             ExcAssert(res.proxy == nullptr);
             res.proxy = owner;
-            return std::move(res);
+            return res;
         }
     }
     
@@ -290,10 +289,12 @@ get(const std::string & resource,
     bool exceptions,
     OnData onData,
     OnHeader onHeader,
-    bool followRedirect) const
+    bool followRedirect,
+    bool abortOnSlowConnection) const
 {
     return perform("GET", resource, Content(), queryParams, headers,
-                   timeout, exceptions, onData, onHeader, followRedirect);
+                   timeout, exceptions, onData, onHeader, followRedirect,
+                   abortOnSlowConnection);
 }
 
 HttpRestResponse
@@ -307,7 +308,8 @@ perform(const std::string & verb,
         bool exceptions,
         OnData onData,
         OnHeader onHeader,
-        bool followRedirect) const
+        bool followRedirect,
+        bool abortOnSlowConnection) const
 {
     string responseHeaders;
     string body;
@@ -334,7 +336,15 @@ perform(const std::string & verb,
         if (timeout != -1)
             myRequest.add_option(CURLOPT_TIMEOUT, timeout);
         else myRequest.add_option(CURLOPT_TIMEOUT, 0L);
+
         myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
+        myRequest.add_option(CURLOPT_CONNECTTIMEOUT, 20L);
+
+        if (abortOnSlowConnection) {
+            // abortOnSlowConnection SPECIFICATION *** /
+            myRequest.add_option(CURLOPT_LOW_SPEED_LIMIT, 1024 * 10);
+            myRequest.add_option(CURLOPT_LOW_SPEED_TIME, 5);
+        }
 
         if (itl->noSSLChecks) {
             myRequest.add_option(CURLOPT_SSL_VERIFYHOST, 0L);
@@ -408,7 +418,7 @@ perform(const std::string & verb,
         if (content.data) {
             myRequest.add_option(CURLOPT_POSTFIELDSIZE, content.size);
             myRequest.add_data_option(CURLOPT_POSTFIELDS, content.data);
-            curlHeaders.emplace_back(make_pair("Content-Length", ML::format("%lld", content.size)));
+            curlHeaders.emplace_back(make_pair("Content-Length", MLDB::format("%lld", content.size)));
             curlHeaders.emplace_back(make_pair("Content-Type", content.contentType));
         }
         else {
@@ -477,4 +487,4 @@ operator << (std::ostream & stream, const HttpRestProxy::Response & response)
     return stream << response.header() << "\n" << response.body() << "\n";
 }
 
-} // namespace Datacratic
+} // namespace MLDB

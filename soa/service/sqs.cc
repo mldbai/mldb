@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* sqs.cc
    Jeremy Barnes, 12 May 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Basic interface to Amazon's SQS service.
 */
@@ -19,7 +19,7 @@ using namespace ML;
 
 namespace {
 
-using namespace Datacratic;
+using namespace MLDB;
 
 
 SqsApi::Message
@@ -64,7 +64,7 @@ extractMessage(const tinyxml2::XMLNode * messageNode)
                     message.approximateReceiveCount = stoi(attrValue);
                 }
                 else {
-                    throw ML::Exception("unexpected attribute name: "
+                    throw MLDB::Exception("unexpected attribute name: "
                                         + attrName);
                 }
             }
@@ -78,7 +78,7 @@ extractMessage(const tinyxml2::XMLNode * messageNode)
 }
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -151,7 +151,7 @@ createQueue(const std::string & queueName,
                      to_string(params.messageRetentionPeriod));
     }
     if (params.policy.size() > 0) {
-        throw ML::Exception("'policy' not supported yet");
+        throw MLDB::Exception("'policy' not supported yet");
     }
     if (params.receiveMessageWaitTimeSeconds > -1) {
         addAttribute("ReceiveMessageWaitTimeSeconds",
@@ -267,7 +267,7 @@ getQueueAttributes(const std::string & queueUri)
                 attributes.visibilityTimeout = stoi(attrValue);
             }
             else {
-                throw ML::Exception("unexpected attribute name: "
+                throw MLDB::Exception("unexpected attribute name: "
                                     + attrName);
             }
         }
@@ -530,7 +530,7 @@ getQueueResource(const std::string & queueUri) const
     ExcAssert(!serviceUri.empty());
 
     if (queueUri.find(serviceUri) != 0)
-        throw ML::Exception("unknown queue URI");
+        throw MLDB::Exception("unknown queue URI");
     string resource(queueUri, serviceUri.size());
 
     return resource;
@@ -548,7 +548,7 @@ rightToString(enum SqsApi::Rights rights)
     case GetQueueUrl: return "GetQueueUrl";
     case All: return "*";
     default:
-        throw ML::Exception("unknown right");
+        throw MLDB::Exception("unknown right");
     };
 }
 
@@ -589,4 +589,4 @@ SqsSnsMessageBodyDescription()
              "URI to unsubscrive from topic");
 }
 
-} // namespace Datacratic
+} // namespace MLDB

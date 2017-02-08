@@ -1,8 +1,8 @@
 /** classifier.h                                                   -*- C++ -*-
     Jeremy Barnes, 22 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Classifier procedure and functions.
 */
@@ -21,7 +21,7 @@ struct Mutable_Feature_Set;
 struct Classifier_Impl;
 } // namespace ML
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -114,11 +114,6 @@ struct ClassifyFunction: public Function {
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
-    // Construct programatically from a ML::Classifier_Impl
-    ClassifyFunction(MldbServer * owner,
-                  std::shared_ptr<ML::Classifier_Impl> classifier,
-                  const std::string & labelFeatureName);
-
     ~ClassifyFunction();
 
     virtual Any getStatus() const;
@@ -129,8 +124,8 @@ struct ClassifyFunction: public Function {
     // can be produced.
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const;
-
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const;
+    
     virtual ExpressionValue apply(const FunctionApplier & applier,
                               const ExpressionValue & context) const;
 
@@ -179,4 +174,4 @@ struct ExplainFunction: public ClassifyFunction {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

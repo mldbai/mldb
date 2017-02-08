@@ -1,7 +1,7 @@
 /* config.h                                                           -*- C++ -*-
    Guy Dumais, 8 March 2016
 
-   This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
    Config interface.
 */
@@ -20,7 +20,7 @@ typedef basic_parsed_options<char> parsed_options;
 }
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Config {
     typedef std::shared_ptr<Config> ConfigPtr;
@@ -47,4 +47,4 @@ private:
     static ConfigPtr config;
 };
 
-} // Datacratic
+} // MLDB

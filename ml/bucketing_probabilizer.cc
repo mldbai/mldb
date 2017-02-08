@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bucketing_probabilizer.cc
    Francois Maillet, September 14, 2011
@@ -18,7 +18,7 @@ using namespace std;
 #include "confidence_intervals.h"
 #include <math.h>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -38,10 +38,10 @@ trainBucketingProbabilizer(
     auto ctr_buckets = predAccum.getCTRBuckets(num_buckets, calibrateToGroup,
             calibrateCountsRef);
     if(ctr_buckets.size()==1)
-        throw ML::Exception(ML::format("Problem with CTR buckets. Asked for "
+        throw MLDB::Exception(MLDB::format("Problem with CTR buckets. Asked for "
                     "%d buckets; only one back.", num_buckets));
     if(ctr_buckets.size()<num_buckets)
-        cerr << ML::format("WARNING. Asked for %d buckets, got %d back",
+        cerr << MLDB::format("WARNING. Asked for %d buckets, got %d back",
                 num_buckets, ctr_buckets.size()) << endl;
     
     return ctr_buckets;
@@ -88,7 +88,7 @@ autoTrainBucketingProbabilizer(Prediction_Accumulator & predAccum,
                 double imps = ctr_bucket.second.second;
                 double p = imps/totalImps / (1.0/ctr_buckets.size());
                 if (p < 0.1) {
-                    cout << ML::format("   Rejected because a bucket is only %0.3f "
+                    cout << MLDB::format("   Rejected because a bucket is only %0.3f "
                             "of what it should be. Min is 0.1", p) << endl;
                     done = false;
                     break;
@@ -112,18 +112,18 @@ autoTrainBucketingProbabilizer(Prediction_Accumulator & predAccum,
 
     cerr << "=== Probabilizer training will fail. Printing last 5 bucketing attemps ===" << endl;
     for(auto it = bucketsCache.begin(); it != bucketsCache.end(); it++) {
-        cerr << ML::format("  %d buckets:", it->first) << endl;
+        cerr << MLDB::format("  %d buckets:", it->first) << endl;
         for(const std::pair<double, std::pair<double, double>> & b : it->second) {
-        cerr << ML::format("     thresh: %0.4f     %0.6f/%0.6f = %0.8f", b.first,
+        cerr << MLDB::format("     thresh: %0.4f     %0.6f/%0.6f = %0.8f", b.first,
                 b.second.first, b.second.second, b.second.first/b.second.second) << endl;
         }
     }
-    throw ML::Exception("Unable to train probabilizer.");
+    throw MLDB::Exception("Unable to train probabilizer.");
 }
 Bucketing_Probabilizer::
 Bucketing_Probabilizer(const std::string & load_from)
 {
-    throw ML::Exception("deprecated");
+    throw MLDB::Exception("deprecated");
     //filter_istream stream(load_from);
     //ML::DB::Store_Reader store(stream);
     //reconstitute(store);
@@ -167,7 +167,7 @@ getBucketingProbabFromExpConfig(const std::string & trainedPath,
                 std::string errorMsg = "Error parsing JSON in file '" +
                     path + "':\n" +
                     reader.getFormattedErrorMessages();
-                throw ML::Exception(errorMsg);
+                throw MLDB::Exception(errorMsg);
             }
 
             return root;
@@ -235,7 +235,7 @@ doInit(const std::string & name, const std::string & prob_type,
             };
     }
     else {
-        throw ML::Exception("Unknown prob type '"+prob_type+"'");
+        throw MLDB::Exception("Unknown prob type '"+prob_type+"'");
     }
 
     // Precompute prob for buckets
@@ -253,7 +253,7 @@ size_t Bucketing_Probabilizer::
 getBucket(float score) const
 {
     if(ctr_buckets.size()==0)
-        throw ML::Exception("ctr buckets is empty!");
+        throw MLDB::Exception("ctr buckets is empty!");
 
     for(unsigned bucket_id=0; bucket_id<ctr_buckets.size(); bucket_id++) {
         if(ctr_buckets[bucket_id].first < score)
@@ -269,10 +269,10 @@ float Bucketing_Probabilizer::
 getProbForBucket(size_t bucket) const
 {
     if(ctr_buckets.size()==0)
-        throw ML::Exception("ctr buckets is empty!");
+        throw MLDB::Exception("ctr buckets is empty!");
 
     if(bucket >= ctr_buckets.size())
-        throw ML::Exception("bucket id out of bounds");
+        throw MLDB::Exception("bucket id out of bounds");
 
     return ctrs[bucket];
 }
@@ -281,7 +281,7 @@ float Bucketing_Probabilizer::
 getProb(float score) const
 {
     if(ctr_buckets.size()==0)
-        throw ML::Exception("ctr buckets is empty!");
+        throw MLDB::Exception("ctr buckets is empty!");
 
     for(unsigned bucket_id=0; bucket_id<ctr_buckets.size(); bucket_id++) {
         if(ctr_buckets[bucket_id].first < score)
@@ -341,7 +341,7 @@ reconstitute(ML::DB::Store_Reader & store)
     int version;
     store >> version;
     if (version != 1)
-        throw ML::Exception("wrong Bucketing_Probabilizer version!");
+        throw MLDB::Exception("wrong Bucketing_Probabilizer version!");
 
     store >> ctr_buckets >> ctrs >> 
         name >> type >> prob_type;
@@ -356,4 +356,4 @@ save(const string & filename) const
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

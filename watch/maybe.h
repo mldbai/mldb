@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** maybe.h                                                        -*- C++ -*-
     Jeremy Barnes, 3 July 2014
-    Copyright (C) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (C) 2014 mldb.ai inc.  All rights reserved.
 
 
 */
@@ -11,7 +11,7 @@
 
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Dummy {
     void dummy() {};
@@ -90,4 +90,4 @@ template<typename Val, typename None>
 ValueDescriptionT<MaybeT<Val, None> > *
 getDefaultDescription(MaybeT<Val, None> * = 0);
 
-} // namespace Datacratic
+} // namespace MLDB

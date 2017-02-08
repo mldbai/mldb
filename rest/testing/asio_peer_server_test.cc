@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** asio_server_test.cc                                            -*- C++ -*-
     Jeremy Barnes, 25 June 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -18,7 +18,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 #if 0
 BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_1 )

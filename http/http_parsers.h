@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_parsers.h                                                  -*- C++ -*-
    Wolfgang Sourdeau, January 2014
-   Copyright (c) 2014 Datacratic.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    This module contains classes meant to parse http requests
    (HttpRequestParser) and responses (HttpResponseParser), with a callback
@@ -17,7 +17,7 @@
 #include <string>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP PARSER                                                              */
@@ -27,6 +27,10 @@ struct HttpParser {
     /* Type of callback used when to report a header-line, including the
      * header key and the value. */
     typedef std::function<void (const char *, size_t)> OnHeader;
+
+    /* Type of callback used when receiving an "Expect: 100-continue" header.
+     */
+    typedef std::function<bool ()> OnExpect100Continue;
 
     /* Type of callback used when to report a chunk of the response body. Only
        invoked when the body is larger than 0 byte. */
@@ -77,6 +81,7 @@ struct HttpParser {
     }
 
     OnHeader onHeader;
+    OnExpect100Continue onExpect100Continue;
     OnData onData;
     OnDone onDone;
 
@@ -97,6 +102,7 @@ private:
     std::string buffer_;
 
     uint64_t remainingBody_;
+    bool expect100Continue_;
     bool useChunkedEncoding_;
     bool requireClose_;
 };
@@ -157,4 +163,4 @@ private:
     bool expectBody_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -1,8 +1,8 @@
 /* function.cc
    Jeremy Barnes, 21 January 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Function support.
 */
@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 
 namespace MLDB {
 
@@ -54,6 +54,11 @@ FunctionPolyConfigDescription()
     addField("persistent", &PolyConfig::persistent,
              "If true, then this function will have its configuration stored "
              "and will be reloaded on startup", false);
+    addField("deterministic", &PolyConfig::deterministic,
+             "If false, then the result of the function will be re-computed for each row of the query,"
+             " even if the arguments are not row-dependent. If true, then it is assumed for optimization purposes "
+             " that calling the function with the same input will always return the same value for a single SQL query"
+             , false);
 
     setTypeName("FunctionConfig");
     documentationUri = "/doc/builtin/functions/FunctionConfig.md";
@@ -68,6 +73,18 @@ void
 FunctionInfo::
 checkInputCompatibility(const ExpressionValueInfo & input) const
 {
+    // For now, say yes...
+}
+
+void
+FunctionInfo::
+checkInputCompatibility(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
+{
+    if (input.size() != this->input.size()) {
+        throw HttpReturnException
+            (400, "Wrong number of arguments (" + to_string(input.size())
+             + ") passed to user function expecting " + to_string(this->input.size()));
+    }
     // For now, say yes...
 }
 
@@ -90,9 +107,10 @@ apply(const ExpressionValue & input) const
 /*****************************************************************************/
 
 Function::
-Function(MldbServer * server)
+Function(MldbServer * server, const PolyConfig& config)
     : server(server)
 {
+    config_ = make_shared<PolyConfig>(config);
 }
 
 Function::
@@ -114,16 +132,19 @@ getDetails() const
     return Any();
 }
 
-
 std::unique_ptr<FunctionApplier>
 Function::
 bind(SqlBindingScope & outerContext,
-     const std::shared_ptr<RowValueInfo> & input) const
+     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     std::unique_ptr<FunctionApplier> result(new FunctionApplier());
     result->function = this;
     result->info = getFunctionInfo();
-    result->info.checkInputCompatibility(*input);
+    result->info.checkInputCompatibility(input);
+    if (config_)
+        result->info.deterministic = config_->deterministic;
+    else
+        result->info.deterministic = false;
     return result;
 }
 
@@ -131,7 +152,7 @@ FunctionInfo
 Function::
 getFunctionInfo() const
 {
-    throw HttpReturnException(400, "Function " + ML::type_name(*this)
+    throw HttpReturnException(400, "Function " + MLDB::type_name(*this)
                         + " needs to override getFunctionInfo()");
 }
 
@@ -142,7 +163,7 @@ handleRequest(RestConnection & connection,
               RestRequestParsingContext & context) const
 {
     Json::Value error;
-    error["error"] = "Function of type '" + ML::type_name(*this)
+    error["error"] = "Function of type '" + MLDB::type_name(*this)
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
@@ -151,4 +172,4 @@ handleRequest(RestConnection & connection,
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

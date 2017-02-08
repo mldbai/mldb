@@ -49,8 +49,8 @@ If you want to run MLDB on your own hardware, either bare metal or in the cloud,
 **MLDB**    | ✓ | ✓ | ✓
 **MLDB Pro Plugin[<sup>?</sup>](ProPlugin.md)**            |  &nbsp; | ✓ | ✓
 **Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Non-Commercial](licenses.md) | [Commercial](licenses.md)
-**Pricing**     | free! |  free! | <a href="http://datacratic.com/site/contact-us" target="_blank">contact sales</a>
-**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a> | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a>
+**Pricing**     | free! |  free! | <a href="mailto:info@mldb.ai?Subject=MLDB%20pricing%20inquiry">contact sales</a>
+**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="mailto:info@mldb.ai?Subject=MLDB%20support">MLDB Support</a> | <a href="mailto:info@mldb.ai?Subject=MLDB%20support">MLDB Support</a>
 **Getting Started**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md)<p>takes about 1 hr |  [download](#packages) <p>takes about 5 min |  [download](#packages) <p>takes about 5 min
 
 ### Creating a Free Trial license key is easy
@@ -94,7 +94,7 @@ You can get MLDB as a Docker image and run it as a Docker container. If you've n
 
 **Step 1 - Launch an MLBD container with a mapped directory**
     
-*Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/installation/ubuntulinux/#create-a-docker-group) for more information regarding running containers from regular user accounts.*
+*Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/engine/installation/linux/ubuntulinux/#/create-a-docker-group) for more information regarding running containers from regular user accounts.*
 
 First, create an *empty* directory on the host machine by running the following command, where `</absolute/path/to/mldb_data>` needs to be replaced by the absolute path on your local machine where you want your MLDB working directory to be:
 
@@ -109,7 +109,7 @@ docker run --rm=true \
 -v </absolute/path/to/mldb_data>:/mldb_data \
 -e MLDB_IDS="`id`" \
 -p 127.0.0.1:<mldbport>:80 \
-quay.io/datacratic/mldb:latest
+quay.io/mldb/mldb:latest
 ```
 
 Once the container is booted, the path `/mldb_data` inside the container is mapped to `</absolute/path/to/mldb_data>` on the host machine, so MLDB will be able to access files at `</absolute/path/to/mldb_data>/file.ext` via the URL `file:///mldb_data/file.ext`. Read more about URLs [here](Url.md).
@@ -151,7 +151,7 @@ done manually.
 
 When you launch MLDB with the commands above, your container will be called `mldb`, and will keep running even if you close the terminal you used to launch it. To stop MLDB, use `docker kill mldb`, and to restart it you re-run the command you used to launch the container.
 
-To upgrade MLDB to the latest version hosted, just stop your container, run `docker pull quay.io/datacratic/mldb:latest` and restart your container.
+To upgrade MLDB to the latest version hosted, just stop your container, run `docker pull quay.io/mldb/mldb:latest` and restart your container.
 
 ### Batch mode
 
@@ -185,7 +185,7 @@ Either double-click on the OVA file or open VirtualBox and choose *Import Applia
 Double-click on the MLDB Appliance in the main VirtualBox window, which will launch the VM. When it's booted, you will see a login prompt, but **you do not need to log in**, you can just proceed to the next step. If you do want to log in, the username is `ubuntu` and the password is `mldb`. You can also SSH into the VM on port 2222 on localhost:
 
 ```
-ssh -P2222 ubuntu@localhost
+ssh -p 2222 ubuntu@localhost
 ```
 
 **Step 4 - Activate MLDB**

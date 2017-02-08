@@ -1,8 +1,8 @@
 /** poly_entity.h                                                  -*- C++ -*-
     Jeremy Barnes, 22 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Polymorphic entity.  All entities in MLDB derive from this class, which
     provides a root for the type hierarchy.
@@ -15,7 +15,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/base/exc_assert.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* PACKAGE                                                                   */
@@ -73,13 +73,15 @@ struct RestDirectory;
 
 struct PolyConfig {
     PolyConfig()
-        : persistent(false)
+        : persistent(false),
+          deterministic(true)
     {
     }
 
     Utf8String id;        ///< Id (name) of the entity.  Must be unique
     Utf8String type;      ///< Type of the entity.
     bool persistent;      ///< Save this object's configuration for loading
+    bool deterministic;   ///< The entity has no hidden state
     Any params;           ///< Creation parameters, per type
 };
 
@@ -127,21 +129,21 @@ struct PolyEntity {
     const PolyConfig & getConfig() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return *config_;
     }
 
     const Utf8String & getId() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->id;
     }
 
     const Utf8String & getType() const
     {
         if (!config_)
-            throw ML::Exception("Entity has no configuration");
+            throw MLDB::Exception("Entity has no configuration");
         return config_->type;
     }
 
@@ -179,4 +181,4 @@ bool operator==(const PolyConfigT<Entity> & lhs, const PolyConfigT<Entity> & rhs
 typedef std::function<RestRequestMatchResult (RestDirectory *, RestConnection &, const RestRequest &, RestRequestParsingContext &)> TypeCustomRouteHandler;
 
 
-} // namespace Datacratic
+} // namespace MLDB

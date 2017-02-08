@@ -1,12 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** procedure_collection.cc
     Jeremy Barnes, 24 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Collection of procedures.
 */
 
+#include "mldb/types/value_description.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/server/mldb_server.h"
@@ -19,7 +20,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 std::shared_ptr<ProcedureCollection>
@@ -218,8 +219,8 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
     return polyStatus;
 }
 
+template class PolyCollection<Procedure>;
+
 } // namespace MLDB
 
-template class PolyCollection<MLDB::Procedure>;
 
-} // namespace Datacratic

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* exc_check.h                                                    -*- C++ -*-
    Rémi Attab, 24 Febuary 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Quick and easy way to throw an exception on a failed condition.
 
@@ -25,8 +24,8 @@
     do {                                                                \
         if (!(condition)) {                                             \
             std::string msg__ =                                         \
-                ML::format("%s: %s", message, #condition);              \
-            ML::do_abort();                                             \
+                MLDB::format("%s: %s", message, #condition);              \
+            MLDB::do_abort();                                             \
             throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,          \
                     __FILE__, __LINE__);                                \
         }                                                               \
@@ -41,11 +40,11 @@
             stream1__ << value1;  stream2__ << value2;                  \
             std::string v1__ = stream1__.str();                         \
             std::string v2__ = stream2__.str();                         \
-            std::string msg__ = ML::format(                             \
+            std::string msg__ = MLDB::format(                             \
                     "%s: !(%s " #op " %s) [!(%s " #op " %s)]",          \
                     message, #value1, #value2, v1__.c_str(),            \
                     v2__.c_str());                                      \
-            ML::do_abort();                                             \
+            MLDB::do_abort();                                             \
             throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,          \
                                         __FILE__, __LINE__);            \
         }                                                               \
@@ -55,9 +54,9 @@
 #define ExcCheckErrnoImpl(condition, message, exc_type)                 \
     do {                                                                \
         if (!(condition)) {                                             \
-            std::string msg__ = ML::format("%s: %s(%d)",                \
+            std::string msg__ = MLDB::format("%s: %s(%d)",                \
                     message, strerror(errno), errno);                   \
-            ML::do_abort();                                             \
+            MLDB::do_abort();                                             \
             throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,          \
                     __FILE__, __LINE__);                                \
         }                                                               \
@@ -66,13 +65,13 @@
 
 /// Simple forwarders with the right exception type.
 #define ExcCheck(condition, message)                    \
-    ExcCheckImpl(condition, message, ML::Assertion_Failure)
+        ExcCheckImpl(condition, message, ::MLDB::AssertionFailure)
 
 #define ExcCheckOp(op, value1, value2, message)                         \
-    ExcCheckOpImpl(op, value1, value2, message, ML::Assertion_Failure)
+        ExcCheckOpImpl(op, value1, value2, message, ::MLDB::AssertionFailure)
 
 #define ExcCheckErrno(condition, message)       \
-    ExcCheckErrnoImpl(condition, message, ML::Assertion_Failure)
+        ExcCheckErrnoImpl(condition, message, ::MLDB::AssertionFailure)
 
 
 /// see ExcCheckOpImpl for more details

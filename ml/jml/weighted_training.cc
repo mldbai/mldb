@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* weighted_training.cc
    Jeremy Barnes, 16 February 2005
@@ -321,7 +321,7 @@ parse_weight_spec(const Feature_Space & fs,
     vector<Weight_Spec> result;
 
     if (weight_spec != "") {
-        Parse_Context context("weight-spec option",
+        ParseContext context("weight-spec option",
                               &*weight_spec.begin(), &*weight_spec.end());
 
         while (context) {

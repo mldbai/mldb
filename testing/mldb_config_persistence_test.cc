@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** mldb_plugin_test.cc
     Jeremy Barnes, 13 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -23,8 +23,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_plugin_loading )
 {
@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
         }
         
         BOOST_CHECK_EQUAL(proxy.get("/v1/plugins").jsonBody(),
-                          Json::Value({ "jsplugin" }));
+                          Json::Value({ Json::Value("jsplugin") }));
         server.shutdown();
     }
 
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
         }
 
         BOOST_CHECK_EQUAL(proxy.get("/v1/plugins").jsonBody(),
-                          Json::Value({ "jsplugin" }));
+                          Json::Value({ Json::Value("jsplugin") }));
 
         auto res = proxy.perform("DELETE", "/v1/plugins/jsplugin");
         cerr << res << endl;

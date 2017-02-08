@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* json_codec.h                                                    -*- C++ -*-
    Jeremy Banres, 26 November 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    JSON encoding/decoding code.
 */
@@ -16,7 +16,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/basic_value_descriptions.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename T, typename Enable = void>
 struct JsonCodec {
@@ -44,4 +44,4 @@ void getParam(const Json::Value & parameters,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

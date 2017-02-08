@@ -1,6 +1,6 @@
 /** table_expression_operations.cc
     Jeremy Barnes, 27 July, 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -8,10 +8,12 @@
 #include "mldb/builtin/sub_dataset.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/sql/execution_pipeline.h"
+#include "mldb/types/value_description.h"
+#include <functional>
 
 using namespace std;
+using namespace std::placeholders;
 
-namespace Datacratic {
 namespace MLDB {
 
 /** Create a bound table expression that implements the binding of
@@ -23,9 +25,6 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
     BoundTableExpression result;
     result.dataset = dataset;
     result.asName = asName;
-
-    auto cols = dataset->getColumnIndex();
-    auto matrix = dataset->getMatrixView();
 
     // Allow us to query row information from the dataset
     result.table.getRowInfo = [=] () { return dataset->getRowInfo(); };
@@ -47,7 +46,8 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
                                  const SqlExpression & where,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit)
+                                 ssize_t limit,
+                                 const ProgressFunc & onProgress)
         -> BasicRowGenerator
         {
             return dataset->queryBasic(context, select, when, where, orderBy,
@@ -97,7 +97,7 @@ DatasetExpression::
 
 BoundTableExpression
 DatasetExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     if (!config.empty()) {
         return bindDataset(context.doGetDatasetFromConfig(config), asName);
@@ -190,10 +190,10 @@ std::shared_ptr<Dataset>
 
 BoundTableExpression
 JoinExpression::
-bind(SqlBindingScope & scope) const
+bind(SqlBindingScope & scope, const ProgressFunc & onProgress) const
 {
-    BoundTableExpression boundLeft = left->bind(scope);
-    BoundTableExpression boundRight = right->bind(scope);
+    BoundTableExpression boundLeft = left->bind(scope, onProgress);
+    BoundTableExpression boundRight = right->bind(scope, onProgress);
 
     if (boundLeft.dataset && boundRight.dataset) {
         auto ds = createJoinedDatasetFn(scope,
@@ -254,7 +254,8 @@ bind(SqlBindingScope & scope) const
                                      const SqlExpression & where_,
                                      const OrderByExpression & orderBy,
                                      ssize_t offset,
-                                     ssize_t limit)
+                                     ssize_t limit,
+                                     const ProgressFunc & onProgress)
             -> BasicRowGenerator
             {
                 // Joins are detected in the outer query logic and intercepted.
@@ -370,7 +371,7 @@ getUnbound() const
     result.merge(rightUnbound);
     result.mergeFiltered(onUnbound, tables);
 
-    std::vector<ColumnName> toRemove;
+    std::vector<ColumnPath> toRemove;
     for (auto & v: result.vars) {
         for (auto & t: tables) {
             if (v.first.startsWith(t)) {
@@ -406,15 +407,17 @@ SelectSubtableExpression::
 
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
-std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
+std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, 
+                                                const SubDatasetConfig &,
+                                                const ProgressFunc &);
 
 BoundTableExpression
 SelectSubtableExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     SubDatasetConfig config;
     config.statement = statement;
-    auto ds = createSubDatasetFn(context.getMldbServer(), config);
+    auto ds = createSubDatasetFn(context.getMldbServer(), config, onProgress);
 
     return bindDataset(ds, asName);
 }
@@ -466,7 +469,7 @@ NoTable::
 
 BoundTableExpression
 NoTable::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     return BoundTableExpression();
 }
@@ -535,18 +538,29 @@ DatasetFunctionExpression::
 
 BoundTableExpression
 DatasetFunctionExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     std::vector<BoundTableExpression> boundArgs;
-    for (auto arg : args)
-        boundArgs.push_back(arg->bind(context));
+    
+    size_t steps = args.size();
+    ProgressState joinState(100);
+    auto stepProgress = [&](uint step, const ProgressState & state) {
+        joinState = (100 / steps * state.count / *state.total) + (100 / steps * step);
+        return onProgress(joinState);
+    };
+
+    for (uint i = 0; i < steps; ++i) {
+        auto & arg = args[i];
+        auto & combinedProgress = onProgress ? std::bind(stepProgress, i, _1) : onProgress;
+        boundArgs.push_back(arg->bind(context, combinedProgress));
+    }
 
     ExpressionValue expValOptions;
     if (options) {
         expValOptions = options->constantValue();
     }
 
-    auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);
+    auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName, onProgress);
 
     if (!fn)
         throw HttpReturnException(400, "could not bind dataset function " + functionName);
@@ -608,8 +622,9 @@ getUnbound() const
 
 RowTableExpression::
 RowTableExpression(std::shared_ptr<SqlExpression> expr,
-                   Utf8String asName)
-    : expr(std::move(expr)), asName(std::move(asName))
+                   Utf8String asName,
+                   Style style)
+    : expr(std::move(expr)), asName(std::move(asName)), style(style)
 {
     ExcAssert(this->expr);
 }
@@ -623,14 +638,14 @@ RowTableExpression::
 // and allow expression parsing to be in a separate library
 std::vector<NamedRowValue>
 (*querySubDatasetFn) (MldbServer * server,
-                      std::vector<MatrixNamedRow> rows,
+                      std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
                       const SqlExpression & where,
                       const OrderByExpression & orderBy,
                       const TupleExpression & groupBy,
-                      const SqlExpression & having,
-                      const SqlExpression & named,
+                      const std::shared_ptr<SqlExpression> having,
+                      const std::shared_ptr<SqlExpression> named,
                       uint64_t offset,
                       int64_t limit,
                       const Utf8String & tableAlias,
@@ -638,7 +653,7 @@ std::vector<NamedRowValue>
 
 BoundTableExpression
 RowTableExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     ExcAssert(querySubDatasetFn);
 
@@ -647,15 +662,55 @@ bind(SqlBindingScope & context) const
 
     auto boundExpr = expr->bind(context);
 
-    // TODO: infer value expression from row, especially if there is only
+    // infer value expression from row, especially if there is only
     // one column available and thus its value type is simple
+    auto inputInfo = ExpressionValueInfo::toRow(boundExpr.info);
 
+    std::shared_ptr<ExpressionValueInfo> valueInfo;
+    
+    switch (style) {
+    case COLUMNS:
+        if (inputInfo->getSchemaCompleteness() == SCHEMA_CLOSED) {
+            // Try to infer a type for the column column.  This is done by
+            // getting a type that covers (can represent) the types of all
+            // of the columns in the dataset.
+            auto knownColumns = inputInfo->getKnownColumns();
+            if (!knownColumns.empty()) {
+                valueInfo = knownColumns[0].valueInfo;
+                for (size_t i = 1;  i < knownColumns.size();  ++i) {
+                    valueInfo = ExpressionValueInfo
+                        ::getCovering(valueInfo, knownColumns[i].valueInfo);
+                }
+            }
+        }
+        if (!valueInfo)
+            valueInfo.reset(new AnyValueInfo());
+        break;
+    case ATOMS:
+        if (inputInfo->getSchemaCompleteness() == SCHEMA_CLOSED) {
+            // Try to infer a type for the column column
+            auto knownAtoms = inputInfo->getKnownAtoms();
+            if (!knownAtoms.empty()) {
+                valueInfo = knownAtoms[0].valueInfo;
+                for (size_t i = 1;  i < knownAtoms.size();  ++i) {
+                    valueInfo = ExpressionValueInfo
+                        ::getCovering(valueInfo, knownAtoms[i].valueInfo);
+                }
+            }
+        }
+        if (!valueInfo)
+            valueInfo.reset(new AtomValueInfo());
+        break;
+    default:
+        throw HttpReturnException(500, "Invalid row_dataset style");
+    }
+    
     std::vector<KnownColumn> knownColumns;
-    knownColumns.emplace_back(ColumnName("value"),
-                              std::make_shared<AnyValueInfo>(),
+    knownColumns.emplace_back(ColumnPath("value"),
+                              valueInfo,
                               COLUMN_IS_DENSE);
-    knownColumns.emplace_back(ColumnName("column"),
-                              std::make_shared<AnyValueInfo>(),
+    knownColumns.emplace_back(ColumnPath("column"),
+                              std::make_shared<PathValueInfo>(),
                               COLUMN_IS_DENSE);
     auto info = std::make_shared<RowValueInfo>(knownColumns);
 
@@ -676,8 +731,8 @@ bind(SqlBindingScope & context) const
             return BoundFunction();
         };
 
-    static const ColumnName valueName("value");
-    static const ColumnName columnNameName("column");
+    static const PathElement valueName("value");
+    static const PathElement columnNameName("column");
 
     // Allow the dataset to run queries
     result.table.runQuery = [=] (const SqlBindingScope & context,
@@ -686,7 +741,8 @@ bind(SqlBindingScope & context) const
                                  const SqlExpression & where_,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit)
+                                 ssize_t limit,
+                                 const ProgressFunc & onProgress)
         -> BasicRowGenerator
         {
             // Copy the where expression
@@ -699,41 +755,67 @@ bind(SqlBindingScope & context) const
             {
                 // 1.  Get the row
                 ExpressionValue row = boundExpr(rowScope, GET_LATEST);
-                
+
+                if (!row.isRow()) {
+                    throw HttpReturnException
+                        (400, "Argument to row_dataset must be a row, not a "
+                         "scalar or NULL (got " + jsonEncodeStr(row) + ")");
+                }
+
                 // 2.  Put it in a sub dataset
-                std::vector<MatrixNamedRow> rows;
+                std::vector<NamedRowValue> rows;
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onColumn = [&] (const Path & columnName,
-                                     const Path & prefix,
-                                     const CellValue & cell,
-                                     Date ts)
-                {
-                    MatrixNamedRow row;
-                    row.rowHash = row.rowName = ColumnName(to_string(n++));
-                    row.columns.emplace_back(columnNameName,
-                                             (prefix + columnName)
-                                                 .toUtf8String(),
-                                             ts);
-                    row.columns.emplace_back(valueName,
-                                             cell,
-                                             ts);
-                    rows.emplace_back(std::move(row));
+                if (style == ATOMS) {
+                    auto onAtom = [&] (Path & columnName,
+                                       CellValue & val,
+                                       Date ts)
+                        {
+                            NamedRowValue row;
+                            row.rowHash = row.rowName = ColumnPath(to_string(n++));
 
-                    return true;
-                };
+                            row.columns.emplace_back(columnNameName,
+                                                     ExpressionValue(CellValue(std::move(columnName)), ts));
+                            row.columns.emplace_back(valueName, ExpressionValue(std::move(val), ts));
 
-                row.forEachAtom(onColumn);
+                            rows.emplace_back(std::move(row));
+
+                            return true;
+                        };
+
+                    row.forEachAtomDestructive(onAtom);
+                }
+                else { // style == ROWS
+                    auto onExpression = [&] (PathElement & columnName,
+                                             ExpressionValue & val)
+                    {
+                        NamedRowValue row;
+                        row.rowHash = row.rowName = ColumnPath(to_string(n++));
+
+                        row.columns.emplace_back
+                            (columnNameName,
+                             ExpressionValue(CellValue(std::move(columnName)),
+                                             val.getEffectiveTimestamp()));
+                        
+                        row.columns.emplace_back(valueName, std::move(val));
+
+                        rows.emplace_back(std::move(row));
+
+                        return true;
+                    };
+
+                    row.forEachColumnDestructive(onExpression);
+                }
 
                 return querySubDatasetFn(server, std::move(rows),
                                          select, when, *where, orderBy,
                                          TupleExpression(),
-                                         *SqlExpression::TRUE,
-                                         *SqlExpression::parse("rowPath()"),
+                                         SqlExpression::TRUE,
+                                         SqlExpression::parse("rowPath()"),
                                          offset, limit, "" /* dataset alias */,
                                          false /* allow multithreading */);
-            };
+                };
 
             BasicRowGenerator result(exec, "row table expression generator");
             return result;
@@ -759,7 +841,7 @@ void
 RowTableExpression::
 printJson(JsonPrintingContext & context)
 {
-    context.writeStringUtf8(print());
+    context.writeStringUtf8(surface);
 }
 
 std::string
@@ -793,4 +875,4 @@ getUnbound() const
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

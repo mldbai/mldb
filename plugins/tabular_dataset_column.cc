@@ -1,6 +1,6 @@
 /** tabular_dataset_column.cc                                      -*- C++ -*-
     Jeremy Barnes, 27 March 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Implementation of code to freeze columns into a binary format.
 */
@@ -8,7 +8,7 @@
 #include "tabular_dataset_column.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -102,12 +102,12 @@ reserve(size_t sz)
 
 std::shared_ptr<FrozenColumn>
 TabularDatasetColumn::
-freeze()
+freeze(const ColumnFreezeParameters & params)
 {
     ExcAssert(!isFrozen);
     isFrozen = true;
 
-    return FrozenColumn::freeze(*this);
+    return FrozenColumn::freeze(*this, params);
 }
 
 #if 0
@@ -123,4 +123,4 @@ memusage() const
 #endif
 
 } // namespace MLDB
-} // namespace Datacratic
+

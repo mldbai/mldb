@@ -1,8 +1,8 @@
 /** python_converters.cc
     Jeremy Barnes, 7 December 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "python_converters.h"
@@ -14,7 +14,8 @@ using namespace std;
 
 namespace bp = boost::python;
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 
@@ -84,19 +85,6 @@ construct(PyObject* obj_ptr, void* storage)
                            static_cast<double>(
                                                PyDateTime_DATE_GET_MICROSECOND(obj_ptr)) / 1000000.);
     }
-}
-
-
-/******************************************************************************/
-/* ID TO INT                                                                  */
-/******************************************************************************/
-
-PyObject*
-IdToPython::
-convert(const Id& id)
-{
-    bp::str* s = new bp::str(id.toString());
-    return bp::incref(s->ptr());
 }
 
 
@@ -214,7 +202,7 @@ construct_recur(PyObject * pyObj)
         val = b;
     }
     else if(PyInt_Check(pyObj)) {
-        int i = bp::extract<int>(pyObj);
+        int64_t i = bp::extract<int64_t>(pyObj);
         val = i;
     }
     else if(PyFloat_Check(pyObj)) {
@@ -229,7 +217,16 @@ construct_recur(PyObject * pyObj)
         // https://docs.python.org/2/c-api/unicode.html#c.PyUnicode_AsUTF8String
         PyObject* from_unicode = PyUnicode_AsUTF8String(pyObj);
         if(!from_unicode) {
-            std::cerr << "WARNING! Unable to extract unicode to ascii" << std::endl;
+            PyObject* str_obj = PyObject_Str(pyObj);
+            std::string str_rep = "<Unable to create str representation of object>";
+            if(str_obj) {
+                str_rep = bp::extract<std::string>(str_obj);
+            }
+            // not returned so needs to be garbage collected
+            Py_DECREF(str_obj);
+
+            throw MLDB::Exception("Unable to encode unicode to UTF-8"
+                                  "Str representation: "+str_rep);
         }
         else {
             std::string str = bp::extract<std::string>(from_unicode);
@@ -240,7 +237,7 @@ construct_recur(PyObject * pyObj)
         }
     }
     //else if(PyDateTime_Check(pyObj)) {
-    //    throw ML::Exception("do datetime!!");
+    //    throw MLDB::Exception("do datetime!!");
     //}
     else if(PyTuple_Check(pyObj)) {
         val = construct_lst<bp::tuple>(pyObj);
@@ -249,11 +246,12 @@ construct_recur(PyObject * pyObj)
         val = construct_lst<bp::list>(pyObj);
     }
     else if(PyDict_Check(pyObj)) {
+        val = Json::objectValue;
         PyDict pyDict = bp::extract<PyDict>(pyObj)();
         bp::list keys = pyDict.keys();
         for(int i = 0; i < len(keys); i++) {
             //                 if(!PyString_Check(keys[i]))
-            //                     throw ML::Exception("PyDict to JsVal only supports string keys");
+            //                     throw MLDB::Exception("PyDict to JsVal only supports string keys");
             std::string key = bp::extract<std::string>(keys[i]);
 
             bp::object obj = bp::object(pyDict[keys[i]]);
@@ -273,7 +271,7 @@ construct_recur(PyObject * pyObj)
         // not returned so needs to be garbage collected
         Py_DECREF(str_obj);
 
-        throw ML::Exception("Unknown type in PyDict to JsVal converter. "
+        throw MLDB::Exception("Unknown type in PyDict to JsVal converter. "
                             "Str representation: "+str_rep);
     }
 
@@ -327,7 +325,7 @@ convert_recur(const Json::Value & js)
         return dict;
     }
     else {
-        throw ML::Exception("Unknown type is JsVal to PyDict converter");
+        throw MLDB::Exception("Unknown type is JsVal to PyDict converter");
     }
 }
 
@@ -346,4 +344,5 @@ static struct AtInit {
 } atInit;
 
 } // namespace Python
-} // Datacratic
+
+} // namespace MLDB

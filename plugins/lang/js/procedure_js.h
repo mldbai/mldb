@@ -1,6 +1,6 @@
 /** procedure_js.h                                                   -*- C++ -*-
     Jeremy Barnes, 14 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     JS interface for procedures.
 */
@@ -10,7 +10,7 @@
 #include "js_common.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct Procedure;
@@ -33,21 +33,21 @@ struct ProcedureJS: public JsObjectBase {
     static v8::Local<v8::FunctionTemplate>
     registerMe();
 
-    static v8::Handle<v8::Value>
-    status(const v8::Arguments & args);
+    static void
+    status(const v8::FunctionCallbackInfo<v8::Value> & args);
     
-    static v8::Handle<v8::Value>
-    id(const v8::Arguments & args);
+    static void
+    id(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    type(const v8::Arguments & args);
+    static void
+    type(const v8::FunctionCallbackInfo<v8::Value> & args);
     
-    static v8::Handle<v8::Value>
-    config(const v8::Arguments & args);
+    static void
+    config(const v8::FunctionCallbackInfo<v8::Value> & args);
 
-    static v8::Handle<v8::Value>
-    run(const v8::Arguments & args);
+    static void
+    run(const v8::FunctionCallbackInfo<v8::Value> & args);
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

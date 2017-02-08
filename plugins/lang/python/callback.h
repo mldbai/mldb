@@ -1,8 +1,8 @@
 /** callback.h                                 -*- C++ -*-
     Rémi Attab, 16 Jan 2013
-    Copyright (c) 2013 Datacratic.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     std::function and std::function compatible python callbacks.
 
@@ -25,7 +25,8 @@
 #include <boost/python.hpp>
 #include <iostream>
 
-namespace Datacratic {
+namespace MLDB {
+
 namespace Python {
 
 /******************************************************************************/
@@ -112,6 +113,5 @@ private:
 
 
 } // namespace Python
-} // Datacratic
 
-// * I always wanted to do that.
+} // namespace MLDB

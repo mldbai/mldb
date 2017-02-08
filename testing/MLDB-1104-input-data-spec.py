@@ -1,7 +1,7 @@
 #
 # MLDB-1104-input-data-spec.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import unittest
 
@@ -123,14 +123,13 @@ class InputDataSpecTest(unittest.TestCase):
         self.train_svd('select x AS z, y from kmeans_example')
         self.train_svd('select * EXCLUDING(x) from kmeans_example')
         self.train_svd({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
+        self.train_svd('select x + 1, y from kmeans_example')
 
         with self.assertRaises(mldb_wrapper.ResponseException):
             self.train_svd('select x, y from kmeans_example group by x')
         with self.assertRaises(mldb_wrapper.ResponseException):
             self.train_svd(
                 'select x, y from kmeans_example group by x having y > 2')
-        with self.assertRaises(mldb_wrapper.ResponseException):
-            self.train_svd('select x + 1, y from kmeans_example')
 
     def test_train_classifier(self):
         mldb.log(self.train_classifier(
@@ -138,9 +137,8 @@ class InputDataSpecTest(unittest.TestCase):
             "from iris_dataset"))
 
         result = mldb.get(
-            "/v1/datasets/iris_dataset/query",
-            select='classifier_apply({{label, labels} as features}) as *, '
-                   'features')
+            "/v1/query",
+            q="SELECT classifier_apply({{label, labels} as features}) as *, features from iris_dataset")
         rows = result.json()
         mldb.log("-------------------------------");
         mldb.log(rows)

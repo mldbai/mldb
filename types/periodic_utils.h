@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* time_arithmetic.h                                               -*- C++ -*-
    Jeremy Barnes, 4 April 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Arithmetic functions for time.
 */
@@ -14,7 +14,7 @@
 #include "value_description_fwd.h"
 #include "string.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 enum TimeGranularity {
     MILLISECONDS,
@@ -217,7 +217,7 @@ TimePeriod restDecode(const Utf8String & str, TimePeriod *);
 TimePeriod restDecode(const std::string & str, TimePeriod *);
 Utf8String restEncode(const TimePeriod & p);
 
-} // namespace Datacratic
+} // namespace MLDB
 
 #endif /*  __logger__periodic_utils_h__ */
 

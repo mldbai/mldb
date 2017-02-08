@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* feature_transformer.h                                          -*- C++ -*-
    Jeremy Barnes, 10 February 2005
@@ -128,7 +128,7 @@ public:
     }
 
     /** Operator bool, which tells us if there is any implementation or not. */
-    JML_IMPLEMENT_OPERATOR_BOOL(!!impl_);
+    MLDB_IMPLEMENT_OPERATOR_BOOL(!!impl_);
 private:
     std::shared_ptr<Feature_Transformer_Impl> impl_;
 };

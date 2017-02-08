@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* mldb_runner.cc
    Jeremy Barnes, 12 December 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Runner for MLDB.
 */
@@ -23,12 +23,13 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/exception/diagnostic_information.hpp> 
 #include <signal.h>
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 namespace fs = boost::filesystem;
 
 
@@ -205,11 +206,17 @@ int main(int argc, char ** argv)
 
     variables_map vm;
     // command line has precendence over config
-    store(command_line_parser(argc, argv)
-          .options(all_opt)
-          //.positional(p)
-          .run(),
-          vm);
+    try {
+        store(command_line_parser(argc, argv)
+              .options(all_opt)
+              //.positional(p)
+              .run(),
+              vm);
+    }
+    catch (const boost::exception & exc) {
+        cerr << boost::diagnostic_information(exc) << endl;
+        return 1;
+    }
 
     notify(vm);
 
@@ -228,7 +235,7 @@ int main(int argc, char ** argv)
     }
 
     if (numThreads < minimumWorkerThreads) {
-        cerr << ML::format("'num-threads' cannot be less than %d: %d\n",
+        cerr << MLDB::format("'num-threads' cannot be less than %d: %d\n",
                            minimumWorkerThreads, numThreads);
         exit(1);
     }
@@ -251,7 +258,7 @@ int main(int argc, char ** argv)
                  << exc.what() << endl;
             return 1;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             cerr << "error reading credentials from command line: unknown error"
                  << endl;
             return 1;
@@ -263,21 +270,19 @@ int main(int argc, char ** argv)
         try {
             filter_istream stream(addCredentialsFromUrl);
             vector<string> fileCredentials;
-            while (stream) {
-                Json::Value val = Json::parse(stream);
-                if (val.type() == Json::arrayValue) {
-                    for (auto & v: val) {
-                        fileCredentials.push_back(v.toString());
-                    }
+            Json::Value val = Json::parse(stream);
+            if (val.type() == Json::arrayValue) {
+                for (auto & v: val) {
+                    fileCredentials.push_back(v.toString());
                 }
-                else if (val.type() == Json::objectValue) {
-                    fileCredentials.push_back(val.toString());
-                }
-                else if (val.type() == Json::nullValue) {
-                    // skip
-                }
-                else throw ML::Exception("Couldn't understand credentials " + val.toString());
             }
+            else if (val.type() == Json::objectValue) {
+                fileCredentials.push_back(val.toString());
+            }
+            else if (val.type() == Json::nullValue) {
+                // skip
+            }
+            else throw MLDB::Exception("Couldn't understand credentials " + val.toString());
 
             if (!fileCredentials.empty()) {
                 CredentialProvider::registerProvider
@@ -299,7 +304,7 @@ int main(int argc, char ** argv)
                  << endl;
             return 1;
         }
-        JML_CATCH_ALL {
+        MLDB_CATCH_ALL {
             cerr << "error reading credentials from file "
                  << addCredentialsFromUrl << ": unknown error"
                  << endl;
@@ -345,7 +350,7 @@ int main(int argc, char ** argv)
         string runner = "";
         if     (extension == ".js")   runner = "javascript";
         else if(extension == ".py")   runner = "python";
-        else throw ML::Exception("Unsupported extension '" +extension+ "'");
+        else throw MLDB::Exception("Unsupported extension '" +extension+ "'");
 
         HttpRestProxy proxy(server.httpBoundAddress);
 

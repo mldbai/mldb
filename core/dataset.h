@@ -1,8 +1,8 @@
 /** dataset.h                                                       -*- C++ -*-
     Jeremy Barnes, 4 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Interface for datasets into MLDB.
 */
@@ -14,6 +14,7 @@
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
 #include "mldb/core/recorder.h"
+#include "mldb/utils/progress.h"
 #include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
@@ -22,7 +23,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct MldbServer;
@@ -68,36 +69,36 @@ struct MatrixView {
     The sorting criteria is the same as with RowStream:
 
     Row names can be returned in an arbitrary order as long as it is deterministic.
-    I.e. Calling getRowNames several times on the same (unchanged) dataset should return rownames
+    I.e. Calling getRowPaths several times on the same (unchanged) dataset should return rownames
     in the same (arbitrary) order.
 
     The ordering needs to be preserved regardless of start and limit.
     */
-    virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
+    virtual std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
     virtual size_t getRowCount() const = 0;
 
-    /// Can be implemented by getRowName() then knownRow().  Deprecated.
+    /// Can be implemented by getRowPathName() then knownRow().  Deprecated.
     //virtual bool knownRowHash(const RowHash & row) const = 0;
     
-    virtual bool knownRow(const RowName & row) const = 0;
+    virtual bool knownRow(const RowPath & row) const = 0;
     
-    virtual MatrixNamedRow getRow(const RowName & row) const = 0;
+    virtual MatrixNamedRow getRow(const RowPath & row) const = 0;
 
-    virtual RowName getRowName(const RowHash & row) const = 0;
+    virtual RowPath getRowPath(const RowHash & row) const = 0;
 
     //virtual bool knownColumn(ColumnHash column) const = 0;
 
-    virtual bool knownColumn(const ColumnName & column) const = 0;
+    virtual bool knownColumn(const ColumnPath & column) const = 0;
     
-    virtual ColumnName getColumnName(ColumnHash column) const = 0;
+    virtual ColumnPath getColumnPath(ColumnHash column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const = 0;
+    virtual std::vector<ColumnPath> getColumnPaths() const = 0;
 
     /** Return the number of distinct columns known. */
     virtual size_t getColumnCount() const = 0;
@@ -105,7 +106,7 @@ struct MatrixView {
     /** Return the column count for the row.  Default uses getRow() and
         counts them.
     */
-    virtual uint64_t getRowColumnCount(const RowName & row) const;
+    virtual uint64_t getRowColumnCount(const RowPath & row) const;
 };
 
 struct CellValueStats {
@@ -155,32 +156,29 @@ struct ColumnStats {
 
 struct ColumnIndex {
     virtual ~ColumnIndex();
-    
-    typedef std::function<bool (const ColumnName & columnName,
-                                const ColumnStats & stats)> OnColumnStats;
-
-    /** Return stats for each column.  Default uses getColumnNames() and
-        getColumnStats(). */
-    virtual bool forEachColumnGetStats(const OnColumnStats & onColumnStats) const;
 
     /** Get stats for an individual column.  Default uses getColumn() and
         calculates from there.
     */
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & column, ColumnStats & toStoreResult) const;
+    getColumnStats(const ColumnPath & column, ColumnStats & toStoreResult) const;
 
     /** Return the value of the column for all rows and timestamps. */
     /** Will throw if column is unknown                              */
-    virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
+    virtual MatrixColumn getColumn(const ColumnPath & column) const = 0;
 
     /** Return a dense column, with one value for every row in the same order as
-        getRowNames().
+        getRowPaths().
 
-        Default builts on top of getColumn() and getRowNames(), but is
+        Default builts on top of getColumn() and getRowPaths(), but is
         quite inefficient.
     */
     virtual std::vector<CellValue>
-    getColumnDense(const ColumnName & column) const;
+    getColumnDense(const ColumnPath & column) const;
+
+    /** Return the set of distinct values in the column. */
+    virtual std::vector<CellValue>
+    getColumnDistinctValues(const ColumnPath & column) const;
 
     /** Return a bucketed dense column, with one value for every row in the same
         order as rowNames().  Numerical values will be split into a maximum of
@@ -190,30 +188,30 @@ struct ColumnIndex {
         Default builds on top of getColumnDense().
     */
     virtual std::tuple<BucketList, BucketDescriptions>
-    getColumnBuckets(const ColumnName & column,
+    getColumnBuckets(const ColumnPath & column,
                      int maxNumBuckets = -1) const;
 
     /** Return the value of the column for all rows, ignoring timestamps. 
         Default implementation is based on getColumn
         Will throw if column is unknown
     */
-    virtual std::vector<std::tuple<RowName, CellValue> >
-    getColumnValues(const ColumnName & column,
+    virtual std::vector<std::tuple<RowPath, CellValue> >
+    getColumnValues(const ColumnPath & column,
                     const std::function<bool (const CellValue &)> & filter = nullptr) const;
 
     /** Is this column known? */
-    virtual bool knownColumn(const ColumnName & column) const = 0;
+    virtual bool knownColumn(const ColumnPath & column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const = 0;
+    virtual std::vector<ColumnPath> getColumnPaths() const = 0;
 
     /** Return the number of rows that have this column set.  Default
         implementation uses getColumnStats.
     */
-    virtual uint64_t getColumnRowCount(const ColumnName & column) const;
+    virtual uint64_t getColumnRowCount(const ColumnPath & column) const;
 
-    virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
+    virtual std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const = 0;
 };
 
 
@@ -235,19 +233,107 @@ struct RowStream {
     {
     }
 
-    /* Clone the stream with just enough information to use the initAt 
-       clones streams should be un-initialized                        */
+    /** Clone the stream with just enough information to use the initAt 
+        clones streams should be un-initialized                        */
     virtual std::shared_ptr<RowStream> clone() const = 0;
 
-    /* set where the stream should start*/
+    /* Set where the stream should start.  This is called after
+       clone() to initialize the stream at a given position.  Note
+       that the parallelize() interface is better, and eventually
+       clone() / initAt() will be replaced by that interface.
+    */
     virtual void initAt(size_t start) = 0;
 
-    /* Return the current RowName and move the stream forward 
+    /* Return the current RowPath and move the stream forward 
        for performance, this method shall NOT do bound checking 
        so be sure to obtain the maximum number of rows beforehand 
-       using MatrixView::getRowCount for example */
-    virtual RowName next() = 0;
+       using MatrixView::getRowCount for example.
+    */
+    virtual RowPath next() = 0;
 
+    /** The methods below this one are only supported if this function
+        returns true.  Note that eventually the above methods will be
+        removed along with this function.
+
+        Default returns false.  Datasets that support this interface
+        should override and return true.
+    */
+    virtual bool supportsExtendedInterface() const;
+
+    /// Constant for an automatic number of child streams (whatever
+    /// makes sense to the implementation).
+    static constexpr ssize_t AUTO = -1;
+
+    /** Parallelize the given stream into about n sub-streams, each of
+        which can be run in parallel.
+        
+        Default implementation will use a combination of clone() and
+        initAt(), but specialization will help greatly.
+
+        If streamOffsets is non-null, it will be filled in with the
+        starting offset of each of the chunks.  It will contain one
+        more entry than the number of streams returned, with the last
+        entry being the total number of rows.
+    */
+    virtual std::vector<std::shared_ptr<RowStream> >
+    parallelize(int64_t rowStreamTotalRows,
+                ssize_t approxNumberOfChildStreams = AUTO,
+                std::vector<size_t> * streamOffsets = nullptr) const;
+
+    /** Return the rowName() at the current position of the
+        stream.  This may be called as many times as required.
+        Undefined behaviour if it is called on a stream without
+        initAt() having been called or having advanced to the
+        end.
+    */
+    virtual const RowPath & rowName(RowPath & storage) const = 0;
+
+    /** Advance by a single position, but without returning a
+        rowName().  More efficient than next() when just skipping
+        ahead.
+    */
+    virtual void advance();
+
+    /** Advance by a number of steps.  Equivalent to calling advance()
+        n times, but may be more efficient for some row streams.
+    */
+    virtual void advanceBy(size_t n);
+
+    /** Extract the given set of columns for the given stream,
+        as atoms, for numRows rows.  This will fill in a
+        numRows x columnNames.size() matrix pointed to by
+        output with the values.
+
+        Any column that is not present will fill in nulls.
+
+        Any column that does not have a single, scalar value
+        will throw an exception.
+        
+        It will also advance the rowStream by n rows.
+    */
+    virtual void
+    extractColumns(size_t numRows,
+                   const std::vector<ColumnPath> & columnNames,
+                   CellValue * output);
+    
+    /** Extract the given set of columns for the given stream,
+        as atoms, for numRows rows.  This will fill in a
+        numRows x columnNames.size() matrix pointed to by
+        output with the values.
+
+        Any column that is not present or null will fill in with
+        NaN.
+
+        Any column that does not have a single, numeric value
+        will throw an exception.
+        
+        It will also advance the rowStream by n rows.
+    */
+    virtual void
+    extractNumbers(size_t numRows,
+                   const std::vector<ColumnPath> & columnNames,
+                   double * output);
+    
 };
 
 
@@ -264,17 +350,17 @@ struct DatasetRecorder: public Recorder {
     virtual ~DatasetRecorder();
 
     virtual void
-    recordRowExpr(const RowName & rowName,
+    recordRowExpr(const RowPath & rowName,
                   const ExpressionValue & expr) override;
     virtual void
-    recordRow(const RowName & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
+    recordRow(const RowPath & rowName,
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override;
 
     virtual void
-    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override;
 
     virtual void
-    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override;
+    recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows) override;
 
 private:
     Dataset * dataset;
@@ -308,19 +394,19 @@ struct Dataset: public MldbEntity {
         This function is not virtual as it performs commom validation for all
         recording operation.  Datasets must implement recordRowItl.
     */
-    void recordRow(const RowName & rowName,
-                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    void recordRow(const RowPath & rowName,
+                   const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
     /** Internal handler for recording rows.  Default implementation throws that
         this dataset type does not support recording.
     */
-    virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    virtual void recordRowItl(const RowPath & rowName,
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    static void validateNames(const RowName & rowName,
-                      const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    static void validateNames(const RowPath & rowName,
+                      const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    static void validateNames(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    static void validateNames(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
     /** Record multiple rows in a single transaction.  Default implementation
         forwards to recordRow.
@@ -331,7 +417,7 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
     /** Record a column.  Default will forward to recordRows after transposing
         the input data.
@@ -339,8 +425,8 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordColumn(const ColumnName & columnName,
-                              const std::vector<std::tuple<RowName, CellValue, Date> > & vals);
+    virtual void recordColumn(const ColumnPath & columnName,
+                              const std::vector<std::tuple<RowPath, CellValue, Date> > & vals);
     
     /** Record multiple columns in a single transaction.  Default implementation
         forwards to recordRow.
@@ -348,7 +434,7 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols);
+    virtual void recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols);
 
     /** Record an expression value as a row.  This will be flattened by
         datasets that require flattening.
@@ -358,7 +444,7 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordRowExpr(const RowName & rowName,
+    virtual void recordRowExpr(const RowPath & rowName,
                                const ExpressionValue & expr);
 
     /** Record an expression value as a row.  This will be flattened by
@@ -369,7 +455,7 @@ struct Dataset: public MldbEntity {
         This function must be thread safe with respect to concurrent calls to
         all other functions.
     */
-    virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
+    virtual void recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows);
 
     struct MultiChunkRecorder {
         std::function<std::unique_ptr<Recorder> (size_t chunkIndex)> newChunk;
@@ -393,21 +479,21 @@ struct Dataset: public MldbEntity {
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
     */
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
 
     /** Return what is known about the given columns.  Default forwards
         to getKnownColumnInfo.  Some datasets can do a batch much more
         efficiently, so this function should be preferred if possible.
     */
     virtual std::vector<KnownColumn>
-    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
+    getKnownColumnInfos(const std::vector<ColumnPath> & columnNames) const;
 
     /** Record multiple embedding rows.  This forwards to recordRows in the
         default implementation, but is much more efficient in datasets that
         are designed for embeddings.
     */
-    virtual void recordEmbedding(const std::vector<ColumnName> & columnNames,
-                                 const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows);
+    virtual void recordEmbedding(const std::vector<ColumnPath> & columnNames,
+                                 const std::vector<std::tuple<RowPath, std::vector<float>, Date> > & rows);
 
     /** Return a RowValueInfo that describes all rows that could be returned
         from the dataset.
@@ -420,7 +506,7 @@ struct Dataset: public MldbEntity {
     /** Return a row as an expression value.  Default forwards to the matrix
         view's getRow() function.
     */
-    virtual ExpressionValue getRowExpr(const RowName & row) const;
+    virtual ExpressionValue getRowExpr(const RowPath & row) const;
 
 
     /** Commit changes to the database.  Default is a no-op.
@@ -439,11 +525,38 @@ struct Dataset: public MldbEntity {
                     const SqlExpression & where,
                     const OrderByExpression & orderBy,
                     const TupleExpression & groupBy,
-                    const SqlExpression & having,
-                    const SqlExpression & rowName,
+                    const std::shared_ptr<SqlExpression> having,
+                    const std::shared_ptr<SqlExpression> rowName,
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "") const;
+
+    std::tuple<std::vector<NamedRowValue>, std::shared_ptr<ExpressionValueInfo> >
+    queryStructuredExpr(const SelectExpression & select,
+                        const WhenExpression & when,
+                        const SqlExpression & where,
+                        const OrderByExpression & orderBy,
+                        const TupleExpression & groupBy,
+                        const std::shared_ptr<SqlExpression> having,
+                        const std::shared_ptr<SqlExpression> rowName,
+                        ssize_t offset,
+                        ssize_t limit,
+                        Utf8String alias = "",
+                        const ProgressFunc & onProgress = nullptr) const;
+
+    /** Select from the database. */
+    virtual bool
+    queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                               const SelectExpression & select,
+                               const WhenExpression & when,
+                               const SqlExpression & where,
+                               const OrderByExpression & orderBy,
+                               const TupleExpression & groupBy,
+                               const std::shared_ptr<SqlExpression> having,
+                               const std::shared_ptr<SqlExpression> rowName,
+                               ssize_t offset,
+                               ssize_t limit,
+                               Utf8String alias = "") const;
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>
@@ -457,8 +570,23 @@ struct Dataset: public MldbEntity {
     /** Return a list of the column names in the dataset, with the given offset
         and limit.
     */
-    virtual std::vector<ColumnName>
-    getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset = 0, ssize_t limit = -1) const;
+
+    /** Return a list of flattened column names in the dataset
+    */
+    virtual std::vector<ColumnPath> 
+    getFlattenedColumnNames() const;
+
+    /** Return the number of distinct flattened known columns
+        Defaults to getColumnCount (in matrix interface)
+    */
+    virtual size_t getFlattenedColumnCount() const;
+
+    /** Return whether or not all columns names and info are known.
+        Defaults to true
+    */
+    virtual bool hasColumnNames() const { return true; }
 
     /** Allow the dataset to intercept the binding of a function.  This allows
         it to use a locally defined or optimized version.  Should return a null
@@ -576,8 +704,10 @@ struct Dataset: public MldbEntity {
 
     /* In the case of a dataset with rows composed from other datasets (i.e., joins)
        This will return the name that the row has in the table with this alias*/
-    virtual RowName getOriginalRowName(const Utf8String& tableName,
-                                       const RowName & name) const;
+    virtual RowPath getOriginalRowName(const Utf8String& tableName,
+                                       const RowPath & name) const;
+
+    virtual uint64_t getRowCount() const;
 };
 
 
@@ -646,7 +776,11 @@ registerDatasetType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
-             return new DatasetT(DatasetT::getOwner(server), config, onProgress);
+             std::shared_ptr<spdlog::logger> logger = MLDB::getMldbLog<DatasetT>();
+             ConvertProgressToJson convertProgressToJson(onProgress);
+             auto dataset = new DatasetT(DatasetT::getOwner(server), config, convertProgressToJson);
+             dataset->logger = std::move(logger); // noexcept
+             return dataset;
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
@@ -671,4 +805,4 @@ struct RegisterDatasetType {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

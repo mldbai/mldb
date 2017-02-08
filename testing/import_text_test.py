@@ -1,7 +1,7 @@
 #
 # import_text_test.py
 # Francois-Michel L Heureux, 2016-06-21
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import tempfile
 
@@ -27,7 +27,7 @@ class ImportTextTest(MldbUnitTest):
         cls.irregular_lines_file.flush()
 
     def test_base(self):
-        mldb.post('/v1/procedures', {
+        res = mldb.post('/v1/procedures', {
             'type' : 'import.text',
             'params' : {
                 'runOnCreation' : True,
@@ -37,6 +37,10 @@ class ImportTextTest(MldbUnitTest):
                     'type' : 'tabular'
                 }
             }
+        }).json()
+        self.assertEqual(res['status']['firstRun']['status'], {
+            'numLineErrors' : 0,
+            'rowCount' : 1
         })
         res = mldb.query("SELECT a, b, c FROM base_ds")
         self.assertTableResultEquals(res, [
@@ -48,7 +52,7 @@ class ImportTextTest(MldbUnitTest):
         """
         MLDB-1741
         """
-        mldb.post('/v1/procedures', {
+        res = mldb.post('/v1/procedures', {
             'type' : 'import.text',
             'params' : {
                 'runOnCreation' : True,
@@ -59,6 +63,10 @@ class ImportTextTest(MldbUnitTest):
                     'type' : 'tabular'
                 }
             }
+        }).json()
+        self.assertEqual(res['status']['firstRun']['status'], {
+            'numLineErrors' : 0,
+            'rowCount' : 2
         })
         res = mldb.query("SELECT * FROM gen_headers_ds")
         self.assertTableResultEquals(res, [
@@ -115,6 +123,58 @@ class ImportTextTest(MldbUnitTest):
                 }
             })
 
+    def test_rowHash(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                'outputDataset' : "titanic_hashed",
+                "where": "rowHash() % 3 = 0",
+                'runOnCreation' : True,
+            }
+        })
+
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                'outputDataset' : "titanic_no_hashed",
+                'runOnCreation' : True,
+            }
+        })
+
+
+
+        self.assertTableResultEquals(
+            mldb.query("select count(*) from titanic_hashed"),
+            [["_rowName","count(*)"],
+             ["[]",287]]
+        )
+
+        self.assertTableResultEquals(
+            mldb.query("select count(*) from titanic_no_hashed"),
+            [["_rowName","count(*)"],
+             ["[]",891]]
+        )
+
+    def test_import_filename_with_whitespaces(self):
+        """
+        MLDB-1797
+        """
+        mldb.post('/v1/procedures', {
+            'type' : 'import.text',
+            'params' : {
+                'dataFileUrl' : 'file://mldb/testing/filename with whitespaces.csv',
+                'outputDataset' : 'test_impot_filename_with_whitespaces',
+                'runOnCreation' : True
+            }
+        })
+
+        res = mldb.query("SELECT * FROM test_impot_filename_with_whitespaces")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'a', 'b'],
+            ['2', 1, 2]
+        ])
 
 
 if __name__ == '__main__':

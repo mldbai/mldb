@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* perceptron.h                                                    -*- C++ -*-
    Jeremy Barnes, 16 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    The multi layer perceptron algorithm, implemented as a classifier.
 */
@@ -20,6 +18,7 @@
 
 namespace ML {
 
+using namespace MLDB;
 
 class Label;
 class Thread_Context;

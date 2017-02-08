@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** rest_request_binding.h                                         -*- C++ -*-
     Jeremy Barnes, 15 November 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Functionality to bind arbitrary functions into REST requests in a
     declarative manner.
@@ -20,8 +19,9 @@
 #include "mldb/types/json_printing.h"
 #include "mldb/rest/rest_request_params.h"
 #include "mldb/rest/rest_request_params_types.h"
+#include "mldb/jml/utils/positioned_types.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -325,7 +325,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "URI encoded";
     v2["location"] = "query string";
 
@@ -353,7 +353,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "URI encoded";
     v2["location"] = "query string";
     v2["defaultValue"] = p.defaultValueStr;
@@ -389,7 +389,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -403,8 +403,7 @@ createParameterExtractor(Json::Value & argHelp,
 }
 
 template<typename T, typename Codec>
-static std::function<decltype(JsonCodec<T>::decode(std::declval<Json::Value>()))
-                     (RestConnection & connection,
+static std::function<T (RestConnection & connection,
                       const RestRequest & request,
                       const RestRequestParsingContext & context)>
 createParameterExtractor(Json::Value & argHelp,
@@ -416,7 +415,7 @@ createParameterExtractor(Json::Value & argHelp,
         v2["name"] = p.name;
     }
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -450,7 +449,7 @@ createParameterExtractor(Json::Value & argHelp,
     Json::Value desc;
     desc["name"] = p.name;
     desc["description"] = p.description;
-    desc["cppType"] = ML::type_name<T>();
+    desc["cppType"] = MLDB::type_name<T>();
     desc["encoding"] = "URI encoded or JSON";
     desc["location"] = "query string or Request Body";
 
@@ -463,16 +462,13 @@ createParameterExtractor(Json::Value & argHelp,
                 const RestRequest & request,
                 const RestRequestParsingContext & context)
         {
-            Json::Value parsed;
-            if (!request.payload.empty()) {
-                parsed = Json::parse(request.payload);
+            Json::Value parsed = request.payload.empty() ?
+                Json::nullValue : Json::parse(request.payload);
+            if (!request.params.empty() && !parsed.empty()) {
+                throw HttpReturnException(
+                    400, "You cannot mix query string and body parameters");
             }
             if (request.params.hasValue(p.name)) {
-                if (parsed.isMember(p.name)) {
-                    throw ML::Exception(
-                        "You cannot define %s in both the query string and "
-                        "the request body", p.name.rawData());
-                }
                 return p.codec.decode(request.params.getValue(p.name));
             }
             if (parsed.isMember(p.name)) {
@@ -482,6 +478,45 @@ createParameterExtractor(Json::Value & argHelp,
         };
 }
 
+template<typename T, typename Codec>
+static std::function<decltype(JsonCodec<T>::decode(std::declval<Json::Value>()))
+                     (RestConnection & connection,
+                      const RestRequest & request,
+                      const RestRequestParsingContext & context)>
+createParameterExtractor(Json::Value & argHelp,
+                         const HybridParamDefault<T, Codec> & p, void * = 0)
+{
+    Json::Value desc;
+    desc["name"] = p.name;
+    desc["description"] = p.description;
+    desc["cppType"] = MLDB::type_name<T>();
+    desc["encoding"] = "URI encoded or JSON";
+    desc["location"] = "query string or Request Body";
+
+    for (const auto key: {"requestParams", "jsonParams"}) {
+        Json::Value & v = argHelp[key];
+        v[v.size()] = desc;
+    }
+
+    return [=] (RestConnection & connection,
+                const RestRequest & request,
+                const RestRequestParsingContext & context)
+        {
+            Json::Value parsed = request.payload.empty() ?
+                Json::nullValue : Json::parse(request.payload);
+            if (!request.params.empty() && !parsed.empty()) {
+                throw HttpReturnException(
+                    400, "You cannot mix query string and body parameters");
+            }
+            if (parsed.isMember(p.name)) {
+                return p.jsonCodec.decode(parsed[p.name].toStyledString());
+            }
+            if (request.params.hasValue(p.name)) {
+                return p.restCodec.decode(request.params.getValue(p.name));
+            }
+            return p.defaultValue;
+        };
+}
 
 /** Free function to be called in order to generate a parameter extractor
     for the given parameter.  See the CreateRestParameterGenerator class for more
@@ -500,7 +535,7 @@ createParameterExtractor(Json::Value & argHelp,
     if (!p.name.empty())
         v2["name"] = p.name;
     v2["description"] = p.description;
-    v2["cppType"] = ML::type_name<T>();
+    v2["cppType"] = MLDB::type_name<T>();
     v2["encoding"] = "URI encoded";
     v2["location"] = "URI";
 
@@ -520,7 +555,7 @@ createParameterExtractor(Json::Value & argHelp,
                     knownResources
                         += (knownResources.empty() ? "":",")
                         +  r;
-                throw ML::Exception("attempt to access missing resource %d of "
+                throw MLDB::Exception("attempt to access missing resource %d of "
                                     "%zd (known is %s)",
                                     index, context.resources.size(),
                                     knownResources.rawData());
@@ -1568,4 +1603,4 @@ addRouteSyncJsonReturn(RestRequestRouter & router,
 
 
 
-} // namespace Datacratic
+} // namespace MLDB

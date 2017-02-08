@@ -1,8 +1,8 @@
 /* asio_peer_connection.h                                          -*- C++ -*-
    Jeremy Barnes, 1 June 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -11,7 +11,7 @@
 #include <boost/asio.hpp>
 #include <atomic>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -96,5 +96,5 @@ private:
 
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

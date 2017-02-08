@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* boosted_stumps.cc
    Jeremy Barnes, 6 June 2003
@@ -34,7 +34,7 @@ namespace ML {
 
 namespace {
 
-Env_Option<bool> profile("PROFILE_BOOSTED_STUMPS", false);
+EnvOption<bool> profile("PROFILE_BOOSTED_STUMPS", false);
 
 double t_train = 0.0, t_update = 0.0, t_predict = 0.0, t_accuracy = 0.0;
 
@@ -130,7 +130,7 @@ struct Results_Single {
     Results_Single(float & result, int label)
         : result(result), label(label) {}
     
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void operator () (const distribution<float> & dist, float weight,
                       const Feature & feature) const
     {
@@ -758,7 +758,7 @@ struct Results_Explain {
     {
     }
     
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     void operator () (const distribution<float> & dist, float weight,
                       const Feature & feature) const
     {

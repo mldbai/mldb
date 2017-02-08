@@ -1,8 +1,8 @@
 /** tsne.cc
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of an TSNE algorithm for embedding of a dataset.
 */
@@ -30,11 +30,12 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/jml_serialization.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(TsneConfig);
@@ -50,17 +51,18 @@ TsneConfigDescription()
     addField("rowOutputDataset", &TsneConfig::output,
              "Dataset for TSNE output, with embeddings of training data. "
              "One row will be added for each row in the input dataset, "
-             "with a list of coordinates",
+             "with a list of coordinates.",
              PolyConfigT<Dataset>().withType("embedding"));
     addField("numInputDimensions", &TsneConfig::numInputDimensions,
              "Number of dimensions from the input to use.  This will limit "
              "the columns to the n first columns in the alphabetical "
-             "sorting of the columns (-1 = all)",
+             "sorting of the columns (-1 = all).",
              -1);
     addField("numOutputDimensions", &TsneConfig::numOutputDimensions,
              "Number of dimensions to produce in t-SNE space.  Normally "
              "this will be 2 or 3, depending upon the number of dimensions "
-             "in the visualization");
+             "in the visualization.",
+             2);
     addField("tolerance", &TsneConfig::tolerance,
              "Tolerance of perplexity calculation.  This is an internal "
              "parameter that only needs to be changed in rare circumstances.");
@@ -69,7 +71,15 @@ TsneConfigDescription()
              "controls how hard t-SNE tries to spread the points out.  If "
              "the resulting output looks more like a ball or a sphere than "
              "individual clusters, you should reduce this number.  If it "
-             "looks like a dot or star, you should increase it.");
+             "looks like a dot or star, you should increase it.",
+             30.0);
+    addField("learningRate", &TsneConfig::learningRate,
+             "The learning rate specifies the gradient descent step size during "
+             "optimization of the cost function.  A learning rate that is too small "
+             "may hold optimization in a local minimum.  A learning rate that is too high "
+             "may jump over the best optimal point. In general, the learning rate "
+             "should be between 100 and 1000.",
+             500.0);
     addField("modelFileUrl", &TsneConfig::modelFileUrl,
              "URL where the model file (with extension '.tsn') should be saved. "
              "This file can be loaded by the ![](%%doclink tsne.embedRow function). "
@@ -98,7 +108,7 @@ struct TsneItl {
 
     TsneItl(const Url & filename)
     {
-        filter_istream stream(filename.toString());
+        filter_istream stream(filename);
         ML::DB::Store_Reader store(stream);
 
         reconstitute(store);
@@ -113,7 +123,7 @@ struct TsneItl {
     std::unique_ptr<ML::Quadtree> qtree;
     std::vector<Utf8String> inputColumnNames;
     std::vector<Utf8String> outputColumnNames;
-    std::shared_ptr<const std::vector<ColumnName> > outputColumnNamesShared;
+    std::shared_ptr<const std::vector<ColumnPath> > outputColumnNamesShared;
 
     size_t numOutputDimensions() const { return outputPath.shape()[1]; }
 
@@ -164,10 +174,10 @@ struct TsneItl {
         string tag;
         store >> tag;
         if (tag != "TSNE")
-            throw ML::Exception("Expected TSNE tag");
+            throw MLDB::Exception("Expected TSNE tag");
         compact_size_t version(store);
         if (version != 2)
-            throw ML::Exception("Unknown version for t-SNE");
+            throw MLDB::Exception("Unknown version for t-SNE");
 
         compact_size_t rows(store), dimsIn(store), dimsOut(store);
 
@@ -175,13 +185,13 @@ struct TsneItl {
 
         store >> inputColumnNames >> outputColumnNames;
 
-        outputColumnNamesShared.reset(new vector<ColumnName>(outputColumnNames.begin(), outputColumnNames.end()));
+        outputColumnNamesShared.reset(new vector<ColumnPath>(outputColumnNames.begin(), outputColumnNames.end()));
 
         vpTree.reset(ML::VantagePointTree::reconstitutePtr(store));
         qtree.reset(new ML::Quadtree(store));
     }
 
-    ML::distribution<float> reembed(const ML::distribution<float> & v) const
+    distribution<float> reembed(const distribution<float> & v) const
     {
         return retsneApproxFromCoords(v, inputPath, outputPath,
                                       *qtree, *vpTree, params);
@@ -230,28 +240,30 @@ run(const ProcedureRunConfig & run,
 
     itl->params.perplexity = runProcConf.perplexity;
     itl->params.tolerance = runProcConf.tolerance;
+    itl->params.eta = runProcConf.learningRate;
 
-    //cerr << "perplexity = " << itl->params.perplexity << endl;
-    //cerr << "tolerance = " << itl->params.tolerance << endl;
-
-    //cerr << "doing t-SNE" << endl;
+    DEBUG_MSG(logger) << "perplexity = " << itl->params.perplexity;
+    DEBUG_MSG(logger) << "tolerance = " << itl->params.tolerance;
+    DEBUG_MSG(logger) << "learningRate = " << itl->params.eta;
+    DEBUG_MSG(logger) << "doing t-SNE";
 
 
     SqlExpressionMldbScope context(server);
 
-    //cerr << "numDims = " << numDims << endl;
-
+    ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
                                         runProcConf.numInputDimensions,
-                                        onProgress2);
+                                        convertProgressToJson);
 
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+    std::vector<std::tuple<RowHash, RowPath, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
         = embeddingOutput.first;
     std::vector<KnownColumn> & vars = embeddingOutput.second;
 
     size_t numDims = vars.size();
+
+    DEBUG_MSG(logger) << "numDims = " << numDims;
 
     boost::multi_array<float, 2> coords
         (boost::extents[rows.size()][numDims]);
@@ -268,23 +280,16 @@ run(const ProcedureRunConfig & run,
                                   "Make sure your dataset is not empty and that your WHERE, offset "
                                   "and limit expressions do not filter all the rows");
 
-//cerr << "copied into matrix" << endl;
+    DEBUG_MSG(logger) << "copied into matrix";
 
-#if 0
-    cerr << "rows[0] = " << rows[0].second << endl;
-    cerr << "rows[1] = " << rows[1].second << endl;
-    cerr << "rows[2] = " << rows[1].second << endl;
-    cerr << "rows[0] dot rows[1] = " << rows[0].second.dotprod(rows[1].second)
-         << endl;
-    cerr << "rows[0] dot rows[2] = " << rows[0].second.dotprod(rows[2].second)
-         << endl;
-    cerr << "rows[0] dist rows[1] = " << (rows[0].second - rows[1].second).two_norm()
-         << endl;
-    cerr << "rows[0] dist rows[2] = " << (rows[0].second - rows[2].second).two_norm()
-         << endl;
-    cerr << "rows[1] dist rows[2] = " << (rows[1].second - rows[2].second).two_norm()
-         << endl;
-#endif
+//     DEBUG_MSG(logger) << "rows[0] = " << rows[0].second;
+//     DEBUG_MSG(logger) << "rows[1] = " << rows[1].second;
+//     DEBUG_MSG(logger) << "rows[2] = " << rows[1].second;
+//     DEBUG_MSG(logger) << "rows[0] dot rows[1] = " << rows[0].second.dotprod(rows[1].second);
+//     DEBUG_MSG(logger) << "rows[0] dot rows[2] = " << rows[0].second.dotprod(rows[2].second);
+//     DEBUG_MSG(logger) << "rows[0] dist rows[1] = " << (rows[0].second - rows[1].second).two_norm();
+//     DEBUG_MSG(logger) << "rows[0] dist rows[2] = " << (rows[0].second - rows[2].second).two_norm();
+//     DEBUG_MSG(logger) << "rows[1] dist rows[2] = " << (rows[1].second - rows[2].second).two_norm();
 
     itl->inputPath.resize(boost::extents[rows.size()][numDims]);
     itl->inputPath = coords;
@@ -293,8 +298,8 @@ run(const ProcedureRunConfig & run,
                                       std::string phase)
         {
             if (iter == 1 || iter % 10 == 0)
-                cerr << "phase " << phase << " iter " << iter
-                     << " cost " << cost << endl;
+                INFO_MSG(logger) << "phase " << phase << " iter " << iter
+                     << " cost " << cost;
             return true;
         };
 
@@ -309,13 +314,13 @@ run(const ProcedureRunConfig & run,
     ExcAssert(itl->qtree);
     ExcAssert(itl->vpTree);
 
-    vector<ColumnName> names = { ColumnName("x"), ColumnName("y"), ColumnName("z") };
+    vector<ColumnPath> names = { ColumnPath("x"), ColumnPath("y"), ColumnPath("z") };
     if (runProcConf.numOutputDimensions <= 3)
         names.resize(runProcConf.numOutputDimensions);
     else {
         names.clear();
         for (unsigned i = 0; i < runProcConf.numOutputDimensions;  ++i)
-            names.push_back(ColumnName(ML::format("dim%04d", i)));
+            names.push_back(ColumnPath(MLDB::format("dim%04d", i)));
     }
 
 
@@ -328,11 +333,11 @@ run(const ProcedureRunConfig & run,
     }
 
     itl->outputColumnNamesShared
-        .reset(new vector<ColumnName>(itl->outputColumnNames.begin(),
+        .reset(new vector<ColumnPath>(itl->outputColumnNames.begin(),
                                       itl->outputColumnNames.end()));
 
     if (!runProcConf.modelFileUrl.empty()) {
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+        makeUriDirectory(runProcConf.modelFileUrl.toString());
         itl->save(runProcConf.modelFileUrl.toString());
     }
 
@@ -341,9 +346,9 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, runProcConf.output, onProgress2, true /*overwrite*/);
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
-            //cerr << "row " << i << " had coords " << itl->outputPath[i][0] << ","
-            //     << itl->outputPath[i][1] << endl;
-            std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+            TRACE_MSG(logger) << "row " << i << " had coords " << itl->outputPath[i][0] << ","
+                 << itl->outputPath[i][1];
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > cols;
             for (unsigned j = 0;  j < runProcConf.numOutputDimensions;  ++j) {
                 ExcAssert(isfinite(itl->outputPath[i][j]));
                 cols.emplace_back(names[j], itl->outputPath[i][j], Date());
@@ -404,7 +409,7 @@ TsneEmbed::
 TsneEmbed(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<TsneEmbedConfig>();
     itl = std::make_shared<TsneItl>(functionConfig.modelFileUrl);
@@ -422,7 +427,7 @@ call(TsneInput input) const
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
 
-    ML::distribution<float> input = inputVal.getEmbedding(itl->inputColumnNames.size());
+    distribution<float> input = inputVal.getEmbedding(itl->inputColumnNames.size());
 
     Date ts = Date::negativeInfinity();
     auto embedding = itl->reembed(input);
@@ -452,4 +457,4 @@ regTsneEmbed(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

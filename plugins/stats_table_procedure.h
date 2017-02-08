@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** stats_table_procedure.h                                                   -*- C++ -*-
     Francois Maillet, 2 septembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     StatsTable procedure
 */
 
 #pragma once
 
-#include "types/value_description.h"
+#include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
 #include "server/mldb_server.h"
 #include "mldb/core/procedure.h"
@@ -18,7 +17,7 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -54,7 +53,7 @@ struct NoiseInjector {
 
 struct StatsTable {
 
-    StatsTable(const ColumnName & colName=ColumnName("ND"),
+    StatsTable(const ColumnPath & colName=ColumnPath("ND"),
             const std::vector<std::string> & outcome_names = {})
         : colName(colName), outcome_names(outcome_names),
           zeroCounts(std::make_pair(0, std::vector<uint64_t>(outcome_names.size())))
@@ -74,7 +73,7 @@ struct StatsTable {
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 
-    ColumnName colName;
+    ColumnPath colName;
 
     std::vector<std::string> outcome_names;
     std::unordered_map<Utf8String, BucketCounts> counts;
@@ -115,7 +114,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
 /* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
-typedef std::map<ColumnName, StatsTable> StatsTablesMap;
+typedef std::map<ColumnPath, StatsTable> StatsTablesMap;
 
 struct StatsTableProcedure: public Procedure {
 
@@ -306,4 +305,4 @@ struct StatsTablePosNegFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

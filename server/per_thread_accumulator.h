@@ -1,17 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** per_thread_accumulator.h                                       -*- C++ -*-
     Jeremy Barnes, 30 July 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Object that allows map-reduce over multiple threads and accumulation
     at the end.
 */
 
+#pragma once
+
 #include "mldb/arch/thread_specific.h"
 #include <functional>
 
-namespace Datacratic {
+
 namespace MLDB {
 
 template<typename Payload>
@@ -19,7 +20,7 @@ struct PerThreadAccumulator {
 
     std::mutex threadsLock;
     std::vector<std::shared_ptr<Payload> > threads;
-    ML::ThreadSpecificInstanceInfo<std::shared_ptr<Payload>, void> payloadPerThread;
+    ThreadSpecificInstanceInfo<std::shared_ptr<Payload>, void> payloadPerThread;
 
     std::function<Payload * ()> createPayload;
     std::function<void (Payload *)> destroyPayload;
@@ -43,7 +44,7 @@ struct PerThreadAccumulator {
         bool hadInfo = false;
         std::shared_ptr<Payload> * payload = payloadPerThread.get(&hadInfo);
 
-        if (JML_UNLIKELY(!hadInfo)) {
+        if (MLDB_UNLIKELY(!hadInfo)) {
             ExcAssert(!payload->get());
             payload->reset(createPayload(), destroyPayload);
 
@@ -70,4 +71,4 @@ struct PerThreadAccumulator {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

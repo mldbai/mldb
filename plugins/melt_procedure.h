@@ -1,16 +1,16 @@
 /** melt_procedure.h                                                   -*- C++ -*-
     Francois Maillet, 21 janvier 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
 
-#include "types/value_description.h"
+#include "types/value_description_fwd.h"
 #include "server/mldb_server.h"
 #include "mldb/core/procedure.h"
 #include "sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -59,4 +59,4 @@ struct MeltProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

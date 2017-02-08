@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* device_data.h                                                   -*- C++ -*-
    Jeremy Barnes, 1 April 2009
@@ -14,7 +14,7 @@
 #include "mldb/arch/demangle.h"
 #include <typeinfo>
 
-#if (! defined(JML_COMPILER_NVCC) ) || (! JML_COMPILER_NVCC)
+#if (! defined(MLDB_COMPILER_NVCC) ) || (! MLDB_COMPILER_NVCC)
 # warning "This file should only be included for CUDA"
 #endif
 

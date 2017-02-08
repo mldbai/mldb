@@ -1,6 +1,6 @@
 /* MLDB-1025-output-dataset-serialization-test.cc
    Guy Dumais, 4 November 2015
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -26,7 +26,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+
 using namespace MLDB;
 
 
@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE( test_output_dataset_parsing )
     Json::Value conf;
     Json::Reader reader;
     if (!reader.parse(jsConf, conf))
-        throw ML::Exception("can't parse js conf");
+        throw MLDB::Exception("can't parse js conf");
 
     // convert it to an Any, the way it would be received in
     // the params field of a procedure config struct
@@ -57,7 +57,7 @@ ConfigType createConfig(const std::string & datasetName, const std::string input
     Json::Value conf;
     Json::Reader reader;
     if (!reader.parse(jsConf, conf))
-        throw ML::Exception("can't parse js conf");
+        throw MLDB::Exception("can't parse js conf");
     
     Any params(conf);
     return params.convert<ConfigType>();

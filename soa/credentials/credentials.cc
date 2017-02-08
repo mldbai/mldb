@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** credentials.cc
     Jeremy Barnes, 5 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -11,7 +11,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(Credential);
 
@@ -70,4 +70,4 @@ StoredCredentialsDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

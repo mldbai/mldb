@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* glz_classifier_test.cc
    Jeremy Barnes, 14 May 2010
@@ -9,7 +9,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
-#define JML_TESTING_GLZ_CLASSIFIER
+#define MLDB_TESTING_GLZ_CLASSIFIER
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
@@ -32,7 +32,7 @@ using boost::unit_test::test_suite;
 BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
 {
     string toParse = "k=CATEGORICAL/c=2,Male,Female/o=OPTIONAL";
-    ML::Parse_Context context(toParse, toParse.c_str(), toParse.length());
+    ParseContext context(toParse, toParse.c_str(), toParse.length());
     Mutable_Feature_Info info;
     info.parse(context);
 

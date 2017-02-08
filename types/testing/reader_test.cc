@@ -1,7 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* date_test.cc
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
 */
 
 #define BOOST_TEST_MAIN
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE( test_escapes )
 
 BOOST_AUTO_TEST_CASE( test_bad_parse )
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_THROW(auto x = Json::parse("foo");, Json::Exception);
     BOOST_CHECK_THROW(auto x = Json::parse("{'a's':'a'}");, Json::Exception);
     BOOST_CHECK_THROW(auto x = Json::parse("{\"a\"s\":\"b\"}");, Json::Exception);
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE( test_bad_parse )
 
 BOOST_AUTO_TEST_CASE( test_no_assert )
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     Json::Value x = 1;
     BOOST_CHECK_THROW(x[0u], std::runtime_error);
 }

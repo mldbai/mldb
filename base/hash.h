@@ -1,8 +1,8 @@
 /* hash.h                                                           -*- C++ -*-
    Jeremy Barnes, 25 October 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Md5 hash functions.
 */
@@ -11,7 +11,7 @@
 
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 std::string base64Encode(const std::string & str);
 std::string base64Encode(const char * buf, size_t nBytes);

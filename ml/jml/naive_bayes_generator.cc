@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* naive_bayes_generator.cc
    Jeremy Barnes, 15 March 2006
@@ -42,12 +42,11 @@ Naive_Bayes_Generator::~Naive_Bayes_Generator()
 
 void
 Naive_Bayes_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
-    
-    config.find(trace,        "trace");
-    config.find(feature_prop, "feature_prop");
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(trace, "trace", unparsedKeys);
+    config.findAndRemove(feature_prop, "feature_prop", unparsedKeys);
 }
 
 void

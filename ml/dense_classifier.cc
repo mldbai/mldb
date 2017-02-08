@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* dense_classifier.cc
    Jeremy Barnes, 12 May 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -14,7 +14,7 @@ using namespace ML;
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -155,7 +155,7 @@ serialize(DB::Store_Writer & store) const
 
 float
 DenseClassifier::
-score(const ML::distribution<float> & features) const
+score(const distribution<float> & features) const
 {
     float mapper_output[mapping_.num_vars_expected_];
 
@@ -169,7 +169,7 @@ score(const ML::distribution<float> & features) const
 
 float
 DenseClassifier::
-scoreUnbiased(const ML::distribution<float> & features,
+scoreUnbiased(const distribution<float> & features,
               PipelineExecutionContext & context) const
 {
     float mapper_output[mapping_.num_vars_expected_];
@@ -184,7 +184,7 @@ scoreUnbiased(const ML::distribution<float> & features,
 
 ML::Label_Dist
 DenseClassifier::
-labelScores(const ML::distribution<float> & features) const
+labelScores(const distribution<float> & features) const
 {
     float mapper_output[mapping_.num_vars_expected_];
 
@@ -198,7 +198,7 @@ labelScores(const ML::distribution<float> & features) const
 
 ML::Label_Dist
 DenseClassifier::
-labelScoresUnbiased(const ML::distribution<float> & features,
+labelScoresUnbiased(const distribution<float> & features,
                     PipelineExecutionContext & context) const
 {
     float mapper_output[mapping_.num_vars_expected_];
@@ -213,7 +213,7 @@ labelScoresUnbiased(const ML::distribution<float> & features,
 
 std::pair<ML::Explanation, std::shared_ptr<Mutable_Feature_Set> >
 DenseClassifier::
-explain(const ML::distribution<float> & features,
+explain(const distribution<float> & features,
         int label) const
 {
     std::shared_ptr<Mutable_Feature_Set> fset
@@ -224,7 +224,7 @@ explain(const ML::distribution<float> & features,
 
 std::pair<ML::Explanation, std::shared_ptr<Mutable_Feature_Set> >
 DenseClassifier::
-explainUnbiased(const ML::distribution<float> & features,
+explainUnbiased(const distribution<float> & features,
                 int label,
                 PipelineExecutionContext & context) const
 {
@@ -234,4 +234,4 @@ explainUnbiased(const ML::distribution<float> & features,
     return make_pair(classifier_->explain(*fset, label, 1.0, &context), fset);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

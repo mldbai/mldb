@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* command_expression.h                                            -*- C++ -*-
    Jeremy Barnes, 27 August 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Template for a command that can be reconstituted with calculated
    arguments.
@@ -21,7 +19,9 @@
 #include "command.h"
 
 
-namespace Datacratic {
+namespace MLDB {
+
+namespace PluginCommand {
 
 /*****************************************************************************/
 /* COMMAND TEMPLATE                                                          */
@@ -114,7 +114,7 @@ struct CommandExpressionVariables {
         if (it == values.end()) {
             if (outer)
                 return outer->getValue(variableName);
-            else throw ML::Exception("couldn't find value of " + variableName);
+            else throw MLDB::Exception("couldn't find value of " + variableName);
         }
         return it->second;
     }
@@ -261,10 +261,10 @@ struct CommandExpression {
     std::string surfaceForm;
 
     static std::shared_ptr<CommandExpression>
-    parseExpression(ML::Parse_Context & context, bool stopOnWhitespace = false);
+    parseExpression(ParseContext & context, bool stopOnWhitespace = false);
 
     static std::shared_ptr<CommandExpression>
-    parseArgumentExpression(ML::Parse_Context & context);
+    parseArgumentExpression(ParseContext & context);
 
     static std::shared_ptr<CommandExpression>
     parse(const std::string & val);
@@ -570,7 +570,7 @@ struct PlusExpression: public BinaryArithmeticExpression {
             return result;
         }
         else return stringRender(lhs) + stringRender(rhs);
-        //else throw ML::Exception("don't know how to add %s and %s",
+        //else throw MLDB::Exception("don't know how to add %s and %s",
         //                         lhs.toString().c_str(),
         //                         rhs.toString().c_str());
     }
@@ -593,7 +593,7 @@ struct DivideExpression: public BinaryArithmeticExpression {
             }
             return lhs.asInt() / rhs.asInt();
         }
-        else throw ML::Exception("don't know how to divide %s by %s",
+        else throw MLDB::Exception("don't know how to divide %s by %s",
                                  lhs.toString().c_str(),
                                  rhs.toString().c_str());
     }
@@ -709,5 +709,6 @@ struct CommandTemplate {
 
 DECLARE_STRUCTURE_DESCRIPTION(CommandTemplate);
 
+} // namespace PluginCommand
+} // namespace MLDB
 
-} // namespace Datacratic

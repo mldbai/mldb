@@ -1,11 +1,12 @@
 /** svd_utils.cc
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "svd_utils.h"
+#include "mldb/arch/arch.h"
 #include "mldb/jml/utils/environment.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
@@ -13,9 +14,13 @@
 #include "mldb/vfs/filter_streams.h"
 #include <mutex>
 
+#if MLDB_INTEL_ISA
+#include <smmintrin.h>
+#endif
+
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(SvdSpace);
 
@@ -239,7 +244,7 @@ intersectionCountBasic(const uint16_t * it1, const uint16_t * end1,
     int result = 0;
     
     while (it1 != end1 && it2 != end2) {
-#if 1
+#if MLDB_INTEL_ISA
         int eq = 0, le = 0, ge = 0;
         
         __asm__
@@ -276,7 +281,7 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
 {
     int result = 0;
 
-#if 1
+#if MLDB_INTEL_ISA
     typedef char v16qi __attribute__((__vector_size__(16)));
                                               
     constexpr int8_t mode
@@ -370,25 +375,20 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
         result += __builtin_popcount(mask);
     }
 
-#else
+#else  // MLDB_INTEL_ISA
     while (it1 < end1 && it2 < end2) {
-        int eq = 0, le = 0, ge = 0;
-        
-        __asm__
-            ("cmp     %[val2], %[val1]    \n\t"
-             "cmovz   %[one], %[eq] \n\t"
-             "cmovle  %[one], %[le] \n\t"
-             "cmovge  %[one], %[ge] \n\t"
-             : [eq] "+r" (eq), [le] "+r" (le), [ge] "+r" (ge)
-             : [val1] "r" (*it1), [val2] "r" (*it2), [one] "r" (1)
-             : "cc"
-             );
-        
+
+        int val1 = *it1;
+        int val2 = *it2;
+        int eq = val1 == val2;
+        int le = val1 <= val2;
+        int ge = val1 >= val2;
+
         result += eq;
         it1 += le;
         it2 += ge;
     }
-#endif
+#endif // MLDB_INTEL_ISA
 
     return result;
 }
@@ -411,8 +411,10 @@ intersectionCountOptimized(const uint32_t * it1, const uint32_t * end1,
     int result = 0;
     
     while (it1 != end1 && it2 != end2) {
-        int eq = 0, le = 0, ge = 0;
         
+#if MLDB_INTEL_ISA
+        int eq = 0, le = 0, ge = 0;
+
         __asm__
             ("cmp     %[val2], %[val1]    \n\t"
              "cmovz   %[one], %[eq] \n\t"
@@ -422,6 +424,13 @@ intersectionCountOptimized(const uint32_t * it1, const uint32_t * end1,
              : [val1] "r" (*it1), [val2] "r" (*it2), [one] "r" (1)
              : "cc"
              );
+#else // MLDB_INTEL_ISA
+        int val1 = *it1;
+        int val2 = *it2;
+        int eq = val1 == val2;
+        int le = val1 <= val2;
+        int ge = val1 >= val2;
+#endif // MLDB_INTEL_ISA
         
         result += eq;
         it1 += le;
@@ -449,7 +458,7 @@ intersectionCount(const uint16_t * it1, const uint16_t * end1,
         : intersectionCountBasic(it1, end1, it2, end2);
 }
 
-ML::Env_Option<int> SVD_OPTIMIZED_INTERSECTION("SVD_OPTIMIZED_INTERSECTION", 3);
+EnvOption<int> SVD_OPTIMIZED_INTERSECTION("SVD_OPTIMIZED_INTERSECTION", 3);
 
 int useOptimizedIntersection = SVD_OPTIMIZED_INTERSECTION;
 
@@ -495,7 +504,7 @@ calcOverlap(const Bucket & other, SvdSpace space) const
                     result += ei.counts.at(it1 - begin1) * ej.counts.at(it2 - begin2);
                     break;
                 default:
-                    throw ML::Exception("unknown space");
+                    throw MLDB::Exception("unknown space");
                 }
 
                 ++it1;
@@ -752,5 +761,5 @@ calcOverlap(const Bucket & other, SvdSpace space) const
 
 
 
-} // namespace Datacratic
+} // namespace MLDB
 

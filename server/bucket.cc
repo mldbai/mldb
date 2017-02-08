@@ -1,8 +1,8 @@
 /** bucket.cc                                                       -*- C++ -*-
     Mathieu Marquis Bolduc, March 11th 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Structures to bucketize sets of cellvalues
 */
@@ -13,14 +13,17 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/types/string.h"
 
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
+#include <cstring>
 
-namespace Datacratic {
+
 namespace MLDB {
 
-namespace{
+namespace {
 
 template<typename T>
 static std::shared_ptr<T>
@@ -135,6 +138,24 @@ getBucket(const CellValue & val) const
     throw HttpReturnException(500, "categorical value '" + val.toString() + "' not found in col");
 }
 
+struct CompareStrs {
+    bool operator () (const Utf8String & str1, const char * str2) const
+    {
+        return strcmp(str1.rawData(), str2) < 0;
+    }
+};
+
+uint32_t
+StringValues::
+getBucket(const CellValue & val) const
+{
+    const char * str = val.stringChars();
+    auto it = std::lower_bound(buckets.begin(), buckets.end(), str, CompareStrs());
+    if (it == buckets.end() || *it != str)
+        throw HttpReturnException(500, "categorical value '" + val.toString() + "' not found in col");
+    return it - buckets.begin() + offset;
+}
+
 BucketDescriptions::
 BucketDescriptions()
 {
@@ -152,76 +173,82 @@ initialize(std::vector<CellValue> values, int numBuckets)
         typeValues.at((int)v.cellType())[v] += 1;
     }
 
+    bool hasNulls = false;
     // Bucketize each type.  Strings can't be bucketized.
     size_t n = 0;
     if (!typeValues[CellValue::EMPTY].empty()) {
-        this->hasNulls = true;
+        hasNulls = true;
         ++n;  // value zero is for nulls
     }
 
+    // Bucketize numeric values
+    std::vector<double> numerics;
+    for (auto & v: typeValues[CellValue::INTEGER])
+        numerics.push_back(v.first.toDouble());
+    for (auto & v: typeValues[CellValue::FLOAT])
+        numerics.push_back(v.first.toDouble());
+    
+    // Get string values
+    std::vector<Utf8String> stringValues;
+    for (auto type: { CellValue::ASCII_STRING, CellValue::UTF8_STRING } ) {
+        for (auto & v: typeValues[(int)type])
+            stringValues.emplace_back(v.first.toUtf8String());
+    }
+
+    initialize(hasNulls, std::move(numerics), std::move(stringValues),
+               numBuckets);
+}
+
+void
+BucketDescriptions::
+initialize(bool hasNulls,
+           std::vector<double> numericValues,
+           std::vector<Utf8String> stringValues,
+           int numBuckets)
+{
+    this->hasNulls = hasNulls;
+    size_t n = hasNulls;
     this->numeric.offset = n;
     this->numeric.active = false;
     this->numeric.splits.clear();
 
-    // Bucketize numeric values
-    std::vector<CellValue> numerics;
-    for (auto & v: typeValues[CellValue::INTEGER])
-        numerics.push_back(v.first);
-    for (auto & v: typeValues[CellValue::FLOAT])
-        numerics.push_back(v.first);
-    std::sort(numerics.begin(), numerics.end());
-
-    if (!numerics.empty()) {
-
+    if (!numericValues.empty()) {
+        std::sort(numericValues.begin(), numericValues.end());
+        numericValues.erase(std::unique(numericValues.begin(),
+                                        numericValues.end()),
+                            numericValues.end());
         std::vector<float> splitPoints;
         std::vector<std::pair<float, float> > freqPairs;
-        for (auto & n: numerics)
-            freqPairs.emplace_back(n.toDouble(), 1);
+        for (auto & n: numericValues)
+            freqPairs.emplace_back(n, 1);
         
         ML::BucketFreqs freqs(freqPairs.begin(), freqPairs.end());
         
-        if (numBuckets != -1 && numerics.size() > numBuckets) {
+        if (numBuckets != -1 && numericValues.size() > numBuckets) {
             ML::bucket_dist_reduced(splitPoints, freqs, numBuckets);
         } else {
             ML::bucket_dist_full(splitPoints, freqs);
         }
 
-        numerics.clear();
-        numerics.insert(numerics.begin(), splitPoints.begin(), splitPoints.end());
+        numericValues.clear();
+        numericValues.insert(numericValues.begin(),
+                             splitPoints.begin(), splitPoints.end());
         this->numeric.active = true;
-
-        for (auto & split: numerics) {
-            this->numeric.splits.emplace_back(split.toDouble());
-            ++n;
-        }
-
-        n += 1;
+        this->numeric.splits = std::move(numericValues);
+        n += this->numeric.splits.size() + 1;
     }
-
+    
     // Get string values
-    std::vector<CellValue> stringValues;
-    for (auto type: { CellValue::ASCII_STRING, CellValue::UTF8_STRING } ) {
-        for (auto & v: typeValues[(int)type])
-            stringValues.emplace_back(v.first);
-    }
-    std::sort(stringValues.begin(), stringValues.end(),
-              [&] (const CellValue & v1, const CellValue & v2)
-              {
-                  return v1.toUtf8String() < v2.toUtf8String();
-              });
+    std::sort(stringValues.begin(), stringValues.end());
+    stringValues.erase(std::unique(stringValues.begin(),
+                                   stringValues.end()),
+                       stringValues.end());
 
     this->strings.offset = n;
-    for (auto & v: stringValues) {
-        this->strings.buckets.emplace_back(std::move(v));
-        ++n;
-    }
+    n += stringValues.size();
+    this->strings.buckets = std::move(stringValues);
 
     // TODO: complete this (MLDB-1457)
-    
-    for (auto type: { CellValue::BLOB, CellValue::TIMESTAMP, CellValue::TIMEINTERVAL, CellValue::PATH } ) {
-        if (!typeValues[(int)type].empty())
-            throw HttpReturnException(500, "Can't bucketize blob, timestamp, interval types");
-    }
 
     this->blobs.offset = this->timestamps.offset = this->intervals.offset = n;
     this->blobs.buckets.clear();
@@ -260,5 +287,53 @@ numBuckets() const
     return intervals.offset + intervals.numBuckets();
 }
 
+        
+std::tuple<BucketList, BucketDescriptions>
+BucketDescriptions::
+merge(const std::vector<std::tuple<BucketList, BucketDescriptions> > & inputs,
+      int numBuckets)
+{
+    BucketDescriptions desc;
+
+    std::vector<double> allNumeric;
+    std::unordered_set<Utf8String> allStrings;
+
+    size_t totalRows = 0;
+    bool hasNulls = false;
+    for (auto & i: inputs) {
+        const BucketDescriptions & d = std::get<1>(i);
+        hasNulls = hasNulls || d.hasNulls;
+        allNumeric.insert(allNumeric.end(),
+                          d.numeric.splits.begin(), d.numeric.splits.end());
+        for (auto & s: d.strings.buckets) {
+            allStrings.insert(s);
+        }
+        totalRows += std::get<0>(i).rowCount();
+    }
+    
+    std::vector<Utf8String> stringValues(allStrings.begin(), allStrings.end());
+    
+    desc.initialize(hasNulls, std::move(allNumeric),
+                    std::move(stringValues), numBuckets);
+    
+    // Finally, perform the bucketed lookup
+    WritableBucketList buckets(totalRows, desc.numBuckets());
+
+    for (auto & i: inputs) {
+        const BucketDescriptions & d = std::get<1>(i);
+        std::vector<int> oldToNew(d.numBuckets());
+        for (size_t j = 0;  j < d.numBuckets();  ++j) {
+            oldToNew[j] = desc.getBucket(d.getSplit(j));
+        }
+
+        const BucketList & l = std::get<0>(i);
+        for (size_t j = 0;  j < l.numEntries;  ++j) {
+            buckets.write(oldToNew.at(l[j]));
+        }
+    }
+
+    return std::make_tuple(std::move(buckets), std::move(desc));
 }
-}
+
+} // namespace MLDB
+

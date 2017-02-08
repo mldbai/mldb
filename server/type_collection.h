@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** type_collection.h                                              -*- C++ -*-
     Jeremy Barnes, 2 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -10,7 +10,7 @@
 
 #include "mldb/rest/rest_entity.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct MldbServer;
@@ -47,4 +47,4 @@ struct TypeClassCollection: public RestDirectory {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

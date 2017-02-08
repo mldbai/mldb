@@ -1,7 +1,7 @@
 #
 # MLDB-647_multiclass_apply_function_pins.py
-# datacratic, 2015
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# mldb.ai inc, 2015
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -56,16 +56,16 @@ mldb.get("/v1/query", q='''select
 iris_cls_blk({{ * EXCLUDING(class)} as features})
 from iris_dataset''')
 
-mldb.get("/v1/datasets/iris_dataset/query", select=
-'''iris_cls_blk({{* EXCLUDING(class)} as features})''')
+mldb.get("/v1/query", q=
+'''SELECT iris_cls_blk({{* EXCLUDING(class)} as features}) from iris_dataset''')
 
 mldb.get("/v1/query", q='''select
 iris_cls_blk({{* EXCLUDING(class)} as features})[scores."Iris-setosa"]
 from iris_dataset''')
 
-mldb.get("/v1/datasets/iris_dataset/query", select=
-'''iris_cls_blk({{* EXCLUDING(class)} as features})[scores."Iris-setosa"]
-   AS setosa''')
+mldb.get("/v1/query", q=
+'''SELECT iris_cls_blk({{* EXCLUDING(class)} as features})[scores."Iris-setosa"]
+   AS setosa FROM iris_dataset''')
 
 mldb.put("/v1/functions/iris_cls_exp", {
     'type' : 'classifier.explain',

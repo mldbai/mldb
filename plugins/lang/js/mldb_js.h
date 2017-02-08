@@ -1,8 +1,8 @@
 /** mldb_js.h                                                   -*- C++ -*-
     Jeremy Barnes, 14 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     JS interface for mldb.
 */
@@ -12,7 +12,7 @@
 #include "js_common.h"
 #include "mldb/sql/cell_value.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct MldbServer;
@@ -111,11 +111,11 @@ struct MldbJS: public JsObjectBase {
     static v8::Local<v8::ObjectTemplate>
     registerMe();
 
-    static v8::Handle<v8::Value>
-    New(const v8::Arguments & args);
+    static void
+    New(const v8::FunctionCallbackInfo<v8::Value> & args);
 
     struct Methods;
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

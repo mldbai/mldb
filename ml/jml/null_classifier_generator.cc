@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* null_classifier_generator.cc
    Jeremy Barnes, 15 March 2006
@@ -34,9 +34,9 @@ Null_Classifier_Generator::~Null_Classifier_Generator()
 
 void
 Null_Classifier_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
+    Classifier_Generator::configure(config, unparsedKeys);
 }
 
 void

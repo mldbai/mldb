@@ -1,8 +1,7 @@
 /* fs_utils.h                                                       -*- C++ -*-
    Wolfgang Sourdeau, February 2014
-   Copyright (c) 2014 Datacratic.  All rights reserved.
-
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   Copyright (c) 2014 mldb.ai Inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
    
    A set of file-system abstraction functions intended to support common
    operations among different fs types or alikes.
@@ -19,7 +18,7 @@
 #include "mldb/types/url.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct UriHandler;
 
@@ -230,4 +229,6 @@ private:
     bool commited_;
 };
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

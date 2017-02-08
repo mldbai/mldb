@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+# Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 # @Author:             Alexis Tremblay
-# @Email:              atremblay@datacratic.com
 # @Date:               2015-02-26 13:47:09
 # @Last Modified by:   Alexis Tremblay
 # @Last Modified time: 2015-03-13 15:57:56

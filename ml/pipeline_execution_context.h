@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** pipeline_execution_context.h                                   -*- C++ -*-
     Jeremy Barnes, 30 October 2013
-    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -13,7 +13,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/ml/jml/classifier.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* PIPELINE EXECUTION CONTEXT                                                */
@@ -30,9 +30,9 @@ struct PipelineExecutionContext: public ML::PredictionContext {
     }
 
     void setFeatures(const std::string & name,
-                     const ML::distribution<float> & feats)
+                     const distribution<float> & feats)
     {
-        set<ML::distribution<float> >(name, feats);
+        set<distribution<float> >(name, feats);
     }
 
     template<typename T>
@@ -40,21 +40,21 @@ struct PipelineExecutionContext: public ML::PredictionContext {
     {
         auto it = entries.find(name);
         if (it == entries.end())
-            throw ML::Exception("couldn't find required entry " + name);
+            throw MLDB::Exception("couldn't find required entry " + name);
         try {
             return boost::any_cast<T>(it->second);
         } catch (const boost::bad_any_cast & exc) {
-            throw ML::Exception("attempt to access feature " + name + " as "
-                                + ML::type_name<T>() + " but it is recorded as "
-                                + ML::demangle(it->second.type().name()));
+            throw MLDB::Exception("attempt to access feature " + name + " as "
+                                + MLDB::type_name<T>() + " but it is recorded as "
+                                + demangle(it->second.type().name()));
         }
     }
 
-    ML::distribution<float> getFeatures(const std::string & name) const
+    distribution<float> getFeatures(const std::string & name) const
     {
-        return get<ML::distribution<float> >(name);
+        return get<distribution<float> >(name);
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

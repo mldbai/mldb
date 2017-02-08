@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* statsd_connector.cc
    Nicolas Kruchten
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -19,9 +18,8 @@
 
 
 using namespace std;
-using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -52,7 +50,7 @@ open(const string& statsdAddr)
 {
     auto lastColon = statsdAddr.rfind(':');
     if (lastColon == string::npos)
-        throw ML::Exception("Need a host and portname to connect to statsd: passed '%s'",
+        throw MLDB::Exception("Need a host and portname to connect to statsd: passed '%s'",
                             statsdAddr.c_str());
 
     int newFd = connectHostDgram(string(statsdAddr, 0, lastColon),
@@ -106,4 +104,4 @@ recordGauge(const char* counterName, float sampleRate, float value)
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

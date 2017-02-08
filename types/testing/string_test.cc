@@ -1,7 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* string_test.cc
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 */
 
 #define BOOST_TEST_MAIN
@@ -14,8 +14,7 @@
 #include "mldb/arch/format.h"
 
 using namespace std;
-using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_print_format )

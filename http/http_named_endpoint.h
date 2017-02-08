@@ -1,8 +1,8 @@
 /* http_named_endpoint.h                                           -*- C++ -*-
    Jeremy Barnes, 9 November 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -13,7 +13,7 @@
 #include "http_rest_endpoint.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 
@@ -58,5 +58,5 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpRestEndpoint {
 
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 

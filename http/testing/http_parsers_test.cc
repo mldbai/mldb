@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -8,14 +8,14 @@
 
 #include "mldb/http/http_parsers.h"
 #include "mldb/http/http_header.h"
-#include "mldb/soa/utils/print_utils.h"
+#include "mldb/utils/testing/print_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/ext/jsoncpp/json.h"
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 #if 1
@@ -286,10 +286,84 @@ BOOST_AUTO_TEST_CASE( test_bad_request2 )
 {
     HttpHeader header;
     header.parse(badRequest);
-    JML_TRACE_EXCEPTIONS(false);
-    BOOST_CHECK_THROW(jsonDecodeStr<Json::Value>(header.knownData), ML::Parse_Context::Exception);
+    MLDB_TRACE_EXCEPTIONS(false);
+    BOOST_CHECK_THROW(jsonDecodeStr<Json::Value>(header.knownData), ParseContext::Exception);
     BOOST_CHECK_THROW(Json::Value val2 = Json::parse(header.knownData), Json::Exception);
 }
+
+#if 1
+/* Test the behaviour of the parser in the presence of the "Expect:
+ * 100-continue" header. */
+BOOST_AUTO_TEST_CASE( http_request_100_continue_test )
+{
+    const char requestHeaders[] = ("POST /pouet HTTP/1.1\r\n"
+                                   "Content-Type: some/type\r\n"
+                                   "Expect: 100-continue\r\n"
+                                   "Content-Length: 16\r\n"
+                                   "\r\n");
+    const char requestBody[] = "abc 123 abcd 123";
+
+    set<string> headers;
+    string body;
+    bool done(false);
+
+    HttpRequestParser parser;
+    parser.onRequestStart = [&] (const char * methodData, size_t methodSize,
+                                 const char * urlData, size_t urlSize,
+                                 const char * versionData, size_t vSize) {
+        headers.clear();
+        body.clear();
+        done = false;
+    };
+    parser.onHeader = [&] (const char * data, size_t size) {
+        headers.insert(string(data, size));
+    };
+    parser.onData = [&] (const char * data, size_t size) {
+        body.append(data, size);
+    };
+    parser.onDone = [&] (bool doClose) {
+        done = true;
+    };
+
+    /* first test: without a on100Continue callback */
+    parser.feed(requestHeaders);
+    BOOST_CHECK(headers.count("Expect: 100-continue\r\n") > 0);
+    BOOST_CHECK(headers.count("Content-Length: 16\r\n") > 0);
+    BOOST_CHECK(body.empty());
+    BOOST_CHECK(!done);
+    parser.feed(requestBody);
+    BOOST_CHECK_EQUAL(body, string(requestBody));
+    BOOST_CHECK(done);
+
+    /* second test: with a on100Continue callback that returns true */
+    auto on100ContinueTrue = [] () {
+        return true;
+    };
+    parser.onExpect100Continue = on100ContinueTrue;
+    parser.feed(requestHeaders);
+    BOOST_CHECK(headers.count("Expect: 100-continue\r\n") == 0);
+    BOOST_CHECK(headers.count("Content-Length: 16\r\n") > 0);
+    BOOST_CHECK(!done);
+    parser.feed(requestBody);
+    BOOST_CHECK_EQUAL(body, string(requestBody));
+    BOOST_CHECK(done);
+
+    /* third test: with a on100Continue callback that returns false */
+    auto on100ContinueFalse = [] () {
+        return false;
+    };
+    parser.onExpect100Continue = on100ContinueFalse;
+    parser.feed(requestHeaders);
+    BOOST_CHECK(headers.count("Expect: 100-continue\r\n") == 0);
+    BOOST_CHECK(headers.count("Content-Length: 16\r\n") > 0);
+    BOOST_CHECK(done);
+
+    /* we get an exception because the parser expects a valid request first
+       line after the rejection of the expectation. */
+    MLDB_TRACE_EXCEPTIONS(false);
+    BOOST_CHECK_THROW(parser.feed(requestBody), MLDB::Exception);
+}
+#endif
 
 #if 1
 /* The HttpResponse and HttpRequestParsers share most of their code, which is

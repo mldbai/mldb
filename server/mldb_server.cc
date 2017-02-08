@@ -1,12 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** mldb_server.cc
     Jeremy Barnes, 12 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Server for MLDB.
 */
 
+#include "mldb/arch/arch.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/rest/etcd_peer_discovery.h"
 #include "mldb/rest/asio_peer_server.h"
@@ -17,6 +18,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/server/plugin_manifest.h"
+#include "mldb/server/plugin_resource.h"
 #include "mldb/sql/sql_expression.h"
 #include <signal.h>
 
@@ -36,14 +38,19 @@
 
 using namespace std;
 
+
+namespace MLDB {
+
 namespace {
 bool supportsSystemRequirements() {
-    return ML::has_sse42();
+#if MLDB_INTEL_ISA
+    return has_sse42();
+#else
+    return true;
+#endif
 }
-} // anonymous
+} // file scope
 
-namespace Datacratic {
-namespace MLDB {
 
 // Creation functions exposed elsewhere
 std::shared_ptr<PluginCollection>
@@ -129,7 +136,7 @@ bool
 MldbServer::
 initRoutes()
 {
-    router.description = "Datacratic Machine Learning Database REST API";
+    router.description = "Machine Learning Database REST API";
 
     RestRequestRouter::OnProcessRequest serviceInfoRoute
         = [=] (RestConnection & connection,
@@ -189,32 +196,26 @@ initRoutes()
         const auto queryStringDef = "The string representing the SQL query. "
                                     "Must be defined either as a query string "
                                     "parameter or the JSON body.";
-        addRouteAsync(versionNode, "/query", { "GET" },
-                      "Select from dataset",
-                      &MldbServer::runHttpQuery,
-                      this,
-                      // Query string parameters
-                      RestParamDefault<Utf8String>("q", queryStringDef, ""),
-                      PassConnectionId(),
-                      RestParamDefault<std::string>("format",
-                                                    "Format of output",
-                                                    "full"),
-                      RestParamDefault<bool>("headers",
-                                             "Do we include headers on table format",
-                                             true),
-                      RestParamDefault<bool>("rowNames",
-                                             "Do we include row names in output",
-                                             true),
-                      RestParamDefault<bool>("rowHashes",
-                                             "Do we include row hashes in output",
-                                             false),
-                      RestParamDefault<bool>("sortColumns",
-                                             "Do we sort the column names",
-                                             false),
-
-                      // Body parameters
-                      JsonParamDefault<Utf8String>("q", queryStringDef));
-
+        addRouteAsync(
+            versionNode, "/query", { "GET" }, "Select from dataset",
+            &MldbServer::runHttpQuery, this,
+            HybridParamDefault<Utf8String>("q", queryStringDef, ""),
+            PassConnectionId(),
+            HybridParamDefault<std::string>("format",
+                                            "Format of output",
+                                            "full"),
+            HybridParamDefault<bool>("headers",
+                                     "Do we include headers on table format",
+                                      true),
+            HybridParamDefault<bool>("rowNames",
+                                     "Do we include row names in output",
+                                     true),
+            HybridParamDefault<bool>("rowHashes",
+                                     "Do we include row hashes in output",
+                                     false),
+            HybridParamDefault<bool>("sortColumns",
+                                     "Do we sort the column names",
+                                     false));
 
         this->versionNode = &versionNode;
         return true;
@@ -241,35 +242,20 @@ initRoutes()
 
 void
 MldbServer::
-runHttpQuery(const Utf8String& qsQuery,
+runHttpQuery(const Utf8String& query,
              RestConnection & connection,
              const std::string & format,
              bool createHeaders,
              bool rowNames,
              bool rowHashes,
-             bool sortColumns,
-             const Utf8String & bQuery
-             ) const
+             bool sortColumns) const
 {
-    if (qsQuery == "" && bQuery == "") {
-        throw ML::Exception("q is currently undefined. It must be defined "
-                            "either as a query string parameter or as a key "
-                            "in body payload.");
-    }
-
-    if (qsQuery != "" && bQuery != "") {
-        throw ML::Exception("q is currently defined twice. It must be defined "
-                            "either as a query string parameter or as a key "
-                            "in body paylaod.");
-    }
-
-    auto stm = SelectStatement::parse(
-        qsQuery != "" ? qsQuery.rawString() : bQuery.rawString());
+    auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbScope mldbContext(this);
 
     auto runQuery = [&] ()
         {
-            return queryFromStatement(stm, mldbContext);
+            return queryFromStatement(stm, mldbContext, nullptr /*onProgress*/);
         };
 
     MLDB::runHttpQuery(runQuery,
@@ -284,7 +270,7 @@ query(const Utf8String& query) const
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbScope mldbContext(this);
 
-    return queryFromStatement(stm, mldbContext);
+    return queryFromStatement(stm, mldbContext, nullptr /*onProgress*/);
 }
 
 Json::Value
@@ -394,6 +380,7 @@ shutdown()
     datasets.reset();
     procedures.reset();
     functions.reset();
+    credentials.reset();
 
     // Shutdown plugins last, since they may be needed to shut down the other
     // entities.
@@ -415,7 +402,7 @@ void
 MldbServer::
 scanPlugins(const std::string & dir_)
 {
-    logger->debug() << "scanning plugins in directory " << dir_;
+    DEBUG_MSG(logger) << "scanning plugins in directory " << dir_;
 
     std::string dir = dir_;
 
@@ -424,24 +411,37 @@ scanPlugins(const std::string & dir_)
         {
             try {
                 auto manifest = jsonDecodeStream<PluginManifest>(stream);
+                if (manifest.config.type == "sharedLibrary") {
+                    auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
+                    // strip off the file:// prefix
+                    shlibConfig.address = string(dir, 7);
+                    shlibConfig.allowInsecureLoading = true;
 
-                auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
-                // strip off the file:// prefix
-                shlibConfig.address = string(dir, 7);
-                shlibConfig.allowInsecureLoading = true;
+                    manifest.config.params = shlibConfig;
 
-                manifest.config.params = shlibConfig;
-
-                auto plugin = plugins->obtainEntitySync(manifest.config,
-                                                        nullptr /* on progress */);
+                    auto plugin = plugins->obtainEntitySync(
+                        manifest.config, nullptr /* on progress */);
+                }
+                else if (manifest.config.type == "python" ||
+                         manifest.config.type == "javascript") {
+                    auto config = manifest.config.params.convert<PluginResource>();
+                    config.address = dir;
+                    manifest.config.params = config;
+                    auto plugin = plugins->obtainEntitySync(
+                        manifest.config, nullptr /* on progress */);
+                }
+                else {
+                    throw HttpReturnException(
+                        500, "unknown plugin type to autoload at " + dir);
+                }
             } catch (const HttpReturnException & exc) {
-                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "loading plugin " << dir << ": " << exc.what();
                 logger->error() << "details:";
                 logger->error() << jsonEncode(exc.details);
                 logger->error() << "plugin will be ignored";
                 return;
             } catch (const std::exception & exc) {
-                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "loading plugin " << dir << ": " << exc.what();
                 logger->error() << "plugin will be ignored";
                 return;
             }
@@ -646,4 +646,4 @@ const Package & builtinPackage()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

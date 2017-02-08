@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* rest_entity.h                                                   -*- C++ -*-
    Jeremy Barnes, 8 June 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Basic definitions for entities accessible via REST.
 */
@@ -16,7 +16,7 @@
 #include <map>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Event that happens to a collection. */
 enum CollectionEvent {
@@ -436,7 +436,7 @@ struct RestRouteManager {
     std::map<Utf8String, std::shared_ptr<RestRouteManager> > childRoutes;
 
     /** Throw an exception that the given child is already added. */
-    void throwChildAlreadyAdded(const Utf8String & name) JML_NORETURN;
+    void throwChildAlreadyAdded(const Utf8String & name) MLDB_NORETURN;
 
     /** Add routes from a child. */
     template<typename Child, typename... Args>
@@ -618,4 +618,4 @@ private:
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

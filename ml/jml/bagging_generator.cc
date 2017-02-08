@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bagging_generator.cc
    Jeremy Barnes, 15 March 2006
@@ -16,9 +16,7 @@
 #include "weighted_training.h"
 #include "mldb/ml/jml/committee.h"
 #include "mldb/jml/utils/sgi_numeric.h"
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
@@ -45,12 +43,14 @@ Bagging_Generator::~Bagging_Generator()
 
 void
 Bagging_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    config.find(num_bags,         "num_bags");
-    config.find(validation_split, "validation_split");
+    Classifier_Generator::configure(config, unparsedKeys);
+    config.findAndRemove(num_bags, "num_bags", unparsedKeys);
+    config.findAndRemove(validation_split, "validation_split", unparsedKeys);
 
     weak_learner = get_trainer("weak_learner", config);
+
 }
 
 void
@@ -127,7 +127,7 @@ struct Bag_Job {
     int bag_num;
     int verbosity;
 
-    typedef boost::mt19937 engine_type;
+    typedef mt19937 engine_type;
 
     void operator () () const
     {
@@ -251,7 +251,7 @@ generate(Thread_Context & context,
             Bag_Job(info, contexts[i], i, verbosity)();
         };
 
-    Datacratic::parallelMap(0, num_bags, onBag);
+    MLDB::parallelMap(0, num_bags, onBag);
     
     Committee result(feature_space, predicted);
     

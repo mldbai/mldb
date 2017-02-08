@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* command_expression_test.cc
    Jeremy Barnes, 2 July 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Test of command expressions.
 */
@@ -32,7 +32,8 @@
 using namespace std;
 using namespace ML;
 
-using namespace Datacratic;
+using namespace MLDB;
+using namespace MLDB::PluginCommand;
 
 
 BOOST_AUTO_TEST_CASE( test_command_expression )

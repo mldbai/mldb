@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* json_handling_test.cc
    Jeremy Barnes, 29 March 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
    Test of the functionality to handle JSON.
 */
@@ -18,7 +18,7 @@
 #include "mldb/types/json_printing.h"
 #include "mldb/base/parse_context.h"
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 
 BOOST_AUTO_TEST_CASE(test_utf8_round_trip_streaming_binary)
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(test_utf8_bad_string)
     const std::string payload = "\"http\\u00253A\\u00252F\\u";
     const char* start = payload.c_str();                                        
     StreamingJsonParsingContext context(payload, start, start + payload.size());
-    BOOST_CHECK_THROW(context.expectStringUtf8(), ML::Parse_Context::Exception);
+    BOOST_CHECK_THROW(context.expectStringUtf8(), ParseContext::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_json_encode_decode_long_strings)
@@ -97,5 +97,5 @@ BOOST_AUTO_TEST_CASE(test_json_encode_decode_long_strings)
     const std::string payload = "\"http\\u00253A\\u00252F\\u";
     const char* start = payload.c_str();                                        
     StreamingJsonParsingContext context(payload, start, start + payload.size());
-    BOOST_CHECK_THROW(context.expectStringUtf8(), ML::Parse_Context::Exception);
+    BOOST_CHECK_THROW(context.expectStringUtf8(), ParseContext::Exception);
 }

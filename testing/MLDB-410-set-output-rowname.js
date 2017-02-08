@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
@@ -26,7 +26,7 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-var resp = mldb.get("/v1/datasets/test/query", { select: 'x,y,label', format: 'table' });
+var resp = mldb.get("/v1/query", { q: 'SELECT x,y,label from test', format: 'table' });
 assertEqual(resp.responseCode, 200);
 
 plugin.log(resp.json);
@@ -43,12 +43,12 @@ assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
 
 
 // Now with a transformed row name
-var resp = mldb.get("/v1/datasets/test/query",
-                    {select:'x,y,label', rowName:"rowName() + '_transformed'",
+var resp = mldb.get("/v1/query",
+                    {q:"select x,y,label NAMED rowName() + '_transformed' from test", 
                      format: 'table'});
-assertEqual(resp.responseCode, 200);
-
 plugin.log(resp);
+
+assertEqual(resp.responseCode, 200);
 
 expected = [
     [ "_rowName", "label", "x", "y" ],

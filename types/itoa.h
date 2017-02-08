@@ -1,6 +1,6 @@
 /** itoa.h                                                         -*- C++ -*-
     Jeremy Barnes, 23 March 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Fast integer printing functions, since std::to_string(integral) uses
     sprintf and is sloooooow in GCC 4.8.
@@ -14,7 +14,7 @@
 #include <string>
 #include <iostream>
 
-namespace Datacratic {
+namespace MLDB {
 
 constexpr int ITOA_BUF_LENGTH = 64;  // long enough for any integral type
 
@@ -81,4 +81,4 @@ std::string itoa(T i)
     return std::string(begin, end);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

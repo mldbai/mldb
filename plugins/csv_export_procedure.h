@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /**
  * csv_export_procedure.h
  * Mich, 2015-11-11
- * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
 #pragma once
@@ -12,21 +10,28 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct CsvExportProcedureConfig : ProcedureConfig {
+    CsvExportProcedureConfig()
+        : headers(true), skipDuplicateCells(false),
+          delimiter(","), quoteChar("\"")
+    {
+    }
+
     static constexpr const char * name = "export.csv";
 
-    CsvExportProcedureConfig();
     InputQuery exportData;
     Url dataFileUrl;
     bool headers;
+    bool skipDuplicateCells;
     std::string delimiter;
     std::string quoteChar;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
+
 
 struct CsvExportProcedure: public Procedure {
 
@@ -45,4 +50,4 @@ struct CsvExportProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

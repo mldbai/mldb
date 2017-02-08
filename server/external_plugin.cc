@@ -1,16 +1,16 @@
 /** external_plugin.cc
     Jeremy Barnes, 8 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     External plugin runner.
 */
 
 #include "mldb/server/external_plugin.h"
 #include "mldb/server/script_output.h"
-#include "mldb/soa/service/runner.h"
-#include "mldb/soa/service/message_loop.h"
+#include "mldb/utils/runner.h"
+#include "mldb/io/message_loop.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/rest/poly_collection_impl.h"
@@ -20,9 +20,8 @@
 
 
 using namespace std;
+using namespace MLDB::PluginCommand;
 
-
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -424,7 +423,7 @@ start()
     string address;
     try {
         address = future.get();
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error getting plugin address",
                              "config", config);
     }
@@ -475,9 +474,9 @@ struct AtInit {
 
 } // file scope
 
-} // namespace MLDB
-
 template class PolyCollection<MLDB::ExternalPluginSetup>;
 template class PolyCollection<MLDB::ExternalPluginStartup>;
 
-} // namespace Datacratic
+} // namespace MLDB
+
+

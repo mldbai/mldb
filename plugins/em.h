@@ -1,8 +1,8 @@
 /** em.h                                                           -*- C++ -*-
     Mathieu Marquis Bolduc, October 28th, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Gaussian clustering procedure and functions.
 */
@@ -17,7 +17,7 @@
 #include "metric_space.h"
 #include "mldb/types/optional.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -108,8 +108,9 @@ struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
     
     virtual std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const override;
-   
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override;
+    
     EMFunctionConfig functionConfig;
 
      // holds the dimension of the embedding space
@@ -120,4 +121,4 @@ struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

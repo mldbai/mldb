@@ -1,7 +1,8 @@
-/*  xdiv.h                                                          -*- C++ -*-
-    Jeremy Barnes, 30 January 2005
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
+/* xdiv.h                                                          -*- C++ -*-
+   Jeremy Barnes, 30 January 2005
+   Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+   
    ---
 
    Our old friend the xdiv function.
@@ -23,7 +24,7 @@ xdiv(F1 x, F2 y)
 
 /* Divide, but round up */
 template<class X, class Y>
-JML_COMPUTE_METHOD
+MLDB_COMPUTE_METHOD
 X rudiv(X val, Y by)
 {
     X result = (val / by);

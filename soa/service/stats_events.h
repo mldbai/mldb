@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* stats_events.h                                                  -*- C++ -*-
    Jeremy Barnes, 1 March 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Different types of stats events.
 */
@@ -12,7 +12,7 @@
 
 #include <utility>
 
-namespace Datacratic {
+namespace MLDB {
 
 enum EventType {
     ET_HIT,          ///< Represents an extra count on a counter
@@ -25,7 +25,7 @@ enum EventType {
 static constexpr std::initializer_list<int> DefaultOutcomePercentiles =
     { 90, 95, 98 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 
 

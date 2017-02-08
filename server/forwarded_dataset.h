@@ -1,8 +1,8 @@
 /** forwarded_dataset.h                                            -*- C++ -*-
     Jeremy Barnes, 6 October 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset that forwards to another, after setup is done.  Used to provide an
     adaptor on top of an existing dataset implementation.
@@ -12,7 +12,7 @@
 
 #pragma once
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -41,17 +41,17 @@ struct ForwardedDataset: public Dataset {
     
     virtual Any getStatus() const;
 
-    virtual void recordRowItl(const RowName & rowName,
-                              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    virtual void recordRowItl(const RowPath & rowName,
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
 
-    virtual void recordColumn(const ColumnName & columnName,
-                              const std::vector<std::tuple<RowName, CellValue, Date> > & vals);
+    virtual void recordColumn(const ColumnPath & columnName,
+                              const std::vector<std::tuple<RowPath, CellValue, Date> > & vals);
     
-    virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & rows);
+    virtual void recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & rows);
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
 
     virtual std::shared_ptr<RowValueInfo> getRowInfo() const;
 
@@ -63,8 +63,8 @@ struct ForwardedDataset: public Dataset {
                     const SqlExpression & where,
                     const OrderByExpression & orderBy,
                     const TupleExpression & groupBy,
-                    const SqlExpression & having,
-                    const SqlExpression & rowName,
+                    const std::shared_ptr<SqlExpression> having,
+                    const std::shared_ptr<SqlExpression> rowName,
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "") const;
@@ -76,8 +76,8 @@ struct ForwardedDataset: public Dataset {
     selectExplainString(const Utf8String & select,
                         const Utf8String & where) const;
 
-    virtual std::vector<ColumnName>
-    getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset = 0, ssize_t limit = -1) const;
 
     virtual BoundFunction
     overrideFunction(const Utf8String & tableName, 
@@ -121,4 +121,4 @@ private:
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

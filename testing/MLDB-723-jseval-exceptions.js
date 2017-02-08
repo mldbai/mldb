@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -60,16 +60,16 @@ recordExample("ex4", 3, 0, "no");
 
 dataset.commit()
 
-var res1 = mldb.get("/v1/datasets/test/query",
-                    { select: "jseval('syntax error', 'x')" });
+var res1 = mldb.get("/v1/query",
+                    { q: "SELECT jseval('syntax error', 'x') from test" });
 
 plugin.log(res1);
 
 assertEqual(res1.responseCode, 400);
 assertContains(res1.json.error, "Exception compiling");
 
-var res2 = mldb.get("/v1/datasets/test/query",
-                    { select: "jseval('throw 3', '')" });
+var res2 = mldb.get("/v1/query",
+                    { q: "SELECT jseval('throw 3', '') from test" });
 
 plugin.log(res2);
 
@@ -77,8 +77,8 @@ assertEqual(res2.responseCode, 400);
 assertContains(res2.json.error, "Exception running");
 
 //MLDB-1714
-var res3 = mldb.get("/v1/datasets/test/query",
-                    { select: "jseval('return 3;')" });
+var res3 = mldb.get("/v1/query",
+                    { q: "select jseval('return 3;') FROM test" });
 
 assertContains(res3.json.error, "jseval expected at least 2 arguments");
 

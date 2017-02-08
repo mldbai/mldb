@@ -1,8 +1,8 @@
 /** python_core_components.h                                       -*- C++ -*-
     Francois Maillet, 6 mars 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     
     Wrappers for core MLDB objects
 */
@@ -17,14 +17,14 @@
 
 
 using namespace std;
-using namespace Datacratic::Python;
+using namespace MLDB::Python;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
-typedef std::tuple<ColumnName, CellValue, Date> RowCellTuple;
-typedef std::tuple<ColumnName, CellValue, Date> ColumnCellTuple;
+typedef std::tuple<ColumnPath, CellValue, Date> RowCellTuple;
+typedef std::tuple<ColumnPath, CellValue, Date> ColumnCellTuple;
 
 /****************************************************************************/
 /* DatasetPy                                                                */
@@ -35,13 +35,13 @@ struct DatasetPy {
     DatasetPy(std::shared_ptr<Dataset> dataset) :
         dataset(dataset) {}
 
-    void recordRow(const RowName & rowName,
+    void recordRow(const RowPath & rowName,
                    const std::vector<RowCellTuple> & columns);
-    void recordRows(const std::vector<std::pair<RowName, std::vector<RowCellTuple> > > & rows);
+    void recordRows(const std::vector<std::pair<RowPath, std::vector<RowCellTuple> > > & rows);
     
-    void recordColumn(const ColumnName & columnName,
+    void recordColumn(const ColumnPath & columnName,
                       const std::vector<ColumnCellTuple> & rows);
-    void recordColumns(const std::vector<std::pair<ColumnName, std::vector<ColumnCellTuple> > > & columns);
+    void recordColumns(const std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > & columns);
 
     void commit();
     
@@ -104,4 +104,4 @@ struct PythonFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

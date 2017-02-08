@@ -1,4 +1,4 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 # Test for MLDB-724; timestamp arithmetics
 
 import unittest
@@ -391,7 +391,7 @@ class TimeArithmeticTest(MldbUnitTest):
 
         dataset3.commit()
 
-        query = mldb.get('/v1/datasets/test3/query', select = 'latest_timestamp({a,b}) as latest, earliest_timestamp({a,b}) as earliest')
+        query = mldb.get('/v1/query', q = 'SELECT latest_timestamp({a,b}) as latest, earliest_timestamp({a,b}) as earliest from test3')
 
         self.assertFullResultEquals(query.json(),
              [
@@ -418,7 +418,7 @@ class TimeArithmeticTest(MldbUnitTest):
              ]
         )
 
-        query = mldb.get('/v1/datasets/test3/query',  select = 'latest_timestamp({*}) as latest, earliest_timestamp({*}) as earliest')
+        query = mldb.get('/v1/query',  q = 'SELECT latest_timestamp({*}) as latest, earliest_timestamp({*}) as earliest from test3')
 
         self.assertFullResultEquals(query.json(),
              [
@@ -445,7 +445,7 @@ class TimeArithmeticTest(MldbUnitTest):
              ]
         )
 
-        query = mldb.get('/v1/datasets/test3/query', select = 'latest_timestamp({a, {b, c}}) as latest, earliest_timestamp({a, {b, c}})as earliest')
+        query = mldb.get('/v1/query', q = 'SELECT latest_timestamp({a, {b, c}}) as latest, earliest_timestamp({a, {b, c}})as earliest from test3')
 
         self.assertFullResultEquals(query.json(),
             [
@@ -483,8 +483,8 @@ class TimeArithmeticTest(MldbUnitTest):
         dataset4.record_row('myrow', [ [ "a", 0, self.ts ], ["a", 0, self.ts_plus_1d] ])
         dataset4.commit()
 
-        query1 = mldb.get('/v1/datasets/test4/query', select = 'earliest_timestamp(a) as earliest')
-        query2 = mldb.get('/v1/datasets/test4/query', select = 'earliest_timestamp({*}) as earliest')
+        query1 = mldb.get('/v1/query', q = 'SELECT earliest_timestamp(a) as earliest from test4')
+        query2 = mldb.get('/v1/query', q = 'SELECT earliest_timestamp({*}) as earliest from test4')
 
         self.assertFullResultEquals(query1.json(), query2.json())
 
@@ -557,19 +557,19 @@ class TimeArithmeticTest(MldbUnitTest):
         dataset.record_row('myrow', [ [ "a", 0, self.ts ] ])
         dataset.commit()
 
-        query1 = mldb.get('/v1/datasets/test5/query', select = 'a IS NOT TIMESTAMP as x, a IS TIMESTAMP as y')
+        query1 = mldb.get('/v1/query', q = 'SELECT a IS NOT TIMESTAMP as x, a IS TIMESTAMP as y from test5')
 
         self.assertFullResultEquals(query1.json(),
             [{"rowName":"myrow","rowHash":"fbdba4c9be68f633","columns":[["x",1,"2015-01-01T00:00:00Z"],["y",0,"2015-01-01T00:00:00Z"]]}]
         )
 
-        query1 = mldb.get('/v1/datasets/test5/query', select = 'latest_timestamp(1) IS NOT TIMESTAMP as x, latest_timestamp(1) IS TIMESTAMP as y')
+        query1 = mldb.get('/v1/query', q = 'SELECT latest_timestamp(1) IS NOT TIMESTAMP as x, latest_timestamp(1) IS TIMESTAMP as y from test5')
 
         self.assertFullResultEquals(query1.json(),
             [{"rowName":"myrow","rowHash":"fbdba4c9be68f633","columns":[["x",0,"-Inf"],["y",1,"-Inf"]]}]
         )
 
-        query1 = mldb.get('/v1/datasets/test5/query', select = "interval '3d' IS NOT INTERVAL as x, interval '3d' IS INTERVAL as x")
+        query1 = mldb.get('/v1/query', q = "SELECT interval '3d' IS NOT INTERVAL as x, interval '3d' IS INTERVAL as x from test5")
 
         self.assertFullResultEquals(query1.json(),
             [{"rowName": "myrow","rowHash": "fbdba4c9be68f633","columns":[["x",0,"-Inf"],["x",1,"-Inf"]]}]

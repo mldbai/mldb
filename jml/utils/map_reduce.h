@@ -1,8 +1,8 @@
 /** map_reduce.h                                                   -*- C++ -*-
     Jeremy Barnes, 30 October 2012
-    Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Functionality to perform map/reduce type operations in parallel.
 */
@@ -47,7 +47,7 @@ parallelMapInOrderReduce(It first, It2 last, MapFn map, ReduceFn reduce)
             drainWriteQueue();
         };
 
-    Datacratic::parallelMap(first, last, doMap);
+    MLDB::parallelMap(first, last, doMap);
 
     drainWriteQueue();
 }
@@ -148,7 +148,7 @@ parallelMapInOrderReduceInEqualWorkChunks
     }
     
     if (totalWork == 0)
-        throw ML::Exception("total work must not be zero");
+        throw MLDB::Exception("total work must not be zero");
     
     // Now group them into contiguous chunks (ranges of iterators to process)
     // such that each chunk gets a roughly even amount of work.

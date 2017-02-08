@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* procedure.cc
    Jeremy Barnes, 21 January 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Procedure support.
 */
@@ -17,12 +17,14 @@
 #include "mldb/core/plugin.h"
 #include "mldb/core/function.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/rest/cancellation_exception.h"
+#include "mldb/utils/progress.h"
 
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -39,6 +41,14 @@ ProcedureRunConfigDescription()
 
     addField("id", &ProcedureRunConfig::id, "ID of run");
     addField("params", &ProcedureRunConfig::params, "Parameters of run");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ProcedureRunState);
+
+ProcedureRunStateDescription::
+ProcedureRunStateDescription()
+{
+    addField("state", &ProcedureRunState::state, "State of the run");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(ProcedureRunStatus);
@@ -167,7 +177,7 @@ getRunDetails(const ProcedureRun * run) const
 /*****************************************************************************/
 
 ProcedureConfig::
-ProcedureConfig() : runOnCreation(false)
+ProcedureConfig() : runOnCreation(true)
 {
 }
 
@@ -180,7 +190,7 @@ ProcedureConfigDescription()
     addField("runOnCreation", &ProcedureConfig::runOnCreation,
              "If true, the procedure will be run immediately. The response will contain an "
              "extra field called `firstRun` pointing to the URL of the run.",
-             false);
+             true);
 
     // ignore unknown fields
     onUnknownField = [] (const ProcedureConfig * conf, JsonParsingContext & ctx) { };
@@ -309,10 +319,35 @@ run(const ProcedureRunConfig & run,
     SerialProcedureStatus result;
     SerialProcedureStatus detail;
 
-    for (auto & s: steps) {
-        RunOutput output = s->run(run, onProgress);
+    Progress serialProgress;
+    std::vector<std::pair<std::string, std::string>> progressSteps;
+    for (int i = 0; i < steps.size(); ++i ) {
+        progressSteps.emplace_back(make_pair("step " + to_string(i), "done"));
+    }
+    auto iterationStep = serialProgress.steps(progressSteps);
+
+    auto onProg = [&] (const Json::Value & data) {
+        Json::Value progress = jsonEncode(serialProgress);
+        if (!data.empty()) {
+            progress["subProgress"] = data;
+        }
+        return onProgress(progress);
+    };
+
+    for (int i = 0; i < steps.size(); ++i ) {
+        auto & s = steps[i];
+        bool keepGoing = onProg(Json::Value{});
+        if (!keepGoing) {
+            throw MLDB::CancellationException("Procedure serial cancelled");
+        }
+
+        RunOutput output = s->run(run, onProg);
         result.steps.emplace_back(std::move(output.results));
         detail.steps.emplace_back(std::move(output.details));
+
+        if (i < steps.size() - 1) {
+            iterationStep = iterationStep->nextStep(1);
+        }
     }
 
     return { result, detail };
@@ -429,4 +464,4 @@ ProcedurePolyConfigDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

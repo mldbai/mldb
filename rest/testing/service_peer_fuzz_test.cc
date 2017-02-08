@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* service_peer_test.cc
    Jeremy Barnes, 4 11 February 2015
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "temporary_etcd_server.h"
 #include "mldb/rest/service_peer.h"
 #include "mldb/rest/etcd_client.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/rest/rest_request_router.h"
 #include <boost/algorithm/string.hpp>
@@ -24,7 +24,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_two_members )
 {
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
 
     // Check we get a connection refused
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(proxy.get("/"), std::exception);
     }
 

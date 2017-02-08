@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
@@ -64,20 +64,21 @@ var transform_config = {
             named: "rowName() + '_transformed'",
             limit: 3
         },
-        outputDataset: { id: 'transformed', type: 'sparse.mutable' }
+        outputDataset: { id: 'transformed', type: 'sparse.mutable' },
+        runOnCreation : false
     }
 };
 
 createAndRunProcedure(transform_config, "transform");
 
-var resp = mldb.get("/v1/datasets/transformed/query", {select: 'x,y,z,q', orderBy: 'rowHash()',format: 'table'});
+var resp = mldb.get("/v1/query", {q: 'SELECT x,y,z,q from transformed order by rowName()',format: 'table'});
 
 plugin.log("transform limit 3 query result", resp.json);
 
 var expected = [
    [ "_rowName", "q", "x", "y", "z" ],
-   [ "ex3_transformed", 8, 1, 2, 10 ],
    [ "ex2_transformed", 7, 1, 1, 10 ],
+   [ "ex3_transformed", 8, 1, 2, 10 ],
    [ "ex4_transformed", 12, 6, 6, 60 ]
 ];
 
@@ -94,13 +95,15 @@ var transform_config2 = {
             orderBy: "rowName()",
             named: "rowName() + '_transformed'"
         },
-        outputDataset: { id: 'transformed2', type: 'sparse.mutable' }
+        outputDataset: { id: 'transformed2', type: 'sparse.mutable' },
+        runOnCreation : false        
     }
+
 };
 
 createAndRunProcedure(transform_config2, "transform2");
 
-var resp = mldb.get("/v1/datasets/transformed2/query", {select: 'x,y,z,q', format: 'table', orderBy: 'rowName()'});
+var resp = mldb.get("/v1/query", {q: 'select x,y,z,q from transformed2 order by rowName()', format: 'table'});
 
 plugin.log(resp);
 
@@ -140,13 +143,14 @@ var transform_config3 = {
             named: "rowName() + '_transformed'"
         },
         outputDataset: { id: 'transformed3', type: 'sparse.mutable' },
-        skipEmptyRows: true
+        skipEmptyRows: true,
+        runOnCreation : false
     }
 };
 
 createAndRunProcedure(transform_config3, "transform3");
 
-var resp = mldb.get("/v1/datasets/transformed3/query", {select: '*', format: 'table', orderBy: 'rowName()'});
+var resp = mldb.get("/v1/query", {q: 'select * from transformed3 order by rowName()', format: 'table'});
 
 plugin.log(resp);
 
@@ -171,13 +175,15 @@ var transform_config4 = {
             groupBy: "y"
         },
         outputDataset: { id: 'transformed4', type: 'sparse.mutable' },
-        skipEmptyRows: true
+        skipEmptyRows: true,
+        runOnCreation : false        
     }
+
 };
 
 createAndRunProcedure(transform_config4, "transform4");
 
-var resp = mldb.get("/v1/datasets/transformed4/query", {select: '*', format: 'table', orderBy: 'rowName()'});
+var resp = mldb.get("/v1/query", {q: 'select * from transformed4 order by rowName()', format: 'table'});
 
 plugin.log(resp);
 
@@ -196,13 +202,14 @@ function runTransformWithNoFrom(query, expected) {
         params: {
             inputData: query,
             outputDataset: { id: 'transformed_no_from', type: 'sparse.mutable' },
-            skipEmptyRows: true
+            skipEmptyRows: true,
+            runOnCreation : false
         }
     };
 
     createAndRunProcedure(transform_config_no_from, "transform_no_from");
 
-    var resp = mldb.get("/v1/datasets/transformed_no_from/query", {select: '*', format: 'table'});
+    var resp = mldb.get("/v1/query", {q: 'select * from transformed_no_from', format: 'table'});
 
     plugin.log(resp);
 

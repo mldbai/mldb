@@ -1,8 +1,8 @@
 /* xlsx_importer.cc
    Jeremy Barnes, 25 November 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Importer for Excel .xlsx files.  These files are actually .zip
    files full of .xml documents.
@@ -17,12 +17,19 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/ext/tinyxml2/tinyxml2.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
 
+namespace {
+    const char * printDoc(tinyxml2::XMLDocument & doc) {
+        tinyxml2::XMLPrinter printer;
+        doc.Accept( &printer );
+        return printer.CStr();
+    }
+}
 
-namespace Datacratic {
 namespace MLDB {
 
 
@@ -53,8 +60,7 @@ XlsxImporterConfigDescription()
 
 struct SharedStrings {
 
-
-    void load(std::streambuf * buf)
+    void load(std::streambuf * buf, shared_ptr<spdlog::logger> logger)
     {
         std::ostringstream allText;
         allText << buf;
@@ -62,7 +68,7 @@ struct SharedStrings {
         unique_ptr<tinyxml2::XMLDocument> xml(new tinyxml2::XMLDocument());
         xml->Parse(allText.str().c_str());
 
-        //xml->Print();
+        TRACE_MSG(logger) << "loaded document:\n" << printDoc(*xml);
 
         using namespace tinyxml2;
 
@@ -79,7 +85,7 @@ struct SharedStrings {
         if (res != XML_NO_ERROR)
             throw HttpReturnException(400, "xlsx file SharedStrings have no uniqueCount");
 
-        //cerr << "got " << numStrings << " unique strings" << endl;
+        DEBUG_MSG(logger) << "got " << numStrings << " unique strings";
 
         strings.reserve(numStrings);
 
@@ -98,12 +104,12 @@ struct SharedStrings {
 
             Utf8String textStr(t ? t : "");
 
-            //cerr << "got string " << textStr << endl;
+            DEBUG_MSG(logger) << "got string " << textStr;
 
             strings.emplace_back(std::move(textStr));
         }
 
-        //cerr << "read " << strings.size() << " unique strings" << endl;
+        DEBUG_MSG(logger) << "read " << strings.size() << " unique strings";
 
         if (numStrings != strings.size()) {
             throw HttpReturnException(400, "xlsx file SharedStrings file consistency error: number of strings read doesn't match definition",
@@ -204,7 +210,7 @@ struct Styles {
     std::vector<Style> styles;
 
 
-    void load(std::streambuf * buf)
+    void load(std::streambuf * buf, shared_ptr<spdlog::logger> logger)
     {
         std::ostringstream allText;
         allText << buf;
@@ -296,8 +302,9 @@ struct Styles {
                              || formatStr.find("SS") != string::npos)
                         type = CellValue::TIMEINTERVAL;
                 }
-                //cerr << "style " << styles.size() << " with format "
-                //<< formatStr << " has num format " << numFormatId << " " << formatStr << " " << type << endl;
+                DEBUG_MSG(logger) << "style " << styles.size() << " with format "
+                    << formatStr << " has num format " << numFormatId << " "
+                    << formatStr << " " << type;
 
                 styles.emplace_back(Style{ numFormatId, formatStr, type });
             }
@@ -309,13 +316,15 @@ struct Styles {
 
 struct Workbook {
 
-    Workbook()
-        : baseDate("1899-12-30")
+    Workbook(shared_ptr<spdlog::logger> logger)
+        : baseDate("1899-12-30"),
+          logger(logger)
     {
     }
 
     Date timestamp;
     Date baseDate;
+    shared_ptr<spdlog::logger> logger;
 
     struct Sheet {
         Utf8String name;
@@ -342,7 +351,7 @@ struct Workbook {
         // For now, we ignore relationships that we don't understand
     };
 
-    void loadSheets(std::streambuf * buf)
+    void loadSheets(std::streambuf * buf, shared_ptr<spdlog::logger> logger)
     {
         std::ostringstream allText;
         allText << buf;
@@ -350,9 +359,7 @@ struct Workbook {
         unique_ptr<tinyxml2::XMLDocument> xml(new tinyxml2::XMLDocument());
         xml->Parse(allText.str().c_str());
 
-        //cerr << "workbook XML contents" << endl;
-
-        //xml->Print();
+        TRACE_MSG(logger) << "workbook XML contents\n" << printDoc(*xml);
 
         using namespace tinyxml2;
 
@@ -407,8 +414,7 @@ struct Workbook {
             Utf8String sheetId = readAttr("sheetId");
             Utf8String relId = readAttr("r:id");
 
-            //cerr << "sheet " << name << " " << sheetId << " " << relId
-            //     << endl;
+            DEBUG_MSG(logger) << "sheet " << name << " " << sheetId << " " << relId;
 
             Sheet sheet{std::move(name), std::move(sheetId), std::move(relId)};
 
@@ -416,12 +422,13 @@ struct Workbook {
 
         }
 
-        //cerr << "got " << this->sheets.size() << " sheets in workbook" << endl;
+        DEBUG_MSG(logger) << "got " << this->sheets.size() << " sheets in workbook";
     }
 
     // Map the worksheets in the excel notebook to filenames in the
     // zip file, by extracting the relationships table.
-    void loadRelationships(std::streambuf * buf)
+    void loadRelationships(std::streambuf * buf,
+                           shared_ptr<spdlog::logger> logger)
     {
         std::ostringstream allText;
         allText << buf;
@@ -429,7 +436,7 @@ struct Workbook {
         unique_ptr<tinyxml2::XMLDocument> xml(new tinyxml2::XMLDocument());
         xml->Parse(allText.str().c_str());
 
-        //cerr << "workbook relationship XML contents" << endl;
+        DEBUG_MSG(logger) << "workbook relationship XML contents";
 
         //xml->Print();
 
@@ -482,7 +489,8 @@ struct Sheet {
     Sheet(std::streambuf * buf,
           const Workbook & workbook,
           const SharedStrings & strings,
-          const Styles & styles)
+          const Styles & styles,
+          shared_ptr<spdlog::logger> logger)
     {
         std::ostringstream allText;
         allText << buf;
@@ -490,9 +498,7 @@ struct Sheet {
         unique_ptr<tinyxml2::XMLDocument> xml(new tinyxml2::XMLDocument());
         xml->Parse(allText.str().c_str());
 
-        //cerr << "workbook sheet contents" << endl;
-
-        //xml->Print();
+        TRACE_MSG(logger) << "workbook sheet contents" << printDoc(*xml);
 
         using namespace tinyxml2;
 
@@ -560,8 +566,8 @@ struct Sheet {
                     if (ve->GetText())
                         contents = ve->GetText();
 
-                    //cerr << "type = " << type << endl;
-                    //cerr << "style = " << style << endl;
+                    TRACE_MSG(logger) << "type = " << type;
+                    TRACE_MSG(logger) << "style = " << style;
 
                     if (type == "s") {
                         // shared string
@@ -601,9 +607,9 @@ struct Sheet {
                     }
                     else {
                         // Probably a date... we should handle those
-                        cerr << "cell has unknown type" << endl;
-                        cerr << "type = " << type << " cellid = " << cellid
-                             << " s = " << style << " c " << contents << endl;
+                        INFO_MSG(logger) << "cell has unknown type";
+                        INFO_MSG(logger) << "type = " << type << " cellid = " << cellid
+                             << " s = " << style << " c " << contents;
                     }
                 }
 
@@ -642,8 +648,8 @@ struct Sheet {
                     else throw HttpReturnException(400, "Unable to parse Cell ID '" + cellid + "'");
                 }
 
-                //cerr << "cell " << cellid << " has value " << jsonEncodeStr(value) << endl;
-                //cerr << "row " << rowIndex << " column " << colIndex << endl;
+                DEBUG_MSG(logger) << "cell " << cellid << " has value " << jsonEncodeStr(value);
+                DEBUG_MSG(logger) << "row " << rowIndex << " column " << colIndex;
                 row.columns.emplace_back(colIndex, std::move(value));
             }
 
@@ -676,7 +682,7 @@ struct XlsxImporter: public Procedure {
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         SharedStrings strings;
-        Workbook workbook;
+        Workbook workbook(logger);
         Styles styles;
         std::string savedRelationships;
         bool sheetsLoaded = false;
@@ -691,7 +697,7 @@ struct XlsxImporter: public Procedure {
             {
                 workbook.timestamp.setMin(info.lastModified);
 
-                //cerr << "got file " << prefix << endl;
+                DEBUG_MSG(logger) << "got file " << prefix;
 
                 auto fragPos = prefix.rfind('#');
                 if (fragPos == string::npos)
@@ -699,7 +705,7 @@ struct XlsxImporter: public Procedure {
 
                 string internalFilename(prefix, fragPos + 1);
 
-                //cerr << "got internal filename " << internalFilename << endl;
+                DEBUG_MSG(logger) << "got internal filename " << internalFilename;
 
                 if (internalFilename == "xl/sharedStrings.xml") {
                     // 1.  Load up the shared strings, which are required to
@@ -707,38 +713,39 @@ struct XlsxImporter: public Procedure {
                     //
                     //     Note that some Excel files have no shared strings table.
 
-                    strings.load(open({}).buf);
+                    strings.load(open({}).buf, logger);
                 }
                 else if (internalFilename == "xl/workbook.xml") {
                     // 2.  Load up the workbook, which tells us what our sheets
                     //     are.
 
-                    workbook.loadSheets(open({}).buf);
+                    workbook.loadSheets(open({}).buf, logger);
                     sheetsLoaded = true;
                     if (!savedRelationships.empty()) {
                         std::istringstream stream(std::move(savedRelationships));
-                        workbook.loadRelationships(stream.rdbuf());
+                        workbook.loadRelationships(stream.rdbuf(), logger);
                     }
 
                 }
                 else if (internalFilename == "xl/_rels/workbook.xml.rels") {
                     if (sheetsLoaded)
-                        workbook.loadRelationships(open({}).buf);
+                        workbook.loadRelationships(open({}).buf, logger);
                     else {
                         std::ostringstream stream;
                         stream << open({}).buf;
-                        savedRelationships = std::move(stream.str());
+                        savedRelationships = stream.str();
                     }
                 }
                 else if (internalFilename == "xl/styles.xml") {
-                    styles.load(open({}).buf);
+                    styles.load(open({}).buf, logger);
                 }
 
                 return true;
             };
 
-        forEachUriObject("archive+" + runProcConf.dataFileUrl.toString(),
-                         onFile);
+        forEachUriObject(
+            "archive+" + runProcConf.dataFileUrl.toDecodedString(),
+            onFile);
 
         // Create the output dataset
 
@@ -751,12 +758,14 @@ struct XlsxImporter: public Procedure {
 
         // 4.  Load the worksheets, one by one
         for (auto & sheetEntry: workbook.sheets) {
-            Utf8String filename = "archive+" + runProcConf.dataFileUrl.toString() + "#xl/" + sheetEntry.filename;
+            Utf8String filename =
+                "archive+" + runProcConf.dataFileUrl.toDecodedString()
+                + "#xl/" + sheetEntry.filename;
             filter_istream sheetStream(filename.rawString());
 
-            Sheet sheet(sheetStream.rdbuf(), workbook, strings, styles);
+            Sheet sheet(sheetStream.rdbuf(), workbook, strings, styles, logger);
 
-            //cerr << "sheet had " << sheet.rows.size() << " rows" << endl;
+            DEBUG_MSG(logger) << "sheet had " << sheet.rows.size() << " rows";
 
             auto getColName = [] (int64_t colIndex)
                 {
@@ -774,17 +783,17 @@ struct XlsxImporter: public Procedure {
                         }
                     }
 
-                    return ColumnName(result);
+                    return ColumnPath(result);
                 };
 
             if (output && !sheet.rows.empty()) {
                 int maxRowIndex = sheet.rows.back().index;
-                int indexLength = ML::format("%d", maxRowIndex).length();
+                int indexLength = MLDB::format("%d", maxRowIndex).length();
 
                 for (auto & row: sheet.rows) {
                     MatrixNamedRow outputRow;
                     outputRow.rowHash = outputRow.rowName
-                        = RowName(sheetEntry.name + ML::format(":%0*d", indexLength, row.index));
+                        = RowPath(sheetEntry.name + MLDB::format(":%0*d", indexLength, row.index));
 
                     for (auto & col: row.columns) {
                         outputRow.columns.emplace_back(getColName(std::get<0>(col)),
@@ -817,4 +826,4 @@ regXlsx(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,6 +1,6 @@
 /* csv.h                                                           -*- C++ -*-
    Jeremy Barnes, 5 April 2010
-   This file is part of MLDB. Copyright 2010 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2010 mldb.ai inc. All rights reserved.
 
    Comma Separated Value parsing code.
 */
@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
-namespace ML {
+namespace MLDB {
 
-struct Parse_Context;
+struct ParseContext;
 
 
 /**
@@ -33,18 +33,18 @@ private:
 
 /** Expect a CSV field from the given parse context.  Another will be set
     to true if there is still another field in the CSV row. */
-std::string expect_csv_field(Parse_Context & context, bool & another,
+std::string expect_csv_field(ParseContext & context, bool & another,
                              char separator = ',');
 
 
 /** Expect a row of CSV from the given parse context.  If length is not -1,
     then the extact number of fields required is given in that parameter. */
 std::vector<std::string>
-expect_csv_row(Parse_Context & context, int length = -1, char separator = ',');
+expect_csv_row(ParseContext & context, int length = -1, char separator = ',');
 
 /** Convert the string to a CSV representation, escaping everything that
     needs to be escaped. */
 std::string csv_escape(const std::string & s);
 
-} // namespace ML
+} // namespace MLDB
 

@@ -1,8 +1,8 @@
 /** thread_specific.h                                              -*- C++ -*-
     Jeremy Barnes, 13 November 2011
-    Copyright (c) 2011 Datacratic.  All rights reserved.
+    Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Placed under the BSD license.
 
@@ -23,7 +23,7 @@
 #include <unordered_set>
 #include <mutex>
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* THREAD SPECIFIC INSTANCE INFO                                             */
@@ -41,7 +41,7 @@ namespace ML {
 template<typename T, typename Tag>
 struct ThreadSpecificInstanceInfo
 {
-    typedef ML::Spinlock Lock;
+    typedef Spinlock Lock;
 
     struct Value
     {
@@ -159,7 +159,7 @@ private:
 
         Value& val = (*info)[index];
 
-        if (JML_UNLIKELY(!val.object)) {
+        if (MLDB_UNLIKELY(!val.object)) {
             if (hadInfo)
                 *hadInfo = false;
             val.construct(const_cast<ThreadSpecificInstanceInfo*>(this));
@@ -176,12 +176,12 @@ private:
 
     static thread_local std::unique_ptr<PerThreadInfo> staticInfo;
 
-    static ML::Spinlock freeIndexLock;
+    static Spinlock freeIndexLock;
     static std::deque<size_t> freeIndexes;
     static unsigned nextIndex;
     int index;
 
-    mutable ML::Spinlock freeSetLock;
+    mutable Spinlock freeSetLock;
     mutable std::unordered_set<Value*> freeSet;
 };
 
@@ -190,7 +190,7 @@ thread_local std::unique_ptr<typename ThreadSpecificInstanceInfo<T, Tag>::PerThr
 ThreadSpecificInstanceInfo<T, Tag>::staticInfo(new typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo());
 
 template<typename T, typename Tag>
-ML::Spinlock
+Spinlock
 ThreadSpecificInstanceInfo<T, Tag>::freeIndexLock;
 
 template<typename T, typename Tag>
@@ -201,4 +201,4 @@ template<typename T, typename Tag>
 unsigned
 ThreadSpecificInstanceInfo<T, Tag>::nextIndex = 0;
 
-} // namespace ML
+} // namespace MLDB

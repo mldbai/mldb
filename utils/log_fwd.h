@@ -1,7 +1,7 @@
 /* log_fwd.h                                                           -*- C++ -*-
    Guy Dumais, 29 January 2016
 
-   This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
    Logging interface.
 */
@@ -18,8 +18,6 @@ namespace spdlog {
     }
 }
 
-namespace Datacratic {
-
 namespace MLDB {
 
 std::shared_ptr<spdlog::logger> getQueryLog();
@@ -29,7 +27,7 @@ std::shared_ptr<spdlog::logger> getServerLog();
 template <typename Class>
 std::string
 getLoggerNameFromClass() {
-    return ML::demangle(typeid(Class));
+    return demangle(typeid(Class));
 }
 
 template <typename Class>
@@ -50,18 +48,19 @@ struct LogDummy {
     void operator&(const spdlog::details::line_logger & line_logger) {}
 };
 
+#define TRACE_MSG(logger)                                               \
+    !logger->should_log(spdlog::level::trace) ? (void) 0 : MLDB::LogDummy() & logger->trace()
+
 #define DEBUG_MSG(logger)                                               \
-    !logger->should_log(spdlog::level::debug) ? (void) 0 : Datacratic::MLDB::LogDummy() & logger->debug()
+    !logger->should_log(spdlog::level::debug) ? (void) 0 : MLDB::LogDummy() & logger->debug()
 
 #define INFO_MSG(logger)                                                \
-    !logger->should_log(spdlog::level::info) ? (void) 0 : Datacratic::MLDB::LogDummy() & logger->info()
+    !logger->should_log(spdlog::level::info) ? (void) 0 : MLDB::LogDummy() & logger->info()
 
 #define WARNING_MSG(logger)                                             \
-    !logger->should_log(spdlog::level::warn) ? (void) 0 :  Datacratic::MLDB::LLogDummy() & logger->warning()
+    !logger->should_log(spdlog::level::warn) ? (void) 0 : MLDB::LogDummy() & logger->warn()
 
 #define ERROR_MSG(logger)                                               \
-    !logger->should_log(spdlog::level::error) ? (void) 0 :  Datacratic::MLDB::LLogDummy() & logger->error()
+    !logger->should_log(spdlog::level::err) ? (void) 0 :  MLDB::LogDummy() & logger->error()
 
 } // MLDB
-
-} // Datacratic

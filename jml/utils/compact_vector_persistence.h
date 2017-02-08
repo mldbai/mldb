@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* compact_vector_persistence.h                                    -*- C++ -*-
    Jeremy Barnes, 3 March 2009
@@ -12,7 +12,7 @@
 #include "mldb/utils/compact_vector.h"
 #include "mldb/jml/db/persistent_fwd.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 template<typename D, size_t I, typename Sz, bool Sf, typename P, class A>
 inline ML::DB::Store_Writer &
@@ -37,5 +37,5 @@ operator >> (ML::DB::Store_Reader & store,
     return store;
 }
 
-} // namespace ML
+} // namespace MLDB
 

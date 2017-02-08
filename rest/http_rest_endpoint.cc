@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_rest_endpoint.cc
    Jeremy Barnes, 11 November 2012
-   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Named endpoint for http connections.
 */
@@ -10,14 +10,14 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
 #include <boost/lexical_cast.hpp>
-#include "mldb/http/tcp_acceptor.h"
+#include "mldb/io/tcp_acceptor.h"
 #include "http_rest_endpoint.h"
 #include "mldb/utils/log.h"
 #include <iomanip>
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 /****************************************************************************/
 /* HTTP REST ENDPOINT                                                       */
@@ -78,7 +78,7 @@ bindTcpAddress(const std::string & address)
     string portPart(address, pos + 1);
 
     if (portPart.empty())
-        throw ML::Exception("invalid port " + portPart + " in address "
+        throw MLDB::Exception("invalid port " + portPart + " in address "
                             + address);
 
     if (portPart[portPart.size() - 1] == '+') {
@@ -88,7 +88,7 @@ bindTcpAddress(const std::string & address)
             return bindTcp(PortRange(port, last), hostPart);
         }
 
-        throw ML::Exception("invalid port " + to_string(port));
+        throw MLDB::Exception("invalid port " + to_string(port));
     }
 
     return bindTcp(boost::lexical_cast<int>(portPart), hostPart);
@@ -257,11 +257,11 @@ logRequest(int code) const
         timespec now;
         clock_gettime(CLOCK_REALTIME, &now);
         double elapsed = (now.tv_sec - timer.tv_sec) * 1000 + (now.tv_nsec - timer.tv_nsec) * 0.000001;
-        logger->info() << "\"" << httpHeader.verb << " " 
+        INFO_MSG(logger) << "\"" << httpHeader.verb << " " 
                        << httpHeader.resource << "\" " << code
                        << " "  << std::setprecision(3)  << elapsed <<  "ms";
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB
 

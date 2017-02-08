@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** filtered_dataset.cc                          -*- C++ -*-
     Guy Dumais, September 18th, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -17,7 +17,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
@@ -109,20 +109,20 @@ struct FilteredDataset::Itl
 
     /** MatrixView */
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const
     {
-        return matrixView->getRowName(rowHash);
+        return matrixView->getRowPath(rowHash);
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
-        return matrixView->getColumnName(column);
+        return matrixView->getColumnPath(column);
     }
 
-    virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    virtual std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {    
-        return matrixView->getRowNames(start, limit);
+        return matrixView->getRowPaths(start, limit);
     }
 
     virtual std::vector<RowHash>
@@ -136,17 +136,17 @@ struct FilteredDataset::Itl
         return matrixView->getRowCount();
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         return matrixView->knownRow(rowName);
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         MatrixNamedRow matrixRow = matrixView->getRow(rowName);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
-        auto filterColumn = [=] (const std::tuple<ColumnName, CellValue, Date> & tuple) {
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
+        auto filterColumn = [=] (const std::tuple<ColumnPath, CellValue, Date> & tuple) {
             return filter(get<1>(tuple), get<2>(tuple));
         };
         std::copy_if(matrixRow.columns.begin(), matrixRow.columns.end(),
@@ -155,14 +155,14 @@ struct FilteredDataset::Itl
         return {matrixRow.rowHash, matrixRow.rowName, columns };
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const
     {
         return matrixView->knownColumn(column);
     }
 
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const
     {
-        return matrixView->getColumnNames();
+        return matrixView->getColumnPaths();
     }   
 
     virtual size_t getColumnCount() const
@@ -170,23 +170,17 @@ struct FilteredDataset::Itl
         return matrixView->getColumnCount();
     }   
 
-    /** ColumnIndex */
-    virtual bool forEachColumnGetStats(const OnColumnStats & onColumnStats) const
-    {
-        return columnIndex->forEachColumnGetStats(onColumnStats);
-    }
-
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & ch, ColumnStats & toStoreResult) const
+    getColumnStats(const ColumnPath & ch, ColumnStats & toStoreResult) const
     {
         return columnIndex->getColumnStats(ch, toStoreResult);
     }
 
-    virtual MatrixColumn getColumn(const ColumnName & columnHash) const
+    virtual MatrixColumn getColumn(const ColumnPath & columnHash) const
     {
         MatrixColumn matrixColumn = columnIndex->getColumn(columnHash);
         
-        std::vector<std::tuple<RowName, CellValue, Date> > rows;
+        std::vector<std::tuple<RowPath, CellValue, Date> > rows;
         auto filterRow = [=] (const std::tuple<RowHash, CellValue, Date> & tuple) {
             return filter(get<1>(tuple), get<2>(tuple));
         };
@@ -196,8 +190,8 @@ struct FilteredDataset::Itl
         return {matrixColumn.columnHash, matrixColumn.columnName, rows};
     }
 
-    virtual std::vector<std::tuple<RowName, CellValue> >
-    getColumnValues(const ColumnName & columnName,
+    virtual std::vector<std::tuple<RowPath, CellValue> >
+    getColumnValues(const ColumnPath & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
         // TODO apply the predicate here
@@ -206,7 +200,7 @@ struct FilteredDataset::Itl
 
     // Duplicated methods in interfaces - Implemented as part of MatrixView
     //virtual bool knownColumn(ColumnHash column) const
-    //virtual std::vector<ColumnName> getColumnNames() const
+    //virtual std::vector<ColumnPath> getColumnPaths() const
 };
 
 
@@ -235,7 +229,7 @@ getStatus() const
 
 KnownColumn
 FilteredDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     return dataset.getKnownColumnInfo(columnName);
 }
@@ -264,4 +258,4 @@ getColumnIndex() const
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

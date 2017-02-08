@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* persistent_fwd.h                                                -*- C++ -*-
    Jeremy Barnes, 17 March 2005
@@ -110,7 +110,7 @@ operator >> (::ML::DB::Store_Reader & store, type & val) \
     return store; \
 } \
 
-#define JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(template_params, type)       \
+#define MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(template_params, type)       \
 template<template_params> \
 inline ::ML::DB::Store_Writer & \
 operator << (::ML::DB::Store_Writer & store, const type & val) \

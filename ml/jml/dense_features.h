@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* dense_feature_space.h                                           -*- C++ -*-
    Jeremy Barnes, 12 June 2003
@@ -172,8 +172,8 @@ public:
     virtual std::string print(const Feature & feature) const;
     virtual std::string print(const Feature & feature, float value) const;
     virtual void parse(const std::string & name, Feature & feature) const;
-    virtual bool parse(Parse_Context & context, Feature & feature) const;
-    virtual void expect(Parse_Context & context, Feature & feature) const;
+    virtual bool parse(ParseContext & context, Feature & feature) const;
+    virtual void expect(ParseContext & context, Feature & feature) const;
     virtual void serialize(DB::Store_Writer & store,
                            const Feature & feature) const;
     virtual void reconstitute(DB::Store_Reader & store,

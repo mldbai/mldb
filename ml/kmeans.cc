@@ -1,17 +1,16 @@
 /** kmeans.cc
     Jeremy Barnes, 31 January 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of the k-means algorithm.
 */
 
 #include "kmeans.h"
 
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 #include "mldb/jml/utils/smart_ptr_utils.h"
-#include <boost/random/uniform_int.hpp>
 
 namespace ML {
 
@@ -27,11 +26,11 @@ train(const std::vector<distribution<float>> & points,
     using namespace std;
 
     if (nbClusters < 2)
-        throw ML::Exception("kmeans training requires at least 2 clusters");
+        throw MLDB::Exception("kmeans training requires at least 2 clusters");
     if (points.size() == 0)
-        throw ML::Exception("kmeans training requires at least 1 datapoint");
+        throw MLDB::Exception("kmeans training requires at least 1 datapoint");
 
-    boost::mt19937 rng;
+    mt19937 rng;
     rng.seed(randomSeed);
 
     int npoints = points.size();
@@ -116,14 +115,14 @@ train(const std::vector<distribution<float>> & points,
             ++clusterNumMembers[best_cluster];
         };
 
-        Datacratic::parallelMap(0, points.size(), findNewCluster);
+        MLDB::parallelMap(0, points.size(), findNewCluster);
 
         for (unsigned i = 0;  i < nbClusters;  ++i)
             clusters[i].nbMembers = clusterNumMembers[i];
 
 #if KMEANS_DEBUG
         auto printDebug = [&] (const string & step, int iter) {
-            filter_ostream stream(ML::format("kmeans_debug_%i_%s.csv", iter, step));
+            filter_ostream stream(MLDB::format("kmeans_debug_%i_%s.csv", iter, step));
             stream << "x,y,group,type\n";
 
             for (int i=0; i < clusters.size(); ++i) {
@@ -162,7 +161,7 @@ train(const std::vector<distribution<float>> & points,
             }
         };
 
-        Datacratic::parallelMap(0, points.size(), addToMeanForPoint);
+        MLDB::parallelMap(0, points.size(), addToMeanForPoint);
 
         // for (int i=0; i < clusters.size(); ++i) {
             // cerr << "cluster " << i << " had " << clusters[i].nbMembers
@@ -209,7 +208,7 @@ assign(const distribution<float> & point) const
 {
     using namespace std;
     if (clusters.size() == 0)
-        throw ML::Exception("Did you train your kmeans?");
+        throw MLDB::Exception("Did you train your kmeans?");
 
     float distMin = INFINITY;
     int best_cluster = -1;
@@ -223,7 +222,7 @@ assign(const distribution<float> & point) const
     // Those are points with infinty distance or nan distance maybe
     // Let's put them in cluster 0
     if (best_cluster == -1) {
-        cerr << ML::format("something went wrong when assigning this vector with norm [%f]",
+        cerr << MLDB::format("something went wrong when assigning this vector with norm [%f]",
                point.two_norm()) << endl;
         best_cluster = 0;
     }
@@ -253,7 +252,7 @@ reconstitute(ML::DB::Store_Reader & store)
     std::string name;
     store >> name;
     if (name != "kmeans")
-        throw ML::Exception("invalid name when loading a KMeans object");
+        throw MLDB::Exception("invalid name when loading a KMeans object");
     std::string metricTag;
     store >> metricTag;
     if (metricTag != metric->tag()) {
@@ -261,13 +260,13 @@ reconstitute(ML::DB::Store_Reader & store)
             metric.reset(new KMeansCosineMetric());
         else if (metricTag == "EuclideanMetric")
             metric.reset(new KMeansEuclideanMetric());
-        else throw ML::Exception("unknown metric tag: tag = %s, current = %s",
+        else throw MLDB::Exception("unknown metric tag: tag = %s, current = %s",
                             metricTag.c_str(), metric->tag().c_str());
     }
     int version;
     store >> version;
     if (version != 0)
-        throw ML::Exception("invalid KMeans version");
+        throw MLDB::Exception("invalid KMeans version");
     int nbClusters;
     store >> nbClusters;
     clusters.clear();
@@ -282,7 +281,7 @@ void
 KMeans::
 save(const std::string & filename) const
 {
-    Datacratic::filter_ostream stream(filename);
+    MLDB::filter_ostream stream(filename);
     DB::Store_Writer store(stream);
     serialize(store);
 }
@@ -291,7 +290,7 @@ void
 KMeans::
 load(const std::string & filename)
 {
-    Datacratic::filter_istream stream(filename);
+    MLDB::filter_istream stream(filename);
     DB::Store_Reader store(stream);
     reconstitute(store);
 }

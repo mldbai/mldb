@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* sparse_feature_space.h                                           -*- C++ -*-
    Jeremy Barnes, 12 June 2003
@@ -45,8 +45,8 @@ public:
     /** Methods to do with the features. */
     virtual Feature_Info info(const ML::Feature & feature) const;
     virtual std::string print(const ML::Feature & feature) const;
-    virtual bool parse(Parse_Context & context, ML::Feature & feature) const;
-    virtual void expect(Parse_Context & context, ML::Feature & feature) const;
+    virtual bool parse(ParseContext & context, ML::Feature & feature) const;
+    virtual void expect(ParseContext & context, ML::Feature & feature) const;
     virtual void serialize(DB::Store_Writer & store,
                            const ML::Feature & feature) const;
     virtual void reconstitute(DB::Store_Reader & store,
@@ -159,7 +159,7 @@ public:
     virtual Sparse_Training_Data * make_type() const;
 
 private:
-    void expect_feature(Parse_Context & c, Mutable_Feature_Set & features,
+    void expect_feature(ParseContext & c, Mutable_Feature_Set & features,
                         Sparse_Feature_Space & feature_space,
                         bool & guessed_wrong);
 

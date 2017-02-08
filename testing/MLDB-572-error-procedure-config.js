@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -54,7 +54,7 @@ var resp3 = mldb.get("/v1/datasets/test/routes/hello");
 
 plugin.log(resp3);
 
-assertEqual(resp3.responseCode, 500);
+assertEqual(resp3.responseCode, 404);
 assertContains(resp3.json.error, "not available due to error in creation");
 
 

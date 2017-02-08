@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* boosted_stumps_testing.h                                        -*- C++ -*-
    Jeremy Barnes, 23 February 2004
@@ -47,7 +47,7 @@ struct Update_Weights_Basic {
 
 /* Non-optimised version of the boosting loss function. */
 struct Boosting_Loss_Test {
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (bool correct, float pred, float current) const
     {
         float sign = (correct == l ? 1.0 : -1.0);

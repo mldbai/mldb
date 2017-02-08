@@ -1,7 +1,7 @@
 CUDA_INSTALL_PATH ?= /usr/local/cuda
 CUDA_PATH := $(CUDA_INSTALL_PATH)
 CUDA_INCLUDE_PATH := $(CUDA_PATH)/include
-CUDA_LIBRARY_PATH := $(CUDA_PATH)/lib
+CUDA_LIBRARY_PATH := $(CUDA_PATH)/lib64
 
 # Set to 1 to emulate the CUDA device
 CUDA_DEVICE_EMULATION ?= 0

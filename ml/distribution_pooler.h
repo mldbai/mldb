@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* distribution_pooler.h                                                -*- C++ -*-
    Francois Maillet, Oct 23 2012
-   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -15,7 +15,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/jml/stats/distribution.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DISTRIBUTION POOLER */
@@ -24,12 +24,12 @@ namespace Datacratic {
 struct DistributionPooler {
 public:
     DistributionPooler() { init = false;};
-    ML::distribution<float> pool();
-    void add(std::shared_ptr<ML::distribution<float>> d);
+    distribution<float> pool();
+    void add(std::shared_ptr<distribution<float>> d);
 
 private:
     bool init;
-    std::vector<ML::distribution<float>> feature_vectors;
+    std::vector<distribution<float>> feature_vectors;
 };
 
 }

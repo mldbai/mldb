@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* dense_layer.h                                                   -*- C++ -*-
    Jeremy Barnes, 2 November 2009
@@ -252,7 +252,7 @@ private:
     static RegisterMe register_me;
 };
 
-JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Layer<Float>);
+MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Layer<Float>);
 
 
 extern template class Dense_Layer<float>;

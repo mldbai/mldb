@@ -1,20 +1,19 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** script.h                                                   -*- C++ -*-
     Francois Maillet, 10 juillet 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Script procedure
 */
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/procedure.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -57,4 +56,4 @@ struct ScriptProcedure: public Procedure {
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

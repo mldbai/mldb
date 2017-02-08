@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** nlp.cc
     Francois Maillet, 20 octobre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -57,7 +57,7 @@ ApplyStopWordsFunction::
 ApplyStopWordsFunction(MldbServer * owner,
                        PolyConfig config,
                        const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     //functionConfig = config.params.convert<ApplyStopWordsFunctionConfig>();
 
@@ -65,7 +65,7 @@ ApplyStopWordsFunction(MldbServer * owner,
 
     auto it = stopwords.find(functionConfig.language);
     if(it == stopwords.end())
-        throw ML::Exception("Unsupported language: " + functionConfig.language);
+        throw MLDB::Exception("Unsupported language: " + functionConfig.language);
 
     selected_stopwords = &(it->second);
 }
@@ -127,7 +127,7 @@ StemmerFunction::
 StemmerFunction(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
@@ -135,7 +135,7 @@ StemmerFunction(MldbServer * owner,
     std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
-        throw ML::Exception(ML::format("language `%s' not available for stemming in "
+        throw MLDB::Exception(MLDB::format("language `%s' not available for stemming in "
                 "encoding `%s'", functionConfig.language, "utf8"));
     }
 }
@@ -157,12 +157,12 @@ call(Words input) const
                        Date ts)
         {
             string str = columnName.toSimpleName().stealRawString();
-            // cerr << "got: " << str << endl;
+
             const sb_symbol * stemmed = sb_stemmer_stem(stemmer.get(),
                     (const unsigned char*)str.c_str(), str.size());
 
             if (stemmed == nullptr) {
-                throw ML::Exception("Out of memory when stemming");
+                throw MLDB::Exception("Out of memory when stemming");
             }
 
             // Cast the cell value as a double before we accumulate them
@@ -176,7 +176,7 @@ call(Words input) const
 
             auto it = accum.find(col);
             if(it == accum.end()) {
-                accum.emplace(col, std::move(make_pair(val_as_double, ts)));
+                accum.emplace(col, make_pair(val_as_double, ts));
             }
             else {
                 it->second.first += val_as_double;
@@ -216,7 +216,7 @@ StemmerOnDocumentFunction::
 StemmerOnDocumentFunction(MldbServer * owner,
                           PolyConfig config,
                           const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
@@ -224,7 +224,7 @@ StemmerOnDocumentFunction(MldbServer * owner,
     std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
-        throw ML::Exception(ML::format("language `%s' not available for stemming in "
+        throw MLDB::Exception(MLDB::format("language `%s' not available for stemming in "
                 "encoding `%s'", functionConfig.language, "utf8"));
     }
 }
@@ -248,7 +248,7 @@ call(Document doc) const
                     (const unsigned char*)str.c_str(), str.size());
 
         if (stemmed == NULL) {
-            throw ML::Exception("Out of memory when stemming");
+            throw MLDB::Exception("Out of memory when stemming");
         }
 
         Utf8String out((const char*)stemmed);
@@ -262,7 +262,7 @@ call(Document doc) const
     };
 
     Utf8String text = doc.document.toUtf8String();
-    ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
+    ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
 
     tokenize_exec(onGram, pcontext, " ", "", 0);
 
@@ -280,4 +280,4 @@ regStemmerOnDocumentFunction(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* Check that we can transpose a dataset and it returns the identity
    function.
@@ -86,8 +86,9 @@ var dataset2_config = {
 
 var dataset2 = mldb.createDataset(dataset2_config);
 
-assertEqual(mldb.get('/v1/datasets/test/query').json,
-            mldb.get('/v1/datasets/test2/query').json);
+assertEqual(mldb.get('/v1/query', {q : 'select * from test order by rowHash()'}).json,
+            mldb.get('/v1/query', {q : 'select * from test2 order by rowHash()'}).json,
+           "query diff");
 
 // Should be able to run an SVD on both
 

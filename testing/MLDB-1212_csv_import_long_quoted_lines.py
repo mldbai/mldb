@@ -1,7 +1,7 @@
 #
 # MLDB-1212_csv_import_long_quoted_lines.py
 # 2016
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest
@@ -36,7 +36,7 @@ class Mldb1212(MldbUnitTest):
 
         result = mldb.get(
             "/v1/query",
-            q="select tokenize(b, {splitchars: ' '}) as cnt "
+            q="select tokenize(b, {splitChars: ' '}) as cnt "
             "from x order by rowName() ASC")
         js_rez = result.json()
         mldb.log(js_rez)

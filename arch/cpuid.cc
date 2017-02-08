@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* simd.cc
    Jeremy Barnes, 21 February 2007
@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 #if defined __i686__ || defined __amd64__
 
@@ -44,12 +44,10 @@ enum {
     CPUID_EXT_SVM_INFO =   0x8000000A
 };
 
-struct Regs {
-    uint32_t eax, ebx, ecx, edx;
-};
+} // file scope
 
 Regs
-cpuid(uint32_t request, uint32_t ecx = 0)
+cpuid(uint32_t request, uint32_t ecx)
 {
     Regs result = {0, 0, 0, 0};
     asm volatile
@@ -84,8 +82,6 @@ cpuid(uint32_t request, uint32_t ecx = 0)
          );
     return result;
 }
-
-} // file scope
 
 uint32_t cpuid_flags()
 {
@@ -241,4 +237,4 @@ CPU_Info * static_cpu_info = 0;
 
 #endif // __i686__
 
-} // namespace ML
+} // namespace MLDB

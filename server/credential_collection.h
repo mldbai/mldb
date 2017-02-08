@@ -1,8 +1,8 @@
 /** credential_collection.h                                                  -*- C++ -*-
     Jeremy Barnes, 11 November 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -14,7 +14,7 @@
 #include "mldb/rest/rest_collection.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+
 
 namespace MLDB {
 struct MldbServer;
@@ -78,8 +78,9 @@ struct CredentialRuleCollection
     getConfig(std::string key, const CredentialRule & value) const;
 };
 
-} // MLDB namespace
-
 extern template class RestCollection<std::string, MLDB::CredentialRule>;
 
-} // namespace Datacratic
+} // MLDB namespace
+
+
+

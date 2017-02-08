@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* output_encoder_test.cc
    Jeremy Barnes, 18 May 2010
@@ -9,7 +9,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
-#define JML_TESTING_PERCEPTRON
+#define MLDB_TESTING_PERCEPTRON
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>

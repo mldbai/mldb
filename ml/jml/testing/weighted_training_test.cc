@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
 
     vector<string> probabilizer = {"-p 3", "-p 1 -Q 1"};
     for(int probIdx=0; probIdx<probabilizer.size(); probIdx++) {
-        cout << ML::format(" ----------------------- TESTING WITH PROBABILIZER IN MODE %s (%s) "
+        cout << MLDB::format(" ----------------------- TESTING WITH PROBABILIZER IN MODE %s (%s) "
                 "-----------------------", probabilizer[probIdx], (probIdx == 0 ? "off" : "on")) << endl;
 
         // weights: LABEL, ExampleId

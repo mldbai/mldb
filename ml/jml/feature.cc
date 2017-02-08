@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* feature.cc
    Jeremy Barnes, 19 March 2009
@@ -8,6 +8,8 @@
 
 #include "feature.h"
 #include "mldb/arch/format.h"
+
+using namespace MLDB;
 
 namespace ML {
 

@@ -1,6 +1,6 @@
 # docker.mk
 # Jeremy Barnes, 22 December 2013
-# Copyright (c) 2013 Datacratic Inc and Jeremy Barnes.
+# Copyright (c) 2013 mldb.ai inc and Jeremy Barnes.
 # Available under the Apache license 2.0.
 
 # This file contains support for using docker (http://docker.io) with

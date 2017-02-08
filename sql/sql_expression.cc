@@ -1,8 +1,8 @@
 /** sql_expression.cc
     Jeremy Barnes, 24 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Basic components of SQL expressions.
 */
@@ -24,8 +24,10 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/value_description.h"
+#include "mldb/jml/utils/string_functions.h"
 
 #include <mutex>
+#include <numeric>
 
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -34,7 +36,6 @@
 
 using namespace std;
 
-namespace Datacratic {
 namespace MLDB {
 
 /*****************************************************************************/
@@ -88,7 +89,6 @@ GenerateRowsWhereFunctionDescription()
              "Describe how values are ordered");
 }
 
-
 /*****************************************************************************/
 /* BOUND ROW EXPRESSION                                                      */
 /*****************************************************************************/
@@ -105,35 +105,30 @@ getExpressionFromPtr(const SqlExpression * expr)
 BoundSqlExpression::
 BoundSqlExpression(ExecFunction exec,
                    const SqlExpression * expr,
-                   std::shared_ptr<ExpressionValueInfo> info,
-                   BoundExpressionMetadata metadata)
+                   std::shared_ptr<ExpressionValueInfo> info)
     : exec(std::move(exec)),
       expr(getExpressionFromPtr(expr)),
-      info(std::move(info)),
-      metadata(std::move(metadata))
+      info(std::move(info))
 {
+    if (this->info->isConst()){
+        auto value = std::make_shared<ExpressionValue>(constantValue());
+        this->exec = [=] (const SqlRowScope & rowScope,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    storage = *value;
+                    return storage;
+                };
+    }
 }
 
 ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
-    return expr->constantValue();
-
-    if (!metadata.isConstant) {
-        throw HttpReturnException
-            (400, "Attempt to extract constant from non-constant expression.  "
-             "One of the elements of the expression requires a constant "
-             "value, for example the text of a regular expression, but was "
-             "actually a non-constant expression: '" + expr->surface + "'",
-             "surface", expr->surface,
-             "ast", expr->print());
-    }
-
-    // This is only OK to do here because by setting isConstant in its metadata,
-    // the expression is guaranteeing it will never access its context.
-    SqlRowScope context;
-    return operator () (context, GET_LATEST);
+    SqlRowScope noRow;
+    ExpressionValue storage;
+    return this->exec(noRow, storage, GET_LATEST);
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(BoundSqlExpression);
@@ -145,10 +140,6 @@ BoundSqlExpressionDescription()
              "Information on the result returned from the expression");
     addField("expr", &BoundSqlExpression::expr,
              "Expression that was bound");
-    //addField("ast", &BoundSqlExpression::ast,
-    //         "Abstract syntax tree of expression");
-    //addField("surface", &BoundSqlExpression::surface,
-    //         "Surface form of expression");
 }
 
 
@@ -237,7 +228,7 @@ doGetFunction(const Utf8String & tableName,
     if (functionName == "rightRowPath")
         throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
     
-    return {nullptr, nullptr};
+    return BoundFunction();
 }
 
 //These are functions in table expression, i.e. in FROM clauses
@@ -274,11 +265,12 @@ SqlBindingScope::
 doGetDatasetFunction(const Utf8String & functionName,
                      const std::vector<BoundTableExpression> & args,
                      const ExpressionValue & options,
-                     const Utf8String & alias)
+                     const Utf8String & alias,
+                     const ProgressFunc & onProgress)
 {
     auto factory = tryLookupDatasetFunction(functionName);
     if (factory) {
-        return factory(functionName, args, options, *this, alias);
+        return factory(functionName, args, options, *this, alias, onProgress);
     }
     
     return BoundTableExpression();
@@ -336,16 +328,16 @@ doGetAggregator(const Utf8String & aggregatorName,
     }
     
     return {nullptr, nullptr};
-    //throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+    //throw HttpReturnException(400, "Binding context " + MLDB::type_name(*this)
     //                    + " must override getAggregator: wanted "
     //                    + aggregatorName);
 }
 
 ColumnGetter
 SqlBindingScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                               + " must override getColumn: wanted "
                               + columnName.toUtf8String());
 }
@@ -353,11 +345,19 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput
 SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                         + " must override getAllColumns: wanted "
                         + tableName);
+}
+
+GetAllColumnsOutput
+SqlBindingScope::
+doGetAllAtoms(const Utf8String & tableName,
+              const ColumnFilter& keep)
+{
+    return doGetAllColumns(tableName, keep);
 }
 
 GenerateRowsWhereFunction
@@ -366,7 +366,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                         + " must override doCreateRowsWhereGenerator");
 }
 
@@ -374,7 +374,7 @@ ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                         + " must override doGetColumnFunction");
 }
 
@@ -382,15 +382,23 @@ ColumnGetter
 SqlBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support bound parameters ($1... or $name)");
+}
+
+ColumnGetter
+SqlBindingScope::
+doGetGroupByKey(size_t index)
+{
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+                              + " is not a group by context");
 }
 
 std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -398,7 +406,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -406,13 +414,13 @@ TableOperations
 SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
-    throw HttpReturnException(500, "Binding context " + ML::type_name(*this)
+    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support getting tables");
 }
 
-ColumnName
+ColumnPath
 SqlBindingScope::
-doResolveTableName(const ColumnName & fullColumnName,
+doResolveTableName(const ColumnPath & fullColumnName,
                    Utf8String &tableName) const
 {
     //default behaviour is there is no dataset so return the full column name
@@ -657,7 +665,7 @@ UnboundEntitiesDescription()
 
 // Environment variable that tells us whether we check the row scope types
 // or not, which may be more expensive.
-ML::Env_Option<bool> MLDB_CHECK_ROW_SCOPE_TYPES
+EnvOption<bool> MLDB_CHECK_ROW_SCOPE_TYPES
 ("MLDB_CHECK_ROW_SCOPE_TYPES", false);
 
 // Visible manifestation of that variable.  We statically initialize it here
@@ -679,8 +687,8 @@ SqlRowScope::
 throwBadNestingError(const std::type_info & typeRequested,
                      const std::type_info & typeFound)
 {
-    std::string t_req = ML::demangle(typeRequested.name());
-    std::string t_found = ML::demangle(typeFound.name());
+    std::string t_req = demangle(typeRequested.name());
+    std::string t_found = demangle(typeFound.name());
     throw HttpReturnException(500, "Invalid scope nesting: requested "
                               + t_req + " got " + t_found,
                               "typeRequested", t_req,
@@ -700,25 +708,35 @@ SqlExpression::
 namespace {
 
 // Match a non-scoped identifier
-static Utf8String matchIdentifier(ML::Parse_Context & context,
-                                  bool allowUtf8)
+static bool matchPathIdentifier(ParseContext & context,
+                                bool allowUtf8, Utf8String & result)
 {
-    Utf8String result;
-
-    if (context.eof())
-        return result;
+    if (context.eof()) {
+        return false;
+    }
 
     if (context.match_literal('"')) {
-        //read until the single quote closes.
-        for (;;) {
-            if (context.match_literal("\"\"")) {
-                result += '"';
+        //read until the double quote closes.
+        {
+            ParseContext::Revert_Token token(context);
+
+            for (;;) {
+                if (context.match_literal("\"\"")) {
+                    result += '"';
+                }
+                else if (context.match_literal('"')) {
+                    token.ignore();
+                    return true;
+                }
+                else if (!context) {
+                    break;
+                }
+                else result += expectUtf8Char(context);
             }
-            else if (context.match_literal('"')) {
-                break;
-            }
-            else result += expectUtf8Char(context);           
         }
+        
+        // If we get here, we had EOF inside a string
+        context.exception("No closing quote character for string");
     }
     else {
 
@@ -726,26 +744,34 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
 
         // An identifier can't start with a digit (MLDB-200)
         if (isdigit(*context))
-            return result;
+            return false;
 
         while (context && (isalnum(*context) || *context == '_'))
             result += *context++;
     }
+    return !result.empty();
+}
 
+static Utf8String matchIdentifier(ParseContext & context, bool allowUtf8)
+{
+    Utf8String result;
+    matchPathIdentifier(context, allowUtf8, result);
     return result;
 }
 
-static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
+static ColumnPath matchColumnName(ParseContext & context, bool allowUtf8)
 {
-    ColumnName result;
+    ColumnPath result;
 
-    if (context.eof())
+    if (context.eof()) {
         return result;
+    }
 
-    Utf8String first = matchIdentifier(context, allowUtf8);
-
-    if (first.empty())
+    Utf8String first;
+    if (!matchPathIdentifier(context, allowUtf8, first)) {
         return result;
+    }
+
     result = PathElement(std::move(first));
 
     while (context.match_literal('.')) {
@@ -758,13 +784,13 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
     return result;
 }
 
-bool matchBlockCommentStart(ML::Parse_Context & ctx)
+bool matchBlockCommentStart(ParseContext & ctx)
 {
     if (ctx.eof() || *ctx != '/')
         return false;
 
     {
-        ML::Parse_Context::Revert_Token token(ctx);
+        ParseContext::Revert_Token token(ctx);
         ++ctx;
         if (!ctx.eof() && (*ctx == '*')) {
             ++ctx;
@@ -777,7 +803,7 @@ bool matchBlockCommentStart(ML::Parse_Context & ctx)
 
 }
 
-void skipToBlockCommentEnd(ML::Parse_Context & ctx)
+void skipToBlockCommentEnd(ParseContext & ctx)
 {
     while (!ctx.eof()) {
         if (*ctx == '*') {
@@ -793,13 +819,13 @@ void skipToBlockCommentEnd(ML::Parse_Context & ctx)
     }
 }
 
-bool matchLineCommentStart(ML::Parse_Context & ctx)
+bool matchLineCommentStart(ParseContext & ctx)
 {
     if (ctx.eof() || *ctx != '-')
         return false;
 
     {
-        ML::Parse_Context::Revert_Token token(ctx);
+        ParseContext::Revert_Token token(ctx);
         ++ctx;
         if (!ctx.eof() && (*ctx == '-')) {
             ++ctx;
@@ -812,7 +838,7 @@ bool matchLineCommentStart(ML::Parse_Context & ctx)
 
 }
 
-void skipToEndOfLine(ML::Parse_Context & ctx)
+void skipToEndOfLine(ParseContext & ctx)
 {
     while (!ctx.eof()) {
         if (ctx.match_eol())
@@ -822,8 +848,8 @@ void skipToEndOfLine(ML::Parse_Context & ctx)
     }
 }
 
-// Parse_Context doesn't consider \n to be a whitespace...
-bool match_whitespace(ML::Parse_Context & ctx)
+// ParseContext doesn't consider \n to be a whitespace...
+bool match_whitespace(ParseContext & ctx)
 {
     bool result = false;
     bool inBlockComment = false;
@@ -846,20 +872,20 @@ bool match_whitespace(ML::Parse_Context & ctx)
     return result;
 }
 
-void skip_whitespace(ML::Parse_Context & ctx)
+void skip_whitespace(ParseContext & ctx)
 {
     match_whitespace(ctx);
 }
 
-void expect_whitespace(ML::Parse_Context & ctx)
+void expect_whitespace(ParseContext & ctx)
 {
     if (!match_whitespace(ctx)) ctx.exception("expected whitespace");
 }
 
 // Match a keyword in any case
-static bool matchKeyword(ML::Parse_Context & context, const char * keyword)
+static bool matchKeyword(ParseContext & context, const char * keyword)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
 
     skip_whitespace(context);
     const char * p = keyword;
@@ -889,7 +915,7 @@ static bool matchKeyword(ML::Parse_Context & context, const char * keyword)
 }
 
 // Expect a keyword in any case
-static void expectKeyword(ML::Parse_Context & context, const char * keyword)
+static void expectKeyword(ParseContext & context, const char * keyword)
 {
     if (!matchKeyword(context, keyword)) {
         context.exception("expected keyword " + string(keyword));
@@ -897,37 +923,61 @@ static void expectKeyword(ML::Parse_Context & context, const char * keyword)
 }
 
 // Read ahead to see if a keyword matches
-static bool peekKeyword(ML::Parse_Context & context, const char * keyword)
+static bool peekKeyword(ParseContext & context, const char * keyword)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
     return matchKeyword(context, keyword);
 }
 
-void matchSingleQuoteStringAscii(ML::Parse_Context & context, std::string& resultStr)
+void matchSingleQuoteStringAscii(ParseContext & context, std::string& resultStr)
 {
-    for (;;) {
-        if (context.match_literal("\'\'"))
-            resultStr += '\'';
-        else if (context.match_literal('\''))
-            break;
-        else if (*context < 0 || *context > 127)
-            context.exception("Non-ASCII character in ASCII context");
-        else resultStr += *context++;
+    {
+        ParseContext::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\'\'"))
+                resultStr += '\'';
+            else if (context.match_literal('\'')) {
+                token.ignore();
+                return;
+            }
+            else if (!context)
+                break;  // eof inside string
+            else if (*context < 0 || *context > 127)
+                context.exception("Non-ASCII character in ASCII context");
+            else resultStr += *context++;
+        }
     }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
 }
 
-void matchSingleQuoteStringUTF8(ML::Parse_Context & context, std::basic_string<char32_t>& resultStr)
+void matchSingleQuoteStringUTF8(ParseContext & context,
+                                std::basic_string<char32_t>& resultStr)
 {
-   for (;;) {
-       if (context.match_literal("\'\'"))
-          resultStr += '\'';
-       else if (context.match_literal('\''))
-          break;
-       else resultStr += expectUtf8Char(context);
-   }
+    {
+        ParseContext::Revert_Token token(context);
+
+        for (;;) {
+            if (context.match_literal("\'\'"))
+                resultStr += '\'';
+            else if (context.match_literal('\'')) {
+                token.ignore();
+                return;
+            }
+            else if (!context) {
+                break;  // eof inside string
+            }
+            else resultStr += expectUtf8Char(context);
+        }
+    }
+
+    // If we get here, we had EOF inside a string
+    context.exception("No closing quote character for string");
 }
 
-bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
+bool matchConstant(ParseContext & context, ExpressionValue & result,
                    bool allowUtf8)
 {
     double d_num;
@@ -1010,9 +1060,9 @@ bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
 
 
 // Match an operator in any case
-static bool matchOperator(ML::Parse_Context & context, const char * keyword)
+static bool matchOperator(ParseContext & context, const char * keyword)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
 
     const char * p = keyword;
 
@@ -1031,7 +1081,7 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
             if (context && (isalnum(*context) || *context == '_'))
                 return false;
         }
-        
+
         token.ignore();
         return true;
     }
@@ -1040,7 +1090,7 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
 }
 
 bool
-matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQualify)
+matchJoinQualification(ParseContext & context, JoinQualification& joinQualify)
 {
     joinQualify = JOIN_INNER;
     bool inner = matchKeyword(context, "INNER ");
@@ -1123,11 +1173,11 @@ const SqlExpression::Operator operators[] = {
 
 std::shared_ptr<SqlExpression>
 SqlExpression::
-parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
+parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
 {
     skip_whitespace(context);
 
-    ML::Parse_Context::Hold_Token token(context);
+    ParseContext::Hold_Token token(context);
 
     //cerr << "parsing at context " << context.get_offset() << " precedence " << currentPrecedence
     //     << " char " << *context << endl;
@@ -1230,7 +1280,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
         
         lhs->surface = ML::trim(token.captured());
-    }
+    }    
 
     if (!lhs && matchKeyword(context, "CAST")) {
         skip_whitespace(context);
@@ -1301,7 +1351,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     // First, look for a variable or a function name
     if (!lhs) {
-        ColumnName identifier = matchColumnName(context, allowUtf8);
+        ColumnPath identifier = matchColumnName(context, allowUtf8);
         if (!identifier.empty()) {
             lhs = std::make_shared<ReadColumnExpression>(identifier);
             lhs->surface = ML::trim(token.captured());
@@ -1372,24 +1422,11 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     (tableName, functionName, args);
 
                 lhs->surface = ML::trim(token.captured());
-
-                skip_whitespace(context);
-
-                // Look for an extract expression, which allows us to rewrite
-                // the output of the function.
-                std::shared_ptr<SqlExpression> extractExpression;
-                if (context.match_literal('[')) {
-                    //extract brackets for user functions
-                    auto extractExpression
-                        = SqlExpression::parse(context,
-                                               10 /*precedence*/, allowUtf8);
-                    skip_whitespace(context);
-                    context.expect_literal(']');
-
-                    lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
-                    lhs->surface = ML::trim(token.captured());
-                }
+               
             } // if '(''
+
+            skip_whitespace(context);           
+
         } // if ! identifier empty
     } //if (!lhs)
 
@@ -1410,6 +1447,22 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if (context.eof()) {
             lhs->surface = ML::trim(token.captured());
             return lhs;
+        }
+
+        if (context.match_literal('['))
+        {
+            //extract expression
+
+            auto extractExpression
+                = SqlExpression::parse(context,
+                                       10 /*precedence*/, allowUtf8);
+            skip_whitespace(context);
+            context.expect_literal(']');
+
+            lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
+            lhs->surface = ML::trim(token.captured());
+            continue;
+
         }
 
         // Look for IS NULL or IS NOT NULL
@@ -1509,7 +1562,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     continue;
                 }
             }
-        }
+        }        
 
         // 'LIKE' expression
         if (currentPrecedence > 5) {
@@ -1553,7 +1606,7 @@ SqlExpression::
 parse(const std::string & expression, const std::string & filename,
       int row, int col)
 {
-    ML::Parse_Context context(filename.empty() ? expression : filename,
+    ParseContext context(filename.empty() ? expression : filename,
                               expression.c_str(),
                               expression.length(), row, col);
     auto result = parse(context, 10 /* starting precedence */, false /* allowUtf8 */);
@@ -1576,7 +1629,7 @@ SqlExpression::
 parse(const Utf8String & expression, const std::string & filename,
       int row, int col)
 {
-    ML::Parse_Context context(filename.empty() ? expression.rawData() : filename,
+    ParseContext context(filename.empty() ? expression.rawData() : filename,
                               expression.rawData(),
                               expression.rawLength(), row, col);
     auto result = parse(context, 10 /* starting precedence */, true /* allowUtf8 */);
@@ -1757,7 +1810,7 @@ shallowCopy() const
     auto onArgs = [] (std::vector<std::shared_ptr<SqlExpression> > args)
         -> std::vector<std::shared_ptr<SqlExpression> >
         {
-            return std::move(args);
+            return args;
         };
 
     return transform(onArgs);
@@ -1860,29 +1913,14 @@ unimp(std::shared_ptr<SqlExpression> lhs,
 }
 
 //Find aggregators for any class implementing getChildren.
-template <class T>
+
 std::vector<std::shared_ptr<SqlExpression> >
-findAggregatorsT(const T* expression, bool withGroupBy)
+findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
     std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
     
-     // collect aggregators
-    for (auto iter = children.begin(); iter != children.end(); ++iter)
-    {
-        auto child = *iter;
-        if (child->isAggregator())
-            output.push_back(child);
-        else {
-            //we dont look for aggregators in aggregator - its not legal - this check above
-            //order MUST be preserved
-            std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
-            int pos = iter - children.begin();
-            children.insert(iter+1, subchildren.begin(), subchildren.end());
-            iter = children.begin() + pos;
-        }
-    }
+    //Collect aggregators AND verify validity at the same time.
 
     std::vector<Utf8String> culprit;
 
@@ -1900,13 +1938,16 @@ findAggregatorsT(const T* expression, bool withGroupBy)
     */
     std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
         for (IterType it = begin; it < end; ++it) {
-            if (!(*it)->isAggregator()) {
-                auto children = (*it)->getChildren();
-                if (children.size() == 0  && (*it)->isWildcard()) {
+            if ((*it)->isAggregator()) {
+                output.push_back(*it);
+            }
+            else {
+                auto subchildren = (*it)->getChildren();
+                if (subchildren.size() == 0  && (*it)->isWildcard()) {
                     return false;
                 }
                 culprit.push_back((*it)->surface);
-                bool result = wildcardNestedInAggregator(children.begin(), children.end());
+                bool result = wildcardNestedInAggregator(subchildren.begin(), subchildren.end());
                 culprit.pop_back();
                 if (!result) return result;
             }
@@ -1924,14 +1965,25 @@ findAggregatorsT(const T* expression, bool withGroupBy)
                                         "' with aggregators is not allowed"));
     }
     
-    return std::move(output);
+    return output;
+}
+
+template <class T>
+std::vector<std::shared_ptr<SqlExpression> >
+findAggregatorsT(const T* expression, bool withGroupBy)
+{
+    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
+    return findAggregators(children, withGroupBy);
 }
 
 std::vector<std::shared_ptr<SqlExpression> >
-SqlExpression::
-findAggregators(bool withGroupBy) const
+findAggregators(std::shared_ptr<SqlExpression> expr, bool withGroupBy)
 {
-    return findAggregatorsT<SqlExpression>(this, withGroupBy);
+    std::vector<std::shared_ptr<SqlExpression> > children;
+    children.push_back(expr);
+    return findAggregators(children, withGroupBy);
+
+    return children;
 }
 
 struct SqlExpressionDescription
@@ -1965,6 +2017,7 @@ DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<const SqlExpression>,
 
 SqlExpressionDescription::
 SqlExpressionDescription()
+    : ValueDescriptionT<std::shared_ptr<SqlExpression> >(ValueKind::STRING) 
 {
     setTypeName("SqlValueExpression");
     documentationUri = "/doc/builtin/sql/ValueExpression.md";
@@ -1990,6 +2043,7 @@ printJsonTyped(const std::shared_ptr<SqlExpression>  * val,
 
 ConstSqlExpressionDescription::
 ConstSqlExpressionDescription()
+    : ValueDescriptionT<std::shared_ptr<const SqlExpression> >(ValueKind::STRING) 
 {
     setTypeName("ConstSqlValueExpression");
 }
@@ -2024,12 +2078,16 @@ SqlRowExpression::
 
 std::shared_ptr<SqlRowExpression>
 SqlRowExpression::
-parse(ML::Parse_Context & context, bool allowUtf8)
+parse(ParseContext & context, bool allowUtf8)
 {
-    ML::Parse_Context::Hold_Token capture(context);
+    ParseContext::Hold_Token capture(context);
 
-    if (matchKeyword(context, "COLUMN EXPR (")
-        || matchKeyword(context, "COLUMN EXPR(")) {
+    if (matchKeyword(context, "COLUMN EXPR")) {
+
+        context.skip_whitespace();
+        bool isStructured = matchKeyword(context, "STRUCTURED");
+        context.skip_whitespace();
+        context.expect_literal('(');
         
         // Components
         // - select: value to select as column; row expression
@@ -2056,7 +2114,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             as = SqlExpression::parse(context, 10, allowUtf8);
             // As eats whitespace
         }
-        else as = SqlExpression::parse("columnName()");
+        else as = SqlExpression::parse("columnPath()");
         
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
@@ -2089,7 +2147,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         context.expect_literal(')');
 
         auto result = std::make_shared<SelectColumnExpression>(select, as, where, orderBy,
-                                                               offset, limit);
+                                                               offset, limit, isStructured);
         result->surface = capture.captured();
         return result;
     }
@@ -2104,9 +2162,9 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
        as a filtered subset or all columns from the output.
     */
-    auto matchPrefixedWildcard = [&] (ColumnName & prefix)
+    auto matchPrefixedWildcard = [&] (ColumnPath & prefix)
         {
-            ML::Parse_Context::Revert_Token token(context);
+            ParseContext::Revert_Token token(context);
             skip_whitespace(context);
             prefix = matchColumnName(context, allowUtf8);
             if (context.match_literal('*')) {
@@ -2120,14 +2178,14 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
     bool isWildcard = false;
     bool matched = false;
-    ColumnName prefix;
-    ColumnName prefixAs;
-    std::vector<std::pair<ColumnName, bool> > exclusions;   // Prefixes to exclude
+    ColumnPath prefix;
+    ColumnPath prefixAs;
+    std::vector<std::pair<ColumnPath, bool> > exclusions;   // Prefixes to exclude
     std::shared_ptr<SqlExpression> expr;
-    ColumnName columnName;
+    ColumnPath columnName;
 
     {
-        ML::Parse_Context::Revert_Token token(context);
+        ParseContext::Revert_Token token(context);
 
         if (matchPrefixedWildcard(prefix)) {
             // Sort out ambiguity between * operator and wildcard by looking at trailing
@@ -2141,7 +2199,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             // - EXCLUDING
             // - a keyword: FROM, WHERE, GROUP BY, HAVING, LIMIT, OFFSET
 
-            ML::Parse_Context::Revert_Token token2(context);
+            ParseContext::Revert_Token token2(context);
 
             skip_whitespace(context);
             if (context.eof() || context.match_literal(',') || context.match_literal(')') || context.match_literal('}')
@@ -2160,10 +2218,10 @@ parse(ML::Parse_Context & context, bool allowUtf8)
     // MLDB-1002 case 1: x: y <--> y AS x
     if (!matched) {
         // Allow backtracking if we don't find a colon
-        ML::Parse_Context::Revert_Token token(context);
+        ParseContext::Revert_Token token(context);
 
         // Do we have an identifier?
-        ColumnName asName = matchColumnName(context, allowUtf8);
+        ColumnPath asName = matchColumnName(context, allowUtf8);
         
         if (!asName.empty()) {
 
@@ -2186,7 +2244,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
     // MLDB-1002 case 2: x*: y* <--> y* AS x*
     if (!matched) {
         // Allow backtracking if we don't find a colon
-        ML::Parse_Context::Revert_Token token(context);
+        ParseContext::Revert_Token token(context);
 
         // Do we have an identifier?
         if (matchPrefixedWildcard(prefix)) {
@@ -2225,7 +2283,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 
             auto expectExclusion = [&] ()
                 {
-                    ColumnName prefix = matchColumnName(context, allowUtf8);
+                    ColumnPath prefix = matchColumnName(context, allowUtf8);
                     if (context.match_literal('*')) {
                         if (prefix.empty())
                             context.exception("can't exclude *");
@@ -2316,7 +2374,7 @@ SqlRowExpression::
 parse(const std::string & expression, const std::string & filename,
       int row, int col)
 {
-    ML::Parse_Context context(filename.empty() ? expression : filename,
+    ParseContext context(filename.empty() ? expression : filename,
                               expression.c_str(),
                               expression.length(), row, col);
     auto result = parse(context, false /* allowUtf8 */);
@@ -2335,7 +2393,7 @@ parse(const char *  expression, const std::string & filename,
 
 std::vector<std::shared_ptr<SqlRowExpression> >
 SqlRowExpression::
-parseList(ML::Parse_Context & context, bool allowUtf8)
+parseList(ParseContext & context, bool allowUtf8)
 {
     std::vector<std::shared_ptr<SqlRowExpression> > result;
 
@@ -2365,7 +2423,7 @@ parseList(const std::string & expression,
           const std::string & filename, int row, int col)
 {
     //cerr << "parsing " << expression << endl;
-    ML::Parse_Context context(filename.empty() ? expression : filename,
+    ParseContext context(filename.empty() ? expression : filename,
                               expression.c_str(),
                               expression.length(), row, col);
     auto result = parseList(context, false);
@@ -2388,7 +2446,7 @@ parseList(const Utf8String & expression,
           const std::string & filename, int row, int col)
 {
     //cerr << "parsing " << expression << endl;
-    ML::Parse_Context context(filename.empty() ? expression.rawData() : filename,
+    ParseContext context(filename.empty() ? expression.rawData() : filename,
                               expression.rawData(),
                               expression.rawLength(), row, col);
     auto result = parseList(context, true);
@@ -2476,7 +2534,7 @@ apply(const SqlRowScope & context) const
 {
     std::vector<ExpressionValue> sortFields(clauses.size());
     for (unsigned i = 0;  i < clauses.size();  ++i) {
-        sortFields[i] = std::move(clauses[i].expr(context, GET_LATEST));
+        sortFields[i] = clauses[i].expr(context, GET_LATEST);
     }
     return sortFields;
 }
@@ -2536,7 +2594,7 @@ OrderByExpression
 OrderByExpression::
 parse(const std::string & str)
 {
-    ML::Parse_Context context(str, str.c_str(), str.length());
+    ParseContext context(str, str.c_str(), str.length());
     OrderByExpression result = parse(context, false /* allowUtf8 */);
     context.expect_eof("Unexpected characters at end of order by expression");
     return result;
@@ -2553,7 +2611,7 @@ OrderByExpression
 OrderByExpression::
 parse(const Utf8String & str)
 {
-    ML::Parse_Context context(str.rawData(), str.rawData(), str.rawLength());
+    ParseContext context(str.rawData(), str.rawData(), str.rawLength());
     OrderByExpression result = parse(context, true /* allowUtf8 */);
     context.expect_eof("Unexpected characters at end of order by expression");
     return result;
@@ -2561,9 +2619,9 @@ parse(const Utf8String & str)
 
 OrderByExpression
 OrderByExpression::
-parse(ML::Parse_Context & context, bool allowUtf8)
+parse(ParseContext & context, bool allowUtf8)
 {
-    ML::Parse_Context::Hold_Token token(context);
+    ParseContext::Hold_Token token(context);
 
     OrderByExpression result;
 
@@ -2742,7 +2800,7 @@ transform(const TransformArgs & transformArgs) const
     for (auto & clause: result.clauses)
         clause.first = transformArgs({clause.first})[0];
   
-    return std::move(result);
+    return result;
 }
     
 OrderByExpression
@@ -2754,7 +2812,7 @@ substitute(const SelectExpression & select) const
     for (auto & clause: result.clauses)
         clause.first = clause.first->substitute(select);
     
-    return std::move(result);
+    return result;
 }
 
 const OrderByExpression ORDER_BY_NOTHING;
@@ -2766,9 +2824,9 @@ const OrderByExpression ORDER_BY_NOTHING;
 
 TupleExpression
 TupleExpression::
-parse(ML::Parse_Context & context, bool allowUtf8)
+parse(ParseContext & context, bool allowUtf8)
 {
-    ML::Parse_Context::Hold_Token token(context);
+    ParseContext::Hold_Token token(context);
 
     TupleExpression result;
 
@@ -2800,7 +2858,7 @@ TupleExpression
 TupleExpression::
 parse(const std::string & str)
 {
-    ML::Parse_Context context(str, str.c_str(), str.length());
+    ParseContext context(str, str.c_str(), str.length());
     TupleExpression result = parse(context, false /* allowUtf8 */);
     context.expect_eof("Unexpected characters at end of tuple expression");
     return result;
@@ -2817,7 +2875,7 @@ TupleExpression
 TupleExpression::
 parse(const Utf8String & str)
 {
-    ML::Parse_Context context(str.rawData(), str.rawData(), str.rawLength());
+    ParseContext context(str.rawData(), str.rawData(), str.rawLength());
     TupleExpression result = parse(context, true /* allowUtf8 */);
     context.expect_eof("Unexpected characters at end of tuple expression");
     return result;
@@ -2943,7 +3001,7 @@ SelectExpression(const std::string & exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -2952,7 +3010,7 @@ SelectExpression(const char * exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -2961,7 +3019,7 @@ SelectExpression(const Utf8String & exprToParse,
                  const std::string & filename,
                  int row, int col)
 {
-    *this = std::move(parse(exprToParse, filename, row, col));
+    *this = parse(exprToParse, filename, row, col);
     ExcAssertEqual(this->surface, exprToParse);
 }
 
@@ -2979,16 +3037,35 @@ SelectExpression(std::vector<std::shared_ptr<SqlRowExpression> > clauses)
 
 SelectExpression
 SelectExpression::
-parse(ML::Parse_Context & context, bool allowUtf8)
+parse(ParseContext & context, bool allowUtf8)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(context, allowUtf8);
-    // concatenate all the surfaces with spaces
-    result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
-                                     [](const Utf8String & prefix,
-                                        std::shared_ptr<SqlRowExpression> & next) {
-                                         return prefix.empty() ? next->surface : prefix + ", " + next->surface;
-                                     });;
+    ParseContext::Hold_Token token(context);
+    std::vector<std::shared_ptr<SqlExpression>> distinctExpr;
+
+    if (matchKeyword(context, "DISTINCT ON ")) {
+        context.skip_whitespace();
+        context.expect_literal('(');
+        do {
+            auto expr = SqlExpression::parse(context, 10, allowUtf8);
+            distinctExpr.push_back(expr);
+            context.skip_whitespace();
+        } while (context.match_literal(','));
+
+        context.expect_literal(')');
+
+    }
+    else if (matchKeyword(context, "DISTINCT ")) {
+        throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
+    }
+
+    SelectExpression result;
+
+    result.clauses = SqlRowExpression::parseList(context, allowUtf8);
+
+    result.distinctExpr = std::move(distinctExpr);
+
+    result.surface = ML::trim(token.captured());
+
     return result;
 }
 
@@ -2997,10 +3074,16 @@ SelectExpression::
 parse(const std::string & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ParseContext context(filename.empty() ? expr : filename,
+                              expr.c_str(),
+                              expr.length(), row, col);
+
+    auto select = parse(context, false);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 SelectExpression
@@ -3016,10 +3099,16 @@ SelectExpression::
 parse(const Utf8String & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+    ParseContext context(filename.empty() ? expr.rawData() : filename,
+                              expr.rawData(),
+                              expr.rawLength(), row, col);
+   
+    auto select = parse(context, true);
+
+    skip_whitespace(context);
+    context.expect_eof();
+
+    return select;
 }
 
 BoundSqlExpression
@@ -3028,7 +3117,7 @@ bind(SqlBindingScope & context) const
 {
     vector<BoundSqlExpression> boundClauses;
     for (auto & c: clauses)
-        boundClauses.emplace_back(std::move(c->bind(context)));
+        boundClauses.emplace_back(c->bind(context));
 
     std::vector<KnownColumn> outputColumns;
 
@@ -3036,7 +3125,8 @@ bind(SqlBindingScope & context) const
     bool isConstant = true;
     for (auto & c: boundClauses) {
         ExcAssert(c.info);
-        if (c.info->getSchemaCompleteness() == SCHEMA_OPEN) {
+        isConstant = isConstant && c.info->isConst();
+        if (c.info->getSchemaCompleteness() == SCHEMA_OPEN) {            
             hasUnknownColumns = true;
         }
 
@@ -3045,14 +3135,14 @@ bind(SqlBindingScope & context) const
         outputColumns.insert(outputColumns.end(),
                              knownColumns.begin(),
                              knownColumns.end());
-
-        if (!c.metadata.isConstant)
-            isConstant = false;
     }
+
+    isConstant = isConstant && !hasUnknownColumns;
     
     auto outputInfo = std::make_shared<RowValueInfo>
         (std::move(outputColumns),
-         hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED);
+         hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED,
+         isConstant);
 
     auto exec = [=] (const SqlRowScope & context,
                      ExpressionValue & storage,
@@ -3068,10 +3158,10 @@ bind(SqlBindingScope & context) const
                 else v.appendToRow(Path(), result);
             }
             
-            return storage = std::move(ExpressionValue(std::move(result)));
+            return storage = ExpressionValue(std::move(result));
         };
 
-    return BoundSqlExpression(exec, this, outputInfo, isConstant);
+    return BoundSqlExpression(exec, this, outputInfo);
 }
 
 Utf8String
@@ -3085,6 +3175,22 @@ print() const
         result += clauses[i]->print();
     }
 
+    if (distinctExpr.size() > 0) {
+
+        if (clauses.size() > 0)
+            result += ", ";
+
+        result += "distinct on(";
+
+        for (unsigned i = 0; i < distinctExpr.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += distinctExpr[i]->print();
+        } 
+
+        result += ")";
+    }   
+
     result += "]";
     
     return result;
@@ -3094,7 +3200,31 @@ std::shared_ptr<SqlExpression>
 SelectExpression::
 transform(const TransformArgs & transformArgs) const
 {
-    throw HttpReturnException(400, "Not implemented: SelectExpression::transform()");
+    std::vector<std::shared_ptr<SqlExpression>> args;
+    for (auto c : clauses)
+        args.push_back(c);
+    for (auto c : distinctExpr)
+        args.push_back(c);
+
+    size_t numClause = clauses.size();
+
+    auto result = std::make_shared<SelectExpression>(*this);
+    auto newArgs = transformArgs(args);
+
+    result->clauses.clear();
+    result->distinctExpr.clear();
+
+    for (int i = 0; i < numClause; ++i) {
+        auto clause = dynamic_pointer_cast<SqlRowExpression>(newArgs[i]);
+        ExcAssert(clause);
+        result->clauses.push_back(clause);
+    }
+
+    for (int i = numClause; i < newArgs.size(); ++i) {
+        result->distinctExpr.push_back(newArgs[i]);
+    }
+
+    return result;
 }
 
 std::string
@@ -3154,6 +3284,13 @@ isConstant() const
     return true;
 }
 
+std::vector<std::shared_ptr<SqlExpression> >
+SelectExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<SelectExpression>(this, withGroupBy);
+}
+
 struct SelectExpressionDescription
     : public ValueDescriptionT<SelectExpression > {
 
@@ -3181,7 +3318,7 @@ parseJsonTyped(SelectExpression * val,
                JsonParsingContext & context) const
 {
     Utf8String s = context.expectStringUtf8();
-    *val = std::move(SelectExpression::parse(s));
+    *val = SelectExpression::parse(s);
 }
 
 void
@@ -3220,11 +3357,11 @@ TableExpression::
 
 std::shared_ptr<TableExpression>
 TableExpression::
-parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
+parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
 {
     skip_whitespace(context);
 
-    ML::Parse_Context::Hold_Token token(context);
+    ParseContext::Hold_Token token(context);
 
     std::shared_ptr<TableExpression> result;
 
@@ -3276,7 +3413,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
     
     // MLDB-1315.  Note that although this looks like a dataset function,
     // in actual fact it's argument is a normal row-valued expression.
-    if (matchKeyword(context, "row_dataset")) {
+    bool isColumn = false, isAtom = false;
+    if ((isColumn = matchKeyword(context, "row_dataset"))
+        || (isAtom = matchKeyword(context, "atom_dataset"))) {
         skip_whitespace(context);
         context.expect_literal('(');
         skip_whitespace(context);
@@ -3294,7 +3433,10 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 context.exception("Expected identifier after the row_dataset(...) AS clause");
         }
         
-        result = std::make_shared<RowTableExpression>(statement, asName);
+        RowTableExpression::Style style
+            = isColumn ? RowTableExpression::COLUMNS : RowTableExpression::ATOMS;
+
+        result = std::make_shared<RowTableExpression>(statement, asName, style);
         result->surface = ML::trim(token.captured());
     }
 
@@ -3322,7 +3464,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
                         bool found = false;
                         {
-                            ML::Parse_Context::Revert_Token token(context);
+                            ParseContext::Revert_Token token(context);
                             found = context.match_literal('{');
                         }
 
@@ -3396,7 +3538,7 @@ TableExpression::
 parse(const Utf8String & expression, const std::string & filename,
       int row, int col)
 {
-    ML::Parse_Context context(filename.empty() ? expression.rawData() : filename,
+    ParseContext context(filename.empty() ? expression.rawData() : filename,
                               expression.rawData(),
                               expression.rawLength(), row, col);
     auto result = parse(context, 10 /* starting precedence */, true /* allowUtf8 */);
@@ -3419,7 +3561,7 @@ printJson(JsonPrintingContext & context)
 {
     if (surface.empty())
         throw HttpReturnException(400, "Attempt to write table expression with no surface and no printJson method",
-                                  "expressionType", ML::type_name(*this),
+                                  "expressionType", MLDB::type_name(*this),
                                   "expressionTree", print());
     else context.writeStringUtf8(surface);
 }
@@ -3544,7 +3686,7 @@ WhenExpression
 WhenExpression::
 parse(const std::string & str)
 {
-    ML::Parse_Context context(str, str.c_str(), str.length());
+    ParseContext context(str, str.c_str(), str.length());
     auto result = parse(context, false /* allowUtf8 */);
     context.expect_eof("Unexpected characters at end of when expression");
     return result;
@@ -3561,7 +3703,7 @@ WhenExpression
 WhenExpression::
 parse(const Utf8String & str)
 {
-    ML::Parse_Context context(str.rawData(), str.rawData(), str.rawLength());
+    ParseContext context(str.rawData(), str.rawData(), str.rawLength());
     auto result = parse(context, true /* allowUtf8 */);
     context.expect_eof("Unexpected characters at end of when expression");
     return result;
@@ -3569,9 +3711,53 @@ parse(const Utf8String & str)
 
 WhenExpression
 WhenExpression::
-parse(ML::Parse_Context & context, bool allowUtf8) {
+parse(ParseContext & context, bool allowUtf8) {
     auto result = SqlExpression::parse(context, 10,  allowUtf8);
     return WhenExpression(result);
+}
+
+static bool filterWhen(ExpressionValue & val,
+                       const SqlRowScope & rowScope,
+                       const BoundSqlExpression & boundWhen)
+{
+    auto passValue = [&] (Date timestamp)
+        {
+            auto tupleScope
+                = SqlExpressionWhenScope
+                ::getRowScope(rowScope, timestamp);
+
+            return boundWhen(tupleScope, GET_LATEST).isTrue();
+        };
+
+    if (val.isEmbedding() || val.isAtom() || val.empty()) {
+        // Don't deconstruct an embedding or an atom; either pass or not
+        // based upon the timestamp (there is only a single timestamp)
+        return passValue(val.getEffectiveTimestamp());
+    }
+
+    StructValue kept;
+    kept.reserve(val.rowLength());
+
+    // TODO: we should do two passes to first mark and then extract
+    // destructively.  Performance enhancement for later.
+    auto onColumn = [&] (const PathElement & columnName,
+                         ExpressionValue val)
+        {
+            bool keepThisOne = filterWhen(val, rowScope, boundWhen);
+            if (keepThisOne) {
+                kept.emplace_back(std::move(columnName), std::move(val));
+            }
+            return true;
+        };
+
+    val.forEachColumn(onColumn);
+
+    bool noTimestamp = kept.empty();
+    val = std::move(kept);
+    if (!noTimestamp)
+        val.setEffectiveTimestamp(Date::notADate());
+
+    return !val.empty();
 }
 
 BoundWhenExpression
@@ -3582,7 +3768,7 @@ bind(SqlBindingScope & scope) const
     if (when->isConstant()) {
         if (when->constantValue().isTrue()) {
             // keep everything, filter is a no-op
-            auto filterInPlace = [] (MatrixNamedRow & row,
+            auto filterInPlace = [] (ExpressionValue & row,
                                      const SqlRowScope & rowScope)
                 {
                 };
@@ -3591,10 +3777,10 @@ bind(SqlBindingScope & scope) const
         }
         else {
             // remove everything; filter is a clear
-            auto filterInPlace = [] (MatrixNamedRow & row,
+            auto filterInPlace = [] (ExpressionValue & row,
                                      const SqlRowScope & rowScope)
                 {
-                    row.columns.clear();
+                    row = ExpressionValue::null(Date::notADate());
                 };
 
             return { filterInPlace, this };
@@ -3612,12 +3798,14 @@ bind(SqlBindingScope & scope) const
     // Second, check for an expression that do not depend on tuples
     if (!whenScope.isTupleDependent) {
         // cerr << "not tuple dependent" << endl;
-        auto filterInPlace = [=] (MatrixNamedRow & row,
-                              const SqlRowScope & rowScope)
+        auto filterInPlace = [=] (ExpressionValue & row,
+                                  const SqlRowScope & rowScope)
             {
-                auto tupleScope = SqlExpressionWhenScope::getRowScope(rowScope, Date());
+                auto tupleScope = SqlExpressionWhenScope
+                    ::getRowScope(rowScope, Date());
                 if (!boundWhen(tupleScope, GET_LATEST).isTrue()) {
-                    row.columns.clear();
+                    StructValue vals;
+                    row = std::move(vals);
                 }
             };
         return { filterInPlace, this };
@@ -3625,49 +3813,11 @@ bind(SqlBindingScope & scope) const
 
     // Executing a when expression will filter the row by the expression,
     // applying it to each of the tuples
-    auto filterInPlace = [=] (MatrixNamedRow & row,
-                              const SqlRowScope & rowScope)
+    std::function<void (ExpressionValue &, const SqlRowScope &)>
+        filterInPlace = [=] (ExpressionValue & row,
+                             const SqlRowScope & rowScope)
         {
-            // Figure out which ones we keep.  We need to perform all of the
-            // scanning before we extract any output, as we want the row
-            // to remain intact (it's used by the rowScope) until we've
-            // evaluated our when expression.
-
-            std::vector<char> keep;  // not bool to avoid bitmap
-            keep.reserve(row.columns.size());
-
-            // How many columns do we output?
-            size_t numOutput = 0;
-
-            for (const auto & col: row.columns) {
-                auto tupleScope
-                    = SqlExpressionWhenScope
-                    ::getRowScope(rowScope, std::get<2>(col));
-
-                auto whenExpressionValue = boundWhen(tupleScope, GET_LATEST);
-                bool keepThisCol = whenExpressionValue.isTrue();
-                keep.emplace_back(keepThisCol);
-                numOutput += keepThisCol;
-            }
-
-            // Now we create our output
-            std::vector<std::tuple<ColumnName, CellValue, Date> > output;
-
-            // If we keep them all, no need to copy
-            if (numOutput == row.columns.size()) {
-                return;
-            }
-
-            // Move the kept elements into the output
-            for (unsigned i = 0;  i < row.columns.size();  ++i) {
-                if (!keep[i])
-                    continue;
-
-                output.emplace_back(std::move(row.columns[i]));
-            }
-            
-            // Swap them back in
-            row.columns.swap(output);
+            filterWhen(row, rowScope, boundWhen);
         };
 
     return { filterInPlace, this };
@@ -3778,7 +3928,7 @@ SelectStatement
 SelectStatement::
 parse(const std::string& body)
 {
-    ML::Parse_Context context(body, body.c_str(), body.length());
+    ParseContext context(body, body.c_str(), body.length());
 
     const bool acceptUtf8 = true;
 
@@ -3786,7 +3936,7 @@ parse(const std::string& body)
 
     context.expect_eof();
 
-    return std::move(stm);
+    return stm;
 }
 
 SelectStatement
@@ -3797,9 +3947,9 @@ parse(const char * body)
 }
 
 SelectStatement
-SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
+SelectStatement::parse(ParseContext& context, bool acceptUtf8)
 {
-    ML::Parse_Context::Hold_Token token(context);
+    ParseContext::Hold_Token token(context);
 
     SelectStatement statement;
 
@@ -3810,7 +3960,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         context.exception("Expected SELECT");
     }
 
-    bool needDefaultRowName = false;
+    bool needDefaultRowPath = false;
     if (matchKeyword(context, "NAMED ")) {
         statement.rowName = SqlExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
@@ -3818,18 +3968,18 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     else {
         //default name is "rowPath()" if there is a dataset and "result" if there is none
         //we need to check if there is a FROM first.
-        needDefaultRowName = true;
+        needDefaultRowPath = true;
     }
 
     if (matchKeyword(context, "FROM ")) {
         statement.from = TableExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
-        if (needDefaultRowName)
+        if (needDefaultRowPath)
             statement.rowName = SqlExpression::parse("rowPath()");
     }
     else {
         statement.from = std::make_shared<NoTable>();
-        if (needDefaultRowName)
+        if (needDefaultRowPath)
             statement.rowName = SqlExpression::parse("'result'");
     }
     
@@ -3883,12 +4033,22 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         statement.offset = 0;
     }
 
+    if (statement.select.distinctExpr.size() > 0) {
+        if (statement.orderBy.clauses.size() < statement.select.distinctExpr.size())
+            throw HttpReturnException(400, "DISTINCT ON expression cannot have more clauses than ORDER BY expression");
+
+        for (size_t i = 0; i < statement.select.distinctExpr.size(); ++i) {
+            if (statement.select.distinctExpr[i]->print() != statement.orderBy.clauses[i].first->print())
+                throw HttpReturnException(400, "DISTINCT ON expression must match leftmost(s) ORDER BY clause(s)");
+        }
+    }
+
     statement.surface = ML::trim(token.captured());
 
     skip_whitespace(context);
 
     //cerr << jsonEncode(statement) << endl;
-    return std::move(statement);
+    return statement;
 }
 
 Utf8String
@@ -3993,5 +4153,3 @@ InputQueryDescription()
 }
 
 } // namespace MLDB
-} // namespace Datacratic
-

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** thread_specitic_test.cc                                 -*- C++ -*-
     Rémi Attab, 30 Jul 2013
-    Copyright (c) 2013 Datacratic.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
     Tests for the instanced TLS class.
 
@@ -20,7 +20,7 @@
 #include <array>
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 struct Data
 {
@@ -53,13 +53,13 @@ struct Data
 size_t Data::constructed = 0;
 size_t Data::destructed = 0;
 
-typedef ML::ThreadSpecificInstanceInfo<Data, Data> Tls;
+typedef ThreadSpecificInstanceInfo<Data, Data> Tls;
 
 
 BOOST_AUTO_TEST_CASE(sanityTest)
 {
     {
-        ML::ThreadSpecificInstanceInfo<Data, Data> data;
+        ThreadSpecificInstanceInfo<Data, Data> data;
         data.get();
     }
 

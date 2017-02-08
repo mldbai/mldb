@@ -1,7 +1,7 @@
 /* config.h                                                           -*- C++ -*-
    Guy Dumais, 8 March 2016
 
-   This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
    Config interface.
 */
@@ -27,7 +27,7 @@ namespace boost {
     }
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 struct BaseConfig : public Config {
     virtual bool getBool(const std::string & key, bool defaultValue) {
@@ -143,4 +143,4 @@ get() {
 
 Config::ConfigPtr Config::config;
 
-} // Datacratic
+} // MLDB

@@ -2,7 +2,7 @@
    Jeremy Barnes, 19 March 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    The core of boosting, parallelized.
 */
@@ -69,7 +69,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
                 total += subtotal;
             };
 
-        Datacratic::parallelMapChunked(0, nx, examples_per_chunk, doJob);
+        MLDB::parallelMapChunked(0, nx, examples_per_chunk, doJob);
     }
 
     /** Apply the given classifier to the given weights, given the training
@@ -108,7 +108,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
                 total += subtotal;
             };
 
-        Datacratic::parallelMapChunked(0, nx, examples_per_chunk, doJob);
+        MLDB::parallelMapChunked(0, nx, examples_per_chunk, doJob);
     }
 
 };
@@ -231,7 +231,7 @@ struct Update_Scores_Parallel
                 Update_Job(info, x0, x1)();
             };
 
-        Datacratic::parallelMapChunked(0, nx, examples_per_chunk, doJob);
+        MLDB::parallelMapChunked(0, nx, examples_per_chunk, doJob);
     }
 
     struct Job_Info_Classifier {
@@ -328,7 +328,7 @@ struct Update_Scores_Parallel
                 Update_Job_Classifier(info, x0, x1)();
             };
 
-        Datacratic::parallelMapChunked(0, nx, examples_per_chunk, doJob);
+        MLDB::parallelMapChunked(0, nx, examples_per_chunk, doJob);
     }
 
 };
@@ -478,7 +478,7 @@ struct Update_Weights_And_Scores_Parallel
                 Update_Job(info, x0, x1)();
             };
 
-        Datacratic::parallelMapChunked(0, nx, examples_per_chunk, doJob);
+        MLDB::parallelMapChunked(0, nx, examples_per_chunk, doJob);
     }
 
     struct Job_Info_Classifier {
@@ -580,7 +580,7 @@ struct Update_Weights_And_Scores_Parallel
                 Update_Job_Classifier(info, x0, x1)();
             };
 
-        Datacratic::parallelMapChunked(0, nx, examples_per_chunk, doJob);
+        MLDB::parallelMapChunked(0, nx, examples_per_chunk, doJob);
     }
 };
 

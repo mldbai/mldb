@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* configuration.cc
    Jeremy Barnesm, 18 February 2007
@@ -6,6 +6,7 @@
 
    Configuration file parser.
 */
+#include <boost/algorithm/string/join.hpp>
 
 #include "configuration.h"
 #include "mldb/base/parse_context.h"
@@ -13,7 +14,7 @@
 
 
 using namespace std;
-
+using namespace MLDB;
 
 namespace ML {
 
@@ -147,7 +148,7 @@ void
 Configuration::
 load(const std::string & filename)
 {
-    Parse_Context context(filename);
+    MLDB::ParseContext context(filename);
     parse(context);
 }
 
@@ -155,7 +156,7 @@ void
 Configuration::
 parse_string(const std::string & str, const std::string & filename)
 {
-    Parse_Context context(filename, str.c_str(), str.c_str() + str.size());
+    ParseContext context(filename, str.c_str(), str.c_str() + str.size());
     parse(context);
 }
 
@@ -169,7 +170,7 @@ struct Found_End_Name {
     }
 };
 
-std::string expect_name(Parse_Context & context)
+std::string expect_name(ParseContext & context)
 {
     std::string result;
     if (!context.match_text(result, Found_End_Name())
@@ -185,7 +186,7 @@ struct Found_End_Value {
     }
 };
 
-std::string expect_value(Parse_Context & context)
+std::string expect_value(ParseContext & context)
 {
     std::string result;
     if (!context.match_text(result, Found_End_Value())
@@ -198,7 +199,7 @@ std::string expect_value(Parse_Context & context)
 
 void
 Configuration::
-parse(Parse_Context & context)
+parse(ParseContext & context)
 {
     string scope;
 
@@ -291,7 +292,6 @@ raw_set(const std::string & key, const std::string & value)
     if (!writeable_)
         throw Exception("Configuration::operator []: "
                         "object is not writeable");
-
     data_->entries[key] = value;
 }
 
@@ -328,6 +328,30 @@ allKeys() const
         result.push_back(it->first);
 
     return result;
+}
+
+
+/** Call after all keys have been consumed with findAndRemove */
+void
+Configuration::
+throwOnUnknwonKeys(
+    vector<string> & keys,
+    const function<bool(const string & )> & ignoreKeyFct) const
+{
+    string prefixDot = prefix_ + ".";
+    keys.erase(
+        remove_if(keys.begin(), keys.end(),
+                  [&] (const std::string & str) {
+                     return (ignoreKeyFct && ignoreKeyFct(str)) // fct says to ignore
+                        || str.find(prefixDot) != 0 // prefix not found
+                        || str.rfind(".") != prefixDot.size() - 1; // prefix found, but non terminal key
+                  }),
+        keys.end());
+
+    if (!keys.empty()) {
+        throw MLDB::Exception("Unknown key(s) encountered in config: %s",
+                            boost::algorithm::join(keys, " ").c_str());
+    }
 }
 
 } // namespace ML

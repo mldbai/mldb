@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* json_diff.cc
    Jeremy Barnes, 2 November 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 */
 
 #include "json_diff.h"
@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+namespace MLDB {
 
 JsonDiff::Deleted JsonDiff::deleted;
 
@@ -186,7 +186,7 @@ jsonDiffObjects(const Json::Value & obj1,
         }
         else if (it1 != end1 && (it2 == end2 || *it1 < *it2)) {
             // Deleted field
-            result.fields[*it1] = std::move(JsonDiff(obj1[*it1], JsonDiff::deleted));
+            result.fields[*it1] = JsonDiff(obj1[*it1], JsonDiff::deleted);
             ++it1;
         }
         else {
@@ -567,7 +567,7 @@ jsonPatch(const Json::Value * val,
                             current = &(*val)[f.first];
                         }
                         else {
-                            throw ML::Exception("element does not exist");
+                            throw MLDB::Exception("element does not exist");
                         }
 
                         JsonDiff fieldConflicts;
@@ -591,7 +591,7 @@ jsonPatch(const Json::Value * val,
                             }
                         }
                         else if (f.first > oldSize) {
-                            throw ML::Exception("index " + to_string(f.first)
+                            throw MLDB::Exception("index " + to_string(f.first)
                                                 + " is invalid");
                         }
                         (*patchedValue)[f.first] = *f.second.newValue;
@@ -689,7 +689,7 @@ jsonPatch(const Json::Value * val,
         }
     }
     else {
-        throw ML::Exception("logic error");
+        throw MLDB::Exception("logic error");
     }
 
     return make_pair(std::move(patchedValue), std::move(conflicts));
@@ -732,4 +732,4 @@ JsonArrayElementDiffDescription()
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

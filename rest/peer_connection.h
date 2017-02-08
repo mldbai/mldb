@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* peer_connection.h                                               -*- C++ -*-
    Jeremy Barnes, 31 May 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
    Connection between two peers.
 */
@@ -14,7 +14,7 @@
 #include "peer_message.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /** State of a connection to a peer. */
 enum PeerConnectionState {
@@ -200,4 +200,4 @@ struct PeerServer {
     virtual void setNewConnectionHandler(std::function<void (std::shared_ptr<PeerConnection>)> onNewConnection) = 0;
 };
 
-} // namespace Datacratic
+} // namespace MLDB

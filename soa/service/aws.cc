@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* aws.cc
    Jeremy Barnes, 8 August 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -14,18 +14,25 @@
 #include "xml_helpers.h"
 #include <boost/algorithm/string.hpp>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
 #include "crypto++/md5.h"
 #include "crypto++/hmac.h"
 #include "crypto++/base64.h"
 #include "crypto++/hex.h"
+#pragma GCC diagnostic pop
 
 
 using namespace std;
 using namespace ML;
 
-namespace Datacratic {
+namespace MLDB {
+
+// Fix GCC error message about unused function
+auto __fixGccError = &CryptoPP::StringNarrow;
 
 template<class Hash>
 std::string
@@ -227,7 +234,7 @@ uriEncode(const std::string & str)
 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             result += c;
-        else result += ML::format("%%%02X", c);
+        else result += MLDB::format("%%%02X", c);
     }
 
     return result;
@@ -245,11 +252,11 @@ AwsApi::
 escapeResource(const std::string & resource)
 {
     if (resource.size() == 0) {
-        throw ML::Exception("empty resource name");
+        throw MLDB::Exception("empty resource name");
     }
 
     if (resource[0] != '/') {
-        throw ML::Exception("resource name must start with a '/'");
+        throw MLDB::Exception("resource name must start with a '/'");
     }
 
     return "/" + uriEncode(resource.substr(1));
@@ -581,7 +588,7 @@ perform(const BasicRequest & request,
         }
     }
 
-    throw ML::Exception("failed request after %d retries", retries);
+    throw MLDB::Exception("failed request after %d retries", retries);
 }
 
 std::string
@@ -595,4 +602,4 @@ performGet(RestParams && params,
                            resultSelector);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

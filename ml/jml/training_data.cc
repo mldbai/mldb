@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* training_data.cc
    Jeremy Barnes, 10 June 2003
@@ -121,22 +121,22 @@ initFiltered(const Training_Data & other,
                 cerr << "different info " << endl;
                 cerr << entry1.print_info() << endl;
                 cerr << entry2.print_info() << endl;
-                throw ML::Exception("different info");
+                throw MLDB::Exception("different info");
             }
 
             if (entry1.examples != entry2.examples) {
                 cerr << "different examples" << endl;
-                throw ML::Exception("different examples");
+                throw MLDB::Exception("different examples");
             }
         
             if (entry1.values != entry2.values) {
                 cerr << "different values" << endl;
-                throw ML::Exception("different values");
+                throw MLDB::Exception("different values");
             }
 
             if (entry1.example_count != entry2.example_count) {
                 cerr << "different example count" << endl;
-                throw ML::Exception("different example count");
+                throw MLDB::Exception("different example count");
             }
         }
     }    
@@ -165,7 +165,7 @@ Training_Data::all_features() const
 
 void Training_Data::dump(const std::string & filename) const
 {
-    Datacratic::filter_ostream stream(filename);
+    MLDB::filter_ostream stream(filename);
     dump(stream);
 }
 

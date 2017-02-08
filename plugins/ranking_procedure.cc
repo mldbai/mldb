@@ -1,7 +1,7 @@
 /**
  * ranking_procedure.cc
  * Mich, 2016-01-11
- * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+ * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
  **/
 
 #include "ranking_procedure.h"
@@ -25,7 +25,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(RankingType);
@@ -33,7 +33,9 @@ RankingTypeDescription::
 RankingTypeDescription()
 {
     //addValue("percentile", PERCENTILE);
-    addValue("index", INDEX);
+    addValue("index", INDEX, 
+             "Gives an integer index ranging from 0 to n - 1, where "
+             "n is the number of rows.");
 }
 
 RankingProcedureConfig::
@@ -53,14 +55,14 @@ RankingProcedureConfigDescription()
              "expression is required but has no effect. The order by "
              "expression is used to rank the rows.");
     addField("outputDataset", &RankingProcedureConfig::outputDataset,
-             "Output dataset configuration. This may refer either to an "
-             "existing dataset, or a fully specified but non-existing dataset "
-             "which will be created by the procedure.",
+             GENERIC_OUTPUT_DS_DESC,
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("rankingType", &RankingProcedureConfig::rankingType,
-             "The type of the rank to output.");
+             "The type of the rank to output. The only accepted value is "
+             "`index`. It generates an integer based rank ranging from 0 to "
+             "n - 1.", INDEX);
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
-             "The name to give the ranking column.");
+             "The name to give to the ranking column.", string("rank"));
     addParent<ProcedureConfig>();
     onPostValidate = validateQuery(&RankingProcedureConfig::inputData,
                                    MustContainFrom());
@@ -83,7 +85,8 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    ConvertProgressToJson convertProgressToJson(onProgress);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
@@ -97,7 +100,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    vector<RowName> orderedRowNames;
+    vector<RowPath> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
@@ -123,16 +126,16 @@ run(const ProcedureRunConfig & run,
         .execute({getSize,false/*processInParallel*/},
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
-                 onProgress);
+                 convertProgressToJson);
 
     int64_t rowCount = orderedRowNames.size();
 
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> Cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
-    const ColumnName columnName(runProcConf.rankingColumnName);
+    typedef tuple<ColumnPath, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowPath, vector<Cell> > > > accum;
+    const ColumnPath columnName(runProcConf.rankingColumnName);
     function<void(int64_t)> applyFct;
     float countD100 = (rowCount) / 100.0;
     if (false) {
@@ -178,7 +181,7 @@ run(const ProcedureRunConfig & run,
     parallelMap(0, rowCount, applyFct);
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<Cell> > > * rows)
+    accum.forEach([&] (vector<pair<RowPath, vector<Cell> > > * rows)
     {
         output->recordRows(*rows);
     });
@@ -203,4 +206,4 @@ regRankingProcedure(
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

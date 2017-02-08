@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** external_python_procedure.cc                                                     -*- C++ -*-
     Francois Maillet, 31 aout 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     External python procedure
 */
@@ -13,7 +13,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/soa/service/runner.h"
+#include "mldb/utils/runner.h"
 #include <boost/filesystem.hpp>
 #include "mldb/types/any_impl.h"
 
@@ -22,7 +22,7 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(ExternalPythonProcedureConfig);
@@ -83,9 +83,9 @@ run(const ProcedureRunConfig & run,
     auto stderr_sink = make_shared<OStreamInputSink>(output_stderr.get());
 
     if(!pluginRes)
-        throw ML::Exception("ScriptRessource not loaded");
+        throw MLDB::Exception("ScriptRessource not loaded");
     if(!pluginRes->packageElementExists(MAIN))
-        throw ML::Exception("Main script element does not exist");
+        throw MLDB::Exception("Main script element does not exist");
 
     // TODO fix this. MLDB-874
     string python_executable;
@@ -152,4 +152,4 @@ regExternalPipeline(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

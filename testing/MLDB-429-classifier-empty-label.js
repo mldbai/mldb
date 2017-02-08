@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* Example script to import a reddit dataset and run an example */
 
@@ -48,7 +48,6 @@ var trainClassifierProcedureConfig = {
                 type: "glz",
                 verbosity: 3,
                 normalize: false,
-                link: 'linear',
                 "regularization": 'l2'
             }
         },

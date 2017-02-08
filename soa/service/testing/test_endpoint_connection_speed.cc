@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* endpoint_test.cc
    Jeremy Barnes, 31 January 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 
    Tests for the endpoints.
 */
@@ -17,7 +17,7 @@
 #include <sys/socket.h>
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/testing/watchdog.h"
+#include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"
 #include "test_connection_error.h"
 #include "mldb/arch/semaphore.h"
@@ -30,7 +30,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 void runAcceptThread(int & port, ML::Semaphore & started, bool & finished)

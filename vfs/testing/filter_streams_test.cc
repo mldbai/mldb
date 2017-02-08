@@ -1,10 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* filter_streams_test.cc
    Jeremy Barnes, 29 June 2011
-   Copyright (c) 2011 Datacratic.
+   Copyright (c) 2011 mldb.ai inc.
    Copyright (c) 2011 Jeremy Barnes.
 
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #define BOOST_TEST_MAIN
@@ -12,7 +11,6 @@
 
 #include <string.h>
 
-#include "mldb/jml/utils/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams_registry.h"
@@ -36,7 +34,7 @@
 using namespace std;
 namespace fs = boost::filesystem;
 using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
@@ -59,9 +57,9 @@ void system(const std::string & command)
 {
     int res = ::system(command.c_str());
     if (res == -1)
-        throw ML::Exception(errno, "system(): system");
+        throw MLDB::Exception(errno, "system(): system");
     if (res != 0)
-        throw ML::Exception("command %s returned code %d",
+        throw MLDB::Exception("command %s returned code %d",
                             command.c_str(), res);
 }
 
@@ -161,37 +159,44 @@ void test_compress_decompress(const std::string & input_file,
     assert_files_identical(input_file, dec4);
 }
 
-#if 0
+#if 1
 BOOST_AUTO_TEST_CASE( test_compress_decompress_gz )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     test_compress_decompress(input_file, "gz", "gzip", "gzip -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_bzip2 )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     test_compress_decompress(input_file, "bz2", "bzip2", "bzip2 -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_xz )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     test_compress_decompress(input_file, "xz", "xz", "xz -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
 {
-    string input_file = "jml/utils/testing/filter_streams_test.cc";
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     string lz4_cmd = "./build/x86_64/bin/lz4cli";
     test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
+}
+
+BOOST_AUTO_TEST_CASE( test_compress_decompress_zstandard )
+{
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
+    string zstd_cmd = "./build/x86_64/bin/zstd";
+    test_compress_decompress(input_file, "zst", zstd_cmd, zstd_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_open_failure )
 {
     filter_ostream stream;
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
@@ -200,6 +205,7 @@ BOOST_AUTO_TEST_CASE( test_open_failure )
 
 BOOST_AUTO_TEST_CASE( test_write_failure )
 {
+    MLDB_TRACE_EXCEPTIONS(false);
     int fd = open("/dev/null", O_RDWR, 0);
 
     cerr << "fd = " << fd << endl;
@@ -208,14 +214,18 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
 
     stream << "hello" << std::endl;
 
-    close(fd);
+    {
+        MLDB_TRACE_EXCEPTIONS(false);
+        close(fd);
+    }
 
     cerr <<" done close" << endl;
 
     {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream << "hello again" << std::endl, std::exception);
     }
+
 }
 
 /* ensures that empty gz/bzip2/xz streams have a valid header */
@@ -224,9 +234,16 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
     fs::create_directories("build/x86_64/tmp");
 
     string fileprefix("build/x86_64/tmp/empty.");
-    vector<string> exts = { "gz", "bz2", "xz", "lz4" };
+    vector<string> exts = { "gz", "bz2", "xz", "lz4", "zst" };
+    map<string, string> compressions = {
+        { "gz", "gzip" },
+        { "bz2", "bzip2" },
+        { "xz", "lzma" },
+        { "lz4", "lz4" },
+        { "zst", "zstd" } };
 
     for (const auto & ext: exts) {
+        cerr << "testing extension " << ext << endl;
         string filename = fileprefix + ext;
 
         /* stream from filename */
@@ -237,7 +254,7 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
                 filter_ostream filestream(filename);
             }
 
-            BOOST_CHECK(get_file_size(filename) > 2);
+            BOOST_CHECK(getUriSize(filename) > 2);
             {
                 filter_istream filestream(filename);
                 string line;
@@ -253,11 +270,11 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
             int fd = open(filename.c_str(), O_RDWR| O_CREAT, S_IRWXU);
             {
                 filter_ostream filestream;
-                filestream.open(fd, ios::out, ext);
+                filestream.open(fd, ios::out, compressions[ext]);
             }
             close(fd);
 
-            BOOST_CHECK(get_file_size(filename) > 2);
+            BOOST_CHECK(getUriSize(filename) > 2);
             {
                 filter_istream filestream(filename);
                 string line;
@@ -413,7 +430,7 @@ struct ExceptionSource {
     std::streamsize write(const char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnWrite) {
-            throw ML::Exception("throwing when writing");
+            throw MLDB::Exception("throwing when writing");
         }
         return n;
     }
@@ -421,7 +438,7 @@ struct ExceptionSource {
     std::streamsize read(char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnRead) {
-            throw ML::Exception("throwing when reading");
+            throw MLDB::Exception("throwing when reading");
         }
         char randomdata[n];
         ::memcpy(s, randomdata, n);
@@ -449,7 +466,7 @@ struct RegisterExcHandlers {
         handler.reset(new boost::iostreams::stream_buffer<ExceptionSource>
                       (ExceptionSource(onException, throwType),
                        1));
-        Datacratic::FsObjectInfo info;
+        FsObjectInfo info;
         info.exists = true;
         return UriHandler(handler.get(), handler, info);
     }
@@ -502,16 +519,16 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
 
     string data;
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream >> data;
     };
 
-    BOOST_CHECK_THROW(action(), ML::Exception);
+    BOOST_CHECK_THROW(action(), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    MLDB_TRACE_EXCEPTIONS(false);
     filter_ostream stream("throw-on-write://exception-zone");
 
     auto action = [&]() {
@@ -523,7 +540,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
         }
     };
 
-    BOOST_CHECK_THROW(action(), ML::Exception);
+    BOOST_CHECK_THROW(action(), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
@@ -531,7 +548,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
     filter_ostream stream("throw-on-close://exception-zone");
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.close();
     };
 
@@ -544,7 +561,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_ostream)
     stream.reset(new filter_ostream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.reset();
     };
 
@@ -557,7 +574,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
     stream.reset(new filter_istream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
-        JML_TRACE_EXCEPTIONS(false);
+        MLDB_TRACE_EXCEPTIONS(false);
         stream.reset();
     };
 

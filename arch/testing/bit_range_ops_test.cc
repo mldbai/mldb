@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bit_range_ops_test.cc
    Jeremy Barnes, 2 April February 2009
@@ -22,6 +22,7 @@
 
 
 using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -56,7 +57,7 @@ BOOST_AUTO_TEST_CASE( test_sign_extend )
 }
 
 template<class T>
-JML_ALWAYS_INLINE
+MLDB_ALWAYS_INLINE
 T do_shrd(T low, T high, int bits)
 {
     cerr << "**** do_shrd " << (unsigned long)low << ", " << (unsigned long) high << "," << bits << endl;
@@ -345,6 +346,7 @@ BOOST_AUTO_TEST_CASE( testMaskLower )
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 0), 0);
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 1), 0);
         BOOST_CHECK_EQUAL(maskLower<uint64_t>(0, 64), 0);
+        BOOST_CHECK_EQUAL(maskLower<uint64_t>(-1, 64), -1);
 
         BOOST_CHECK_EQUAL(maskLower<int64_t>(0, 0), 0);
         BOOST_CHECK_EQUAL(maskLower<int64_t>(0, 1), 0);
@@ -391,6 +393,9 @@ BOOST_AUTO_TEST_CASE( test_Bit_Buffer_advance )
     BOOST_CHECK_EQUAL(buffer.current_offset(data), UINT_MAX);
 
     // a positive int64_t is considered as a positive int
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Woverflow"
     buffer.advance(int64_t(UINT_MAX) + 1);
     BOOST_CHECK_EQUAL(buffer.current_offset(data), (1LL << 33) - 1);
+    #pragma GCC diagnostic pop
 }

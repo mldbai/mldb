@@ -49,11 +49,11 @@ function createDataset()
     var datasetConfig = {
         type: 'import.text',
         params: {
-            dataFileUrl: 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz',
+            dataFileUrl: 'http://public.mldb.ai/reddit.csv.gz',
             outputDataset: { id: 'reddit_text_file' },
             limit: 1000,
             delimiter: "",
-            quotechar: ""
+            quoteChar: ""
         }
     };
 
@@ -73,7 +73,7 @@ function createDataset()
                 from: 'reddit_text_file'
             },
             outputDataset: { type: 'sparse.mutable', id: 'reddit' }
-}
+        }
     };
 
     createAndTrainProcedure(transformConfig, "dataset import");
@@ -88,16 +88,14 @@ expected = [
 
       {
          "columns" : [
-            [ "width", 780, "2016-03-09T02:33:24Z" ]
+            [ "width", 780, "2016-08-09T16:46:52Z" ]
          ],
-         "rowHash" : "1a6e08b48361f340",
          "rowName" : "\"[\"\"AskReddit\"\"]\""
       },
       {
          "columns" : [
-            [ "width", 757, "2016-03-09T02:33:24Z" ]
+            [ "width", 757, "2016-08-09T16:46:52Z" ]
          ],
-         "rowHash" : "2d6c95775e682799",
          "rowName" : "\"[\"\"funny\"\"]\""
       }
    ];
@@ -113,16 +111,14 @@ res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width fro
 expected = [
     {
         "columns" : [
-            [ "width", 1, "2016-03-09T02:33:24Z" ]
+            [ "width", 1, "2016-08-09T16:46:52Z" ]
         ],
-        "rowHash" : "bdf764190569d24d",
         "rowName" : "\"[\"\"1000\"\"]\""
     },
     {
         "columns" : [
-            [ "width", 1, "2016-03-09T02:33:24Z" ]
+            [ "width", 1, "2016-08-09T16:46:52Z" ]
         ],
-        "rowHash" : "e23a0ba6c8420e79",
         "rowName" : "\"[\"\"1000words\"\"]\""
     }
 ];
@@ -145,7 +141,7 @@ res = mldb.get('/v1/query', {q: 'select bop()', format: 'table'});
 //check that we get biggest value, should be the same as in the batch executor
 expected = [
       [ "_rowName", "bop().rowName()", "bop().width" ],
-      [ "result", "AskReddit", 780 ]
+      [ "result", "[\"AskReddit\"]", 780 ]
    ]
 
 
@@ -167,7 +163,7 @@ res = mldb.get('/v1/query', {q: 'select bop2()', format: 'table'});
 //check that we get smallest value, should be the same (value) as in the batch executor
 expected = [
     [ "_rowName", "bop2().rowName()", "bop2().width" ],
-    [ "result", "1000", 1 ]
+    [ "result", "[\"1000\"]", 1 ]
 ];
 
 mldb.log(res)

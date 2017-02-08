@@ -1,8 +1,8 @@
 /* multi_aggregator.h                                              -*- C++ -*-
    Jeremy Barnes, 3 August 2011
-   Copyright (c) 2011 Datacratic.  All rights reserved.
+   Copyright (c) 2011 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -16,7 +16,7 @@
 #include "mldb/arch/thread_specific.h"
 #include <iostream>
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* MULTI AGGREGATOR                                                          */
@@ -138,7 +138,7 @@ private:
 
     // Cache of lookups for each thread to avoid needing to acquire a lock
     // very much.
-    ML::ThreadSpecificInstanceInfo<LookupCache, void> lookupCache;
+    ThreadSpecificInstanceInfo<LookupCache, void> lookupCache;
 
     /** Look for the aggregator for this given stat.  If it doesn't exist,
         then initialize it from the given function.
@@ -197,4 +197,4 @@ private:
     double dumpInterval;
 };
 
-} //namespace Datacratic
+} //namespace MLDB

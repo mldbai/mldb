@@ -1,8 +1,8 @@
 /** dataset_types.h                                                -*- C++ -*-
     Jeremy Barnes, 16 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -13,7 +13,7 @@
 #include "path.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -22,7 +22,7 @@ namespace MLDB {
 
 struct MatrixRow {
     RowHash rowHash;
-    RowName rowName;
+    RowPath rowName;
     std::vector<std::tuple<ColumnHash, CellValue, Date> > columns;
 };
 
@@ -35,8 +35,8 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixRow);
 
 struct MatrixNamedRow {
     RowHash rowHash;
-    RowName rowName;
-    std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+    RowPath rowName;
+    std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedRow);
@@ -48,7 +48,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedRow);
 
 struct MatrixEvent {
     RowHash rowHash;
-    RowName rowName;
+    RowPath rowName;
     Date timestamp;
     std::vector<std::tuple<ColumnHash, CellValue> > columns;
 };
@@ -62,9 +62,9 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixEvent);
 
 struct MatrixNamedEvent {
     RowHash rowHash;
-    RowName rowName;
+    RowPath rowName;
     Date timestamp;
-    std::vector<std::tuple<ColumnName, CellValue> > columns;
+    std::vector<std::tuple<ColumnPath, CellValue> > columns;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedEvent);
@@ -76,12 +76,12 @@ DECLARE_STRUCTURE_DESCRIPTION(MatrixNamedEvent);
 
 struct MatrixColumn {
     ColumnHash columnHash;
-    ColumnName columnName;
-    std::vector<std::tuple<RowName, CellValue, Date> > rows;
+    ColumnPath columnName;
+    std::vector<std::tuple<RowPath, CellValue, Date> > rows;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MatrixColumn);
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

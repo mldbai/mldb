@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bitops_test.cc
    Jeremy Barnes, 20 February 2007
@@ -20,7 +20,7 @@
 #include <iostream>
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE( test2 )
 
         size_t written = backtrace(buffer, sizeof(buffer));
         BOOST_CHECK_LT(written, sizeof(buffer));
-        ::fprintf(stderr, "written: %lu\n", written);
+        ::fprintf(stderr, "written: %zu\n", written);
 
         /* buffer ends with '\0' */
         BOOST_CHECK_EQUAL(buffer[written], '\0');
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE (exception_backtrace)
 {
     cerr << "\n\nan exception with a backtrace:\n";
     try {
-        throw ML::Exception("this exception produces a backtrace");
+        throw MLDB::Exception("this exception produces a backtrace");
     }
     catch (...) {
     }

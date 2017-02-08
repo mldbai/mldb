@@ -1,27 +1,28 @@
 /** rest_request_router.h                                          -*- C++ -*-
     Jeremy Barnes, 13 November 2012
-    Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
+
+#include <set>
 
 #include "mldb/rest/rest_request_fwd.h"
 #include "mldb/rest/rest_request.h"
 #include "mldb/rest/rest_connection.h"
 #include "mldb/ext/jsoncpp/json.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/positioned_types.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/arch/rtti_utils.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/exception.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/regex.h"
 #include "mldb/http/http_exception.h"
+#include <set>
 
-namespace Datacratic {
+
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -213,11 +214,11 @@ struct RestRequestParsingContext {
         if (index == -1)
             index = objects.size() + index;
         if (index < 0 || index >= objects.size())
-            throw ML::Exception("Attempt to extract invalid object number");
+            throw MLDB::Exception("Attempt to extract invalid object number");
 
         auto & res = objects[index];
         if (!res.obj || !res.type)
-            throw ML::Exception("invalid object");
+            throw MLDB::Exception("invalid object");
 
         return std::make_pair(res.obj, res.type);
     }
@@ -244,10 +245,10 @@ struct RestRequestParsingContext {
                                     //          *tp,
                                     //          obj.first);
         if (!converted)
-            throw ML::Exception("wanted to get object of type "
-                                + ML::type_name<As>()
+            throw MLDB::Exception("wanted to get object of type "
+                                + MLDB::type_name<As>()
                                 + " from incompatible object of type "
-                                + ML::demangle(obj.second->name()));
+                                + demangle(obj.second->name()));
 
         return *reinterpret_cast<As *>(converted);
     }
@@ -265,7 +266,7 @@ struct RestRequestParsingContext {
     struct ObjectEntry {
         ObjectEntry(void * obj = nullptr,
                     const std::type_info * type = nullptr,
-                    std::function<void (void *) noexcept> deleter = nullptr)
+                    std::function<void (void *) noexcept> deleter = nullptr) noexcept
             : obj(obj), type(type), deleter(std::move(deleter))
         {
         }
@@ -280,9 +281,31 @@ struct RestRequestParsingContext {
         const std::type_info * type;
         std::function<void (void *) noexcept> deleter;
 
-        //ObjectEntry(const ObjectEntry &) = delete;
-        //void operator = (const ObjectEntry &) = delete;
+        ObjectEntry(const ObjectEntry &) = delete;
+        void operator = (const ObjectEntry &) = delete;
 
+        ObjectEntry(ObjectEntry && other) noexcept
+            : obj(other.obj), type(other.type), deleter(std::move(other.deleter))
+        {
+            other.obj = nullptr;
+            other.deleter = nullptr;
+        }
+
+        ObjectEntry & operator = (ObjectEntry && other) noexcept
+        {
+            ObjectEntry newMe(std::move(other));
+            swap(newMe);
+            return *this;
+        }
+
+        void swap(ObjectEntry & other) noexcept
+        {
+            std::swap(obj, other.obj);
+            std::swap(type, other.type);
+            std::swap(deleter, other.deleter);
+        }
+
+#if 0
         // Needed for gcc 4.6
         ObjectEntry(const ObjectEntry & other)
             : obj(other.obj), type(other.type)
@@ -298,6 +321,7 @@ struct RestRequestParsingContext {
             ObjectEntry newMe(other);
             *this = std::move(newMe);
         }
+#endif
     };
 
     /// List of extracted objects to which path components refer.  Both the
@@ -344,7 +368,7 @@ struct RestRequestParsingContext {
         RestRequestParsingContext * obj;
 
         StateGuard(RestRequestParsingContext * obj)
-            : state(std::move(obj->saveState())),
+            : state(obj->saveState()),
               obj(obj)
         {
         }
@@ -372,10 +396,10 @@ struct RestRequestRouter {
     typedef RestConnection ConnectionId;
     typedef RestRequestMatchResult MatchResult;
 
-    static constexpr RestRequestMatchResult MR_NO = Datacratic::MR_NO;
-    static constexpr RestRequestMatchResult MR_YES = Datacratic::MR_YES;
-    static constexpr RestRequestMatchResult MR_ERROR = Datacratic::MR_ERROR;
-    static constexpr RestRequestMatchResult MR_ASYNC = Datacratic::MR_ASYNC;
+    static constexpr RestRequestMatchResult MR_NO = MLDB::MR_NO;
+    static constexpr RestRequestMatchResult MR_YES = MLDB::MR_YES;
+    static constexpr RestRequestMatchResult MR_ERROR = MLDB::MR_ERROR;
+    static constexpr RestRequestMatchResult MR_ASYNC = MLDB::MR_ASYNC;
 
     typedef std::function<RestRequestMatchResult (RestConnection & connection,
                                        const RestRequest & request,
@@ -590,4 +614,4 @@ sendExceptionResponse(RestConnection & connection,
  Json::Value extractException(const std::exception & exc, int defaultCode);
 
 
-} // namespace Datacratic
+} // namespace MLDB

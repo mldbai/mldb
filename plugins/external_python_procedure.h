@@ -1,8 +1,8 @@
 /** external_python_procedure.h                                     -*- C++ -*-
 
     Francois Maillet, 31 aout 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     External python procedure
 */
@@ -10,10 +10,10 @@
 #pragma once
 
 #include "mldb/core/procedure.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/server/plugin_resource.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 struct ExternalPythonProcedureConfig: public ProcedureConfig {
@@ -53,4 +53,4 @@ struct ExternalPythonProcedure: public Procedure {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

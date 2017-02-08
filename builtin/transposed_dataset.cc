@@ -1,13 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** transposed_dataset.cc                                              -*- C++ -*-
     Jeremy Barnes, 28 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "mldb/sql/sql_expression.h"
 #include "transposed_dataset.h"
+#include "mldb/builtin/sub_dataset.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
@@ -15,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -54,7 +55,7 @@ struct TransposedDataset::Itl
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
           index(dataset->getColumnIndex()),
-          columnCount(matrix->getColumnNames().size())
+          columnCount(dataset->getFlattenedColumnCount())
     {
     }
 
@@ -63,7 +64,7 @@ struct TransposedDataset::Itl
         TransposedRowStream(TransposedDataset::Itl* source) : source(source)
         {
             matrix = source->matrix;
-            columns = matrix->getColumnNames();
+            columns = matrix->getColumnPaths();
             column_iterator = columns.begin();
         }
 
@@ -76,15 +77,24 @@ struct TransposedDataset::Itl
             column_iterator = column_iterator + start;
         }
 
-        virtual RowName next() {
-            return TransposedDataset::Itl::colToRow(*(column_iterator++));             
+        virtual RowPath next() {
+            return TransposedDataset::Itl::colToRow(*(column_iterator++));
+        }
+
+        virtual const RowPath & rowName(RowPath & storage) const
+        {
+            return storage = TransposedDataset::Itl::colToRow(*column_iterator);
+        }
+
+        virtual void advance() {
+            column_iterator++;
         }
 
         //todo: suboptimal for large number of columns
         //need a column iter interface
         //or cache this in the transposed dataset
-        vector<ColumnName>::const_iterator column_iterator;
-        vector<ColumnName> columns;
+        vector<ColumnPath>::const_iterator column_iterator;
+        vector<ColumnPath> columns;
         std::shared_ptr<MatrixView> matrix;
         TransposedDataset::Itl* source;
     };
@@ -94,15 +104,20 @@ struct TransposedDataset::Itl
         return RowHash(col.hash());
     }
 
-    static const RowName & colToRow(const ColumnName & col)
+    static const RowPath & colToRow(const ColumnPath & col)
     {
         return col;
     }
 
-    static std::vector<std::tuple<RowName, CellValue, Date> >
-    colToRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    static RowPath colToRow(ColumnPath && col)
     {
-        std::vector<std::tuple<RowName, CellValue, Date> > result;
+        return std::move(col);
+    }
+
+    static std::vector<std::tuple<RowPath, CellValue, Date> >
+    colToRow(const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
+    {
+        std::vector<std::tuple<RowPath, CellValue, Date> > result;
         result.reserve(vals.size());
         for (auto & v: vals)
             result.emplace_back(colToRow(std::get<0>(v)),
@@ -110,14 +125,36 @@ struct TransposedDataset::Itl
         return result;
     }
     
-    static std::vector<std::tuple<ColumnName, CellValue, Date> >
-    rowToCol(const std::vector<std::tuple<RowName, CellValue, Date> > & vals)
+    static std::vector<std::tuple<RowPath, CellValue, Date> >
+    colToRow(std::vector<std::tuple<ColumnPath, CellValue, Date> > && vals)
     {
-        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        std::vector<std::tuple<RowPath, CellValue, Date> > result;
+        result.reserve(vals.size());
+        for (auto & v: vals)
+            result.emplace_back(colToRow(std::move(std::get<0>(v))),
+                                std::move(std::get<1>(v)), std::get<2>(v));
+        return result;
+    }
+    
+    static std::vector<std::tuple<ColumnPath, CellValue, Date> >
+    rowToCol(const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
+    {
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
         result.reserve(vals.size());
         for (auto & v: vals)
             result.emplace_back(rowToCol(std::get<0>(v)),
                                 std::get<1>(v), std::get<2>(v));
+        return result;
+    }
+    
+    static std::vector<std::tuple<ColumnPath, CellValue, Date> >
+    rowToCol(std::vector<std::tuple<RowPath, CellValue, Date> > && vals)
+    {
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > result;
+        result.reserve(vals.size());
+        for (auto & v: vals)
+            result.emplace_back(rowToCol(std::move(std::get<0>(v))),
+                                std::move(std::get<1>(v)), std::get<2>(v));
         return result;
     }
     
@@ -126,17 +163,22 @@ struct TransposedDataset::Itl
         return ColumnHash(row.hash());
     }
 
-    static const ColumnName & rowToCol(const RowName & row)
+    static const ColumnPath & rowToCol(const RowPath & row)
+    {
+        return row;
+    }
+
+    static ColumnPath rowToCol(RowPath && row)
     {
         return std::move(row);
     }
 
-    virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    virtual std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
-        vector<ColumnName> cols = matrix->getColumnNames();
+        vector<ColumnPath> cols = dataset->getFlattenedColumnNames();
 
-        vector<RowName> result;
+        vector<RowPath> result;
         for (unsigned i = start; i < cols.size();  ++i) {
             if (limit != -1 && result.size() >= limit)
                 break;
@@ -150,60 +192,67 @@ struct TransposedDataset::Itl
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
         vector<RowHash> result;
-        for (auto & n: getRowNames()) {
+        for (auto & n: getRowPaths()) {
             result.emplace_back(n);
         }
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const
     {
         return index->knownColumn(rowToCol(rowName));
     }
 
-    virtual bool knownColumn(const ColumnName & columnName) const
+    virtual bool knownColumn(const ColumnPath & columnName) const
     {
         return matrix->knownRow(colToRow(columnName));
     }
 
-    virtual RowName getRowName(const RowHash & row) const
+    virtual RowPath getRowPath(const RowHash & row) const
     {
-        return matrix->getColumnName(rowToCol(row));
+        return matrix->getColumnPath(rowToCol(row));
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const
     {
-        return matrix->getRowName(colToRow(column));
+        return matrix->getRowPath(colToRow(column));
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
         MatrixColumn col = index->getColumn(rowToCol(rowName));
         MatrixNamedRow result;
-        result.rowName = colToRow(col.columnName);
+        result.rowName = colToRow(std::move(col.columnName));
         result.rowHash = colToRow(col.columnHash);
-        result.columns = rowToCol(col.rows);
+        result.columns = rowToCol(std::move(col.rows));
         return result;
     }
 
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual ExpressionValue getRowExpr(const RowPath & rowName) const
     {
-        std::vector<ColumnName> result;
+        MatrixColumn col = index->getColumn(rowToCol(rowName));
+        return std::move(col.rows);
+    }
 
-        for (auto & c: matrix->getRowNames())
+    virtual std::vector<ColumnPath> getColumnPaths() const
+    {
+        std::vector<ColumnPath> result;
+        result.reserve(matrix->getColumnCount());
+
+        for (auto & c: matrix->getRowPaths())
             result.emplace_back(rowToCol(c));
         
         return result;
     }
 
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & columnName, ColumnStats & stats) const
+    getColumnStats(const ColumnPath & columnName, ColumnStats & stats) const
     {
         auto row = matrix->getRow(colToRow(columnName));
 
         stats = ColumnStats();
 
-        ML::Lightweight_Hash_Set<ColumnHash> columns;
+        Lightweight_Hash_Set<ColumnHash> columns;
         bool oneOnly = true;
         bool isNumeric = true;
 
@@ -227,30 +276,30 @@ struct TransposedDataset::Itl
         return stats;
     }
 
-    virtual uint64_t getColumnRowCount(const ColumnName & column) const
+    virtual uint64_t getColumnRowCount(const ColumnPath & column) const
     {
         return matrix->getRowColumnCount(colToRow(column));
     }
 
-    virtual uint64_t getRowColumnCount(const RowName & row) const
+    virtual uint64_t getRowColumnCount(const RowPath & row) const
     {
         return index->getColumnRowCount(rowToCol(row));
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const
     {
         auto row = matrix->getRow(colToRow(column));
         MatrixColumn result;
         result.columnName = rowToCol(row.rowName);
         result.columnHash = rowToCol(row.rowHash);
-        result.rows = colToRow(row.columns);
+        result.rows = colToRow(std::move(row.columns));
         return result;
     }
 
     virtual size_t getRowCount() const
     {
-        return matrix->getColumnCount();
+        return dataset->getFlattenedColumnCount();
     }
 
     virtual size_t getColumnCount() const
@@ -274,13 +323,13 @@ struct TransposedDataset::Itl
 TransposedDataset::
 TransposedDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress)
+                  const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     auto mergeConfig = config.params.convert<TransposedDatasetConfig>();
     
     std::shared_ptr<Dataset> dataset = obtainDataset(owner, mergeConfig.dataset,
-                                                     onProgress);
+                                                     nullptr /*onProgress*/);
 
     itl.reset(new Itl(server, dataset));
 }
@@ -333,6 +382,13 @@ getRowStream() const
     return make_shared<TransposedDataset::Itl::TransposedRowStream>(itl.get());
 }
 
+ExpressionValue
+TransposedDataset::
+getRowExpr(const RowPath & row) const
+{
+    return itl->getRowExpr(row);
+}
+
 RegisterDatasetType<TransposedDataset, TransposedDatasetConfig> 
 regTransposed(builtinPackage(),
               "transposed",
@@ -340,10 +396,33 @@ regTransposed(builtinPackage(),
               "datasets/TransposedDataset.md.html");
 
 extern std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
+extern std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbServer *, const TableOperations& table);
 
 std::shared_ptr<Dataset> createTransposedDataset(MldbServer * server, std::shared_ptr<Dataset> dataset)
 {  
     return std::make_shared<TransposedDataset>(server, dataset);
+}
+
+std::shared_ptr<Dataset> createTransposedTable(MldbServer * server, const TableOperations& table)
+{
+    SqlBindingScope dummyScope;
+    auto generator = table.runQuery(dummyScope,
+                                   SelectExpression::STAR,
+                                   WhenExpression::TRUE,
+                                   *SqlExpression::TRUE,
+                                   OrderByExpression(),
+                                    0, -1,
+                                    nullptr /*onProgress*/);
+
+    SqlRowScope fakeRowScope;
+
+    // Generate all outputs of the query
+    std::vector<NamedRowValue> rows
+        = generator(-1, fakeRowScope);
+
+    auto subDataset = std::make_shared<SubDataset>(server, rows);
+
+    return std::make_shared<TransposedDataset>(server, subDataset);
 }
 
 namespace {
@@ -351,9 +430,10 @@ struct AtInit {
     AtInit()
     {
         createTransposedDatasetFn = createTransposedDataset;
+        createTransposedTableFn = createTransposedTable;
     }
 } atInit;
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

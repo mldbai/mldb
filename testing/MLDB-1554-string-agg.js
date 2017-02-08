@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -30,7 +30,9 @@ recordExample("plum", "died", "stabbed");
 
 dataset.commit()
 
-var resp = mldb.get("/v1/datasets/test/query", {select: "string_agg(what, ', ') AS whats, string_agg(how, '') AS hows", groupBy: 'who', rowName: 'who', format: 'sparse', orderBy: 'who'});
+var resp = mldb.get("/v1/query", 
+    {q: "SELECT string_agg(what, ', ', rowName()) AS whats, string_agg(how, '', rowName()) AS hows NAMED who FROM test GROUP BY who ORDER BY who",
+    format: 'sparse'});
 
 plugin.log(resp.json);
 
@@ -39,8 +41,8 @@ assertEqual(resp.responseCode, 200, "Error executing query");
 expected = [
    [
       [ "_rowName", "mustard" ],
-      [ "hows", "plumplumkitchen" ],
-      [ "whats", "killed, stabbed, moved" ]
+      [ "hows", "kitchenplumplum" ],
+      [ "whats", "moved, stabbed, killed" ]
    ],
    [
       [ "_rowName", "plum" ],
@@ -54,7 +56,8 @@ assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
 
 // test horizontal_agg
 
-var resp = mldb.get("/v1/datasets/test/query", {select: "horizontal_string_agg({who, what, how}, ', ') AS aggs", format: 'table', orderBy: 'rowName()'});
+var resp = mldb.get("/v1/query", {q: "SELECT horizontal_string_agg({who, what, how}, ', ') AS aggs FROM test ORDER BY rowName()", 
+    format: 'table'});
 
 plugin.log(resp.json);
 

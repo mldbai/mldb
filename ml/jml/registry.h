@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* registry.h                                                      -*- C++ -*-
    Jeremy Barnes, 20 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Contains the functions to register polymorphic heirarchies of objects
    that can all be serialized and reconstituted in one big happy family.
@@ -20,6 +19,8 @@
 #undef VERSION
 
 namespace ML {
+
+using namespace MLDB;
 
 /* Factory class.  Note that it is expected that this will be specialised
    for the particular type of base, to hold the arguments that it is expected

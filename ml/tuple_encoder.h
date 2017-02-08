@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* tuple_encoder.h                                                 -*- C++ -*-
    Jeremy Barnes, 5 September 2012
-   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    Base class to encode/decode tuples.
 */
@@ -14,7 +14,7 @@
 #include <tuple>
 #include "mldb/jml/utils/positioned_types.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* CALL WITH UNPACKED TUPLE                                                  */
@@ -114,7 +114,7 @@ struct TupleEncoder {
     }
 };
 
-} // namespace Datacratic
+} // namespace MLDB
 
 
 #endif /* __ml__tuple_encoder_h__ */

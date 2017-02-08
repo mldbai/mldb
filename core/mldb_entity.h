@@ -1,8 +1,8 @@
 /** mldb_entity.h                                                  -*- C++ -*-
     Jeremy Barnes, 2 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Base class for MLDB entities (plugin, function, etc).
 */
@@ -12,7 +12,7 @@
 #include "mldb/rest/poly_entity.h"
 #include "mldb/utils/log_fwd.h"
 
-namespace Datacratic {
+
 
 struct RestDirectory;
 struct ServicePeer;
@@ -37,7 +37,7 @@ const Package & builtinPackage();
 /*****************************************************************************/
 
 /** This is the base class of all entities within MLDB, containing the
-    base functionality thath they all support.
+    base functionality that they all support.
 */
 
 struct MldbEntity: public PolyEntity {
@@ -85,4 +85,4 @@ makeInternalDocRedirect(const Package & package,
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

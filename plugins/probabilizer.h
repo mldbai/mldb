@@ -1,8 +1,8 @@
 /** probabilizer.h                                                   -*- C++ -*-
     Jeremy Barnes, 22 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Probabilizer procedure and functions.
 */
@@ -13,7 +13,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "matrix.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/ml/jml/feature_info.h"
 #include "mldb/ml/value_descriptions.h"
 
@@ -21,7 +21,7 @@ namespace ML {
 struct GLZ_Probabilizer;
 } // namespace ML
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -90,9 +90,7 @@ struct ProbabilizeFunction: public Function {
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
 
-    // Initiialize programatically from a trained probabilizer
-    ProbabilizeFunction(MldbServer * owner,
-                     const ML::GLZ_Probabilizer & in);
+    ProbabilizeFunction(MldbServer * owner, const ML::GLZ_Probabilizer & in);
 
     ~ProbabilizeFunction();
 
@@ -112,4 +110,4 @@ struct ProbabilizeFunction: public Function {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

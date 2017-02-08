@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** dtoa.h
 
@@ -61,7 +61,7 @@ soa_strtod(const char *s00, char **se);
 
 } // extern "C"
 
-namespace Datacratic {
+namespace MLDB {
 
 inline std::string dtoa(double floatVal)
 {
@@ -108,4 +108,4 @@ inline std::string dtoa(double floatVal)
 }
 
 
-} // namespace Datacratic
+} // namespace MLDB

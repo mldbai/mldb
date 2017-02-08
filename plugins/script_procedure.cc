@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** script.cc
     Francois Maillet, 10 juillet 2015
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Script procedure
 */
@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -71,7 +71,7 @@ run(const ProcedureRunConfig & run,
         case PYTHON:        runner = "python";      break;
         case JAVASCRIPT:    runner = "javascript";  break;
         default:
-            throw ML::Exception("unknown script language");
+            throw MLDB::Exception("unknown script language");
     }
 
     string resource = "/v1/types/plugins/" + runner + "/routes/run";
@@ -134,4 +134,4 @@ regScript(builtinPackage(),
 } // file scope
 
 } // namespace MLDB
-} // namespace Datacratic
+

@@ -1,8 +1,8 @@
 /** script_output.h                                                -*- C++ -*-
     Jeremy Barnes, 13 October 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Common definitions for the output of scripts.  Used to enforce some
     commonality over the different languages available.
@@ -19,7 +19,7 @@
 #pragma once
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -127,7 +127,9 @@ struct ScriptLogEntry {
     }
 
     ScriptLogEntry(Date ts, std::string stream, Utf8String content) noexcept
-        : ts(ts), stream(std::move(stream)), content(std::move(content.stealRawString())),
+        : ts(ts),
+          stream(std::move(stream)),
+          content(content.stealRawString()),
           closed(false)
     {
     }
@@ -155,33 +157,34 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptLogEntry);
 /** Describes the output of a script run. */
 
 struct ScriptOutput {
-    ScriptOutput() : _return_code(0) {}
+    ScriptOutput() : returnCode(0) {}
 
     Json::Value result;                   ///< Return value of the script
     std::vector<ScriptLogEntry> logs;     ///< Log entries produced by the script
     std::shared_ptr<ScriptException> exception;  ///< Exception thrown, if any
     Any extra;
 
-    unsigned _return_code;                   ///< Return code of the script
 
     void setReturnCode(unsigned rtnCode)
     {
-        _return_code = rtnCode;
+        if (rtnCode == 0) {
+            throw MLDB::Exception("Script return_code cannot be set to 0");
+        }
+        returnCode = rtnCode;
     }
 
     unsigned getReturnCode() const
     {
-        if(_return_code == 0)
-            throw ML::Exception("Script return_code is set to 0. This should "
-                    "never happen.");
-
-        return _return_code;
+        return returnCode;
     }
+
+    private:
+        unsigned returnCode;                   ///< Return code of the script
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ScriptOutput);
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

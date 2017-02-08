@@ -3,7 +3,7 @@
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
    $Source$
    
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Generalised linear modeling.  Contains functions to calculate the link
    functions and their inverses, to solve for the model given a set of
@@ -193,7 +193,7 @@ struct Probit_Link {
         return (SQRT2PI / m) * exp(sqr(erfinv((2.0 * mu / m) - 1.0)));
     }
 
-    JML_ALWAYS_INLINE static Float sqr(Float x) { return x * x; }
+    MLDB_ALWAYS_INLINE static Float sqr(Float x) { return x * x; }
     
     static Float diff(Float mu)
     {

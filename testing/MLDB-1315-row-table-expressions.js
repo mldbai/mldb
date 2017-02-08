@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val)
 {
@@ -73,7 +73,7 @@ expected = [
    [ "result", 1, 2 ]
 ];
 
-testQuery("SELECT x({1}) AS *", expected);
+testQuery("SELECT x() AS *", expected);
 
 expected = [
    [ "_rowName", "column", "value" ],
@@ -81,6 +81,6 @@ expected = [
    [ "1", "output.b", 2 ]
 ];
 
-testQuery("SELECT * FROM row_dataset(x({1}))", expected);
+testQuery("SELECT * FROM atom_dataset(x())", expected);
 
 "success"

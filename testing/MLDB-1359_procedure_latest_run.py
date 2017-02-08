@@ -1,7 +1,7 @@
 #
 # MLDB-1359_procedure_latest_run.py
 # Mich, 2016-02-05
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import time
 from dateutil import parser as date_parser
@@ -64,7 +64,8 @@ class ProcedureLatestRunTest(MldbUnitTest): # noqa
                 'inputData' : 'SELECT *, coco AS sanchez FROM ds',
                 'outputDataset' : {
                     'id' : 'dsOut'
-                }
+                },
+                'runOnCreation' : 0
             }
         })
         with self.assertMldbRaises(status_code=404):

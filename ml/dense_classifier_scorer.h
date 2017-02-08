@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* dense_classifier_scorer.h                                       -*- C++ -*-
    Jeremy Barnes, 13 May 2012
-   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    A scorer is a classifier + a feature generator.
 */
@@ -21,7 +21,7 @@
 #include <tuple>
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -201,7 +201,7 @@ struct DenseClassifierScorerT
             = std::dynamic_pointer_cast<DenseFeatureGeneratorT<Args...> >
             (featureGenerator);
         if (!featureGeneratorCast)
-            throw ML::Exception("couldn't cast dense feature generator");
+            throw MLDB::Exception("couldn't cast dense feature generator");
     }
 
     /** Reconstitute from disk. */
@@ -243,4 +243,4 @@ struct DenseClassifierScorerT
 };
 
 
-} // namespace Datacratic
+} // namespace MLDB

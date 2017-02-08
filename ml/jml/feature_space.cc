@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* feature_space.cc
    Jeremy Barnes, 16 February 2005
@@ -45,15 +45,15 @@ std::string Feature_Space::print(const Feature & feature, float value) const
 
 void Feature_Space::parse(const std::string & name, Feature & feature) const
 {
-    Parse_Context context(name, name.c_str(), name.c_str() + name.length());
+    ParseContext context(name, name.c_str(), name.c_str() + name.length());
     if (parse(context, feature)) return;
     else throw Exception("Feature_Space::parse(): feature with name "
                          + name + " could not be parsed");
 }
 
-bool Feature_Space::parse(Parse_Context & context, Feature & feature) const
+bool Feature_Space::parse(ParseContext & context, Feature & feature) const
 {
-    Parse_Context::Revert_Token tok(context);
+    ParseContext::Revert_Token tok(context);
     if (!context.match_literal('(')) return false;
 
     int type;
@@ -76,7 +76,7 @@ bool Feature_Space::parse(Parse_Context & context, Feature & feature) const
 }
 
 void Feature_Space::
-expect(Parse_Context & context, Feature & feature) const
+expect(ParseContext & context, Feature & feature) const
 {
     if (!parse(context, feature))
         context.exception("expected feature tuple '(type arg1 arg2)'");

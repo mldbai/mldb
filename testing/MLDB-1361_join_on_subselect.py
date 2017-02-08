@@ -1,7 +1,7 @@
 #
 # MLDB-1361_join_on_subselect.py
 # Francois Maillet, 2016-02-04
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 import unittest
@@ -44,7 +44,6 @@ class SampleTest(MldbUnitTest):
         expected = [
              {
                  "rowName": "[a]-[row_a]-[]", 
-                 "rowHash": "2da3149200523a02", 
                  "columns": [
                      [
                          "sub1.warp", 
@@ -65,7 +64,6 @@ class SampleTest(MldbUnitTest):
              }, 
              {
                  "rowName": "[b]-[]-[row_b]", 
-                 "rowHash": "ed3e1bbb01a92ba6", 
                  "columns": [
                      [
                          "sub1.warp", 
@@ -109,7 +107,6 @@ class SampleTest(MldbUnitTest):
         expected = [
             {
                 "rowName": "[a]-[row_a]-[]",
-                "rowHash": "2da3149200523a02",
                 "columns": [
                     [
                         "tbl1.warp",
@@ -130,7 +127,6 @@ class SampleTest(MldbUnitTest):
             },
             {
                 "rowName": "[b]-[]-[row_b]",
-                "rowHash": "ed3e1bbb01a92ba6",
                 "columns": [
                     [
                         "tbl1.warp",

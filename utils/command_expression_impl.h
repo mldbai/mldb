@@ -1,8 +1,8 @@
 /* command_expression_impl.h                                       -*- C++ -*-
    Jeremy Barnes, 27 August 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Implementation of templates for command expression.
 */
@@ -12,8 +12,9 @@
 #include "command_expression.h"
 #include "mldb/types/value_description.h"
 
-namespace Datacratic {
+namespace MLDB {
 
+namespace PluginCommand {
 
 template<typename T>
 void
@@ -35,7 +36,7 @@ bindFunction(const std::function<R ()> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 0)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             return jsonEncode(fn());
         };
 }
@@ -47,7 +48,7 @@ bindFunction(const std::function<void ()> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 0)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             fn();
             return Json::Value();
         };
@@ -62,7 +63,7 @@ bindFunction(const std::function<R (A1)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 1)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             return jsonEncode(fn(jsonDecode<A1>(args[0])));
         };
 }
@@ -75,7 +76,7 @@ bindFunction(const std::function<void (A1)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 1)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             fn(jsonDecode<A1>(args[0]));
             return Json::Value();
         };
@@ -89,7 +90,7 @@ bindFunction(const std::function<R (A1, A2)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 2)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             return jsonEncode(fn(jsonDecode<A1>(args[0]),
                                  jsonDecode<A2>(args[1])));
         };
@@ -103,7 +104,7 @@ bindFunction(const std::function<void (A1, A2)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 2)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             fn(jsonDecode<A1>(args[0]),
                jsonDecode<A2>(args[1]));
             return Json::Value();
@@ -118,7 +119,7 @@ bindFunction(const std::function<R (A1, A2, A3)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 3)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             return jsonEncode(fn(jsonDecode<A1>(args[0]),
                                  jsonDecode<A2>(args[1]),
                                  jsonDecode<A3>(args[2])));
@@ -133,7 +134,7 @@ bindFunction(const std::function<void (A1, A2, A3)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 3)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             fn(jsonDecode<A1>(args[0]),
                jsonDecode<A2>(args[1]),
                jsonDecode<A3>(args[2]));
@@ -149,7 +150,7 @@ bindFunction(const std::function<R (A1, A2, A3, A4)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 4)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             return jsonEncode(fn(jsonDecode<A1>(args[0]),
                                  jsonDecode<A2>(args[1]),
                                  jsonDecode<A3>(args[2]),
@@ -165,7 +166,7 @@ bindFunction(const std::function<void (A1, A2, A3, A4)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 4)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             fn(jsonDecode<A1>(args[0]),
                jsonDecode<A2>(args[1]),
                jsonDecode<A3>(args[2]),
@@ -183,7 +184,7 @@ bindFunction(const std::function<R (A1, A2, A3, A4, A5)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 5)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             return jsonEncode(fn(jsonDecode<A1>(args[0]),
                                  jsonDecode<A2>(args[1]),
                                  jsonDecode<A3>(args[2]),
@@ -200,7 +201,7 @@ bindFunction(const std::function<void (A1, A2, A3, A4, A5)> & fn)
     return [=] (const std::vector<Json::Value> & args)
         {
             if (args.size() != 4)
-                throw ML::Exception("wrong number of args for function");
+                throw MLDB::Exception("wrong number of args for function");
             fn(jsonDecode<A1>(args[0]),
                jsonDecode<A2>(args[1]),
                jsonDecode<A3>(args[2]),
@@ -217,7 +218,7 @@ struct CommandExpressionDescription
                                 JsonParsingContext & context) const
     {
         std::string str = context.expectStringAscii();
-        ML::Parse_Context pcontext(str, str.c_str(), str.c_str() + str.size());
+        ParseContext pcontext(str, str.c_str(), str.c_str() + str.size());
         *val = CommandExpression::parseExpression(pcontext, false);
     }
 
@@ -251,5 +252,6 @@ struct StringTemplateDescription
     }
 };
 
+} // namespace PluginCommand
 
-} // namespace Datacratic
+} // namespace MLDB

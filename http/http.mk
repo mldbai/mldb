@@ -1,36 +1,20 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-LIBSERVICES_BASE_SOURCES := \
-	http_header.cc \
-	http_exception.cc \
-	logs.cc \
-
-LIBSERVICES_BASE_LINK := value_description
-
-$(eval $(call library,services_base,$(LIBSERVICES_BASE_SOURCES),$(LIBSERVICES_BASE_LINK)))
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 LIBHTTP_SOURCES := \
-	asio_thread_pool.cc \
-	asio_timer.cc \
-	port_range_service.cc \
-	event_loop.cc \
-	tcp_acceptor.cc \
-	tcp_socket_handler.cc \
-	tcp_socket.cc \
+	http_exception.cc \
 	http_socket_handler.cc \
+	http_header.cc \
 	http_parsers.cc \
 	http_rest_proxy.cc \
-	event_loop_impl.cc \
-	tcp_acceptor_impl.cc \
-	tcp_socket_handler_impl.cc \
 	curl_wrapper.cc \
+	http_client.cc \
+	http_client_callbacks.cc \
+	http_request.cc \
+	http_client_impl.cc \
+	http_client_impl_v1.cc
 
-#	epoller.cc \
-#	epoll_loop.cc \
-#	message_loop.cc \
 
-
-LIBHTTP_LINK := curl arch jsoncpp types boost_system value_description boost_filesystem cityhash services_base watch
+LIBHTTP_LINK := curl io_base arch jsoncpp types boost_system value_description boost_filesystem cityhash watch
 
 $(eval $(call library,http,$(LIBHTTP_SOURCES),$(LIBHTTP_LINK)))
 

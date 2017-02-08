@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bagging_generator.h                                          -*- C++ -*-
    Jeremy Barnes, 15 March 2006
@@ -34,7 +34,8 @@ public:
 
     /** Configure the generator with its parameters. */
     virtual void
-    configure(const Configuration & config);
+    configure(const Configuration & config,
+              std::vector<std::string> & unparsedKeys);
     
     /** Return to the default configuration. */
     virtual void defaults();

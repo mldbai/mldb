@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** script_output.cc
     Jeremy Barnes, 13 October 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     
 */
@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -92,7 +92,7 @@ struct ScriptLogContentDescription: public ValueDescriptionT<ScriptLogContent> {
             *val = ScriptLogContent();
         }
         else if (context.isString()) {
-            val->rawBytes = std::move(context.expectStringUtf8().stealRawString());
+            val->rawBytes = context.expectStringUtf8().stealRawString();
         }
         else if (context.isArray()) {
             Json::Value jval = context.expectJson();
@@ -201,4 +201,4 @@ ScriptOutputDescription()
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

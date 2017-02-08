@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* portable_iarchive.cc                                            -*- C++ -*-
    Jeremy Barnes, 18 March 2005
@@ -236,7 +236,7 @@ void Binary_Input::open(const std::string & filename)
     if (endsWith(filename, ".gz")
         || endsWith(filename, ".bz2")
         || endsWith(filename, ".xz")) {
-        source.reset(new Stream_Source(new Datacratic::filter_istream(filename)));
+        source.reset(new Stream_Source(new MLDB::filter_istream(filename)));
         offset_ = 0;
         pos_ = end_ = 0;
         source->more(*this, 0);

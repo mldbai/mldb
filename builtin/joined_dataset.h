@@ -1,7 +1,7 @@
 /** joined_dataset.h                                               -*- C++ -*-
     Jeremy Barnes, 27 July 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset that is the joined product of multiple underlying datasets.
 */
@@ -10,12 +10,12 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/table_expression_operations.h"
+#include "mldb/sql/join_utils.h"
 #include "mldb/core/dataset.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 
-namespace Datacratic {
+
 namespace MLDB {
-
 
 /*****************************************************************************/
 /* JOINED DATASET CONFIG                                                     */
@@ -39,7 +39,7 @@ struct JoinedDataset: public Dataset {
 
     JoinedDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress);
+                  const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a tree of joined datasets
         where some are already bound.
@@ -67,16 +67,31 @@ struct JoinedDataset: public Dataset {
                      const Utf8String & functionName,
                      SqlBindingScope & scope) const;
 
-    virtual RowName getOriginalRowName(const Utf8String& tableName,
-                                       const RowName & name) const;
+    virtual RowPath getOriginalRowName(const Utf8String& tableName,
+                                       const RowPath & name) const;
 
     virtual int getChainedJoinDepth() const;
 
+    virtual ExpressionValue getRowExpr(const RowPath & row) const override;
+
 private:
+
+    BoundFunction
+    overrideFunctionFromSide(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const;
+
+    BoundFunction
+    overrideFunctionFromChild(JoinSide tableSide,
+                         const Utf8String & tableName,
+                         const Utf8String & functionName,
+                         SqlBindingScope & scope) const;
+
     JoinedDatasetConfig datasetConfig;
     struct Itl;
     std::shared_ptr<Itl> itl;
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

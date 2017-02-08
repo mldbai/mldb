@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** abort.cc                                 -*- C++ -*-
     Rémi Attab, 13 Nov 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
     Utilities related to the abort() function
 
@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -25,14 +25,14 @@ namespace {
 /* COMPILE SETTING                                                            */
 /******************************************************************************/
 
-#ifndef JML_ABORT
-#   define JML_ABORT 0
+#ifndef MLDB_ABORT
+#   define MLDB_ABORT 0
 #else
-#   undef JML_ABORT
-#   define JML_ABORT 1
+#   undef MLDB_ABORT
+#   define MLDB_ABORT 1
 #endif
 
-enum { COMPILE_STATE = JML_ABORT };
+enum { COMPILE_STATE = MLDB_ABORT };
 
 
 /******************************************************************************/
@@ -44,7 +44,7 @@ struct AbortState {
     AbortState() :
         state(COMPILE_STATE)
     {
-        state = state || getenv("JML_ABORT") != NULL;
+        state = state || getenv("MLDB_ABORT") != NULL;
     }
 
     bool state;
@@ -74,4 +74,4 @@ void set_abort_state(bool b)
 
 
 
-} // namepsace ML
+} // namepsace MLDB

@@ -1,7 +1,7 @@
 #
 # MLDB-1140-csv_reading_compression_test.py
 # Mich, 2015-11-23
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa

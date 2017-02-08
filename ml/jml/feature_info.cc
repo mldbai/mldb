@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* feature_info.cc
    Jeremy Barnes, 16 February 2005
@@ -17,7 +17,7 @@
 
 
 using namespace std;
-
+using namespace MLDB;
 
 namespace ML {
 
@@ -250,7 +250,7 @@ std::string Feature_Info::print() const
 
 namespace {
 
-std::string expect_category_name(Parse_Context & context)
+std::string expect_category_name(ParseContext & context)
 {
     std::string result;
     
@@ -272,7 +272,7 @@ std::string expect_category_name(Parse_Context & context)
 
 } // file scope
 
-void Mutable_Feature_Info::parse(Parse_Context & context)
+void Mutable_Feature_Info::parse(ParseContext & context)
 {
     type_ = UNKNOWN;
     biased_ = false;

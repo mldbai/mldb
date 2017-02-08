@@ -1,15 +1,15 @@
 /** parallel.h                                                     -*- C++ -*-
     Jeremy Barnes, 5 February 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
 
 #include <functional>
 
-namespace Datacratic {
+namespace MLDB {
 
 /** Run a set of jobs in multiple threads.
 
@@ -39,6 +39,14 @@ void parallelMap(size_t first, size_t last,
                  const std::function<void (size_t)> & doWork,
                  int occupancyLimit = -1);
 
+/** Same as parallelMap(), but takes a lambda which will short-circuit the
+    work if it returns false.  Returns false if and only if a doWork()
+    call returned false.
+*/
+bool parallelMapHaltable(size_t first, size_t last,
+                         const std::function<bool (size_t)> & doWork,
+                         int occupancyLimit = -1);
+
 /** Same as parallelMap, except that each doWork() call will be passed
     a chunk of work of chunkSize.  This is useful to reduce the amount
     of calling overhead on a very fine-grained job.
@@ -47,4 +55,4 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
                         const std::function<void (size_t, size_t)> & doWork,
                         int occupancyLimit = -1);
 
-} // namespace Datacratic
+} // namespace MLDB

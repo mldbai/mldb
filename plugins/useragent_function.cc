@@ -1,6 +1,6 @@
 /** useragent_function.cc
     Francois Maillet, 26 juin 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 */
 
@@ -12,7 +12,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
     
@@ -69,7 +69,7 @@ ParseUserAgentFunction::
 ParseUserAgentFunction(MldbServer * owner,
                        PolyConfig config,
                        const std::function<bool (const Json::Value &)> & onProgress)
-    : BaseT(owner)
+    : BaseT(owner, config)
 {
     functionConfig = config.params.convert<ParseUserAgentFunctionConfig>();
 
@@ -81,19 +81,22 @@ ParsedUserAgent
 ParseUserAgentFunction::
 call(UserAgentParserArgs input) const
 {
+    if(input.ua.empty())
+        return ParsedUserAgent();
+
     auto parsedResults = parser->parse(input.ua.toUtf8String().rawString());
 
     Date ts = input.ua.getEffectiveTimestamp();
 
     ParsedUserAgent result;
-    result.os.family = ExpressionValue(parsedResults.os.family, ts);
-    result.os.version = ExpressionValue(parsedResults.os.toVersionString(), ts);
+    result.os.family = ExpressionValue(std::move(Utf8String(parsedResults.os.family)), ts);
+    result.os.version = ExpressionValue(std::move(Utf8String(parsedResults.os.toVersionString())), ts);
 
-    result.browser.family = ExpressionValue(parsedResults.browser.family, ts);
-    result.browser.version = ExpressionValue(parsedResults.browser.toVersionString(), ts);
+    result.browser.family = ExpressionValue(std::move(Utf8String(parsedResults.browser.family)), ts);
+    result.browser.version = ExpressionValue(std::move(Utf8String(parsedResults.browser.toVersionString())), ts);
 
-    result.device.model = ExpressionValue(parsedResults.device.model, ts);
-    result.device.brand = ExpressionValue(parsedResults.device.brand, ts);
+    result.device.model = ExpressionValue(std::move(Utf8String(parsedResults.device.model)), ts);
+    result.device.brand = ExpressionValue(std::move(Utf8String(parsedResults.device.brand)), ts);
 
     result.isSpider = ExpressionValue(parsedResults.isSpider(), ts);
 
@@ -107,4 +110,4 @@ regParseUserAgentFunction(builtinPackage(),
                           "functions/ParseUserAgent.md.html");
 
 } // namespace MLDB
-} // namespace Datacratic
+

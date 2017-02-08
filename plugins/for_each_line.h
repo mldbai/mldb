@@ -1,19 +1,20 @@
 /** for_each_line.h                                                -*- C++ -*-
     Jeremy Barnes, 29 November 2013
-    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Class to process each line in a file in parallel.
 */
 
 #pragma once
 
+#include "mldb/utils/log_fwd.h"
 #include <iostream>
 #include <functional>
 #include <string>
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /** Run the given lambda over every line read from the stream, with the
@@ -28,6 +29,7 @@ size_t
 forEachLine(std::istream & stream,
             const std::function<void (const char * lineStr, size_t lineLen,
                                       int64_t lineNum)> & processLine,
+            std::shared_ptr<spdlog::logger> logger,
             int numThreads = 4,
             bool ignoreStreamExceptions = false,
             int64_t maxLines = -1);
@@ -45,6 +47,7 @@ size_t
 forEachLineStr(std::istream & stream,
                const std::function<void (const std::string & line,
                                          int64_t lineNum)> & processLine,
+               std::shared_ptr<spdlog::logger> logger,
                int numThreads = 4,
                bool ignoreStreamExceptions = false,
                int64_t maxLines = -1);
@@ -64,6 +67,7 @@ size_t
 forEachLine(const std::string & filename,
             const std::function<void (const char * line, size_t lineLength,
                                       int64_t lineNum)> & processLine,
+            std::shared_ptr<spdlog::logger> logger,
             int numThreads = 4,
             bool ignoreStreamExceptions = false,
             int64_t maxLines = -1);
@@ -83,6 +87,7 @@ size_t
 forEachLineStr(const std::string & filename,
                const std::function<void (const std::string & line,
                                          int64_t lineNum)> & processLine,
+               std::shared_ptr<spdlog::logger> logger,
                int numThreads = 4,
                bool ignoreStreamExceptions = false,
                int64_t maxLines = -1);
@@ -116,5 +121,22 @@ void forEachLineBlock(std::istream & stream,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock
                           = nullptr);
 
+/** Run the given lambda over fixed size chunks read from the stream, in parallel
+    as much as possible.  If there is a smaller chunk at the end (EOF is obtained),
+    then the smaller chunk will be returned by itself.
+
+    If any of the lambdas return false, then the process will be stopped once
+    all previous lambdas have finished executing.
+
+    If any throw an exception, then the exception will be rethrown once all
+    concurrent lambdas have finished executing.
+*/
+void forEachChunk(std::istream & stream,
+                  std::function<bool (const char * chunk,
+                                      size_t chunkLength,
+                                      int64_t chunkNumber)> onChunk,
+                  size_t chunkLength,
+                  int64_t maxChunks,
+                  int maxParallelism);
     
-} // namespace Datacratic
+} // namespace MLDB

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -58,7 +58,7 @@ function createDataset()
     var dataset = mldb.createDataset(dataset_config)
     plugin.log("Reddit data loader created dataset")
 
-    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
+    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz'
     var now = new Date("2015-01-01");
 
     var stream = mldb.openStream(dataset_address);
@@ -100,13 +100,17 @@ var svdConfig = {
     params: {
         trainingData: "select COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000) from reddit_dataset",
         modelFileUrl: "file://tmp/MLDB-498.svd.json.gz",
-        numSingularValues: 10
+        columnOutputDataset: "svd_output",
+        numSingularValues: 10,
+        runOnCreation : false
     }
 };
 
 createAndTrainProcedure(svdConfig, 'reddit_svd');
 
-plugin.log(mldb.get("/v1/datasets/svd_output/query", {select:'rowName()', limit:100}));
+plugin.log(mldb.get("/v1/query",
+                      { q: 'select rowName() from svd_output limit 10'
+                      }));
 
 var svdFunctionConfig = {
     type: "svd.embedRow",
@@ -118,7 +122,10 @@ var svdFunctionConfig = {
 var createFunctionOutput = mldb.put("/v1/functions/svd", svdFunctionConfig);
 assertSucceeded("creating SVD", createFunctionOutput);
 
-var vals = mldb.get("/v1/datasets/reddit_dataset/query", {limit:2}).json;
+var vals = mldb.get("/v1/query",
+                      { q: 'select * from reddit_dataset limit 2'
+                      }).json;
+
 plugin.log(vals);
 
 function getQueryString(vals, n)

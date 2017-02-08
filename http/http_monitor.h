@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** Http_monitor.h                                 -*- C++ -*-
     Rémi Attab, 03 Aug 2012
-    Copyright (c) 2012 Datacratic.  All rights reserved.
+    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
     Simple http monitoring service for a service.
 
@@ -22,7 +22,7 @@
 #include "mldb/ext/jsoncpp/value.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /******************************************************************************/
@@ -185,7 +185,7 @@ HttpMonitorHandler<Handler, arg>::
 sendErrorResponse(int code, const Json::Value & error)
 {
     std::string encodedError = error.toString();
-    send(ML::format("HTTP/1.1 %d Pants are on fire\r\n"
+    send(MLDB::format("HTTP/1.1 %d Pants are on fire\r\n"
                     "Content-Type: application/json\r\n"
                     "Access-Control-Allow-Origin: *\r\n"
                     "Content-Length: %zd\r\n"
@@ -210,7 +210,7 @@ sendResponse(const Json::Value & response)
          "sendResponse");
     };
 
-    send(ML::format("HTTP/1.1 200 OK\r\n"
+    send(MLDB::format("HTTP/1.1 200 OK\r\n"
                     "Content-Type: application/json\r\n"
                     "Access-Control-Allow-Origin: *\r\n"
                     "Content-Length: %zd\r\n"
@@ -223,4 +223,4 @@ sendResponse(const Json::Value & response)
             onSendFinished);
 }
 
-} // Datacratic
+} // MLDB

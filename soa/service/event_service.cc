@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* event_service.cc
    Jeremy Barnes, 29 May 2012
-   Copyright (c) 2012 Datacratic.  All rights reserved.
+   Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
    High frequency logging service.
 */
@@ -26,7 +26,7 @@ using namespace std;
 
 extern const char * __progname;
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* EVENT SERVICE                                                             */
@@ -140,9 +140,9 @@ recordEventFmt(EventType type,
     try {
         int res = vsnprintf(buf, 2048, fmt, ap);
         if (res < 0)
-            throw ML::Exception("unable to record hit with fmt");
+            throw MLDB::Exception("unable to record hit with fmt");
         if (res >= 2048)
-            throw ML::Exception("key is too long");
+            throw MLDB::Exception("key is too long");
             
         recordEvent(buf, type, value);
         va_end(ap);
@@ -154,4 +154,4 @@ recordEventFmt(EventType type,
     }
 }
 
-} // namespace Datacratic
+} // namespace MLDB

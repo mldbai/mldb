@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #include <cxxabi.h>
 #include <execinfo.h>
@@ -10,7 +10,7 @@
 #include "mldb/arch/exception_hook.h"
 
 
-namespace ML {
+namespace MLDB {
 
 __thread BacktraceInfo * current_backtrace = nullptr;
 
@@ -93,4 +93,4 @@ struct Install_Handler {
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

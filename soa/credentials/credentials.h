@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* credentials.h                                                   -*- C++ -*-
    Jeremy Barnes, 5 November 2014
@@ -8,11 +8,12 @@
 
 #pragma once
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/date.h"
+#include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/periodic_utils.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct Credential {
     std::string provider; ///< Path through which credential was obtained
@@ -47,4 +48,4 @@ DECLARE_STRUCTURE_DESCRIPTION(StoredCredentials);
 Credential getCredential(const std::string & resourceType,
                          const std::string & resource);
 
-} // namespace Datacratic
+} // namespace MLDB

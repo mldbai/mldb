@@ -1,8 +1,8 @@
 /** map_description.h                                        -*- C++ -*-
     Jeremy Barnes, 21 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Value description implementations for maps.
 */
@@ -12,7 +12,7 @@
 #include "value_description.h"
 #include <map>
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DEFAULT DESCRIPTION FOR MAP                                               */
@@ -73,13 +73,13 @@ struct MapValueDescription
 
     typedef ValueDescription::FieldDescription FieldDescription;
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const JML_OVERRIDE
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
         auto * val2 = reinterpret_cast<std::map<K, T, C, A> *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(std::map<K, T, C, A> * val, JsonParsingContext & context) const JML_OVERRIDE
+    virtual void parseJsonTyped(std::map<K, T, C, A> * val, JsonParsingContext & context) const override
     {
         std::map<K, T, C, A> res;
 
@@ -94,14 +94,14 @@ struct MapValueDescription
         val->swap(res);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const JML_OVERRIDE
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         auto * val2 = reinterpret_cast<const std::map<K, T, C, A> *>(val);
         return printJsonTyped(val2, context);
     }
 
     virtual void printJsonTyped(const std::map<K, T, C, A> * val,
-                                JsonPrintingContext & context) const JML_OVERRIDE
+                                JsonPrintingContext & context) const override
     {
         context.startObject();
         for (auto & v: *val) {
@@ -111,56 +111,56 @@ struct MapValueDescription
         context.endObject();
     }
 
-    virtual bool isDefault(const void * val) const JML_OVERRIDE
+    virtual bool isDefault(const void * val) const override
     {
         auto * val2 = reinterpret_cast<const std::map<K, T, C, A> *>(val);
         return isDefaultTyped(val2);
     }
 
-    virtual bool isDefaultTyped(const std::map<K, T, C, A> * val) const JML_OVERRIDE
+    virtual bool isDefaultTyped(const std::map<K, T, C, A> * val) const override
     {
         return val->empty();
     }
 
-    virtual size_t getFieldCount(const void * val) const JML_OVERRIDE
+    virtual size_t getFieldCount(const void * val) const override
     {
         auto * val2 = reinterpret_cast<const std::map<K, T, C, A> *>(val);
         return val2->size();
     }
 
     virtual const FieldDescription *
-    hasField(const void * val, const std::string & name) const JML_OVERRIDE
+    hasField(const void * val, const std::string & name) const override
     {
-        throw ML::Exception("map hasField: needs work");
+        throw MLDB::Exception("map hasField: needs work");
         //auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
         //return val2->count(name);
     }
 
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const JML_OVERRIDE
+                              const std::function<void (const FieldDescription &)> & onField) const override
     {
-        throw ML::Exception("map forEachField: needs work");
+        throw MLDB::Exception("map forEachField: needs work");
     }
 
     virtual const FieldDescription & 
-    getField(const std::string & field) const JML_OVERRIDE
+    getField(const std::string & field) const override
     {
-        throw ML::Exception("map getField: needs work");
+        throw MLDB::Exception("map getField: needs work");
     }
 
-    virtual const ValueDescription & getKeyValueDescription() const JML_OVERRIDE
+    virtual const ValueDescription & getKeyValueDescription() const override
     {
         ExcAssert(this->key);
         return *this->key;
     }
 
-    virtual const ValueDescription & contained() const JML_OVERRIDE
+    virtual const ValueDescription & contained() const override
     {
         ExcAssert(this->inner);
         return *this->inner;
     }
 
-    virtual void initialize() JML_OVERRIDE
+    virtual void initialize() override
     {
         this->key = getDefaultDescriptionSharedT<K>();
         this->inner = getDefaultDescriptionSharedT<T>();
@@ -196,4 +196,4 @@ struct MapDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_4(MapDescription, std::map, typename, Key, typename, Value, typename, Compare, typename, Alloc);
 
-} // namespace Datacratic
+} // namespace MLDB

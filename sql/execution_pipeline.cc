@@ -1,8 +1,8 @@
 /** execution_pipeline.cc                                          -*- C++ -*-
     Jeremy Barnes, 27 August 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "execution_pipeline.h"
@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -81,7 +81,11 @@ tableScope(std::shared_ptr<LexicalScope> table)
     TableEntry entry(table, numOutputFields());
     Utf8String asName = table->as();
 
+    //Note for JB: In which case do we need more than the one default table?
+    //Not using the latest causes issues
+    result->defaultTables.resize(0);
     result->defaultTables.emplace_back(entry);
+
     if (!asName.empty())
         result->tables[asName] = entry;
     result->parent_ = shared_from_this();
@@ -92,7 +96,7 @@ tableScope(std::shared_ptr<LexicalScope> table)
                                std::make_move_iterator(outputAdded.begin()),
                                std::make_move_iterator(outputAdded.end()));
 
-    //cerr << "table scope for " << ML::type_name(*table) << " goes from "
+    //cerr << "table scope for " << MLDB::type_name(*table) << " goes from "
     //     << entry.fieldOffset << " to " << result->numOutputFields()
     //     << endl;
 
@@ -136,7 +140,7 @@ selectScope(std::vector<std::shared_ptr<ExpressionValueInfo> > outputAdded) cons
 
 ColumnGetter
 PipelineExpressionScope::
-doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
+doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
     //cerr << "doGetColumn with tableName " << tableName
     //     << " and variable name " << columnName << endl;
@@ -171,18 +175,27 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 GetAllColumnsOutput 
 PipelineExpressionScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
+                const ColumnFilter& keep)
 {
     if (tableName.empty()) {
         if (defaultTables.empty())
             throw HttpReturnException(500, "Get variable without table name with no default table in scope");
-        return defaultTables.back().doGetAllColumns(keep);
+        return defaultTables.back().doGetAllColumns(tableName, keep);
     }
     else {
         // Otherwise, look in the table scope
         auto it = tables.find(tableName);
         if (it != tables.end()) {
-            return it->second.doGetAllColumns(keep);
+            return it->second.doGetAllColumns(tableName, keep);
+        }
+
+        // look in the default table childs
+        for (auto& t : defaultTables) {
+            auto tableNames = t.tableNames();
+             auto it = tableNames.find(tableName);
+             if (it != tableNames.end()) {
+                return t.doGetAllColumns(tableName, keep);
+             }
         }
     }        
 
@@ -254,25 +267,34 @@ doGetBoundParameter(const Utf8String & paramName)
                      const VariableFilter & filter) -> const ExpressionValue &
         {
             auto & row = rowScope.as<PipelineResults>();
-            return storage = std::move(row.getParam(paramName));
+            return storage = row.getParam(paramName);
         };
         
     return { exec, info };
 }
 
-ColumnName
+ColumnPath
 PipelineExpressionScope::
-doResolveTableName(const ColumnName & fullVariableName,
+doResolveTableName(const ColumnPath & fullColumnName,
                    Utf8String &tableName) const
 {
     for (auto & t: tables) {
-        if (fullVariableName.startsWith(t.first)) {
+        if (fullColumnName.startsWith(t.first)) {
             tableName = t.first;
-            return fullVariableName.removePrefix();
+            return fullColumnName.removePrefix();
         }
     }
 
-    return fullVariableName;
+    for (auto & t: defaultTables) {
+        for (auto & t2: t.tableNames()) {
+            if (fullColumnName.startsWith(t2)) {
+                tableName = t2;
+                return fullColumnName.removePrefix();
+            }
+        }
+    }
+
+    return fullColumnName;
 }
 
 std::vector<Utf8String>
@@ -328,16 +350,16 @@ TableEntry(std::shared_ptr<LexicalScope> scope,
 
 ColumnGetter
 PipelineExpressionScope::TableEntry::
-doGetColumn(const ColumnName & columnName) const
+doGetColumn(const ColumnPath & columnName) const
 {
     return scope->doGetColumn(columnName, fieldOffset);
 }
     
 GetAllColumnsOutput
 PipelineExpressionScope::TableEntry::
-doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const
+doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const
 {
-    return scope->doGetAllColumns(keep, fieldOffset);
+    return scope->doGetAllColumns(tableName, keep, fieldOffset);
 }
 
 BoundFunction
@@ -347,6 +369,13 @@ doGetFunction(const Utf8String & functionName,
               SqlBindingScope & argScope) const
 {
     return scope->doGetFunction(functionName, args, fieldOffset, argScope);
+}
+
+std::set<Utf8String>
+PipelineExpressionScope::TableEntry::
+tableNames() const
+{
+    return scope->tableNames();
 }
 
 /*****************************************************************************/
@@ -534,30 +563,32 @@ partition(int numElements)
 
 std::shared_ptr<PipelineElement>
 PipelineElement::
-statement(SelectStatement& stm, GetParamInfo getParamInfo)
+statement(const SelectStatement& stm, GetParamInfo getParamInfo)
 {
     auto root = shared_from_this();
 
     bool hasGroupBy = !stm.groupBy.empty();
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = stm.select.findAggregators(hasGroupBy);
+    std::vector< std::shared_ptr<SqlExpression> > aggregators
+        = stm.select.findAggregators(hasGroupBy);
+
+    auto groupBy = stm.groupBy;
 
     if (!hasGroupBy && !aggregators.empty()) {
         //if we have no group by but aggregators, make a universal group
-        stm.groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+        groupBy.clauses.emplace_back(SqlExpression::parse("1"));
         hasGroupBy = true;
     }
 
     if (hasGroupBy) {
-
         return root
             ->params(getParamInfo)
             ->from(stm.from, stm.when,
                    SelectExpression::STAR, stm.where,
                    OrderByExpression(), getParamInfo)
             ->where(stm.where)
-            ->select(stm.groupBy)
-            ->sort(stm.groupBy)
-            ->partition(stm.groupBy.clauses.size())
+            ->select(groupBy)
+            ->sort(groupBy)
+            ->partition(groupBy.clauses.size())
             ->where(stm.having)
             ->select(stm.orderBy)
             ->sort(stm.orderBy)
@@ -590,4 +621,4 @@ statement(SelectStatement& stm, GetParamInfo getParamInfo)
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

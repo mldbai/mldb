@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #include "test_peer.h"
 
-using namespace Datacratic;
+using namespace MLDB;
 using namespace std;
 
 int main(int argc, char ** argv)
@@ -12,7 +12,7 @@ int main(int argc, char ** argv)
     // arg 3 = etcd path
 
     if (argc != 4)
-        throw ML::Exception("wrong arguments: need peer name and etcd uri and etcd path; got %d",
+        throw MLDB::Exception("wrong arguments: need peer name and etcd uri and etcd path; got %d",
                             argc);
 
     TestPeer peer(argv[1], argv[2], argv[3]);

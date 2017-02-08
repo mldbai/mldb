@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* date.cc
    Jeremy Barnes, 18 July 2010
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
 
 */
 
@@ -11,7 +11,6 @@
 #include <cmath>
 #include <limits>
 #include "mldb/arch/format.h"
-#include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/base/parse_context.h"
 #include <cmath>
@@ -24,17 +23,16 @@
 
 
 using namespace std;
-using namespace ML;
-using namespace Datacratic;
+using namespace MLDB;
 
 namespace {
 
 bool
-matchFixedWidthInt(ML::Parse_Context & context,
+matchFixedWidthInt(ParseContext & context,
                    int minLength, int maxLength,
                    int min, int max, int & value)
 {
-    ML::Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
 
     char buf[maxLength + 1];
     unsigned i = 0;
@@ -72,7 +70,7 @@ matchFixedWidthInt(ML::Parse_Context & context,
 }
 
 int
-expectFixedWidthInt(ML::Parse_Context & context,
+expectFixedWidthInt(ParseContext & context,
                     int minLength, int maxLength,
                     int min, int max, const char * message)
 {
@@ -91,7 +89,7 @@ epoch(boost::gregorian::date(1970, 1, 1));
 
 }
 
-namespace Datacratic {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -108,12 +106,6 @@ Date(int year, int month, int day,
                            + 3600 * hour + 60 * minute + second
                            + fraction)
 {
-}
-
-Date::
-Date(JS::JSValue & value)
-{
-    throw Exception("Date::Date(JSValue): not done");
 }
 
 Date::
@@ -156,9 +148,9 @@ parseSecondsSinceEpoch(const std::string & date)
     char * end = 0;
     double seconds = strtod(date.c_str(), &end);
     if (errno != 0)
-        throw ML::Exception(errno, "date parseSecondsSinceEpoch: " + date);
+        throw MLDB::Exception(errno, "date parseSecondsSinceEpoch: " + date);
     if (end != date.c_str() + date.length())
-        throw ML::Exception("couldn't convert " + date + " to date");
+        throw MLDB::Exception("couldn't convert " + date + " to date");
     return fromSecondsSinceEpoch(seconds);
 }
 
@@ -244,7 +236,7 @@ now()
     timespec time;
     int res = clock_gettime(CLOCK_REALTIME, &time);
     if (res == -1)
-        throw ML::Exception(errno, "clock_gettime");
+        throw MLDB::Exception(errno, "clock_gettime");
     return fromSecondsSinceEpoch(time.tv_sec + time.tv_nsec * 0.000000001);
 }
 
@@ -290,7 +282,7 @@ static void addFractionalSeconds(std::string & result,
             ++decpt;
         }
 
-        //std::string fractional = Datacratic::dtoa(full_seconds);
+        //std::string fractional = MLDB::dtoa(full_seconds);
         //cerr << "fractional = " << fractional << endl;
         //cerr << "decpt = " << decpt << endl;
         //cerr << "sign = " << sign << endl;
@@ -320,7 +312,7 @@ static void addFractionalSeconds(std::string & result,
         // Remove the leading "0" and append
         result.append(fractional, 1, -1);
     }
-    else throw ML::Exception("Unknown seconds_digits argument %d to Date::printIso8601()",
+    else throw MLDB::Exception("Unknown seconds_digits argument %d to Date::printIso8601()",
                              seconds_digits);
 }
 
@@ -444,7 +436,7 @@ quantize(double fraction)
 
         uint64_t frac = fraction;
         if (frac != fraction)
-            throw ML::Exception("non-integral numbers of seconds not supported");
+            throw MLDB::Exception("non-integral numbers of seconds not supported");
         uint64_t whole2 = whole_seconds;
         whole2 /= fraction;
         secondsSinceEpoch_ = whole2 * fraction;
@@ -926,11 +918,11 @@ std::istream & operator >> (std::istream & stream, Date & date)
 
 bool
 Date::
-match_date(ML::Parse_Context & context,
+match_date(ParseContext & context,
            Date & result,
            const std::string & format)
 {
-    Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
     
     int year = -1, month = 1, day = 1;
     
@@ -1062,7 +1054,7 @@ match_date(ML::Parse_Context & context,
 
 Date
 Date::
-expect_date(ML::Parse_Context & context, const std::string & format)
+expect_date(ParseContext & context, const std::string & format)
 {
     int year = -1, month = 1, day = 1;
 
@@ -1203,7 +1195,7 @@ expect_date(ML::Parse_Context & context, const std::string & format)
 #if 0
 Date
 Date::
-expect_date(ML::Parse_Context & context,
+expect_date(ParseContext & context,
            const std::string & format)
 {
     Date result;
@@ -1215,11 +1207,11 @@ expect_date(ML::Parse_Context & context,
 
 bool
 Date::
-match_time(ML::Parse_Context & context,
+match_time(ParseContext & context,
            double & result,
            const std::string & format)
 {
-    Parse_Context::Revert_Token token(context);
+    ParseContext::Revert_Token token(context);
 
     int hour = 0, minute = 0, offset = 0;
     double second = 0;
@@ -1294,7 +1286,7 @@ match_time(ML::Parse_Context & context,
 
 double
 Date::
-expect_time(ML::Parse_Context & context, const std::string & format)
+expect_time(ParseContext & context, const std::string & format)
 {
     int hour = 0, minute = 0, offset = 0;
     double second = 0;
@@ -1366,7 +1358,7 @@ expect_time(ML::Parse_Context & context, const std::string & format)
 #if 0
 double
 Date::
-expect_time(ML::Parse_Context & context,
+expect_time(ParseContext & context,
            const std::string & format)
 {
     double time;
@@ -1416,7 +1408,7 @@ parse_date_time(const std::string & str,
     
     Date result;
     try {
-        ML::Parse_Context context(str,
+        ParseContext context(str,
                                   str.c_str(), str.c_str() + str.length());
         result = expect_date_time(context, date_format, time_format);
         
@@ -1432,7 +1424,7 @@ parse_date_time(const std::string & str,
 
 Date
 Date::
-expect_date_time(ML::Parse_Context & context,
+expect_date_time(ParseContext & context,
                  const std::string & date_format,
                  const std::string & time_format)
 {
@@ -1442,7 +1434,7 @@ expect_date_time(ML::Parse_Context & context,
     date = expect_date(context, date_format);
     
     if (!context.eof()) {
-        Parse_Context::Revert_Token token(context);
+        ParseContext::Revert_Token token(context);
         context.match_whitespace();
         if (match_time(context, time, time_format))
             token.ignore();
@@ -1453,7 +1445,7 @@ expect_date_time(ML::Parse_Context & context,
 
 bool
 Date::
-match_date_time(ML::Parse_Context & context,
+match_date_time(ParseContext & context,
                 Date & result,
                 const std::string & date_format,
                 const std::string & time_format)
@@ -1475,7 +1467,7 @@ Date Date::parse(const std::string & date,
     tm time;
     memset(&time, 0, sizeof(time));
     if(strptime(date.c_str(), format.c_str(), &time) == NULL)
-        throw ML::Exception("strptime error. format='" + format + "', string='" + date + "'");
+        throw MLDB::Exception("strptime error. format='" + format + "', string='" + date + "'");
 
     //not using fromTm because I don't want it to assume it's local time
     return Date(1900 + time.tm_year, 1 + time.tm_mon, time.tm_mday,
@@ -1490,7 +1482,7 @@ toTm() const
     errno = 0;
     time_t t = toTimeT();
     if (gmtime_r(&t, &result) == 0)
-        throw ML::Exception("error converting time: t = %lld",
+        throw MLDB::Exception("error converting time: t = %lld",
                             (long long)t,
                             strerror(errno));
     return result;
@@ -1503,7 +1495,7 @@ fromTm(const tm & t)
     tm t2 = t;
     time_t t3 = mktime(&t2);
     if (t3 == (time_t)-1)
-        throw ML::Exception("couldn't construct from invalid time");
+        throw MLDB::Exception("couldn't construct from invalid time");
     return fromTimeT(t3);
 }
 
@@ -1514,7 +1506,7 @@ void Date::addFromString(string str){
         string format = "^[1-9][0-9]*[SMHd]$";
         regex e(format);
         if(!regex_match(str, e)){
-            throw ML::Exception("String " + str + " did not match format "
+            throw MLDB::Exception("String " + str + " did not match format "
                 + format);
         }
     }
@@ -1539,7 +1531,7 @@ void Date::addFromString(string str){
             this->addDays(length);
             break;
         default:
-            throw ML::Exception("Should never get here with string: " + str);
+            throw MLDB::Exception("Should never get here with string: " + str);
             break;
     }
 }
@@ -1551,7 +1543,7 @@ void Date::addFromString(string str){
 
 Iso8601Parser::
 Iso8601Parser(const std::string & dateStr)
-    : parser(new Parse_Context(dateStr, dateStr.c_str(),
+    : parser(new ParseContext(dateStr, dateStr.c_str(),
                                dateStr.c_str() + dateStr.size()))
 {
 }
@@ -1644,7 +1636,7 @@ matchDate(Date &date)
         int day(1);
 
         {
-            ML::Parse_Context::Revert_Token token(*parser);
+            ParseContext::Revert_Token token(*parser);
 
             if (matchYearDay(day) && (parser->eof() || !isdigit(*(*parser)))) {
                 Date tempDate(year, 1, 1);
@@ -1752,7 +1744,7 @@ bool
 Iso8601Parser::
 matchTimezone(int& tzminutes)
 {
-    ML::Parse_Context::Revert_Token token(*parser);
+    ParseContext::Revert_Token token(*parser);
     if (parser->match_literal('+')) {
         if (matchTimeZoneMinutes(tzminutes)) {
             token.ignore();
@@ -1983,7 +1975,7 @@ isDefaultTyped(const Date * val) const
     return *val == Date();
 }
 
-template struct ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
+template struct ValueDescriptionI<MLDB::Date, ValueKind::ATOM, DateDescription>;
 
 void
 JavaTimestampValueDescription::
@@ -2030,7 +2022,7 @@ printJsonTyped(const Date * val,
 /* TIME UNITS                                                                */
 /*****************************************************************************/
 
-TimeUnit ParseTimeUnit(ML::Parse_Context& context)
+TimeUnit ParseTimeUnit(ParseContext& context)
 {
     if (context.match_test_icase("MICROSECOND"))  {
         return MICROSECOND;
@@ -2086,8 +2078,8 @@ TimeUnit ParseTimeUnit(ML::Parse_Context& context)
 
 TimeUnit ParseTimeUnit(std::string& sinput)
 {
-    ML::Parse_Context context(sinput, sinput.c_str(), sinput.c_str() + sinput.size());
+    ParseContext context(sinput, sinput.c_str(), sinput.c_str() + sinput.size());
     return ParseTimeUnit(context);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

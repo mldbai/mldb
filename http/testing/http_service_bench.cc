@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* http_service_bench.cc
    Wolfgang Sourdeau, September 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    Benchmark utility for testing the ASIO-based http services.
 */
@@ -17,16 +17,16 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/event_loop.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/event_loop.h"
 #include "mldb/http/http_socket_handler.h"
-#include "mldb/http/port_range_service.h"
-#include "mldb/http/tcp_acceptor.h"
+#include "mldb/io/port_range_service.h"
+#include "mldb/io/tcp_acceptor.h"
 
 
 using namespace std;
 using namespace boost;
-using namespace Datacratic;
+using namespace MLDB;
 
 struct MyHandler : public HttpLegacySocketHandler {
     MyHandler(TcpSocket && socket);

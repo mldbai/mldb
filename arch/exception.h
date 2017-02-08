@@ -2,7 +2,7 @@
    Jeremy Barnes, 26 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
    
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Defines our exception class.
 */
@@ -14,7 +14,7 @@
 #include "stdarg.h"
 #include "exception_handler.h"
 
-namespace ML {
+namespace MLDB {
 
 class Exception : public std::exception {
 public:
@@ -47,14 +47,14 @@ std::string getExceptionString();
 
 /** Exception thrown when an exception assert is made and fails. */
 
-struct Assertion_Failure: public Exception {
-    Assertion_Failure(const std::string & msg);
-    Assertion_Failure(const char * msg, ...);
-    Assertion_Failure(const char * assertion,
+struct AssertionFailure: public Exception {
+    AssertionFailure(const std::string & msg);
+    AssertionFailure(const char * msg, ...);
+    AssertionFailure(const char * assertion,
                       const char * function,
                       const char * file,
                       int line);
 };
 
 
-} // namespace ML
+} // namespace MLDB

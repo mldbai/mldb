@@ -1,8 +1,8 @@
 /** path.h                                                        -*- C++ -*-
     Jeremy Barnes, 29 January 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 */
 
 #include "path.h"
@@ -11,7 +11,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/ext/siphash/csiphash.h"
+#include "mldb/ext/highwayhash.h"
 #include "mldb/types/itoa.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/ext/cityhash/src/city.h"
@@ -19,13 +19,24 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 namespace {
 // If ever we allow the first offset of a path to be non-zero (eg, to tail
 // a long path via sharing) we should remove this.
 constexpr bool PATH_OFFSET_ZERO_IS_ALWAYS_ZERO = true;
+
+inline void checkNullPathElement(bool lhsNull, bool rhsNull = false) {
+    if (lhsNull) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null lhs PathElement");
+    }
+    if (rhsNull) {
+        throw HttpReturnException(
+            500, "Cannot call operator + on null rhs PathElement");
+    }
+}
 } // file scope
 
 
@@ -56,7 +67,7 @@ int calcDigits(const char * begin, size_t len)
     return calcDigits(begin, begin + len);
 }
 
-std::pair<size_t, size_t>
+inline std::pair<size_t, size_t>
 countDigits(const char * p, size_t len)
 {
     // Count leading zeros
@@ -90,7 +101,13 @@ compareNatural(const char * p1, size_t len1,
     size_t i1 = 0, i2 = 0;
     
     while (i1 < len1 && i2 < len2) {
-        char c1 = p1[i1], c2 = p2[i2];
+        // We need unsigned chars here, as this path is optimized with
+        // memcmp in other places, which treats characters as unsigned.
+        // Otherwise, with Unicode characters on platforms with signed
+        // chars, we will get a different comparison order than the
+        // optimized path, meaning that sort order is inconsistent.
+        // See MLDB-1936
+        unsigned char c1 = p1[i1], c2 = p2[i2];
 
         if (isdigit(c1) && isdigit(c2)) {
             size_t lz1, digits1, lz2, digits2;
@@ -134,6 +151,42 @@ compareNatural(const char * p1, size_t len1,
     }
 
     return len1 - len2;
+}
+
+int
+compareElements(const char * s0, size_t l0,
+                const char * s1, size_t l1,
+                int d0, int d1)
+{
+    if (MLDB_LIKELY(d0 == d1)) {
+        if (d0 == PathElement::NO_DIGITS) {
+            int res = std::memcmp(s0, s1, std::min(l0, l1));
+            if (res == 0)
+                res = l0 - l1;
+            return res;
+        }
+        else if (d0 == PathElement::DIGITS_ONLY
+                 && MLDB_LIKELY(s0[0] != '0' && s1[0] != '0')) {
+            int res = 0;
+            if (l0 != l1)
+                res = l0 - l1;
+            else {
+                res = std::memcmp(s0, s1, l0);
+                if (res == 0)
+                    res = l0 - l1;
+            }
+            return res;
+        }
+        else if (l0 == l1 && std::memcmp(s0, s1, l0) == 0)
+            return 0;
+    }
+    else {
+        // Different digits.  They are definitely not equal.  Only 
+        // need to determine which one is higher.
+        // ...
+    }
+
+    return compareNatural(s0, l0, s1, l1);
 }
 
 
@@ -220,7 +273,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
     ExcAssertLessEqual((void *)p, (void *)e);
 
     if (p == e) {
-        return { PathElement(), true };
+        return { PathElement(""), true };
     }
 
     if (*p == '\"') {
@@ -303,7 +356,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
         }
         size_t sz = start - p;
         if (sz == 0)
-            return { PathElement(), true };
+            return { PathElement(""), true };
         PathElement result(p, sz);
         p = start;
         return { std::move(result), true };
@@ -389,9 +442,11 @@ operator == (const PathElement & other) const
     //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
     //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
 
+    // We can use strcmp because the lengths and digits are the same, and we
+    // are only looking for equality.
     return digits_ == other.digits_
         && dataLength() == other.dataLength()
-        && compareString(other.data(), other.dataLength()) == 0;
+        && strncmp(data(), other.data(), dataLength()) == 0;
 }
 
 bool
@@ -405,36 +460,16 @@ bool
 PathElement::
 operator <  (const PathElement & other) const
 {
-    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
-    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
-
-    if (digits_ == NO_DIGITS && other.digits_ == NO_DIGITS) {
-        size_t l1 = dataLength();
-        size_t l2 = other.dataLength();
-        int res = std::memcmp(data(), other.data(), std::min(l1, l2));
-        if (res) return res < 0;
-        return l1 < l2;
-    }
-
-    return compareString(other.data(), other.dataLength()) < 0;
+    return compareElements(data(), dataLength(), other.data(), other.dataLength(),
+                           digits_, other.digits_) < 0;
 }
 
 bool
 PathElement::
 operator <= (const PathElement & other) const
 {
-    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
-    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
-
-    if (digits_ == NO_DIGITS && other.digits_ == NO_DIGITS) {
-        size_t l1 = dataLength();
-        size_t l2 = other.dataLength();
-        int res = std::memcmp(data(), other.data(), std::min(l1, l2));
-        if (res) return res <= 0;
-        return l1 <= l2;
-    }
-
-    return compareString(other.data(), other.dataLength()) <= 0;
+    return compareElements(data(), dataLength(), other.data(), other.dataLength(),
+                           digits_, other.digits_) <= 0;
 }
 
 bool
@@ -478,8 +513,12 @@ Utf8String
 PathElement::
 toEscapedUtf8String() const
 {
-    if (empty())
+    if (null()) {
+        return "";
+    }
+    if (complex_ == 1 && str.str.empty()) {
         return "\"\"";
+    }
 
     const char * d = data();
     size_t l = dataLength();
@@ -585,7 +624,7 @@ uint64_t
 PathElement::
 oldHash() const
 {
-    return Id(data(), dataLength()).hash();
+    return CityHash64(data(), dataLength());
 }
 
 constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
@@ -594,13 +633,14 @@ uint64_t
 PathElement::
 newHash() const
 {
-    return ::mldb_siphash24(data(), dataLength(), defaultSeedStable.b);
+    return highwayHash(defaultSeedStable.u64, data(), dataLength());
 }
 
 Path
 PathElement::
 operator + (const PathElement & other) const
 {
+    checkNullPathElement(null(), other.null());
     PathBuilder builder;
     return builder.add(*this).add(other).extract();
 }
@@ -609,6 +649,7 @@ Path
 PathElement::
 operator + (PathElement && other) const
 {
+    checkNullPathElement(null(), other.null());
     PathBuilder builder;
     return builder.add(*this).add(std::move(other)).extract();
 }
@@ -617,6 +658,7 @@ Path
 PathElement::
 operator + (const Path & other) const
 {
+    checkNullPathElement(null());
     Path result(*this);
     return result + other;
 }
@@ -625,6 +667,7 @@ Path
 PathElement::
 operator + (Path && other) const
 {
+    checkNullPathElement(null());
     Path result(*this);
     return result + std::move(other);
 }
@@ -719,7 +762,7 @@ initStringUnchecked(T && str)
     // characters, for example when importing legacy files.
     words[0] = words[1] = words[2] = 0;
     digits_ = calcDigits(rawData(str), rawLength(str));
-    if (rawLength(str) <= INTERNAL_BYTES - 1) {
+    if (rawLength(str) > 0 && rawLength(str) <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = rawLength(str);
         std::copy(rawData(str), rawData(str) + rawLength(str),
@@ -747,7 +790,7 @@ initChars(const char * str, size_t len, int digits)
     ExcAssertLess(len, 1ULL << 32);
     words[0] = words[1] = words[2] = 0;
     digits_ = digits;
-    if (len <= INTERNAL_BYTES - 1) {
+    if (len > 0 && len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = len;
         std::copy(str, str + len, bytes + 1);
@@ -802,6 +845,15 @@ compareStringNullTerminated(const char * str) const
     return compareString(str, ::strlen(str));
 }
 
+int
+PathElement::
+compare(const PathElement & other) const
+{
+    return compareElements(data(), dataLength(),
+                           other.data(), other.dataLength(),
+                           digits_, other.digits_);
+}
+
 const Utf8String &
 PathElement::
 getComplex() const
@@ -848,7 +900,11 @@ PathBuilder &
 PathBuilder::
 add(PathElement && element)
 {
-    if (bytes.empty()) {
+    if (element.null()) {
+        return *this;
+    }
+
+    if (bytes.empty() && element.hasExternalStorage()) {
         bytes = element.stealBytes();
     }
     else {
@@ -869,6 +925,10 @@ PathBuilder &
 PathBuilder::
 add(const PathElement & element)
 {
+    if (element.null()) {
+        return *this;
+    }
+
     auto v = element.getStringView();
     bytes.append(v.first, v.first + v.second);
     if (indexes.size() <= 16) {
@@ -897,14 +957,29 @@ PathBuilder &
 PathBuilder::
 addRange(const Path & path, size_t first, size_t last)
 {
+    ExcAssertLessEqual(first, last);
+    if (path.empty() || first == last) {
+        return *this;
+    }
+
     if (last > path.size())
         last = path.size();
     if (first > last)
         first = last;
-    for (auto it = path.begin() + first, end = path.begin() + last;
-         it < end;  ++it) {
-        add(*it);
+    size_t o1 = path.offset(first);
+    size_t o2 = path.offset(last);
+    const char * d = path.data();
+    size_t beforeSize = bytes.size();
+    
+    // Do it all at once to reduce the amount of string manipulation
+    bytes.append(d + o1, d + o2);
+    for (size_t i = first;  i < last;  ++i) {
+        if (indexes.size() <= 16) {
+            digits_ = digits_ | (path.digits(i) << (2 * (indexes.size() - 1)));
+        }
+        indexes.emplace_back(path.offset(i + 1) - o1 + beforeSize);
     }
+    ExcAssertEqual(indexes.back(), bytes.size());
     return *this;
 }
 
@@ -912,12 +987,15 @@ Path
 PathBuilder::
 extract()
 {
+    // Clang has problems otherwise...
+    bool isExternal = indexes.size() >= 9 || bytes.size() >= 256; 
+
     Path result;
     result.bytes_ = std::move(bytes);
     result.length_ = indexes.size() - 1;
     result.digits_ = digits_;
 
-    bool isExternal = result.externalOfs();
+    //bool isExternal = result.externalOfs();
 
     if (isExternal) {
         result.ofsPtr_ = new uint32_t[indexes.size()];
@@ -939,11 +1017,17 @@ Path::Path(PathElement && path)
     : length_(1), digits_(path.digits_),
       ofsBits_(0)
 {
-    if (path.empty()) {
+    if (path.null()) {
         length_ = 0;
         return;
     }
-    bytes_ = path.stealBytes();
+    if (path.hasExternalStorage()) {
+        bytes_ = path.stealBytes();
+    }
+    else {
+        auto v = path.getStringView();
+        bytes_.append(v.first, v.first + v.second);
+    }
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
         ofsPtr_[0] = 0;
@@ -959,11 +1043,17 @@ Path::Path(const PathElement & path)
     : length_(1), digits_(path.digits_),
       ofsBits_(0)
 {
-    if (path.empty()) {
+    if (path.null()) {
         length_ = 0;
         return;
     }
-    bytes_ = path.getBytes();
+    if (path.hasExternalStorage()) {
+        bytes_ = path.getBytes();
+    }
+    else {
+        auto v = path.getStringView();
+        bytes_.append(v.first, v.first + v.second);
+    }
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
         ofsPtr_[0] = 0;
@@ -999,7 +1089,7 @@ toUtf8String() const
     for (size_t i = 0;  i < length_;  ++i) {
         if (!first)
             result += '.';
-        result += at(i).toEscapedUtf8String(); 
+        result += at(i).toEscapedUtf8String();
         first = false;
     }
     return result;
@@ -1034,7 +1124,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
     PathBuilder builder;
 
     if (p == e) {
-        return { Path(), true };
+        return { Path(""), true };
     }
 
     while (p < e) {
@@ -1065,7 +1155,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
     }
 
     if (str != e && e[-1] == '.') {
-        builder.add(PathElement());
+        builder.add(PathElement(""));
     }
 
     return { builder.extract(), true };
@@ -1131,6 +1221,7 @@ Path
 Path::
 operator + (const PathElement & other) const
 {
+    checkNullPathElement(false, other.null());
     PathBuilder result;
     return result
         .addRange(*this, 0, size())
@@ -1142,6 +1233,7 @@ Path
 Path::
 operator + (PathElement && other) const
 {
+    checkNullPathElement(false, other.null());
     PathBuilder result;
     return result
         .addRange(*this, 0, size())
@@ -1286,9 +1378,9 @@ oldHash() const
     uint64_t result = 0;
     if (empty())
         return result;
-    result = at(0).oldHash();
+    result = oldHashElement(0);
     for (size_t i = 1;  i < size();  ++i) {
-        result = Hash128to64({result, at(i).newHash()});
+        result = Hash128to64({result, oldHashElement(i)});
     }
     return result;
 }
@@ -1297,14 +1389,33 @@ uint64_t
 Path::
 newHash() const
 {
+    //auto startTicks = Date::now();
     uint64_t result = 0;
     if (empty())
         return result;
-    result = at(0).newHash();
+    result = newHashElement(0);
     for (size_t i = 1;  i < size();  ++i) {
-        result = Hash128to64({result, at(i).newHash()});
+        result = Hash128to64({result, newHashElement(i)});
     }
+    //cerr << "newHash() of " << *this << " took "
+    //     << Date::now().secondsSince(startTicks) * 1000000 << "us" << endl;
     return result;
+}
+
+uint64_t
+Path::
+oldHashElement(size_t el) const
+{
+    auto sv = getStringView(el);
+    return CityHash64(sv.first, sv.second);
+}
+
+uint64_t
+Path::
+newHashElement(size_t el) const
+{
+    auto sv = getStringView(el);
+    return highwayHash(defaultSeedStable.u64, sv.first, sv.second);
 }
 
 size_t
@@ -1353,14 +1464,7 @@ compareElement(size_t el, const Path & other, size_t otherEl) const
     int d0 = digits(el);
     int d1 = other.digits(otherEl);
 
-    if (d0 == PathElement::NO_DIGITS && d1 == PathElement::NO_DIGITS) {
-        int res = std::memcmp(s0, s1, std::min(l0, l1));
-        if (res)
-            return res;
-        return l0 - l1;
-    }
-
-    return compareNatural(s0, l0, s1, l1);
+    return compareElements(s0, l0, s1, l1, d0, d1);
 }
 
 int
@@ -1383,10 +1487,10 @@ operator == (const Path & other) const
     if (length_ != other.length_) {
         return false;
     }
-    //if (digits_ != other.digits_)
-    //    return false;
+    if (digits_ != other.digits_)
+        return false;
 
-    // Short circuit (currently offset(0) is always 0, so always taken.
+    // Short circuit (currently offset(0) is always 0, so always taken).
     if (PATH_OFFSET_ZERO_IS_ALWAYS_ZERO
         || (offset(0) == 0 && other.offset(0) == 0)) {
         for (size_t i = 1;  i <= length_;  ++i) {
@@ -1455,7 +1559,7 @@ operator >> (std::istream & stream, Path & id)
 /* VALUE DESCRIPTIONS                                                        */
 /*****************************************************************************/
 
-struct PathElementDescription 
+struct PathElementDescription
     : public ValueDescriptionI<PathElement, ValueKind::ATOM, PathElementDescription> {
 
     virtual void parseJsonTyped(PathElement * val,
@@ -1488,18 +1592,28 @@ PathElementDescription::
 printJsonTyped(const PathElement * val,
                JsonPrintingContext & context) const
 {
-    context.writeJson(jsonEncode(Id(val->toUtf8String())));
-    //context.writeStringUtf8(val->toUtf8String());
+    if (val->null()) {
+        context.writeNull();
+        return;
+    }
+    int64_t index = val->toIndex();
+    if (index != -1) {
+        context.writeLongLong(index);
+    }
+    else {
+        auto sv = val->getStringView();
+        context.writeStringUtf8(sv.first, sv.second);
+    }
 }
 
 bool
 PathElementDescription::
 isDefaultTyped(const PathElement * val) const
 {
-    return val->empty();
+    return val->null();
 }
 
-struct PathDescription 
+struct PathDescription
     : public ValueDescriptionI<Path, ValueKind::ATOM, PathDescription> {
 
     virtual void parseJsonTyped(Path * val,
@@ -1551,4 +1665,4 @@ isDefaultTyped(const Path * val) const
 }
 
 } // namespace MLDB
-} // namespace Datacratic
+

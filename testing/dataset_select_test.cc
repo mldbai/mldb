@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** mldb_dataset_test.cc                                           -*- C++ -*-
     Jeremy Barnes, 16 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Test for datasets.
 */
@@ -22,8 +22,8 @@
 
 
 using namespace std;
-using namespace Datacratic;
-using namespace Datacratic::MLDB;
+
+using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_two_members )
 {
@@ -48,23 +48,23 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     // Now we have a dataset, put some rows into it
     
     MatrixNamedRow row;
-    row.rowName = RowName("row1");
-    row.columns.emplace_back(ColumnName("techno"), "yes", Date());
-    row.columns.emplace_back(ColumnName("dance"), "yes", Date());
+    row.rowName = RowPath("row1");
+    row.columns.emplace_back(ColumnPath("techno"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("dance"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     row.columns.clear();
 
-    row.rowName = RowName("row2");
-    row.columns.emplace_back(ColumnName("dance"), "yes", Date());
-    row.columns.emplace_back(ColumnName("country"), "yes", Date());
+    row.rowName = RowPath("row2");
+    row.columns.emplace_back(ColumnPath("dance"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("country"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     row.columns.clear();
 
-    row.rowName = RowName("row3");
-    row.columns.emplace_back(ColumnName("tag with spaces"), "yes", Date());
-    row.columns.emplace_back(ColumnName("tag:with spaces"), "yes", Date());
+    row.rowName = RowPath("row3");
+    row.columns.emplace_back(ColumnPath("tag with spaces"), "yes", Date());
+    row.columns.emplace_back(ColumnPath("tag:with spaces"), "yes", Date());
 
     cerr << proxy.post("/v1/datasets/test1/rows", jsonEncode(row));
     
@@ -72,19 +72,20 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     cerr << proxy.post("/v1/datasets/test1/commit");
 
 
-    auto checkRow = [&] (const std::string & query, const std::string & answer)
+    auto checkRow = [&] (const std::string & select, const std::string & where ,const std::string & answer)
         {
-            auto selectResult = proxy.get("/v1/datasets/test1/query?"+query);
+            std::string query = "/v1/query?q=select "+select + " from test1 where " + where;
+            auto selectResult = proxy.get(query);
 
             BOOST_CHECK_EQUAL(selectResult.code(), 200);
 
             auto selectJson = jsonDecodeStr<std::vector<MatrixNamedRow> >(selectResult.body());
 
             BOOST_REQUIRE_EQUAL(selectJson.size(), 1);
-            BOOST_CHECK_EQUAL(selectJson[0].rowName, RowName(answer));
+            BOOST_CHECK_EQUAL(selectJson[0].rowName, RowPath(answer));
         };
 
-    checkRow("where=techno='yes'&select=*", "row1");
-    checkRow("where=\"tag%20with%20spaces\"='yes'&select=*", "row3");
-    checkRow("where=\"tag:with%20spaces\"='yes'&select=*", "row3");
+    checkRow("*", "techno='yes'", "row1");
+    checkRow("*", "\"tag%20with%20spaces\"='yes'", "row3");
+    checkRow("*", "\"tag:with%20spaces\"='yes'", "row3");
 }

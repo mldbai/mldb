@@ -1,7 +1,7 @@
 #
 # MLDB-1753_useragent_function.py
 # Francois Maillet, 2016-06-27
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
@@ -94,6 +94,12 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
                     ["_rowName", "domain", "domain2"],
                     ["0", None, "www.domain.com"]
                 ])
+
+    def test_null_input(self):
+        self.assertTableResultEquals(
+            mldb.query("select useragent({ua: NULL}) as *"),
+            [["_rowName","browser.family","browser.version","device.brand","device.model","isSpider","os.family","os.version"],
+            ["result",None,None,None,None,None,None,None]])
 
 
 if __name__ == '__main__':

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** continuous.cc
     Jeremy Barnes, 9 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of continuous dataset.
 */
@@ -21,12 +21,13 @@
 #include "mldb/watch/watch_impl.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/builtin/merged_dataset.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -58,7 +59,8 @@ struct ContinuousDataset::Itl {
     Itl(MldbServer * server, const ContinuousDatasetConfig & config)
         : server(server),
           current(gcLock),
-          lastCommit(Date::now().secondsSinceEpoch())
+          lastCommit(Date::now().secondsSinceEpoch()),
+          logger(MLDB::getMldbLog<ContinuousWindowDataset>())
     {
         initRoutes();
 
@@ -66,27 +68,27 @@ struct ContinuousDataset::Itl {
             // Get the metadata dataset.  This is what stores the internal
             // metadata about which datasets are available.
             metadataDataset = obtainDataset(server, config.metadataDataset);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
-                                 "metadata initialization: " + ML::getExceptionString(),
+                                 "metadata initialization: " + getExceptionString(),
                                  "continuousDatasetConfig", config);
         }
         
         try {
             createStorageDataset = obtainProcedure(server, config.createStorageDataset);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "createStorageDataset initialization: "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "continuousDatasetConfig", config);
         }
         
         try {
             saveStorageDataset = obtainProcedure(server, config.saveStorageDataset);
-        } JML_CATCH_ALL {
+        } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "saveStorageDataset procedure initialization: "
-                                 + ML::getExceptionString(),
+                                 + getExceptionString(),
                                  "continuousDatasetConfig", config);
         }
         
@@ -143,15 +145,15 @@ struct ContinuousDataset::Itl {
     }
 
     virtual void
-    recordRowItl(const RowName & rowName,
-                 const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    recordRowItl(const RowPath & rowName,
+                 const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         auto myCurrent = current();
         myCurrent->dataset->recordRow(rowName, vals);
         myCurrent->hasData = true;
     }
     
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
     {
         auto myCurrent = current();
         myCurrent->dataset->recordRows(rows);
@@ -180,6 +182,8 @@ struct ContinuousDataset::Itl {
     /// Date of the last commit
     std::atomic<double> lastCommit;
 
+    shared_ptr<spdlog::logger> logger;
+
     /** Rotate the dataset, atomically, and add it to the metadata store. */
     void rotate(Date commitStarted)
     {
@@ -201,7 +205,7 @@ struct ContinuousDataset::Itl {
         auto storageOutput
             = createStorageDataset->run(runConfig, nullptr /* progress */);
 
-        cerr << "output of storage is " << jsonEncode(storageOutput) << endl;
+        INFO_MSG(logger) << "output of storage is " << jsonEncode(storageOutput);
 
         std::unique_ptr<Current> newCurrent(new Current());
         newCurrent->dataset
@@ -255,11 +259,11 @@ struct ContinuousDataset::Itl {
         // Take the metadata and put it in the metadata database
         
         Json::Value resultsJson = jsonEncode(saveOutput.results);
-        cerr << "metadata is " << jsonEncode(saveOutput) << endl;
+        INFO_MSG(logger) << "metadata is " << jsonEncode(saveOutput);
 
-        RowName rowName(savedDataset->config_->id);
+        RowPath rowName(savedDataset->config_->id);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > metadata;
+        std::vector<std::tuple<ColumnPath, CellValue, Date> > metadata;
         Date date = Date::now();
         StructuredJsonParsingContext context(resultsJson);
         auto expr = ExpressionValue::parseJson(context, date);
@@ -270,8 +274,8 @@ struct ContinuousDataset::Itl {
         std::tie(earliest, latest) = savedDataset->getTimestampRange();
 
         // TODO: the procedure should return this...
-        metadata.emplace_back(ColumnName("earliest"), earliest, Date::now());
-        metadata.emplace_back(ColumnName("latest"), latest, Date::now());
+        metadata.emplace_back(ColumnPath("earliest"), earliest, Date::now());
+        metadata.emplace_back(ColumnPath("latest"), latest, Date::now());
 
         metadataDataset->recordRow(rowName, metadata);
 
@@ -342,7 +346,7 @@ struct ContinuousDataset::Itl {
 ContinuousDataset::
 ContinuousDataset(MldbServer * owner,
                   PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress)
+                  const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     datasetConfig = config.params.convert<ContinuousDatasetConfig>();
@@ -363,15 +367,15 @@ getStatus() const
 
 void
 ContinuousDataset::
-recordRowItl(const RowName & rowName,
-          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+recordRowItl(const RowPath & rowName,
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     return itl->recordRowItl(rowName, vals);
 }
 
 void
 ContinuousDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     return itl->recordRows(rows);
 }
@@ -499,8 +503,6 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
         + "AND earliest <= CAST ('" + CellValue(to).toString() + "' AS TIMESTAMP) "
         + "AND latest >= CAST ('" + CellValue(from).toString() + "' AS TIMESTAMP)";
     
-    //cerr << "where is " << where << endl;
-
     // Query our metadata dataset for the datasets to load up
     auto datasets
         = metadataDataset
@@ -509,8 +511,8 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
                           *SqlExpression::parse(where) /* where */,
                           OrderByExpression::parse("rowPath() ASC"),
                           TupleExpression(),
-                          *SqlExpression::TRUE /* having */,
-                          *SqlExpression::parse("rowPath()") /* rowName */,
+                          SqlExpression::TRUE /* having */,
+                          SqlExpression::parse("rowPath()") /* rowName */,
                           0 /* offset */,
                           -1 /* limit */,
                           "" /* alias */);
@@ -535,7 +537,7 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
 ContinuousWindowDataset::
 ContinuousWindowDataset(MldbServer * owner,
                         PolyConfig config_,
-                        const std::function<bool (const Json::Value &)> & onProgress)
+                        const ProgressFunc & onProgress)
     : ForwardedDataset(owner)
 {
     auto config = config_.params.convert<ContinuousWindowDatasetConfig>();
@@ -544,9 +546,9 @@ ContinuousWindowDataset(MldbServer * owner,
         // Get the metadata dataset.  This is what stores the internal
         // metadata about which datasets are available.
         metadataDataset = obtainDataset(server, config.metadataDataset);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
-                             "metadata initialization: " + ML::getExceptionString(),
+                             "metadata initialization: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
 
@@ -556,20 +558,20 @@ ContinuousWindowDataset(MldbServer * owner,
         // Query the metadata dataset for the datasets that we need to load
         // up, and turn it into a merged dataset configuration.
         toLoadConfig = getDatasetConfig(config.datasetFilter, config.from, config.to);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
-                             "metadata query: " + ML::getExceptionString(),
+                             "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
 
     try {
         // Obtain the merged dataset, recursively
         std::shared_ptr<Dataset> underlying
-            = obtainDataset(server, toLoadConfig, onProgress);
+            = obtainDataset(server, toLoadConfig);
         setUnderlying(underlying);
-    } JML_CATCH_ALL {
+    } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
-                             "metadata query: " + ML::getExceptionString(),
+                             "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
 }
@@ -584,4 +586,4 @@ regContinuousWindow(builtinPackage(),
                     {MldbEntity::INTERNAL_ENTITY});
 
 } // namespace MLDB
-} // namespace Datacratic
+

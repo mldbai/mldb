@@ -1,22 +1,22 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* asio_peer_server.cc
    Jeremy Barnes, 20 June 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
 */
 
 #include "asio_peer_server.h"
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/asio_timer.h"
-#include "mldb/http/event_loop_impl.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/asio_timer.h"
+#include "mldb/io/event_loop_impl.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "asio_peer_connection.h"
 
 using namespace std;
 
 
-namespace Datacratic {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ASIO PEER SERVER                                                          */
@@ -46,11 +46,11 @@ int bindAndReturnOpenTcpPort(boost::asio::ip::tcp::acceptor & acceptor,
     
     if (port == -1)
         // Throw is OK: this will happen in a synchronous context.
-        throw ML::Exception("no open TCP port '%s': %s",
+        throw MLDB::Exception("no open TCP port '%s': %s",
                             uri.c_str(),
                             strerror(errno));
     
-    uri = ML::format("tcp://%s:%d", host.c_str(), port);
+    uri = MLDB::format("tcp://%s:%d", host.c_str(), port);
 
     return port;
 }
@@ -132,7 +132,7 @@ struct AsioPeerServer::Impl {
 
         if (error) {
             // Throw is OK: synchronous context
-            throw ML::Exception("error resolving peer name " + info.uri + ": "
+            throw MLDB::Exception("error resolving peer name " + info.uri + ": "
                                 + error.message());
         }
     
@@ -147,14 +147,14 @@ struct AsioPeerServer::Impl {
 
         if (error) {
             // Throw is OK: synchronous context
-            throw ML::Exception("error connecting to " + info.uri + ": "
+            throw MLDB::Exception("error connecting to " + info.uri + ": "
                                 + error.message());
         }
     
         cerr << "connected to " << info.uri << endl;
 
         // Send our handshake over the new connection
-        string handshake = "APSv1000" + ML::format("%8zd", info.peerName.size())
+        string handshake = "APSv1000" + MLDB::format("%8zd", info.peerName.size())
             + info.peerName;
         boost::asio::write(*sock, boost::asio::buffer(handshake));
 
@@ -258,7 +258,7 @@ struct AsioPeerServer::Impl {
     WatchT<Date> getTimer(Date expiry, double period,
                           std::function<void (Date)> toBind)
     {
-        return Datacratic::getTimer(expiry, period, eventLoop, toBind);
+        return MLDB::getTimer(expiry, period, eventLoop, toBind);
     }
 
 
@@ -360,4 +360,4 @@ acceptFd() const
     return impl->acceptor.native_handle();
 }
 
-} // namespace Datacratic
+} // namespace MLDB

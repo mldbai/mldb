@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* stump_generator.cc
    Jeremy Barnes, 15 March 2006
@@ -26,6 +26,7 @@
 #include "mldb/jml/utils/info.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include <cassert>
 
 using namespace std;
 
@@ -70,15 +71,15 @@ Stump_Generator::~Stump_Generator()
 
 void
 Stump_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Classifier_Generator::configure(config);
+    Classifier_Generator::configure(config, unparsedKeys);
     
-    config.find(committee_size,       "committee_size");
-    config.find(feature_prop,         "feature_prop");
-    config.find(trace,                "trace");
-    config.find(update_alg,           "update_alg");
-    config.find(ignore_highest,       "ignore_highest");
+    config.findAndRemove(committee_size, "committee_size", unparsedKeys);
+    config.findAndRemove(feature_prop, "feature_prop", unparsedKeys);
+    config.findAndRemove(trace, "trace", unparsedKeys);
+    config.findAndRemove(update_alg, "update_alg", unparsedKeys);
+    config.findAndRemove(ignore_highest, "ignore_highest", unparsedKeys);
 }
 
 void

@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* cpuid_test.cc
    Jeremy Barnes, 21 February 2007
@@ -10,8 +10,10 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include "mldb/arch/arch.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/demangle.h"
+#include "mldb/arch/simd.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
@@ -21,14 +23,16 @@
 #include <cmath>
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
+#if MLDB_INTEL_ISA
     BOOST_CHECK(cpuid_flags() != 0);
+#endif
 }
 
 void vec_scale_k_test_case(int nvals)
@@ -299,12 +303,13 @@ void vec_dotprod_test_case(int nvals)
     if (error >= eps) {
         cerr << "r = " << r << " r2 = " << r2 << endl;
         cerr << "error = " << error << " eps = " << eps << endl;
-        cerr << "type " << ML::type_name<T>() << endl;
+        cerr << "type " << MLDB::type_name<T>() << endl;
     }
     BOOST_CHECK(error < eps);
 }
 
-namespace ML {
+#if MLDB_INTEL_ISA
+namespace MLDB {
 namespace SIMD {
 namespace Generic {
 double vec_dotprod_sse2(const float * x, const float * y, size_t n);
@@ -317,7 +322,7 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_dotprod(const double * x, const double * y, size_t n);
 } // namespace Avx
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB
 
 template<typename T>
 void vec_dotprod_dp_test_case(int nvals)
@@ -332,14 +337,18 @@ void vec_dotprod_dp_test_case(int nvals)
     }
     
     double r2 = SIMD::vec_dotprod_dp_sse2(x, y, nvals);
-    double r2a = SIMD::Avx::vec_dotprod_dp(x, y, nvals);
+    // this will be trivially true if the CPU does not support AVX
+    double r2a = MLDB::has_avx() ? SIMD::Avx::vec_dotprod_dp(x, y, nvals) :
+        SIMD::vec_dotprod_dp_sse2(x, y, nvals);
 
     if (r2 != r2a)
         cerr << "error: nvals = " << nvals << endl;
 
     BOOST_CHECK_EQUAL(r2, r2a);
 
-    double r3 = SIMD::Avx::vec_dotprod(x, y, nvals);
+    // this will be trivially true if the CPU does not support AVX
+    double r3 = MLDB::has_avx() ? SIMD::Avx::vec_dotprod(x, y, nvals) :
+         SIMD::vec_dotprod_sse2(x, y, nvals);
     double r4 = SIMD::vec_dotprod_sse2(x, y, nvals);
 
     BOOST_CHECK_EQUAL(r3, r4);
@@ -427,6 +436,7 @@ BOOST_AUTO_TEST_CASE(vec_dotprod_test)
     vec_dotprod_dp_mixed_test_case(16);
     vec_dotprod_dp_mixed_test_case(123);
 }
+#endif // INTEL ISA
 
 template<typename T1, typename T2>
 void vec_accum_prod3_test_case(int nvals)

@@ -1,6 +1,6 @@
 /** frozen_column.cc                                               -*- C++ -*-
     Jeremy Barnes, 27 March 2016
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Implementation of code to freeze columns into a binary format.
 */
@@ -12,12 +12,18 @@
 #include "mldb/utils/compact_vector.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/utils/atomic_shared_ptr.h"
 #include <mutex>
 
 using namespace std;
 
-namespace Datacratic {
+
 namespace MLDB {
+
+
+/*****************************************************************************/
+/* TABLE FROZEN COLUMN                                                       */
+/*****************************************************************************/
 
 /// Frozen column that finds each value in a lookup table
 struct TableFrozenColumn: public FrozenColumn {
@@ -50,6 +56,34 @@ struct TableFrozenColumn: public FrozenColumn {
                 writer.write(r_i.second + 1, indexBits);
             }
         }
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.get());
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            int index = bits.extract<uint32_t>(indexBits);
+
+            CellValue val;
+            if (hasNulls) {
+                if (index > 0)
+                    val = table[index - 1];
+            }
+            else {
+                val = table[index];
+            }
+
+            if (!onRow(i + firstEntry, val))
+                return false;
+        }
+
+        return true;
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        return forEach(onRow);
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -136,12 +170,55 @@ struct TableFrozenColumn: public FrozenColumn {
     }
 };
 
+struct TableFrozenColumnFormat: public FrozenColumnFormat {
+
+    virtual ~TableFrozenColumnFormat()
+    {
+    }
+
+    virtual std::string format() const override
+    {
+        return "Table";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return true;
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        return TableFrozenColumn::bytesRequired(column);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new TableFrozenColumn(column);
+    }
+};
+
+RegisterFrozenColumnFormatT<TableFrozenColumnFormat> regTable;
+
+
+/*****************************************************************************/
+/* SPARSE FROZEN COLUMN                                                      */
+/*****************************************************************************/
+
 /// Sparse frozen column that finds each value in a lookup table
 struct SparseTableFrozenColumn: public FrozenColumn {
     SparseTableFrozenColumn(TabularDatasetColumn & column)
         : table(column.indexedVals.size()), columnTypes(column.columnTypes)
     {
         firstEntry = column.minRowNumber;
+        lastEntry = column.maxRowNumber;
         std::move(std::make_move_iterator(column.indexedVals.begin()),
                   std::make_move_iterator(column.indexedVals.end()),
                   table.begin());
@@ -159,21 +236,63 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             writer.write(i.second, indexBits);
         }
 
-#if 0
-        size_t mem = memusage();
-        if (mem > 30000) {
-            using namespace std;
-            cerr << "table with " << column.sparseIndexes.size()
-                 << " entries from "
-                 << column.minRowNumber << " to " << column.maxRowNumber
-                 << " and " << table.size()
-                 << " uniques takes " << mem << " memory" << endl;
-
-            for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
-                cerr << "  " << table[i] << endl;
+        if (logger->should_log(spdlog::level::debug)) {
+            size_t mem = memusage();
+            if (mem > 30000) {
+                using namespace std;
+                logger->debug() << "table with " << column.sparseIndexes.size()
+                                << " entries from "
+                                << column.minRowNumber << " to " << column.maxRowNumber
+                                << " and " << table.size()
+                                << " uniques takes " << mem << " memory";
+                
+                for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
+                    logger->debug() << "  " << table[i];
+                }
             }
         }
-#endif
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.get());
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
+            uint32_t index = bits.extract<uint32_t>(indexBits);
+            if (!onRow(rowNum + firstEntry, table[index]))
+                return false;
+        }
+        
+        return true;
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.get());
+
+        size_t lastRowNum = 0;
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
+            uint32_t index = bits.extract<uint32_t>(indexBits);
+
+            while (lastRowNum < rowNum) {
+                if (!onRow(firstEntry + lastRowNum, CellValue()))
+                    return false;
+                ++lastRowNum;
+            }
+
+            if (!onRow(firstEntry + rowNum, table[index]))
+                return false;
+        }
+
+        while (firstEntry + lastRowNum <= lastEntry) {
+            if (!onRow(firstEntry + lastRowNum, CellValue()))
+                return false;
+            ++lastRowNum;
+        }
+        
+        return true;
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -200,9 +319,9 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             uint32_t rowNum, index;
             std::tie(rowNum, index) = getAtIndex(middle);
 
-            //cerr << "first = " << first << " middle = " << middle
-            //     << " last = " << last << " rowNum = " << rowNum
-            //     << " looking for " << rowIndex << endl;
+            TRACE_MSG(logger) << "first = " << first << " middle = " << middle
+                              << " last = " << last << " rowNum = " << rowNum
+                              << " looking for " << rowIndex;
 
             if (rowNum == rowIndex) {
                 ExcAssertLess(index, table.size());
@@ -282,15 +401,57 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     uint8_t indexBits;
     uint32_t numEntries;
     size_t firstEntry;
+    size_t lastEntry;  // WARNING: this is the number, not number + 1
     ColumnTypes columnTypes;
 };
+
+struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
+
+    virtual ~SparseTableFrozenColumnFormat()
+    {
+    }
+
+    virtual std::string format() const override
+    {
+        return "SparseTable";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return true;
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        return SparseTableFrozenColumn::bytesRequired(column);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new SparseTableFrozenColumn(column);
+    }
+};
+
+RegisterFrozenColumnFormatT<SparseTableFrozenColumnFormat> regSparseTable;
+
+
+/*****************************************************************************/
+/* INTEGER FROZEN COLUMN                                                     */
+/*****************************************************************************/
 
 /// Frozen column that stores each value as a signed 64 bit integer
 struct IntegerFrozenColumn: public FrozenColumn {
 
     struct SizingInfo {
         SizingInfo(const TabularDatasetColumn & column)
-            : bytesRequired(-1)
         {
             if (!column.columnTypes.onlyIntegersAndNulls())
                 return;  // can't use this column type
@@ -354,13 +515,12 @@ struct IntegerFrozenColumn: public FrozenColumn {
             static std::mutex mutex;
             std::unique_lock<std::mutex> guard(mutex);
 
-            cerr << "got " << offsets.size() << " unique offsets starting at "
-                 << offsets.front() << endl;
+            TRACE_MSG(logger) << "got " << offsets.size() << " unique offsets starting at "
+                              << offsets.front();
 
             for (size_t i = 0;  i < 100 && i < offsets.size() - 1;  ++i) {
-                cerr << "  " << offsets[i];
+                TRACE_MSG(logger) << "  " << offsets[i];
             }
-            cerr << endl;
 #endif
             entryBits = ML::highest_bit(range + hasNulls) + 1;
             numWords = (entryBits * numEntries + 63) / 64;
@@ -372,7 +532,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
             return bytesRequired;
         }
 
-        ssize_t bytesRequired;
+        ssize_t bytesRequired = -1;
         uint64_t range;
         int64_t offset;
         size_t numEntries;
@@ -403,14 +563,14 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
         if (!hasNulls) {
             // Contiguous rows
-            //cerr << "fill with contiguous" << endl;
+            DEBUG_MSG(logger) << "fill with contiguous";
             ML::Bit_Writer<uint64_t> writer(data);
             for (size_t i = 0;  i < column.sparseIndexes.size();  ++i) {
                 ExcAssertEqual(column.sparseIndexes[i].first, i);
                 int64_t val
                     = column.indexedVals[column.sparseIndexes[i].second].toInt();
-                //cerr << "writing " << val << " - " << offset << " = "
-                //     << val - offset << " at " << i << endl;
+                DEBUG_MSG(logger) << "writing " << val << " - " << offset << " = "
+                                  << val - offset << " at " << i;
                 writer.write(val - offset, entryBits);
             }
         }
@@ -429,12 +589,48 @@ struct IntegerFrozenColumn: public FrozenColumn {
 #if 0
         // Check that we got the right thing
         for (auto & i: column.sparseIndexes) {
-            //cerr << "getting " << i.first << " with value "
-            //     << column.indexedVals.at(i.second) << endl;
+            DEBUG_MSG(logger) << "getting " << i.first << " with value "
+                              << column.indexedVals.at(i.second);
             ExcAssertEqual(get(i.first + firstEntry),
                            column.indexedVals.at(i.second));
         }
 #endif
+    }
+
+    bool forEachImpl(const ForEachRowFn & onRow, bool keepNulls) const
+    {
+        ML::Bit_Extractor<uint64_t> bits(storage.get());
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            int64_t val = bits.extract<uint64_t>(entryBits);
+            if (hasNulls) {
+                if (val == 0) {
+                    if (keepNulls && !onRow(i + firstEntry, CellValue()))
+                        return false;
+                }
+                else {
+                    if (!onRow(i + firstEntry, val + offset - 1))
+                        return false;
+                }
+            }
+            else {
+                if (!onRow(i + firstEntry, val + offset))
+                    return false;
+            }
+        }
+
+        return true;
+
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, false /* keep nulls */);
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, true /* keep nulls */);
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -455,7 +651,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
             else return result = val + offset - 1;
         }
         else {
-            //cerr << "got val " << val << " " << val + offset << endl;
+            TRACE_MSG(logger) << "got val " << val << " " << val + offset;
             return result = val + offset;
         }
     }
@@ -525,25 +721,151 @@ struct IntegerFrozenColumn: public FrozenColumn {
     }
 };
 
-std::shared_ptr<FrozenColumn>
-FrozenColumn::
-freeze(TabularDatasetColumn & column)
-{
-    size_t required1 = TableFrozenColumn::bytesRequired(column);
-    size_t required2 = SparseTableFrozenColumn::bytesRequired(column);
-    size_t required3 = IntegerFrozenColumn::bytesRequired(column);
-
-    if (required3 < std::min(required1, required2)) {
-        return std::make_shared<IntegerFrozenColumn>(column);
-        //cerr << "integer requires " << required3 << " instead of "
-        //     << std::min(required1, required2) << endl;
+struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
+    
+    virtual ~IntegerFrozenColumnFormat()
+    {
     }
 
-    if (required1 <= required2)
-        return std::make_shared<TableFrozenColumn>(column);
-    else return std::make_shared<SparseTableFrozenColumn>(column);
+    virtual std::string format() const override
+    {
+        return "Integer";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return true;
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        return IntegerFrozenColumn::bytesRequired(column);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new IntegerFrozenColumn(column);
+    }
+};
+
+RegisterFrozenColumnFormatT<IntegerFrozenColumnFormat> regInteger;
+
+
+/*****************************************************************************/
+/* FROZEN COLUMN FORMAT                                                      */
+/*****************************************************************************/
+
+namespace {
+
+typedef std::map<std::string, std::shared_ptr<FrozenColumnFormat> > Formats;
+
+atomic_shared_ptr<const Formats> & getFormats()
+{
+    static atomic_shared_ptr<const Formats> formats
+        (std::make_shared<Formats>());
+    return formats;
 }
 
+
+} // file scope
+
+FrozenColumnFormat::
+~FrozenColumnFormat()
+{
+}
+
+std::shared_ptr<void>
+FrozenColumnFormat::
+registerFormat(std::shared_ptr<FrozenColumnFormat> format)
+{
+    std::string name = format->format();
+    auto & formats = getFormats();
+    for (;;) {
+        auto ptr = formats.load();
+        if (ptr->count(name)) {
+            throw HttpReturnException
+                (500, "Attempt to double-register frozen column format "
+                 + name);
+        }
+        auto newFormats = *ptr;
+        newFormats.emplace(name, format);
+        auto newFormatsPtr
+            = std::make_shared<Formats>(std::move(newFormats));
+        if (formats.compare_exchange_strong(ptr, newFormatsPtr)) {
+
+            auto deregister = [name] (void *)
+                {
+                    auto & formats = getFormats();
+                    for (;;) {
+                        auto ptr = formats.load();
+                        auto newFormats = *ptr;
+                        newFormats.erase(name);
+                        auto newFormatsPtr
+                            = std::make_shared<Formats>(std::move(newFormats));
+                        if (formats.compare_exchange_strong(ptr, newFormatsPtr))
+                            break;
+                    }
+                };
+
+            return std::shared_ptr<void>(format.get(), deregister);
+        }
+    }
+}
+
+
+/*****************************************************************************/
+/* FROZEN COLUMN                                                             */
+/*****************************************************************************/
+
+FrozenColumn::
+FrozenColumn()
+    : logger(getMldbLog<TabularDataset>()) // this class is only used by the tabular dataset
+{
+}
+
+
+std::shared_ptr<FrozenColumn>
+FrozenColumn::
+freeze(TabularDatasetColumn & column,
+       const ColumnFreezeParameters & params)
+{
+    // Get the current list of formats
+    auto formats = getFormats().load();
+    
+    ssize_t bestBytes = FrozenColumnFormat::NOT_BEST;
+    const FrozenColumnFormat * bestFormat = nullptr;
+    std::shared_ptr<void> bestData;
+
+    for (auto & f: *formats) {
+        std::shared_ptr<void> data;
+        if (f.second->isFeasible(column, params, data)) {
+            ssize_t bytes = f.second->columnSize(column, params, bestBytes,
+                                                 data);
+            if (bytes >= 0 && (bestBytes < 0 || bytes < bestBytes)) {
+                bestFormat = f.second.get();
+                bestData = std::move(data);
+                bestBytes = bytes;
+            }
+        }
+    }
+
+    if (!bestFormat) {
+        throw HttpReturnException(500, "No column format found for column");
+    }
+
+    return std::shared_ptr<FrozenColumn>
+        (bestFormat->freeze(column, params, std::move(bestData)));
+}
+
+
 } // namespace MLDB
-} // namespace Datacratic
+
 

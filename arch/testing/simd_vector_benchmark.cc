@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* simd_vector_benchmark.cc
    Jeremy Barnes, 21 February 2007
@@ -10,6 +10,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include "mldb/arch/arch.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/tick_counter.h"
@@ -22,13 +23,13 @@
 #include <cmath>
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
 
-
-namespace ML {
+#if MLDB_INTEL_ISA
+namespace MLDB {
 namespace SIMD {
 namespace Generic {
 double vec_dotprod_sse2(const double * x, const double * y, size_t n);
@@ -38,7 +39,8 @@ namespace Avx {
 double vec_dotprod(const double * x, const double * y, size_t n);
 } // namespace Avx
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB
+#endif // MLDB_INTEL_ISA
 
 double vec_dotprod_generic(const double * x, const double * y, size_t n)
 {
@@ -64,10 +66,14 @@ BOOST_AUTO_TEST_CASE( benchmark )
     
         for (unsigned i = 0;  i < 100;  ++i) {
 
+#if MLDB_INTEL_ISA
             uint64_t t0 = ticks();
             SIMD::Generic::vec_dotprod_sse2(&x[0], &y[0], nvals);
             uint64_t t1 = ticks();
             SIMD::Avx::vec_dotprod(&x[0], &y[0], nvals);
+#else  // MLDB_INTEL_ISA
+            uint64_t t0 = ticks(), t1 = t0;
+#endif // MLDB_INTEL_ISA
             uint64_t t2 = ticks();
             vec_dotprod_generic(&x[0], &y[0], nvals);
             uint64_t t3 = ticks();

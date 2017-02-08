@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** function_collection.h                                           -*- C++ -*-
     Jeremy Barnes, 4 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Interface for functions into MLDB.
 */
@@ -11,8 +10,6 @@
 
 #include "mldb/core/function.h"
 #include "mldb/rest/poly_collection.h"
-
-namespace Datacratic {
 
 struct RestConnection;
 
@@ -35,9 +32,15 @@ struct FunctionCollection: public PolyCollection<Function> {
 
     void applyFunction(const Function * function,
                        const std::map<Utf8String, ExpressionValue> & qsInput,
-                       const std::vector<Utf8String> & qsKeepPins,
-                       RestConnection & connection
-                       ) const;
+                       const std::vector<Utf8String> & keepValues,
+                       const std::string & outputFormat,
+                       RestConnection & connection) const;
+    
+    void applyBatch(const Function * function,
+                    const Json::Value & inputs,
+                    const std::string & inputFormat,
+                    const std::string & outputFormat,
+                    RestConnection & connection) const;
     
     static ExpressionValue call(MldbServer * server,
                                const Function * function,
@@ -47,8 +50,10 @@ struct FunctionCollection: public PolyCollection<Function> {
     FunctionInfo getFunctionInfo(const Function * function) const;
 };
 
+extern template class PolyCollection<Function>;
+
 } // namespace MLDB
 
-extern template class PolyCollection<MLDB::Function>;
 
-} // namespace Datacratic
+
+

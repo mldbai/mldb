@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* bitops_test.cc
    Jeremy Barnes, 20 February 2007
@@ -23,6 +23,7 @@
 
 
 using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -152,51 +153,4 @@ BOOST_AUTO_TEST_CASE( profile )
     profile_type<int32_t>(vals);
     profile_type<uint64_t>(vals);
     profile_type<int64_t>(vals);
-}
-
-BOOST_AUTO_TEST_CASE(test_rotate)
-{
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(0, 0), 0);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(0, 1), 0);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(0, 8), 0);
-
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(0, 0), 0);
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(0, 1), 0);
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(0, 8), 0);
-
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(1, 0), 1);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(1, 1), 128);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(1, 7), 2);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(1, 8), 1);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(1, 16), 1);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(1, 17), 128);
-
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(1, 0), 1);
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(1, 1), 2);
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(1, 7), 128);
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(1, 8), 1);
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(1, 16), 1);
-    BOOST_CHECK_EQUAL(rotate_left<uint8_t>(1, 17), 2);
-
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(0, 0), 0);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(0, 1), 0);
-    BOOST_CHECK_EQUAL(rotate_right<uint8_t>(0, 8), 0);
-
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(0, 0), 0);
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(0, 1), 0);
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(0, 8), 0);
-
-    BOOST_CHECK_EQUAL(rotate_right<int8_t>(1, 0), 1);
-    BOOST_CHECK_EQUAL(rotate_right<int8_t>(1, 1), -128);
-    BOOST_CHECK_EQUAL(rotate_right<int8_t>(1, 7), 2);
-    BOOST_CHECK_EQUAL(rotate_right<int8_t>(1, 8), 1);
-    BOOST_CHECK_EQUAL(rotate_right<int8_t>(1, 16), 1);
-    BOOST_CHECK_EQUAL(rotate_right<int8_t>(1, 17), -128);
-
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(1, 0), 1);
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(1, 1), 2);
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(1, 7), -128);
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(1, 8), 1);
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(1, 16), 1);
-    BOOST_CHECK_EQUAL(rotate_left<int8_t>(1, 17), 2);
 }

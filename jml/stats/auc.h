@@ -1,20 +1,20 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* auc.h                                                           -*- C++ -*-
    Jeremy Barnes, 9 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Functionality to calculate area under the curve statistics.
 */
 
-#ifndef __jml__stats__auc_h__
-#define __jml__stats__auc_h__
+#pragma once
 
 #include <vector>
 #include "mldb/arch/exception.h"
 #include <iostream>
 
 namespace ML {
+
+using namespace MLDB;
 
 struct AUC_Entry {
     AUC_Entry(float model = 0.0, bool target = false, float weight = 1.0)
@@ -97,5 +97,3 @@ calc_auc(const std::vector<Float1> & outputs,
 }
 
 } // namespace ML
-
-#endif /* __jml__stats__auc_h__ */

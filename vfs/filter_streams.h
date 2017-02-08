@@ -2,7 +2,7 @@
    Jeremy Barnes, 12 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
    
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
    
    This file is part of "Jeremy's Machine Learning Library", copyright (c)
    1999-2015 Jeremy Barnes.
@@ -17,8 +17,9 @@
 #include <fstream>
 #include <memory>
 #include <map>
+#include "types/url.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 struct FsObjectInfo;  // Structure for file system or URL metadata; in fs_utils.h
 
@@ -102,6 +103,10 @@ public:
                    std::ios_base::openmode mode = std::ios_base::out,
                    const std::string & compression = "",
                    int compressionLevel = -1);
+    filter_ostream(const Url & uri,
+                   std::ios_base::openmode mode = std::ios_base::out,
+                   const std::string & compression = "",
+                   int compressionLevel = -1);
     filter_ostream(int fd,
                    std::ios_base::openmode mode = std::ios_base::out,
                    const std::string & compression = "",
@@ -112,6 +117,8 @@ public:
 
     filter_ostream(const std::string & uri,
                    const std::map<std::string, std::string> & options);
+    filter_ostream(const Url & uri,
+                   const std::map<std::string, std::string> & options);
 
     filter_ostream(filter_ostream && other) noexcept;
 
@@ -120,6 +127,10 @@ public:
     ~filter_ostream();
 
     void open(const std::string & uri,
+              std::ios_base::openmode mode = std::ios_base::out,
+              const std::string & compression = "",
+              int level = -1);
+    void open(const Url & uri,
               std::ios_base::openmode mode = std::ios_base::out,
               const std::string & compression = "",
               int level = -1);
@@ -148,6 +159,8 @@ public:
         resource = string to be used in error messages
     */
     void open(const std::string & uri,
+              const std::map<std::string, std::string> & options);
+    void open(const Url & uri,
               const std::map<std::string, std::string> & options);
 
     void open(int fd,
@@ -186,6 +199,9 @@ public:
     filter_istream(const std::string & uri,
                    std::ios_base::openmode mode = std::ios_base::in,
                    const std::string & compression = "");
+    filter_istream(const Url & uri,
+                   std::ios_base::openmode mode = std::ios_base::in,
+                   const std::string & compression = "");
     /** Open with options.  The options available depend upon the scheme of
         the URI.
 
@@ -196,8 +212,13 @@ public:
         - "compression": if not set, it will detect.  If set to "none", it
           will not decompress no matter what it finds.  Otherwise, it can
           be set to a compression scheme to force that scheme to be used.
+        - httpAbortOnSlowConnection: For http files, will timeout if the
+          connexion is too slow. Refer to http_rest_proxy.cc for the
+          specification of slow. (the parameter name is abortOnSlowConnection)
     */
     filter_istream(const std::string & uri,
+                   const std::map<std::string, std::string> & options);
+    filter_istream(const Url & uri,
                    const std::map<std::string, std::string> & options);
     
     filter_istream(filter_istream && other) noexcept;
@@ -213,11 +234,16 @@ public:
     void open(const std::string & uri,
               std::ios_base::openmode mode = std::ios_base::in,
               const std::string & compression = "");
+    void open(const Url & uri,
+              std::ios_base::openmode mode = std::ios_base::in,
+              const std::string & compression = "");
 
     /** Open.  See the documentation from the constructor with similar
         arguments.
     */
     void open(const std::string & uri,
+              const std::map<std::string, std::string> & options);
+    void open(const Url & uri,
               const std::map<std::string, std::string> & options);
 
     void openFromStreambuf(std::streambuf * buf,
@@ -301,4 +327,4 @@ private:
     std::shared_ptr<FsObjectInfo> info_;
 };
 
-} // namespace Datacratic
+} // namespace MDLB

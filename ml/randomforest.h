@@ -1,8 +1,8 @@
 /** randomforest.h                                             -*- C++ -*-
     Mathieu Marquis Bolduc, 11 Mars 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Optimized random forest algorithm for dense data and binary classification
 
@@ -21,7 +21,6 @@
 #include "mldb/server/column_scope.h"
 #include "mldb/server/bucket.h"
 
-namespace Datacratic {
 namespace MLDB {
 
 /** Holds the set of data for a partition of a decision tree. */
@@ -49,12 +48,9 @@ struct PartitionData {
         zero weights filtered out such that example numbers are strictly
         increasing.
     */
-    PartitionData reweightAndCompact(const std::vector<float> & weights) const
+    PartitionData reweightAndCompact(const std::vector<float> & weights,
+                                     size_t numNonZero) const
     {
-        size_t numNonZero = 0;
-        for (auto & w: weights)
-            numNonZero += (w != 0);
-        
         PartitionData data;
         data.features = this->features;
         data.fs = this->fs;
@@ -63,15 +59,46 @@ struct PartitionData {
         std::vector<WritableBucketList>
             featureBuckets(features.size());
 
-        for (unsigned i = 0;  i < data.features.size();  ++i) {
-            if (data.features[i].active) {
-                featureBuckets[i].init(numNonZero,
-                                       data.features[i].info->distinctValues);
+        // We split the rows up into tranches to increase parallism
+        // To do so, we need to know how many items are in each
+        // tranche and where its items start
+        size_t numTranches = std::min<size_t>(8, weights.size() / 1024);
+        if (numTranches == 0)
+            numTranches = 1;
+        //numTranches = 1;
+        size_t numPerTranche = weights.size() / numTranches;
 
-                data.features[i].buckets = featureBuckets[i];
+        // Find the splits such that each one has a multiple of 64
+        // non-zero entries (this is a requirement to write them
+        // from multiple threads).
+        std::vector<size_t> trancheSplits;
+        std::vector<size_t> trancheCounts;
+        std::vector<size_t> trancheOffsets;
+        size_t start = 0;
+        size_t offset = 0;
+
+        while (offset < numNonZero) {
+            trancheSplits.push_back(start);
+            size_t n = 0;
+            size_t end = start;
+            for (; end < weights.size()
+                     && (end < start + numPerTranche
+                         || n == 0
+                         || n % 64 != 0);  ++end) {
+                n += weights[end] != 0;
             }
+            trancheCounts.push_back(n);
+            trancheOffsets.push_back(offset);
+            offset += n;
+            start = end;
+            ExcAssertLessEqual(start, weights.size());
         }
+        ExcAssertEqual(offset, numNonZero);
+        trancheOffsets.push_back(offset);
+        trancheSplits.push_back(start);
 
+        // This gets called for each feature.  It's further subdivided
+        // per tranche.
         auto doFeature = [&] (size_t f)
             {
                 if (f == data.features.size()) {
@@ -90,20 +117,36 @@ struct PartitionData {
                 if (!data.features[f].active)
                     return;
 
-                size_t n = 0;
-                for (size_t i = 0;  i < rows.size();  ++i) {
-                    if (weights[i] == 0)
-                        continue;
+                featureBuckets[f].init(numNonZero,
+                                       data.features[f].info->distinctValues);
 
-                    uint32_t bucket = features[f].buckets[rows[i].exampleNum];
-                    featureBuckets[f].write(bucket);
-                    ++n;
-                }
+                data.features[f].buckets = std::move(featureBuckets[f]);
 
-                ExcAssertEqual(n, numNonZero);
+                auto onTranche = [&] (size_t tr)
+                {
+                    size_t start = trancheSplits[tr];
+                    size_t end = trancheSplits[tr + 1];
+                    size_t offset = trancheOffsets[tr];
+                    
+                    auto writer = featureBuckets[f].atOffset(offset);
+
+                    size_t n = 0;
+                    for (size_t i = start;  i < end;  ++i) {
+                        if (weights[i] == 0)
+                            continue;
+                        
+                        uint32_t bucket = features[f].buckets[rows[i].exampleNum];
+                        writer.write(bucket);
+                        ++n;
+                    }
+                    
+                    ExcAssertEqual(n, trancheCounts[tr]);
+                };
+
+                parallelMap(0, numTranches, onTranche);
             };
 
-        Datacratic::parallelMap(0, data.features.size() + 1, doFeature);
+        MLDB::parallelMap(0, data.features.size() + 1, doFeature);
 
         return data;
     }
@@ -598,7 +641,7 @@ struct PartitionData {
         size_t rightRows = splits.second.rows.size();
 
         if (leftRows == 0 || rightRows == 0)
-            throw ML::Exception("Invalid split in random forest");
+            throw MLDB::Exception("Invalid split in random forest");
 
         ThreadPool tp;
         // Put the smallest one on the thread pool, so that we have the highest
@@ -654,5 +697,4 @@ struct PartitionData {
     }
 };
 
-}
-}
+} // namespace MLDB

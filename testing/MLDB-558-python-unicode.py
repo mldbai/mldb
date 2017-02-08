@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
 # MLDB-558-python-unicode.py
-# datacratic, 2015
+# mldb.ai inc, 2015
 # Mich, 2016-02-08
-# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+# this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 from urllib import quote
 
@@ -177,14 +177,6 @@ class Utf8IdsTest(MldbUnitTest): # noqa
             "type": "embedding"
         })
         result = mldb.get("/v1/query", q=u"select * from \"hellô\"")
-        mldb.log(result.text)
-
-        result = mldb.get("/v1/datasets/" + quote("hellô") + "/query",
-                          select='*')
-        mldb.log(result.text)
-
-        result = mldb.get(u"/v1/datasets/hellô/query",
-                          select='*')
         mldb.log(result.text)
 
         result = mldb.get("/v1/datasets")

@@ -1,7 +1,7 @@
 #
 # MLDBFB-1235-temporal-aggregators.py
 # 2016-02-04
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+# This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 # add this line to testing.mk:
 # $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
@@ -605,7 +605,7 @@ class TemporalTest(MldbUnitTest):
         })
 
         res = mldb.get('/v1/query', 
-                       q = "SELECT early({}) AS * from mldbfb520_sql_query")
+                       q = "SELECT early() AS * from mldbfb520_sql_query")
         expected = [{
             "rowName": "user1",
             "columns": [
@@ -626,7 +626,7 @@ class TemporalTest(MldbUnitTest):
         })
 
         res = mldb.get('/v1/query', 
-                       q = "SELECT late({}) AS * from mldbfb520_sql_query")
+                       q = "SELECT late() AS * from mldbfb520_sql_query")
         
 
         expected = [{

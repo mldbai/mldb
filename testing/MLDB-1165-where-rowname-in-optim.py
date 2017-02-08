@@ -1,7 +1,7 @@
 #
 # MLDB-1165-where-rowname-in-optim.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import datetime
 
@@ -49,9 +49,14 @@ dataset.commit();
 
 result = mldb.query(
     "select * from example_small WHERE rowName() NOT IN "
-    "('u1', 'u3', 'u5', 'u7')")
+    "('u1', 'u3', 'u5', 'u7') order by rowPath()")
 
-expected = [["_rowName","x"],["u6","whatever"],["u8","whatever"],["u4","whatever"],["u2","whatever"],["u9","whatever"],["u0","whatever"]]
+expected = [["_rowName","x"],["u0","whatever"],["u2","whatever"],["u4","whatever"],["u6","whatever"],["u8","whatever"],["u9","whatever"]]
+
+mldb.log("result");
+mldb.log(result)
+mldb.log("expected");
+mldb.log(expected)
 
 assert result == expected
 

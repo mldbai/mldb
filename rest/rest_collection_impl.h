@@ -1,8 +1,8 @@
 /** rest_collection_impl.h                                         -*- C++ -*-
     Jeremy Barnes, 21 January 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -15,9 +15,10 @@
 #include "collection_config_store.h"
 #include "mldb/types/utility_descriptions.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/rest/cancellation_exception.h"
 
 
-namespace Datacratic {
+namespace MLDB {
 
 // Defined in rest_request_binding.h.  Used to validate that request
 // parameters match those exposed in the help.
@@ -71,7 +72,7 @@ struct RestCollection<Key, Value>::Impl {
     /// Watches on the children
     WatchesT<ChildEvent> childWatches;
 
-    typedef ML::Spinlock MutateMutex;
+    typedef Spinlock MutateMutex;
 
     /** Mutex on mutation operations.  This is required so that the watch
         operations are serializable.  Could be turned off when there are no
@@ -163,7 +164,7 @@ clear()
         if (e.second.underConstruction) {
             // Stop it, and wait for it to finish
             e.second.underConstruction->cancel();
-            ExcAssert(e.second.underConstruction->cancelled);
+            ExcAssert(!e.second.underConstruction->running);
 
             // Note that even if there is a race condition where the
             // construction finished after we swapped the collections,
@@ -253,17 +254,24 @@ initNodes(RouteManager & result)
 
             std::tie(ptr, task) = collection->tryGetEntry(key);
 
-            /* If we have a PUT, or we are doing a GET on the entry
-               itself (for its status), or we are doing a DELETE, then
-               we can continue without a pointer.  Otherwise we need to bail.
-            */
-            //using namespace std;
-            //cerr << "remaining = " << context.remaining << endl;
             if (!ptr) {
                 if (context.remaining.empty()
                     && (request.verb == "PUT"
                         || request.verb == "GET"
                         || request.verb == "DELETE")) {
+                    /* If we have a PUT, or we are doing a GET on the entry
+                       itself (for its status), or we are doing a DELETE, then
+                       we can continue without a pointer.  Otherwise we need to bail.
+                    */
+                    return;
+                } 
+                else if (context.remaining == "/state"
+                         && (request.verb == "PUT"
+                             || request.verb == "GET")) {
+                    /* Trying to change the state of an object being created.
+                       We are most likely trying to cancel the operation.  We
+                       can continue without a pointer.
+                    */
                     return;
                 }
 
@@ -274,12 +282,12 @@ initNodes(RouteManager & result)
                 if (task) {
                     error["state"] = task->getState();
                     error["progress"] = task->getProgress();
-                    if (task->error) {
+                    if (task->state == BackgroundTaskBase::State::ERROR) {
                         error["error"]
                             = nounSingular + " entry '"
                             + resource + "' not available due to error in creation";
                     }
-                    else if (task->cancelled) {
+                    else if (task->state == BackgroundTaskBase::State::CANCELLED) {
                         error["error"]
                             = nounSingular + " entry '"
                             + resource + "' not available due to cancellation";
@@ -288,14 +296,13 @@ initNodes(RouteManager & result)
                             = nounSingular + " entry '"
                             + resource + "' not available as it is still being created";
                     }
-                    connection.sendResponse(500, error);
                 }
                 else {
                     error["error"]
                         = nounSingular + " entry '"
                         + resource + "' does not exist or has been deleted";
-                    connection.sendResponse(404, error);
                 }
+                connection.sendResponse(404, error);
             }
             else {
                 context.addSharedPtr(ptr);
@@ -338,7 +345,7 @@ initRoutes(RouteManager & result)
 
                 auto collection = result.getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto resultStr = jsonEncodeStr(collection->getKeys());
                 connection.sendHttpResponse(200, resultStr,
                                             "application/json", {});
@@ -369,7 +376,7 @@ initRoutes(RouteManager & result)
                 auto collection = result.getCollection(cxt);
                 auto key = result.getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 collection->handleGetValue(key, connection, req, cxt);
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
@@ -540,12 +547,12 @@ addBackgroundJobInThread(Key key,
                 std::unique_lock<std::mutex> guard(task->mutex);
 
                 // MLDB-748 - bail out if the task is not completed
-                if (!task->cancelled && !task->error) {
+                if (task->running) {
                     throw HttpReturnException(409, "entry '"
                                               +  restEncode(key)
                                               + "' in "
                                               + this->nounSingular
-                                              + "could not be overwritten because it is being constructed");
+                                              + " could not be overwritten because it is being constructed");
                 }
             }
         }
@@ -554,13 +561,15 @@ addBackgroundJobInThread(Key key,
 
         // Set up the task, without starting it yet
         auto task = std::make_shared<BackgroundTask>();
-        task->config = std::move(config);
+        task->config = config;
 
         auto onProgressFn = [=] (const Json::Value & progress)
             {
                 std::unique_lock<std::mutex> guard(task->mutex);
                 task->setProgress(progress);
-                return !task->cancelled;
+                // if (task->state == BackgroundTaskBase::State::CANCELLED)
+                //    cerr << "calling progress when cancelled" << endl;
+                return !(task->state == BackgroundTaskBase::State::CANCELLED);
             };
 
 
@@ -569,14 +578,26 @@ addBackgroundJobInThread(Key key,
 
         auto toRun = [=] ()
             {
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 try {
                     WatchT<bool> cancelled = std::move(*cancelledPtr);
                     task->value = fn(onProgressFn, std::move(cancelled));
                     task->setFinished();
-                } catch (const std::exception & exc) {
+                }
+                catch (const CancellationException & exc) {
+                    // throwing CancellationException when the task
+                    // state was not set to Cancelled
+                    ExcAssertEqual(task->state, BackgroundTaskBase::State::CANCELLED);
+                    task->setFinished();
+                }
+                catch (const std::exception & exc) {
+                    // MDLB-1863 progress must be a json object
+                    ExcAssert(task->progress.type() == Json::nullValue ||
+                              task->progress.type() == Json::objectValue);
+
                     task->progress["exception"] = extractException(exc, 500);
                     task->setError(std::current_exception());
+                    task->setFinished();
                 }
 
                 auto taskCopy = task;
@@ -594,6 +615,7 @@ addBackgroundJobInThread(Key key,
 
         if (impl->entries.cmp_xchg(oldEntries, newEntries, true)) {
             // Now we can start the task, since the commit succeeded
+            task->running = true;
             std::thread thread(toRun);
 
             auto handle = thread.native_handle();
@@ -621,30 +643,33 @@ finishedBackgroundJob(Key key,
 
     std::unique_lock<std::mutex> guard(task->mutex);
 
-    if (task->cancelled) {
+    if (task->state == BackgroundTaskBase::State::CANCELLED ||
+        task->state == BackgroundTaskBase::State::ERROR) {
+
+        // there is no object created
         for (auto & f: task->onDoneFunctions)
             f(nullptr);
-        return;
     }
+    else {
 
-    // If this check triggers, we've somehow destroyed our object
-    // without waiting for background tasks to finish.
-    ExcAssert(impl);
-
-    // Only promote it if it's not in the error state
-    // If we're currently clearing, then we shouldn't add anything
-    // at all.
-    if (task->value) {
-        if (mustBeNewEntry)
-            this->addEntryItl(key, task->value, true /* must add */,
-                              task->cancelled);
-        else
-            this->replaceEntry(key, task->value,
-                               task->cancelled);
+        // If this check triggers, we've somehow destroyed our object
+        // without waiting for background tasks to finish.
+        ExcAssert(impl);
+        //ExcAssertEqual(task->state, BackgroundTaskBase::State::FINISHED);
+        
+        // Only promote it if it's not in the error state
+        // If we're currently clearing, then we shouldn't add anything
+        // at all.
+        if (task->value) {
+            if (mustBeNewEntry)
+                this->addEntryItl(key, task->value, true /* must add */, task->state);
+            else
+                this->replaceEntry(key, task->value, task->state);
+        }
+        
+        for (auto & f: task->onDoneFunctions)
+            f(task->value);
     }
-
-    for (auto & f: task->onDoneFunctions)
-        f(task->value);
 }
 
 template<typename Key, class Value>
@@ -653,7 +678,7 @@ RestCollection<Key, Value>::
 addEntryItl(Key key,
             std::shared_ptr<Value> val,
             bool mustBeNewEntry,
-            std::atomic<bool> & wasCancelled)
+            std::atomic<BackgroundTaskBase::State> & state)
 {
     if (!val)
         return false;  // should only happen when being destroyed
@@ -663,7 +688,7 @@ addEntryItl(Key key,
     // In the case of an entry that's created and then removed before
     // it can be added, it may be cancelled before it can obtain the
     // mutate guard.  In that case, we don't add it.
-    if (wasCancelled)
+    if (state == BackgroundTaskBase::State::CANCELLED)
         return false;
 
     // NOTE: Should not be necessary... investigation needed
@@ -722,14 +747,14 @@ RestCollection<Key, Value>::
 replaceEntryItl(Key key,
                 std::shared_ptr<Value> val,
                 bool mustAlreadyExist,
-                std::atomic<bool> & wasCancelled)
+                std::atomic<BackgroundTaskBase::State> & state)
 {
     std::unique_lock<typename Impl::MutateMutex> mutateGuard(impl->mutateMutex);
 
     // In the case of an entry that's created and then removed before
     // it can be added, it may be cancelled before it can obtain the
     // mutate guard.  In that case, we don't add it.
-    if (wasCancelled)
+    if (state == BackgroundTaskBase::State::CANCELLED)
         return false;
 
     // NOTE: Should not be necessary... investigation needed
@@ -857,7 +882,7 @@ getEntry(Key key) const
 
     Utf8String error_message;
     if (restEncode(key).empty()) {
-        error_message = ML::format("Collection URLs do not contain a trailing slash: try /v1/%1$s instead of /v1/%1$s/",
+        error_message = MLDB::format("Collection URLs do not contain a trailing slash: try /v1/%1$s instead of /v1/%1$s/",
                                    this->nounPlural.rawData());
         throw HttpReturnException(404, error_message);
     }
@@ -1024,7 +1049,7 @@ watchElements(const Utf8String & spec, bool catchUp, Any info)
 {
     using namespace std;
     //cerr << "restCollection watchElements spec = " << spec
-    //     << " entity " << ML::type_name(*this) << " " << catchUp
+    //     << " entity " << MLDB::type_name(*this) << " " << catchUp
     //     << " info " << jsonEncodeStr(info) << endl;
 
     // Filter that controls which events are seen by this watch
@@ -1110,8 +1135,8 @@ watchChannel(const Utf8String & channel,
     else if (channel == "names")
         return watchNames(filter, catchUp, std::move(info));
     else throw HttpReturnException(400,
-                                   ML::format("type %s doesn't have channel named '%s'",
-                                              ML::type_name(*this).c_str(),
+                                   MLDB::format("type %s doesn't have channel named '%s'",
+                                              MLDB::type_name(*this).c_str(),
                                               channel.rawData()));
 }
 
@@ -1138,10 +1163,10 @@ struct ChildHasGenericWatchType : public std::false_type {
     get(const ResourceSpec & spec)
     {
         throw HttpReturnException(400,
-                                  ML::format("need to override getWatchBoundType() or implement "
+                                  MLDB::format("need to override getWatchBoundType() or implement "
                                              "getWatchBoundTypeGeneric() "
                                              "for type %s to know about value watch types",
-                                             ML::type_name<T>().c_str()));
+                                             MLDB::type_name<T>().c_str()));
     }
 };
 
@@ -1170,8 +1195,8 @@ getWatchBoundType(const ResourceSpec & spec)
             return ChildHasGenericWatchType<Value>::get(childSpec);
         }
         else throw HttpReturnException(400,
-                                       ML::format("type %s doesn't have channel named '%s'",
-                                                  ML::type_name(*this).c_str(),
+                                       MLDB::format("type %s doesn't have channel named '%s'",
+                                                  MLDB::type_name(*this).c_str(),
                                                   spec[0].channel.rawData()));
     }
     else if (spec[0].channel == "children")
@@ -1181,8 +1206,8 @@ getWatchBoundType(const ResourceSpec & spec)
     else if (spec[0].channel == "names")
         return make_pair(&typeid(std::tuple<Utf8String>), nullptr);
     else throw HttpReturnException(400,
-                                   ML::format("type %s doesn't have channel named '%s'",
-                                              ML::type_name(*this).c_str(),
+                                   MLDB::format("type %s doesn't have channel named '%s'",
+                                              MLDB::type_name(*this).c_str(),
                                               spec[0].channel.rawData()));
 }
 
@@ -1366,10 +1391,7 @@ mustCreateSync(Config config,
         if (es->count(key)) {
             if (!overwrite)
                 this->throwEntryAlreadyExists(key);
-            else {
-            if (!this->deleteEntry(key))
-                this->throwEntryNotOverwritten(key);
-            }
+            this->deleteEntry(key);
         }
     }
 
@@ -1468,7 +1490,7 @@ addPutRoute()
     Json::Value & v = help["jsonParams"];
     Json::Value & v2 = v[0];
     v2["description"] = "Configuration of new " + this->nounSingular;
-    v2["cppType"] = ML::type_name<Config>();
+    v2["cppType"] = MLDB::type_name<Config>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -1489,7 +1511,7 @@ addPutRoute()
                 auto collection = getCollection(cxt);
                 Key key = this->getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Status status = collection->handlePut(key, config);
 
@@ -1502,7 +1524,7 @@ addPutRoute()
                     { "EntityPath", jsonEncodeStr(path) }
                 };
 
-                connection.sendHttpResponse(201, jsonEncodeStr(status),
+                connection.sendHttpResponse(202, jsonEncodeStr(status),
                                             "application/json", headers);
 
                 return RestRequestRouter::MR_YES;
@@ -1529,7 +1551,7 @@ addPutRoute()
 
                 validatePayloadForPut(req, this->nounPlural);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Status status = collection->handlePutSync(key, config);
 
@@ -1574,7 +1596,7 @@ addPostRoute()
     Json::Value & v = help["jsonParams"];
     Json::Value & v2 = v[0];
     v2["description"] = "Configuration of new " + this->nounSingular;
-    v2["cppType"] = ML::type_name<Config>();
+    v2["cppType"] = MLDB::type_name<Config>();
     v2["encoding"] = "JSON";
     v2["location"] = "Request Body";
 
@@ -1593,7 +1615,7 @@ addPostRoute()
 
                 auto collection = getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Key key = collection->getKey(config);
                 Status status = collection->handlePostSync(key, config);
@@ -1629,7 +1651,7 @@ addPostRoute()
 
                 auto collection = getCollection(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 auto config = jsonDecodeStr<Config>(req.payload);
                 Key key = collection->getKey(config);
                 Status status = collection->handlePost(key, config);
@@ -1685,7 +1707,7 @@ addDeleteRoute()
                 auto collection = getCollection(cxt);
                 auto key = this->getKey(cxt);
 
-                JML_TRACE_EXCEPTIONS(false);
+                MLDB_TRACE_EXCEPTIONS(false);
                 collection->handleDelete(key);
 
                 connection.sendHttpResponse(204, "", "", {});
@@ -1754,11 +1776,11 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
     }
     else {
         WatchT<bool> cancelled;
-        std::atomic<bool> wasCancelled(false);
+        std::atomic<BackgroundTaskBase::State> state(BackgroundTaskBase::State::FINISHED);
         this->addEntryItl(key, constructCancellable(std::move(config), nullptr,
                                                     std::move(cancelled)),
                           true /* must add */,
-                          wasCancelled);
+                          state);
     }
 
     bool isPersistent = objectIsPersistent(key, config);
@@ -2052,8 +2074,8 @@ RestConfigurableCollection<Key, Value, Config, Status>::
 getConfig(Key key, const Value & value) const
 {
     throw HttpReturnException(400,
-                              ML::format("type '%s' needs to override getConfig",
-                                         ML::type_name(*this).c_str()));
+                              MLDB::format("type '%s' needs to override getConfig",
+                                         MLDB::type_name(*this).c_str()));
 }
 
-} // namespace Datacratic
+} // namespace MLDB

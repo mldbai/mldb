@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* compact_vector_test.cc
    Jeremy Barnes, 3 March 2009
@@ -28,7 +28,7 @@
 
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 using namespace ML;
 
 using boost::unit_test_framework::test_suite;
@@ -55,7 +55,7 @@ struct Obj {
         magic = GOOD;
     }
 
-   ~Obj()
+    ~Obj() noexcept(false)
     {
         //cerr << "destroying at " << this << endl;
         ++destroyed;
@@ -137,14 +137,14 @@ struct Obj {
 BOOST_AUTO_TEST_CASE( check_sizes )
 {
     compact_vector<int, 1, uint16_t> vec1;
-#if (JML_BITS == 32)
+#if (MLDB_BITS == 32)
     BOOST_CHECK_EQUAL(sizeof(vec1), 8);
 #else
     BOOST_CHECK_EQUAL(sizeof(vec1), 12);
 #endif
 
     compact_vector<uint16_t, 3, uint16_t> vec2;
-#if (JML_BITS == 32)
+#if (MLDB_BITS == 32)
     BOOST_CHECK_EQUAL(sizeof(vec2), 8);
 #else
     BOOST_CHECK_EQUAL(sizeof(vec2), 12);

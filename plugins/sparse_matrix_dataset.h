@@ -1,7 +1,7 @@
 /** sparse_matrix.h                                                -*- C++ -*-
     SparseMatrix dataset for MLDB.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Each row holds a coordinate vector.
 */
@@ -9,11 +9,11 @@
 #pragma once
 
 
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/core/dataset.h"
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -25,36 +25,48 @@ struct SparseMatrixDataset: public Dataset {
 
     virtual ~SparseMatrixDataset();
 
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
 
     /** Base database methods require us to be able to iterate through rows.
         All other views are built on top of this.
     */
-    virtual void recordRowItl(const RowName & rowName,
-                           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+    virtual void recordRowItl(const RowPath & rowName,
+                              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override;
 
-    virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override;
+
+    virtual void
+    recordRowExpr(const RowPath & rowName,
+                  const ExpressionValue & vals) override;
+
+    virtual void
+    recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
+        override;
 
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
     */
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+    virtual KnownColumn
+    getKnownColumnInfo(const ColumnPath & columnName) const override;
 
-    /** Commit changes to the database.  Default is a no-op. */
-    virtual void commit();
+    /** Commit changes to the database. */
+    virtual void commit() override;
 
     // TODO: implement; the default version is very slow
     //virtual std::pair<Date, Date> getTimestampRange() const;
-    virtual Date quantizeTimestamp(Date timestamp) const;
 
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-    virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual Date quantizeTimestamp(Date timestamp) const override;
+
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
 
     virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
                   const RestRequest & request,
-                  RestRequestParsingContext & context) const;
+                  RestRequestParsingContext & context) const override;
+
+    virtual ExpressionValue getRowExpr(const RowPath & rowName) const override;
 
 protected:
     struct Itl;
@@ -107,11 +119,13 @@ DECLARE_STRUCTURE_DESCRIPTION(MutableSparseMatrixDatasetConfig);
 struct MutableSparseMatrixDataset: public SparseMatrixDataset {
     MutableSparseMatrixDataset(MldbServer * owner,
                                PolyConfig config,
-                               const std::function<bool (const Json::Value &)> & onProgress);
+                               const ProgressFunc & onProgress);
+
+    virtual MultiChunkRecorder getChunkRecorder();
 
     struct Itl;
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+
 

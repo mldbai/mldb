@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* boosted_stumps_core.h                                           -*- C++ -*-
    Jeremy Barnes, 23 February 2004
@@ -21,7 +21,7 @@ namespace ML {
 
 /** The boosting loss function.  It is exponential in the margin. */
 struct Boosting_Loss {
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (int label, int corr, float pred, float current) const
     {
         int correct = (corr == label);
@@ -39,7 +39,7 @@ struct Boosting_Loss {
 struct Logistic_Loss {
     Logistic_Loss(double z) : z(z) {}
     
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (int label, int corr, float pred, float current) const
     {
         int correct = (corr == label);
@@ -54,7 +54,7 @@ struct Logistic_Loss {
 /* A "loss" function used to update a set of prediction weights for some
    training data. */
 struct Boosting_Predict {
-    JML_ALWAYS_INLINE
+    MLDB_ALWAYS_INLINE
     float operator () (int label, int corr, float pred, float current) const
     {
         return current + pred;

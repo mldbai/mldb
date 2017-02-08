@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** procedure_run_collection.h                                 -*- C++ -*-
     Jeremy Barnes, 4 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     Procedure training infrastructure.
 */
@@ -11,8 +11,9 @@
 
 #include "mldb/core/procedure.h"
 #include "mldb/rest/rest_collection.h"
+#include "mldb/rest/service_peer.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 /*****************************************************************************/
@@ -51,15 +52,16 @@ struct ProcedureRunCollection
     construct(ProcedureRunConfig config, const OnProgress & onProgress) const;
 };
 
-} // namespace MLDB
-
 //extern template class PolyCollection<MLDB::ProcedureRun>;
 DECLARE_REST_COLLECTION_INSTANTIATIONS(Utf8String,
-                                       MLDB::ProcedureRun,
-                                       MLDB::ProcedureRunConfig,
-                                       MLDB::ProcedureRunStatus);
+                                       ProcedureRun,
+                                       ProcedureRunConfig,
+                                       ProcedureRunStatus);
+
+} // namespace MLDB
 
 
-} // namespace Datacratic
+
+
 
 

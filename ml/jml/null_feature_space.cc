@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* null_feature_space.cc
    Jeremy Barnes, 21 July 2003
@@ -45,13 +45,13 @@ std::string Null_Feature_Space::print(const Feature & feature) const
 }
 
 bool Null_Feature_Space::
-parse(Parse_Context & context, Feature & feature) const
+parse(ParseContext & context, Feature & feature) const
 {
     throw Exception("Null_Feature_Space::parse() not implemented");
 }
 
 void Null_Feature_Space::
-expect(Parse_Context & context, Feature & feature) const
+expect(ParseContext & context, Feature & feature) const
 {
     throw Exception("Null_Feature_Space::expect() not implemented");
 }

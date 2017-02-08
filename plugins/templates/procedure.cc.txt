@@ -1,0 +1,96 @@
+/**                                                                 -*- C++ -*-
+ * {filename}.cc
+ * {author}, {date}
+ *
+ * This file is part of MLDB. Copyright {year} mldb.ai inc. All rights reserved.
+ **/
+
+#include "{filename}.h"
+#include "mldb/server/mldb_server.h"
+#include "mldb/server/bound_queries.h"
+#include "mldb/types/any_impl.h"
+#include "mldb/types/structure_description.h"
+
+// TODO - Common includes, use the one you need, clean up the others
+//#include "mldb/sql/sql_expression.h"
+//#include "mldb/server/dataset_context.h"
+//#include "mldb/types/basic_value_descriptions.h"
+//#include "mldb/base/parallel.h"
+//#include "mldb/sql/table_expression_operations.h"
+//#include "mldb/sql/execution_pipeline.h"
+//#include "mldb/server/per_thread_accumulator.h"
+//#include "mldb/types/date.h"
+//#include "mldb/sql/sql_expression.h"
+//#include "mldb/plugins/sql_config_validator.h"
+//#include "mldb/utils/log.h"
+//#include <memory>
+
+using namespace std;
+
+
+
+namespace MLDB {{
+
+{cc_proc_name}ProcedureConfig::
+{cc_proc_name}ProcedureConfig()
+{{
+    outputDataset.withType("sparse.mutable");
+}}
+
+DEFINE_STRUCTURE_DESCRIPTION({cc_proc_name}ProcedureConfig);
+
+{cc_proc_name}ProcedureConfigDescription::
+{cc_proc_name}ProcedureConfigDescription()
+{{
+    addField("outputDataset", &{cc_proc_name}ProcedureConfig::outputDataset,
+             GENERIC_OUTPUT_DS_DESC,
+             PolyConfigT<Dataset>().withType("sparse.mutable"));
+    addParent<ProcedureConfig>();
+
+    onPostValidate = [&] ({cc_proc_name}ProcedureConfig * cfg,
+                          JsonParsingContext & context)
+    {{
+        // MustContainFrom(), GroupBy, etc. go here with additional manual
+        // validation
+    }};
+}}
+
+{cc_proc_name}Procedure::
+{cc_proc_name}Procedure(MldbServer * owner,
+                 PolyConfig config,
+                 const std::function<bool (const Json::Value &)> & onProgress)
+    : Procedure(owner)
+{{
+    procedureConfig = config.params.convert<{cc_proc_name}ProcedureConfig>();
+}}
+
+RunOutput
+{cc_proc_name}Procedure::
+run(const ProcedureRunConfig & run,
+    const std::function<bool (const Json::Value &)> & onProgress) const
+{{
+    auto config = applyRunConfOverProcConf(procedureConfig, run);
+    auto output = createDataset(server, config.outputDataset,
+                                nullptr, true /*overwrite*/);
+    output->commit();
+    return output->getStatus();
+}}
+
+Any
+{cc_proc_name}Procedure::
+getStatus() const
+{{
+    return Any();
+}}
+
+static RegisterProcedureType<{cc_proc_name}Procedure, {cc_proc_name}ProcedureConfig>
+reg{cc_proc_name}Procedure(
+    builtinPackage(),
+    "<PROCEDURE DESCRIPTION>", // TODO
+    "procedures/{cc_proc_name}Procedure.md.html",
+    nullptr /* static route */,
+    {{ MldbEntity::INTERNAL_ENTITY }});
+
+
+}} // namespace MLDB
+

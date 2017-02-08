@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
@@ -26,7 +26,7 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-var resp = mldb.get("/v1/datasets/test/query", {select:"min({*}) AS min, max({*}) AS max", groupBy: 'label'});
+var resp = mldb.get("/v1/query", {q:"SELECT min({*}) AS min, max({*}) AS max from test group by label"});
 
 assertEqual(resp.responseCode, 200, "Error executing query");
 
@@ -42,7 +42,6 @@ expected = [
          [ "min.x", 0, "2015-01-01T00:00:00Z" ],
          [ "min.y", 0, "2015-01-01T00:00:00Z" ]
       ],
-      "rowHash" : "554f96c80ea05ddb",
       "rowName" : "\"[\"\"cat\"\"]\""
    },
    {
@@ -54,7 +53,6 @@ expected = [
          [ "min.x", 1, "2015-01-01T00:00:00Z" ],
          [ "min.y", 1, "2015-01-01T00:00:00Z" ]
       ],
-      "rowHash" : "d55e0e284796f79e",
       "rowName" : "\"[\"\"dog\"\"]\""
    }
 ];

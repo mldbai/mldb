@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 function assertEqual(expr, val, msg)
 {
@@ -31,7 +31,7 @@ recordExample("ex3", 1, 2, "cat");
 dataset.commit()
 
 // Testcase will fail here until issue is fixed
-var resp = mldb.get("/v1/datasets/test/query", {format: 'table'});
+var resp = mldb.get("/v1/query", {q : 'SELECT * FROM test', format: 'table'});
 
 plugin.log(resp.json);
 

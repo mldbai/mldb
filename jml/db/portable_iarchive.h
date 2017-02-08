@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* portable_iarchive.h                                             -*- C++ -*-
    Jeremy Barnes, 13 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
    ---
@@ -11,8 +9,7 @@
    Portable format for iarchives.
 */
 
-#ifndef __db__portable_iarchive_h__
-#define __db__portable_iarchive_h__
+#pragma once
 
 #include <algorithm>
 #include "serialization_order.h"
@@ -36,6 +33,7 @@ class multi_array;
 
 namespace ML {
 
+using namespace MLDB;
 class File_Read_Buffer;
 
 namespace DB {
@@ -361,7 +359,3 @@ public:
 
 } // namespace DB
 } // namespace ML
-
-#endif /* __db__portable_iarchive_h__ */
-
-

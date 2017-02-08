@@ -1,8 +1,8 @@
 /** value_function.h                                               -*- C++ -*-
     Jeremy Barnes, 4 December 2014
-    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Interface for functions into MLDB.
 */
@@ -11,7 +11,7 @@
 
 #include "function.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 template<typename Input, typename Output>
@@ -35,7 +35,9 @@ struct ValueFunctionT;
 */
 
 struct ValueFunction: public Function {
+
     ValueFunction(MldbServer * server,
+                  const PolyConfig& config,
                   std::shared_ptr<const ValueDescription> inputDescription,
                   std::shared_ptr<const ValueDescription> outputDescription);
     
@@ -114,11 +116,12 @@ struct ValueFunctionT: public ValueFunction {
     typedef ValueFunctionT<Input, Output> BaseT;
 
     ValueFunctionT(MldbServer * server,
+                   const PolyConfig& config,
                    std::shared_ptr<const ValueDescription> inputDesc
                        = getDefaultDescriptionSharedT<Input>(),
                    std::shared_ptr<const ValueDescription> outputDesc
                        = getDefaultDescriptionSharedT<Output>())
-        : ValueFunction(server, std::move(inputDesc), std::move(outputDesc))
+        : ValueFunction(server, config, std::move(inputDesc), std::move(outputDesc))
     {
     }
 
@@ -133,7 +136,7 @@ struct ValueFunctionT: public ValueFunction {
     virtual Output call(Input input) const
     {
         throw HttpReturnException(500, "ValueFunctionT type "
-                                  + ML::type_name(*this)
+                                  + MLDB::type_name(*this)
                                   + " needs to override call()");
     }
 
@@ -154,24 +157,28 @@ struct ValueFunctionT: public ValueFunction {
     
     virtual std::unique_ptr<Applier>
     bindT(SqlBindingScope & outerContext,
-          const std::shared_ptr<RowValueInfo> & input) const
+          const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
     {
+        ExcAssert(config_);
         std::unique_ptr<Applier> result(new Applier(this));
         result->info = getFunctionInfo();
-        result->info.checkInputCompatibility(*input);
+        result->info.checkInputCompatibility(input);
+        result->info.deterministic = config_->deterministic;
         return result;
     }
 
 private:
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const std::shared_ptr<RowValueInfo> & input) const override
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+        const override
     {
         return bindT(outerContext, input);
     }
     
-    virtual ExpressionValue apply(const FunctionApplier & applier,
-                                 const ExpressionValue & context) const override
+    virtual ExpressionValue
+    apply(const FunctionApplier & applier,
+          const ExpressionValue & context) const override
     {
         const auto * downcast
             = dynamic_cast<const FunctionApplierT<Input, Output> *>(&applier);
@@ -195,4 +202,4 @@ private:
 };
 
 } // namespace MLDB
-} // namespace Datacratic
+

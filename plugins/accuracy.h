@@ -1,8 +1,8 @@
 /** accuracy.h                                                   -*- C++ -*-
     Jeremy Barnes, 22 January 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Accuracy procedure and functions.
 */
@@ -13,11 +13,11 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "matrix.h"
-#include "mldb/types/value_description.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
 #include "mldb/plugins/classifier.h"
 
-namespace Datacratic {
+
 namespace MLDB {
 
 
@@ -70,4 +70,4 @@ struct AccuracyProcedure: public Procedure {
 
 
 } // namespace MLDB
-} // namespace Datacratic
+

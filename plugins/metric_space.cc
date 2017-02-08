@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** metric_space.cc
     Jeremy Barnes, 25 April 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Create a metric space.
 */
@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_ENUM_DESCRIPTION(MetricSpace);
@@ -64,9 +64,8 @@ create(MetricSpace space)
 
 void
 EuclideanDistanceMetric::
-addRow(int rowNum, const ML::distribution<float> & coords)
+addRow(int rowNum, const distribution<float> & coords)
 {
-    //cerr << "addRow " << rowNum << endl;
     ExcAssertEqual(rowNum, sum_dist.size());
     sum_dist.push_back(coords.dotprod(coords));
     ExcAssert(isfinite(sum_dist.back()));
@@ -74,8 +73,8 @@ addRow(int rowNum, const ML::distribution<float> & coords)
 
 float
 EuclideanDistanceMetric::
-calc(const ML::distribution<float> & coords1,
-     const ML::distribution<float> & coords2)
+calc(const distribution<float> & coords1,
+     const distribution<float> & coords2)
 {
     return sqrt(ML::SIMD::vec_euclid(coords1.data(), coords2.data(), coords1.size()));
     return (coords2 - coords1).two_norm();
@@ -84,8 +83,8 @@ calc(const ML::distribution<float> & coords1,
 float
 EuclideanDistanceMetric::
 dist(int rowNum1, int rowNum2,
-     const ML::distribution<float> & coords1,
-     const ML::distribution<float> & coords2) const
+     const distribution<float> & coords1,
+     const distribution<float> & coords2) const
 {
     ExcAssertEqual(coords1.size(), coords2.size());
 
@@ -138,7 +137,7 @@ dist(int rowNum1, int rowNum2,
 
 void
 CosineDistanceMetric::
-addRow(int rowNum, const ML::distribution<float> & coords)
+addRow(int rowNum, const distribution<float> & coords)
 {
     ExcAssertEqual(rowNum, two_norm_recip.size());
     float twonorm = coords.two_norm();
@@ -172,8 +171,8 @@ addRow(int rowNum, const ML::distribution<float> & coords)
 
 float
 CosineDistanceMetric::
-calc(const ML::distribution<float> & coords1,
-     const ML::distribution<float> & coords2)
+calc(const distribution<float> & coords1,
+     const distribution<float> & coords2)
 {
     if ((coords1 == coords2).all())
         return 0.0;
@@ -202,8 +201,8 @@ calc(const ML::distribution<float> & coords1,
 float
 CosineDistanceMetric::
 dist(int rowNum1, int rowNum2,
-     const ML::distribution<float> & coords1,
-     const ML::distribution<float> & coords2) const
+     const distribution<float> & coords1,
+     const distribution<float> & coords2) const
 {
     ExcAssertEqual(coords1.size(), coords2.size());
 
@@ -231,13 +230,6 @@ dist(int rowNum1, int rowNum2,
     float result = 1.0 - coords1.dotprod(coords2) * two_norm_recip.at(rowNum1) * two_norm_recip.at(rowNum2);
     if (result < 0.0) {
         result = 0.0;
-#if 0
-        cerr << "rowNum1 = " << rowNum1 << endl;
-        cerr << "rowNum2 = " << rowNum2 << endl;
-        cerr << "coords1 = " << coords1 << endl;
-        cerr << "coords2 = " << coords2 << endl;
-        cerr << "result = " << result << endl;
-#endif
     }
 
     ExcAssert(isfinite(result));
@@ -247,6 +239,6 @@ dist(int rowNum1, int rowNum2,
 }
 
 
-} // namespace Datacratic
+
 } // namespace MLDB
 

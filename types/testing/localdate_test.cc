@@ -1,7 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* date_test.cc
-   Copyright (c) 2010 Datacratic.  All rights reserved.
+   Copyright (c) 2010 mldb.ai inc.  All rights reserved.
 */
 
 #define BOOST_TEST_MAIN
@@ -14,12 +14,12 @@
 #include "mldb/types/localdate.h"
 
 using namespace std;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 BOOST_AUTO_TEST_CASE( test_constructor )
 {
-    ML::Set_Trace_Exceptions trace(false);
+    Set_Trace_Exceptions trace(false);
 
     /* default constructor */
     LocalDate d;
@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE( test_constructor )
 
     /* valid and invalid timezone names */
     BOOST_CHECK_THROW(d = LocalDate(0.0, "NoWhereIsNamedLikeThis"),
-                      ML::Exception);
+                      MLDB::Exception);
     BOOST_CHECK_NO_THROW(d = LocalDate(0.0, "America/Montreal"));
 
     /* Jan 1, 1970 00:00 UTC = Dec 31, 1969 19:00 EST */

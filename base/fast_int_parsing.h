@@ -1,27 +1,25 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* fast_int_parsing.h                                              -*- C++ -*-
    Jeremy Barnes, 24 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Routines to quickly parse a base 10 integer.
 */
 
-#ifndef __utils__fast_int_parsing_h__
-#define __utils__fast_int_parsing_h__
+#pragma once
 
 #include "mldb/base/parse_context.h"
 #include <iostream>
 
+
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
-inline bool match_unsigned(unsigned long & val, Parse_Context & c)
+inline bool match_unsigned(unsigned long & val, ParseContext & c)
 {
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
 
     val = 0;
     unsigned digits = 0;
@@ -44,9 +42,9 @@ inline bool match_unsigned(unsigned long & val, Parse_Context & c)
     return true;
 }
 
-inline bool match_int(long int & result, Parse_Context & c)
+inline bool match_int(long int & result, ParseContext & c)
 {
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
 
     int sign = 1;
     if (c.match_literal('+')) ;
@@ -61,9 +59,9 @@ inline bool match_int(long int & result, Parse_Context & c)
     return true;
 }
 
-inline bool match_hex4(long int & result, Parse_Context & c)
+inline bool match_hex4(long int & result, ParseContext & c)
 {
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
 
     int code = 0;
     unsigned digits = 0;
@@ -100,9 +98,9 @@ inline bool match_hex4(long int & result, Parse_Context & c)
 }
 
 inline bool match_unsigned_long(unsigned long & val,
-                                Parse_Context & c)
+                                ParseContext & c)
 {
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
 
     val = 0;
     int digits = 0;
@@ -125,9 +123,9 @@ inline bool match_unsigned_long(unsigned long & val,
     return true;
 }
 
-inline bool match_long(long int & result, Parse_Context & c)
+inline bool match_long(long int & result, ParseContext & c)
 {
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
 
     long sign = 1;
     if (c.match_literal('+')) ;
@@ -145,9 +143,9 @@ inline bool match_long(long int & result, Parse_Context & c)
 
 
 inline bool match_unsigned_long_long(unsigned long long & val,
-                                     Parse_Context & c)
+                                     ParseContext & c)
 {
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
 
     val = 0;
     int digits = 0;
@@ -170,9 +168,9 @@ inline bool match_unsigned_long_long(unsigned long long & val,
     return true;
 }
 
-inline bool match_long_long(long long int & result, Parse_Context & c)
+inline bool match_long_long(long long int & result, ParseContext & c)
 {
-    Parse_Context::Revert_Token tok(c);
+    ParseContext::Revert_Token tok(c);
 
     long long sign = 1;
     if (c.match_literal('+')) ;
@@ -188,6 +186,5 @@ inline bool match_long_long(long long int & result, Parse_Context & c)
     return true;
 }
 
-} // namespace ML
+} // namespace MLDB
 
-#endif /* __utils__fast_int_parsing_h__ */

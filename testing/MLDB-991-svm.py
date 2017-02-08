@@ -1,7 +1,7 @@
 #
 # MLDB-991-svm.py
-# Datacratic, 2015
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+# mldb.ai inc, 2015
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import unittest
 
@@ -116,8 +116,8 @@ class SvmTest(unittest.TestCase):
         irisdataset.commit()
 
         result = mldb.get(
-            "/v1/datasets/iris_dataset/query",
-            select="*", format="table", rowNames="true", headers="true")
+            "/v1/query",
+            q="SELECT * FROM iris_dataset", format="table", rowNames="true", headers="true")
         mldb.log(result)
 
         result = mldb.put("/v1/procedures/svm_iris", {
@@ -140,16 +140,15 @@ class SvmTest(unittest.TestCase):
         mldb.log(result)
 
         result = mldb.get(
-            "/v1/datasets/iris_dataset/query",
-            select="label, svm_iris_function({{* excluding (label)} as embedding}) as result",
+            "/v1/query",
+            q="SELECT label, svm_iris_function({{* excluding (label)} as embedding}) as result from iris_dataset",
             format="table", rowNames="true", headers="true")
 
         mldb.log(result)
 
         result = mldb.get(
-            "/v1/datasets/iris_dataset/query",
-            select="count(*) as result",
-            where="svm_iris_function({{* excluding (label)} as embedding})[output] != label",
+            "/v1/query",
+            q="SELECT count(*) as result from iris_dataset where svm_iris_function({{* excluding (label)} as embedding})[output] != label",
             format="table",
             rowNames="false", headers="false")
 
@@ -180,8 +179,8 @@ class SvmTest(unittest.TestCase):
         ds3.commit()
 
         result = mldb.get(
-            "/v1/datasets/dataset3/query",
-            select="*", format="table", rowNames="true", headers="true")
+            "/v1/query",
+            q="SELECT * from dataset3", format="table", rowNames="true", headers="true")
 
         mldb.log(result)
 
@@ -207,15 +206,15 @@ class SvmTest(unittest.TestCase):
         mldb.log(result)
 
         result = mldb.get(
-            "/v1/datasets/dataset3/query",
-            select="label, svm_regression_function({{* excluding (label)} as embedding}) as result",
+            "/v1/query",
+            q="SELECT label, svm_regression_function({{* excluding (label)} as embedding}) as result from dataset3",
             format="table", rowNames="true", headers="true")
 
         mldb.log(result)
 
         result = mldb.get(
-            "/v1/datasets/dataset3/query",
-            select="sum(abs(svm_regression_function({{* excluding (label)} as embedding})[output] - label)) as totalError",
+            "/v1/query",
+            q="SELECT sum(abs(svm_regression_function({{* excluding (label)} as embedding})[output] - label)) as totalError from dataset3",
             format="table", rowNames="false", headers="false")
 
         mldb.log(result)

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* watch.h                                                       -*- C++ -*-
    Jeremy Barnes, 6 April 2014
-   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Class to deal with watchers.
 */
@@ -24,7 +24,7 @@
 #include "mldb/base/exc_assert.h"
 #include "maybe.h"
 
-namespace Datacratic {
+namespace MLDB {
 
 
 struct ValueDescription;
@@ -209,7 +209,7 @@ struct Watch {
         if (!found)
             throwException(WATCH_ERR_TIMEOUT, "No event found before timeout");
 
-        return std::move(res);
+        return res;
     }
 
     /** Pop an event, or throw an exception if the event was not found.
@@ -301,7 +301,7 @@ struct Watch {
 
     // Throw the given exception with the given message
     void throwException(WatchErrorKind kind,
-                        const char * message, ...) const JML_NORETURN;
+                        const char * message, ...) const MLDB_NORETURN;
 
 protected:
     void release(WatchData * data);
@@ -345,8 +345,8 @@ struct Watches {
             throwException(WATCH_ERR_TYPE,
                            "attempt to trigger watch bound to type '%s' "
                            "with parameters of type '%s'",
-                           ML::demangle(*boundType()).c_str(),
-                           ML::type_name<std::tuple<T...> >().c_str());
+                           demangle(*boundType()).c_str(),
+                           MLDB::type_name<std::tuple<T...> >().c_str());
         }
 
         return this->triggerGeneric(Any(std::move(tupl)));
@@ -430,7 +430,7 @@ struct Watches {
 
     // Throw the given exception with the given message
     void throwException(WatchErrorKind kind,
-                        const char * message, ...) const JML_NORETURN;
+                        const char * message, ...) const MLDB_NORETURN;
 
 protected:
     /// Mutex.  We handle recursion in via triggerThread, so this is a straight
@@ -874,9 +874,9 @@ struct WatchAllData {
         // Once all are done, we bind them so that they can start
         // triggering
         for (unsigned i = 0;  i < elementWatches.size();  ++i) {
+            // clang doesn't like std::bind when used with g++6 headers
             elementWatches[i].bindGeneric
-                (std::bind(&WatchAllData::onElementTrigger, this,
-                           std::placeholders::_1, i));
+                ([this,i](const Any & val) { this->onElementTrigger(val, i); });
         }
     }
 
@@ -923,7 +923,7 @@ WatchT<AllOutput> all(Watches&&... watches)
     // Now activate it to send any existing results through
     data->activate();
 
-    return std::move(result);
+    return result;
 }
 
 
@@ -939,8 +939,8 @@ struct UnpackToTuple {
         } catch (const std::exception & exc) {
             using namespace std;
             cerr << "trying to unpack element " << start << " of tuple "
-                 << "with type " << ML::demangle(vec[start].type())
-                 << " to type " << ML::type_name<elType>()
+                 << "with type " << demangle(vec[start].type())
+                 << " to type " << MLDB::type_name<elType>()
                  << endl;
             throw;
         }
@@ -956,8 +956,8 @@ struct UnpackToTuple {
         } catch (const std::exception & exc) {
             using namespace std;
             cerr << "trying to unpack element " << start << " of tuple "
-                 << "with type " << ML::demangle(vec[start].type())
-                 << " to type " << ML::type_name<elType>()
+                 << "with type " << demangle(vec[start].type())
+                 << " to type " << MLDB::type_name<elType>()
                  << endl;
             throw;
         }
@@ -1014,12 +1014,12 @@ tryWaitTuple(double timeToWait)
     if (boundType() && boundType() != &typeid(std::tuple<T...>))
         throwException(WATCH_ERR_TYPE,
                        "waiting for %s but got %s",
-                       ML::demangle(*boundType()).c_str(),
-                       ML::type_name<std::tuple<T...> >().c_str());
+                       demangle(*boundType()).c_str(),
+                       MLDB::type_name<std::tuple<T...> >().c_str());
 
     
 
     return WatchT<T...>::doTryWaitTuple(data, timeToWait);
 }
 
-} // namespace Datacratic
+} // namespace MLDB

@@ -2,7 +2,7 @@
    Jeremy Barnes, 1 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
       
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
@@ -17,7 +17,7 @@
 #include <iostream>
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -53,9 +53,9 @@ public:
 /** An environment option variable */
 
 template<typename T, bool Trace = false>
-class Env_Option {
+class EnvOption {
 public:
-    Env_Option(const std::string & var_name, const T & def)
+    EnvOption(const std::string & var_name, const T & def)
         : t_(def), specified_(false)
     {
         const Environment & env = Environment::instance();
@@ -87,4 +87,4 @@ private:
     bool specified_;
 
 };
-} // namespace ML
+} // namespace MLDB

@@ -26,7 +26,7 @@ The procedure's output will be in the following form, which allows for the
 expanded configuration and the ID of the new entity to be obtained by the
 caller:
 
-![](%%type Datacratic::MLDB::CreateEntityProcedureOutput)
+![](%%type MLDB::CreateEntityProcedureOutput)
 
 
 # See also

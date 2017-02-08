@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* file_functions.cc
    Jeremy Barnes, 14 March 2005
@@ -32,7 +32,7 @@
 
 
 using namespace std;
-
+using namespace MLDB;
 
 namespace ML {
 
@@ -76,7 +76,7 @@ std::string get_link_target(const std::string & link)
 
 std::string get_name_from_fd(int fd)
 {
-    string fname = format("/proc/self/fd/%d", fd);
+    string fname = MLDB::format("/proc/self/fd/%d", fd);
     return get_link_target(fname);
 }
 
@@ -185,11 +185,11 @@ void syncFile(const std::string & filename)
 {
     int fd = ::open(filename.c_str(), O_RDONLY);
     if (fd == -1)
-        throw ML::Exception(errno, "syncFile for " + filename);
+        throw MLDB::Exception(errno, "syncFile for " + filename);
     ML::Call_Guard guard([=] () { close(fd); });
     int res = fdatasync(fd);
     if (res == -1)
-        throw ML::Exception(errno, "fdatasync for " + filename);
+        throw MLDB::Exception(errno, "fdatasync for " + filename);
 }
 
 
@@ -231,16 +231,16 @@ class File_Read_Buffer::MMap_Region
         return result;
     }
 
-    static ML::Spinlock & lock()
+    static Spinlock & lock()
     {
-        static ML::Spinlock result;
+        static Spinlock result;
         return result;
     }
 
 public:
     static std::shared_ptr<MMap_Region> get(int fd)
     {
-        std::lock_guard<ML::Spinlock> guard(lock());
+        std::lock_guard<Spinlock> guard(lock());
 
         inode_type inode = get_inode(fd);
         std::weak_ptr<MMap_Region> & ptr = cache()[inode];
@@ -260,7 +260,7 @@ public:
     {
         if  (size) munmap((void *)start, size);
 
-        std::lock_guard<ML::Spinlock> guard(lock());
+        std::lock_guard<Spinlock> guard(lock());
         if (cache()[inode].expired())
             cache().erase(inode);
     }

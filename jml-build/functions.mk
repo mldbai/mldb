@@ -7,19 +7,22 @@ dollars=$$
 
 SHELL := /bin/bash
 
-ifeq ($(TERM),xterm)
+ifneq ($(strip $(TERM)),)
+    # we have a term
+    ifeq ($(shell if [ $$(tput colors) -gt 7 ]; then echo "1"; fi;),1)
 
-ESC :=
+    ESC :=
 
-COLOR_RED :=$(ESC)[31m
-COLOR_GREEN :=$(ESC)[32m
-COLOR_YELLOW :=$(ESC)[33m
-COLOR_BLUE :=$(ESC)[34m
-COLOR_VIOLET :=$(ESC)[35m
-COLOR_CYAN :=$(ESC)[36m
-COLOR_RESET := $(ESC)[0m
-COLOR_BOLD :=$(ESC)[1m
-COLOR_DARK_GRAY := $(ESC)[1;30m
+    COLOR_RED :=$(ESC)[31m
+    COLOR_GREEN :=$(ESC)[32m
+    COLOR_YELLOW :=$(ESC)[33m
+    COLOR_BLUE :=$(ESC)[34m
+    COLOR_VIOLET :=$(ESC)[35m
+    COLOR_CYAN :=$(ESC)[36m
+    COLOR_RESET := $(ESC)[0m
+    COLOR_BOLD :=$(ESC)[1m
+    COLOR_DARK_GRAY := $(ESC)[1;30m
+    endif
 
 endif
 
@@ -97,7 +100,7 @@ ifneq ($(PREMAKE),1)
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
 $(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)" "$(3)" "$(4)"))
-BUILD_$(CWD)/$(2).lo_COMMAND:=$$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $$(OPTIONS_$(CWD)/$(1)) $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS))
+BUILD_$(CWD)/$(2).lo_COMMAND:=$$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS)) $$(OPTIONS_$(CWD)/$(1))
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 
 BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
@@ -179,7 +182,7 @@ ifneq ($(PREMAKE),1)
 $(if $(trace),$(warning called add_cuda_source "$(1)" "$(2)"))
 $(OBJ)/$(CWD)/$(2).d: $(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	@($(NVCC) $(NVCCFLAGS) $$(OPTIONS_$(CWD)/$(1)) -M $$< | awk 'NR == 1 { print "$$(BUILD_$(CWD)/$(1).lo_OBJ)", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } /\/ \\$$$$/ { next; } { files[$$$$1] = 1; print; } END { print("\n"); for (file in files) { printf("%s: \n\n", file); } }') > $$@~
-	mv $$@~ $$@
+	@mv $$@~ $$@
 
 BUILD_$(CWD)/$(1).lo_COMMAND:=$(NVCC) $(NVCCFLAGS) -c -o __OBJECT_FILE_PLACEHOLDER__ $$(OPTIONS_$(CWD)/$(1)) $(SRC)/$(CWD)/$(1) --x cu
 $(if $(trace),$$(warning BUILD_$(CWD)/$(1).lo_COMMAND := $$(BUILD_$(CWD)/$(1).lo_COMMAND)))
@@ -191,8 +194,9 @@ BUILD_$(CWD)/$(1).lo_COMMAND2 := $$(subst __OBJECT_FILE_PLACEHOLDER__,$$(BUILD_$
 
 
 $$(BUILD_$(CWD)/$(1).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(1).lo_COMMAND2),@echo "$(COLOR_CYAN)[CUDA]$(COLOR_RESET) $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(1).lo_COMMAND2)
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(1).lo_COMMAND2),@echo "          $(COLOR_CYAN)[CUDA]$(COLOR_RESET)                      	$(CWD)/$(1)")
+	@/usr/bin/time -v -o $$@.timing $$(BUILD_$(CWD)/$(1).lo_COMMAND2)
+	$$(if $(verbose_build),,@echo "             $(COLOR_GREEN)   $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
 
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
 -include $(OBJ)/$(CWD)/$(1).d
@@ -235,6 +239,7 @@ endef
 $(call set,EXT_FUNCTIONS,.cu.cc,add_cuda_source)
 $(call set,EXT_FUNCTIONS,.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.pb.cc,add_c++_source)
+$(call set,EXT_FUNCTIONS,.pb_text.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.cpp,add_c++_source)
 $(call set,EXT_FUNCTIONS,.c,add_c_source)
 $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
@@ -338,7 +343,7 @@ LINK_$(1)_COMMAND2 := $$(subst $$(sodir)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$
 LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
 
 $$(LIB_$(1)_SO):	$$(dir $$(LIB_$(1)_SO))/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "            $(COLOR_YELLOW)[SO]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "            $(COLOR_YELLOW)[SO]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
 	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND2)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$$(LIB_$(1)_FILENAME)")
 
@@ -368,6 +373,8 @@ endef
 # $(3): name of files to include in the program.  If not included or empty,
 #       $(1).cc assumed
 # $(4): list of targets to add this program to
+# $(5): directory in which the program lives, default $(BIN)
+
 define program
 ifneq ($(PREMAKE),1)
 $$(if $(trace4),$$(warning called program "$(1)" "$(2)" "$(3)"))
@@ -380,24 +387,26 @@ $$(eval $$(call add_sources,$$($(1)_PROGFILES)))
 
 $(1)_OBJFILES:=$$(foreach file,$$($(1)_PROGFILES:%=$(CWD)/%.lo),$$(BUILD_$$(file)_OBJ))
 
+$$(eval bindir := $(if $(5),$(5),$(BIN)))
+
 #$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(BIN)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $$(bindir)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) -Wl,--rpath,$(LIB) $$(CXXEXEPOSTFLAGS)
 
 
-$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
+$$(bindir)/$(1):	$$(bindir)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET)                   	$(1)")
 	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(1)")
 
-$$(foreach target,$(4) programs,$$(eval $$(target): $(BIN)/$(1)))
+$$(foreach target,$(4) programs,$$(eval $$(target): $$(bindir)/$(1)))
 
-$(1): $(BIN)/$(1)
+$(1): $$(bindir)/$(1)
 .PHONY:	$(1)
 
-run_$(1): $(BIN)/$(1)
-	$(PREARGS) $(BIN)/$(1) $($(1)_ARGS) $(ARGS)
+run_$(1): $$(bindir)/$(1)
+	$(PREARGS) $$(bindir)/$(1) $($(1)_ARGS) $(ARGS)
 
 endif
 endef
@@ -420,6 +429,7 @@ BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 # $(2) libraries to link with
 # $(3) test style.  boost = boost test framework, and options: manual, valgrind
 # $(4) testing targets to add it to
+# $(5) source file for test.  Default is $(1).cc
 
 define test
 ifneq ($(PREMAKE),1)
@@ -427,9 +437,11 @@ $$(if $(trace),$$(warning called test "$(1)" "$(2)" "$(3)"))
 
 $$(if $(3),,$$(error test $(1) needs to define a test style))
 
-$$(eval $$(call add_sources,$(1).cc))
+$$(eval _testsrc := $(if $(5),$(5),$(1).cc))
 
-$(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).cc.lo_OBJ)
+$$(eval $$(call add_sources,$$(_testsrc)))
+
+$(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(CXXEXEPOSTFLAGS)
 

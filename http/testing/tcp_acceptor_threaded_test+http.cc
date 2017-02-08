@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* tcp_acceptor_threaded_test+http.cc
    Wolfgang Sourdeau, September 2015
-   Copyright (c) 2015 Datacratic.  All rights reserved.
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
    Unit test for TcpAcceptor and HttpSocketHandler in multi-threaded context.
 */
@@ -17,17 +17,17 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/utils/ring_buffer.h"
 
-#include "mldb/http/asio_thread_pool.h"
-#include "mldb/http/event_loop.h"
-#include "mldb/http/event_loop_impl.h"
+#include "mldb/io/asio_thread_pool.h"
+#include "mldb/io/event_loop.h"
+#include "mldb/io/event_loop_impl.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/http/http_socket_handler.h"
-#include "mldb/http/port_range_service.h"
-#include "mldb/http/tcp_acceptor.h"
+#include "mldb/io/port_range_service.h"
+#include "mldb/io/tcp_acceptor.h"
 
 using namespace std;
 using namespace boost;
-using namespace Datacratic;
+using namespace MLDB;
 
 
 struct MyHandler;

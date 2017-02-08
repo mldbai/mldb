@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* boosting_generator.cc
    Jeremy Barnes, 15 March 2006
@@ -48,15 +48,15 @@ Boosting_Generator::~Boosting_Generator()
 
 void
 Boosting_Generator::
-configure(const Configuration & config)
+configure(const Configuration & config, vector<string> & unparsedKeys)
 {
-    Early_Stopping_Generator::configure(config);
+    Early_Stopping_Generator::configure(config, unparsedKeys);
 
-    config.find(max_iter,             "max_iter");
-    config.find(min_iter,             "min_iter");
-    config.find(cost_function,        "cost_function");
-    config.find(short_circuit_window, "short_circuit_window");
-    config.find(trace_training_acc,   "trace_training_acc");
+    config.findAndRemove(max_iter, "max_iter", unparsedKeys);
+    config.findAndRemove(min_iter, "min_iter", unparsedKeys);
+    config.findAndRemove(cost_function, "cost_function", unparsedKeys);
+    config.findAndRemove(short_circuit_window, "short_circuit_window", unparsedKeys);
+    config.findAndRemove(trace_training_acc, "trace_training_acc", unparsedKeys);
 
     weak_learner = get_trainer("weak_learner", config);
 }

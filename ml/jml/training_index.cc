@@ -1,4 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /* training_index.cc
    Jeremy Barnes, 18 February 2005
@@ -271,7 +271,7 @@ joint(const Feature & target, const Feature & independent,
 
     //if (!getItl()->index.count(target)) {
     //    cerr << "target = " << target << endl;
-    //    throw ML::Exception("Dataset index of %zd features doesn't include target",
+    //    throw MLDB::Exception("Dataset index of %zd features doesn't include target",
     //                        getItl()->index.size());
     //}
 
@@ -290,7 +290,7 @@ joint(const Feature & target, const Feature & independent,
         return Joint_Index(values, buckets, labels, examples, counts, divisors,
                            0, bucket_splits);
         
-        throw ML::Exception("Dataset index of %zd features doesn't include independent",
+        throw MLDB::Exception("Dataset index of %zd features doesn't include independent",
                             getItl()->index.size());
     }
 

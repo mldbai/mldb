@@ -1,7 +1,7 @@
 /* simd_vector.h                                                   -*- C++ -*-
    Jeremy Barnes, 1 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Generic SIMD vectorized loop kernels.
 */
@@ -11,8 +11,7 @@
 #include "simd.h"
 #include "mldb/arch/arch.h"
 
-namespace ML {
-
+namespace MLDB {
 namespace SIMD {
 namespace Generic {
 
@@ -93,14 +92,14 @@ void vec_add(const float * x, float k, const double * y, float * r, size_t n);
 void vec_add_sqr(const float * x, float k, const double * y, float * r, size_t n);
 
 double vec_dotprod_dp(const double * x, const float * y, size_t n);
-JML_ALWAYS_INLINE
+MLDB_ALWAYS_INLINE
 double vec_dotprod_dp(const float * x, const double * y, size_t n)
 {
     return vec_dotprod_dp(y, x, n);
 }
 
 void vec_prod(const double * x, const float * y, double * r, size_t n);
-JML_ALWAYS_INLINE void vec_prod(const float * x, const double * y, double * r, size_t n)
+MLDB_ALWAYS_INLINE void vec_prod(const float * x, const double * y, double * r, size_t n)
 {
     vec_prod(y, x, r, n);
 }
@@ -173,7 +172,7 @@ double vec_euclid(const float * p, const float * q, size_t n);
 
 } // namespace Generic
 
-#if JML_USE_SSE1
+#if MLDB_USE_SSE1
 
 namespace SSE1 {
 } // namespace SSE1
@@ -189,4 +188,4 @@ namespace SSE3 {
 using namespace Generic;
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

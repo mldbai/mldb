@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** sparse_matrix_dataset.cc
     Jeremy Barnes, 9 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
     Implementation of sparseMatrix database.
 */
@@ -20,12 +20,13 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/utils/log.h"
 #include <mutex>
 
 using namespace std;
 
 
-namespace Datacratic {
+
 namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
@@ -51,20 +52,34 @@ BaseEntryDescription()
 /*****************************************************************************/
 
 /** Encoding works as follows:
-    - Values are either stored inline or as a pointer to an external table
-    - Inline values 
+    Values are either stored inline or as a pointer to an external table.
+    Values are stored with a tag describing the encoding type used.
+
+    Inline encoding are used for these cell value types:
+    - EMPTY,
+    - numericals, 
+    - timestamps, 
+    - timeintervals that fit 64-bits and 
+    - short ASCII strings (<= 4 chars).
+
+    An external table is used for:
+    - timeintervals that do not fit 64-bits,
+    - ASCII strings greater than 4 chars,
+    - UTF8 strings,
+    - paths. 
 
     Encoding types
-    - Null
-    - 7 bit nonnegative integer
-
-    - 14 bit nonnegative integer
-
-    - Null is encoded as 0
-    - Zero is encoded as 1
-    - Small positive integers
-    - 
-    - ...
+    -  0: Null
+    -  1: unsigned int
+    -  2: -INF
+    -  3: negative int (as positive int)
+    -  8: float
+    -  9: timestamp
+    - 25, 26: timeinterval
+    - 16-20: small ASCII string
+    - 24: longer ASCII string and UTF8 strings
+    - 30: paths that cannot be interpreted as index
+    - 31: paths that are indices
 */
 
 
@@ -76,7 +91,8 @@ struct SparseMatrixDataset::Itl
     : public MatrixView, public ColumnIndex {
 
     Itl()
-        : epoch(0), timeQuantumSeconds(1.0)
+        : epoch(0), timeQuantumSeconds(1.0),
+          logger(MLDB::getMldbLog<MutableSparseMatrixDataset>())
     {
     }
 
@@ -149,9 +165,18 @@ struct SparseMatrixDataset::Itl
             internalStream->initAt(start);
         }
 
-        virtual RowName next() {
+        virtual RowPath next() {
             uint64_t i = internalStream->next();
-            return source->getRowNameTrans(RowHash(i), *trans);
+            return source->getRowPathTrans(RowHash(i), *trans);
+        }
+        
+        virtual void advance() {
+            internalStream->next();
+        }
+
+        virtual const RowPath & rowName(RowPath & storage) const {
+            uint64_t i = internalStream->current();
+            return storage = source->getRowPathTrans(RowHash(i), *trans);
         }
 
         std::shared_ptr<MatrixReadTransaction::Stream> internalStream;
@@ -173,6 +198,9 @@ struct SparseMatrixDataset::Itl
 
     /// Control the quantization of timestamp (default is quantize to second)
     double timeQuantumSeconds;
+
+
+    shared_ptr<spdlog::logger> logger;
 
     /// Obtain a new read transaction at the current state
     std::shared_ptr<ReadTransaction>
@@ -253,8 +281,8 @@ struct SparseMatrixDataset::Itl
 
     void optimize()
     {
-        //cerr << "optimize() on MutableSparseMatrixDataset" << endl;
-        //ML::Timer timer;
+        DEBUG_MSG(logger) << "optimize() on MutableSparseMatrixDataset";
+        //Timer timer;
 
         std::unique_lock<RootLock> guard(rootLock);
         // We don't increment the epoch since logically it's exactly the same
@@ -353,12 +381,16 @@ struct SparseMatrixDataset::Itl
 
             return CellValue(Utf8String(string(c, c + len)));
         }
-        case 24: {
+        case 24:
+        case 30: {
             CellValue result;
 
             auto onRow = [&] (const BaseEntry & entry)
                 {
-                    result = CellValue(Utf8String(entry.metadata.at(0)));
+                    if (tag == 30) // PATH
+                        result = CellValue(Path::parse(entry.metadata.at(0)));
+                    else // UTF8 strings and long ASCII
+                        result = CellValue(Utf8String(entry.metadata.at(0)));
                     return false;
                 };
             
@@ -367,12 +399,14 @@ struct SparseMatrixDataset::Itl
                                           "hash", val);
             return result;
         }
+        case 31:
+            return CellValue(Path(PathElement(val)));
         default:
             throw HttpReturnException(500, "Unknown value tag", "tag", tag);
         }            
     }
     
-    uint64_t encodeTs(Date val)
+    static uint64_t encodeTs(Date val, double timeQuantumSeconds)
     {
         if (val == Date::negativeInfinity())
             return -1;
@@ -388,7 +422,7 @@ struct SparseMatrixDataset::Itl
         else return seconds + 2;
     }
 
-    std::pair<uint64_t, uint32_t>
+    static std::pair<uint64_t, uint32_t>
     encodeVal(const CellValue & val, WriteTransaction & trans)
     {
         switch (val.cellType()) {
@@ -459,25 +493,47 @@ struct SparseMatrixDataset::Itl
             // fall through for non-inlined version
         }
         case CellValue::UTF8_STRING: {
-            uint32_t strNumChars = val.toStringLength();
-            const unsigned char * strChars = (const unsigned char *)val.stringChars();
             CellValueHash hash = val.hash();
             if (!trans.values->knownRow(hash)) {
                 BaseEntry entry;
                 entry.rowcol = 0;
                 entry.timestamp = 0;
                 entry.val = 0;
+                uint32_t strNumChars = val.toStringLength();
+                const unsigned char * strChars = (const unsigned char *)val.stringChars();
                 entry.metadata.push_back(std::string(strChars, strChars + strNumChars));
                 trans.values->recordRow(hash, &entry, 1);
             }
             return { hash, 24 };
         }
+        case CellValue::PATH: {
+            CellValueHash hash = val.hash();
+            Path path = val.coerceToPath();
+            if (path.isIndex()) {
+                return {path.toIndex(), 31};
+            } 
+            else {
+                if (!trans.values->knownRow(hash)) {
+                    BaseEntry entry;
+                    entry.rowcol = 0;
+                    entry.timestamp = 0;
+                    entry.val = 0;
+
+                    uint32_t strNumChars = val.toStringLength();
+                    const unsigned char * strChars = (const unsigned char *)val.stringChars();
+                    entry.metadata.push_back(std::string(strChars, strChars + strNumChars));
+                    trans.values->recordRow(hash, &entry, 1);
+                }
+            }
+            return {hash, 30 };
+        }
         default:
-            ExcAssert(false);
+            throw HttpReturnException(500,
+                                      "Unmanaged type in Sparse Matrix Dataset encodeVal", val.cellType());
         }
     }
 
-    uint64_t encodeCol(const ColumnName & col, WriteTransaction & trans)
+    static uint64_t encodeCol(const ColumnPath & col, WriteTransaction & trans)
     {
         if (col.empty())
             throw HttpReturnException(400,
@@ -495,27 +551,29 @@ struct SparseMatrixDataset::Itl
         return ch.hash();
     }
 
-    virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    virtual std::vector<RowPath>
+    getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
-        std::vector<RowName> result;
-        auto trans = getReadTransaction();
-        trans->matrix
-            ->iterateRows([&] (uint64_t row)
-                          {
-                              result.emplace_back(getRowNameTrans(RowHash(row),
-                                                                  *trans));
-                              return true;
-                          });
-
-        //Make sure that the result of the above is in a deterministic order
-
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
                                       "start", start);
         if (limit < -1)
             throw HttpReturnException(400, "Invalid limit for row names",
                                       "limit", limit);
+
+        std::vector<RowPath> result;
+        result.reserve(getRowCount());
+
+        auto trans = getReadTransaction();
+        trans->matrix
+            ->iterateRows([&] (uint64_t row)
+                          {
+                              result.emplace_back(getRowPathTrans(RowHash(row),
+                                                                  *trans));
+                              return true;
+                          });
+
+        //Make sure that the result of the above is in a deterministic order
         
         if (start >= result.size()) {
             result.clear();
@@ -530,8 +588,8 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual std::vector<RowHash>
-    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
+    std::vector<RowHash>
+    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
         std::vector<RowHash> result;
         auto trans = getReadTransaction();
@@ -564,17 +622,18 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowPath & rowName) const override
     {
         auto trans = getReadTransaction();
         return trans->matrix->knownRow(RowHash(rowName).hash());
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowPath & rowName) const override
     {
         auto trans = getReadTransaction();
 
         MatrixNamedRow result;
+        result.columns.reserve(16);
         result.rowHash = result.rowName = rowName;
 
         auto onEntry = [&] (const BaseEntry & entry)
@@ -582,7 +641,7 @@ struct SparseMatrixDataset::Itl
                 Date ts = decodeTs(entry.timestamp);
                 ColumnHash col(entry.rowcol);
                 CellValue v = decodeVal(entry.val, entry.tag, *trans);
-                result.columns.emplace_back(getColumnNameTrans(col, *trans), v, ts);
+                result.columns.emplace_back(getColumnPathTrans(col, *trans), v, ts);
                 return true;
             };
 
@@ -591,14 +650,37 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    RowName getRowNameTrans(const RowHash & rowHash,
+    virtual ExpressionValue getRowExpr(const RowPath & rowName) const
+    {
+        auto trans = getReadTransaction();
+
+        RowValue result;
+        result.reserve(16);
+
+        auto onEntry = [&] (const BaseEntry & entry)
+            {
+                Date ts = decodeTs(entry.timestamp);
+                ColumnHash col(entry.rowcol);
+                CellValue v = decodeVal(entry.val, entry.tag, *trans);
+                result.emplace_back(getColumnPathTrans(col, *trans),
+                                    std::move(v), ts);
+                return true;
+            };
+
+        trans->matrix->iterateRow(RowHash(rowName).hash(), onEntry);
+        
+        return std::move(result);
+    }
+
+    RowPath getRowPathTrans(const RowHash & rowHash,
                             ReadTransaction & trans) const
     {
-        RowName result;
+        RowPath result;
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = RowName::parse(entry.metadata.at(0));
+                result = RowPath::parse(entry.metadata.at(0).data(),
+                                        entry.metadata.at(0).length());
                 return false;
             };
             
@@ -607,26 +689,28 @@ struct SparseMatrixDataset::Itl
         return result;
     }
         
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowPath getRowPath(const RowHash & rowHash) const override
     {
         auto trans = getReadTransaction();
-        return getRowNameTrans(rowHash, *trans);
+        return getRowPathTrans(rowHash, *trans);
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnPath & column) const override
     {
         auto trans = getReadTransaction();
         return trans->inverse->knownRow(column.hash());
     }
 
-    virtual ColumnName getColumnNameTrans(ColumnHash column,
-                                          ReadTransaction & trans) const
+    virtual ColumnPath
+    getColumnPathTrans(ColumnHash column,
+                       ReadTransaction & trans) const
     {
-        ColumnName result;
+        ColumnPath result;
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = ColumnName::parse(entry.metadata.at(0));
+                result = ColumnPath::parse(entry.metadata.at(0).data(),
+                                           entry.metadata.at(0).length());
                 return false;  // return false to short circuit
             };
             
@@ -637,21 +721,21 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnPath getColumnPath(ColumnHash column) const override
     {
         auto trans = getReadTransaction();
-        return getColumnNameTrans(column, *trans);
+        return getColumnPathTrans(column, *trans);
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnPath> getColumnPaths() const override
     {
-        std::vector<ColumnName> result;
+        std::vector<ColumnPath> result;
         auto trans = getReadTransaction();
         trans->inverse
             ->iterateRows([&] (uint64_t row)
                           {
-                              result.emplace_back(getColumnNameTrans(ColumnHash(row),
+                              result.emplace_back(getColumnPathTrans(ColumnHash(row),
                                                                      *trans));
                               return true;
                           });
@@ -661,15 +745,35 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const
+    virtual KnownColumn
+    getKnownColumnInfo(const ColumnPath & columnName) const
     {
         // TODO: make sure it's known...
         return { columnName, std::make_shared<AnyValueInfo>(), COLUMN_IS_SPARSE };
     }
 
+    virtual uint64_t getColumnRowCount(const ColumnPath & column) const override
+    {
+        auto trans = getReadTransaction();
+
+        uint64_t result = 0;
+
+        uint64_t lastRow = -1;
+        auto onEntry = [&] (const BaseEntry & entry)
+            {
+                if (entry.rowcol != lastRow)
+                    result += 1;
+                lastRow = entry.rowcol;
+                return true;
+            };
+        
+        trans->inverse->iterateRow(column.hash(), onEntry);
+        return result;
+    }
+
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumnTrans(const ColumnName & column,
-                                        ReadTransaction & trans) const
+    MatrixColumn getColumnTrans(const ColumnPath & column,
+                                ReadTransaction & trans) const
     {
         MatrixColumn result;
         result.columnHash = result.columnName = column;
@@ -679,7 +783,7 @@ struct SparseMatrixDataset::Itl
                 Date ts = decodeTs(entry.timestamp);
                 RowHash row(entry.rowcol);
                 CellValue v = decodeVal(entry.val, entry.tag, trans);
-                result.rows.emplace_back(getRowNameTrans(row, trans), v, ts);
+                result.rows.emplace_back(getRowPathTrans(row, trans), v, ts);
                 return true;
             };
 
@@ -688,16 +792,18 @@ struct SparseMatrixDataset::Itl
     }
 
     /** Return the value of the column for all rows and timestamps. */
-    virtual MatrixColumn getColumn(const ColumnName & column) const
+    virtual MatrixColumn getColumn(const ColumnPath & column) const override
     {
         auto trans = getReadTransaction();
         return getColumnTrans(column, *trans);
     }
     
-    void
-    recordRowTrans(const RowName & rowName,
-                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals,
-                   WriteTransaction & trans)
+    static void
+    recordRowTrans(const RowPath & rowName,
+                   const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals,
+                   WriteTransaction & trans,
+                   double timeQuantumSeconds,
+                   shared_ptr<spdlog::logger> logger)
     {
         if (rowName.empty())
             throw HttpReturnException(400, "Datasets don't accept empty row names");
@@ -718,7 +824,7 @@ struct SparseMatrixDataset::Itl
         std::vector<BaseEntry> entries;
         entries.reserve(vals.size());
         for (auto & v: vals) {
-            uint64_t ts = encodeTs(std::get<2>(v));
+            uint64_t ts = encodeTs(std::get<2>(v), timeQuantumSeconds);
             uint32_t tag;
             uint64_t val;
             std::tie(val, tag) = encodeVal(std::get<1>(v), trans);
@@ -727,7 +833,7 @@ struct SparseMatrixDataset::Itl
             //ExcAssertEqual(decoded, std::get<1>(v));
 
             uint64_t col = encodeCol(std::get<0>(v), trans);
-            //cerr << "col " << std::get<0>(v) << " encoded as " << col << endl;
+            TRACE_MSG(logger) << "col " << std::get<0>(v) << " encoded as " << col;
 
             entries.push_back({col, ts, val, tag, {}});
         }
@@ -736,26 +842,103 @@ struct SparseMatrixDataset::Itl
         trans.inverse->recordCol(hash.hash(), &entries[0], entries.size());
     }
 
+    static void
+    recordRowExprTrans(const RowPath & rowName,
+                       const ExpressionValue & vals,
+                       WriteTransaction & trans,
+                       double timeQuantumSeconds)
+    {
+        if (rowName.empty())
+            throw HttpReturnException(400, "Datasets don't accept empty row names");
+
+        RowHash hash(rowName);
+
+        // Make sure we know the row name
+        if (!trans.values->knownRow(hash.hash())) {
+            BaseEntry entry;
+            entry.rowcol = 0;
+            entry.timestamp = 0;
+            entry.val = 0;
+            entry.metadata.push_back(rowName.toUtf8String().rawData());
+            trans.values->recordRow(hash, &entry, 1);
+        }
+        
+        // Now record the values
+        std::vector<BaseEntry> entries;
+        entries.reserve(vals.rowLength());
+
+        auto onAtom = [&] (const ColumnPath & suffix,
+                           const ColumnPath & prefix,
+                           const CellValue & val,
+                           Date ts)
+            {
+                uint64_t tsi = encodeTs(ts, timeQuantumSeconds);
+                uint32_t tag;
+                uint64_t vali;
+                std::tie(vali, tag) = encodeVal(val, trans);
+                uint64_t col;
+                if (prefix.empty()) {
+                    col = encodeCol(suffix, trans);
+                }
+                else {
+                    col = encodeCol(prefix + suffix, trans);
+                }
+
+                entries.push_back({col, tsi, vali, tag, {}});
+                return true;
+            };
+        
+        vals.forEachAtom(onAtom);
+
+        trans.matrix->recordRow(hash.hash(), &entries[0], entries.size());
+        trans.inverse->recordCol(hash.hash(), &entries[0], entries.size());
+    }
+
     virtual void
-    recordRow(const RowName & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    recordRow(const RowPath & rowName,
+              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
     {
         auto rtrans = getReadTransaction();
         std::shared_ptr<WriteTransaction> trans
             = getWriteTransaction(*rtrans);
-        recordRowTrans(rowName, vals, *trans);
+        recordRowTrans(rowName, vals, *trans, timeQuantumSeconds, logger);
         commitWrites(*trans);
     }
 
     virtual void
-    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+    recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
     {
         auto rtrans = getReadTransaction();
         std::shared_ptr<WriteTransaction> trans
             = getWriteTransaction(*rtrans);
         
         for (auto & r: rows) {
-            recordRowTrans(r.first, r.second, *trans);
+            recordRowTrans(r.first, r.second, *trans, timeQuantumSeconds, logger);
+        }
+
+        commitWrites(*trans);
+    }
+
+    virtual void
+    recordRowExpr(const RowPath & rowName,
+                  const ExpressionValue & vals)
+    {
+        auto rtrans = getReadTransaction();
+        std::shared_ptr<WriteTransaction> trans
+            = getWriteTransaction(*rtrans);
+        recordRowExprTrans(rowName, vals, *trans, timeQuantumSeconds);
+        commitWrites(*trans);
+    }
+
+    virtual void
+    recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
+    {
+        auto rtrans = getReadTransaction();
+        std::shared_ptr<WriteTransaction> trans
+            = getWriteTransaction(*rtrans);
+        
+        for (auto & r: rows) {
+            recordRowExprTrans(r.first, r.second, *trans, timeQuantumSeconds);
         }
 
         commitWrites(*trans);
@@ -766,22 +949,22 @@ struct SparseMatrixDataset::Itl
                   const RestRequest & request,
                   RestRequestParsingContext & context) const
     {
-        return Datacratic::MR_NO;
+        return MR_NO;
     }
 
-    virtual size_t getRowCount() const
+    virtual size_t getRowCount() const override
     {
         auto trans = getReadTransaction();
         return trans->matrix->rowCount();
     }
     
-    virtual size_t getColumnCount() const
+    virtual size_t getColumnCount() const override
     {
         auto trans = getReadTransaction();
         return trans->inverse->rowCount();
     }
 
-    Any getStatus() const
+    virtual Any getStatus() const
     {
         auto trans = getReadTransaction();
         Json::Value result;
@@ -817,8 +1000,8 @@ getStatus() const
 
 void
 SparseMatrixDataset::
-recordRowItl(const RowName & rowName,
-             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+recordRowItl(const RowPath & rowName,
+             const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     validateNames(rowName, vals);
     return itl->recordRow(rowName, vals);
@@ -826,15 +1009,30 @@ recordRowItl(const RowName & rowName,
 
 void
 SparseMatrixDataset::
-recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
     validateNames(rows);
     return itl->recordRows(rows);
 }
 
+void
+SparseMatrixDataset::
+recordRowExpr(const RowPath & rowName,
+              const ExpressionValue & vals)
+{
+    return itl->recordRowExpr(rowName, vals);
+}
+
+void
+SparseMatrixDataset::
+recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
+{
+    return itl->recordRowsExpr(rows);
+}
+
 KnownColumn
 SparseMatrixDataset::
-getKnownColumnInfo(const ColumnName & columnName) const
+getKnownColumnInfo(const ColumnPath & columnName) const
 {
     return itl->getKnownColumnInfo(columnName);
 }
@@ -853,7 +1051,7 @@ Date
 SparseMatrixDataset::
 quantizeTimestamp(Date timestamp) const
 {
-    return itl->decodeTs(itl->encodeTs(timestamp));
+    return itl->decodeTs(itl->encodeTs(timestamp, itl->timeQuantumSeconds));
 }
 
 std::shared_ptr<MatrixView>
@@ -886,6 +1084,12 @@ handleRequest(RestConnection & connection,
     return itl->handleRequest(connection, request, context);
 }
 
+ExpressionValue
+SparseMatrixDataset::
+getRowExpr(const RowPath & rowName) const
+{
+    return itl->getRowExpr(rowName);
+}
 
 enum CommitMode {
     READ_ON_COMMIT,
@@ -900,7 +1104,8 @@ enum CommitMode {
 struct MutableBaseData {
 
     MutableBaseData(CommitMode commitMode)
-        : repr(std::make_shared<Repr>()), commitMode(commitMode)
+        : repr(std::make_shared<Repr>()), commitMode(commitMode),
+          logger(MLDB::getMldbLog<MutableSparseMatrixDataset>())
     {
     }
 
@@ -999,6 +1204,7 @@ struct MutableBaseData {
                 if (e->count(rowNum))
                     return true;
             }
+
             return false;
         }
         
@@ -1113,6 +1319,11 @@ struct MutableBaseData {
                 return value;
             }
 
+            virtual uint64_t current() const
+            {
+                return subIter->first;
+            }
+
             std::vector<std::shared_ptr<const RowsEntry> >::const_iterator entriesIter;
             RowsEntry::const_iterator subIter;
             const MutableBaseData::Rows* source;
@@ -1147,6 +1358,7 @@ struct MutableBaseData {
     atomic_shared_ptr<Repr> repr;
     CommitMode commitMode;
     std::vector<std::shared_ptr<RowsEntry> > nonReadableWrites;
+    shared_ptr<spdlog::logger> logger;
 
     /** Commit and optimize everything that's been written up to here. */
     void optimize()
@@ -1194,7 +1406,7 @@ struct MutableBaseData {
         // Only one balancing at a time
         std::unique_lock<std::mutex> guard(this->mutex);
 
-        ML::Timer timer;
+        Timer timer;
 
         // Get a reference to the data
         auto r = this->repr.load();
@@ -1246,9 +1458,8 @@ struct MutableBaseData {
                               std::make_move_iterator(rowIn.second.end()));
             }
             
-            //cerr << "merging " << current->size() << " and " << rows->size()
-            //     << " yielded " << merged->size() << " with ratio " << ratio
-            //     << endl;
+            DEBUG_MSG(logger) << "merging " << current->size() << " and " << rows->size()
+                 << " yielded " << merged->size() << " with ratio " << ratio;
 
             current = merged;
         }
@@ -1258,11 +1469,6 @@ struct MutableBaseData {
 
         // Put them back in order of size
         std::reverse(newRows.begin(), newRows.end());
-
-        //for (unsigned i = 0;  i < newRows.size();  ++i) {
-        //    cerr << "Rows entry " << i << " has " << newRows[i]->size()
-        //         << endl;
-        //}
 
         auto newRepr = std::make_shared<Repr>(std::move(newRows),
                                               oldRows.cachedRowCount.load());
@@ -1376,7 +1582,8 @@ struct MutableWriteTransaction: public MatrixWriteTransaction {
         data->insert(written);
     }
 
-    virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const
+    virtual std::shared_ptr<MatrixWriteTransaction>
+    startWriteTransaction() const
     {
         return std::make_shared<MutableWriteTransaction>(*this);
     }
@@ -1415,6 +1622,11 @@ struct MutableReadTransaction: public MatrixReadTransaction {
             return innerStream.next();
         }
 
+        virtual uint64_t current() const
+        {
+            return innerStream.current();
+        }
+
         MutableBaseData::Rows::Stream innerStream;
         const MutableReadTransaction* source;
     };
@@ -1448,7 +1660,8 @@ struct MutableReadTransaction: public MatrixReadTransaction {
         return rows.rowCount();
     }
 
-    virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const
+    virtual std::shared_ptr<MatrixWriteTransaction>
+    startWriteTransaction() const
     {
         return std::make_shared<MutableWriteTransaction>(data);
     }
@@ -1580,6 +1793,89 @@ struct MutableSparseMatrixDataset::Itl
              std::make_shared<MutableBaseMatrix>(mode),
              std::make_shared<MutableBaseMatrix>(mode));
     }
+
+    /** This is a recorder that is designed to have each thread record
+        chunks in a deterministic manner.
+    */
+    struct ChunkRecorder: public Recorder {
+        ChunkRecorder(Itl * itl, shared_ptr<spdlog::logger> logger)
+            : itl(itl),
+              readTransaction(itl->getReadTransaction()),
+              trans(*readTransaction),
+              logger(logger)
+        {
+        }
+
+        Itl * itl;
+
+        // Each chunk has its own transaction
+        std::shared_ptr<ReadTransaction> readTransaction;
+        WriteTransaction trans;
+        shared_ptr<spdlog::logger> logger;
+
+        virtual void
+        recordRowExpr(const RowPath & rowName,
+                      const ExpressionValue & expr) override
+        {
+            Itl::recordRowExprTrans(rowName, expr, trans, itl->timeQuantumSeconds);
+        }
+
+        virtual void
+        recordRowExprDestructive(RowPath rowName,
+                                 ExpressionValue expr) override
+        {
+            Itl::recordRowExprTrans(rowName, expr, trans, itl->timeQuantumSeconds);
+        }
+
+        virtual void
+        recordRow(const RowPath & rowName,
+                  const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
+        {
+            Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds, logger);
+        }
+
+        virtual void
+        recordRowDestructive(RowPath rowName,
+                             std::vector<std::tuple<ColumnPath, CellValue, Date> > vals) override
+        {
+            Itl::recordRowTrans(rowName, vals, trans, itl->timeQuantumSeconds, logger);
+        }
+
+        virtual void
+        recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
+        {
+            for (auto & r: rows)
+                recordRow(r.first, r.second);
+        }
+
+        virtual void
+        recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows) override
+        {
+            for (auto & r: rows)
+                recordRowDestructive(std::move(r.first), std::move(r.second));
+        }
+
+        virtual void
+        recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExpr(r.first, r.second);
+            }
+        }
+
+        virtual void
+        recordRowsExprDestructive(std::vector<std::pair<RowPath, ExpressionValue > > rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExprDestructive(std::move(r.first), std::move(r.second));
+            }
+        }
+
+        virtual void finishedChunk() override
+        {
+            itl->commitWrites(trans);
+        }
+    };
 };
 
 /** Live recordable and queryable sparse matrix dataset. */
@@ -1587,12 +1883,29 @@ struct MutableSparseMatrixDataset::Itl
 MutableSparseMatrixDataset::
 MutableSparseMatrixDataset(MldbServer * owner,
                            PolyConfig config,
-                           const std::function<bool (const Json::Value &)> & onProgress)
+                           const ProgressFunc & onProgress)
     : SparseMatrixDataset(owner)
 {
     auto params = config.params.convert<MutableSparseMatrixDatasetConfig>();
     itl.reset(new Itl(params.timeQuantumSeconds, params.consistencyLevel, params.favor));
 }
+
+Dataset::MultiChunkRecorder
+MutableSparseMatrixDataset::
+getChunkRecorder()
+{
+    MultiChunkRecorder result;
+    result.newChunk = [=] (size_t)
+        {
+            return std::unique_ptr<Recorder>(
+                new MutableSparseMatrixDataset::Itl::ChunkRecorder(
+                    static_cast<Itl *>(itl.get()), logger));
+        };
+
+    result.commit = [=] () { this->commit(); };
+    return result;
+}
+
 
 static RegisterDatasetType<MutableSparseMatrixDataset,
                            MutableSparseMatrixDatasetConfig>
@@ -1603,4 +1916,4 @@ regSparseMatrix(builtinPackage(),
 
 
 } // namespace MLDB
-} // namespace Datacratic
+
