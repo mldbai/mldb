@@ -772,6 +772,9 @@ struct ImportTextProcedureWorkInstance
             // is configured.
             auto parseColumnName = [&] (const Utf8String & str) -> ColumnPath
                 {
+                    if (str.empty())
+                        return ColumnPath();
+
                     if (config.structuredColumnNames) {
                         return ColumnPath::parse(str);
                     }

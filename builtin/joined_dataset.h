@@ -72,6 +72,8 @@ struct JoinedDataset: public Dataset {
 
     virtual int getChainedJoinDepth() const;
 
+    virtual ExpressionValue getRowExpr(const RowPath & row) const override;
+
 private:
 
     BoundFunction

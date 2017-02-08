@@ -15,6 +15,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/http/http_exception.h"
 #include <unordered_set>
+#include <mutex>
 
 using namespace std;
 
@@ -33,9 +34,6 @@ SubDatasetConfigDescription::
 SubDatasetConfigDescription()
 {
     nullAccepted = true;
-
-    addField("statement", &SubDatasetConfig::statement,
-             "Select Statement that will result in the table");
 }
 
 
@@ -48,22 +46,24 @@ struct SubDataset::Itl
     : public MatrixView, public ColumnIndex {
 
     std::vector<NamedRowValue> subOutput;
-    std::vector<PathElement> columnNames;
-    std::vector<ColumnPath> fullFlattenedColumnNames;
+    std::set<PathElement> columnNames;
+    std::set<ColumnPath> fullFlattenedColumnNames;
     Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date earliest, latest;
     std::shared_ptr<ExpressionValueInfo> columnInfo;
+    std::mutex recordLock;
 
     Itl(SelectStatement statement, MldbServer* owner, const ProgressFunc & onProgress)
     {
-        SqlExpressionMldbScope mldbContext(owner);
+        if (statement.from) {
+             SqlExpressionMldbScope mldbContext(owner);
 
-        std::vector<NamedRowValue> rows;
-        auto pair = queryFromStatementExpr(statement, mldbContext, nullptr /*params*/, onProgress);
+            auto pair = queryFromStatementExpr(statement, mldbContext, nullptr /*params*/, onProgress);
 
-        columnInfo = std::move(std::get<1>(pair));
+            columnInfo = std::move(std::get<1>(pair));
 
-        init(std::move(std::get<0>(pair)));
+            init(std::move(std::get<0>(pair)));
+        }       
     }
 
     Itl(std::vector<NamedRowValue> rows)
@@ -122,14 +122,111 @@ struct SubDataset::Itl
             }
         }
 
-        // Now do a stable sort of the column names
-        columnNames.insert(columnNames.end(),
-                           columnNameSet.begin(), columnNameSet.end());
-        std::sort(columnNames.begin(), columnNames.end());
+        columnNames.insert(columnNameSet.begin(), columnNameSet.end());
 
-        fullFlattenedColumnNames.insert(fullFlattenedColumnNames.end(),
-                           fullflattenColumnNameSet.begin(), fullflattenColumnNameSet.end());
-        std::sort(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end());
+        fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
+            fullflattenColumnNameSet.end());
+
+    }
+
+    void AddRowInternal(const RowPath & rowName,
+                const ExpressionValue & expr)
+    {
+        NamedRowValue newRow;
+        newRow.columns.reserve(expr.rowLength());
+        auto onSubexpr = [&] (const PathElement & columnName,
+                              const ExpressionValue & val)
+            {
+                newRow.columns.emplace_back(std::move(columnName), val);
+                return true;
+            };
+
+        expr.forEachColumn(onSubexpr);
+        newRow.rowName = rowName;
+        newRow.rowHash = rowName;
+        {
+            std::lock_guard<std::mutex> lock(recordLock);
+            this->subOutput.push_back(std::move(newRow));
+        }
+
+        std::unordered_set<PathElement> columnNameSet;
+        std::unordered_set<ColumnPath> fullflattenColumnNameSet;
+        bool first = earliest == Date::notADate() && latest == Date::notADate();
+
+        const NamedRowValue & row = subOutput.back();
+        ExcAssert(row.rowName != RowPath());
+        {
+            std::lock_guard<std::mutex> lock(recordLock);
+                        
+            if (!rowIndex.insert({row.rowHash, this->subOutput.size() - 1}).second) {
+                throw HttpReturnException
+                    (400, "Duplicate row name in dataset",
+                     "rowName",
+                     row.rowName);
+            }
+        }
+
+        for (auto& c : row.columns)
+        {
+            const PathElement & cName = std::get<0>(c);
+
+            if (std::find(columnNameSet.begin(), columnNameSet.end(), cName) == columnNameSet.end()
+                && std::find(columnNames.begin(), columnNames.end(), cName) == columnNames.end()) {
+                columnNameSet.insert(cName);
+            }
+
+            Date ts = std::get<1>(c).getEffectiveTimestamp();
+            
+            if (ts.isADate()) {
+                if (first) {
+                    earliest = latest = ts;
+                    first = false;
+                }
+                else {
+                    earliest.setMin(ts);
+                    latest.setMax(ts);
+                }
+            }
+
+            auto getName = [&] (const Path & columnName,
+                               const Path & prefix,
+                               const CellValue & val,
+                               Date ts) -> bool
+            {
+                fullflattenColumnNameSet.insert(prefix + columnName);
+                return true;
+            };
+
+            std::get<1>(c).forEachAtom(getName, cName);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(recordLock);
+            columnNames.insert(columnNameSet.begin(), columnNameSet.end());
+            fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
+                fullflattenColumnNameSet.end());
+        }
+        
+    }
+
+    void AddRow(const RowPath & rowName,
+                const ExpressionValue & expr)
+    {
+        AddRowInternal(rowName, expr);
+    }
+
+    void AddRows(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
+    {
+        for (auto& p : rows) {
+            AddRow(p.first, p.second);
+        }
+    }
+
+    void
+    AddRowNonStructured(const RowPath & rowName,
+                        const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
+    {
+        AddRow(rowName, ExpressionValue(vals));
     }
 
     ~Itl() { }
@@ -201,10 +298,22 @@ struct SubDataset::Itl
     {
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end()) {
-            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in sub-table dataset");
+            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
         }
 
         return subOutput[it->second].flatten();
+    }
+
+    ExpressionValue
+    getRowExpr(const RowPath & rowName) const
+    {
+
+        auto it = rowIndex.find(rowName);
+        if (it == rowIndex.end()) {
+            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
+        }
+
+        return subOutput[it->second].columns;
     }
 
     virtual RowPath getRowPath(const RowHash & rowHash) const
@@ -363,7 +472,11 @@ Any
 SubDataset::
 getStatus() const
 {
-    return Any();
+    Json::Value status;
+    status["rowCount"] = itl->subOutput.size();
+    status["columnCount"] = itl->fullFlattenedColumnNames.size();
+
+    return status;
 }
 
 std::pair<Date, Date>
@@ -385,6 +498,38 @@ SubDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+void
+SubDataset::
+recordRowExpr(const RowPath & rowName,
+              const ExpressionValue & expr)
+{
+    ExcAssert(itl);
+    itl->AddRows({{rowName, expr}});
+}
+
+void
+SubDataset::
+recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue> > & rows) {
+     ExcAssert(itl);
+     itl->AddRows(rows);
+}
+
+void
+SubDataset::
+recordRowItl(const RowPath & rowName,
+             const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
+{
+    ExcAssert(itl);
+    itl->AddRowNonStructured(rowName, vals);
+}
+
+ExpressionValue
+SubDataset::
+getRowExpr(const RowPath & row) const
+{
+   return itl->getRowExpr(row);
 }
 
 std::shared_ptr<RowStream> 
@@ -411,7 +556,7 @@ std::vector<ColumnPath>
 SubDataset::
 getFlattenedColumnNames() const
 {
-    return itl->fullFlattenedColumnNames;
+    return std::vector<ColumnPath>(itl->fullFlattenedColumnNames.begin(), itl->fullFlattenedColumnNames.end());
 }
 
 size_t 
@@ -423,9 +568,9 @@ getFlattenedColumnCount() const
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
-       "sub",
-       "Dataset view on the result of a SELECT query",
-       "datasets/SubDataset.md.html",
+       "structured.mutable",
+       "Dataset optimized for structured data",
+       "datasets/StructuredDataset.md.html",
        nullptr,
        {MldbEntity::INTERNAL_ENTITY});
 

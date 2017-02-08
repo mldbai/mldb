@@ -123,6 +123,9 @@ struct JoinedDataset::Itl
     /// Mapping from the table column hash to output column name
     std::unordered_map<ColumnHash, ColumnPath> leftColumns, rightColumns;
 
+    /// Mapping from the table column hash to output column name for structured methods
+    std::unordered_map<uint64_t, PathElement> leftColumnsExpr, rightColumnsExpr;
+
     /// Structure used to implement operations from each table
     TableOperations leftOps, rightOps;
 
@@ -303,6 +306,14 @@ struct JoinedDataset::Itl
 
             columnIndex[newColumnHash] = std::move(entry);
             rightColumns[c] = newColumnName;
+        }
+
+        for (auto & c: leftDataset->getColumnPaths()) {
+            leftColumnsExpr[c[0].hash()] = c[0];
+        }
+
+        for (auto & c: rightDataset->getColumnPaths()) {
+            rightColumnsExpr[c[0].hash()] = c[0];
         }
 
         if (debug) {
@@ -697,6 +708,62 @@ struct JoinedDataset::Itl
 
         doRow(*leftDataset, row.leftName, leftColumns);
         doRow(*rightDataset, row.rightName, rightColumns);
+
+        return result;
+
+    }
+
+    ExpressionValue
+    getRowExpr(const RowPath & rowName) const
+    {
+        StructValue result;
+
+        auto it = rowIndex.find(rowName);
+        if (it == rowIndex.end())
+            return result;
+
+        const RowEntry & row = rows.at(it->second);
+        if (rowName != row.rowName)
+            return result;
+
+        auto doRow = [&] (const Dataset & dataset,
+                      const RowPath & rowName,
+                      const std::unordered_map<uint64_t, PathElement> & mapping,
+                      const Utf8String& childName)
+        {
+            StructValue childresult;
+            ExpressionValue rowValue;
+            if (!rowName.empty())
+                rowValue = dataset.getRowExpr(rowName);
+
+            if (rowValue.empty())
+                return;
+
+
+            auto onColumn = [&] (const PathElement & columnName,
+                                 const ExpressionValue & val)
+            {
+                uint64_t colHash = columnName.hash();
+                auto it = mapping.find(colHash);
+
+                if (it != mapping.end()) {
+
+                    if (childName.empty())
+                        result.emplace_back(columnName, val);
+                    else
+                        childresult.emplace_back(columnName, val);
+                }
+                return true;
+            };
+
+            rowValue.forEachColumn(onColumn);
+
+            if (!childName.empty())
+                result.emplace_back(PathElement(childName), ExpressionValue(childresult));
+        };
+
+        doRow(*leftDataset, row.leftName, leftColumnsExpr, childAliases[JOIN_SIDE_LEFT]);
+        doRow(*rightDataset, row.rightName, rightColumnsExpr, childAliases[JOIN_SIDE_RIGHT]);
 
         return result;
 
@@ -1189,6 +1256,13 @@ JoinedDataset::
 getChainedJoinDepth() const
 {
     return itl->chainedJoinDepth;
+}
+
+ExpressionValue
+JoinedDataset::
+getRowExpr(const RowPath & row) const
+{
+    return itl->getRowExpr(row);
 }
 
 
