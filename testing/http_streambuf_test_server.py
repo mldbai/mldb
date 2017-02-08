@@ -1,14 +1,23 @@
 #!/usr/bin/env python
 """
 Source: https://gist.github.com/bradmontgomery/2219997
-Very simple HTTP server in python.
+Very simple HTTP server in python. POST, DELETE and PUT behave the same way:
+they simply return HTML content with their verb. GET has 2 behaviours.
+1. Calling it with /infinite_redirect will redirect to itself, hence an inifnite
+   redirect.
+2. Calling it with anything else (/<anything else>) will set <anything else> as
+   the response status. It is meant to be used with a valid status code so
+   /200, /404, /500, etc.
+
 Usage::
     ./dummy-web-server.py [<port>]
+
+Tips to use it with curl
 Send a GET request::
     curl http://localhost
 Send a HEAD request::
     curl -I http://localhost
-Send a POST request::
+Send a POST request:
     curl -d "foo=bar&bin=baz" http://localhost
 """
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -21,6 +30,15 @@ class S(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if self.path == '/infinite_redirect':
+            self.send_response(301)
+            self.send_header('Content-type', 'text/html')
+            self.send_header('Location', '/infinite_redirect')
+            self.end_headers()
+            self.wfile.write(
+                "<html><body><h1>To infinity and beyond!</h1></body></html>")
+            return
+
         if len(self.path) > 1:
             status = int(self.path[1:])
         else:

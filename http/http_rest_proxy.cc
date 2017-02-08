@@ -330,6 +330,8 @@ perform(const std::string & verb,
 
         myRequest.add_option(CURLOPT_URL, uri);
 
+        myRequest.add_option(CURLOPT_MAXREDIRS, 20);
+
         if (itl->debug)
             myRequest.add_option(CURLOPT_VERBOSE, 1L);
 
