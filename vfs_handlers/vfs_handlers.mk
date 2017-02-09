@@ -5,6 +5,7 @@ LIBVFS_HANDLERS_SOURCES := \
 	sftp.cc \
 	s3_handlers.cc \
 	archive.cc \
+    gcs_handler.cc \
 	docker.cc
 
 #	hdfs.cc

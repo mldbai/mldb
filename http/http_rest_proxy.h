@@ -39,6 +39,11 @@ struct HttpRestResponse {
         return body_;
     }
 
+    std::string & body()
+    {
+        return body_;
+    }
+
     /** Return the body of the request, parsed as a JSON value.  The encoding
         of body must be UTF-8; currently the content-encoding is not
         parsed and not respected.
