@@ -32,4 +32,23 @@ class Mldb2138(MldbUnitTest):
 
         mldb.log(mldb.query("SELECT * FROM x"))
 
+    def test_import_private_no_access(self):
+
+        csv_conf = {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : 'gcs://mldb-test-data/sample_private.csv',
+                "outputDataset": {
+                    "id": "x2",
+                },
+                "runOnCreation": True,
+                "ignoreBadLines": False
+            }
+        }
+        res = mldb.put("/v1/procedures/csv_proc_2", csv_conf)
+
+        mldb.log(res)
+
+        mldb.log(mldb.query("SELECT * FROM x2"))
+
 mldb.run_tests()

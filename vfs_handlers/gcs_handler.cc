@@ -93,7 +93,14 @@ struct StreamingDownloadSource {
                 //download through HTTP
                 httpstream = std::make_shared<filter_istream>(jsonResp["mediaLink"].asString()/*, { { "mapped", "true" } }*/);
             }
-        }       
+        }
+        else {
+            Json::Value jsonResp = resp.jsonBody();
+            throw MLDB::Exception("http error "
+                                    + to_string(resp.code())
+                                    + " while getting ressource: "
+                                    + jsonResp["error"]["message"].asString());
+        }
     }
 
     static std::pair<std::string, std::string> parseurl(std::string url) {
