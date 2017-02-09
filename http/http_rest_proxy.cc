@@ -330,8 +330,6 @@ perform(const std::string & verb,
 
         myRequest.add_option(CURLOPT_URL, uri);
 
-        myRequest.add_option(CURLOPT_MAXREDIRS, 20);
-
         if (itl->debug)
             myRequest.add_option(CURLOPT_VERBOSE, 1L);
 
@@ -355,6 +353,7 @@ perform(const std::string & verb,
 
         if (followRedirect) {
             myRequest.add_option(CURLOPT_FOLLOWLOCATION, 1L);
+            myRequest.add_option(CURLOPT_MAXREDIRS, 20);
         }
 
         CurlWrapper::Easy::CurlCallback onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
