@@ -1,0 +1,122 @@
+AZURE_STORAGE_CPP_SOURCE := \
+./Microsoft.WindowsAzure.Storage/src/shared_access_signature.cpp \
+./Microsoft.WindowsAzure.Storage/src/request_factory.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_blob_client.cpp \
+./Microsoft.WindowsAzure.Storage/src/util.cpp \
+./Microsoft.WindowsAzure.Storage/src/resources.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_storage_account.cpp \
+./Microsoft.WindowsAzure.Storage/src/logging.cpp \
+./Microsoft.WindowsAzure.Storage/src/file_response_parsers.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_blob_istreambuf.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_page_blob.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_file_share.cpp \
+./Microsoft.WindowsAzure.Storage/src/xmlhelpers.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_queue_message.cpp \
+./Microsoft.WindowsAzure.Storage/src/operation_context.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_table.cpp \
+./Microsoft.WindowsAzure.Storage/src/async_semaphore.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_block_blob.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_file.cpp \
+./Microsoft.WindowsAzure.Storage/src/protocol_json.cpp \
+./Microsoft.WindowsAzure.Storage/src/response_parsers.cpp \
+./Microsoft.WindowsAzure.Storage/src/authentication.cpp \
+./Microsoft.WindowsAzure.Storage/src/streams.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_append_blob.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_queue.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_blob_ostreambuf.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_common.cpp \
+./Microsoft.WindowsAzure.Storage/src/blob_request_factory.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_queue_client.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_blob_shared.cpp \
+./Microsoft.WindowsAzure.Storage/src/table_query.cpp \
+./Microsoft.WindowsAzure.Storage/src/constants.cpp \
+./Microsoft.WindowsAzure.Storage/src/mime_multipart_helper.cpp \
+./Microsoft.WindowsAzure.Storage/src/file_request_factory.cpp \
+./Microsoft.WindowsAzure.Storage/src/hashing.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_file_directory.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_blob.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_core.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_client.cpp \
+./Microsoft.WindowsAzure.Storage/src/protocol_xml.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_file_client.cpp \
+./Microsoft.WindowsAzure.Storage/src/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_blob_directory.cpp \
+./Microsoft.WindowsAzure.Storage/src/blob_response_parsers.cpp \
+./Microsoft.WindowsAzure.Storage/src/navigation.cpp \
+./Microsoft.WindowsAzure.Storage/src/queue_request_factory.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_blob_container.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_file_ostreambuf.cpp \
+./Microsoft.WindowsAzure.Storage/src/retry_policies.cpp \
+./Microsoft.WindowsAzure.Storage/src/cloud_table_client.cpp \
+./Microsoft.WindowsAzure.Storage/src/table_request_factory.cpp \
+./Microsoft.WindowsAzure.Storage/src/table_response_parsers.cpp \
+./Microsoft.WindowsAzure.Storage/src/request_result.cpp \
+./Microsoft.WindowsAzure.Storage/src/basic_types.cpp \
+./Microsoft.WindowsAzure.Storage/src/entity_property.cpp \
+
+#./Microsoft.WindowsAzure.Storage/samples/BlobsGettingStarted/Application.cpp \
+./Microsoft.WindowsAzure.Storage/samples/BlobsGettingStarted/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/samples/FilesGettingStarted/Application.cpp \
+./Microsoft.WindowsAzure.Storage/samples/FilesGettingStarted/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/samples/TablesGettingStarted/Application.cpp \
+./Microsoft.WindowsAzure.Storage/samples/TablesGettingStarted/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/samples/Channel9GoingNativeDemo2/NativeClientLibraryDemo2.cpp \
+./Microsoft.WindowsAzure.Storage/samples/Channel9GoingNativeDemo2/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/samples/Channel9GoingNativeDemo1/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/samples/Channel9GoingNativeDemo1/NativeClientLibraryDemo1.cpp \
+./Microsoft.WindowsAzure.Storage/samples/JsonPayloadFormat/Application.cpp \
+./Microsoft.WindowsAzure.Storage/samples/JsonPayloadFormat/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/samples/SamplesCommon/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/samples/QueuesGettingStarted/Application.cpp \
+./Microsoft.WindowsAzure.Storage/samples/QueuesGettingStarted/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_blob_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/storage_exception_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_page_blob_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/retry_policy_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/file_test_base.cpp \
+./Microsoft.WindowsAzure.Storage/tests/test_base.cpp \
+./Microsoft.WindowsAzure.Storage/tests/blob_lease_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/unicode_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_append_blob_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/main.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_table_client_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/executor_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_file_share_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_file_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_queue_client_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/blob_streams_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_file_client_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_blob_client_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/read_from_secondary_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_storage_account_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/queue_test_base.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_table_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/table_test_base.cpp \
+./Microsoft.WindowsAzure.Storage/tests/blob_test_base.cpp \
+./Microsoft.WindowsAzure.Storage/tests/result_iterator_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/stdafx.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_blob_directory_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_blob_container_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/service_properties_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_block_blob_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_file_directory_test.cpp \
+./Microsoft.WindowsAzure.Storage/tests/cloud_queue_test.cpp
+
+AZURE_STORAGE_CPP_FLAGS := \
+    -Imldb/ext/casablanca/Release/include \
+    -Imldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes \
+    -I/usr/include/libxml++-2.6 \
+    -I/usr/include/glibmm-2.4 \
+    -I/usr/lib/x86_64-linux-gnu/glibmm-2.4/include \
+    -I/usr/include/glib-2.0 \
+    -I/usr/lib/x86_64-linux-gnu/glib-2.0/include \
+    -I/usr/lib/libxml++-2.6/include \
+    -Wno-overloaded-virtual \
+    -Wno-unused-value \
+    -Wno-switch \
+    -Wno-reorder \
+    -Wno-return-type \
+
+
+$(eval $(call set_compile_option,$(AZURE_STORAGE_CPP_SOURCE),$(AZURE_STORAGE_CPP_FLAGS)))
+$(eval $(call library,azure_storage_cpp,$(AZURE_STORAGE_CPP_SOURCE),casablanca))
