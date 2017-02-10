@@ -89,9 +89,6 @@ CASABLANCA_SOURCE := \
 # ./Release/src/http/listener/http_server_httpsys.cpp \
 
 #./Release/src/pplx/pplxapple.cpp \
-./Release/src/pplx/pplxlinux.cpp \
-./Release/src/pplx/pplx.cpp \
-./Release/src/pplx/threadpool.cpp \
 
 #./Release/src/pplx/pplxwin.cpp \
 ./Release/src/http/client/http_client_winhttp.cpp \
@@ -198,45 +195,8 @@ CASABLANCA_SOURCE := \
 ./Release/tests/functional/json/negative_parsing_tests.cpp \
 ./Release/tests/common/utilities/os_utilities.cpp \
 ./Release/tests/common/utilities/stdafx.cpp \
-./Release/tests/common/UnitTestpp/src/TestDetails.cpp \
-./Release/tests/common/UnitTestpp/src/TestList.cpp \
-./Release/tests/common/UnitTestpp/src/TestResults.cpp \
-./Release/tests/common/UnitTestpp/src/GlobalSettings.cpp \
-./Release/tests/common/UnitTestpp/src/CompositeTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/Win32/TimeHelpers.cpp \
-./Release/tests/common/UnitTestpp/src/DeferredTestResult.cpp \
-./Release/tests/common/UnitTestpp/src/TestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/Test.cpp \
-./Release/tests/common/UnitTestpp/src/TestReporterStdout.cpp \
-./Release/tests/common/UnitTestpp/src/DeferredTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestXmlTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestDeferredTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestUnitTestPP.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestTestList.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestCurrentTest.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestCheckMacros.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestTestMacros.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestTest.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestCompositeTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestChecks.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestTestResults.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestMemoryOutStream.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestTestSuite.cpp \
-./Release/tests/common/UnitTestpp/src/tests/stdafx.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestAssertHandler.cpp \
-./Release/tests/common/UnitTestpp/src/tests/TestTestRunner.cpp \
-./Release/tests/common/UnitTestpp/src/Posix/TimeHelpers.cpp \
-./Release/tests/common/UnitTestpp/src/Posix/SignalTranslator.cpp \
-./Release/tests/common/UnitTestpp/src/stdafx.cpp \
-./Release/tests/common/UnitTestpp/src/XmlTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/CurrentTest.cpp \
-./Release/tests/common/UnitTestpp/src/ReportAssert.cpp \
-./Release/tests/common/UnitTestpp/src/AssertException.cpp \
-./Release/tests/common/UnitTestpp/src/MemoryOutStream.cpp \
-./Release/tests/common/UnitTestpp/src/TestRunner.cpp \
 ./Release/tests/common/TestRunner/test_runner.cpp \
 ./Release/tests/common/TestRunner/vs14.android/TestRunner.android.NativeActivity/main.cpp \
-./Release/tests/common/TestRunner/test_module_loader.cpp
 
 #./Release/samples/FacebookDemo/MainPage.xaml.cpp \
 ./Release/samples/FacebookDemo/Facebook.cpp \
@@ -270,10 +230,109 @@ CASABLANCA_SOURCE := \
 ./Release/samples/BlackJack/BlackJack_Client/stdafx.cpp \
 
 CASABLANCA_FLAGS := \
+    -D_DEBUG \
     -Imldb/ext/casablanca/Release/src/pch \
     -Imldb/ext/casablanca/Release/include \
     -Imldb/ext/casablanca/Release/libs \
-    -Wno-overloaded-virtual
+    -Wno-overloaded-virtual \
 
 $(eval $(call set_compile_option,$(CASABLANCA_SOURCE),$(CASABLANCA_FLAGS)))
-$(eval $(call library,casablanca,$(CASABLANCA_SOURCE)))
+$(eval $(call library,casablanca,$(CASABLANCA_SOURCE),ssl))
+
+PPLX_SOURCE := \
+./Release/src/pplx/pplxlinux.cpp \
+./Release/src/pplx/pplx.cpp \
+./Release/src/pplx/threadpool.cpp \
+
+PPLX_FLAGS := \
+    -D_DEBUG \
+    -Imldb/ext/casablanca/Release/src/pch \
+    -Imldb/ext/casablanca/Release/include \
+    -Imldb/ext/casablanca/Release/libs \
+    -Wno-overloaded-virtual \
+
+
+$(eval $(call set_compile_option,$(PPLX_SOURCE),$(PPLX_FLAGS)))
+$(eval $(call library,pplx,$(PPLX_SOURCE)))
+
+CASABLANCA_UNITTESTPP_SOURCE := \
+./Release/tests/common/UnitTestpp/src/TestDetails.cpp \
+./Release/tests/common/UnitTestpp/src/TestList.cpp \
+./Release/tests/common/UnitTestpp/src/TestResults.cpp \
+./Release/tests/common/UnitTestpp/src/GlobalSettings.cpp \
+./Release/tests/common/UnitTestpp/src/CompositeTestReporter.cpp \
+./Release/tests/common/UnitTestpp/src/DeferredTestResult.cpp \
+./Release/tests/common/UnitTestpp/src/TestReporter.cpp \
+./Release/tests/common/UnitTestpp/src/Test.cpp \
+./Release/tests/common/UnitTestpp/src/TestReporterStdout.cpp \
+./Release/tests/common/UnitTestpp/src/DeferredTestReporter.cpp \
+./Release/tests/common/UnitTestpp/src/Posix/TimeHelpers.cpp \
+./Release/tests/common/UnitTestpp/src/Posix/SignalTranslator.cpp \
+./Release/tests/common/UnitTestpp/src/stdafx.cpp \
+./Release/tests/common/UnitTestpp/src/XmlTestReporter.cpp \
+./Release/tests/common/UnitTestpp/src/CurrentTest.cpp \
+./Release/tests/common/UnitTestpp/src/ReportAssert.cpp \
+./Release/tests/common/UnitTestpp/src/AssertException.cpp \
+./Release/tests/common/UnitTestpp/src/MemoryOutStream.cpp \
+./Release/tests/common/UnitTestpp/src/TestRunner.cpp \
+#./Release/tests/common/UnitTestpp/src/Win32/TimeHelpers.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestXmlTestReporter.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestDeferredTestReporter.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestUnitTestPP.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestTestList.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestCurrentTest.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestCheckMacros.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestTestMacros.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestTest.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestCompositeTestReporter.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestChecks.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestTestResults.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestMemoryOutStream.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestTestSuite.cpp \
+./Release/tests/common/UnitTestpp/src/tests/stdafx.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestAssertHandler.cpp \
+./Release/tests/common/UnitTestpp/src/tests/TestTestRunner.cpp \
+
+CASABLANCA_UNITTESTPP_FLAGS := \
+    -D_DEBUG \
+    -Imldb/ext/casablanca/Release/src/pch \
+    -Imldb/ext/casablanca/Release/include \
+    -Imldb/ext/casablanca/Release/libs \
+    -Wno-overloaded-virtual \
+
+$(eval $(call set_compile_option,$(CASABLANCA_UNITTESTPP_SOURCE),$(CASABLANCA_UNITTESTPP_FLAGS)))
+$(eval $(call library,unittestpp,$(CASABLANCA_UNITTESTPP_SOURCE)))
+
+# $(1) name of the test
+# $(2) libraries to link with
+# $(3) test style.  boost = boost test framework, and options: manual, valgrind
+# $(4) testing targets to add it to
+# $(5) source file for test.  Default is $(1).cc
+
+CASABLANCA_TEST_FLAGS := \
+    $(CASABLANCA_FLAGS) \
+    -Imldb/ext/casablanca/Release/tests/common/UnitTestpp \
+    -llibunittest++-dev \
+    -lssl \
+    -lopenssl \
+    
+
+
+$(eval $(call set_compile_option,Release/tests/functional/uri/encoding_tests.cpp,$(CASABLANCA_TEST_FLAGS)))
+$(eval $(call library,encoding_test,Release/tests/functional/uri/encoding_tests.cpp,casablanca pplx unittestpp))
+
+TEST_RUNNER_SOURCE := \
+./Release/tests/common/TestRunner/test_runner.cpp \
+./Release/tests/common/TestRunner/test_module_loader.cpp \
+
+TEST_RUNNER_FLAGS := \
+    -D_DEBUG \
+    -Imldb/ext/casablanca/Release/src/pch \
+    -Imldb/ext/casablanca/Release/include \
+    -Imldb/ext/casablanca/Release/libs \
+    -Imldb/ext/casablanca/Release/tests/common/UnitTestpp \
+    -Wno-overloaded-virtual \
+    -Wno-reorder \
+
+$(eval $(call set_compile_option,$(TEST_RUNNER_SOURCE),$(TEST_RUNNER_FLAGS)))
+$(eval $(call program,test_runner,boost_filesystem unittestpp,$(TEST_RUNNER_SOURCE)))
