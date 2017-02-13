@@ -80,8 +80,8 @@ function createAndTrainProcedure(config, name)
 var config = {
     type: 'import.word2vec',
     params: {
-        dataFileUrl: 'file:///home/jeremy/GoogleNews-vectors-negative300.bin',
-        output: {
+        dataFileUrl: 'file:///home/jeremy/GoogleNews-vectors-negative300.bin.gz',
+        outputDataset: {
             type: 'embedding',
             id: 'w2v'
         },
@@ -91,29 +91,121 @@ var config = {
 
 createAndTrainProcedure(config, "w2v");
 
-var res3 = mldb.get("/v1/datasets/w2v/routes/rowNeighbours", {row: "France"}).json;
+var sql_func_res = mldb.put("/v1/functions/nn", {
+    type: 'embedding.neighbors',
+    params: {
+        'dataset': {id: 'w2v', type: "embedding"}
+    }
+});
 
-mldb.log(res3);
+var res3 = mldb.get('/v1/query', {q: "select nn({numNeighbors : 10, coords: 'France'})[distances] as *", format: 'table'}).json;
+
+mldb.log(res3[0]);
 
 var expected = [
-   [ "France", "831e552f87fd6717", 0 ],
-   [ "Belgium", "c62d860abed63cdd", 2.110022783279419 ],
-   [ "French", "4a917df790d78d44", 2.111140489578247 ],
-   [ "Germany", "23b23b4204547855", 2.321765184402466 ],
-   [ "Paris", "30acad9c6b45cf9c", 2.366143226623535 ],
-   [ "Spain", "e044f19832a6ddc9", 2.4046993255615234 ],
-   [ "Italy", "01c2c9320702ac05", 2.4250826835632324 ],
-   [ "Europe", "3d4c11e2fb4a8ed6", 2.558151960372925 ],
-   [ "Morocco", "3f5fa5676bb7fb61", 2.567964553833008 ],
-   [ "Switzerland", "e782a5ae091644c9", 2.5763208866119385 ]
+   "_rowName",
+   "Belgium",
+   "Europe",
+   "France",
+   "French",
+   "Germany",
+   "Italy",
+   "Morocco",
+   "Paris",
+   "Spain",
+   "Switzerland"
 ];
 
-assertEqual(res3, expected);
+assertEqual(res3[0], expected);
 
 // MLDB-1020 check that we can record both 'null' and '0' which hash
 // to the same value.
 var res4 = mldb.get("/v1/query", { q: "select * from w2v where rowName() = '0' or rowName() = 'null'", format: 'table'}).json;
 
 mldb.log(res4);
+
+// MLDB-2144 test the "named" parameter
+
+var config_2 = {
+    type: 'import.word2vec',
+    params: {
+        dataFileUrl: 'file:///home/jeremy/GoogleNews-vectors-negative300.bin.gz',
+        named: "'banane_'+ word",
+        outputDataset: {
+            type: 'embedding',
+            id: 'w2v_2'
+        },
+        limit: 10
+    }
+};
+
+createAndTrainProcedure(config_2, "w2v_2");
+
+var res5 = mldb.query("SELECT rowName() FROM w2v_2");
+
+expected = [
+   {
+      "columns" : [
+         [ "rowName()", "banane_</s>", "-Inf" ]
+      ],
+      "rowName" : "banane_</s>"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_in", "-Inf" ]
+      ],
+      "rowName" : "banane_in"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_for", "-Inf" ]
+      ],
+      "rowName" : "banane_for"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_that", "-Inf" ]
+      ],
+      "rowName" : "banane_that"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_is", "-Inf" ]
+      ],
+      "rowName" : "banane_is"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_on", "-Inf" ]
+      ],
+      "rowName" : "banane_on"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_##", "-Inf" ]
+      ],
+      "rowName" : "banane_##"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_The", "-Inf" ]
+      ],
+      "rowName" : "banane_The"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_with", "-Inf" ]
+      ],
+      "rowName" : "banane_with"
+   },
+   {
+      "columns" : [
+         [ "rowName()", "banane_said", "-Inf" ]
+      ],
+      "rowName" : "banane_said"
+   }
+]
+
+assertEqual(res5, expected);
 
 "success"
