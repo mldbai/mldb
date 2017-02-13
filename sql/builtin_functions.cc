@@ -969,6 +969,52 @@ BoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
 
+BoundFunction remove_prefix(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 2);
+
+    return {[] (const std::vector<ExpressionValue> & args,
+                const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 2);
+                if (!args[0].isString() || !args[1].isString()) {
+                     throw MLDB::Exception("The arguments passed to remove_prefix must be two strings");
+                }
+                else {
+                    Utf8String text = args[0].toUtf8String();
+                    text.removePrefix(args[1].toUtf8String());
+                    return ExpressionValue(std::move(text),
+                                           args[0].getEffectiveTimestamp());
+                }
+            },
+            std::make_shared<Utf8StringValueInfo>()};
+}
+
+static RegisterBuiltin registerRemovePrefix(remove_prefix, "remove_prefix");
+
+BoundFunction remove_suffix(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 2);
+
+    return {[] (const std::vector<ExpressionValue> & args,
+                const SqlRowScope & scope) -> ExpressionValue
+            {
+                checkArgsSize(args.size(), 2);
+                if (!args[0].isString() || !args[1].isString()) {
+                     throw MLDB::Exception("The arguments passed to remove_suffix must be two strings");
+                }
+                else {
+                    Utf8String text = args[0].toUtf8String();
+                    text.removeSuffix(args[1].toUtf8String());
+                    return ExpressionValue(std::move(text),
+                                           args[0].getEffectiveTimestamp());
+                }
+            },
+            std::make_shared<Utf8StringValueInfo>()};
+}
+
+static RegisterBuiltin registerRemoveSuffix(remove_suffix, "remove_suffix");
+
 BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 {
     // regex_replace(string, regex, replacement)
