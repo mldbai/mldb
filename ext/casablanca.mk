@@ -303,11 +303,18 @@ CASABLANCA_UNITTESTPP_FLAGS := \
 $(eval $(call set_compile_option,$(CASABLANCA_UNITTESTPP_SOURCE),$(CASABLANCA_UNITTESTPP_FLAGS)))
 $(eval $(call library,unittestpp,$(CASABLANCA_UNITTESTPP_SOURCE)))
 
-# $(1) name of the test
-# $(2) libraries to link with
-# $(3) test style.  boost = boost test framework, and options: manual, valgrind
-# $(4) testing targets to add it to
-# $(5) source file for test.  Default is $(1).cc
+
+# $(1) filepath
+define casablanca_test
+ifneq ($(PREMAKE),1)
+$(TESTS)/casablanca/$(1).passed: $(BIN)/test_runner $(TESTS)/casablanca/$(1).so
+	@(cd $(TESTS)/casablanca && ../../bin/test_runner $(1).so > $(1).log 2>&1 && cd $(PWD) && touch $$@ && echo "                       $(COLOR_GREEN)casablanca $(1) passed$(COLOR_RESET)") || (echo "                       $(COLOR_RED)casablanca $(1) FAILED$(COLOR_RESET)" && exit 1)
+
+autotest: $(TESTS)/casablanca/$(1).passed
+endif
+endef
+
+#$(eval $(call casablanca_test,encoding_tests))
 
 CASABLANCA_TEST_FLAGS := \
     $(CASABLANCA_FLAGS) \
@@ -318,8 +325,24 @@ CASABLANCA_TEST_FLAGS := \
     
 
 
-$(eval $(call set_compile_option,Release/tests/functional/uri/encoding_tests.cpp,$(CASABLANCA_TEST_FLAGS)))
-$(eval $(call library,encoding_test,Release/tests/functional/uri/encoding_tests.cpp,casablanca pplx unittestpp))
+
+CASABLANCA_TEST_FILES := \
+    splitting_tests.cpp \
+    encoding_tests.cpp \
+    accessor_tests.cpp \
+
+
+$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call set_compile_option,Release/tests/functional/uri/$(file),$(CASABLANCA_TEST_FLAGS))))
+$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call library,$(basename $(file)),Release/tests/functional/uri/$(file),casablanca pplx unittestpp,$(basename $(file)),,,$(TESTS)/casablanca)))
+$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call casablanca_test,$(basename $(file)))))
+
+ifneq ($(PREMAKE),1)
+fmlh: $(BIN)/test_runner $(TESTS)/casablanca/encoding_tests.so
+	cd $(TESTS)/casablanca; ../../bin/test_runner encoding_tests.so; echo $(TESTS)/fmlh;
+	touch fmlh
+
+autotest: fmlh
+endif
 
 TEST_RUNNER_SOURCE := \
 ./Release/tests/common/TestRunner/test_runner.cpp \
