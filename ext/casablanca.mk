@@ -1,7 +1,7 @@
 #
 # casablanca.mk
 # Mich, 2017-01-13
-# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+# This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 # Builds casablanca, testrunner and some of casablanca tests. Files commented
 # out are not built.

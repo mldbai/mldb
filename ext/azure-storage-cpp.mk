@@ -1,60 +1,12 @@
-AZURE_STORAGE_CPP_SOURCE := \
-./Microsoft.WindowsAzure.Storage/src/shared_access_signature.cpp \
-./Microsoft.WindowsAzure.Storage/src/request_factory.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_blob_client.cpp \
-./Microsoft.WindowsAzure.Storage/src/util.cpp \
-./Microsoft.WindowsAzure.Storage/src/resources.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_storage_account.cpp \
-./Microsoft.WindowsAzure.Storage/src/logging.cpp \
-./Microsoft.WindowsAzure.Storage/src/file_response_parsers.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_blob_istreambuf.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_page_blob.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_file_share.cpp \
-./Microsoft.WindowsAzure.Storage/src/xmlhelpers.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_queue_message.cpp \
-./Microsoft.WindowsAzure.Storage/src/operation_context.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_table.cpp \
-./Microsoft.WindowsAzure.Storage/src/async_semaphore.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_block_blob.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_file.cpp \
-./Microsoft.WindowsAzure.Storage/src/protocol_json.cpp \
-./Microsoft.WindowsAzure.Storage/src/response_parsers.cpp \
-./Microsoft.WindowsAzure.Storage/src/authentication.cpp \
-./Microsoft.WindowsAzure.Storage/src/streams.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_append_blob.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_queue.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_blob_ostreambuf.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_common.cpp \
-./Microsoft.WindowsAzure.Storage/src/blob_request_factory.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_queue_client.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_blob_shared.cpp \
-./Microsoft.WindowsAzure.Storage/src/table_query.cpp \
-./Microsoft.WindowsAzure.Storage/src/constants.cpp \
-./Microsoft.WindowsAzure.Storage/src/mime_multipart_helper.cpp \
-./Microsoft.WindowsAzure.Storage/src/file_request_factory.cpp \
-./Microsoft.WindowsAzure.Storage/src/hashing.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_file_directory.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_blob.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_core.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_client.cpp \
-./Microsoft.WindowsAzure.Storage/src/protocol_xml.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_file_client.cpp \
-./Microsoft.WindowsAzure.Storage/src/stdafx.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_blob_directory.cpp \
-./Microsoft.WindowsAzure.Storage/src/blob_response_parsers.cpp \
-./Microsoft.WindowsAzure.Storage/src/navigation.cpp \
-./Microsoft.WindowsAzure.Storage/src/queue_request_factory.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_blob_container.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_file_ostreambuf.cpp \
-./Microsoft.WindowsAzure.Storage/src/retry_policies.cpp \
-./Microsoft.WindowsAzure.Storage/src/cloud_table_client.cpp \
-./Microsoft.WindowsAzure.Storage/src/table_request_factory.cpp \
-./Microsoft.WindowsAzure.Storage/src/table_response_parsers.cpp \
-./Microsoft.WindowsAzure.Storage/src/request_result.cpp \
-./Microsoft.WindowsAzure.Storage/src/basic_types.cpp \
-./Microsoft.WindowsAzure.Storage/src/entity_property.cpp \
-
-#./Microsoft.WindowsAzure.Storage/samples/BlobsGettingStarted/Application.cpp \
+#
+# azure-storage-cpp.mk
+# Mich, 2017-01-13
+# This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
+#
+# Builds azure-storage-cpp lib. Files commented out are not built.
+#
+AZURE_STORAGE_CPP_SOURCE := $(shell cd mldb/ext/azure-storage-cpp && ls Microsoft.WindowsAzure.Storage/src/*.cpp)
+#AZURE_STORAGE_CPP_SOURCE := #./Microsoft.WindowsAzure.Storage/samples/BlobsGettingStarted/Application.cpp \
 ./Microsoft.WindowsAzure.Storage/samples/BlobsGettingStarted/stdafx.cpp \
 ./Microsoft.WindowsAzure.Storage/samples/FilesGettingStarted/Application.cpp \
 ./Microsoft.WindowsAzure.Storage/samples/FilesGettingStarted/stdafx.cpp \
