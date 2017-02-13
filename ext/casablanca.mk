@@ -316,32 +316,54 @@ endef
 
 #$(eval $(call casablanca_test,encoding_tests))
 
+
+ifneq ($(PREMAKE),1)
+# some depend on windows, on unknown header, or have non unique filenames,
+# which causes problems with jml-build
+CASABLANCA_TEST_FILES_FILTER_OUT := \
+    %/stdafx.cpp \
+    %/header_test1.cpp \
+    %/header_test2.cpp \
+    %/version.cpp \
+    %/winrt_interop_tests.cpp \
+    %/CppSparseFile.cpp \
+    $(addprefix %/,$(shell cd mldb/ext/casablanca/Release/tests/functional && find . -name "*.cpp" | rev | cut -d / -f 1 | rev | sort | uniq -d)) \
+
+CASABLANCA_TEST_FILES := $(patsubst ./%,functional/%,$(filter-out $(CASABLANCA_TEST_FILES_FILTER_OUT),$(shell cd mldb/ext/casablanca/Release/tests/functional && find . -name "*.cpp")))
+
 CASABLANCA_TEST_FLAGS := \
     $(CASABLANCA_FLAGS) \
     -Imldb/ext/casablanca/Release/tests/common/UnitTestpp \
+    -Imldb/ext/casablanca/Release/tests/common/utilities/include \
+    -Imldb/ext/casablanca/Release/tests/functional/http/utilities/include \
+    -Imldb/ext/casablanca/Release/include/cpprest \
+    -Imldb/ext/casablanca/Release/tests/functional/websockets/utilities \
+    -Imldb/ext/casablanca/Release/libs/websocketpp \
     -llibunittest++-dev \
     -lssl \
     -lopenssl \
-    
+    -Wno-delete-non-virtual-dtor \
 
-
-
-CASABLANCA_TEST_FILES := \
-    splitting_tests.cpp \
-    encoding_tests.cpp \
-    accessor_tests.cpp \
-
-
-$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call set_compile_option,Release/tests/functional/uri/$(file),$(CASABLANCA_TEST_FLAGS))))
-$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call library,$(basename $(file)),Release/tests/functional/uri/$(file),casablanca pplx unittestpp,$(basename $(file)),,,$(TESTS)/casablanca)))
+$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call set_compile_option,Release/tests/$(file),$(CASABLANCA_TEST_FLAGS))))
+$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call library,$(basename $(notdir $(file))),Release/tests/$(file),casablanca pplx unittestpp,$(basename $(notdir $(file))),,,$(TESTS)/casablanca/$(patsubst %/,%,$(dir $(file))))))
 $(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call casablanca_test,$(basename $(file)))))
 
-ifneq ($(PREMAKE),1)
-fmlh: $(BIN)/test_runner $(TESTS)/casablanca/encoding_tests.so
-	cd $(TESTS)/casablanca; ../../bin/test_runner encoding_tests.so; echo $(TESTS)/fmlh;
-	touch fmlh
+finch:
+	echo $(addprefix %/,$(shell cd mldb/ext/casablanca/Release/tests/functional && find . -name "*.cpp" | rev | cut -d / -f 1 | rev | sort | uniq -d))
 
-autotest: fmlh
+#CASABLANCA_HTTP_CLIENT_TEST_FILES := $(shell cd mldb/ext/casablanca && ls Release/tests/functional/http/client/*.cpp)
+#CASABLANCA_URI_TEST_FLAGS := \
+    $(CASABLANCA_FLAGS) \
+    -Imldb/ext/casablanca/Release/tests/common/UnitTestpp \
+    -Imldb/ext/casablanca/Release/tests/common/utilities/include \
+    -Imldb/ext/casablanca/Release/include/cpprest/http_client.h \
+    -llibunittest++-dev \
+    -lssl \
+    -lopenssl \
+
+#$(foreach file,$(CASABLANCA_URI_TEST_FILES),$(eval $(call set_compile_option,$(file),$(CASABLANCA_URI_TEST_FLAGS))))
+#$(foreach file,$(CASABLANCA_HTTP_CLIENT_TEST_FILES),$(eval $(call library,$(basename $(notdir $(file))),$(file),casablanca pplx unittestpp,$(basename $(notdir $(file))),,,$(TESTS)/casablanca)))
+#$(foreach file,$(CASABLANCA_HTTP_CLIENT_TEST_FILES),$(eval $(call casablanca_test,$(basename $(notdir $(file))))))
 endif
 
 TEST_RUNNER_SOURCE := \
