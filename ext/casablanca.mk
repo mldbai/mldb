@@ -1,3 +1,12 @@
+#
+# casablanca.mk
+# Mich, 2017-01-13
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+#
+# Builds casablanca, testrunner and some of casablanca tests. Files commented
+# out are not built.
+#
+
 CASABLANCA_SOURCE := \
 ./Release/src/uri/uri_parser.cpp \
 ./Release/src/uri/uri.cpp \
@@ -256,25 +265,10 @@ $(eval $(call set_compile_option,$(PPLX_SOURCE),$(PPLX_FLAGS)))
 $(eval $(call library,pplx,$(PPLX_SOURCE)))
 
 CASABLANCA_UNITTESTPP_SOURCE := \
-./Release/tests/common/UnitTestpp/src/TestDetails.cpp \
-./Release/tests/common/UnitTestpp/src/TestList.cpp \
-./Release/tests/common/UnitTestpp/src/TestResults.cpp \
-./Release/tests/common/UnitTestpp/src/GlobalSettings.cpp \
-./Release/tests/common/UnitTestpp/src/CompositeTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/DeferredTestResult.cpp \
-./Release/tests/common/UnitTestpp/src/TestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/Test.cpp \
-./Release/tests/common/UnitTestpp/src/TestReporterStdout.cpp \
-./Release/tests/common/UnitTestpp/src/DeferredTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/Posix/TimeHelpers.cpp \
-./Release/tests/common/UnitTestpp/src/Posix/SignalTranslator.cpp \
-./Release/tests/common/UnitTestpp/src/stdafx.cpp \
-./Release/tests/common/UnitTestpp/src/XmlTestReporter.cpp \
-./Release/tests/common/UnitTestpp/src/CurrentTest.cpp \
-./Release/tests/common/UnitTestpp/src/ReportAssert.cpp \
-./Release/tests/common/UnitTestpp/src/AssertException.cpp \
-./Release/tests/common/UnitTestpp/src/MemoryOutStream.cpp \
-./Release/tests/common/UnitTestpp/src/TestRunner.cpp \
+    $(shell cd mldb/ext/casablanca && ls Release/tests/common/UnitTestpp/src/*.cpp) \
+    $(shell cd mldb/ext/casablanca && ls Release/tests/common/UnitTestpp/src/Posix/*.cpp) \
+
+
 #./Release/tests/common/UnitTestpp/src/Win32/TimeHelpers.cpp \
 ./Release/tests/common/UnitTestpp/src/tests/TestXmlTestReporter.cpp \
 ./Release/tests/common/UnitTestpp/src/tests/TestDeferredTestReporter.cpp \
@@ -311,6 +305,9 @@ $(TESTS)/casablanca/$(1).passed: $(BIN)/test_runner $(TESTS)/casablanca/$(1).so
 	@(cd $(TESTS)/casablanca && ../../bin/test_runner $(1).so > $(1).log 2>&1 && cd $(PWD) && touch $$@ && echo "                       $(COLOR_GREEN)casablanca $(1) passed$(COLOR_RESET)") || (echo "                       $(COLOR_RED)casablanca $(1) FAILED$(COLOR_RESET)" && exit 1)
 
 autotest: $(TESTS)/casablanca/$(1).passed
+
+casablanca_tests: $(TESTS)/casablanca/$(1).passed
+
 endif
 endef
 
@@ -348,22 +345,6 @@ $(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call set_compile_option,Release
 $(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call library,$(basename $(notdir $(file))),Release/tests/$(file),casablanca pplx unittestpp,$(basename $(notdir $(file))),,,$(TESTS)/casablanca/$(patsubst %/,%,$(dir $(file))))))
 $(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call casablanca_test,$(basename $(file)))))
 
-finch:
-	echo $(addprefix %/,$(shell cd mldb/ext/casablanca/Release/tests/functional && find . -name "*.cpp" | rev | cut -d / -f 1 | rev | sort | uniq -d))
-
-#CASABLANCA_HTTP_CLIENT_TEST_FILES := $(shell cd mldb/ext/casablanca && ls Release/tests/functional/http/client/*.cpp)
-#CASABLANCA_URI_TEST_FLAGS := \
-    $(CASABLANCA_FLAGS) \
-    -Imldb/ext/casablanca/Release/tests/common/UnitTestpp \
-    -Imldb/ext/casablanca/Release/tests/common/utilities/include \
-    -Imldb/ext/casablanca/Release/include/cpprest/http_client.h \
-    -llibunittest++-dev \
-    -lssl \
-    -lopenssl \
-
-#$(foreach file,$(CASABLANCA_URI_TEST_FILES),$(eval $(call set_compile_option,$(file),$(CASABLANCA_URI_TEST_FLAGS))))
-#$(foreach file,$(CASABLANCA_HTTP_CLIENT_TEST_FILES),$(eval $(call library,$(basename $(notdir $(file))),$(file),casablanca pplx unittestpp,$(basename $(notdir $(file))),,,$(TESTS)/casablanca)))
-#$(foreach file,$(CASABLANCA_HTTP_CLIENT_TEST_FILES),$(eval $(call casablanca_test,$(basename $(notdir $(file))))))
 endif
 
 TEST_RUNNER_SOURCE := \
