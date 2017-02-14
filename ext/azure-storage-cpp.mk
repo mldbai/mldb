@@ -55,6 +55,7 @@ AZURE_STORAGE_CPP_SOURCE := $(shell cd mldb/ext/azure-storage-cpp && ls Microsof
 ./Microsoft.WindowsAzure.Storage/tests/cloud_queue_test.cpp
 
 AZURE_STORAGE_CPP_FLAGS := \
+    -DBOOST_LOG_DYN_LINK \
     -Imldb/ext/casablanca/Release/include \
     -Imldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes \
     -I/usr/include/libxml++-2.6 \
@@ -71,4 +72,4 @@ AZURE_STORAGE_CPP_FLAGS := \
 
 
 $(eval $(call set_compile_option,$(AZURE_STORAGE_CPP_SOURCE),$(AZURE_STORAGE_CPP_FLAGS)))
-$(eval $(call library,azure_storage_cpp,$(AZURE_STORAGE_CPP_SOURCE),casablanca))
+$(eval $(call library,azure_storage_cpp,$(AZURE_STORAGE_CPP_SOURCE),casablanca uuid xml++-2.6 boost_log pplx))

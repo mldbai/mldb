@@ -337,8 +337,6 @@ CASABLANCA_TEST_FLAGS := \
     -Imldb/ext/casablanca/Release/tests/functional/websockets/utilities \
     -Imldb/ext/casablanca/Release/libs/websocketpp \
     -llibunittest++-dev \
-    -lssl \
-    -lopenssl \
     -Wno-delete-non-virtual-dtor \
 
 $(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call set_compile_option,Release/tests/$(file),$(CASABLANCA_TEST_FLAGS))))
