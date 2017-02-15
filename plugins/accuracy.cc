@@ -395,7 +395,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         class_stats["f1Score"] = 2 * ML::xdiv(precision * recall,
                                         precision + recall);
         class_stats["support"] = support;
-        results["labelStatistics"][actual_it.first.toString()] = class_stats;
+        results["labelStatistics"][actual_it.first.toUtf8String()] = class_stats;
 
         total_accuracy += accuracy * support;
         total_precision += precision * support;
