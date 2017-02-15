@@ -4,6 +4,7 @@ LIBVFS_HANDLERS_SOURCES := \
 	exception_ptr.cc \
 	sftp.cc \
 	s3_handlers.cc \
+	azure_blob_storage.cc \
 	archive.cc \
 	docker.cc
 
