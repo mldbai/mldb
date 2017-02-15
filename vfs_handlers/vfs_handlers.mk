@@ -10,8 +10,15 @@ LIBVFS_HANDLERS_SOURCES := \
 
 #	hdfs.cc
 
-LIBVFS_HANDLERS_LINK := aws hash archive tinyxml2 ssh2  #hdfs3
+LIBVFS_HANDLERS_LINK := aws hash archive tinyxml2 ssh2 azure_storage_cpp #hdfs3
 
+AZURE_BLOB_STORAGE_OPTIONS := \
+    -Imldb/ext/casablanca/Release/include \
+    -Imldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes \
+    -Wno-overloaded-virtual \
+    -Wno-reorder \
+    -Wno-unused-value \
+$(eval $(call set_compile_option,azure_blob_storage.cc,$(AZURE_BLOB_STORAGE_OPTIONS)))
 
 $(eval $(call library,vfs_handlers,$(LIBVFS_HANDLERS_SOURCES),$(LIBVFS_HANDLERS_LINK)))
 

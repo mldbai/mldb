@@ -27,9 +27,13 @@
 #include <unordered_map>
 #include "jml/utils/string_functions.h"
 #include "azure_blob_storage.h"
+#include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/storage_account.h"
+#include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/common.h"
+#include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/blob.h"
 
 
 using namespace std;
+using namespace azure::storage;
 
 
 namespace MLDB {
@@ -695,7 +699,7 @@ namespace {
 
 struct AzureStorageAccountInfo {
     string accountName;
-    //std::shared_ptr<SftpConnection> connection;  //< Used to access this uri
+    shared_ptr<cloud_blob_client> client;
    
     //connStr = "DefaultEndpointsProtocol=<>;AccountName=<>;AccountKey=<>;"
     AzureStorageAccountInfo(const string & connStr) {
@@ -708,9 +712,10 @@ struct AzureStorageAccountInfo {
         bool defaultEndpointsProtocolFound = false;
 
         auto parts = ML::split(connStr, ';');
-        if (parts.size() != 3) {
+        if (parts.size() != 4 || parts[3] != "") {
             throw MLDB::Exception(msg);
         }
+        parts.pop_back();
         for (const auto & p: parts) {
             const auto subparts = ML::split(p, '=');
             if (subparts.size() != 2 || subparts[1].size() == 0) {
@@ -731,6 +736,11 @@ struct AzureStorageAccountInfo {
             }
             throw MLDB::Exception(msg + " - Failed on unknown component : " + p);
         }
+
+        //cloud_storage_account
+        auto storageAccount = cloud_storage_account::parse(connStr);
+        client = make_shared<cloud_blob_client>(
+            storageAccount.create_cloud_blob_client());
     }
 };
 
@@ -739,30 +749,29 @@ unordered_map<string, AzureStorageAccountInfo> azureStorageAccounts;
 
 } // file scope
 
-void registerAzureStorageAccount(const std::string & connStr)
+void
+registerAzureStorageAccount(const std::string & connStr)
 {
     //connStr = "DefaultEndpointsProtocol=<>;AccountName=<>;AccountKey=<>;"
     unique_lock<std::mutex> guard(azureStorageAccountLock);
-    auto parts = ML::split(connStr, ';');
-    if (parts.size() != 3) {
-        throw MLDB::Exception("Invalid azure storage connection string");
-    }
     AzureStorageAccountInfo info(connStr);
     if (azureStorageAccounts.find(info.accountName) != azureStorageAccounts.end()) {
         throw AzureAccountAlreadyRegistered(info.accountName);
     }
     azureStorageAccounts.insert(make_pair(info.accountName, std::move(info)));
-//     if (sftpHosts.count(hostname)){
-//         throw HostAlreadyRegistered(hostname);
-//     }
-// 
-//     SftpHostInfo info;
-//     info.sftpHost = hostname;
-//     info.connection = std::make_shared<SftpConnection>();
-//     info.connection->connectPasswordAuth(hostname, username, password, port);
-//     
-//     sftpHosts[hostname] = info;
 }
+
+shared_ptr<cloud_blob_client>
+getAzureStorageClientFromName(const string & name)
+{
+    unique_lock<std::mutex> guard(azureStorageAccountLock);
+    auto res = azureStorageAccounts.find(name);
+    if (res == azureStorageAccounts.end()) {
+        throw MLDB::Exception("No azure storage client found for name: " + name);
+    }
+    return res->second.client;
+}
+
 
 struct RegisterAzbsHandler {
 
@@ -773,13 +782,34 @@ struct RegisterAzbsHandler {
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
+        auto parts = ML::split(resource, '/', 3);
+        if (parts.size() != 3) {
+            throw MLDB::Exception("Invalid azureblob:// uri");
+        }
+//         const auto & acount = parts[0];
+//         const auto & container = parts[1];
+//         const auto & filename = parts[2];
+//         string::size_type pos = resource.find('/');
+//         if (pos == string::npos)
+//             throw MLDB::Exception(
+//                 "unable to find azure storage container in resource " + resource);
+// 
+//         string containerName(resource, 0, pos);
+//         auto client = getAzureStorageClientFromName(containerName);
 #if 0
-        string::size_type pos = resource.find('/');
-        if (pos == string::npos)
-            throw MLDB::Exception("unable to find sftp host name in resource "
-                                + resource);
-        string connStr(resource, 0, pos);
+        auto container =
+            blobClient.get_container_reference(_XPLATSTR(containerName));
 
+        concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
+        auto outputStream = make_shared<concurrency::streams::ostream>(buffer);
+        string filename = resource.substr(pos + 1);
+        cloud_block_blob binary_blob =
+            container.get_block_blob_reference(_XPLATSTR(filename));
+        //TODO
+        auto info = std::make_shared<FsObjectInfo>();
+        binary_blob.download_to_stream(output_stream.get());
+        return UriHandler(outputStream.get(), outputStream, info);
+        //ucout << _XPLATSTR("Stream: ") << to_string(buffer.collection()) << std::endl;
         const auto & connection = getSftpConnectionFromConnStr(connStr);
         string path = resource.substr(connStr.size());
         if (mode == ios::in) {

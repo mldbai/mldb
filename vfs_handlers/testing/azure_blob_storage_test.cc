@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE( test_azure_storage_invalid_registration_string )
     BOOST_REQUIRE_THROW(registerAzureStorageAccount("a;b;c"), MLDB::Exception);
     BOOST_REQUIRE_THROW(
             registerAzureStorageAccount(
-                "DefaultEndpointsProtocol=proto;AccountName=;AccountKey=key;"),
+                "DefaultEndpointsProtocol=proto;AccountName=;AccountKey=key1;"),
             MLDB::Exception);
 }
 
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE( test_azure_storage_double_registration )
     MLDB_TRACE_EXCEPTIONS(false);
     BOOST_REQUIRE_THROW(registerAzureStorageAccount(""), MLDB::Exception);
     string connStr =
-        "DefaultEndpointsProtocol=proto;AccountName=name;AccountKey=key;";
+        "DefaultEndpointsProtocol=proto;AccountName=name;AccountKey=key1;";
     registerAzureStorageAccount(connStr);
     BOOST_REQUIRE_THROW(registerAzureStorageAccount(connStr), MLDB::Exception);
 }
