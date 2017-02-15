@@ -84,7 +84,6 @@ std::vector<std::string> split(const std::string & str, char c, int limit)
     size_t pos = 0;
     while (pos < str.size() && (limit == -1 || limit > 1)) {
         if (str[pos] == c) {
-            //std::cerr << "push1" << std::endl;
             result.push_back(string(str, start, pos - start));
             start = pos + 1;
             if (limit != -1) {
@@ -94,7 +93,6 @@ std::vector<std::string> split(const std::string & str, char c, int limit)
         ++pos;
     }
 
-    //std::cerr << "push2" << std::endl;
     result.push_back(string(str, start));
 
     return result;
