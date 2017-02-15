@@ -236,7 +236,12 @@ struct UnionDataset::Itl
     // DEPRECATED
     virtual MatrixNamedRow getRow(const RowPath & rowPath) const
     {
-        throw MLDB::Exception("Unimplemented %s : %d", __FILE__, __LINE__);
+        int idx = getIdxFromRowPath(rowPath);
+        if (idx == -1) {
+            return MatrixNamedRow();
+        }
+        return datasets[idx]->getMatrixView()->getRow(
+            Path(rowPath.begin() + 1, rowPath.end()));
     }
 
     virtual bool knownColumn(const Path & column) const
