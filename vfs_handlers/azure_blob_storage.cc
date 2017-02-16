@@ -398,15 +398,13 @@ isAlive() const
     return res != LIBSSH2_ERROR_SOCKET_RECV
         && res != LIBSSH2_ERROR_SOCKET_DISCONNECT;
 }
+#endif
+struct AzureBlobStorageDownloadSource {
 
-struct SftpStreamingDownloadSource {
-
-    SftpStreamingDownloadSource(const SftpConnection * owner,
-                                std::string path)
+    AzureBlobStorageDownloadSource(cloud_block_blob & blob)
     {
         impl.reset(new Impl());
-        impl->owner = owner;
-        impl->path = path;
+        impl->blob = blob;
         impl->start();
     }
 
@@ -419,7 +417,6 @@ struct SftpStreamingDownloadSource {
     
     struct Impl {
         Impl()
-            : owner(0), offset(0), handle(0)
         {
         }
 
@@ -428,41 +425,40 @@ struct SftpStreamingDownloadSource {
             stop();
         }
 
-        const SftpConnection * owner;
+        cloud_block_blob blob;
         std::string path;
-        size_t offset;
-        LIBSSH2_SFTP_HANDLE * handle;
+        //size_t offset;
 
         Date startDate;
+        string data;
 
         void start()
         {
-            handle
-                = libssh2_sftp_open_ex(owner->sftp_session, path.c_str(),
-                                       path.length(), LIBSSH2_FXF_READ, 0,
-                                       LIBSSH2_SFTP_OPENFILE);
-            
-            if (!handle) {
-                throw MLDB::Exception("couldn't open path: "
-                                    + owner->lastError());
-            }
+            startDate = Date::now();
+            concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
+            concurrency::streams::ostream outputStream(buffer);
+            blob.download_to_stream(outputStream);
+            auto rawData = buffer.collection();
+            data = string(rawData.cbegin(), rawData.cend());
         }
 
         void stop()
         {
-            if (handle) libssh2_sftp_close(handle);
         }
 
         std::streamsize read(char_type* s, std::streamsize n)
         {
             BOOST_STATIC_ASSERT(sizeof(char_type) == 1);
 
-            ssize_t numRead = libssh2_sftp_read(handle, s, n);
-            if (numRead < 0) {
-                throw MLDB::Exception("read(): " + owner->lastError());
+            strncpy(s, data.c_str(), n - 1);
+            streamsize copiedSize = data.size() < n ? data.size() : n - 1;
+            if (data.size() < n) {
+                data.clear();
             }
-            
-            return numRead;
+            else {
+                data = data.substr(n - 1);
+            }
+            return copiedSize;
         }
     };
 
@@ -472,12 +468,6 @@ struct SftpStreamingDownloadSource {
     {
         return impl->read(s, n);
     }
-
-#if 0
-    void seek(std::streamsize where, std::ios_base::seekdir dir)
-    {
-    }
-#endif
 
     bool is_open() const
     {
@@ -489,6 +479,7 @@ struct SftpStreamingDownloadSource {
         impl.reset();
     }
 };
+#if 0
 
 
 
@@ -717,7 +708,7 @@ struct AzureStorageAccountInfo {
         }
         parts.pop_back();
         for (const auto & p: parts) {
-            const auto subparts = ML::split(p, '=');
+            const auto subparts = ML::split(p, '=', 2);
             if (subparts.size() != 2 || subparts[1].size() == 0) {
                 throw MLDB::Exception(msg + " - Failed on: " + p);
             }
@@ -786,29 +777,35 @@ struct RegisterAzbsHandler {
         if (parts.size() != 3) {
             throw MLDB::Exception("Invalid azureblob:// uri");
         }
-//         const auto & acount = parts[0];
-//         const auto & container = parts[1];
-//         const auto & filename = parts[2];
-//         string::size_type pos = resource.find('/');
-//         if (pos == string::npos)
-//             throw MLDB::Exception(
-//                 "unable to find azure storage container in resource " + resource);
-// 
-//         string containerName(resource, 0, pos);
-//         auto client = getAzureStorageClientFromName(containerName);
-#if 0
+        const auto & account = parts[0];
+        const auto & containerName = parts[1];
+        const auto & filename = parts[2];
+
+        auto client = getAzureStorageClientFromName(account);
         auto container =
-            blobClient.get_container_reference(_XPLATSTR(containerName));
+            client->get_container_reference(_XPLATSTR(containerName));
+
+        //cloud_block_blob
+        auto blob =
+            container.get_block_blob_reference(_XPLATSTR(filename));
+
 
         concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
-        auto outputStream = make_shared<concurrency::streams::ostream>(buffer);
-        string filename = resource.substr(pos + 1);
-        cloud_block_blob binary_blob =
-            container.get_block_blob_reference(_XPLATSTR(filename));
+        concurrency::streams::ostream outputStream(buffer);
+
+        blob.download_to_stream(outputStream);
         //TODO
         auto info = std::make_shared<FsObjectInfo>();
-        binary_blob.download_to_stream(output_stream.get());
-        return UriHandler(outputStream.get(), outputStream, info);
+
+        if (mode == ios::in) {
+            std::unique_ptr<std::streambuf> result;
+            result.reset(new boost::iostreams::stream_buffer<AzureBlobStorageDownloadSource>
+                         (AzureBlobStorageDownloadSource(blob), 131072));
+            std::shared_ptr<std::streambuf> buf(result.release());
+
+            return UriHandler(buf.get(), buf, info);
+        }
+#if 0
         //ucout << _XPLATSTR("Stream: ") << to_string(buffer.collection()) << std::endl;
         const auto & connection = getSftpConnectionFromConnStr(connStr);
         string path = resource.substr(connStr.size());
@@ -843,8 +840,7 @@ struct RegisterAzbsHandler {
 
     RegisterAzbsHandler()
     {
-        //TODO
-        //registerUriHandler("sftp", getSftpHandler);
+        registerUriHandler("azureblob", getAzbsHandler);
     }
 
 } registerAzbsHandler;

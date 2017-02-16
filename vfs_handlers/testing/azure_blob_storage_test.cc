@@ -39,9 +39,8 @@ BOOST_AUTO_TEST_CASE( test_azure_storage_invalid_registration_string )
 BOOST_AUTO_TEST_CASE( test_azure_storage_double_registration )
 {
     MLDB_TRACE_EXCEPTIONS(false);
-    BOOST_REQUIRE_THROW(registerAzureStorageAccount(""), MLDB::Exception);
     string connStr =
-        "DefaultEndpointsProtocol=proto;AccountName=name;AccountKey=key1;";
+        "DefaultEndpointsProtocol=proto;AccountName=name;AccountKey=key1234=;";
     registerAzureStorageAccount(connStr);
     BOOST_REQUIRE_THROW(registerAzureStorageAccount(connStr), MLDB::Exception);
 }
