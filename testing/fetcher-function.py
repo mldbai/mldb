@@ -65,6 +65,47 @@ class FetcherFunction(MldbUnitTest):  # noqa
         self.assertTrue(res[1][1] is None)
         self.assertTrue(type(res[1][2]) is unicode)
 
+    def test_bad_uri(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params': {
+                'inputData' : "SELECT fetcher('this is not an uri') AS *",
+                'outputDataset' : {'id' : 'test_bad_uri', 'type': 'tabular'}
+            }
+        })
+        res = mldb.query("SELECT content FROM test_bad_uri")
+        self.assertTrue(res[1][1] is None)
+        res = mldb.query("SELECT error FROM test_bad_uri")
+        self.assertTrue(res[1][1] is not None)
+
+    def test_unexisting_local_file(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params': {
+                'inputData' : "SELECT fetcher('file://foo/bar/forthewin.txt') AS *",
+                'outputDataset' : {'id' : 'unexisting_local_file', 'type': 'tabular'}
+            }
+        })
+        res = mldb.query("SELECT content FROM unexisting_local_file")
+        self.assertTrue(res[1][1] is None)
+        res = mldb.query("SELECT error FROM unexisting_local_file")
+        self.assertTrue(res[1][1] is not None)
+
+    def test_http_404_result(self):
+        "MLDB-2150"
+        mldb.log(mldb.query("SELECT fetcher('bad stuff')"))
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params': {
+                'inputData' : "SELECT fetcher('http://elementai.com/404_power_tapis') AS *",
+                'outputDataset' : {'id' : 'fetcher_404_test', 'type': 'tabular'}
+            }
+        })
+        res = mldb.query("SELECT content FROM fetcher_404_test")
+        self.assertTrue(res[1][1] is None)
+        res = mldb.query("SELECT error FROM fetcher_404_test")
+        self.assertTrue(res[1][1] is not None)
+
 
 if __name__ == '__main__':
     mldb.run_tests()
