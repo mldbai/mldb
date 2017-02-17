@@ -316,6 +316,8 @@ public:
         for example last modified date, etc.
     */
     FsObjectInfo info() const;
+
+    std::string getExceptionMsg() const;
     
 private:
     std::unique_ptr<std::istream> stream;

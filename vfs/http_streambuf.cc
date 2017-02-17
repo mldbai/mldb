@@ -87,6 +87,14 @@ struct HttpStreamingDownloadSource {
         return future.get();
     }
 
+    shared_ptr<FsObjectInfo> getObjectInfo() const
+    {
+        if (!impl->info) {
+            impl->info = make_shared<ExcAwareObjectInfo>(convertHeaderToInfo(getHeader()));
+        }
+        return impl->info;
+    }
+
     typedef char char_type;
     struct category
         : //input_seekable,
@@ -140,6 +148,8 @@ struct HttpStreamingDownloadSource {
 
         bool httpAbortOnSlowConnection;
 
+        shared_ptr<ExcAwareObjectInfo> info;
+
         /* cleanup all the variables that are used during reading, the
            "static" ones are left untouched */
         void reset()
@@ -148,6 +158,7 @@ struct HttpStreamingDownloadSource {
             current = "";
             currentDone = 0;
             threads.clear();
+            info = make_shared<ExcAwareObjectInfo>();
         }
 
         void start()
@@ -274,8 +285,9 @@ struct HttpStreamingDownloadSource {
                                       true /* follow redirect */,
                                       httpAbortOnSlowConnection);
                 
-                if (shutdown)
+                if (shutdown) {
                     return;
+                }
 
                 if (resp.code() != 200) {
                     cerr << "resp.errorCode_ = " << resp.errorCode() << endl;
@@ -294,6 +306,7 @@ struct HttpStreamingDownloadSource {
                 if (!headerSet.exchange(true)) {
                     headerPromise.set_exception(lastExc);
                 }
+                info->what = exc.what();
             }
         }
 
@@ -315,18 +328,19 @@ struct HttpStreamingDownloadSource {
     {
         impl.reset();
     }
+
 };
 
-std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
+std::pair<std::unique_ptr<std::streambuf>, shared_ptr<FsObjectInfo>>
 makeHttpStreamingDownload(const std::string & uri,
                           const std::map<std::string, std::string> & options)
 {
     std::unique_ptr<std::streambuf> result;
     HttpStreamingDownloadSource source(uri, options);
-    const HttpHeader & header = source.getHeader();
+    auto info = source.getObjectInfo();
     result.reset(new boost::iostreams::stream_buffer<HttpStreamingDownloadSource>
                  (source, 131072));
-    return { std::move(result), convertHeaderToInfo(header) };
+    return { std::move(result), info };
 }
 
 struct HttpUrlFsHandler: UrlFsHandler {
@@ -460,7 +474,7 @@ struct RegisterHttpHandler {
         string bucket(resource, 0, pos);
 
         if (mode == ios::in) {
-            std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo> sb_info
+            std::pair<std::unique_ptr<std::streambuf>, shared_ptr<FsObjectInfo>> sb_info
                 = makeHttpStreamingDownload(scheme+"://"+resource, options);
             std::shared_ptr<std::streambuf> buf(sb_info.first.release());
             return UriHandler(buf.get(), buf, sb_info.second);

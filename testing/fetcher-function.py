@@ -93,7 +93,6 @@ class FetcherFunction(MldbUnitTest):  # noqa
 
     def test_http_404_result(self):
         "MLDB-2150"
-        mldb.log(mldb.query("SELECT fetcher('bad stuff')"))
         mldb.post('/v1/procedures', {
             'type' : 'transform',
             'params': {
@@ -105,6 +104,7 @@ class FetcherFunction(MldbUnitTest):  # noqa
         self.assertTrue(res[1][1] is None)
         res = mldb.query("SELECT error FROM fetcher_404_test")
         self.assertTrue(res[1][1] is not None)
+        self.assertTrue(res[1][1].find('404') > -1)
 
 
 if __name__ == '__main__':
