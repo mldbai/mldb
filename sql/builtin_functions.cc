@@ -3463,8 +3463,6 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                           { { "mapped", "true" },
                                             { "httpAbortOnSlowConnection", "true"} });
 
-                    FsObjectInfo info = stream.info();
-
                     const char * mappedAddr;
                     size_t mappedSize;
                     std::tie(mappedAddr, mappedSize) = stream.mapped();
@@ -3478,14 +3476,15 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                         streamo << stream.rdbuf();
                         blob = CellValue::blob(streamo.str());
                     }
-                    if (stream.getExceptionMsg().empty()) {
+
+                    FsObjectInfo info = stream.info();
+                    if (info.what.empty()) {
+                        ExcAssert(info.exists);
                         content = ExpressionValue(std::move(blob),
                                                   info.lastModified);
-                        ExcAssert(info.exists);
                     }
                     else {
-                        error = ExpressionValue(stream.getExceptionMsg(),
-                                                Date::now());
+                        error = ExpressionValue(info.what, Date::now());
                     }
                 }
                 MLDB_CATCH_ALL {

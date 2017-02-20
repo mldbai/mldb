@@ -317,8 +317,6 @@ public:
     */
     FsObjectInfo info() const;
 
-    std::string getExceptionMsg() const;
-    
 private:
     std::unique_ptr<std::istream> stream;
     UriHandlerOptions handlerOptions;

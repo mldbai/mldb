@@ -985,13 +985,6 @@ info() const
     return *info_;
 }
 
-string
-filter_istream::
-getExceptionMsg() const
-{
-    return info_->what;
-}
-
 
 /*****************************************************************************/
 /* REGISTRATION                                                              */
