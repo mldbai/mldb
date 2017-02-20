@@ -27,7 +27,6 @@ static FsObjectInfo
 convertHeaderToInfo(const HttpHeader & header)
 {
     FsObjectInfo result;
-
     if (header.responseCode() == 200) {
         result.exists = true;
         result.etag = header.tryGetHeader("etag");
@@ -90,7 +89,8 @@ struct HttpStreamingDownloadSource {
     shared_ptr<FsObjectInfo> getObjectInfo() const
     {
         if (!impl->info) {
-            impl->info = make_shared<ExcAwareObjectInfo>(convertHeaderToInfo(getHeader()));
+            impl->info =
+                make_shared<FsObjectInfo>(convertHeaderToInfo(getHeader()));
         }
         return impl->info;
     }
@@ -148,7 +148,7 @@ struct HttpStreamingDownloadSource {
 
         bool httpAbortOnSlowConnection;
 
-        shared_ptr<ExcAwareObjectInfo> info;
+        shared_ptr<FsObjectInfo> info;
 
         /* cleanup all the variables that are used during reading, the
            "static" ones are left untouched */
@@ -158,7 +158,6 @@ struct HttpStreamingDownloadSource {
             current = "";
             currentDone = 0;
             threads.clear();
-            info = make_shared<ExcAwareObjectInfo>();
         }
 
         void start()
@@ -306,7 +305,9 @@ struct HttpStreamingDownloadSource {
                 if (!headerSet.exchange(true)) {
                     headerPromise.set_exception(lastExc);
                 }
-                info->what = exc.what();
+                if (info) {
+                    info->what = exc.what();
+                }
             }
         }
 

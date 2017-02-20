@@ -18,6 +18,8 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/runner.h"
 #include "mldb/io/message_loop.h"
+#include "mldb/server/mldb_server.h"
+#include "mldb/http/http_rest_proxy.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
@@ -158,4 +160,38 @@ BOOST_AUTO_TEST_CASE( test_infinite_redirect )
     // Validate error
     string expect = "Number of redirects hit maximum amount";
     BOOST_REQUIRE(strCerr.str().find(expect) != string::npos);
+}
+
+BOOST_AUTO_TEST_CASE( test_fetcher_error )
+{
+    //MLDB-2150
+    MldbServer server;
+    server.init();
+    string httpBoundAddress =
+        server.bindTcp(PortRange(17000, 18000), "127.0.0.1");
+    server.start();
+    HttpRestProxy proxy(httpBoundAddress);
+
+    Json::Value data;
+    data["type"] = "transform";
+    Json::Value params;
+    params["inputData"] =
+        "SELECT fetcher('" + testServer.baseUrl + "404') AS *";
+    params["outputDataset"] = Json::objectValue;
+    const string dsId = "fetcer_404_test";
+    params["outputDataset"]["id"] = dsId;
+    params["outputDataset"]["type"] = "tabular";
+    data["params"] = params;
+
+    auto res = proxy.post("/v1/procedures", data);
+    BOOST_REQUIRE_EQUAL(res.code(), 201);
+
+    res = proxy.get("/v1/query?q=SELECT * FROM " + dsId);
+    BOOST_REQUIRE_EQUAL(res.code(), 200);
+    auto body = res.jsonBody();
+    BOOST_REQUIRE_EQUAL(body.size(), 1);
+    BOOST_REQUIRE_EQUAL(body[0]["columns"].size(), 1);
+    BOOST_REQUIRE_EQUAL(body[0]["columns"][0][0].asString(), "error");
+    BOOST_REQUIRE(
+        body[0]["columns"][0][1].asString().find(" 404 ") != string::npos);
 }

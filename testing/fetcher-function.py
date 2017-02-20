@@ -91,22 +91,6 @@ class FetcherFunction(MldbUnitTest):  # noqa
         res = mldb.query("SELECT error FROM unexisting_local_file")
         self.assertTrue(res[1][1] is not None)
 
-    def test_http_404_result(self):
-        "MLDB-2150"
-        mldb.post('/v1/procedures', {
-            'type' : 'transform',
-            'params': {
-                'inputData' : "SELECT fetcher('http://elementai.com/404_power_tapis') AS *",
-                'outputDataset' : {'id' : 'fetcher_404_test', 'type': 'tabular'}
-            }
-        })
-        res = mldb.query("SELECT content FROM fetcher_404_test")
-        self.assertTrue(res[1][1] is None)
-        res = mldb.query("SELECT error FROM fetcher_404_test")
-        self.assertTrue(res[1][1] is not None)
-        self.assertTrue(res[1][1].find('404') > -1)
-
 
 if __name__ == '__main__':
     mldb.run_tests()
-

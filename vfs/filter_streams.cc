@@ -989,13 +989,7 @@ string
 filter_istream::
 getExceptionMsg() const
 {
-    if (info_) {
-        auto info = dynamic_pointer_cast<ExcAwareObjectInfo>(info_);
-        if (info && !info->what.empty()) {
-            return info->what;
-        }
-    }
-    return "";
+    return info_->what;
 }
 
 

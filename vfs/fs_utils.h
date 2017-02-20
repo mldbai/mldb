@@ -28,7 +28,7 @@ struct UriHandler;
 /*****************************************************************************/
 
 /** This class contains information about an object in some kind of generalized
-    file system.
+    file system. Made to be value copyable, do not extend.
 */
 
 struct FsObjectInfo {
@@ -51,18 +51,10 @@ struct FsObjectInfo {
 
     // make dynamic_pointer_cast work otherwise not detected as polymorphism
     // struct
-    virtual ~FsObjectInfo() {}
+    std::string what;                ///< MLDB-2150, hack, do not use
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FsObjectInfo);
-
-struct ExcAwareObjectInfo : FsObjectInfo {
-    std::string what;
-
-    ExcAwareObjectInfo(){}
-    ExcAwareObjectInfo(const FsObjectInfo & other) : FsObjectInfo(other) {}
-
-};
 
 
 /*****************************************************************************/
