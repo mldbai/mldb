@@ -306,7 +306,7 @@ struct HttpStreamingDownloadSource {
                     headerPromise.set_exception(lastExc);
                 }
                 if (info) {
-                    info->what = exc.what();
+                    info->excPtr = std::current_exception();
                 }
             }
         }

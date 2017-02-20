@@ -12,6 +12,7 @@
 #include <string>
 #include <functional>
 #include <map>
+#include <exception>
 
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/date.h"
@@ -49,7 +50,7 @@ struct FsObjectInfo {
 
     operator bool () const { return exists; }
 
-    std::string what;                ///< MLDB-2150, hack, do not use
+    std::exception_ptr excPtr;  ///< MLDB-2150, hack, do not use
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FsObjectInfo);
