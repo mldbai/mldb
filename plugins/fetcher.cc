@@ -124,10 +124,9 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         ~ConcurrencyHandler() {
             if (doIt) {
                 std::unique_lock<std::mutex> lck(*config.mtx.get());
-                --config.maxConcurrentFetch;
+                ++config.maxConcurrentFetch;
                 config.cv->notify_one();
             }
-        
         }
 
         private:

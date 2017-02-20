@@ -72,7 +72,7 @@ struct TestServer {
 
         // this is ok because it doesn't require a virtualenv
         runner.run({"/usr/bin/env", "python",
-                    "mldb/testing/http_streambuf_test_server.py",
+                    "mldb/testing/test_server.py",
                     to_string(freePort)},
                     onTerminate, nullptr, stdOutSink);
 
