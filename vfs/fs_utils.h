@@ -49,8 +49,6 @@ struct FsObjectInfo {
 
     operator bool () const { return exists; }
 
-    // make dynamic_pointer_cast work otherwise not detected as polymorphism
-    // struct
     std::string what;                ///< MLDB-2150, hack, do not use
 };
 
