@@ -14,6 +14,9 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 
+#include <condition_variable>
+#include <mutex>
+#include <memory>
 
 namespace MLDB {
 
@@ -25,9 +28,15 @@ namespace MLDB {
 /** Function that fetches a row from a url. */
 
 struct FetcherFunctionConfig {
-    FetcherFunctionConfig()
+    FetcherFunctionConfig() : maxConcurrentFetch(-1),
+                              cv(new std::condition_variable{}),
+                              mtx(new std::mutex{})
     {
     }
+
+    int maxConcurrentFetch;
+    std::shared_ptr<std::condition_variable> cv;
+    std::shared_ptr<std::mutex> mtx;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FetcherFunctionConfig);
@@ -38,6 +47,18 @@ FetcherFunctionConfigDescription::
 FetcherFunctionConfigDescription()
 {
     nullAccepted = true;
+    addField("maxConcurrentFetch", &FetcherFunctionConfig::maxConcurrentFetch,
+             "The maximum number of concurrent fetching operations to allow."
+             "-1 leaves the control to MLDB.", -1);
+
+    onPostValidate = [&] (FetcherFunctionConfig * cfg,
+                          JsonParsingContext & context)
+    {
+        if (cfg->maxConcurrentFetch < 1 && cfg->maxConcurrentFetch != -1) {
+            throw MLDB::Exception("maxConcurrentFetch accepts values equal or "
+                                  "greater to 1 or equal to -1");
+        }
+    };
 }
 
 struct FetcherArgs {
@@ -86,10 +107,38 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     {
         functionConfig = config.params.convert<FetcherFunctionConfig>();
     }
+
+    struct ConcurrencyHandler {
+        ConcurrencyHandler(FetcherFunctionConfig & config) :
+            config(config), doIt(config.maxConcurrentFetch != -1)
+        {
+            if (doIt) {
+                std::unique_lock<std::mutex> lck(*config.mtx.get());
+                while (config.maxConcurrentFetch == 0) {
+                    config.cv->wait(lck);
+                }
+                --config.maxConcurrentFetch;
+            }
+        }
+
+        ~ConcurrencyHandler() {
+            if (doIt) {
+                std::unique_lock<std::mutex> lck(*config.mtx.get());
+                --config.maxConcurrentFetch;
+                config.cv->notify_one();
+            }
+        
+        }
+
+        private:
+            FetcherFunctionConfig & config;
+            bool doIt;
+    };
     
     virtual FetcherOutput applyT(const ApplierT & applier,
                                  FetcherArgs args) const
     {
+        ConcurrencyHandler concurrencyHandler(functionConfig);
         FetcherOutput result;
         Utf8String url = args.url;
         try {
@@ -124,7 +173,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         return result;
     }
 
-    FetcherFunctionConfig functionConfig;
+    mutable FetcherFunctionConfig functionConfig;
 };
 
 static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
