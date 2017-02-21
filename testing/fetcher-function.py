@@ -9,9 +9,11 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class FetcherFunction(MldbUnitTest):  # noqa
 
-    def test_non_builtin(self):
+    @classmethod
+    def setUpClass(cls):
         mldb.put('/v1/functions/fetch', { 'type': 'fetcher' })
 
+    def test_non_builtin(self):
         mldb.put('/v1/functions/getCountryNonBuiltin', {
             'type': 'sql.expression',
             'params': {
@@ -78,11 +80,38 @@ class FetcherFunction(MldbUnitTest):  # noqa
         res = mldb.query("SELECT error FROM test_bad_uri")
         self.assertTrue(res[1][1] is not None)
 
+    def test_non_builtin_bad_uri(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params': {
+                'inputData' : "SELECT fetch({url: 'this is not an uri'}) AS *",
+                'outputDataset' : {'id' : 'test_bad_uri', 'type': 'tabular'}
+            }
+        })
+        res = mldb.query("SELECT content FROM test_bad_uri")
+        self.assertTrue(res[1][1] is None)
+        res = mldb.query("SELECT error FROM test_bad_uri")
+        self.assertTrue(res[1][1] is not None)
+
+
     def test_unexisting_local_file(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
             'params': {
                 'inputData' : "SELECT fetcher('file://foo/bar/forthewin.txt') AS *",
+                'outputDataset' : {'id' : 'unexisting_local_file', 'type': 'tabular'}
+            }
+        })
+        res = mldb.query("SELECT content FROM unexisting_local_file")
+        self.assertTrue(res[1][1] is None)
+        res = mldb.query("SELECT error FROM unexisting_local_file")
+        self.assertTrue(res[1][1] is not None)
+
+    def test_non_builtin_unexisting_local_file(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params': {
+                'inputData' : "SELECT fetch({url: 'file://foo/bar/forthewin.txt'}) AS *",
                 'outputDataset' : {'id' : 'unexisting_local_file', 'type': 'tabular'}
             }
         })
