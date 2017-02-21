@@ -29,7 +29,7 @@ std::string ostream_format(const T & val)
     return str.str();
 }
 
-std::vector<std::string> split(const std::string & str, char c = ' ');
+std::vector<std::string> split(const std::string & str, char c = ' ', int limit = -1);
 
 std::string lowercase(const std::string & str);
 

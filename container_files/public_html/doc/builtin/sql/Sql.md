@@ -14,8 +14,8 @@ specify queries.
 - `GROUP BY <`[`Group-By Expression`](GroupByExpression.md)`>` specifies how to group the output for aggregate functions
 - `HAVING <`[`Where Expression`](WhereExpression.md)`>` specifies the groups to select
 - `ORDER BY <`[`Order-By Expression`](OrderByExpression.md)`>` specifies the order to output the results
-- `OFFSET <int>` specifies how many output rows to skip
 - `LIMIT <int>` specifies the number of output rows
+- `OFFSET <int>` specifies how many output rows to skip
 
 ## General Syntax Rules
 
