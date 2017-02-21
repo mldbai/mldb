@@ -1037,7 +1037,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
         (dataset, columnName, filter,
          "generate rows where var '" + variable.columnName.toUtf8String()
          + "' matches value '"
-         + constantValue.toString() + "'");
+         + constantValue.toUtf8String() + "'");
 }
 
 static GenerateRowsWhereFunction
