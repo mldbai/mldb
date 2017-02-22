@@ -30,17 +30,47 @@
 #include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/storage_account.h"
 #include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/common.h"
 #include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/blob.h"
+#include "mldb/ext/casablanca/Release/include/cpprest/asyncrt_utils.h"
 
 
 using namespace std;
 using namespace azure::storage;
 
+namespace {
+MLDB::FsObjectInfo
+getObjectInfoFromCloudBlobProperties(const cloud_blob_properties & p)
+{
+    MLDB::FsObjectInfo info;
+    info.size = p.size();
+    info.exists = true;
+    auto last = p.last_modified().to_string(utility::datetime::ISO_8601);
+    info.lastModified = MLDB::Date::parseIso8601(last);
+    info.etag = p.etag();
+    //info.ownerId N/A;
+    //info.ownerName N/A;
+    
+    info.objectMetadata["cacheControl"] = p.cache_control();
+    info.objectMetadata["contentDisposition"] = p.content_disposition();
+    info.objectMetadata["contentEncoding"] = p.content_encoding();
+    info.objectMetadata["contentLanguage"] = p.content_language();
+    info.objectMetadata["contentMd5"] = p.content_md5();
+    info.objectMetadata["contentType"] = p.content_type();
+    //info.objectMetadata["type"] = p.type();
+    //info.objectMetadata["leaseStatus"] = p.lease_status();
+    //info.objectMetadata["leaseState"] = p.lease_state();
+    //info.objectMetadata["leaseDuration"] = p.lease_duration();
+    //info.objectMetadata["appendBlobCommittedBlockCount"] = p.append_blob_committed_block_count();
+    info.objectMetadata["serverEncrypted"] = p.server_encrypted();
+
+    return info;
+}
+} // anonymous namespace
 
 namespace MLDB {
 
 struct AzureBlobStorageDownloadSource {
 
-    AzureBlobStorageDownloadSource(cloud_block_blob & blob)
+    AzureBlobStorageDownloadSource(cloud_blob & blob)
     {
         impl.reset(new Impl());
         impl->blob = blob;
@@ -64,7 +94,7 @@ struct AzureBlobStorageDownloadSource {
             stop();
         }
 
-        cloud_block_blob blob;
+        cloud_blob blob;
 
         Date startDate;
         string data;
@@ -147,12 +177,9 @@ struct AzureBlobStorageUploadSource {
         OnUriHandlerException onException;
         
         size_t offset;
-        size_t lastPrint;
-        Date lastTime;
 
         Date startDate;
         cloud_append_blob blob;
-        //concurrency::streams::istream source;
 
         void start()
         {
@@ -172,8 +199,7 @@ struct AzureBlobStorageUploadSource {
             append_input_stream.close().wait();
 
             Date now = Date::now();
-            //lastPrint = offset; TODO?
-            lastTime = now;
+            offset += n;
 
             return n;
         }
@@ -280,17 +306,61 @@ registerAzureStorageAccount(const std::string & connStr)
     azureStorageAccounts.insert(make_pair(info.accountName, std::move(info)));
 }
 
-shared_ptr<cloud_blob_client>
-getAzureStorageClientFromName(const string & name)
+struct AzureBlobInfo {
+    string accountName;
+    string containerName;
+    string filename;
+
+    AzureBlobInfo(const string & accountName, const string & containerName,
+                  const string & filename)
+        : accountName(accountName), containerName(containerName),
+          filename(filename)
+    {
+    }
+
+    static AzureBlobInfo fromPath(const string & path) {
+        ExcAssert(path[0] != '/');
+        auto parts = ML::split(path, '/', 3);
+        ExcAssert(parts.size() == 3);
+        return AzureBlobInfo(parts[0], parts[1], parts[2]);
+    }
+
+    static AzureBlobInfo fromUri(const string & uri) {
+        const string prefix = "azureblob://";
+        ExcAssert(uri.find(prefix) == 0);
+        return AzureBlobInfo::fromPath(uri.substr(prefix.size()));
+    }
+};
+
+cloud_blob
+getAzureBlobReference(const AzureBlobInfo & blobInfo)
 {
     unique_lock<std::mutex> guard(azureStorageAccountLock);
-    auto res = azureStorageAccounts.find(name);
+    auto res = azureStorageAccounts.find(blobInfo.accountName);
     if (res == azureStorageAccounts.end()) {
-        throw MLDB::Exception("No azure storage client found for name: " + name);
+        throw MLDB::Exception("No azure storage client found for name: "
+                              + blobInfo.containerName);
     }
-    return res->second.client;
+
+    auto containerRef =
+        res->second.client->get_container_reference(
+            _XPLATSTR(blobInfo.containerName));
+    return containerRef.get_blob_reference(_XPLATSTR(blobInfo.filename));
 }
 
+cloud_blob_container
+getAzureBlobContainer(const AzureBlobInfo & blobInfo)
+{
+    unique_lock<std::mutex> guard(azureStorageAccountLock);
+    auto res = azureStorageAccounts.find(blobInfo.accountName);
+    if (res == azureStorageAccounts.end()) {
+        throw MLDB::Exception("No azure storage client found for name: "
+                              + blobInfo.containerName);
+    }
+
+    return res->second.client->get_container_reference(
+        _XPLATSTR(blobInfo.containerName));
+}
 
 struct RegisterAzbsHandler {
 
@@ -301,24 +371,10 @@ struct RegisterAzbsHandler {
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
-        auto parts = ML::split(resource, '/', 3);
-        if (parts.size() != 3) {
-            throw MLDB::Exception("Invalid azureblob:// uri");
-        }
-        const auto & account = parts[0];
-        const auto & containerName = parts[1];
-        const auto & filename = parts[2];
-
-        auto client = getAzureStorageClientFromName(account);
-        auto container =
-            client->get_container_reference(_XPLATSTR(containerName));
-
-        //TODO
-        auto info = std::make_shared<FsObjectInfo>();
+        auto blobInfo = AzureBlobInfo::fromPath(resource);
 
         if (mode == ios::in) {
-            auto blob =
-                container.get_block_blob_reference(_XPLATSTR(filename));
+            auto blob = getAzureBlobReference(blobInfo);
             concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
             concurrency::streams::ostream outputStream(buffer);
             blob.download_to_stream(outputStream);
@@ -328,10 +384,13 @@ struct RegisterAzbsHandler {
                          (AzureBlobStorageDownloadSource(blob), 131072));
             std::shared_ptr<std::streambuf> buf(result.release());
 
+            auto info = make_shared<FsObjectInfo>(
+                    getObjectInfoFromCloudBlobProperties(blob.properties()));
+
             return UriHandler(buf.get(), buf, info);
         }
         if (mode == ios::out) {
-            azure::storage::cloud_append_blob blob = container.get_append_blob_reference(_XPLATSTR(filename));
+            cloud_append_blob blob(getAzureBlobReference(blobInfo));
             std::unique_ptr<std::streambuf> result;
             result.reset(new boost::iostreams::stream_buffer<AzureBlobStorageUploadSource>
                          (AzureBlobStorageUploadSource(blob), 131072));
@@ -356,11 +415,12 @@ struct AzbsUrlFsHandler : public UrlFsHandler {
     UriHandler getUriHandler(const Url & url) const
     {
         string urlStr = url.toDecodedString();
-        ExcAssert(urlStr.find("azureblob://") == 0);
+        const string prefix = "azureblob://";
+        ExcAssert(urlStr.find(prefix) == 0);
         const auto fooFct = [](){};
         const std::map<std::string, std::string> options;
         return RegisterAzbsHandler::getAzbsHandler(
-            "", urlStr.substr(7), ios::in, options, fooFct);
+            "", urlStr.substr(prefix.size()), ios::in, options, fooFct);
     }
 
     FsObjectInfo getInfo(const Url & url) const override
@@ -375,7 +435,7 @@ struct AzbsUrlFsHandler : public UrlFsHandler {
             const auto handler = getUriHandler(url);
             return std::move(*(handler.info.get()));
         }
-        catch (const MLDB::Exception & exc) {
+        catch (const azure::storage::storage_exception & exc) {
         }
         return FsObjectInfo();
     }
@@ -386,7 +446,59 @@ struct AzbsUrlFsHandler : public UrlFsHandler {
 
     bool erase(const Url & url, bool throwException) const override
     {
-        //TODO
+        auto urlStr = url.toDecodedString();
+        auto blobInfo = AzureBlobInfo::fromUri(urlStr);
+        auto blob = getAzureBlobReference(blobInfo);
+        blob.delete_blob();
+        return true;
+    }
+
+    bool forEach_(const string & prefix,
+                  const OnUriObject & onObject,
+                  const OnUriSubdir & onSubdir,
+                  int depth) const
+    {
+        ExcAssert(prefix.size() == 0 || prefix[prefix.size() - 1] == '/');
+        auto blobInfo = AzureBlobInfo::fromUri(prefix);
+        string curDir = "/" + blobInfo.containerName + "/" + blobInfo.filename;
+        auto container = getAzureBlobContainer(blobInfo);
+        auto result = container.list_blobs(
+            blobInfo.filename, false, blob_listing_details::none, 0,
+            blob_request_options(), operation_context());
+        for (const auto & item: result) {
+            if (item.is_blob()) {
+                string uri = "azureblob://" + blobInfo.accountName
+                    + item.as_blob().uri().path();
+
+                OpenUriObject open = [=] (
+                    const map<string, string> & options) -> UriHandler
+                {
+                    if (!options.empty()) {
+                        throw MLDB::Exception(
+                            "Options not accepted by azureblob");
+                    }
+                    shared_ptr<std::istream> result(
+                        new filter_istream(uri));
+                    auto info = getInfo(Url(uri));
+                    return UriHandler(result->rdbuf(), result, info);
+                };
+
+                if (!onObject(uri, getInfo(Url(uri)), open, depth)) {
+                    return false;
+                }
+            }
+            else {
+                string path = item.as_directory().uri().path();
+                string dirname =
+                    path.substr(curDir.size(), path.size() - curDir.size());
+                if (onSubdir(dirname, depth)) {
+                    if (!forEach_(prefix + dirname, onObject, onSubdir, depth + 1)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
         return true;
     }
 
@@ -396,7 +508,9 @@ struct AzbsUrlFsHandler : public UrlFsHandler {
                  const std::string & delimiter,
                  const std::string & startAt) const override
     {
-        return true;
+        ExcAssert(delimiter == "/");
+        ExcAssert(startAt == "");
+        return forEach_(prefix.toDecodedString(), onObject, onSubdir, 1);
     }
 };
 
