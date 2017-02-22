@@ -70,11 +70,12 @@ namespace MLDB {
 
 struct AzureBlobStorageDownloadSource {
 
-    AzureBlobStorageDownloadSource(cloud_blob & blob)
+    AzureBlobStorageDownloadSource(cloud_blob & blob, FsObjectInfo info)
     {
         impl.reset(new Impl());
         impl->blob = blob;
         impl->start();
+        impl->info = info;
     }
 
     typedef char char_type;
@@ -85,7 +86,7 @@ struct AzureBlobStorageDownloadSource {
     { };
     
     struct Impl {
-        Impl()
+        Impl() : offset(0)
         {
         }
 
@@ -98,15 +99,12 @@ struct AzureBlobStorageDownloadSource {
 
         Date startDate;
         string data;
+        uint64_t offset;
+        FsObjectInfo info;
 
         void start()
         {
             startDate = Date::now();
-            concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
-            concurrency::streams::ostream outputStream(buffer);
-            blob.download_to_stream(outputStream);
-            auto rawData = buffer.collection();
-            data = string(rawData.cbegin(), rawData.cend());
         }
 
         void stop()
@@ -116,16 +114,18 @@ struct AzureBlobStorageDownloadSource {
         std::streamsize read(char_type* s, std::streamsize n)
         {
             BOOST_STATIC_ASSERT(sizeof(char_type) == 1);
-
-            strncpy(s, data.c_str(), n - 1);
-            streamsize copiedSize = data.size() < n ? data.size() : n - 1;
-            if (data.size() < n) {
-                data.clear();
+            concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
+            concurrency::streams::ostream outputStream(buffer);
+            uint64_t toRead = offset + n <= info.size ? n : info.size - offset;
+            if (toRead == 0) {
+                return 0;
             }
-            else {
-                data = data.substr(n - 1);
-            }
-            return copiedSize;
+            blob.download_range_to_stream(outputStream, offset, toRead);
+            auto rawData = buffer.collection();
+            string data = string(rawData.cbegin(), rawData.cend());
+            offset += data.size();
+            strncpy(s, data.c_str(), toRead);
+            return toRead;
         }
     };
 
@@ -297,7 +297,6 @@ unordered_map<string, AzureStorageAccountInfo> azureStorageAccounts;
 void
 registerAzureStorageAccount(const std::string & connStr)
 {
-    //connStr = "DefaultEndpointsProtocol=<>;AccountName=<>;AccountKey=<>;"
     unique_lock<std::mutex> guard(azureStorageAccountLock);
     AzureStorageAccountInfo info(connStr);
     if (azureStorageAccounts.find(info.accountName) != azureStorageAccounts.end()) {
@@ -379,13 +378,13 @@ struct RegisterAzbsHandler {
             concurrency::streams::ostream outputStream(buffer);
             blob.download_to_stream(outputStream);
 
-            std::unique_ptr<std::streambuf> result;
-            result.reset(new boost::iostreams::stream_buffer<AzureBlobStorageDownloadSource>
-                         (AzureBlobStorageDownloadSource(blob), 131072));
-            std::shared_ptr<std::streambuf> buf(result.release());
-
             auto info = make_shared<FsObjectInfo>(
                     getObjectInfoFromCloudBlobProperties(blob.properties()));
+
+            std::unique_ptr<std::streambuf> result;
+            result.reset(new boost::iostreams::stream_buffer<AzureBlobStorageDownloadSource>
+                         (AzureBlobStorageDownloadSource(blob, *info.get()), 131072));
+            std::shared_ptr<std::streambuf> buf(result.release());
 
             return UriHandler(buf.get(), buf, info);
         }
