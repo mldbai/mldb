@@ -246,7 +246,10 @@ namespace {
 struct AzureStorageAccountInfo {
     string accountName;
     shared_ptr<cloud_blob_client> client;
-   
+
+    AzureStorageAccountInfo() {
+    }
+
     //connStr = "DefaultEndpointsProtocol=<>;AccountName=<>;AccountKey=<>;"
     AzureStorageAccountInfo(const string & connStr) {
         // azure connection string provide unfriendly "invalid argument"
@@ -349,7 +352,13 @@ getAzureStorageAccountInfo(const AzureBlobInfo & blobInfo)
         return res->second;
     }
 
-    auto creds = getCredential("azure:blob", "azureblob://" + blobInfo.accountName);
+    Credential creds;
+    try {
+        creds = getCredential("azure:blob", "azureblob://" + blobInfo.accountName);
+    }
+    catch (const MLDB::Exception & exc) {
+        return AzureStorageAccountInfo();
+    }
     if (blobInfo.accountName != creds.id) {
         throw MLDB::Exception(
             "Account name and id specified via credentials don't match. "
@@ -365,6 +374,14 @@ cloud_blob
 getAzureBlobReference(const AzureBlobInfo & blobInfo)
 {
     auto account = getAzureStorageAccountInfo(blobInfo);
+    if (account.client == nullptr) {
+        // try public access
+        storage_uri uri(format("https://%s.blob.core.windows.net/%s",
+                               blobInfo.accountName.c_str(),
+                               blobInfo.containerName.c_str()));
+        cloud_blob_container container(uri);
+        return container.get_blob_reference(_XPLATSTR(blobInfo.filename));
+    }
     auto containerRef =
         account.client->get_container_reference(
             _XPLATSTR(blobInfo.containerName));
@@ -375,6 +392,13 @@ cloud_blob_container
 getAzureBlobContainer(const AzureBlobInfo & blobInfo)
 {
     auto account = getAzureStorageAccountInfo(blobInfo);
+    if (account.client == nullptr) {
+        // try public access
+        storage_uri uri(format("https://%s.blob.core.windows.net/%s",
+                               blobInfo.accountName.c_str(),
+                               blobInfo.containerName.c_str()));
+        return cloud_blob_container(uri);
+    }
     return account.client->get_container_reference(
         _XPLATSTR(blobInfo.containerName));
 }
