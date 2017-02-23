@@ -6,26 +6,19 @@
 
 #include <mutex>
 #include <boost/iostreams/stream_buffer.hpp>
-#include "mldb/vfs_handlers/sftp.h"
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+#include <fstream>
+#include <thread>
+#include <unordered_map>
+
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
+#include "mldb/base/exc_assert.h"
+#include "mldb/jml/utils/string_functions.h"
+#include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/types/date.h"
-#include <fstream>
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/base/exc_assert.h"
-#include "mldb/soa/credentials/credential_provider.h"
-#include <thread>
-#include <unordered_map>
-#include "jml/utils/string_functions.h"
 #include "azure_blob_storage.h"
 #include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/storage_account.h"
 #include "mldb/ext/azure-storage-cpp/Microsoft.WindowsAzure.Storage/includes/was/common.h"
@@ -48,18 +41,102 @@ getObjectInfoFromCloudBlobProperties(const cloud_blob_properties & p)
     info.etag = p.etag();
     //info.ownerId N/A;
     //info.ownerName N/A;
-    
+
     info.objectMetadata["cacheControl"] = p.cache_control();
     info.objectMetadata["contentDisposition"] = p.content_disposition();
     info.objectMetadata["contentEncoding"] = p.content_encoding();
     info.objectMetadata["contentLanguage"] = p.content_language();
     info.objectMetadata["contentMd5"] = p.content_md5();
     info.objectMetadata["contentType"] = p.content_type();
-    //info.objectMetadata["type"] = p.type();
-    //info.objectMetadata["leaseStatus"] = p.lease_status();
-    //info.objectMetadata["leaseState"] = p.lease_state();
-    //info.objectMetadata["leaseDuration"] = p.lease_duration();
-    //info.objectMetadata["appendBlobCommittedBlockCount"] = p.append_blob_committed_block_count();
+
+    {
+        string type;
+        switch (p.type()) {
+            case blob_type::unspecified:
+                type = "unspecified";
+                break;
+            case blob_type::page_blob:
+                type = "PageBlob";
+                break;
+            case blob_type::block_blob:
+                type = "BlockBlob";
+                break;
+            case blob_type::append_blob:
+                type = "AppendBlob";
+                break;
+            default:
+                ExcAssert(false);
+            info.objectMetadata["type"] = type;
+        }
+    }
+
+    {
+        string leaseStatus;
+        switch (p.lease_status()) {
+            case lease_status::unspecified:
+                leaseStatus = "unspecified";
+                break;
+            case lease_status::locked:
+                leaseStatus = "locked";
+                break;
+            case lease_status::unlocked:
+                leaseStatus = "unlocked";
+                break;
+            default:
+                ExcAssert(false);
+        }
+        info.objectMetadata["leaseStatus"] = leaseStatus;
+    }
+
+    {
+        string leaseDuration;
+        switch (p.lease_duration()) {
+            case lease_duration::unspecified:
+                leaseDuration = "unspecified";
+                break;
+            case lease_duration::fixed:
+                leaseDuration = "fixed";
+                break;
+            case lease_duration::infinite:
+                leaseDuration = "infinite";
+                break;
+            default:
+                ExcAssert(false);
+        }
+        info.objectMetadata["leaseDuration"] = leaseDuration;
+    }
+
+    {
+        string leaseState;
+        switch (p.lease_state()) {
+            case lease_state::unspecified:
+                leaseState = "unspecified";
+                break;
+            case lease_state::leased:
+                leaseState = "leased";
+                break;
+            case lease_state::breaking:
+                leaseState = "breaking";
+                break;
+            case lease_state::available:
+                leaseState = "available";
+                break;
+            case lease_state::broken:
+                leaseState = "broken";
+                break;
+            case lease_state::expired:
+                leaseState = "expired";
+                break;
+            default:
+                ExcAssert(false);
+
+        }
+        info.objectMetadata["leaseState"] = leaseState;
+    }
+
+    info.objectMetadata["appendBlobCommittedBlockCount"] =
+        p.append_blob_committed_block_count();
+
     info.objectMetadata["serverEncrypted"] = p.server_encrypted();
 
     return info;

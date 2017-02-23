@@ -7,20 +7,10 @@
 #pragma once
 
 #include <string>
-#include <libssh2.h>
-#include <libssh2_sftp.h>
-#include <functional>
-#include <memory>
-#include "mldb/vfs/filter_streams.h"
-#include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/arch/exception.h"
 
 namespace MLDB {
 
-
-/** Sftp support for filter_ostream opens.  Register the sftp host here,
-    and you can open it directly from s3 using the sftp:// syntax.
-*/
 
 class AzureAccountAlreadyRegistered : public MLDB::Exception {
 public:
@@ -35,8 +25,6 @@ public:
  * connStr = "DefaultEndpointsProtocol=<>;AccountName=<>;AccountKey=<>;"
  **/
 void registerAzureStorageAccount(const std::string & connStr);
-
-//const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr);
 
 } // namespace MLDB
 
