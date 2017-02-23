@@ -192,9 +192,10 @@ struct AzureBlobStorageUploadSource {
 
         std::streamsize write(const char_type* s, std::streamsize n)
         {
+            string str(s, n);
             concurrency::streams::istream append_input_stream =
                 concurrency::streams::bytestream::open_istream(
-                        utility::conversions::to_utf8string(_XPLATSTR(s)));
+                        utility::conversions::to_utf8string(_XPLATSTR(str)));
             blob.append_block(append_input_stream, utility::string_t());
             append_input_stream.close().wait();
 
