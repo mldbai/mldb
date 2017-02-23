@@ -15,12 +15,99 @@
 #include "mldb/jml/stats/distribution.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/utils/log.h"
+#include "mldb/server/dataset_context.h"
+#include "mldb/http/http_exception.h"
 
 using namespace std;
 
 
 
 namespace MLDB {
+
+/*****************************************************************************/
+/* SQL Word2Vec SCOPE                                                        */
+/*****************************************************************************/
+
+/** This allows an SQL expression to be bound to a parsed Word2Vec row
+*/
+
+struct SqlWord2VecScope: public SqlExpressionMldbScope {
+
+    struct RowScope: public SqlRowScope {
+        RowScope(std::string word, Date ts)
+            : word_((Utf8String)word)
+        {
+        }
+
+        CellValue word_;
+        Date ts;
+    };
+
+    SqlWord2VecScope(MldbServer * server,
+                Date fileTimestamp)
+        : SqlExpressionMldbScope(server),
+          fileTimestamp(fileTimestamp)
+    {
+
+    }
+
+    Date fileTimestamp;
+
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnPath & columnName)
+    {
+        if (!tableName.empty()) {
+            throw HttpReturnException(400, "Unknown table name in import.word2vec procedure",
+                                      "tableName", tableName);
+        }
+
+        if (columnName.toUtf8String() != "word")
+            throw HttpReturnException(400, "Unknown column name in import.word2vecprocedure",
+                                      "columnName", columnName);
+
+        return {[=] (const SqlRowScope & scope,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    auto & row = scope.as<RowScope>();
+                    return storage = ExpressionValue(row.word_, row.ts);
+                },
+                std::make_shared<StringValueInfo>()};
+    }
+
+    GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    const ColumnFilter& keep)
+    {
+         throw HttpReturnException(400, "Cannot use wildcard in import.word2vec context");
+    }
+
+    virtual BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope)
+    {
+        if (functionName == "fileTimestamp") {
+            return {[=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & scope)
+                    {
+                        return ExpressionValue(fileTimestamp, fileTimestamp);
+                    },
+                    std::make_shared<TimestampValueInfo>()
+                };
+        }
+
+        return SqlBindingScope::doGetFunction(tableName, functionName, args,
+                                              argScope);
+    }
+
+    static RowScope bindRow(const std::string& word, Date ts)
+    {
+        return RowScope(word, ts);
+    }
+};
+
 
 
 /*****************************************************************************/
@@ -31,7 +118,7 @@ struct Word2VecImporterConfig : ProcedureConfig {
     static constexpr const char * name = "import.word2vec";
 
     Word2VecImporterConfig()
-        : offset(0), limit(-1)
+        : offset(0), limit(-1), named(SqlExpression::parse("word"))
     {
         output.withType("embedding");
     }
@@ -40,6 +127,7 @@ struct Word2VecImporterConfig : ProcedureConfig {
     PolyConfigT<Dataset> output;
     uint64_t offset;
     int64_t limit;
+    std::shared_ptr<SqlExpression> named;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(Word2VecImporterConfig);
@@ -58,6 +146,9 @@ Word2VecImporterConfigDescription()
              "Start at word number (0 = start)", (uint64_t)0);
     addField("limit", &Word2VecImporterConfig::limit,
              "Limit of number of rows to record (-1 = all)", (int64_t)-1);
+    addField("named", &Word2VecImporterConfig::named,
+             "Row name expression for output dataset. Note that each row "
+             "must have a unique name.",  SqlExpression::parse("word"));
     addParent<ProcedureConfig>();
 }
 
@@ -100,11 +191,14 @@ struct Word2VecImporter: public Procedure {
 
         vector<ColumnPath> columnNames;
         for (unsigned i = 0;  i < numDims;  ++i) {
-            columnNames.emplace_back(MLDB::format("%06d", i));
+            columnNames.emplace_back(PathElement(i));
         }
 
         vector<tuple<RowPath, vector<float>, Date> > rows;
         int64_t numRecorded = 0;
+
+        SqlWord2VecScope scope(server, info.lastModified);
+        auto namedBound = config.named->bind(scope);
 
         for (unsigned i = 0;  i < numWords;  ++i) {
             std::string word;
@@ -118,7 +212,12 @@ struct Word2VecImporter: public Procedure {
             if (runProcConf.limit != -1 && numRecorded >= runProcConf.limit)
                 break;
 
-            rows.emplace_back(RowPath(word), std::move(vec), info.lastModified);
+            auto row = scope.bindRow(word, info.lastModified);
+            ExpressionValue nameStorage;
+            RowPath rowName(namedBound(row, nameStorage, GET_ALL)
+                                .toUtf8String());
+
+            rows.emplace_back(rowName, std::move(vec), info.lastModified);
             ++numRecorded;
 
             if (rows.size() == 10000) {

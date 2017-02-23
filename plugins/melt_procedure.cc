@@ -59,7 +59,7 @@ MeltProcedureConfigDescription()
     addField("outputDataset", &MeltProcedureConfig::outputDataset,
              "Configuration for output dataset",
              PolyConfigT<Dataset>().withType("tabular"));
-    addField("keyColumnName", &MeltProcedureConfig::valueColumnName,
+    addField("keyColumnName", &MeltProcedureConfig::keyColumnName,
             "Column name for the key column", string("key"));
     addField("valueColumnName", &MeltProcedureConfig::valueColumnName,
             "Column name for the value column", string("value"));

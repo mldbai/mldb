@@ -18,6 +18,8 @@
 #include <sys/errno.h>
 #include <stdlib.h>
 #include <boost/algorithm/string.hpp>
+#include "mldb/base/exc_assert.h"
+#include <iostream>
 
 
 using namespace std;
@@ -74,21 +76,24 @@ std::string vformat(const char * fmt, va_list ap)
     }
 }
 
-std::vector<std::string> split(const std::string & str, char c)
+std::vector<std::string> split(const std::string & str, char c, int limit)
 {
+    ExcAssert(limit == -1 || limit > 0);
     vector<string> result;
     size_t start = 0;
     size_t pos = 0;
-    while (pos < str.size()) {
+    while (pos < str.size() && (limit == -1 || limit > 1)) {
         if (str[pos] == c) {
             result.push_back(string(str, start, pos - start));
             start = pos + 1;
+            if (limit != -1) {
+                --limit;
+            }
         }
         ++pos;
     }
 
-    if (start < str.size())
-        result.push_back(string(str, start, pos - start));
+    result.push_back(string(str, start));
 
     return result;
 }
