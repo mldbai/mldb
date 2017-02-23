@@ -46,7 +46,7 @@ flags = [
 # mldb
 '-Wno-sign-compare',
 '-fno-strict-overflow',
-'-Wno-unused-but-set-variable'
+'-Wno-unused-but-set-variable',
 ###
 
 # You 100% do NOT need -DUSE_CLANG_COMPLETER in your flags; only the YCM
@@ -58,7 +58,8 @@ flags = [
 # a "-std=<something>".
 # For a C project, you would set this to something like 'c99' instead of
 # 'c++11'.
-'-std=c++11',
+'--std=c++11',
+'-Wno-c++11-extensions',
 # ...and the same thing goes for the magic -x option which specifies the
 # language that the files to be compiled are written in. This is mostly
 # relevant for c++ headers.
