@@ -8,6 +8,14 @@ If data is stored in a system such as S3 or HDFS, it is possible to run multiple
 
 The following protocols are available for URLs:
 
+- `azureblob://` Refers to a file stored on Microsoft Azure Blob Storage service.
+   If the file is not public, then credentials must be added.
+- `file://`: Refers to a file inside the MLDB container.  These resources are only
+  accessible from the same container that created them.  A relative path (for example
+  `file://filename.txt`) has two slashes after `file:`, and will create a file in the
+   working directory of MLDB, that is the `mldb_data` directory.  An absolute path has
+   three slashes after the `file:`, and will create a path relative to the root
+   directory of the MLDB container (for example, `file:///mldb_data/filename.txt`).
 - `http://` and `https://`: standard HTTP, to get a file from an HTTP server on the public
   internet or a private intranet.
 - `s3://`: Refers to a file on Amazon's S3 service.  If the file is not public, then
@@ -15,12 +23,6 @@ The following protocols are available for URLs:
 - `sftp://` Refers to a file on an SFTP server. Credentials must be added. If a custom port is used,
   it must simply be part of the url. (For example, `sftp://host.com:1234/`.) The same is true
   for the credentials location parameter. (To continue with the same example, `host.com:12345`.)
-- `file://`: Refers to a file inside the MLDB container.  These resources are only
-  accessible from the same container that created them.  A relative path (for example
-  `file://filename.txt`) has two slashes after `file:`, and will create a file in the
-   working directory of MLDB, that is the `mldb_data` directory.  An absolute path has
-   three slashes after the `file:`, and will create a path relative to the root
-   directory of the MLDB container (for example, `file:///mldb_data/filename.txt`).
 
 A URL that is passed without a protocol will cause an error.
 
