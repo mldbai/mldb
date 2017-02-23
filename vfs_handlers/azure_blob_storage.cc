@@ -288,6 +288,14 @@ struct AzureStorageAccountInfo {
         client = make_shared<cloud_blob_client>(
             storageAccount.create_cloud_blob_client());
     }
+
+    AzureStorageAccountInfo(const string & id, const string & key) {
+        string connStr = "DefaultEndpointsProtocol=https;AccountName=" + id
+                         + ";AccountKey=" + key;
+        auto storageAccount = cloud_storage_account::parse(connStr);
+        client = make_shared<cloud_blob_client>(
+            storageAccount.create_cloud_blob_client());
+    }
 };
 
 mutex azureStorageAccountLock;
@@ -332,18 +340,33 @@ struct AzureBlobInfo {
     }
 };
 
-cloud_blob
-getAzureBlobReference(const AzureBlobInfo & blobInfo)
+AzureStorageAccountInfo
+getAzureStorageAccountInfo(const AzureBlobInfo & blobInfo)
 {
     unique_lock<std::mutex> guard(azureStorageAccountLock);
     auto res = azureStorageAccounts.find(blobInfo.accountName);
-    if (res == azureStorageAccounts.end()) {
-        throw MLDB::Exception("No azure storage client found for name: "
-                              + blobInfo.containerName);
+    if (res != azureStorageAccounts.end()) {
+        return res->second;
     }
 
+    auto creds = getCredential("azure:blob", "azureblob://" + blobInfo.accountName);
+    if (blobInfo.accountName != creds.id) {
+        throw MLDB::Exception(
+            "Account name and id specified via credentials don't match. "
+            "[%s != %s]", blobInfo.accountName.c_str(), creds.id.c_str());
+    }
+
+    AzureStorageAccountInfo accountInfo(creds.id, creds.secret);
+    azureStorageAccounts.insert(make_pair(blobInfo.accountName, accountInfo));
+    return accountInfo;
+}
+
+cloud_blob
+getAzureBlobReference(const AzureBlobInfo & blobInfo)
+{
+    auto account = getAzureStorageAccountInfo(blobInfo);
     auto containerRef =
-        res->second.client->get_container_reference(
+        account.client->get_container_reference(
             _XPLATSTR(blobInfo.containerName));
     return containerRef.get_blob_reference(_XPLATSTR(blobInfo.filename));
 }
@@ -351,14 +374,8 @@ getAzureBlobReference(const AzureBlobInfo & blobInfo)
 cloud_blob_container
 getAzureBlobContainer(const AzureBlobInfo & blobInfo)
 {
-    unique_lock<std::mutex> guard(azureStorageAccountLock);
-    auto res = azureStorageAccounts.find(blobInfo.accountName);
-    if (res == azureStorageAccounts.end()) {
-        throw MLDB::Exception("No azure storage client found for name: "
-                              + blobInfo.containerName);
-    }
-
-    return res->second.client->get_container_reference(
+    auto account = getAzureStorageAccountInfo(blobInfo);
+    return account.client->get_container_reference(
         _XPLATSTR(blobInfo.containerName));
 }
 
