@@ -4,8 +4,9 @@
 
 # Verbose!
 set -x
-
 set -e
+
+MLDB_UID=56789
 
 while getopts "s" opt; do
   case $opt in
@@ -29,7 +30,7 @@ fi
 ##############
 # _mldb user #
 ##############
-groupadd -g 1234567 _mldb
-useradd -u 1234567 -g 1234567 -c 'MLDB user' -s /bin/bash -M --home /mldb_data _mldb 
+groupadd -g $MLDB_UID _mldb
+useradd -u $MLDB_UID -g $MLDB_UID -c 'MLDB user' -s /bin/bash -M --home /mldb_data _mldb 
 install -d -o _mldb -g _mldb /mldb_data
 chown -R _mldb:_mldb /opt

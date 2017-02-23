@@ -118,6 +118,21 @@ var expected = [
 
 assertEqual(res3[0], expected);
 
+//Check that the result of the pooler can be fed back into the w2vec nearest neighbor
+mldb.log("NN to pooler")
+
+mldb.put("/v1/functions/pooler", {
+            "type": "pooling",
+            "params": {
+                "embeddingDataset": "w2v"
+            }
+        })
+
+var resNNPooler = mldb.get('/v1/query', {q: "select nn({numNeighbors : 10, coords: pooler({words:" +  
+                                            "tokenize('France')})[embedding]})[distances] as *", format: 'table'}).json;
+
+assertEqual(resNNPooler[0], expected);
+
 // MLDB-1020 check that we can record both 'null' and '0' which hash
 // to the same value.
 var res4 = mldb.get("/v1/query", { q: "select * from w2v where rowName() = '0' or rowName() = 'null'", format: 'table'}).json;
