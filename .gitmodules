@@ -73,3 +73,6 @@
 [submodule "ext/libgit2"]
 	path = ext/libgit2
 	url = https://github.com/mldbai/libgit2.git
+[submodule "ext/casablanca"]
+	path = ext/casablanca
+	url = git@github.com:Microsoft/cpprestsdk.git

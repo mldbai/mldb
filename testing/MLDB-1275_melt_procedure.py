@@ -3,14 +3,14 @@
 # Francois Maillet, 2016-01-24
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
-import datetime
 import json
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 def assert_val(res, row_name, col_name, value):
     for row in res:
-        if str(row["rowName"]) != row_name: continue
+        if str(row["rowName"]) != row_name:
+            continue
 
         for col in row["columns"]:
             if col[0] == col_name:
@@ -52,8 +52,6 @@ class MeltProcedureTest(MldbUnitTest):  # noqa
         dataset.record_row("row2" , [["data", json.dumps(row2), 0]])
 
         dataset.commit()
-
-
 
         res = mldb.get("/v1/query",
                        q="SELECT parse_json(data, {arrays: 'encode'}) AS * NAMED rowPath() "
@@ -106,6 +104,44 @@ class MeltProcedureTest(MldbUnitTest):  # noqa
 
         res = mldb.get('/v1/datasets/' + _id).json()
         self.assertEqual(res['config']['type'], _type)
+
+    def test_key_value_columns(self):
+        # Dataset:
+        #  rowName  x.0  x.1
+        #  0        1    2
+        #  1        2    3
+        mldb.put('/v1/datasets/patate', {'type': 'tabular'})
+        for i in xrange(2):
+            mldb.post('/v1/datasets/patate/rows', {
+                'rowName': i,
+                'columns': [['x.0', i+1, 0],
+                            ['x.1', i+2, 0]]
+            })
+        mldb.post('/v1/datasets/patate/commit')
+
+        mldb.post('/v1/procedures', {
+            'type': 'melt',
+            'params': {
+                'inputData': """
+                    SELECT {x.* AS *} AS to_melt,
+                           {implicit_cast(rowName()) AS orig_rowName} AS to_fix
+                    FROM patate
+                    """,
+                'outputDataset': 'poil',
+                'keyColumnName': 'k',
+                'valueColumnName': 'v'
+            }
+        })
+
+        melted = mldb.query('select * from poil order by rowName()')
+
+        self.assertTableResultEquals(melted, [
+            ['_rowName', 'orig_rowName', 'k', 'v'],
+            ['0.0', 0, '0', 1],
+            ['0.1', 0, '1', 2],
+            ['1.0', 1, '0', 2],
+            ['1.1', 1, '1', 3]
+        ])
 
     def test_with_output_type(self):
         self.run_it(True)
