@@ -292,10 +292,13 @@ struct AzureBlobStorageUploadSource {
 
             double elapsed = Date::now().secondsSince(startDate);
 
-            cerr << "uploaded " << offset / 1024.0 / 1024.0
-                 << "MB in " << elapsed << "s at "
-                 << offset / 1024.0 / 1024.0 / elapsed
-                 << "MB/s" << endl;
+            if (false) {
+                // if false so that it still compiles
+                cerr << "uploaded " << offset / 1024.0 / 1024.0
+                     << "MB in " << elapsed << "s at "
+                     << offset / 1024.0 / 1024.0 / elapsed
+                     << "MB/s" << endl;
+            }
         }
     };
 
