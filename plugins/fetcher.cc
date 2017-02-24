@@ -18,6 +18,8 @@
 #include <mutex>
 #include <memory>
 
+using namespace std;
+
 namespace MLDB {
 
 
@@ -28,15 +30,7 @@ namespace MLDB {
 /** Function that fetches a row from a url. */
 
 struct FetcherFunctionConfig {
-    FetcherFunctionConfig() : maxConcurrentFetch(-1),
-                              cv(new std::condition_variable{}),
-                              mtx(new std::mutex{})
-    {
-    }
-
-    int maxConcurrentFetch;
-    std::shared_ptr<std::condition_variable> cv;
-    std::shared_ptr<std::mutex> mtx;
+    int maxConcurrentFetch = -1;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FetcherFunctionConfig);
@@ -106,38 +100,46 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         : BaseT(owner, config)
     {
         functionConfig = config.params.convert<FetcherFunctionConfig>();
+        maxConcurrency = functionConfig.maxConcurrentFetch;
+        cv = make_shared<std::condition_variable>();
+        mtx = make_shared<std::mutex>();
     }
 
     struct ConcurrencyHandler {
-        ConcurrencyHandler(FetcherFunctionConfig & config) :
-            config(config), doIt(config.maxConcurrentFetch != -1)
+        ConcurrencyHandler(int & maxConcurrency,
+                           condition_variable & cv, mutex & mtx) :
+            maxConcurrency(maxConcurrency), doIt(maxConcurrency != -1),
+            cv(cv), mtx(mtx)
         {
             if (doIt) {
-                std::unique_lock<std::mutex> lck(*config.mtx.get());
-                while (config.maxConcurrentFetch == 0) {
-                    config.cv->wait(lck);
+                unique_lock<mutex> lck(mtx);
+                while (maxConcurrency == 0) {
+                    cv.wait(lck);
                 }
-                --config.maxConcurrentFetch;
+                --maxConcurrency;
             }
         }
 
         ~ConcurrencyHandler() {
             if (doIt) {
-                std::unique_lock<std::mutex> lck(*config.mtx.get());
-                ++config.maxConcurrentFetch;
-                config.cv->notify_one();
+                unique_lock<mutex> lck(mtx);
+                ++maxConcurrency;
+                cv.notify_one();
             }
         }
 
         private:
-            FetcherFunctionConfig & config;
+            int & maxConcurrency;
             bool doIt;
+            condition_variable & cv;
+            mutex & mtx;
     };
     
     virtual FetcherOutput applyT(const ApplierT & applier,
                                  FetcherArgs args) const
     {
-        ConcurrencyHandler concurrencyHandler(functionConfig);
+        ConcurrencyHandler concurrencyHandler(maxConcurrency,
+                                              *cv.get(), *mtx.get());
         FetcherOutput result;
         Utf8String url = args.url;
         try {
@@ -172,7 +174,10 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
         return result;
     }
 
-    mutable FetcherFunctionConfig functionConfig;
+    FetcherFunctionConfig functionConfig;
+    mutable int maxConcurrency;
+    mutable shared_ptr<condition_variable> cv;
+    mutable shared_ptr<mutex> mtx;
 };
 
 static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
