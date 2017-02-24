@@ -143,7 +143,6 @@ struct HttpStreamingDownloadSource {
 
         bool httpAbortOnSlowConnection;
 
-        //std::exception_ptr excPtr;
         ExceptionPtrHandler excPtrHandler;
         OnUriHandlerException onException;
 
