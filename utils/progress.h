@@ -30,7 +30,7 @@ struct Step {
 
     // signals that the step is completed and that the next one can start
     std::shared_ptr<Step> nextStep(float endValue);
-    void updateValue(float value_) {/*if (value_ > value)*/ value = value_; }
+    void updateValue(float value_) {if (value_ > value) value = value_; }
 
     std::string name;
     Date started;
