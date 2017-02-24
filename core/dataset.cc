@@ -906,7 +906,8 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                            const std::shared_ptr<SqlExpression> rowName,
                            ssize_t offset,
                            ssize_t limit,
-                           Utf8String alias) const
+                           Utf8String alias,
+                           const ProgressFunc & onProgress) const
 {
     if (!having->isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException
@@ -935,7 +936,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                                   { rowName->shallowCopy() },
                                   { processor, true /*processInParallel*/ },
                                   orderBy, offset, limit,
-                                  nullptr);
+                                  onProgress);
         return true;
     }
     else {
@@ -959,7 +960,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                                      groupBy, aggregators, *having, *rowName,
                                      {processor, true/*processInParallel*/},
                                      orderBy, offset, limit,
-                                     nullptr);
+                                     onProgress);
 
         return true;
     }

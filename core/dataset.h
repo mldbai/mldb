@@ -556,7 +556,8 @@ struct Dataset: public MldbEntity {
                                const std::shared_ptr<SqlExpression> rowName,
                                ssize_t offset,
                                ssize_t limit,
-                               Utf8String alias = "") const;
+                               Utf8String alias = "",
+                               const ProgressFunc & onProgress = nullptr) const;
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>

@@ -729,9 +729,7 @@ run(const ProcedureRunConfig & run,
     auto transformingStep = bindingStep->nextStep(1);
     auto onTransformingProgress = [&](const ProgressState & percent) {
         lock_guard<mutex> lock(progressMutex);    
-        if (transformingStep->value < (float) percent.count / *percent.total) {       
-            transformingStep->value = (float) percent.count / *percent.total;     
-        }
+        transformingStep->updateValue((float) percent.count / *percent.total);
         return onProgress(jsonEncode(transformProgress));
     };
 
