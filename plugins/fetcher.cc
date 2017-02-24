@@ -111,16 +111,12 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
                 streamo << stream.rdbuf();
                 blob = CellValue::blob(streamo.str());
             }
+            stream.close();
 
             FsObjectInfo info = stream.info();
-            if (info.excPtr) {
-                std::rethrow_exception(info.excPtr);
-            }
-            else  {
-                ExcAssert(info.exists);
-                result.content = ExpressionValue(std::move(blob),
-                                                 info.lastModified);
-            }
+            ExcAssert(info.exists);
+            result.content = ExpressionValue(std::move(blob),
+                                             info.lastModified);
             result.error = ExpressionValue::null(Date::notADate());
         }
         MLDB_CATCH_ALL {

@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE( test_fetcher_error )
     params["inputData"] =
         "SELECT fetcher('" + testServer.baseUrl + "404') AS *";
     params["outputDataset"] = Json::objectValue;
-    const string dsId = "fetcer_404_test";
+    const string dsId = "fetcher_404_test";
     params["outputDataset"]["id"] = dsId;
     params["outputDataset"]["type"] = "tabular";
     data["params"] = params;

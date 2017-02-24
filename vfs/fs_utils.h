@@ -49,8 +49,6 @@ struct FsObjectInfo {
     std::map<std::string, Json::Value> objectMetadata;  ///< Metadata from obj
 
     operator bool () const { return exists; }
-
-    std::exception_ptr excPtr;  ///< MLDB-2150, hack, do not use
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FsObjectInfo);

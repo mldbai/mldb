@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <iostream>
 #include <fcntl.h>
+#include <exception>
 
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/exception_handler.h"
@@ -448,7 +449,8 @@ struct ExceptionSource {
     void close(ios::openmode which)
     {
         if (throwType_ == ThrowType::ThrowOnClose) {
-            onException_();
+
+            onException_(make_exception_ptr(MLDB::Exception("")));
         }
     }
 

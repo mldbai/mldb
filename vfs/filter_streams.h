@@ -323,6 +323,7 @@ private:
 
     std::shared_ptr<void> sink;            ///< Ownership of streambuf
     std::atomic<bool> deferredFailure;
+    std::exception_ptr deferredExcPtr;
     std::string resource;
     std::shared_ptr<FsObjectInfo> info_;
 };

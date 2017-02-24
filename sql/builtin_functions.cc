@@ -3476,16 +3476,12 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                         streamo << stream.rdbuf();
                         blob = CellValue::blob(streamo.str());
                     }
+                    stream.close();
 
                     FsObjectInfo info = stream.info();
-                    if (info.excPtr) {
-                        std::rethrow_exception(info.excPtr);
-                    }
-                    else  {
-                        ExcAssert(info.exists);
-                        content = ExpressionValue(std::move(blob),
-                                                  info.lastModified);
-                    }
+                    ExcAssert(info.exists);
+                    content = ExpressionValue(std::move(blob),
+                                              info.lastModified);
                 }
                 MLDB_CATCH_ALL {
                     error = ExpressionValue(getUtf8ExceptionString(),

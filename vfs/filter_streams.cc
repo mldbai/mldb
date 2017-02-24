@@ -520,7 +520,7 @@ open(const std::string & uri,
     //     << endl;
 
     const auto & handler = getUriHandler(scheme);
-    auto onException = [&]() { this->deferredFailure = true; };
+    auto onException = [&](std::exception_ptr ptr) { this->deferredFailure = true; };
     UriHandler res = handler(scheme, resource, mode, options, onException);
     
     return openFromHandler(res, resource, options);
@@ -733,7 +733,6 @@ filter_istream::
         close();
     }
     catch (...) {
-        cerr << "~filter_istream: ignored exception\n";
     }
 }
 
@@ -766,7 +765,12 @@ open(const std::string & uri,
     std::tie(scheme, resource) = getScheme(uri);
 
     const auto & handlerFactory = getUriHandler(scheme);
-    auto onException = [&]() { this->deferredFailure = true; };
+    auto onException = [&](const exception_ptr & excPtr) {
+        if (!this->deferredFailure.exchange(true)) {
+            // only take first exception
+            this->deferredExcPtr = excPtr;
+        }
+    };
     auto options = createOptions(mode, compression, -1);
     UriHandler handler = handlerFactory(scheme, resource, mode,
                                         options,
@@ -795,7 +799,12 @@ open(const std::string & uri,
     std::tie(scheme, resource) = getScheme(uri);
 
     const auto & handlerFactory = getUriHandler(scheme);
-    auto onException = [&]() { this->deferredFailure = true; };
+    auto onException = [&](const exception_ptr & excPtr) {
+        if (!this->deferredFailure.exchange(true)) {
+            // only take first exception
+            this->deferredExcPtr = excPtr;
+        }
+    };
     UriHandler handler = handlerFactory(scheme, resource, ios::in, options, onException);
     openFromHandler(handler, resource, options);
 }
@@ -905,6 +914,9 @@ close()
     rdbuf(0);
     stream.reset();
     sink.reset();
+    if (deferredExcPtr) {
+        rethrow_exception(deferredExcPtr);
+    }
     if (deferredFailure) {
         deferredFailure = false;
         exceptions(ios::badbit | ios::failbit);
