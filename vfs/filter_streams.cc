@@ -520,7 +520,11 @@ open(const std::string & uri,
     //     << endl;
 
     const auto & handler = getUriHandler(scheme);
-    auto onException = [&](std::exception_ptr ptr) { this->deferredFailure = true; };
+    auto onException = [&](std::exception_ptr ptr) {
+        if (!this->deferredFailure.exchange(true)) {
+            this->deferredExcPtr = ptr;
+        }
+    };
     UriHandler res = handler(scheme, resource, mode, options, onException);
     
     return openFromHandler(res, resource, options);
@@ -643,6 +647,9 @@ close()
     stream.reset();
     sink.reset();
     options.clear();
+    if (deferredExcPtr) {
+        rethrow_exception(deferredExcPtr);
+    }
     if (deferredFailure) {
         deferredFailure = false;
         exceptions(ios::badbit | ios::failbit);

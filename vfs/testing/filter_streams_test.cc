@@ -160,7 +160,6 @@ void test_compress_decompress(const std::string & input_file,
     assert_files_identical(input_file, dec4);
 }
 
-#if 1
 BOOST_AUTO_TEST_CASE( test_compress_decompress_gz )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
@@ -315,9 +314,7 @@ BOOST_AUTO_TEST_CASE( test_large_blocks )
                                       block2, block2 + blockSize);
     }
 }
-#endif
 
-#if 1
 /* ensures that writing a 8M bytes text works */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_out )
 {
@@ -340,9 +337,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out )
     string result = getMemStreamString("out_file.txt");
     BOOST_CHECK_EQUAL(text, result);
 }
-#endif
 
-#if 1
 /* ensures that writing a 8M bytes text to a gz target invokes the gz
  * filter */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_out_gz )
@@ -370,9 +365,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out_gz )
     string result = getMemStreamString("out_file.gz");
     BOOST_CHECK_NE(text, result);
 }
-#endif
 
-#if 1
 /* ensures that reading a 8M bytes text works well too */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_in )
 {
@@ -398,9 +391,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_in )
 
     BOOST_CHECK_EQUAL(text, result);
 }
-#endif
 
-#if 1
 /* Testing the behaviour of filter_stream when exceptions occur during read,
  * write, close or destruction */
 struct ExceptionSource {
@@ -449,8 +440,7 @@ struct ExceptionSource {
     void close(ios::openmode which)
     {
         if (throwType_ == ThrowType::ThrowOnClose) {
-
-            onException_(make_exception_ptr(MLDB::Exception("")));
+            onException_(exception_ptr());
         }
     }
 
@@ -583,7 +573,6 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
     action();
 }
 
-#endif
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
 {

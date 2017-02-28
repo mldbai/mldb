@@ -185,6 +185,7 @@ private:
     std::unique_ptr<std::ostream> stream;
     std::shared_ptr<void> sink;            ///< Ownership of streambuf
     std::atomic<bool> deferredFailure;
+    std::exception_ptr deferredExcPtr;
     std::map<std::string, std::string> options;
 };
 
