@@ -3463,8 +3463,6 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                           { { "mapped", "true" },
                                             { "httpAbortOnSlowConnection", "true"} });
 
-                    FsObjectInfo info = stream.info();
-
                     const char * mappedAddr;
                     size_t mappedSize;
                     std::tie(mappedAddr, mappedSize) = stream.mapped();
@@ -3478,6 +3476,10 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                         streamo << stream.rdbuf();
                         blob = CellValue::blob(streamo.str());
                     }
+                    stream.close();
+
+                    FsObjectInfo info = stream.info();
+                    ExcAssert(info.exists);
                     content = ExpressionValue(std::move(blob),
                                               info.lastModified);
                 }

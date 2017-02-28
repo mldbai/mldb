@@ -147,7 +147,6 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
                                       { { "mapped", "true" },
                                         { "httpArbitraryTooSlowAbort", "1"} });
 
-            FsObjectInfo info = stream.info();
             
             const char * mappedAddr;
             size_t mappedSize;
@@ -162,10 +161,13 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
                 streamo << stream.rdbuf();
                 blob = CellValue::blob(streamo.str());
             }
+            stream.close();
 
-            result.content = ExpressionValue(std::move(blob), info.lastModified);
+            FsObjectInfo info = stream.info();
+            ExcAssert(info.exists);
+            result.content = ExpressionValue(std::move(blob),
+                                             info.lastModified);
             result.error = ExpressionValue::null(Date::notADate());
-            return result;
         }
         MLDB_CATCH_ALL {
             result.content = ExpressionValue::null(Date::notADate());

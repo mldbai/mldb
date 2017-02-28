@@ -24,6 +24,8 @@ struct ExceptionPtrHandler {
     void rethrowIfSet();
     void clear()
     { takeException(nullptr); }
+    std::exception_ptr getException()
+    { return excPtr_; }
 
 private:
     std::mutex excLock_;

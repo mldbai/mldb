@@ -147,11 +147,13 @@ namespace MLDB {
 
 struct AzureBlobStorageDownloadSource {
 
-    AzureBlobStorageDownloadSource(cloud_blob & blob, FsObjectInfo info)
+    AzureBlobStorageDownloadSource(cloud_blob & blob, FsObjectInfo info,
+                                   const OnUriHandlerException & onException)
     {
         impl.reset(new Impl());
         impl->blob = blob;
         impl->start();
+        impl->onException = onException;
         impl->info = info;
     }
 
@@ -178,6 +180,7 @@ struct AzureBlobStorageDownloadSource {
         string data;
         uint64_t offset;
         FsObjectInfo info;
+        OnUriHandlerException onException;
 
         void start()
         {
@@ -190,18 +193,24 @@ struct AzureBlobStorageDownloadSource {
 
         std::streamsize read(char_type* s, std::streamsize n)
         {
-            BOOST_STATIC_ASSERT(sizeof(char_type) == 1);
-            concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
-            concurrency::streams::ostream outputStream(buffer);
-            uint64_t toRead = offset + n <= info.size ? n : info.size - offset;
-            if (toRead == 0) {
-                return 0;
+            uint64_t toRead = 0;
+            try {
+                BOOST_STATIC_ASSERT(sizeof(char_type) == 1);
+                concurrency::streams::container_buffer<std::vector<uint8_t>> buffer;
+                concurrency::streams::ostream outputStream(buffer);
+                toRead = offset + n <= info.size ? n : info.size - offset;
+                if (toRead == 0) {
+                    return 0;
+                }
+                blob.download_range_to_stream(outputStream, offset, toRead);
+                auto rawData = buffer.collection();
+                string data = string(rawData.cbegin(), rawData.cend());
+                offset += data.size();
+                strncpy(s, data.c_str(), toRead);
             }
-            blob.download_range_to_stream(outputStream, offset, toRead);
-            auto rawData = buffer.collection();
-            string data = string(rawData.cbegin(), rawData.cend());
-            offset += data.size();
-            strncpy(s, data.c_str(), toRead);
+            catch (...) {
+                onException(current_exception());
+            }
             return toRead;
         }
     };
@@ -225,11 +234,13 @@ struct AzureBlobStorageDownloadSource {
 };
 
 struct AzureBlobStorageUploadSource {
-    AzureBlobStorageUploadSource(cloud_append_blob & blob)
+    AzureBlobStorageUploadSource(cloud_append_blob & blob,
+                                 OnUriHandlerException onException)
     {
         impl.reset(new Impl());
         impl->blob = blob;
         impl->blob.create_or_replace();
+        impl->onException = onException;
         impl->start();
     }
 
@@ -269,15 +280,20 @@ struct AzureBlobStorageUploadSource {
 
         std::streamsize write(const char_type* s, std::streamsize n)
         {
-            string str(s, n);
-            concurrency::streams::istream append_input_stream =
-                concurrency::streams::bytestream::open_istream(
-                        utility::conversions::to_utf8string(_XPLATSTR(str)));
-            blob.append_block(append_input_stream, utility::string_t());
-            append_input_stream.close().wait();
+            try {
+                string str(s, n);
+                concurrency::streams::istream append_input_stream =
+                    concurrency::streams::bytestream::open_istream(
+                            utility::conversions::to_utf8string(_XPLATSTR(str)));
+                blob.append_block(append_input_stream, utility::string_t());
+                append_input_stream.close().wait();
 
-            Date now = Date::now();
-            offset += n;
+                Date now = Date::now();
+                offset += n;
+            }
+            catch (...) {
+                onException(current_exception());
+            }
 
             return n;
         }
@@ -464,7 +480,7 @@ struct RegisterAzbsHandler {
 
             std::unique_ptr<std::streambuf> result;
             result.reset(new boost::iostreams::stream_buffer<AzureBlobStorageDownloadSource>
-                         (AzureBlobStorageDownloadSource(blob, *info.get()), 131072));
+                         (AzureBlobStorageDownloadSource(blob, *info.get(), onException), 131072));
             std::shared_ptr<std::streambuf> buf(result.release());
 
             return UriHandler(buf.get(), buf, info);
@@ -473,7 +489,7 @@ struct RegisterAzbsHandler {
             cloud_append_blob blob(getAzureBlobReference(blobInfo));
             std::unique_ptr<std::streambuf> result;
             result.reset(new boost::iostreams::stream_buffer<AzureBlobStorageUploadSource>
-                         (AzureBlobStorageUploadSource(blob), 131072));
+                         (AzureBlobStorageUploadSource(blob, onException), 131072));
             std::shared_ptr<std::streambuf> buf(result.release());
             return UriHandler(buf.get(), buf);
         }
@@ -497,10 +513,14 @@ struct AzbsUrlFsHandler : public UrlFsHandler {
         string urlStr = url.toDecodedString();
         const string prefix = "azureblob://";
         ExcAssert(urlStr.find(prefix) == 0);
-        const auto fooFct = [](){};
+        const auto onException = [](const exception_ptr & ptr){
+            if (ptr) {
+                rethrow_exception(ptr);
+            }
+        };
         const std::map<std::string, std::string> options;
         return RegisterAzbsHandler::getAzbsHandler(
-            "", urlStr.substr(prefix.size()), ios::in, options, fooFct);
+            "", urlStr.substr(prefix.size()), ios::in, options, onException);
     }
 
     FsObjectInfo getInfo(const Url & url) const override
