@@ -10,7 +10,7 @@ LIBVFS_HANDLERS_SOURCES := \
 
 #	hdfs.cc
 
-LIBVFS_HANDLERS_LINK := aws hash archive tinyxml2 ssh2 azure_storage_cpp #hdfs3
+LIBVFS_HANDLERS_LINK := aws hash archive tinyxml2 ssh2 azure_storage_cpp
 
 AZURE_BLOB_STORAGE_OPTIONS := \
     -Imldb/ext/casablanca/Release/include \

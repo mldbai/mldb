@@ -4,9 +4,6 @@
  * This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
  **/
 
-//#define BOOST_TEST_MAIN
-//#define BOOST_TEST_DYN_LINK
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
