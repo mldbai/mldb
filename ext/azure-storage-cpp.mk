@@ -69,6 +69,9 @@ AZURE_STORAGE_CPP_FLAGS := \
     -Wno-switch \
     -Wno-reorder \
     -Wno-return-type \
+    -Wno-unknown-pragmas \
+    -Wno-unused-const-variable \
+    -Wno-pessimizing-move \
 
 
 $(eval $(call set_compile_option,$(AZURE_STORAGE_CPP_SOURCE),$(AZURE_STORAGE_CPP_FLAGS)))

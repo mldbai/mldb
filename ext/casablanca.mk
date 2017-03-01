@@ -244,6 +244,8 @@ CASABLANCA_FLAGS := \
     -Imldb/ext/casablanca/Release/include \
     -Imldb/ext/casablanca/Release/libs \
     -Wno-overloaded-virtual \
+    -Wno-unused-local-typedefs \
+    -Wno-unknown-pragmas \
 
 $(eval $(call set_compile_option,$(CASABLANCA_SOURCE),$(CASABLANCA_FLAGS)))
 $(eval $(call library,casablanca,$(CASABLANCA_SOURCE),ssl))
