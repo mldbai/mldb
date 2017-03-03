@@ -130,7 +130,7 @@ Note that our version of the Naive Bayes Classifier only supports discrete
 features. Numerical-valued columns (types `NUMBER` and `INTEGER`) are accepted,
 but they will be discretized prior to training. To do so, we will simply split
 all the values in two, using the threshold that provides the best separation
-of classes. You can always do you own discretization, for instance using a
+of classes. You can always do your own discretization, for instance using a
 `CASE` expression.
 
 <a name="fasttext"></a>
