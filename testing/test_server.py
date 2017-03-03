@@ -2,15 +2,16 @@
 """
 Source: https://gist.github.com/bradmontgomery/2219997
 Very simple HTTP server in python. POST, DELETE and PUT behave the same way:
-they simply return HTML content with their verb. GET has 2 behaviours.
+they simply return HTML content with their verb. GET has 3 behaviours.
 1. Calling it with /infinite_redirect will redirect to itself, hence an inifnite
    redirect.
-2. Calling it with anything else (/<anything else>) will set <anything else> as
+2. Calling it with /sleep/<seconds> will sleep for <seconds> seconds.
+3. Calling it with anything else (/<anything else>) will set <anything else> as
    the response status. It is meant to be used with a valid status code so
    /200, /404, /500, etc.
 
 Usage::
-    ./dummy-web-server.py [<port>]
+    ./test-server.py [<port>]
 
 Tips to use it with curl
 Send a GET request::
@@ -20,8 +21,13 @@ Send a HEAD request::
 Send a POST request:
     curl -d "foo=bar&bin=baz" http://localhost
 """
+from SocketServer import ThreadingMixIn
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import SocketServer
+import time
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    pass
 
 class S(BaseHTTPRequestHandler):
     def _set_headers(self):
@@ -37,6 +43,12 @@ class S(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(
                 "<html><body><h1>To infinity and beyond!</h1></body></html>")
+            return
+
+        if self.path.startswith('/sleep/'):
+            duration = int(self.path[len('/sleep/'):])
+            time.sleep(duration)
+            self._set_headers()
             return
 
         if len(self.path) > 1:
@@ -68,10 +80,9 @@ class S(BaseHTTPRequestHandler):
         self._set_headers()
         self.wfile.write("<html><body><h1>DELETE!</h1></body></html>")
 
-def run(server_class=HTTPServer, handler_class=S, port=80):
+def run(port=80):
     server_address = ('', port)
-    httpd = server_class(server_address, handler_class)
-    print dir(httpd)
+    httpd = ThreadedHTTPServer(server_address, S)
     print httpd.server_address
     print 'Starting httpd...'
     httpd.serve_forever()
@@ -82,4 +93,4 @@ if __name__ == "__main__":
     if len(argv) == 2:
         run(port=int(argv[1]))
     else:
-			run()
+        run()

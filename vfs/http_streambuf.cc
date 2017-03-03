@@ -14,6 +14,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/vfs_handlers/exception_ptr.cc"
 #include <chrono>
 #include <future>
 
@@ -68,10 +69,12 @@ struct HttpStreamingDownloadSource {
                                    10K/sec for 5 secs.
     */
     HttpStreamingDownloadSource(const std::string & urlStr,
-                                const std::map<std::string, std::string> & options)
+                                const std::map<std::string, std::string> & options,
+                                const OnUriHandlerException & onException)
     {
         impl.reset(new Impl(urlStr, options));
         impl->start();
+        impl->onException = onException;
     }
 
     ~HttpStreamingDownloadSource()
@@ -139,6 +142,9 @@ struct HttpStreamingDownloadSource {
         std::promise<HttpHeader> headerPromise;
 
         bool httpAbortOnSlowConnection;
+
+        ExceptionPtrHandler excPtrHandler;
+        OnUriHandlerException onException;
 
         /* cleanup all the variables that are used during reading, the
            "static" ones are left untouched */
@@ -294,6 +300,9 @@ struct HttpStreamingDownloadSource {
                 if (!headerSet.exchange(true)) {
                     headerPromise.set_exception(lastExc);
                 }
+                else {
+                    excPtrHandler.takeCurrentException();
+                }
             }
         }
 
@@ -313,16 +322,21 @@ struct HttpStreamingDownloadSource {
 
     void close()
     {
+        if (impl->excPtrHandler.hasException() && impl->onException) {
+            impl->onException(impl->excPtrHandler.getException());
+        }
+        impl->excPtrHandler.rethrowIfSet();
         impl.reset();
     }
 };
 
 std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
 makeHttpStreamingDownload(const std::string & uri,
-                          const std::map<std::string, std::string> & options)
+                          const std::map<std::string, std::string> & options,
+                          const OnUriHandlerException & onException)
 {
     std::unique_ptr<std::streambuf> result;
-    HttpStreamingDownloadSource source(uri, options);
+    HttpStreamingDownloadSource source(uri, options, onException);
     const HttpHeader & header = source.getHeader();
     result.reset(new boost::iostreams::stream_buffer<HttpStreamingDownloadSource>
                  (source, 131072));
@@ -461,7 +475,8 @@ struct RegisterHttpHandler {
 
         if (mode == ios::in) {
             std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo> sb_info
-                = makeHttpStreamingDownload(scheme+"://"+resource, options);
+                = makeHttpStreamingDownload(scheme+"://"+resource, options,
+                                            onException);
             std::shared_ptr<std::streambuf> buf(sb_info.first.release());
             return UriHandler(buf.get(), buf, sb_info.second);
         }
